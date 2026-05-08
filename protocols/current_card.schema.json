@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workbench Current Card",
+  "type": "object",
+  "required": ["schema_version", "overall", "main_pressure", "confidence", "evidence_snapshot", "next_actions"],
+  "properties": {
+    "schema_version": {"const": "workbench.current_card.v1"},
+    "overall": {"type": "string"},
+    "main_pressure": {"type": "string"},
+    "confidence": {"type": "string"},
+    "summary": {"type": "string"},
+    "evidence_snapshot": {"type": "array"},
+    "framework_diagnosis": {"type": "object"},
+    "next_actions": {"type": "array", "items": {"type": "string"}},
+    "provenance": {"type": "object"}
+  }
+}

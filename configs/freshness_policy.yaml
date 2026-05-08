@@ -1,0 +1,60 @@
+schema_version: workbench.freshness_policy.v1
+description: >
+  Batch/vintage data recency policy. This system is not real-time; freshness
+  is evaluated against frozen evidence releases and model run timestamps.
+
+default_timezone: UTC
+
+frequency_thresholds:
+  daily:
+    fresh_lag_days: 3
+    acceptable_lag_days: 10
+  weekly:
+    fresh_lag_days: 10
+    acceptable_lag_days: 21
+  monthly:
+    fresh_lag_days: 45
+    acceptable_lag_days: 75
+  quarterly:
+    fresh_lag_days: 120
+    acceptable_lag_days: 180
+  unknown:
+    fresh_lag_days: 10
+    acceptable_lag_days: 30
+
+gate_defaults:
+  stale_required_severity: warn
+  missing_required_severity: warn
+  retired_used_severity: block
+
+indicators:
+  NFCI:
+    required: true
+    frequency: weekly
+    stale_required_severity: warn
+  VIXCLS:
+    required: true
+    frequency: daily
+    stale_required_severity: warn
+  BAMLH0A0HYM2:
+    required: true
+    frequency: daily
+    stale_required_severity: warn
+  MOVE:
+    required: true
+    frequency: daily
+    missing_required_severity: warn
+    missing_reason: "Not present in the admitted Harvester evidence release."
+  TEDRATE:
+    required: false
+    frequency: daily
+    status_override: retired_or_unavailable
+    retired_reason: "FRED TEDRATE observations ended in January 2022 and must not be used for current diagnostics."
+    retired_effective_date: "2022-01-21"
+    current_diagnostics_allowed: false
+  STLFSI4:
+    required: false
+    frequency: weekly
+  OFR_FSI:
+    required: false
+    frequency: daily

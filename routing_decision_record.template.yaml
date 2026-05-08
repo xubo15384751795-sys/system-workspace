@@ -1,0 +1,49 @@
+task_id: ""
+date: ""
+summary: ""
+
+artifacts_touched:
+  - path: ""
+    layer: ""
+    change_type: ""
+
+activated_experts:
+  - id: ""
+    reason: ""
+    scope:
+      - ""
+    inputs:
+      - ""
+    outputs:
+      - ""
+    status: proposed
+
+intentionally_not_activated:
+  - id: ""
+    reason: ""
+
+coupling_rules_triggered:
+  - id: ""
+    reason: ""
+
+verification:
+  execution_phase:
+    commands_or_checks:
+      - ""
+    result: ""
+  verification_phase:
+    commands_or_checks:
+      - ""
+    result: ""
+
+outputs:
+  - path: ""
+    description: ""
+
+unresolved_risks:
+  - ""
+
+learning_hub_notes:
+  should_ingest: false
+  recurrence_tags:
+    - ""

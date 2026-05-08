@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workbench NLP Answer",
+  "type": "object",
+  "required": ["schema_version", "question", "answer", "citations", "limits"],
+  "properties": {
+    "schema_version": {"const": "workbench.nlp_answer.v1"},
+    "question": {"type": "string"},
+    "answer": {"type": "string"},
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "path", "excerpt"],
+        "properties": {
+          "evidence_id": {"type": "string"},
+          "path": {"type": "string"},
+          "title": {"type": "string"},
+          "release_id": {"type": "string"},
+          "excerpt": {"type": "string"}
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}

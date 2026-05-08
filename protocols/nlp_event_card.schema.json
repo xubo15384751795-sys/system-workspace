@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Structural NLP Event Card",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "event_id",
+    "event_name",
+    "source_chunks",
+    "actors",
+    "assets",
+    "triggers",
+    "anchors",
+    "liquidity_paths",
+    "visibility_shift",
+    "policy_response",
+    "market_impact",
+    "evidence_quotes",
+    "variable_mapping",
+    "confidence",
+    "status",
+    "extraction_notes",
+    "extraction"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "event_id": {"type": "string", "minLength": 1},
+    "event_name": {"type": "string", "minLength": 1},
+    "source_chunks": {"type": "array", "items": {"type": "string"}},
+    "parent_chunk_id": {"type": "string"},
+    "parent_section_title": {"type": "string"},
+    "parent_context_hash": {"type": "string"},
+    "source_text_quote": {"type": "string"},
+    "quote_start_char": {"type": "integer"},
+    "quote_end_char": {"type": "integer"},
+    "actors": {"type": "array", "items": {"type": "string"}},
+    "assets": {"type": "array", "items": {"type": "string"}},
+    "triggers": {"type": "array", "items": {"type": "string"}},
+    "anchors": {"type": "array", "items": {"type": "string"}},
+    "liquidity_paths": {"type": "array", "items": {"type": "string"}},
+    "visibility_shift": {"type": "string"},
+    "policy_response": {"type": "array", "items": {"type": "string"}},
+    "market_impact": {"type": "array", "items": {"type": "string"}},
+    "evidence_quotes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 10}
+    },
+    "variable_mapping": {
+      "type": "object",
+      "required": ["S", "A", "L", "V", "P", "tau"],
+      "properties": {
+        "S": {"type": "array", "items": {"type": "string"}},
+        "A": {"type": "array", "items": {"type": "string"}},
+        "L": {"type": "array", "items": {"type": "string"}},
+        "V": {"type": "array", "items": {"type": "string"}},
+        "P": {"type": "array", "items": {"type": "string"}},
+        "tau": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "variable_votes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "variable", "matched_text", "weight", "reason"],
+        "properties": {
+          "rule_id": {"type": "string"},
+          "variable": {"enum": ["S", "A", "L", "V", "P", "tau"]},
+          "matched_text": {"type": "string"},
+          "weight": {"type": "number"},
+          "reason": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "confidence_by_variable": {
+      "type": "object",
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "status": {"enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision", "admitted"]},
+    "extraction_notes": {"type": "string"},
+    "extraction": {
+      "type": "object",
+      "required": [
+        "extractor_version",
+        "entity_extractor_version",
+        "variable_mapper_version",
+        "mapping_rules_hash",
+        "confidence_rules_version",
+        "schema_validator_version",
+        "created_at"
+      ],
+      "properties": {
+        "extractor_version": {"type": "string"},
+        "entity_extractor_version": {"type": "string"},
+        "variable_mapper_version": {"type": "string"},
+        "mapping_rules_hash": {"type": "string"},
+        "confidence_rules_version": {"type": "string"},
+        "schema_validator_version": {"type": "string"},
+        "created_at": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

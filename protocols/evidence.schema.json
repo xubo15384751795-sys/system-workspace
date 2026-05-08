@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workbench Evidence",
+  "type": "object",
+  "required": ["schema_version", "as_of", "release", "signals"],
+  "properties": {
+    "schema_version": {"const": "workbench.evidence.v1"},
+    "as_of": {"type": "string"},
+    "release": {
+      "type": "object",
+      "required": ["release_id", "catalog_path", "manifest_path"],
+      "properties": {
+        "release_id": {"type": "string"},
+        "catalog_path": {"type": "string"},
+        "manifest_path": {"type": "string"}
+      }
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "display_name", "status", "source", "quality"],
+        "properties": {
+          "id": {"type": "string"},
+          "display_name": {"type": "string"},
+          "domain": {"type": "string"},
+          "value": {},
+          "status": {"type": "string"},
+          "source": {"type": "string"},
+          "timestamp": {"type": "string"},
+          "quality": {"type": "object"}
+        }
+      }
+    }
+  }
+}

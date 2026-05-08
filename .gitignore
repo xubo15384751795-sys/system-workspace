@@ -1,0 +1,75 @@
+# ── Workspace-level gitignore ─────────────────────────────────────────────
+# Structural Deformation Research System
+
+# Nested projects published separately
+Structural Deformation Research System/
+Workbench/
+ExternalTools/
+OpenBB/
+Structural Research Harness
+Structural Risk Harvester
+System Learning Hub
+contracts
+
+# Large / generated data — never commit
+Data/
+Output/
+
+# ── Qlib benchmark sandbox isolation ────────────────────────────────────
+# Qlib workspace and output are large intermediate artifacts — never commit
+Output/benchmarks/market_feedback/*/qlib_workspace/
+Output/benchmarks/market_feedback/*/qlib_output/
+Output/benchmarks/market_feedback/*/sandbox_input/*.parquet
+Output/benchmarks/market_feedback/*/sandbox_input/*.csv
+# Keep manifests, feedback decisions, and events (small governance artifacts)
+!Output/benchmarks/market_feedback/*/benchmark_manifest.json
+!Output/benchmarks/market_feedback/*/sandbox_input/sandbox_input_manifest.json
+!Output/benchmarks/market_feedback/*/qlib_job_spec.json
+!Output/benchmarks/market_feedback/*/feedback/
+!Output/benchmarks/market_feedback/*/events/
+!Output/benchmarks/market_feedback/*/isolation_audit.json
+!Output/benchmarks/market_feedback/*/gate_result.json
+# Never commit Qlib venv
+ExternalTools/qlib_benchmark_runner/.venv/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+.env/
+*.venv
+
+# Environment / secrets — never commit
+.env
+.env.*
+*.env
+*.secret.json
+*.secret.yaml
+*.secret.toml
+*.local.json
+*.local.yaml
+*.local.toml
+config/*local*
+.claude/
+
+# Database / binary artifacts
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Logs
+*.log

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Structural NLP Promotion Log Entry",
+  "type": "object",
+  "required": [
+    "promotion_log_version",
+    "promotion_entry_id",
+    "candidate_id",
+    "old_status",
+    "new_status",
+    "reviewer",
+    "reason",
+    "decision_type",
+    "preconditions",
+    "from_path",
+    "to_path",
+    "timestamp"
+  ],
+  "properties": {
+    "promotion_log_version": {"type": "string"},
+    "promotion_entry_id": {"type": "string"},
+    "candidate_id": {"type": "string"},
+    "old_status": {"enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision"]},
+    "new_status": {"enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision"]},
+    "reviewer": {"type": "string"},
+    "reason": {"type": "string", "minLength": 1},
+    "decision_type": {"enum": ["manual_review", "rule_based_rejection", "correction", "rollback"]},
+    "preconditions": {
+      "type": "object",
+      "required": ["schema_valid", "quote_grounded", "confidence_score"],
+      "properties": {
+        "schema_valid": {"type": "boolean"},
+        "quote_grounded": {"type": "boolean"},
+        "confidence_score": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "from_path": {"type": "string"},
+    "to_path": {"type": "string"},
+    "timestamp": {"type": "string"}
+  },
+  "additionalProperties": false
+}

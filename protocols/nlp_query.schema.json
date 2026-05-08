@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workbench NLP Query",
+  "type": "object",
+  "required": ["schema_version", "question"],
+  "properties": {
+    "schema_version": {"const": "workbench.nlp_query.v1"},
+    "question": {"type": "string", "minLength": 1},
+    "scope": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": ["current", "admitted_evidence"]
+    },
+    "release_id": {"type": "string"},
+    "top_k": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5}
+  },
+  "additionalProperties": false
+}

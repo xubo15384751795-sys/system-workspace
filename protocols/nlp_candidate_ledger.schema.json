@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Structural NLP Candidate Ledger Entry",
+  "type": "object",
+  "required": [
+    "ledger_version",
+    "ledger_entry_id",
+    "candidate_id",
+    "status",
+    "corpus_id",
+    "release_id",
+    "source_path",
+    "source_hash",
+    "chunk_id",
+    "chunk_hash",
+    "event_type",
+    "candidate_variables",
+    "confidence_score",
+    "confidence_label",
+    "schema_valid",
+    "quote_grounded",
+    "export_path",
+    "created_at"
+  ],
+  "properties": {
+    "ledger_version": {"type": "string"},
+    "ledger_entry_id": {"type": "string"},
+    "candidate_id": {"type": "string"},
+    "status": {"enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision", "admitted"]},
+    "corpus_id": {"type": "string"},
+    "release_id": {"type": "string"},
+    "source_path": {"type": "string"},
+    "source_hash": {"type": "string"},
+    "chunk_id": {"type": "string"},
+    "chunk_hash": {"type": "string"},
+    "event_type": {"type": "string"},
+    "candidate_variables": {
+      "type": "array",
+      "items": {"enum": ["S", "A", "L", "V", "P", "tau"]}
+    },
+    "confidence_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "confidence_label": {"enum": ["low", "medium", "high"]},
+    "schema_valid": {"type": "boolean"},
+    "quote_grounded": {"type": "boolean"},
+    "export_path": {"type": "string"},
+    "created_at": {"type": "string"}
+  },
+  "additionalProperties": false
+}
