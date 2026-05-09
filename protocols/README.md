@@ -24,3 +24,4 @@ Workbench protocols define how Product, Harvester, and Framework layers exchange
 4. Every event card must include evidence_quotes grounded in source text.
 5. Variable mapping is rule-first with labeling-function votes; LLM may assist but not override.
 6. Rejected or needs_revision cards are automatically appended to hard cases for evaluation.
+7. Optional modular LLM handoff: `nlp_answer` may include `prompt_sections` and `assembled_prompt`, backed by `Workbench/contracts/workbench/agent_prompt_sections/` and `context_budget.yaml`.
