@@ -1,15 +1,21 @@
 # ── Workspace-level gitignore ─────────────────────────────────────────────
 # Structural Deformation Research System
 
-# Nested projects published separately
+# Nested projects published separately (cloned via scripts/bootstrap.sh)
 Structural Deformation Research System/
 Workbench/
-ExternalTools/
 OpenBB/
 Structural Research Harness
 Structural Risk Harvester
 System Learning Hub
 contracts
+
+# ExternalTools: keep qlib_benchmark_runner sources in this repo, ignore other
+# external tooling (e.g. OpenBB venv-style installs)
+ExternalTools/*
+!ExternalTools/qlib_benchmark_runner/
+ExternalTools/qlib_benchmark_runner/.venv/
+ExternalTools/qlib_benchmark_runner/__pycache__/
 
 # Large / generated data — never commit
 Data/
