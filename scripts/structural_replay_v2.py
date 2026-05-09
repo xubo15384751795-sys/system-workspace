@@ -163,6 +163,12 @@ class StateVariable:
     must_be_independent_of: tuple[str, ...]
     historical_validity_window: tuple[str | None, str | None]
     validation_questions: tuple[str, ...]
+    # Frequencies a variable accepts as legitimate fallbacks alongside its
+    # primary expected_freq. Intended for variables whose primary horizon
+    # is high-frequency but which retain low-frequency proxies for long
+    # historical coverage (e.g. K = daily OAS surface + monthly BAA10YM
+    # historical anchor). horizon_consistency does not flag these mixes.
+    historical_fallback_freqs: tuple[Freq, ...] = ()
 
 
 VARIABLES: dict[str, StateVariable] = {
@@ -204,6 +210,11 @@ VARIABLES: dict[str, StateVariable] = {
             "K 是否独立于 D 的二阶导？",
             "K 是否真正捕捉曲面斜率/曲率，而不是某个利差水平？",
         ),
+        # K_DAILY_SURFACE (OAS) is primary daily core 2023-05+;
+        # K_HISTORICAL (BAA10YM monthly) provides 1953+ long-history fallback.
+        # Mixing daily + monthly here is a deliberate design choice, not a
+        # contract violation.
+        historical_fallback_freqs=("monthly",),
     ),
     "X_PRE": StateVariable(
         name="X_PRE",
@@ -1181,12 +1192,22 @@ def compute_horizon_consistency(registry_rows: list[dict]) -> dict:
         n_classes = len(freq_counter)
         var = VARIABLES.get(ch)
         legitimately_mixed = bool(var and var.expected_freq == "mixed")
-        warn = (n_classes > 1) and (not legitimately_mixed)
+        # Mixing primary expected_freq with declared historical_fallback_freqs
+        # is a legitimate design choice (e.g. K daily OAS + monthly BAA10YM).
+        accepted = set()
+        if var:
+            accepted.add(var.expected_freq)
+            accepted.update(var.historical_fallback_freqs)
+        observed = set(freq_counter)
+        within_contract = bool(accepted) and observed.issubset(accepted)
+        warn = (n_classes > 1) and (not legitimately_mixed) and (not within_contract)
         out[ch] = {
             "horizons": dict(freq_counter),
             "n_freq_classes": n_classes,
             "expected_freq": var.expected_freq if var else None,
+            "accepted_fallback_freqs": list(var.historical_fallback_freqs) if var else [],
             "legitimately_mixed": legitimately_mixed,
+            "within_fallback_contract": within_contract,
             "warning": warn,
         }
     return out
