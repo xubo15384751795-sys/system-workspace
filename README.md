@@ -136,6 +136,7 @@ Default posture: smallest sufficient expert set first. Add experts when a task c
 
 - `ROUTING_CONSTITUTION.md`: global deny rules, layer authority, activation discipline.
 - `expert_activation_map.yaml`: task-to-expert routing map for prompt protocols, claim guardians, UI / Harvester boundaries, and Learning Hub governance.
+- `expert_agent_roles.yaml`: named harness-aligned specialist roles (explore / plan / verify / governance queue) for sparse activation documentation.
 - `routing_decision_record.template.yaml`: auditable record template for non-trivial routing decisions; concrete records live under `Output/system_learning/routing_decisions/`.
 
 ## Outstanding Workspace Gaps
