@@ -99,3 +99,12 @@ system tools run routing.create_task_plan task="<user task>" --mode explore --js
 Each plan step names its phase, owner, mode, risk category, verification rule,
 and registered ToolSpec candidates. A step marked `missing_tool_spec` is blocked
 planning debt; it is not permission to run a free-form script.
+
+To audit which existing workspace actions still need ToolSpec wrappers, use:
+
+```text
+system tools run routing.tool_coverage_audit --mode explore --json
+```
+
+Treat critical and high-priority `missing_tool_spec` findings as runtime
+governance debt before agents rely on those underlying scripts.

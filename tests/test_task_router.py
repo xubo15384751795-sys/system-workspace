@@ -12,6 +12,7 @@ HARNESS_ROOT = ROOT / "Workbench" / "agent_harness" / "structural-research-harne
 if str(HARNESS_ROOT) not in sys.path:
     sys.path.insert(0, str(HARNESS_ROOT))
 
+from tools.coverage_audit import audit_tool_coverage  # noqa: E402
 from tools.task_planner import create_task_plan  # noqa: E402
 from tools.task_router import route_task  # noqa: E402
 
@@ -86,6 +87,7 @@ def test_system_tools_list_includes_routing_and_deformation_tools() -> None:
 
     assert "routing.route_task" in tool_ids
     assert "routing.create_task_plan" in tool_ids
+    assert "routing.tool_coverage_audit" in tool_ids
     assert "deformation.list_snapshots" in tool_ids
 
 
@@ -147,3 +149,51 @@ def test_create_task_plan_tool_is_available_through_system_cli() -> None:
     assert payload["tool_id"] == "routing.create_task_plan"
     assert plan["route"]["primary_module"] == "Workbench"
     assert plan["blocked_actions"]
+
+
+def test_tool_coverage_audit_flags_critical_promotion_gap() -> None:
+    audit = audit_tool_coverage()
+
+    assert audit["surface_count"] >= 1
+    assert audit["missing_count"] >= 1
+    promote = next(
+        item
+        for item in audit["missing_surfaces"]
+        if item["script"] == "scripts/promote_snapshot.py"
+    )
+    assert promote["priority"] == "critical"
+    assert promote["coverage"] == "missing_tool_spec"
+
+
+def test_create_task_plan_includes_tool_coverage_summary() -> None:
+    plan = create_task_plan("Implement a new Workbench dashboard panel for Output/current")
+
+    summary = plan["tool_coverage_summary"]
+    assert summary["surface_count"] >= 1
+    assert summary["missing_count"] >= 1
+    assert "high" in summary["missing_by_priority"] or "critical" in summary["missing_by_priority"]
+
+
+def test_tool_coverage_audit_is_available_through_system_cli() -> None:
+    proc = subprocess.run(
+        [
+            "python3",
+            str(HARNESS_ROOT / "entrypoints" / "system.py"),
+            "tools",
+            "run",
+            "routing.tool_coverage_audit",
+            "--mode",
+            "explore",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(proc.stdout)
+    audit = payload["evidence"]["tool_coverage_audit"]
+
+    assert payload["ok"] is True
+    assert payload["tool_id"] == "routing.tool_coverage_audit"
+    assert audit["missing_count"] >= 1
