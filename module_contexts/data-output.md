@@ -74,3 +74,16 @@ related, but they are not interchangeable.
 
 Escalation usually goes to `protocols.md`, `harvester.md`, `framework.md`, or
 `learning-hub.md`.
+
+## Governed Promotion
+
+Snapshot promotion must go through the Harness ToolSpec gate:
+
+```text
+system tools run artifact.promote_snapshot_preflight run_id=<RUN_ID> --mode verify --json
+system tools run artifact.promote_snapshot run_id=<RUN_ID> --mode release --json
+```
+
+The preflight is read-only and reports blockers/provenance limits. The actual
+promotion is a `snapshot_publish` action and requires manual review in release
+mode; do not bypass it with the bare `scripts/promote_snapshot.py` path.

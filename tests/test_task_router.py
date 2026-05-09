@@ -151,18 +151,18 @@ def test_create_task_plan_tool_is_available_through_system_cli() -> None:
     assert plan["blocked_actions"]
 
 
-def test_tool_coverage_audit_flags_critical_promotion_gap() -> None:
+def test_tool_coverage_audit_marks_promotion_covered() -> None:
     audit = audit_tool_coverage()
 
     assert audit["surface_count"] >= 1
-    assert audit["missing_count"] >= 1
     promote = next(
         item
-        for item in audit["missing_surfaces"]
+        for item in audit["surfaces"]
         if item["script"] == "scripts/promote_snapshot.py"
     )
     assert promote["priority"] == "critical"
-    assert promote["coverage"] == "missing_tool_spec"
+    assert promote["coverage"] == "covered"
+    assert "artifact.promote_snapshot" in promote["matched_tool_ids"]
 
 
 def test_create_task_plan_includes_tool_coverage_summary() -> None:
@@ -197,3 +197,58 @@ def test_tool_coverage_audit_is_available_through_system_cli() -> None:
     assert payload["ok"] is True
     assert payload["tool_id"] == "routing.tool_coverage_audit"
     assert audit["missing_count"] >= 1
+
+
+def test_promote_snapshot_preflight_reports_blockers_without_mutation() -> None:
+    proc = subprocess.run(
+        [
+            "python3",
+            str(HARNESS_ROOT / "entrypoints" / "system.py"),
+            "tools",
+            "run",
+            "artifact.promote_snapshot_preflight",
+            "run_id=2026-04-22_WEEKLY",
+            "--mode",
+            "verify",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(proc.stdout)
+    preflight = payload["evidence"]["preflight"]
+
+    assert payload["ok"] is True
+    assert payload["tool_id"] == "artifact.promote_snapshot_preflight"
+    assert preflight["run_id"] == "2026-04-22_WEEKLY"
+    assert preflight["manual_review_required"] is True
+    assert "blockers" in preflight
+
+
+def test_promote_snapshot_requires_manual_review_in_release_mode() -> None:
+    proc = subprocess.run(
+        [
+            "python3",
+            str(HARNESS_ROOT / "entrypoints" / "system.py"),
+            "tools",
+            "run",
+            "artifact.promote_snapshot",
+            "run_id=2026-04-22_WEEKLY",
+            "--mode",
+            "release",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(proc.stdout)
+    decision = payload["evidence"]["policy_decision"]
+
+    assert proc.returncode == 1
+    assert payload["ok"] is False
+    assert decision["decision"] == "require_manual_review"
+    assert decision["classification"]["primary"] == "snapshot_publish"
