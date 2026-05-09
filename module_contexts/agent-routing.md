@@ -89,3 +89,13 @@ The router returns the owning module, context file, recommended mode, expert
 activations, escalation reasons, and whether a routing decision record is
 required. Treat that output as the starting point; it does not override the
 constitution or hard boundary rules.
+
+To turn the routing result into a ToolSpec-bound checklist, use:
+
+```text
+system tools run routing.create_task_plan task="<user task>" --mode explore --json
+```
+
+Each plan step names its phase, owner, mode, risk category, verification rule,
+and registered ToolSpec candidates. A step marked `missing_tool_spec` is blocked
+planning debt; it is not permission to run a free-form script.

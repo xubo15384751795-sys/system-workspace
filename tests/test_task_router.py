@@ -12,6 +12,7 @@ HARNESS_ROOT = ROOT / "Workbench" / "agent_harness" / "structural-research-harne
 if str(HARNESS_ROOT) not in sys.path:
     sys.path.insert(0, str(HARNESS_ROOT))
 
+from tools.task_planner import create_task_plan  # noqa: E402
 from tools.task_router import route_task  # noqa: E402
 
 
@@ -84,4 +85,65 @@ def test_system_tools_list_includes_routing_and_deformation_tools() -> None:
     tool_ids = {tool["id"] for tool in payload["tools"]}
 
     assert "routing.route_task" in tool_ids
+    assert "routing.create_task_plan" in tool_ids
     assert "deformation.list_snapshots" in tool_ids
+
+
+def test_create_task_plan_binds_harvester_steps_to_toolspecs() -> None:
+    plan = create_task_plan("优化数据源采集的新鲜度和溯源检查，验证通过但不要发布 release")
+
+    assert plan["route"]["primary_module"] == "Harvester"
+    assert plan["tool_spec_policy"].startswith("Executable actions must name a ToolSpec")
+    assert [step["phase"] for step in plan["steps"]] == [
+        "route",
+        "explore",
+        "verify",
+        "governance",
+    ]
+    bound_tools = {
+        tool_id
+        for step in plan["steps"]
+        for tool_id in step["tool_spec"]["tool_ids"]
+    }
+    assert "routing.route_task" in bound_tools
+    assert "harvester.inspect_release" in bound_tools
+    assert "harvester.verify_release" in bound_tools
+    assert "learning_hub.write_verification_record" in bound_tools
+    assert plan["blocked_actions"] == []
+
+
+def test_create_task_plan_blocks_unregistered_implementation_actions() -> None:
+    plan = create_task_plan("Implement a new Workbench dashboard panel for Output/current")
+
+    assert plan["route"]["primary_module"] == "Workbench"
+    blocked = plan["blocked_actions"]
+    assert blocked
+    assert any(step["phase"] == "implement" for step in blocked)
+    assert all(step["tool_spec"]["status"] == "missing_tool_spec" for step in blocked)
+
+
+def test_create_task_plan_tool_is_available_through_system_cli() -> None:
+    proc = subprocess.run(
+        [
+            "python3",
+            str(HARNESS_ROOT / "entrypoints" / "system.py"),
+            "tools",
+            "run",
+            "routing.create_task_plan",
+            "task=Implement a new Workbench dashboard panel for Output/current",
+            "--mode",
+            "explore",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(proc.stdout)
+    plan = payload["evidence"]["task_plan"]
+
+    assert payload["ok"] is True
+    assert payload["tool_id"] == "routing.create_task_plan"
+    assert plan["route"]["primary_module"] == "Workbench"
+    assert plan["blocked_actions"]
