@@ -1,0 +1,46 @@
+# Baseline: standard Alpha158 factors with LightGBM
+# Used as the control experiment in market feedback benchmarks.
+
+dataset:
+  class: DatasetH
+  module_path: qlib.data.dataset
+  kwargs:
+    handler:
+      class: Alpha158
+      module_path: qlib.contrib.data.handler
+      kwargs:
+        start_time: "2015-01-01"
+        end_time: "2024-12-31"
+        fit_start_time: "2015-01-01"
+        fit_end_time: "2021-12-31"
+        instruments: "all"
+        infer_processors:
+          - class: RobustZScoreNorm
+            module_path: qlib.contrib.data.processor
+          - class: Fillna
+            module_path: qlib.contrib.data.processor
+        learn_processors:
+          - class: DropnaLabel
+            module_path: qlib.contrib.data.processor
+          - class: CSRankNorm
+            module_path: qlib.contrib.data.processor
+    segments:
+      train: ["2015-01-01", "2021-12-31"]
+      valid: ["2022-01-01", "2022-12-31"]
+      test: ["2023-01-01", "2024-12-31"]
+
+model:
+  class: LightGBMModel
+  module_path: qlib.contrib.model.gbdt
+  kwargs:
+    loss: mse
+    colsample_bytree: 0.8
+    learning_rate: 0.05
+    subsample: 0.8
+    lambda_l1: 200
+    lambda_l2: 200
+    max_depth: 8
+    num_leaves: 128
+    num_threads: 4
+    early_stopping_rounds: 50
+    verbose_eval: 100

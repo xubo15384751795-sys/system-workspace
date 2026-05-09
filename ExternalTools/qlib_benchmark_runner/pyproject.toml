@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "qlib-benchmark-runner"
+version = "0.1.0"
+description = "Isolated Qlib benchmark executor for Market Feedback Benchmark"
+requires-python = ">=3.10"

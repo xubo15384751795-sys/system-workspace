@@ -1,0 +1,17 @@
+# Qlib benchmark runner — isolation sandbox
+#
+# This environment is SEPARATE from the main system venv.
+# Install Qlib here:
+#   python -m venv .venv
+#   .venv/bin/pip install qlib pyarrow pandas
+
+# Core
+pandas>=2.0.0
+pyarrow>=14.0.0
+numpy>=1.24.0
+
+# Qlib (install separately or via requirements)
+# qlib>=0.9.0
+
+# Utilities
+PyYAML>=6.0
