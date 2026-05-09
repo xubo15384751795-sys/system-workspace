@@ -42,6 +42,14 @@ EVENT_DIR.mkdir(parents=True, exist_ok=True)
 
 STRESS_EVENTS = [
     {
+        # Phase 5 cleanup: added so X_REALIZED activations during the Asian
+        # crisis are not counted as "calm-window false alarms".
+        "id": "asian_1997", "name": "Asian Financial Crisis",
+        "peak": "1997-10-27", "start": "1997-07-02", "end": "1998-01-31",
+        "pre_start": "1997-04-01", "post_end": "1998-04-30",
+        "category": "em_currency_credit",
+    },
+    {
         "id": "ltcm_1998", "name": "LTCM / Russia Default",
         "peak": "1998-09-23", "start": "1998-07-01", "end": "1998-12-31",
         "pre_start": "1997-06-01", "post_end": "1999-06-01",
@@ -52,6 +60,14 @@ STRESS_EVENTS = [
         "peak": "2000-03-10", "start": "2000-01-01", "end": "2000-06-30",
         "pre_start": "1999-01-01", "post_end": "2000-12-31",
         "category": "equity_valuation",
+    },
+    {
+        # Phase 5 cleanup: post-9/11 + WorldCom corporate accounting collapse
+        # period; X_REALIZED activates here via VIX_JUMP, properly classified.
+        "id": "worldcom_2002", "name": "WorldCom / Corporate Accounting Collapse",
+        "peak": "2002-07-22", "start": "2002-06-01", "end": "2002-10-31",
+        "pre_start": "2002-03-01", "post_end": "2003-01-31",
+        "category": "corporate_accounting_credit",
     },
     {
         "id": "gfc_2008", "name": "GFC / Lehman",
@@ -82,6 +98,14 @@ STRESS_EVENTS = [
         "peak": "2015-08-24", "start": "2015-08-01", "end": "2016-02-29",
         "pre_start": "2015-01-01", "post_end": "2016-06-30",
         "category": "credit_em",
+    },
+    {
+        # Phase 5 cleanup: Brexit referendum vote shock; X_REALIZED activates
+        # via VIX_JUMP for ~10 days — properly inside an event window now.
+        "id": "brexit_2016", "name": "Brexit Referendum",
+        "peak": "2016-06-24", "start": "2016-06-20", "end": "2016-07-29",
+        "pre_start": "2016-04-01", "post_end": "2016-09-30",
+        "category": "political_volatility",
     },
     {
         "id": "volmageddon_2018", "name": "Volmageddon",
@@ -149,6 +173,43 @@ def load_official_panel() -> pd.DataFrame:
 #   2) 必须独立的变量对，其代理不应出现 derivative / family contamination
 
 CHANNELS = ["M", "D_contraction", "K", "X_PRE", "X_REALIZED"]
+
+
+# Known data gaps that limit the proxy registry. These are not measurement-
+# layer problems (the math here is fine); they are Harvester / data-acquisition-
+# layer items. Recorded so audit output can flag them, and so future Harvester
+# upgrades have a clear shopping list. Each entry says: which channel is
+# affected, why we cannot resolve it inside this script, what would unblock it.
+KNOWN_DATA_GAPS: list[dict] = [
+    {
+        "channel": "M",
+        "issue": "100% FRED_RATES family",
+        "blocker": "all daily rate / curve / policy series belong to the FRED rates family by construction",
+        "unblock": "no action required — family monoculture is structurally appropriate for M (anchor-mismatch is, by definition, an interest-rate-curve mechanism)",
+        "owner": "measurement_layer",
+    },
+    {
+        "channel": "D_contraction",
+        "issue": "100% FRED_FUNDING family (CP-bill + SOFR-IORB + SOFR-DFF all FRED short-end instruments)",
+        "blocker": "TGA daily balance harvester data stops 2022-09-08; no ON RRP, reserve balances, OFR FSI, or non-FRED funding-stress sources in the panel",
+        "unblock": "Harvester-side: re-enable daily_treasury_statement post-2022, add ON RRP volume (RRPONTSYD), reserve balances (WRBWFRBL), OFR Financial Stress Index",
+        "owner": "harvester",
+    },
+    {
+        "channel": "X_PRE",
+        "issue": "still leans on NFCI family at 50%",
+        "blocker": "no VIX term-structure series (VIX9D vs VIX), no Kansas City FSI, no HY ETF-NAV discount in panel",
+        "unblock": "Harvester-side: add VIX9D, KCFSI, HY ETF NAV-vs-price spread; would let X_PRE drop NFCI weight below 33%",
+        "owner": "harvester",
+    },
+    {
+        "channel": "X_REALIZED",
+        "issue": "MARKET-side OAS_JUMP only available 2023-05+",
+        "blocker": "FRED ICE OAS series (BAMLH0A0HYM2, BAMLC0A0CM, BAMLC0A4CBBB) are gated on the 3-year public CSV window; full history requires API key (see project_fred_ice_license memory)",
+        "unblock": "FRED API key in Harvester credentials; would extend OAS_JUMP coverage back to ~1996",
+        "owner": "harvester",
+    },
+]
 
 
 @dataclass(frozen=True)
@@ -888,8 +949,47 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
             s for s in PROXY_REGISTRY
             if s.target_variable == ch and s.tier in ("core", "auxiliary")
         ]
-        names = [s.name for s in specs if s.name in component_values.columns]
-        if names:
+        present = [s for s in specs if s.name in component_values.columns]
+        if not present:
+            channels[ch] = np.nan
+            coverage[ch] = 0.0
+            confidence[ch] = coverage[ch].map(confidence_label)
+            continue
+
+        # Two aggregation modes:
+        #   simple_mean   — used for single-mechanism channels (M / D / K /
+        #                   X_PRE). The within-channel proxies measure the
+        #                   same physical thing through different lenses;
+        #                   their mean is the consensus z-score.
+        #   family_or     — used for X_REALIZED whose proxies span genuinely
+        #                   distinct mechanisms (OFFICIAL rescue vs MARKET
+        #                   forced-sell). Within each raw_family take max
+        #                   (any spec firing = family active), then mean
+        #                   across families (more families active = more
+        #                   confident the regime is forced realization).
+        #                   Avoids OFFICIAL-vs-MARKET specs diluting each
+        #                   other through simple averaging.
+        var = VARIABLES.get(ch)
+        use_family_or = bool(var and var.expected_freq == "mixed")
+
+        if use_family_or:
+            # Per-family max
+            by_family: dict[str, list[str]] = {}
+            for s in present:
+                by_family.setdefault(s.raw_family, []).append(s.name)
+            family_aggs = pd.DataFrame(index=panel.index)
+            for fam, names_in_fam in by_family.items():
+                family_aggs[fam] = component_values[names_in_fam].max(axis=1, skipna=True)
+            # Time-aware family roster: a family is "in roster" only after
+            # its first valid family-aggregate value. Coverage = families
+            # active today / families in roster today.
+            valid_fam = family_aggs.notna()
+            in_roster_fam = valid_fam.cummax()
+            n_in_roster_fam = in_roster_fam.sum(axis=1)
+            channels[ch] = family_aggs.mean(axis=1, skipna=True)
+            coverage[ch] = (valid_fam.sum(axis=1) / n_in_roster_fam.clip(lower=1)).fillna(0.0)
+        else:
+            names = [s.name for s in present]
             comp = component_values[names]
             valid = comp.notna()
             channels[ch] = comp.mean(axis=1, skipna=True)
@@ -902,9 +1002,6 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
             in_roster = valid.cummax()
             n_in_roster = in_roster.sum(axis=1)
             coverage[ch] = (valid.sum(axis=1) / n_in_roster.clip(lower=1)).fillna(0.0)
-        else:
-            channels[ch] = np.nan
-            coverage[ch] = 0.0
         confidence[ch] = coverage[ch].map(confidence_label)
 
     audit = audit_measurement_layers(channels, component_values, registry_rows, panel)
@@ -1073,6 +1170,7 @@ def audit_measurement_layers(
         "sparsity_flag": sparsity_flag,
         "contract_violations": contract_violations,
         "horizon_consistency": horizon_consistency,
+        "known_data_gaps": list(KNOWN_DATA_GAPS),
         "warnings": warnings,
     }
 
@@ -1857,6 +1955,24 @@ def main() -> int:
         print("  Governance flags:")
         for warning in bundle.audit["warnings"]:
             print(f"    - {warning}")
+    # Cross-reference family-monoculture warnings to known data gaps so the
+    # operator can immediately see which warnings require Harvester-side
+    # data acquisition vs. which can be resolved at the measurement layer.
+    gap_by_channel = {g["channel"]: g for g in bundle.audit.get("known_data_gaps", [])}
+    monoculture_channels = []
+    for w in bundle.audit.get("warnings", []):
+        if w.startswith("FAMILY_MONOCULTURE"):
+            for ch in CHANNELS:
+                if f": {ch} " in w:
+                    monoculture_channels.append(ch)
+                    break
+    if monoculture_channels:
+        print("  Known data gaps (Harvester-side, see audit.known_data_gaps):")
+        for ch in monoculture_channels:
+            gap = gap_by_channel.get(ch)
+            if not gap:
+                continue
+            print(f"    - {ch}: owner={gap['owner']}; unblock = {gap['unblock']}")
     raq = bundle.audit.get("realized_activation_quality", {})
     if raq:
         print(
