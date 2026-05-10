@@ -93,6 +93,10 @@ case "$cmd" in
   status)
     python3 "$ROOT/scripts/system_status.py"
     ;;
+  framework)
+    shift || true
+    python3 "$ROOT/scripts/framework_cli.py" "$@"
+    ;;
   *)
     echo "Usage:"
     echo "  ./sys check     Show current risk check"
@@ -109,6 +113,7 @@ case "$cmd" in
     echo "  ./sys learning  Alias for next"
     echo "  ./sys report    Open latest HTML report"
     echo "  ./sys status    Show workspace subsystem status"
+    echo "  ./sys framework list|register|unregister  Manage analysis frameworks"
     exit 1
-    ;;
+    ;; 
 esac

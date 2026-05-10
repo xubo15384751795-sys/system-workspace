@@ -24,7 +24,7 @@ if latest_bm:
     print(f"\n=== Benchmark Panel ===")
     for s in sorted(bm["series_id"].unique()):
         d = bm[bm["series_id"] == s]
-        print(f"  {s:20s} source={d['source_id'].iloc[0]:15s} {d['date'].min().date()} -> {d['date'].max().date()}  n={len(d)}")
+        print(f"  {s:20s} source={d['source_id'].iloc[0]:15s} {d['date'].min()} -> {d['date'].max()}  n={len(d)}")
 
 # Check what FRED CSVs we have cached
 fred_dir = PROJECT / "Data" / "harvester" / "raw" / "fred"

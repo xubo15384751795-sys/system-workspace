@@ -18,6 +18,10 @@ cd /Users/a1/System
 
 Daily users do not need to understand the internal framework first.
 
+For IDE and agent work, start from `MODULES.md`. Keep one workspace folder open,
+then route each task through the smallest owning module in `module_contexts/`
+before reading source code.
+
 Basic use shows familiar risk evidence.
 Advanced use exposes framework-specific structural diagnosis.
 
