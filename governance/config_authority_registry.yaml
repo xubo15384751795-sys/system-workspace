@@ -1,0 +1,37 @@
+allow_legacy_fallback:
+  type: AUTHORITY_CONFIG
+  default_allowed: false
+  severity: HIGH
+  audit_event_required: true
+  report_visibility_required: true
+  reason: "Allows bypassing admitted evidence path."
+force_promoted:
+  type: AUTHORITY_CONFIG
+  default_allowed: false
+  severity: CRITICAL
+  audit_event_required: true
+  report_visibility_required: true
+  reason: "Allows promotion despite blockers."
+skip_validation:
+  type: AUTHORITY_CONFIG
+  default_allowed: false
+  severity: CRITICAL
+  audit_event_required: true
+  report_visibility_required: true
+  reason: "Allows validation to be skipped."
+policy_enforcement_enabled:
+  type: AUTHORITY_CONFIG
+  default_allowed: true
+  severity: HIGH
+  audit_event_required: true
+  report_visibility_required: true
+  reason: "Controls whether governance policy is enforced."
+sigma_threshold:
+  type: PARAMETER_CONFIG
+  severity: LOW
+  audit_event_required: false
+rolling_window:
+  type: PARAMETER_CONFIG
+  severity: LOW
+  audit_event_required: false
+

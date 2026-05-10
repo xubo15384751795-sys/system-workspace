@@ -1,0 +1,132 @@
+{
+  "M": {
+    "concept": "M",
+    "full_name": "market morphology channel",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "PROXY_REDUCED",
+    "semantic_distance": 3,
+    "operational_proxy": "market breadth / liquidity / trend-fragility basket",
+    "reduction_errors": [
+      "Morphology is approximated from observable market aggregates",
+      "Microstructure deformation is not directly observed"
+    ],
+    "valid_for": [
+      "partial morphology stress warning"
+    ],
+    "not_valid_for": [
+      "claiming complete market morphology state"
+    ]
+  },
+  "D": {
+    "concept": "D",
+    "full_name": "deformation pressure channel",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "PROXY_REDUCED",
+    "semantic_distance": 3,
+    "operational_proxy": "credit / funding / volatility pressure basket",
+    "reduction_errors": [
+      "Pressure is inferred from public stress indicators",
+      "Latent structural pressure is not directly measured"
+    ],
+    "valid_for": [
+      "partial deformation pressure warning"
+    ],
+    "not_valid_for": [
+      "proving full deformation mechanics"
+    ]
+  },
+  "K": {
+    "concept": "K",
+    "full_name": "event-space curvature",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "PROXY_REDUCED",
+    "semantic_distance": 3,
+    "operational_proxy": "K basket",
+    "reduction_errors": [
+      "VIX/VVIX captures volatility regime instability, not full transition-map curvature",
+      "Liquidation topology is not directly observed",
+      "Transition-map Jacobian distortion is approximated, not computed"
+    ],
+    "valid_for": [
+      "partial transition instability warning",
+      "vol-regime stress hint"
+    ],
+    "not_valid_for": [
+      "claiming full event-space curvature",
+      "proving singularity formation alone"
+    ]
+  },
+  "X_PRE": {
+    "concept": "X_PRE",
+    "full_name": "latent shadow accumulation",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "DATA_TRUNCATED_PROXY",
+    "semantic_distance": 4,
+    "operational_proxy": "margin debt / dealer leverage / private credit / valuation lag basket",
+    "reduction_errors": [
+      "Several public inputs have short effective history",
+      "Latent shadow thickness is not directly observed",
+      "V channel is not implemented, so V-to-X accumulation cannot be tested"
+    ],
+    "valid_for": [
+      "partial recent shadow accumulation warning"
+    ],
+    "not_valid_for": [
+      "full historical 2008-style buildup replay",
+      "claiming complete latent X measurement"
+    ]
+  },
+  "X_REALIZED": {
+    "concept": "X_REALIZED",
+    "full_name": "realized shadow activation",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "EVENT_REDUCED_PROXY",
+    "semantic_distance": 3,
+    "operational_proxy": "event activation / realized stress marker basket",
+    "reduction_errors": [
+      "Activation is event-list dependent",
+      "Observed realized stress is not equivalent to full latent-to-realized transition"
+    ],
+    "valid_for": [
+      "partial realized activation warning"
+    ],
+    "not_valid_for": [
+      "claiming complete realized X topology"
+    ]
+  },
+  "V": {
+    "concept": "V",
+    "full_name": "verifiability density",
+    "implemented_status": "NOT_IMPLEMENTED",
+    "proxy_status": "NO_PROXY",
+    "semantic_distance": null,
+    "operational_proxy": null,
+    "reduction_errors": [
+      "V-to-X coupling is not empirically supported by current code"
+    ],
+    "valid_for": [],
+    "not_valid_for": [
+      "empirical claim that X accumulates because V is low"
+    ]
+  },
+  "Sigma": {
+    "concept": "Sigma",
+    "full_name": "singular regime indicator",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "SCALAR_REDUCTION",
+    "semantic_distance": 4,
+    "operational_proxy": "weighted scalar z-score threshold",
+    "reduction_errors": [
+      "Phase-space directionality is lost",
+      "Channel co-firing is flattened into additive scalar",
+      "Operator penalties are calibration constants, not direct measurement"
+    ],
+    "valid_for": [
+      "summary warning score"
+    ],
+    "not_valid_for": [
+      "claiming full singularity mechanics without vector channel readout"
+    ]
+  }
+}
+

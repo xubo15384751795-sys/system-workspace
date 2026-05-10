@@ -1,0 +1,27 @@
+# Structural Replay v0.3 — OmegaConf config
+#
+# Loaded by scripts/structural_replay_v2.py via load_cfg(). Defaults reproduce
+# the historical behaviour (output lands in Output/sandbox/structural_replay_v2/).
+# Override on the CLI with Hydra-style key=value syntax, e.g.:
+#
+#   python scripts/structural_replay_v2.py panel.release_id=2026-04-22-r1
+#   python scripts/structural_replay_v2.py run.tag=weekly output.subdir=runs/weekly
+#
+# At run start the script writes config_snapshot.json into output.dir,
+# closing the "config_snapshot was backfilled" governance gap.
+
+project_root: ${oc.env:STRUCTURAL_PROJECT,/Users/a1/System}
+
+panel:
+  release_id: 2026-05-05-r1
+  path: ${project_root}/Data/harvester/exports/${panel.release_id}/data/official_panel.parquet
+
+output:
+  root: ${project_root}/Output
+  subdir: sandbox/structural_replay_v2
+  dir: ${output.root}/${output.subdir}
+  event_subdir: event_windows
+
+run:
+  tag: dev
+  pre_event_warmup_days: 365

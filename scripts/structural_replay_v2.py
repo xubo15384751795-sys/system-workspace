@@ -22,21 +22,39 @@ from typing import Callable, Literal
 
 import numpy as np
 import pandas as pd
+from omegaconf import DictConfig, OmegaConf
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+WORKBENCH_SRC = REPO_ROOT / "Workbench" / "src"
+if str(WORKBENCH_SRC) not in sys.path:
+    sys.path.insert(0, str(WORKBENCH_SRC))
+
+from workbench.governance.report_gate import validate_report_verdict
+from workbench.governance.semantic import SemanticRegistry, build_sigma_vector
+
+CONFIG_PATH = (
+    REPO_ROOT / "configs" / "structural_replay" / "config.yaml"
+)
+SEMANTIC_REGISTRY_PATH = REPO_ROOT / "governance" / "semantic_registry.json"
+
+
+def load_cfg() -> DictConfig:
+    """Load YAML config and merge Hydra-style ``key=value`` overrides from argv.
+
+    Examples:
+        python scripts/structural_replay_v2.py
+        python scripts/structural_replay_v2.py panel.release_id=2026-04-22-r1
+        python scripts/structural_replay_v2.py run.tag=weekly output.subdir=runs/weekly
+    """
+    base = OmegaConf.load(CONFIG_PATH)
+    overrides = OmegaConf.from_cli(sys.argv[1:])
+    return OmegaConf.merge(base, overrides)
 
 # ── Frequency / Tier / Activation typing ────────────────────────────────────
 
 Freq = Literal["daily", "weekly", "monthly", "sparse", "mixed"]
 Tier = Literal["core", "auxiliary", "diagnostic_only", "experimental", "deprecated"]
 ActivationLogic = Literal["continuous", "event_jump", "official_facility", "mixed"]
-
-PROJECT = Path(__file__).resolve().parent.parent
-OFFICIAL_PANEL = (
-    PROJECT / "Data" / "harvester" / "exports" / "2026-05-05-r1" / "data" / "official_panel.parquet"
-)
-OUTPUT_DIR = PROJECT / "Output" / "sandbox" / "structural_replay_v2"
-EVENT_DIR = OUTPUT_DIR / "event_windows"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-EVENT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Stress Events ────────────────────────────────────────────────────────────
 
@@ -148,9 +166,9 @@ STRESS_EVENTS = [
 
 # ── Data Loading ─────────────────────────────────────────────────────────────
 
-def load_official_panel() -> pd.DataFrame:
+def load_official_panel(panel_path: Path) -> pd.DataFrame:
     """Load and pivot the official Harvester panel to wide format."""
-    raw = pd.read_parquet(OFFICIAL_PANEL)
+    raw = pd.read_parquet(panel_path)
     raw["date"] = pd.to_datetime(raw["date"])
     # Pivot to wide: one column per series_id
     wide = raw.pivot_table(
@@ -230,6 +248,8 @@ class StateVariable:
     # historical coverage (e.g. K = daily OAS surface + monthly BAA10YM
     # historical anchor). horizon_consistency does not flag these mixes.
     historical_fallback_freqs: tuple[Freq, ...] = ()
+    # v2 core contract: which independence_groups are allowed / forbidden in CORE proxies
+    core_contract: dict = field(default_factory=dict)
 
 
 VARIABLES: dict[str, StateVariable] = {
@@ -245,6 +265,11 @@ VARIABLES: dict[str, StateVariable] = {
             "M 的代理是否仅来自利率 / 政策 / 曲线族？",
             "M 是否承担其他通道无法承担的独立信息？",
         ),
+        core_contract={
+            "allowed_groups": ("rates_curve", "policy_rate_spread"),
+            "forbidden_groups": ("credit_surface", "funding_spread", "volatility_jump",
+                                 "official_liquidity_facility", "broad_financial_conditions_composite"),
+        },
     ),
     "D_contraction": StateVariable(
         name="D_contraction",
@@ -258,6 +283,11 @@ VARIABLES: dict[str, StateVariable] = {
             "D 的代理是否纯粹是融资可得性，没有混入宏观条件指数？",
             "D 是否仅在融资紧张事件中激活，而不是在所有压力事件中跟随 PC1？",
         ),
+        core_contract={
+            "allowed_groups": ("funding_spread", "reserve_liquidity", "treasury_cash"),
+            "forbidden_groups": ("credit_surface", "broad_financial_conditions_composite",
+                                 "volatility_jump", "official_liquidity_facility"),
+        },
     ),
     "K": StateVariable(
         name="K",
@@ -276,6 +306,11 @@ VARIABLES: dict[str, StateVariable] = {
         # Mixing daily + monthly here is a deliberate design choice, not a
         # contract violation.
         historical_fallback_freqs=("monthly",),
+        core_contract={
+            "allowed_groups": ("credit_surface", "convexity_surface", "cross_asset_curvature"),
+            "forbidden_groups": ("funding_spread", "official_liquidity_facility",
+                                 "volatility_jump", "rates_curve"),
+        },
     ),
     "X_PRE": StateVariable(
         name="X_PRE",
@@ -289,6 +324,12 @@ VARIABLES: dict[str, StateVariable] = {
             "X_PRE 是否跨多个数据家族（不只 NFCI）？",
             "X_PRE 是否在事件爆发前 N 周就升高？",
         ),
+        core_contract={
+            "allowed_groups": ("hidden_leverage", "broad_stress_non_core",
+                               "pre_realization_pressure"),
+            "forbidden_groups": ("volatility_jump", "official_liquidity_facility",
+                                 "rates_curve", "funding_spread"),
+        },
     ),
     "X_REALIZED": StateVariable(
         name="X_REALIZED",
@@ -302,6 +343,12 @@ VARIABLES: dict[str, StateVariable] = {
             "X_REALIZED 是否在已知强制变现事件 (2008 / 2020 / 2022 / 2023) 中激活？",
             "稀疏导致的低相关是否被误读为独立性？",
         ),
+        core_contract={
+            "allowed_groups": ("official_liquidity_facility", "volatility_jump",
+                               "forced_liquidation_marker"),
+            "forbidden_groups": ("credit_surface", "funding_spread",
+                                 "rates_curve", "hidden_leverage"),
+        },
     ),
 }
 
@@ -327,6 +374,7 @@ class ProxySpec:
     transform: str
     builder: Callable[[pd.DataFrame], pd.Series | None]
     allow_derivative_reuse: bool = False
+    independence_group: str = ""  # v2: same group must not appear in CORE of multiple channels
     note: str = ""
 
     # Backward-compat: old code reads `.role` / `.channel`. Provide them.
@@ -587,6 +635,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:T10Y2Y",),
         raw_family="FRED_RATES",
+        independence_group="rates_curve",
         mechanism="anchor_mismatch",
         transform="negative 10Y-2Y curve, daily 21d mean, daily rolling z-score (252/126)",
         builder=lambda p: _component(-_series(p, "FRED:T10Y2Y"), freq="daily"),
@@ -598,6 +647,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:DFF", "FRED:DGS3MO"),
         raw_family="FRED_RATES",
+        independence_group="policy_rate_spread",
         mechanism="policy_market_anchor_gap",
         transform="DFF minus 3M Treasury, daily 21d mean, daily rolling z-score",
         builder=lambda p: _component(_spread(p, "FRED:DFF", "FRED:DGS3MO"), freq="daily"),
@@ -609,6 +659,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:DPRIME", "FRED:DFF"),
         raw_family="FRED_RATES",
+        independence_group="policy_rate_spread",
         mechanism="bank_policy_anchor_gap",
         transform="prime rate minus effective fed funds, daily 21d mean, daily rolling z-score",
         builder=lambda p: _component(_spread(p, "FRED:DPRIME", "FRED:DFF"), freq="daily"),
@@ -623,6 +674,8 @@ PROXY_REGISTRY: list[ProxySpec] = [
     #       CP-bill = 私部门短端 vs 国债短端 (信用+流动性混合)
     #       SOFR-IORB = 隔夜回购溢价 vs 政策下界 (回购市场压力)
     #       SOFR-DFF = 隔夜回购溢价 vs 政策中性 (2018-2021 桥接)
+    #   - v2 core_status = PARTIAL_CORE: funding_spread 族可用但 reserve_liquidity
+    #     和 treasury_cash 仍未接入 (marked as known data gap)
     ProxySpec(
         name="D_cp_bill_funding_access",
         target_variable="D_contraction",
@@ -630,6 +683,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:DCPF3M", "FRED:DGS3MO"),
         raw_family="FRED_FUNDING",
+        independence_group="funding_spread",
         mechanism="short_funding_access",
         transform="commercial paper minus 3M Treasury, daily 21d mean, daily rolling z-score",
         builder=lambda p: _component(_spread(p, "FRED:DCPF3M", "FRED:DGS3MO"), freq="daily"),
@@ -641,6 +695,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:SOFR", "FRED:IORB"),
         raw_family="FRED_FUNDING",
+        independence_group="funding_spread",
         mechanism="overnight_funding_premium_over_policy_floor",
         transform="SOFR minus IORB, daily 21d mean, daily 252d rolling z-score",
         builder=lambda p: _component(_spread(p, "FRED:SOFR", "FRED:IORB"), freq="daily"),
@@ -654,10 +709,25 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:SOFR", "FRED:DFF"),
         raw_family="FRED_FUNDING",
+        independence_group="funding_spread",
         mechanism="overnight_funding_premium_over_policy_target",
         transform="SOFR minus DFF, daily 21d mean, daily 252d rolling z-score",
         builder=lambda p: _component(_spread(p, "FRED:SOFR", "FRED:DFF"), freq="daily"),
         note="Available 2018-04-03+ (SOFR start). Bridges 2018-2021 window before IORB exists.",
+    ),
+    ProxySpec(
+        name="D_funding_acceleration_diagnostic",
+        target_variable="D_contraction",
+        tier="diagnostic_only",
+        freq="daily",
+        raw_series=("FRED:DCPF3M", "FRED:DGS3MO"),
+        raw_family="FRED_FUNDING",
+        independence_group="funding_spread",
+        mechanism="funding_stress_acceleration",
+        transform="second difference of CP-bill spread, absolute, daily 21d mean, daily rolling z-score",
+        builder=lambda p: _component(_accel_abs(_spread(p, "FRED:DCPF3M", "FRED:DGS3MO"), periods=5), freq="daily"),
+        note="v2: migrated from K_cp_bill_acceleration. This is D's own funding-stress second derivative, "
+             "not K's curvature. diagnostic_only, does not vote.",
     ),
     ProxySpec(
         name="D_nfci_credit_conditions",
@@ -666,6 +736,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="weekly",
         raw_series=("FRED:NFCICREDIT",),
         raw_family="NFCI",
+        independence_group="broad_financial_conditions_composite",
         mechanism="broad_credit_path_contraction",
         transform="NFCI credit subindex, weekly 1y rolling z-score, ffill to daily",
         builder=lambda p: _component(_series(p, "FRED:NFCICREDIT", limit=7), freq="weekly"),
@@ -680,6 +751,9 @@ PROXY_REGISTRY: list[ProxySpec] = [
     # BAA10YM 长历史代理(降级为 auxiliary)。这是用户方案的"K 不要只有一个版本":
     #   K_DAILY_SURFACE = HY-IG / BBB-IG / Δ²(HY-IG)         (daily core, 2023+)
     #   K_HISTORICAL    = BAA10YM level / delta (monthly aux, 1953+)
+    # v2: OAS credit surface data (BAMLH0A0HYM2, BAMLC0A0CM, BAMLC0A4CBBB)
+    #     is exclusively owned by K. X_REALIZED no longer reads OAS raw series.
+    #     K_cp_bill_acceleration migrated to D_funding_acceleration_diagnostic.
     ProxySpec(
         name="K_credit_surface_HY_minus_IG",
         target_variable="K",
@@ -687,6 +761,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:BAMLH0A0HYM2", "FRED:BAMLC0A0CM"),
         raw_family="OAS_CREDIT",
+        independence_group="credit_surface",
         mechanism="credit_surface_slope",
         transform="HY OAS minus IG OAS, daily 21d mean, daily 252d rolling z-score",
         builder=lambda p: _component(
@@ -703,6 +778,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:BAMLC0A4CBBB", "FRED:BAMLC0A0CM"),
         raw_family="OAS_CREDIT",
+        independence_group="credit_surface",
         mechanism="credit_surface_internal_curvature",
         transform="BBB OAS minus IG OAS, daily 21d mean, daily 252d rolling z-score",
         builder=lambda p: _component(
@@ -719,15 +795,17 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:BAMLH0A0HYM2", "FRED:BAMLC0A0CM"),
         raw_family="OAS_CREDIT",
+        independence_group="credit_surface",
         mechanism="credit_surface_nonlinear_break",
         transform="abs second-difference of HY-IG slope (5d), daily 21d mean, daily z-score",
         builder=lambda p: _component(
             _accel_abs(_spread(p, "FRED:BAMLH0A0HYM2", "FRED:BAMLC0A0CM"), periods=5),
             freq="daily",
         ),
-        allow_derivative_reuse=True,
         note="Δ² captures sudden curvature breaks (the kink, not the level). "
-             "Designed to fire during regime changes like COVID-3-2020 / SVB-3-2023.",
+             "Designed to fire during regime changes like COVID-3-2020 / SVB-3-2023. "
+             "v2: allow_derivative_reuse removed — intra-channel derivatives are fine; "
+             "the flag only matters for cross-channel sharing which no longer occurs.",
     ),
     ProxySpec(
         name="K_baa10ym_level",
@@ -736,6 +814,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="monthly",
         raw_series=("FRED:BAA10YM",),
         raw_family="FRED_CREDIT_LEVEL",
+        independence_group="credit_surface",
         mechanism="credit_curve_deformation",
         transform="BAA-10Y spread level (monthly), 12-month rolling z-score, ffill to daily",
         builder=lambda p: _component(_series(p, "FRED:BAA10YM", limit=35), freq="monthly"),
@@ -749,27 +828,14 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="monthly",
         raw_series=("FRED:BAA10YM",),
         raw_family="FRED_CREDIT_LEVEL",
+        independence_group="cross_asset_curvature",
         mechanism="credit_curve_transition_speed",
         transform="absolute monthly Δ BAA-10Y (native-freq diff), monthly 12m z-score, ffill to daily",
         builder=lambda p: _component(
             _native_freq_diff_abs(_series(p, "FRED:BAA10YM", limit=35), freq="monthly", periods=1),
             freq="monthly",
         ),
-        allow_derivative_reuse=True,
         note="K_HISTORICAL: monthly BAA-10Y change. Auxiliary after Phase 2.",
-    ),
-    ProxySpec(
-        name="K_cp_bill_acceleration",
-        target_variable="K",
-        tier="diagnostic_only",  # Phase 1: 与 D core 同源,实质是 D 的二阶导,不应投票
-        freq="daily",
-        raw_series=("FRED:DCPF3M", "FRED:DGS3MO"),
-        raw_family="FRED_FUNDING",
-        mechanism="short_funding_transition_deformation",
-        transform="second difference of CP-bill spread, absolute, daily 21d mean, daily rolling z-score",
-        builder=lambda p: _component(_accel_abs(_spread(p, "FRED:DCPF3M", "FRED:DGS3MO"), periods=5), freq="daily"),
-        allow_derivative_reuse=True,
-        note="Phase 1: demoted to diagnostic_only (raw_family 与 D_cp_bill_funding_access 同源).",
     ),
 
     # ── X_PRE (Shadow Accumulation) ──────────────────────────────────────────
@@ -786,6 +852,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="weekly",
         raw_series=("FRED:NFCILEVERAGE",),
         raw_family="NFCI",
+        independence_group="hidden_leverage",
         mechanism="hidden_leverage_trace",
         transform="NFCI leverage subindex, weekly 1y rolling z-score, ffill to daily",
         builder=lambda p: _component(_series(p, "FRED:NFCILEVERAGE", limit=7), freq="weekly"),
@@ -798,6 +865,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="weekly",
         raw_series=("FRED:STLFSI4",),
         raw_family="STLFSI",
+        independence_group="pre_realization_pressure",
         mechanism="independent_pre_realization_stress_index",
         transform="St. Louis Fed Financial Stress Index, weekly 1y rolling z-score, ffill to daily",
         builder=lambda p: _component(_series(p, "FRED:STLFSI4", limit=7), freq="weekly"),
@@ -812,6 +880,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="weekly",
         raw_series=("FRED:NFCIRISK",),
         raw_family="NFCI",
+        independence_group="hidden_leverage",
         mechanism="shadow_risk_accumulation_trace",
         transform="NFCI risk subindex, weekly 1y rolling z-score, ffill to daily",
         builder=lambda p: _component(_series(p, "FRED:NFCIRISK", limit=7), freq="weekly"),
@@ -823,9 +892,15 @@ PROXY_REGISTRY: list[ProxySpec] = [
     #
     # Phase 4 拆为 OFFICIAL × MARKET 双族:
     #   OFFICIAL (H41_RESCUE) — 官方救助柜台被使用 (沉默 → 危机点亮)
-    #   MARKET   (VIX_JUMP / OAS_JUMP) — 市场强制变现冲击 (跳跃日)
-    # 两族同尺度合成 X_REALIZED, 解决了"平时只看 H4.1 显得哑巴"问题, 也让
-    # 非央行救助型危机 (Volmageddon, August 2024 carry unwind) 有机会激活。
+    #   MARKET   (VIX_JUMP)    — 市场强制变现冲击 (跳跃日)
+    # v2: OAS_JUMP proxies removed from X_REALIZED. BAMLH0A0HYM2/BAMLC0A0CM/
+    #     BAMLC0A4CBBB are exclusively owned by K (credit_surface). OAS credit
+    #     data entering X_REALIZED core was a core-contract violation — same
+    #     credit-spread event counted twice (once as surface deformation K,
+    #     once as forced realization X_REALIZED).
+    #     X_REALIZED market leg is now VIX-only. MOVE / Treasury basis stress
+    #     can be added later as independent families within volatility_jump
+    #     and forced_liquidation_marker.
     #
     # ── OFFICIAL (H41_RESCUE) ──
     ProxySpec(
@@ -835,6 +910,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="sparse",
         raw_series=("H41:primary_credit",),
         raw_family="H41_RESCUE",
+        independence_group="official_liquidity_facility",
         mechanism="official_support_usage",
         transform="primary credit usage, log1p, expanding-max-normalized activation score (5d window)",
         builder=lambda p: _component(_series(p, "H41:primary_credit", limit=14), freq="sparse"),
@@ -846,6 +922,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="sparse",
         raw_series=("H41:discount_window",),
         raw_family="H41_RESCUE",
+        independence_group="official_liquidity_facility",
         mechanism="official_support_usage",
         transform="discount window usage, log1p, expanding-max-normalized activation score",
         builder=lambda p: _component(_series(p, "H41:discount_window", limit=14), freq="sparse"),
@@ -857,12 +934,16 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="sparse",
         raw_series=("H41:btfp",),
         raw_family="H41_RESCUE",
+        independence_group="official_liquidity_facility",
         mechanism="post_2023_forced_realization_facility",
         transform="BTFP usage, log1p, expanding-max-normalized activation score",
         builder=lambda p: _component(_series(p, "H41:btfp", limit=14), freq="sparse"),
     ),
-
     # ── MARKET (forced realization without official rescue) ──
+    # v2: OAS_JUMP removed — credit-spread shock detection is K's domain.
+    #     VIX is the sole market-leg proxy for now. Coverage is thinner
+    #     (VIX-only vs VIX+OAS) but cleaner: no double-counting of credit
+    #     events across K and X_REALIZED.
     ProxySpec(
         name="X_REALIZED_vix_jump",
         target_variable="X_REALIZED",
@@ -870,40 +951,13 @@ PROXY_REGISTRY: list[ProxySpec] = [
         freq="daily",
         raw_series=("FRED:VIXCLS",),
         raw_family="VIX_JUMP",
+        independence_group="volatility_jump",
         mechanism="market_implied_volatility_shock",
         transform="|Δ VIX(1d)|, daily 21d mean, daily 252d z-score, positive part",
         builder=lambda p: _jump_activation_score(_series(p, "FRED:VIXCLS")),
         note="VIXCLS 1990-01+. Captures forced-deleveraging / unwind days that "
              "do not trigger official facilities (e.g. Volmageddon 2018, "
              "August 2024 carry unwind, Repo 2019 mid-day).",
-    ),
-    ProxySpec(
-        name="X_REALIZED_hy_oas_jump",
-        target_variable="X_REALIZED",
-        tier="core",
-        freq="daily",
-        raw_series=("FRED:BAMLH0A0HYM2",),
-        raw_family="OAS_JUMP",
-        mechanism="credit_spread_shock",
-        transform="|Δ HY OAS(1d)|, daily 21d mean, daily 252d z-score, positive part",
-        builder=lambda p: _jump_activation_score(_series(p, "FRED:BAMLH0A0HYM2")),
-        allow_derivative_reuse=True,  # 同一原始序列也用于 K_credit_surface_HY_minus_IG (level), 这里用 |Δ|
-        note="HY OAS 2023-05+. Credit-side market forced realization without "
-             "facility activation. Shares raw series with K's level/spread "
-             "proxy but operates on its first difference (different mechanism).",
-    ),
-    ProxySpec(
-        name="X_REALIZED_hy_minus_ig_jump",
-        target_variable="X_REALIZED",
-        tier="auxiliary",
-        freq="daily",
-        raw_series=("FRED:BAMLH0A0HYM2", "FRED:BAMLC0A0CM"),
-        raw_family="OAS_JUMP",
-        mechanism="credit_curve_dislocation_shock",
-        transform="|Δ (HY OAS - IG OAS)(1d)|, daily 21d mean, daily z-score, positive part",
-        builder=lambda p: _jump_activation_score(_spread(p, "FRED:BAMLH0A0HYM2", "FRED:BAMLC0A0CM")),
-        note="Differential jump: HY blowing out vs IG simultaneously dislocating; "
-             "captures unique forced-realization mechanism beyond raw HY level jump.",
     ),
 ]
 
@@ -931,6 +985,7 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
             "freq": spec.freq,
             "raw_series": list(spec.raw_series),
             "raw_family": spec.raw_family,
+            "independence_group": spec.independence_group,
             "mechanism": spec.mechanism,
             "transform": spec.transform,
             "allow_derivative_reuse": spec.allow_derivative_reuse,
@@ -1004,6 +1059,8 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
             coverage[ch] = (valid.sum(axis=1) / n_in_roster.clip(lower=1)).fillna(0.0)
         confidence[ch] = coverage[ch].map(confidence_label)
 
+    semantic = SemanticRegistry(SEMANTIC_REGISTRY_PATH)
+    registry_rows = [semantic.attach_metadata(row, row["target_variable"]) for row in registry_rows]
     audit = audit_measurement_layers(channels, component_values, registry_rows, panel)
     return MeasurementBundle(
         channels=channels.clip(-4, 4),
@@ -1031,22 +1088,115 @@ def audit_measurement_layers(
     registry_rows: list[dict],
     panel: pd.DataFrame,
 ) -> dict:
+    """v2: hardened measurement audit with CORE/DIGANOSTIC tier enforcement.
+
+    CORE raw-series sharing across channels → HARD_ERROR (blocks execution).
+    allow_derivative_reuse no longer silences; emits AUTHORIZED_SHARED_DERIVATIVE.
+    independence_group cross-channel sharing enforced for CORE tier.
+    core_contract violations downgrade or fail based on tier.
+    """
     available = [r for r in registry_rows if r["available"]]
     voting = [r for r in available if r["tier"] in ("core", "auxiliary")]
+    core_rows = [r for r in available if r["tier"] == "core"]
+    diagnostic_rows = [r for r in available if r["tier"] not in ("core", "auxiliary")]
 
-    # 1) Same-raw-series contamination (legacy check)
-    raw_core_channels: dict[str, set[str]] = {}
-    duplicate_raw: list[dict] = []
-    for row in voting:
-        if row["tier"] != "core" or row["allow_derivative_reuse"]:
-            continue
+    # ── 1) CORE raw-series isolation (HARD_ERROR) ──────────────────────────
+    core_raw_channels: dict[str, set[str]] = {}
+    core_raw_sharing: list[dict] = []
+    for row in core_rows:
         for raw in row["raw_series"]:
-            raw_core_channels.setdefault(raw, set()).add(row["target_variable"])
-    for raw, channels_seen in raw_core_channels.items():
+            core_raw_channels.setdefault(raw, set()).add(row["target_variable"])
+    for raw, channels_seen in core_raw_channels.items():
         if len(channels_seen) > 1:
-            duplicate_raw.append({"raw_series": raw, "channels": sorted(channels_seen)})
+            core_raw_sharing.append({
+                "raw_series": raw,
+                "channels": sorted(channels_seen),
+                "severity": "HARD_ERROR",
+                "message": f"CORE RAW-SERIES SHARING: {raw} appears in {sorted(channels_seen)}",
+            })
 
-    # 2) Cross-channel statistics
+    # ── 2) Authorized / diagnostic shared-source detection ──────────────────
+    authorized_shared_derivative: list[dict] = []
+    diagnostic_shared_source: list[dict] = []
+    all_voting_raw: dict[str, set[str]] = {}
+    for row in voting:
+        for raw in row["raw_series"]:
+            all_voting_raw.setdefault(raw, set()).add(row["target_variable"])
+    # Check diagnostic rows against voting channels
+    for row in diagnostic_rows:
+        for raw in row["raw_series"]:
+            if raw in all_voting_raw:
+                voting_chs = all_voting_raw[raw] - {row["target_variable"]}
+                if voting_chs:
+                    diagnostic_shared_source.append({
+                        "raw_series": raw,
+                        "diagnostic_proxy": row["name"],
+                        "diagnostic_channel": row["target_variable"],
+                        "voting_channels": sorted(voting_chs),
+                        "severity": "DIAGNOSTIC_SHARED_SOURCE",
+                    })
+    # allow_derivative_reuse → now emits AUTHORIZED, not silent
+    for row in voting:
+        if row.get("allow_derivative_reuse"):
+            for raw in row["raw_series"]:
+                if raw in all_voting_raw and len(all_voting_raw[raw]) > 1:
+                    authorized_shared_derivative.append({
+                        "raw_series": raw,
+                        "channels": sorted(all_voting_raw[raw]),
+                        "proxy": row["name"],
+                        "tier": row["tier"],
+                        "reason": "allow_derivative_reuse=True on proxy",
+                        "severity": "AUTHORIZED_SHARED_DERIVATIVE",
+                    })
+
+    # ── 3) independence_group cross-channel enforcement ─────────────────────
+    group_channels: dict[str, set[str]] = {}
+    group_sharing: list[dict] = []
+    for row in core_rows:
+        g = row.get("independence_group", "")
+        if not g:
+            continue
+        group_channels.setdefault(g, set()).add(row["target_variable"])
+    for g, chs in group_channels.items():
+        if len(chs) > 1:
+            group_sharing.append({
+                "independence_group": g,
+                "channels": sorted(chs),
+                "severity": "HARD_ERROR",
+                "message": f"INDEPENDENCE_GROUP CROSSING: {g!r} in CORE of {sorted(chs)}",
+            })
+
+    # ── 4) core_contract violations ─────────────────────────────────────────
+    core_contract_violations: list[dict] = []
+    for row in core_rows + [r for r in voting if r["tier"] == "auxiliary"]:
+        var = VARIABLES.get(row["target_variable"])
+        if var is None or not var.core_contract:
+            continue
+        g = row.get("independence_group", "")
+        if not g:
+            continue
+        allowed = set(var.core_contract.get("allowed_groups", ()))
+        forbidden = set(var.core_contract.get("forbidden_groups", ()))
+        if g in forbidden:
+            core_contract_violations.append({
+                "channel": row["target_variable"],
+                "proxy": row["name"],
+                "tier": row["tier"],
+                "independence_group": g,
+                "violation": "FORBIDDEN_GROUP",
+                "message": f"{row['name']} (group={g!r}) violates {row['target_variable']} core_contract forbidden_groups",
+            })
+        elif allowed and g not in allowed:
+            core_contract_violations.append({
+                "channel": row["target_variable"],
+                "proxy": row["name"],
+                "tier": row["tier"],
+                "independence_group": g,
+                "violation": "UNLISTED_GROUP",
+                "message": f"{row['name']} (group={g!r}) not in {row['target_variable']} core_contract allowed_groups",
+            })
+
+    # ── 5) Cross-channel statistics (unchanged from v1) ─────────────────────
     channel_corr = channels[CHANNELS].corr(min_periods=252).round(3).fillna(0.0)
     max_corr = 0.0
     if len(channel_corr) > 1:
@@ -1056,35 +1206,43 @@ def audit_measurement_layers(
     residual_uniqueness = compute_residual_uniqueness(channels, panel)
     pc1_variance = compute_pc1_variance(channels)
     vif = compute_vif(channels)
-
-    # 3) NEW — per-channel proxy family concentration
-    #    For each variable, what share of voting (core+aux) proxies comes from each raw_family?
     family_concentration = compute_family_concentration(voting)
-
-    # 4) NEW — derivative contamination
-    #    Is K aggregate effectively the second derivative of D aggregate
-    #    (or any other channel a derivative of another)?
     derivative_contamination = compute_derivative_contamination(channels)
-
-    # 5) NEW — sparsity-induced false independence
-    #    A channel with very low non-zero coverage can have artificially low
-    #    correlation. Flag it so 'independence' is not over-interpreted.
     sparsity_flag = compute_sparsity_flags(channels, registry_rows)
-
-    # 6) NEW — variable contract violations
-    #    Each variable declares an expected_freq. Its core proxies should
-    #    match (or be lower-frequency, with explicit allowance).
     contract_violations = compute_contract_violations(registry_rows)
-
-    # 7) NEW (Phase 5) — horizon consistency
-    #    Flag channels whose voting proxies mix frequencies without an
-    #    explicit "mixed" contract; simple-mean aggregation over different
-    #    frequencies under-represents the daily content.
     horizon_consistency = compute_horizon_consistency(registry_rows)
 
+    # ── 6) Build warnings (v2: tier-aware severity) ─────────────────────────
     warnings: list[str] = []
-    if duplicate_raw:
-        warnings.append("MEASUREMENT_CONTAMINATION: same raw core series appears in multiple channels.")
+
+    # HARD_ERROR — core raw-series sharing (blocks execution)
+    hard_errors: list[str] = []
+    for item in core_raw_sharing:
+        hard_errors.append(item["message"])
+    for item in group_sharing:
+        hard_errors.append(item["message"])
+
+    # AUTHORIZED (was silences; now visible)
+    for item in authorized_shared_derivative:
+        warnings.append(
+            f"AUTHORIZED_SHARED_DERIVATIVE: {item['proxy']} ({item['tier']}) "
+            f"shares raw_series={item['raw_series']!r} across {item['channels']}. "
+            f"reason={item['reason']}"
+        )
+
+    # DIAGNOSTIC (info-level, always visible)
+    for item in diagnostic_shared_source:
+        warnings.append(
+            f"DIAGNOSTIC_SHARED_SOURCE: {item['diagnostic_proxy']} "
+            f"({item['diagnostic_channel']}, diagnostic) reads {item['raw_series']!r} "
+            f"which also feeds {item['voting_channels']} voting."
+        )
+
+    # Core contract violations
+    for v in core_contract_violations:
+        warnings.append(f"CORE_CONTRACT_VIOLATION: {v['message']}")
+
+    # Statistical warnings (unchanged thresholds)
     if max_corr >= 0.85:
         warnings.append("CHANNEL_COLLAPSE: pairwise channel correlation exceeds 0.85.")
     elif max_corr >= 0.70:
@@ -1097,7 +1255,7 @@ def audit_measurement_layers(
     if weak:
         warnings.append(f"RESIDUAL_UNIQUENESS_WEAK: {', '.join(weak)} residual uniqueness below 0.20.")
 
-    # Family-concentration warnings
+    # Family warnings
     for ch, fams in family_concentration.items():
         if not fams:
             continue
@@ -1106,7 +1264,6 @@ def audit_measurement_layers(
             warnings.append(
                 f"FAMILY_MONOCULTURE: {ch} is {top_share:.0%} sourced from raw_family={top_family!r}."
             )
-    # Cross-channel family co-occupation
     family_overlap_pairs: list[tuple[str, str, str]] = []
     for ch1 in CHANNELS:
         for ch2 in CHANNELS:
@@ -1125,30 +1282,22 @@ def audit_measurement_layers(
             f"FAMILY_CONTAMINATION: {ch1} and {ch2} both depend on raw_family={fam!r} "
             f"with corr={channel_corr.loc[ch1, ch2]:.2f}."
         )
-
-    # Derivative contamination warnings
     for entry in derivative_contamination:
         warnings.append(
             f"DERIVATIVE_CONTAMINATION: {entry['channel']} ~ Δ^{entry['order']}({entry['source']}) "
             f"corr={entry['correlation']:.2f}."
         )
-
-    # Sparsity false-independence warnings
     for ch, info in sparsity_flag.items():
         if info["false_independence"]:
             warnings.append(
                 f"SPARSITY_FALSE_INDEPENDENCE: {ch} non_zero_coverage={info['non_zero_coverage']:.2f}, "
                 f"low cross-channel R^2 may be due to dormancy, not orthogonality."
             )
-
-    # Contract violations
     for v in contract_violations:
         warnings.append(
             f"CONTRACT_VIOLATION: variable={v['variable']} expects freq={v['expected_freq']!r}, "
             f"but core proxy={v['proxy']!r} is freq={v['actual_freq']!r}."
         )
-
-    # Horizon inconsistency (Phase 5)
     for ch, info in horizon_consistency.items():
         if info.get("warning"):
             horizons_str = ", ".join(f"{f}×{n}" for f, n in info["horizons"].items())
@@ -1159,7 +1308,12 @@ def audit_measurement_layers(
             )
 
     return {
-        "duplicate_raw_core": duplicate_raw,
+        "hard_errors": hard_errors,
+        "core_raw_sharing": core_raw_sharing,
+        "independence_group_sharing": group_sharing,
+        "authorized_shared_derivative": authorized_shared_derivative,
+        "diagnostic_shared_source": diagnostic_shared_source,
+        "core_contract_violations": core_contract_violations,
         "channel_correlation": channel_corr.to_dict(),
         "max_abs_channel_correlation": max_corr,
         "pc1_variance_share": pc1_variance,
@@ -1809,6 +1963,61 @@ def generate_report(
         vif = bundle.audit["vif"].get(ch, 0.0)
         lines.append(f"| {ch} | {ru:.3f} | {vif:.2f} |")
 
+    # v2: independence enforcement report
+    raw_sharing = bundle.audit.get("core_raw_sharing", [])
+    group_sharing = bundle.audit.get("independence_group_sharing", [])
+    authorized = bundle.audit.get("authorized_shared_derivative", [])
+    diagnostic_shared = bundle.audit.get("diagnostic_shared_source", [])
+    contract_vios = bundle.audit.get("core_contract_violations", [])
+    hard_errs = bundle.audit.get("hard_errors", [])
+
+    lines += [
+        "",
+        "### v2 Core Isolation Enforcement",
+        "",
+        f"**HARD_ERROR count:** {len(hard_errs)}",
+        f"**Core raw-series sharing violations:** {len(raw_sharing)}",
+        f"**Independence-group crossings:** {len(group_sharing)}",
+        f"**Authorized shared derivatives:** {len(authorized)}",
+        f"**Diagnostic shared sources:** {len(diagnostic_shared)}",
+        f"**Core contract violations:** {len(contract_vios)}",
+    ]
+
+    if raw_sharing:
+        lines += ["", "#### Raw-series sharing (CORE tier)", ""]
+        for item in raw_sharing:
+            lines.append(f"- **{item['severity']}**: {item['raw_series']} → {item['channels']}")
+
+    if group_sharing:
+        lines += ["", "#### Independence-group crossings (CORE tier)", ""]
+        for item in group_sharing:
+            lines.append(f"- **{item['severity']}**: {item['independence_group']!r} → {item['channels']}")
+
+    if authorized:
+        lines += ["", "#### Authorized shared derivatives", ""]
+        for item in authorized:
+            lines.append(
+                f"- {item['proxy']} ({item['tier']}): raw={item['raw_series']!r} "
+                f"across {item['channels']}, reason={item['reason']}"
+            )
+
+    if diagnostic_shared:
+        lines += ["", "#### Diagnostic shared sources", ""]
+        for item in diagnostic_shared:
+            lines.append(
+                f"- {item['diagnostic_proxy']} ({item['diagnostic_channel']}): "
+                f"raw={item['raw_series']!r} feeds {item['voting_channels']} voting"
+            )
+
+    if contract_vios:
+        lines += ["", "#### Core contract violations", ""]
+        for v in contract_vios:
+            lines.append(
+                f"- {v['proxy']} ({v['tier']}, group={v['independence_group']!r}): "
+                f"{v['violation']} in {v['channel']}"
+            )
+
+    # Original governance flags
     if bundle.audit["warnings"]:
         lines += ["", "### Governance Flags", ""]
         for warning in bundle.audit["warnings"]:
@@ -1914,6 +2123,15 @@ def generate_report(
         "7. **No OOS validation:** This is a historical replay, not a walk-forward backtest.",
         "8. **Data vintage:** All series use latest-vintage data, not real-time vintages available at each event date.",
         "",
+        "---",
+        "",
+        "## Actionable Verdict",
+        "- Verdict: ACTION_REQUIRED",
+        "- Severity: MEDIUM",
+        "- Owner: governance",
+        "- Required Action: Treat proxy outputs according to attached semantic metadata and promotion routing gate.",
+        "- Closure Condition: Reports pass verdict gate, proxy registry carries semantic metadata, and promotion decision is explicit.",
+        "",
     ]
 
     return "\n".join(lines)
@@ -1921,14 +2139,30 @@ def generate_report(
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def main() -> int:
+def main(cfg: DictConfig) -> None:
+    # Resolve paths from cfg, then write config_snapshot.json BEFORE any work
+    # begins. This closes the governance gap recorded for 2026-04-22_WEEKLY:
+    # the snapshot now reflects the resolved config at run start, not a
+    # backfill.
+    output_dir = Path(cfg.output.dir)
+    event_dir = output_dir / cfg.output.event_subdir
+    panel_path = Path(cfg.panel.path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    event_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = OmegaConf.to_container(cfg, resolve=True)
+    (output_dir / "config_snapshot.json").write_text(
+        json.dumps(snapshot, indent=2, default=str)
+    )
+
     print("=" * 70)
     print("Structural Deformation System — Path Replay v0.3")
+    print(f"  release={cfg.panel.release_id}  tag={cfg.run.tag}")
+    print(f"  output={output_dir}")
     print("=" * 70)
 
     # 1. Load data
     print("\n[1/4] Loading official Harvester panel...")
-    panel = load_official_panel()
+    panel = load_official_panel(panel_path)
     print(f"  Panel: {panel.shape[1]} series, {len(panel)} days")
     print(f"  Range: {panel.index.min().date()} -> {panel.index.max().date()}")
     present = [c.replace('FRED:', '').replace('H41:', '').replace('TREASURY:', '').replace('YFINANCE:', '') for c in panel.columns]
@@ -1938,6 +2172,16 @@ def main() -> int:
     print("\n[2/4] Building audited M/D/K/X_PRE/X_REALIZED measurement layer...")
     bundle = build_measurement_bundle(panel)
     channels = bundle.channels
+
+    # v2: check hard_errors before proceeding
+    hard_errors = bundle.audit.get("hard_errors", [])
+    if hard_errors:
+        print("\n  *** HARD_ERROR — core measurement isolation violated ***")
+        for err in hard_errors:
+            print(f"    {err}")
+        print("  Aborting. Fix raw-series or independence_group sharing before re-running.")
+        sys.exit(1)
+
     thresholds = calibrate_path_thresholds(channels)
     # Phase 4: realized-activation audit needs thresholds, computed after the
     # main audit pass, then merged into bundle.audit so downstream report code
@@ -1995,11 +2239,25 @@ def main() -> int:
         ],
         axis=1,
     )
-    all_signals.to_parquet(OUTPUT_DIR / "all_signals.parquet")
-    bundle.components.to_parquet(OUTPUT_DIR / "proxy_components.parquet")
-    bundle.coverage.to_parquet(OUTPUT_DIR / "channel_coverage.parquet")
-    (OUTPUT_DIR / "proxy_registry.json").write_text(json.dumps(bundle.registry, indent=2))
-    (OUTPUT_DIR / "measurement_audit.json").write_text(json.dumps(bundle.audit, indent=2, default=str))
+    all_signals.to_parquet(output_dir / "all_signals.parquet")
+    bundle.components.to_parquet(output_dir / "proxy_components.parquet")
+    bundle.coverage.to_parquet(output_dir / "channel_coverage.parquet")
+    latest_scores = {
+        channel: float(bundle.channels[channel].dropna().iloc[-1])
+        for channel in CHANNELS
+        if channel in bundle.channels and not bundle.channels[channel].dropna().empty
+    }
+    latest_scores["operator_penalty"] = float(bundle.audit.get("pc1_variance_share", 0.0))
+    semantic = SemanticRegistry(SEMANTIC_REGISTRY_PATH)
+    sigma_vector = build_sigma_vector(latest_scores, semantic)
+    sigma_output = {
+        "sigma_scalar": None,
+        "sigma_vector": sigma_vector,
+        "interpretation_scope": "scalar summary only; structural interpretation requires sigma_vector",
+    }
+    (output_dir / "proxy_registry.json").write_text(json.dumps(bundle.registry, indent=2))
+    (output_dir / "sigma_vector.json").write_text(json.dumps(sigma_output, indent=2))
+    (output_dir / "measurement_audit.json").write_text(json.dumps(bundle.audit, indent=2, default=str))
     print(f"  Signals: {all_signals.shape[1]} columns")
 
     # 4. Analyze
@@ -2007,7 +2265,7 @@ def main() -> int:
     results = []
     for ev in STRESS_EVENTS:
         peak = pd.Timestamp(ev["peak"])
-        if peak < panel.index.min() + pd.Timedelta(days=365):
+        if peak < panel.index.min() + pd.Timedelta(days=cfg.run.pre_event_warmup_days):
             print(f"  SKIP {ev['name']}: insufficient pre-peak data")
             continue
         r = analyze_event(ev, benchmarks, bundle, thresholds)
@@ -2017,7 +2275,7 @@ def main() -> int:
         pre = pd.Timestamp(ev["pre_start"])
         post = pd.Timestamp(ev["post_end"])
         ev_data = all_signals[(all_signals.index >= pre) & (all_signals.index <= post)]
-        ev_data.to_csv(EVENT_DIR / f"{ev['id']}_signals.csv")
+        ev_data.to_csv(event_dir / f"{ev['id']}_signals.csv")
 
         print(f"  {ev['name']}: regime={r.peak_regime}, path={r.path_text}")
 
@@ -2028,7 +2286,9 @@ def main() -> int:
             r.notes.append(f"Calm window {contamination[r.event_id]}")
 
     report = generate_report(results, bundle, thresholds, contamination)
-    (OUTPUT_DIR / "evaluation_report.md").write_text(report)
+    report_path = output_dir / "evaluation_report.md"
+    report_path.write_text(report)
+    validate_report_verdict(report_path)
 
     # JSON results
     json_results = []
@@ -2046,15 +2306,14 @@ def main() -> int:
             "governance_flags": r.governance_flags,
             "notes": r.notes,
         })
-    (OUTPUT_DIR / "results.json").write_text(json.dumps(json_results, indent=2, default=str))
+    (output_dir / "results.json").write_text(json.dumps(json_results, indent=2, default=str))
 
     print(f"\n{'='*70}")
     print(f"Evaluation complete. {len(results)} events analyzed.")
     print("  Output mode: path diagnostics, no scalar evaluation target.")
-    print(f"  Report: {OUTPUT_DIR / 'evaluation_report.md'}")
+    print(f"  Report: {output_dir / 'evaluation_report.md'}")
     print(f"{'='*70}")
-    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main(load_cfg())
