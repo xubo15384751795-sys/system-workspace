@@ -36,11 +36,11 @@ def test_openbb_secondary_audit_path_is_observe_only() -> None:
 def test_folder_ownership_declares_tool_and_framework_roots() -> None:
     text = (ROOT / "FOLDER_OWNERSHIP.md").read_text(encoding="utf-8")
     assert "Workbench/" in text
-    assert "Workbench/data_providers/structural-risk-harvester/" in text
-    assert "Workbench/agent_harness/structural-research-harness/" in text
-    assert "Workbench/governance/system-learning-hub/" in text
+    assert "structural-risk-harvester/" in text
+    assert "Workbench/agents/harness/" in text
+    assert "system-learning-hub/" in text
     assert "Workbench/contracts/workbench/" in text
-    assert "Workbench/src/workbench/workspace/" in text
+    assert "Workbench/src/workbench/" in text
     assert "Structural Deformation Research System/" in text
     assert "Constitution-Level Red Line" in text
 
@@ -54,9 +54,9 @@ def test_legacy_tool_paths_are_symlinks_into_workbench() -> None:
     assert harness.is_symlink()
     assert learning.is_symlink()
     assert contracts.is_symlink()
-    assert harvester.resolve() == ROOT / "Workbench" / "data_providers" / "structural-risk-harvester"
-    assert harness.resolve() == ROOT / "Workbench" / "agent_harness" / "structural-research-harness"
-    assert learning.resolve() == ROOT / "Workbench" / "governance" / "system-learning-hub"
+    assert harvester.resolve() == ROOT / "structural-risk-harvester"
+    assert harness.resolve() == ROOT / "Workbench" / "agents" / "harness"
+    assert learning.resolve() == ROOT / "system-learning-hub"
     assert contracts.resolve() == ROOT / "Workbench" / "contracts"
 
 

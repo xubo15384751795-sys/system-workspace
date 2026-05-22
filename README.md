@@ -45,43 +45,59 @@ Sandbox         =  experimental isolation        (OpenBB / Qlib probes)
 System/
 ├── Data/                                  # source of truth (durable, machine-readable)
 ├── Output/                                # run packages + human-facing artifacts
-├── Workbench/                             # Product / Tool layer source
-│   ├── data_providers/structural-risk-harvester/
-│   └── agent_harness/structural-research-harness/
-│   └── governance/system-learning-hub/
-├── scripts/                               # workspace-level scripts (see below)
+├── Workbench/                             # Product / Tool layer (nested git)
+│   ├── src/workbench/                     # cockpit, dashboards, workspace utils
+│   ├── src/nlp/                           # structural NLP library
+│   ├── agents/harness/                    # agent/API harness
+│   └── contracts/workbench/               # Workbench JSON schemas
+├── structural-risk-harvester/             # Data Provider repo (nested git)
+├── system-learning-hub/                   # Governance memory repo (nested git)
+├── Structural Deformation Research System/  # Framework repo (nested git)
+├── scripts/                               # workspace-level scripts (see FOLDER_OWNERSHIP.md)
+├── protocols/                             # cross-module JSON schemas
+├── governance/                            # constitution + authority registries
 ├── contracts -> Workbench/contracts
-├── Structural Risk Harvester -> Workbench/data_providers/structural-risk-harvester
-├── Structural Research Harness -> Workbench/agent_harness/structural-research-harness
-├── Structural Deformation Research System/# Deformation source code
-├── System Learning Hub -> Workbench/governance/system-learning-hub
-├── ROUTING_CONSTITUTION.md                # always-active routing rules
-├── expert_activation_map.yaml             # task-to-expert routing map
-└── routing_decision_record.template.yaml  # template for non-trivial routing decisions
+├── Structural Risk Harvester -> structural-risk-harvester/
+├── Structural Research Harness -> Workbench/agents/harness/
+├── System Learning Hub -> system-learning-hub/
+├── ROUTING_CONSTITUTION.md
+└── routing_decision_record.template.yaml
 ```
 
-Workbench owns Product/Tool source, including data providers, agent harnesses, governance memory, workspace utilities, and protocol contracts. Deformation owns Framework source. Protocols are available through `contracts/workbench/` as a compatibility path.
+See `governance/repo_layout_map.md` for doc-vs-reality history and migration backlog.
+
+Workbench owns Product/Tool source inside `Workbench/`. Harvester and Learning
+Hub are **sibling repos at workspace root**, not nested under `Workbench/`.
+Deformation owns Framework source. Protocols live in `protocols/` and
+`Workbench/contracts/workbench/`.
 
 ## Repository Layout (multi-repo)
 
-This workspace assembles **five** GitHub repositories. Only this coordination repo (`system-workspace`) is cloned directly; the rest are populated by `scripts/bootstrap.sh`:
+This workspace assembles **five** GitHub repositories. Clone the coordination repo
+with submodules, or run bootstrap after a plain clone:
 
 | Repo | Local path | Owns |
 |---|---|---|
-| `system-workspace` | `/` (this repo) | root docs, protocols, scripts, configs, the bootstrap script |
+| `system-workspace` | `/` (this repo) | root docs, protocols, scripts, configs, governance |
 | `Structural-Deformation-Research-System` | `Structural Deformation Research System/` | framework core (`src/core`, `src/derivation`, `src/dynamics`, …) |
 | `structural-workbench` | `Workbench/` | NLP pipeline, ML signals, contracts, agent harness, tests |
-| `structural-risk-harvester` | `Workbench/data_providers/structural-risk-harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
-| `system-learning-hub` | `Workbench/governance/system-learning-hub/` | cross-system reliability and governance memory |
+| `structural-risk-harvester` | `structural-risk-harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
+| `system-learning-hub` | `system-learning-hub/` | cross-system reliability and governance memory |
 
-The four top-level symlinks (`Structural Research Harness`, `System Learning Hub`, `Structural Risk Harvester`, `contracts`) all point into `Workbench/`. The bootstrap script recreates them on a fresh checkout.
+Four sister repos are **git submodules** at the paths above (pinned in
+`.gitmodules`). Four top-level symlinks (`Structural Research Harness`,
+`System Learning Hub`, `Structural Risk Harvester`, `contracts`) provide
+human-readable aliases; bootstrap recreates them on a fresh checkout.
+
+Git policy: `governance/git_workspace_policy.md`
 
 ## Setup on a fresh device
 
 ```bash
-git clone git@github.com:xubo15384751795-sys/system-workspace.git System
+git clone --recurse-submodules git@github.com:xubo15384751795-sys/system-workspace.git System
 cd System
-./scripts/bootstrap.sh         # clones the 4 sister repos + recreates symlinks
+./scripts/bootstrap.sh         # symlinks + submodule sync + venv hints
+# Or: plain clone + bootstrap (runs git submodule update --init)
 # Use GH_PROTO=https ./scripts/bootstrap.sh if SSH is not available
 ```
 
@@ -94,7 +110,7 @@ The bootstrap script is idempotent — re-running pulls existing repos rather th
 3. **Latest is a symlink.** Every script and agent must resolve through it (`find -L`, `realpath`). Treating a symlink as an empty directory is a recorded boundary violation.
 4. **Sandbox is isolated.** OpenBB and Qlib probes live under `Output/sandbox/`. They cannot feed Deformation directly; promotion goes through a routing decision and a Harvester release.
 5. **Every artifact has a state** in `{sandbox, run_local, candidate, canonical, archived, deprecated}`.
-6. **Every gap is recorded.** Missing operator_trace, retroactive config_snapshot, latest-symlink misuse — all surface as Learning Hub events under `Output/system_learning/events/`.
+6. **Every gap is recorded.** Missing operator_trace, retroactive config_snapshot, latest-symlink misuse — all append to the Learning Hub runtime log under `Output/system_learning/runtime/` via `scripts/record_runtime_event.py`.
 
 ## Main Flow
 
@@ -129,7 +145,7 @@ python3 scripts/promote_snapshot.py --run <run_id>   # canonicalise a Deformatio
 - Structural interpretation, cases, mechanisms, variables, methods, and claims live in **Deformation**.
 - Generated artifacts live in **Output**.
 - Canonical (post-promotion) artifacts live in **Data**.
-- Cross-system routing rules live in `ROUTING_CONSTITUTION.md` and `expert_activation_map.yaml`.
+- Cross-system routing rules live in `ROUTING_CONSTITUTION.md` and the Agent Routing module.
 
 ## Deformation Downscope
 
@@ -164,8 +180,6 @@ Move or freeze out of Deformation:
 Default posture: smallest sufficient expert set first. Add experts when a task crosses layer boundaries, touches protected artifacts, triggers coupling rules, or prepares an output for release.
 
 - `ROUTING_CONSTITUTION.md`: global deny rules, layer authority, activation discipline.
-- `expert_activation_map.yaml`: task-to-expert routing map for prompt protocols, claim guardians, UI / Harvester boundaries, and Learning Hub governance.
-- `expert_agent_roles.yaml`: named harness-aligned specialist roles (explore / plan / verify / governance queue) for sparse activation documentation.
 - `routing_decision_record.template.yaml`: auditable record template for non-trivial routing decisions; concrete records live under `Output/system_learning/routing_decisions/`.
 
 ## Outstanding Workspace Gaps

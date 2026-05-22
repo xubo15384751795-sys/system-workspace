@@ -68,8 +68,9 @@ def check_hardcoded_paths(files: list[Path]) -> list[str]:
                     continue
                 if '"/Users/' in stripped or "'/Users/" in stripped:
                     findings.append(f"{rel}:{i} — hardcoded absolute path")
-        except Exception:
-            pass
+        except Exception as exc:
+            import sys
+            print(f"WARNING: audit_boundaries: scan error at {rel}:{i}: {exc}", file=sys.stderr)
     return findings
 
 
@@ -103,8 +104,9 @@ def check_forbidden_imports(files: list[Path]) -> list[str]:
                                     f"{rel}:{node.lineno} — {module_name} imports forbidden "
                                     f"module '{alias.name}'"
                                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            import sys
+            print(f"WARNING: audit_boundaries: scan error at {rel}:{i}: {exc}", file=sys.stderr)
     return findings
 
 
@@ -127,8 +129,9 @@ def check_silent_exceptions(files: list[Path]) -> list[str]:
                     )
                     if "pass" in next_lines and "logging" not in next_lines and "logger" not in next_lines:
                         findings.append(f"{rel}:{i + 1} — silent except Exception (no logging)")
-        except Exception:
-            pass
+        except Exception as exc:
+            import sys
+            print(f"WARNING: audit_boundaries: scan error at {rel}:{i}: {exc}", file=sys.stderr)
     return findings
 
 

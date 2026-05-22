@@ -27,13 +27,14 @@ for root, dirs, files in os.walk(tests):
                         and n.name.startswith("test_")
                     ]
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                import sys
+                print(f"WARNING: _count_project: parse error: {exc}", file=sys.stderr)
 print(f"SDRS tests: {tcount} files, {total_tests} test functions")
 
 # Count across entire project
-harv_src = str(PROJECT / "Workbench/data_providers/structural-risk-harvester/src")
-harv_tests = str(PROJECT / "Workbench/data_providers/structural-risk-harvester/tests")
+harv_src = str(PROJECT / "structural-risk-harvester/src")
+harv_tests = str(PROJECT / "structural-risk-harvester/tests")
 nlp_src = str(PROJECT / "Workbench/src/nlp")
 for label, path in [
     ("Harvester src", harv_src),

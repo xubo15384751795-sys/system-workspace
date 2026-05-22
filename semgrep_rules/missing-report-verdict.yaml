@@ -1,0 +1,12 @@
+rules:
+  - id: missing-report-verdict
+    pattern-either:
+      - pattern: |
+          report_verdict = $VAL
+      - pattern: |
+          "verdict": $VAL
+    message: |
+      Reports should pass through validate_report_verdict() (NNF#9).
+    severity: INFO
+    languages:
+      - python

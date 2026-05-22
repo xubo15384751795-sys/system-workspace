@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+pytestmark = pytest.mark.report
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,3 +47,23 @@ def test_report_with_actionable_verdict_passes(tmp_path) -> None:
 
     assert validate_report_verdict(report)["verdict"] == "ACTION_REQUIRED"
 
+
+def test_report_gate_reads_actionable_verdict_not_claim_verdict(tmp_path) -> None:
+    report = tmp_path / "report.md"
+    report.write_text(
+        """
+# Evaluation Report
+
+## Claim
+- Claim Verdict: INSUFFICIENT_DATA
+
+## Actionable Verdict
+- Verdict: BLOCK
+- Severity: HIGH
+- Owner: governance
+- Required Action: Re-run validation loop before promotion.
+""",
+        encoding="utf-8",
+    )
+
+    assert validate_report_verdict(report)["verdict"] == "BLOCK"

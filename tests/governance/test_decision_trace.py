@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+pytestmark = pytest.mark.governance_loop
 
 
 ROOT = Path(__file__).resolve().parents[2]

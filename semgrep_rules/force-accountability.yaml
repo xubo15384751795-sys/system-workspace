@@ -1,0 +1,13 @@
+rules:
+  - id: force-promotion-without-accountability
+    patterns:
+      - pattern-either:
+          - pattern: |
+              "--force"
+          - pattern: |
+              force_promoted: true
+    message: |
+      Force promotion requires --authorized-by and --reason (NNF#26).
+    severity: WARNING
+    languages:
+      - python

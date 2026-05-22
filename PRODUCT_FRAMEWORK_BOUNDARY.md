@@ -112,9 +112,10 @@ Product / Workbench:
   Workbench/src/workbench/contract_validator.py
   Workbench/src/workbench/workspace/
   Workbench/contracts/workbench/
-  Workbench/data_providers/structural-risk-harvester/
-  Workbench/agent_harness/structural-research-harness/
-  Workbench/governance/system-learning-hub/
+  Workbench/contracts/workbench/
+  structural-risk-harvester/
+  Workbench/agents/harness/
+  system-learning-hub/
   scripts/refresh_output_current.py (compatibility wrapper)
   scripts/build_benchmark_evidence_dashboard.py (compatibility wrapper)
   scripts/build_artifact_navigator.py (compatibility wrapper)
@@ -141,15 +142,15 @@ Framework Core:
   Structural Deformation Research System/papers/
 
 Data Provider:
-  Workbench/data_providers/structural-risk-harvester/
+  structural-risk-harvester/
   Structural Risk Harvester/ (compatibility symlink)
   Data/harvester/exports/
 
 Governance Memory:
-  Workbench/governance/system-learning-hub/
+  system-learning-hub/
   System Learning Hub/ (compatibility symlink)
-  Output/system_learning/
   Data/system_learning/
+  Output/system_learning/
 ```
 
 ## Rules
@@ -169,8 +170,9 @@ Governance Memory:
    report artifacts.
 9. Product source code lives in `Workbench/`. Top-level `scripts/` entries for
    Workbench behavior must be thin wrappers.
-10. Data Provider and Agent Harness source are Tool / Workbench source. Their
-   canonical location is under `Workbench/`; old top-level paths are
-   compatibility symlinks only.
-11. Governance memory and Workbench contracts are also under `Workbench/`.
+10. Data Provider and Agent Harness source are separate nested repos or
+    Workbench subfolders. Human-readable symlinks at workspace root are
+    compatibility aliases only.
+11. Governance memory lives in `system-learning-hub/` with canonical artifacts
+    under `Data/system_learning/` and `Output/system_learning/`.
     Top-level `System Learning Hub` and `contracts` are compatibility symlinks.

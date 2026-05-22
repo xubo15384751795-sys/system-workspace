@@ -1,10 +1,11 @@
-# ── Workspace-level gitignore ─────────────────────────────────────────────
-# Structural Deformation Research System
+# ── Workspace-level gitignore (system-workspace) ─────────────────────────
+# Sister repos are git submodules — tracked via .gitmodules, not listed here.
+# Policy: governance/git_workspace_policy.md
 
-# Nested projects published separately (cloned via scripts/bootstrap.sh)
-Structural Deformation Research System/
-Workbench/
+# External tooling installs (not submodules)
 OpenBB/
+
+# Compatibility symlinks — recreated by scripts/bootstrap.sh
 Structural Research Harness
 Structural Risk Harvester
 System Learning Hub

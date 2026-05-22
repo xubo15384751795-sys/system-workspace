@@ -18,14 +18,12 @@ reduce repeated project-wide reads without hiding important boundaries.
 - `MODULES.md`
 - `module_contexts/`
 - `ROUTING_CONSTITUTION.md`
-- `expert_activation_map.yaml`
-- `expert_agent_roles.yaml`
 - `routing_decision_record.template.yaml`
-- `Workbench/agent_harness/structural-research-harness/`
+- `Workbench/agents/harness/`
 - `Structural Research Harness/`
 
 `Structural Research Harness/` is a compatibility symlink. Canonical source
-lives under `Workbench/agent_harness/structural-research-harness/`.
+lives under `Workbench/agents/harness/`.
 
 ## Reads
 
@@ -55,7 +53,6 @@ lives under `Workbench/agent_harness/structural-research-harness/`.
 - `MODULES.md`
 - this file
 - `ROUTING_CONSTITUTION.md`
-- `expert_activation_map.yaml`
 - relevant module context file
 
 ## Escalate When

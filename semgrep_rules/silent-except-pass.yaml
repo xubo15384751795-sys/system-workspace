@@ -1,0 +1,13 @@
+rules:
+  - id: silent-except-pass-in-critical-gates
+    patterns:
+      - pattern: |
+          except $EXC:
+            ...
+            pass
+    message: >
+      Silent except ...: pass in critical code. Exceptions must be
+      logged (print/stderr) or escalated (NNF#29).
+    severity: WARNING
+    languages:
+      - python

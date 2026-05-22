@@ -1,204 +1,185 @@
 # Folder Ownership
 
-This file is the directory-level boundary map. Source code should not be
-scattered across layers.
+Directory-level boundary map for `/Users/a1/System`. This file describes **what
+is on disk now**, not a future nested layout under `Workbench/`.
+
+Last aligned: 2026-05-22. See `governance/repo_layout_map.md` for the full
+doc-vs-reality table and migration backlog.
+
+---
+
+## Workspace skeleton
+
+```text
+System/                                    # system-workspace (this git repo)
+├── Data/                                  # canonical durable artifacts
+├── Output/                                # run packages + human-facing views
+├── protocols/                             # cross-module JSON schemas
+├── governance/                            # constitution + authority registries
+├── scripts/                               # workspace entrypoints (see below)
+├── tests/                                 # workspace-level tests
+├── Workbench/                             # structural-workbench (git submodule)
+├── structural-risk-harvester/             # harvester repo (git submodule)
+├── system-learning-hub/                   # learning hub repo (git submodule)
+├── Structural Deformation Research System/  # framework repo (git submodule)
+├── contracts -> Workbench/contracts       # compatibility symlink
+├── Structural Risk Harvester -> structural-risk-harvester/
+├── System Learning Hub -> system-learning-hub/
+└── Structural Research Harness -> Workbench/agents/harness/
+```
+
+Four sister repositories are **sibling directories** and **git submodules**,
+not nested under `Workbench/data_providers/` or `Workbench/governance/`.
+See `governance/git_workspace_policy.md`.
+
+---
 
 ## Tool / Product Layer
 
-Canonical source folder:
+### Workbench (product + NLP + contracts)
 
 ```text
-Workbench/
+Workbench/                                 # git submodule: structural-workbench
+├── src/workbench/                         # product cockpit, dashboards, workspace utils
+├── src/nlp/                               # structural NLP library
+├── src/ml/                                # ML signal layer
+├── contracts/workbench/                   # Workbench JSON schemas + templates
+├── agents/harness/                        # agent/API harness (tools, hooks, routing)
+├── tests/
+├── Data/                                  # Workbench-local data (gitignored)
+└── Output/                                # Workbench-local output (not workspace truth)
 ```
 
-Tool-owned subfolders:
-
-```text
-Workbench/src/workbench/                              # Product cockpit and surfaces
-Workbench/src/workbench/workspace/                    # Workspace index/status/promotion tools
-Workbench/contracts/workbench/                        # Protocol schemas/templates/examples
-Workbench/data_providers/structural-risk-harvester/  # Data Provider tool
-Workbench/agent_harness/structural-research-harness/ # Agent/API harness
-Workbench/governance/system-learning-hub/             # Governance memory tool
-```
-
-Generated/user-facing output:
+User-facing generated artifacts for the whole workspace:
 
 ```text
 Output/current/
 Output/workbench/
 ```
 
-Compatibility wrappers:
+Top-level `./sys` and the thin wrappers listed below delegate into
+`Workbench/src/workbench/`.
+
+### Harvester (data provider)
 
 ```text
-./sys
-scripts/refresh_output_current.py
-scripts/build_benchmark_evidence_dashboard.py
-scripts/build_artifact_navigator.py
-scripts/validate_workbench_contract.py
-scripts/build_system_index.py
-scripts/list_latest.py
-scripts/promote_snapshot.py
-scripts/system_status.py
-contracts -> Workbench/contracts
-Structural Risk Harvester -> Workbench/data_providers/structural-risk-harvester
-Structural Research Harness -> Workbench/agent_harness/structural-research-harness
-System Learning Hub -> Workbench/governance/system-learning-hub
+structural-risk-harvester/               # git submodule — canonical source
+Data/harvester/exports/                  # published release bundles
 ```
 
-The wrappers must stay thin and delegate to `Workbench/src/workbench/`.
+`Structural Risk Harvester/` is a compatibility symlink to the directory above.
+
+### Learning Hub (governance memory tool)
+
+```text
+system-learning-hub/                     # git submodule — canonical source
+Data/system_learning/                    # canonical ledgers + registries (Hub writes)
+Output/system_learning/runtime/          # append-only runtime log (Hub writes)
+Output/system_learning/latest/           # derived reports (Hub writes)
+```
+
+Peer modules record via `scripts/record_runtime_event.py` only. See
+`governance/runtime_log_contract.md`.
+
+---
+
+## Structural NLP Library
+
+```text
+Workbench/src/nlp/
+```
+
+Owns ingestion, extraction, mapping, candidate export, promotion, and
+NLP-domain protocol shapes. Root `protocols/nlp_*.schema.json` files are
+compatibility mirrors during library-side consolidation.
+
+Wrappers (must stay thin):
+
+```text
+scripts/nlp_ingest.py
+scripts/nlp_extract.py
+```
+
+---
 
 ## Protocol Layer
 
-Canonical folder:
+Cross-module schemas:
 
 ```text
-Workbench/contracts/workbench/
+protocols/                               # workspace handoff schemas
+Workbench/contracts/workbench/           # Workbench contract catalog
 ```
 
-Protocol files are the only legal communication channel between Tool,
-Framework, and Data Provider layers.
+`contracts/` at repo root symlinks to `Workbench/contracts/`.
 
-The top-level `contracts` path is a compatibility symlink, not the canonical
-source location.
+---
 
 ## Framework Core
 
-Canonical source folder:
-
 ```text
-Structural Deformation Research System/
+Structural Deformation Research System/  # git submodule — canonical source
 ```
 
-Framework-owned subfolders include:
+Framework-owned areas include `src/proxies/`, `src/derivation/`, `src/operators/`,
+`src/diagnostics/`, `src/dynamics/`, `src/interpretation/`, `src/core/`,
+`src/claims/`, `wiki/`, `papers/`.
 
-```text
-src/proxies/
-src/derivation/
-src/operators/
-src/diagnostics/
-src/dynamics/
-src/interpretation/
-src/core/
-src/claims/
-wiki/
-papers/
-```
+Framework code produces protocol-shaped outputs. It does not own Workbench
+product workflows or generic workspace scripts.
 
-Framework code may produce Workbench protocol files. It must not own generic
-Workbench product workflows.
-
-## Data Provider
-
-Canonical source folder:
-
-```text
-Workbench/data_providers/structural-risk-harvester/
-```
-
-Generated provider releases:
-
-```text
-Data/harvester/exports/
-```
-
-Data Providers publish releases and evidence. They do not encode Framework
-theory.
-
-The top-level `Structural Risk Harvester` path is a compatibility symlink, not
-the canonical source location.
+---
 
 ## Agent / API Harness
 
-Canonical source folder:
-
 ```text
-Workbench/agent_harness/structural-research-harness/
+Workbench/agents/harness/
 ```
 
-This owns agent-facing tools, hooks, policies, skills, and workflow guards. It
-is Tool / Workbench code, not Framework code.
+Agent-facing tools, hooks, policies, skills, and workflow guards. Tool /
+Workbench code — not Framework code.
 
-The top-level `Structural Research Harness` path is a compatibility symlink,
-not the canonical source location.
+`Structural Research Harness/` symlinks here.
 
-## Governance Memory
+---
 
-Canonical source folder:
+## Workspace scripts (`scripts/`)
 
-```text
-Workbench/governance/system-learning-hub/
-```
-
-Generated governance output:
+### Thin wrappers only (canonical logic in `Workbench/src/workbench/`)
 
 ```text
-Output/system_learning/
-Data/system_learning/
-```
-
-The top-level `System Learning Hub` path is a compatibility symlink, not the
-canonical source location.
-
-## Workspace Index / Promotion Utilities
-
-Compatibility wrapper folder:
-
-```text
-scripts/
-```
-
-These entries are compatibility wrappers:
-
-```text
+refresh_output_current.py
+build_benchmark_evidence_dashboard.py
+build_artifact_navigator.py
+validate_workbench_contract.py
 build_system_index.py
 list_latest.py
 promote_snapshot.py
 system_status.py
 ```
 
-Tool/Product source must not live here except as thin wrappers. Canonical
-workspace utility source lives in `Workbench/src/workbench/workspace/`.
+### Still at workspace root (owner migration pending)
+
+Framework replay, morphology, OpenBB audit, NLP extract, boundary audit, and
+similar scripts live here for historical entrypoints. They belong to their
+owning module repos per `governance/repo_layout_map.md` §6. Do not add new
+non-wrapper logic at this layer.
+
+Workspace utilities:
+
+```text
+bootstrap.sh
+framework_cli.py
+audit_boundaries.py
+```
+
+---
 
 ## Constitution-Level Red Line
 
 Tool, Framework, and Data Provider layers must not directly understand each
-other. They communicate only through Workbench contracts and protocol-shaped
-artifacts.
+other. They communicate only through protocols and published artifacts.
 
 Direct imports, hidden path coupling, semantic field peeking outside a contract,
 or code that turns one layer into another layer's internal adapter are severe
 boundary violations.
-
-## Phase 2.5 Governance Closure
-
-Timestamp: 2026-05-05T04:58:04Z
-
-Owner: `research_os_layers`
-
-Decision record:
-`Output/system_learning/routing_decisions/2026-05-05-phase-2-5-canonicalization-closure.yaml`
-
-The current LearningHub `architecture_drift` queue is classified for
-canonicalization closure, not migrated in this pass.
-
-`Structural Deformation Research System/src/data/adapters/public_adapters.py`
-and `Structural Deformation Research System/src/data/gateway/` are temporary
-legacy compatibility surfaces. They may remain in place for legacy replay,
-old dashboard rendering, compatibility tests, and migration support. New
-provider clients, API-key access, HTTP acquisition, or raw provider cache
-logic must not be added there. New admitted evidence ownership remains with
-Workbench/Harvester and Deformation should consume admitted releases through
-`src/data_access/`.
-
-`Structural Deformation Research System/src/data/data_sources.py` and
-`Structural Deformation Research System/src/ui/components/paper_dashboard.py`
-are accepted as oversized legacy surfaces for Phase 2.5 only. Splitting them
-is explicitly deferred because it would start migration/refactor work. Future
-Phase 3-5 work may decompose them under a separate routing decision.
-
-`Structural Deformation Research System/tests/test_data_access_boundary.py`
-is classified as detector noise/observe-only in the 2026-05-04 cartography
-run because it is test code asserting the boundary, not production code
-crossing it.

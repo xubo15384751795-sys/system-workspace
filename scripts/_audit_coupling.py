@@ -36,8 +36,9 @@ for root, dirs, files in os.walk(src):
                                 mod_deps[mod_name].add(target_mod)
                         elif node.module:
                             external_imports[node.module.split(".")[0]] += 1
-            except Exception:
-                pass
+            except Exception as exc:
+                import sys
+                print(f"WARNING: _audit_coupling: parse error in {py_file}: {exc}", file=sys.stderr)
 
 print("=== Module File Counts ===")
 for mod, count in sorted(mod_files.items(), key=lambda x: -x[1]):

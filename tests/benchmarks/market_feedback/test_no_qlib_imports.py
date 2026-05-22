@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 import pytest
+pytestmark = pytest.mark.benchmark
 
 
 MAIN_SRC = Path("Workbench/src")

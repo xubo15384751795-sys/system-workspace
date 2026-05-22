@@ -1,0 +1,280 @@
+# Canonical proxy specification — derived from Finance-2.tex (2026-04-25)
+# THIS IS THE RED LINE. The proxy registry in scripts/structural_replay_v2.py
+# must conform to this. Any deviation must be marked with explicit
+# canonical_status in ProxySpec and routed through governance review.
+#
+# Source-of-truth document:
+#   /Users/a1/Desktop/Financial Framework/Finance-2.tex
+#   §4.1   State vector: four-channel primitive architecture
+#   §4.2   Mismatch and degrees of freedom
+#   §4.4   Effective transition curvature  (explicit exclusions for K)
+#   §4.5   Shadow-mass measure-valued evolution + forced realization Π_t
+#   §4.7   Singular regime as hitting-time event
+#   §7.2.1 Degrees of freedom interface: D_t
+#   §7.2.2 Effective curvature interface: K_t
+#   §7.2.3 Aggregate shadow-load interface: X_t^agg
+#   §7.2.4 Mismatch-intensity interface: M_t
+#   §7.4   Joint stress score Σ_t
+#   Tables 4 (mvei), 6 (proxy-design), 7 (variable-declaration)
+#
+# Architectural rules (non-negotiable):
+#   1. There are FOUR primitive latent channels: M, D, K, X_agg.
+#      X_PRE / X_REALIZED are NOT canonical. They are an engineering split
+#      that may be retained as derived layers, but cannot be voting channels.
+#   2. Π_t (forced realization pressure) is DERIVED from D, K, X_agg via
+#      ρ_0 + ρ_D(D_crit-D)+ + ρ_K(K-K*)+ + ρ_ξ. It is NOT a proxy basket.
+#   3. Each latent variable has 3 proxy sub-baskets. Equal weights w_i=1/3
+#      unless a future training step replaces them (then frozen on eval).
+#   4. Each sub-basket must list the canonical mechanism. If no data is
+#      available for a mechanism, the corresponding ProxySpec is marked
+#      `canonical_status: awaiting_data` and contributes 0 to voting.
+#   5. Channels are NOT collapsed across sub-baskets. A channel with all
+#      three sub-baskets `awaiting_data` evaluates to NOT_IMPLEMENTED.
+
+schema_version: canonical_proxy_spec.v1
+source_document: Finance-2.tex
+source_revision: "2026-04-25"
+
+channels:
+
+  M:
+    canonical_symbol: M_t
+    canonical_definition: |
+      M_t = Δ_M(S_t, A_t) ≥ 0
+      Asymmetric, non-Euclidean discrepancy functional between system
+      configuration S_t and anchor configuration A_t. Locally Lipschitz on
+      admissible compact sets. NOT a metric; need not be symmetric.
+    canonical_section: "§4.2 + §7.2.4 + Table 6"
+    aggregator: huber_or_weighted_l1   # §7.2.4: Φ is robust operator, NOT mean
+    stress_sign: higher
+    subbaskets:
+      m1_funding_anchor_gap:
+        mechanism: |
+          Discrepancy between quoted/operative funding rate and the
+          anchor-implied (policy or contractual) rate. Cash-funding
+          dislocation or basis-spread stress against funding anchor.
+        canonical_indicators:
+          - cash-vs-futures basis stress (Treasury, FX)
+          - policy-rate vs market-rate gap
+          - IORB vs SOFR slippage
+        citations: [Mitchell-Pedersen-Pulvino-2007, Fleckenstein-Longstaff-Lustig-2014]
+      m2_verifiability_gap:
+        mechanism: |
+          Reporting/recognition lag versus valuation speed; accounting
+          fair-value gap (e.g. HTM/AOCI gap); recognition slippage.
+        canonical_indicators:
+          - HTM securities portfolio unrealized loss / AOCI gap
+          - reporting frequency mismatch with market repricing
+          - audit/filing lag against price discovery
+        citations: [Plantin-Sapra-Shin-2008]
+      m3_liquidation_gap:
+        mechanism: |
+          ETF/NAV dislocation, basis stress in liquidation-relevant
+          instruments; gap between fair value and forced-sale value.
+        canonical_indicators:
+          - ETF premium/discount to NAV
+          - cash-vs-futures Treasury basis (liquidation-side)
+          - closed-end fund discounts under stress
+        citations: [Madhavan-2012]
+
+  D:
+    canonical_symbol: D_t
+    canonical_definition: |
+      D_t = [d_0 + d_L·L_t + d_V·V_t - d_P·P_t - d_τ·τ_t - d_M·M_t]_+
+      Nonnegative; locally Lipschitz on admissible domains.
+      Increasing in (L, V); decreasing in (P, τ, M).
+    canonical_section: "§4.2 + §7.2.1 + Table 6"
+    aggregator: convex_weighted_mean   # equal w_i = 1/3 baseline (§7.2.1)
+    stress_sign: lower
+    subbaskets:
+      w1_market_depth:
+        mechanism: |
+          Inverse bid-ask spread, top-of-book depth, market-depth measures
+          across relevant venues. Direct interface to executable size at
+          posted prices.
+        canonical_indicators:
+          - inverse bid-ask spread (composite)
+          - order-book depth at touch
+          - dealer inventory capacity
+        citations: [Kyle-1985, Amihud-2002]
+      w2_hedge_breadth:
+        mechanism: |
+          Option open-interest breadth, cross-maturity substitution
+          capacity, hedging-instrument availability. Optionality to
+          construct effective hedges.
+        canonical_indicators:
+          - option open-interest breadth (rates, equity)
+          - cross-maturity OI distribution
+          - hedge-instrument substitution capacity
+        citations: [Brunnermeier-Pedersen-2009]
+      w3_funding_access:
+        mechanism: |
+          Repo accessibility, margin/haircut conditions, financing-stress
+          indicators. Path-feasibility of funding rollover.
+        canonical_indicators:
+          - CP-Bill spread (DCPF3M - DGS3MO)
+          - SOFR vs IORB / SOFR vs DFF (overnight funding premium)
+          - margin/haircut conditions, repo access
+        citations: [Brunnermeier-Pedersen-2009, He-Krishnamurthy-2013, Adrian-Boyarchenko-Giannone-2019]
+
+  K:
+    canonical_symbol: K_t
+    canonical_definition: |
+      K_t = K(g_t),  with regular-region interpretation
+      K_t ≍ sup_{z ∈ N_t} ‖D_z J_t(z)‖_op.
+      Local deformation of transition geometry. NOT movement amplitude.
+      Measures rate at which local linear transport ceases to approximate
+      reachable-set evolution.
+    canonical_section: "§4.4 + §7.2.2 + Table 6"
+    aggregator: convex_weighted_mean_or_pc1   # §7.2.2
+    stress_sign: higher
+    explicit_exclusions:
+      - "NOT volatility (§4.4)"
+      - "NOT jump intensity (§4.4)"
+      - "NOT tail risk (§4.4)"
+      - "NOT VIX (§4.4)"
+      - "NOT a credit spread (the proxies are options-derived; credit
+         spreads are not in the canonical basket; see §7.2.2 and Table 6)"
+    falsification_gate: |
+      "If K_proxy adds no incremental out-of-sample content beyond
+       volatility, jump, and tail benchmarks, this interface is interpreted
+       as generic stress rather than curvature evidence." (§7.2.2)
+    subbaskets:
+      u1_iv_distortion:
+        mechanism: |
+          Implied-volatility surface distortion: skew slope, smile
+          curvature, term-structure twist. Options-derived nonlinearity.
+        canonical_indicators:
+          - IV skew slope (25-delta, 10-delta)
+          - smile curvature (ATM vs wings)
+          - IV term-structure twist
+        citations: [Bakshi-Kapadia-Madan-2003, Bates-2000]
+      u2_jump_intensity:
+        mechanism: |
+          Realized jump measures, bipower-variation gap, overnight-gap
+          frequency. Discontinuity statistics from price paths.
+        canonical_indicators:
+          - bipower variation gap
+          - realized jump count
+          - overnight-gap frequency
+        citations: [Barndorff-Nielsen-Shephard-2004, Bollerslev-Todorov-2011]
+      u3_tail_convexity:
+        mechanism: |
+          OTM put richness, crash skew, convexity / gamma stress
+          indicators. Tail-region nonlinearity.
+        canonical_indicators:
+          - OTM put richness
+          - crash skew (downside-vs-upside vol)
+          - gamma stress indicators
+        citations: [Bollerslev-Todorov-2011]
+
+  X_agg:
+    canonical_symbol: X_t^agg
+    canonical_definition: |
+      X_t^agg = ∫_Ξ X_t(ξ) dξ = μ_t(Ξ).
+      Aggregate nonnegative stock of latent shadow mass; states
+      economically relevant but not yet visible through current
+      observable σ-algebra. Single channel (NOT split into PRE/REALIZED).
+    canonical_section: "§4.5 + §7.2.3 + Table 6"
+    aggregator: convex_weighted_mean   # equal v_i = 1/3 baseline (§7.2.3)
+    stress_sign: higher
+    architectural_note: |
+      The current implementation in scripts/structural_replay_v2.py splits
+      X into X_PRE and X_REALIZED. This split is an engineering extension
+      not present in the canonical paper. Under the canonical interpretation
+      adopted here (user decision 2026-05-18):
+        - X_PRE and X_REALIZED are marked canonical_status: extension_beyond_canonical
+          and do NOT vote.
+        - A new canonical X_agg channel takes over.
+        - H41 facility usage data (primary credit, discount window, BTFP)
+          is moved to a Π_t observation layer (NOT an X input).
+    subbaskets:
+      v1_off_balance_sheet:
+        mechanism: |
+          OBS items relative to assets, derivatives notional relative
+          to balance sheet, contingent liabilities. Off-visible-balance-sheet
+          exposure.
+        canonical_indicators:
+          - OBS-to-assets ratio
+          - derivatives notional / balance sheet
+          - contingent liabilities
+        citations: [Acharya-Schnabl-Suarez-2013]
+      v2_hidden_leverage:
+        mechanism: |
+          Synthetic exposure share, total-return-swap dependence,
+          basis-leverage proxies, prime-brokerage financing dependence.
+          Leverage held outside on-balance-sheet equity claims.
+        canonical_indicators:
+          - synthetic exposure share
+          - TRS dependence
+          - prime-brokerage financing dependence
+        citations: [Adrian-Ashcraft-2012, Pozsar-et-al-2010]
+      v3_shadow_funding_substitution:
+        mechanism: |
+          Reliance on nontraditional funding channels, collateral-transformation
+          intensity, bilateral/internalized liquidity dependence.
+        canonical_indicators:
+          - collateral transformation intensity
+          - bilateral / internalized liquidity dependence
+          - reliance on shadow-banking funding channels
+        citations: [Gorton-Metrick-2012, Pozsar-et-al-2010]
+
+# Π_t — forced realization pressure (DERIVED, not a voting channel)
+# Π_t = ρ_0 + ρ_D(D_crit-D)+ + ρ_K(K-K*)+ + ρ_ξ(ξ)  (§4.5)
+# Π_t observables (for downstream consistency checks, NOT proxy inputs):
+pi_t:
+  canonical_symbol: Π_t
+  canonical_definition: |
+    Π_t = ∫_Ξ R_t(ξ) X_t(ξ) dξ  with realization-intensity
+    R_t(ξ) = ρ_0 + ρ_D(D^crit - D_t)_+ + ρ_K(K_t - K^crit)_+ + ρ_ξ(ξ).
+    DERIVED from D, K, X_agg + intensity coefficients.
+    NOT computed from a proxy basket.
+  canonical_section: "§4.5"
+  observables_for_validation:
+    - description: |
+        Realized usage of official emergency liquidity facilities.
+        These are observable OUTPUTS of Π firing, useful for downstream
+        validation that the derived Π_t lined up with observed forced
+        realization events.
+      indicators:
+        - H41 primary credit
+        - H41 discount window
+        - H41 BTFP (post-2023)
+      role: validation_observable_only   # NOT a proxy input
+      citations: [FRB-H41]
+
+# Singular regime gate (§4.7)
+singular_regime:
+  joint_threshold: "D_t ≤ ε_D  ∧  K_t ≥ K*  ∧  Π_t ≥ Π*"
+  rule: |
+    Thresholds (ε_D, K*, Π*) must be calibrated on training windows and
+    frozen on forward evaluation windows. Singular-regime classification
+    requires ALL THREE conditions, not any single one.
+
+# Joint stress score (§7.4) — for diagnostic surface only, not gate
+joint_stress_score:
+  formula: "Σ_t = a_1·(-D_t^proxy) + a_2·K_t^proxy + a_3·X_t^proxy + a_4·M_t^proxy"
+  constraint: "a_i ≥ 0,  Σ a_i = 1"
+  interpretation: "regime-diagnostic surface; not a fully estimated singularity law"
+
+# Canonical_status taxonomy (used in ProxySpec.canonical_status)
+canonical_status_taxonomy:
+  canonical_voting: |
+    Proxy satisfies a named canonical sub-basket and feeds channel voting.
+  awaiting_data: |
+    Proxy slot reserved for a canonical sub-basket but the required data
+    source is not yet available in harvester. Contributes 0 to voting.
+    Must be tracked in freshness_manifest as a known gap.
+  quarantined_drift: |
+    Proxy was previously voting under a non-canonical interpretation. Now
+    disconnected (does not vote). Kept for audit trail and possible
+    re-promotion if its mechanism can be re-mapped to canonical.
+  reassigned_to_pi_observable: |
+    Proxy was previously voting under a channel but its mechanism is
+    actually a Π_t observable (e.g. H41 facility usage). Moved to Π
+    observation layer; does not vote.
+  extension_beyond_canonical: |
+    StateVariable or proxy that exists in the implementation but has no
+    direct canonical counterpart (e.g. X_PRE, X_REALIZED split).
+    Preserved for engineering reasons but does not vote in the canonical
+    aggregation path.

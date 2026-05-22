@@ -127,6 +127,104 @@
     "not_valid_for": [
       "claiming full singularity mechanics without vector channel readout"
     ]
+  },
+  "gluonts_forecast_regime": {
+    "concept": "gluonts_forecast_regime",
+    "full_name": "probabilistic regime signal via GluonTS SeasonalNaive forecast",
+    "implemented_status": "ADDED_NOT_CONSTITUTIONALLY_VALIDATED",
+    "proxy_status": "PROXY_PROBABILISTIC",
+    "semantic_distance": 2,
+    "operational_proxy": "SeasonalNaive forecast intervals + empirical residual tail probability + calibrated risk probability",
+    "reduction_errors": [
+      "Forecast model is univariate (single target series)",
+      "Model is not calibrated against structural event labels",
+      "SeasonalNaive is a lightweight baseline and does not learn nonlinear dynamics",
+      "Numerical fallback (numpy quantile heuristic) is used when GluonTS is unavailable"
+    ],
+    "valid_for": [
+      "probabilistic regime indication for governance routing decisions",
+      "forecast interval awareness"
+    ],
+    "not_valid_for": [
+      "claiming structural regime truth without constitution validation",
+      "replacing HMM baseline without governance approval"
+    ]
+  },
+  "gluonts_anomaly_tail": {
+    "concept": "gluonts_anomaly_tail",
+    "full_name": "anomaly score from GluonTS forecast tail probability",
+    "implemented_status": "ADDED_NOT_CONSTITUTIONALLY_VALIDATED",
+    "proxy_status": "PROXY_PROBABILISTIC",
+    "semantic_distance": 2,
+    "operational_proxy": "per-channel DeepAR forecast tail probability RMS aggregation",
+    "reduction_errors": [
+      "Per-channel independence assumption (no cross-channel coupling)",
+      "Model is not calibrated against known anomaly events",
+      "5-epoch training constraint from torch 2.12 compat",
+      "Falls back to IsolationForest then heuristic when forecast unavailable"
+    ],
+    "valid_for": [
+      "probabilistic anomaly indication for governance routing decisions",
+      "complementary signal alongside LSTM autoencoder"
+    ],
+    "not_valid_for": [
+      "claiming anomaly ground truth without constitution validation",
+      "replacing LSTM autoencoder or IsolationForest without governance approval"
+    ]
+  },
+  "D_contraction": {
+    "concept": "D_contraction",
+    "full_name": "effective degrees of freedom channel (canonical alias of D)",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "PROXY_REDUCED",
+    "semantic_distance": 3,
+    "operational_proxy": "credit / funding / volatility pressure basket",
+    "reduction_errors": [
+      "Pressure is inferred from public stress indicators",
+      "Latent structural pressure is not directly measured"
+    ],
+    "valid_for": [
+      "partial deformation pressure warning"
+    ],
+    "not_valid_for": [
+      "proving full deformation mechanics"
+    ]
+  },
+  "X_agg": {
+    "concept": "X_agg",
+    "full_name": "aggregate shadow load X_t^agg (Finance-2.tex §4.5 + §7.2.3)",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "PROXY_REDUCED",
+    "semantic_distance": 3,
+    "operational_proxy": "canonical OBS / hidden leverage / shadow funding basket (only v2 weak proxy implemented today)",
+    "reduction_errors": [
+      "Only v2 (hidden_leverage) has a proxy, and that proxy (NFCILEVERAGE) is a benchmark subindex, not direct TRS/synthetic data",
+      "v1 (off-balance-sheet) and v3 (shadow funding substitution) are awaiting_data"
+    ],
+    "valid_for": [
+      "directional indication of hidden leverage when NFCILEVERAGE moves"
+    ],
+    "not_valid_for": [
+      "claiming complete shadow accumulation measurement",
+      "use as primary singular-regime gate input until v1 and v3 are implemented"
+    ]
+  },
+  "Pi_t": {
+    "concept": "Pi_t",
+    "full_name": "forced realization pressure Π_t (derived, Finance-2.tex §4.5 + §4.7)",
+    "implemented_status": "PARTIAL",
+    "proxy_status": "PROXY_REDUCED",
+    "semantic_distance": 3,
+    "operational_proxy": "H41 facility usage as Π firing observable (NOT a voting input)",
+    "reduction_errors": [
+      "Π_t is canonically derived from D, K, X density + intensity coefficients; the H41 observables only confirm realization happened, not its magnitude in canonical form"
+    ],
+    "valid_for": [
+      "downstream validation that derived Π_t lines up with observed forced-realization events"
+    ],
+    "not_valid_for": [
+      "use as a proxy for X_agg stock",
+      "use as a voting input on any latent channel"
+    ]
   }
 }
-

@@ -1,70 +1,74 @@
 # Learning Hub Context
 
-Learning Hub is the governance memory of the workspace. It records drift,
-failures, hard cases, routing decisions, and improvement candidates.
+Learning Hub is the **sole recorder** of workspace governance memory. Peer
+modules must not embed learning sensors or write learning artifacts directly.
 
 ## Owns
 
-- architecture drift records
-- boundary violation records
-- routing decision records
-- improvement queue
-- NLP hard cases
-- candidate promotion and rejection history
-- governance summaries and learning events
+- runtime log append (`Output/system_learning/runtime/`)
+- ledger derivation (`Data/system_learning/ledgers/`)
+- governance reports (`Output/system_learning/latest/`)
+- architecture drift records (via Hub-internal scans)
+- boundary violation recurrence analysis
+- routing decision copies (read from workspace; indexed by Hub)
+- improvement queue lifecycle
+- NLP hard-case indexing (from NLP library exports)
 
 ## Primary Paths
 
-- `Workbench/governance/system-learning-hub/`
-- `System Learning Hub/`
-- `Output/system_learning/`
-- `Data/system_learning/`
-- `routing_decision_record.template.yaml`
-- `ROUTING_CONSTITUTION.md`
-- `expert_activation_map.yaml`
-- `expert_agent_roles.yaml`
+- `system-learning-hub/` — canonical source (git submodule at workspace root)
+- `System Learning Hub/` — compatibility symlink
+- `Data/system_learning/` — canonical ledgers and registries
+- `Output/system_learning/runtime/` — append-only runtime log (**Hub writes**)
+- `Output/system_learning/latest/` — derived reports (**Hub writes**)
+- `governance/runtime_log_contract.md` — write/read contract for all modules
 
-`System Learning Hub/` is a compatibility symlink. Canonical source lives under
-`Workbench/governance/system-learning-hub/`.
+## Peer module obligations
+
+**Record:** call `python3 scripts/record_runtime_event.py` or
+`python3 -m system_learning record` — never open runtime log files directly.
+
+**Read:** consume `Output/system_learning/latest/summary.json` and runtime log /
+ledger outputs. Treat Hub records as the authoritative governance chronology.
+
+### Not workspace truth
+
+- `Workbench/Output/system_learning/` — removed (was legacy scratch; not workspace truth)
+- `Output/system_learning/events/` — legacy sensor output (deprecated)
+- `system-learning-hub/data/` — repo-local fixtures only
 
 ## Reads
 
-- failed checks and boundary audit output
-- routing decisions
-- NLP candidate ledgers
-- protocol promotion logs
-- system status summaries
-- events under `Output/system_learning/`
+- runtime log and legacy ingest paths during migration
+- routing decisions under `Output/system_learning/routing_decisions/`
+- NLP candidate ledgers when NLP governance is involved
+- operational artifacts (run manifests, releases) for Hub-internal scans only
 
 ## Writes
 
-- governance events
-- improvement queue records
-- routing decision records
-- promoted governance memory under `Data/system_learning/`
+- runtime log records (via Hub `record` API only)
+- derived ledgers and reports (via Hub pipeline only)
 
 ## Must Not
 
+- allow peer modules to append learning events directly
 - silently promote exploratory work
 - replace Framework claims, Workbench behavior, or Harvester evidence
 - treat audit findings as production inputs
-- bypass owner modules when a fix belongs elsewhere
 
 ## Read First
 
 - `MODULES.md`
 - this file
+- `governance/runtime_log_contract.md`
+- `governance/repo_layout_map.md` §4
 - `ROUTING_CONSTITUTION.md`
-- `routing_decision_record.template.yaml`
-- relevant NLP protocol schemas when NLP governance is involved
 
 ## Escalate When
 
-- a governance record requires code changes
-- a boundary violation belongs to a specific module
-- a hard case changes evaluation data
-- a routing decision changes module ownership
-- an audit finding should become a product, Framework, or Harvester task
+- a module needs a new runtime record shape
+- a peer module still writes to deprecated event paths
+- a governance record requires code changes outside Hub ingest
 
 Escalation usually goes to the owner module plus `protocols.md` if the handoff
 shape changes.

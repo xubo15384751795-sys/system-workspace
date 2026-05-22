@@ -1,6 +1,7 @@
 Harvester:
   allowed:
     - ACQUIRE
+    - ACQUIRE_VIA_OPENBB
     - NORMALIZE
     - PROVENANCE
     - RELEASE_EVIDENCE
@@ -8,6 +9,7 @@ Harvester:
     - PROMOTE
     - WRITE_DEFORMATION_OUTPUT
     - DIRECT_STRUCTURAL_CLAIM
+    - LEAK_OPENBB_IMPORT_OUTSIDE_PROVIDERS
 Deformation:
   allowed:
     - CONSUME_ADMITTED_EVIDENCE

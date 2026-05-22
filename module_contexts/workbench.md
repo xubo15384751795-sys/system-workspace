@@ -13,7 +13,17 @@ actions.
 - report and latest/current navigation
 - workspace status and index utilities
 - contract validation from the product side
-- grounded NLP over admitted/local evidence and current outputs
+- grounded NLP Q&A over admitted/local evidence and current outputs
+
+NLP extraction, mapping, promotion, and governance artifacts are **not owned
+here**. That domain belongs to the Structural NLP library:
+
+```text
+Workbench/src/nlp/
+```
+
+Workbench consumes NLP outputs as protocol-shaped files. It must not re-implement
+or re-govern structural NLP rules.
 
 ## Primary Paths
 
@@ -40,6 +50,8 @@ live under `Workbench/src/workbench/`.
 - `protocols/evidence.schema.json`
 - `protocols/nlp_query.schema.json`
 - `protocols/nlp_answer.schema.json`
+- NLP library protocol mirrors under `protocols/nlp_*.schema.json` (see
+  `Workbench/src/nlp/` for canonical NLP-domain definitions)
 - `Data/system_index/`
 - `Data/harvester/exports/`
 - `Output/deformation_runs/`
@@ -63,7 +75,6 @@ live under `Workbench/src/workbench/`.
 
 - `MODULES.md`
 - this file
-- `WORKBENCH_SPEC.md`
 - `PRODUCT_FRAMEWORK_BOUNDARY.md`
 - relevant protocol schema files
 - only then inspect `Workbench/src/workbench/`

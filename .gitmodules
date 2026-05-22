@@ -1,0 +1,12 @@
+[submodule "Workbench"]
+	path = Workbench
+	url = git@github.com:xubo15384751795-sys/structural-workbench.git
+[submodule "Structural Deformation Research System"]
+	path = Structural Deformation Research System
+	url = git@github.com:xubo15384751795-sys/Structural-Deformation-Research-System.git
+[submodule "structural-risk-harvester"]
+	path = structural-risk-harvester
+	url = git@github.com:xubo15384751795-sys/structural-risk-harvester.git
+[submodule "system-learning-hub"]
+	path = system-learning-hub
+	url = git@github.com:xubo15384751795-sys/system-learning-hub.git

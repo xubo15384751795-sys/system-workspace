@@ -1,0 +1,16 @@
+rules:
+  - id: legacy-backend-default
+    pattern-either:
+      - pattern: |
+          data_backend: legacy
+      - pattern: |
+          data_backend = "legacy"
+      - pattern: |
+          "data_backend": "legacy"
+    message: >
+      Legacy backend default detected. Must use 'data_backend: harvester'
+      in production. Legacy requires explicit opt-in + authority event.
+    severity: WARNING
+    languages:
+      - yaml
+      - python

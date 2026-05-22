@@ -14,6 +14,8 @@ if str(WORKBENCH_SRC) not in sys.path:
 
 from workbench.workspace import promote_snapshot
 
+pytestmark = pytest.mark.critical_gate
+
 
 def test_promotion_blocks_when_latest_routing_decision_denies(tmp_path, monkeypatch) -> None:
     events_dir = tmp_path / "Output" / "system_learning" / "events"
@@ -35,7 +37,7 @@ def test_promotion_blocks_when_latest_routing_decision_denies(tmp_path, monkeypa
     monkeypatch.setattr(promote_snapshot, "ROUTING_DECISIONS", decisions_dir)
     monkeypatch.setattr(promote_snapshot, "SYSTEM_EVENTS", events_dir)
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(promote_snapshot.PromotionError):
         promote_snapshot._enforce_routing_decision("run_a", "snapshot_run_a")
 
     event = json.loads(next(events_dir.glob("events_*.jsonl")).read_text(encoding="utf-8"))
@@ -90,3 +92,31 @@ force_promoted:
     trace = tmp_path / "Output" / "governance" / "traces" / "decision_trace.jsonl"
     assert events[0]["event_type"] == "AUTHORITY_CONFIG_ENABLED"
     assert "AUTHORITY_CONFIG_ENABLED" in trace.read_text(encoding="utf-8")
+
+
+def test_force_promotion_status_is_non_claim_quarantine() -> None:
+    assert promote_snapshot._promotion_status(True, []) == "quarantine"
+    assert promote_snapshot._promotion_status(True, ["operator_trace missing"]) == "legacy_canonicalization"
+    assert promote_snapshot._claim_carrying_allowed("quarantine") is False
+    assert promote_snapshot._claim_carrying_allowed("legacy_canonicalization") is False
+    assert promote_snapshot._claim_carrying_allowed("canonical") is True
+
+
+def test_diagnostic_blockers_reject_empty_validation_outputs(tmp_path) -> None:
+    run_dir = tmp_path / "run"
+    (run_dir / "diagnostics").mkdir(parents=True)
+    (run_dir / "tables").mkdir()
+    (run_dir / "diagnostics" / "rejection_flags.json").write_text("{}\n", encoding="utf-8")
+    (run_dir / "diagnostics" / "residual_tests.json").write_text("{}\n", encoding="utf-8")
+    (run_dir / "diagnostics" / "operator_diagnostics.json").write_text("{}\n", encoding="utf-8")
+    (run_dir / "tables" / "benchmark_comparison.csv").write_text(
+        "benchmark_value,name,residual_value\n,not_available,\n",
+        encoding="utf-8",
+    )
+
+    blockers = promote_snapshot._diagnostic_blockers(run_dir)
+
+    assert "diagnostics/rejection_flags.json is empty" in blockers
+    assert "diagnostics/residual_tests.json is empty" in blockers
+    assert "diagnostics/operator_diagnostics.json is empty" in blockers
+    assert "tables/benchmark_comparison.csv contains not_available" in blockers

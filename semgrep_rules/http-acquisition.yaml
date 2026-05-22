@@ -1,0 +1,18 @@
+rules:
+  - id: direct-http-acquisition-in-deformation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              urlopen($URL)
+          - pattern: |
+              import requests
+          - pattern: |
+              import httpx
+      - pattern-not-regex: .*data_sources.*
+      - pattern-not-regex: .*public_adapters.*
+      - pattern-not-regex: .*data_hub.*
+    message: >
+      Direct HTTP in Deformation core violates DATA_BOUNDARY.md.
+    severity: WARNING
+    languages:
+      - python

@@ -4,6 +4,8 @@ This file is the first stop for humans and agents working in this workspace.
 It keeps the IDE simple: open the single `System/` folder, then route each task
 to the smallest owning module.
 
+**Layout / git policy:** `governance/repo_layout_map.md`, `governance/git_workspace_policy.md`
+
 Default rule:
 
 1. Start from one owning module.
@@ -21,11 +23,11 @@ owner, paths, and allowed communication points.
 |---|---|---|---|
 | Workbench | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` |
 | Deformation Framework | Structural theory, operators, diagnostics, dynamics, claims | `Structural Deformation Research System/` | `module_contexts/framework.md` |
-| Harvester | Provider acquisition, provenance, data releases | `Workbench/data_providers/structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` |
+| Harvester | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` |
 | Protocols | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` |
 | Data and Output | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` |
-| Learning Hub | Governance memory, events, routing decisions, improvement queue | `Workbench/governance/system-learning-hub/`, `Output/system_learning/` | `module_contexts/learning-hub.md` |
-| Agent Routing | Sparse activation, expert routing, workflow guards | `Workbench/agent_harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` |
+| Learning Hub | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` |
+| Agent Routing | Sparse activation, expert routing, workflow guards | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` |
 
 ## Dependency Rule
 
@@ -71,6 +73,11 @@ Read first:
 - `protocols/framework_output.schema.json`
 - `protocols/evidence.schema.json`
 - `Workbench/src/workbench/`
+
+For structural NLP (extraction, event cards, candidate ledger, promotion):
+
+- `Workbench/src/nlp/` — canonical implementation and NLP-domain protocol owner
+- root `protocols/nlp_*.schema.json` — compatibility mirrors only
 
 Do not read first:
 
@@ -122,7 +129,7 @@ Read first:
 - `module_contexts/harvester.md`
 - `protocols/evidence.schema.json`
 - `configs/freshness_policy.yaml`
-- `Workbench/data_providers/structural-risk-harvester/`
+- `structural-risk-harvester/`
 
 Do not read first:
 
@@ -192,7 +199,8 @@ Read first:
 - `module_contexts/learning-hub.md`
 - `ROUTING_CONSTITUTION.md`
 - `routing_decision_record.template.yaml`
-- `Workbench/governance/system-learning-hub/`
+- `system-learning-hub/`
+- `Data/system_learning/`
 - `Output/system_learning/`
 
 ## Agent Routing
@@ -211,8 +219,35 @@ Read first:
 - `module_contexts/agent-routing.md`
 - `MODULES.md`
 - `ROUTING_CONSTITUTION.md`
-- `expert_activation_map.yaml`
-- `expert_agent_roles.yaml`
+
+## External Tool Integration
+
+Three external tools operate under strict module_authority boundaries:
+
+| Tool | Allowed Module | Routing Decisions |
+|---|---|---|
+| OpenBB | Harvester only (ACQUIRE_VIA_OPENBB) | `2026-05-17-openbb-acquisition-consolidation.yaml` |
+| GluonTS | Workbench + Deformation (add-alongside, PROXY_PROBABILISTIC) | `2026-05-17-gluonts-probabilistic-forecasting.yaml` |
+| Qlib | External sandbox executor only (RUN_ISOLATED_BENCHMARK) | `2026-05-17-qlib-executor-promotion.yaml` |
+
+Boundary rules:
+- OpenBB: Forbidden outside `structural-risk-harvester/`. Enforced by boundary test.
+- GluonTS: Outputs must pass through `semantic_registry` (PROXY_PROBABILISTIC, semantic_distance=2). Cannot support structural claims without constitution validation.
+- Qlib: Runner communicates only via `sandbox_input/` (read) and `qlib_output/` (write). Forbidden from `DEFINE_STRUCTURAL_TRUTH`, `WRITE_CORE_PROXY`, `MODIFY_DEFORMATION_OUTPUT`.
+
+Protocol integration decision: `2026-05-17-catalog-protocol-unification.yaml`
+Legacy freeze decision: `2026-05-17-legacy-acquisition-freeze.yaml`
+
+## Legacy DataHub Freeze (F.1)
+
+The legacy DataHub acquisition layer (`src/data/gateway/data_hub.py`, `src/data/adapters/`)
+is frozen by default. Production runs must use the Harvester-backed DataHubLite.
+Legacy DataHub can be re-enabled with `ALLOW_LEGACY_DATAHUB=1` for:
+- Legacy replay
+- Migration testing
+- Emergency fallback
+
+Mock mode (`use_mock=True`) is exempt from the freeze to preserve test compatibility.
 
 ## Escalation Rules
 
