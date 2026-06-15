@@ -18,7 +18,7 @@ pytestmark = pytest.mark.critical_gate
 
 
 def test_promotion_blocks_when_latest_routing_decision_denies(tmp_path, monkeypatch) -> None:
-    events_dir = tmp_path / "Output" / "system_learning" / "events"
+    runtime_dir = tmp_path / "runtime"
     decisions_dir = tmp_path / "Output" / "system_learning" / "routing_decisions"
     decisions_dir.mkdir(parents=True)
     decision = decisions_dir / "2026-05-10-deny.yaml"
@@ -35,12 +35,14 @@ def test_promotion_blocks_when_latest_routing_decision_denies(tmp_path, monkeypa
     )
     monkeypatch.setattr(promote_snapshot, "WORKSPACE_ROOT", tmp_path)
     monkeypatch.setattr(promote_snapshot, "ROUTING_DECISIONS", decisions_dir)
-    monkeypatch.setattr(promote_snapshot, "SYSTEM_EVENTS", events_dir)
+    monkeypatch.setattr(promote_snapshot, "RUNTIME_LOG_DIR", runtime_dir)
+    # Disable subprocess so events fall through to direct file write
+    monkeypatch.setattr(promote_snapshot, "RECORD_RUNTIME_SCRIPT", tmp_path / "nonexistent_script.py")
 
     with pytest.raises(promote_snapshot.PromotionError):
         promote_snapshot._enforce_routing_decision("run_a", "snapshot_run_a")
 
-    event = json.loads(next(events_dir.glob("events_*.jsonl")).read_text(encoding="utf-8"))
+    event = json.loads(next(runtime_dir.glob("records_*.jsonl")).read_text(encoding="utf-8"))
     assert event["event_type"] == "snapshot_publish_attempt"
     assert event["decision"] == "deny"
     assert event["rule_id"] == "routing_decision.may_promote_current_snapshot"
@@ -63,7 +65,8 @@ def test_promotion_allows_when_latest_routing_decision_allows(tmp_path, monkeypa
     )
     monkeypatch.setattr(promote_snapshot, "WORKSPACE_ROOT", tmp_path)
     monkeypatch.setattr(promote_snapshot, "ROUTING_DECISIONS", decisions_dir)
-    monkeypatch.setattr(promote_snapshot, "SYSTEM_EVENTS", tmp_path / "events")
+    monkeypatch.setattr(promote_snapshot, "RUNTIME_LOG_DIR", tmp_path / "runtime")
+    monkeypatch.setattr(promote_snapshot, "RECORD_RUNTIME_SCRIPT", tmp_path / "nonexistent_script.py")
 
     decision = promote_snapshot._enforce_routing_decision("run_a", "snapshot_run_a")
 

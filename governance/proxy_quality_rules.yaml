@@ -1,0 +1,168 @@
+# Proxy quality rules — measurement-grade gate over the canonical proxy registry.
+#
+# PURPOSE
+#   The canonical red line (governance/canonical_proxy_spec.yaml) says WHAT each
+#   M/D/K/X sub-basket must mean. This file says WHETHER a wired proxy is good
+#   enough to vote into that meaning. It operationalises the user's principle:
+#       "high-quality proxies only — stop stuffing low-quality proxies into core."
+#
+#   It does NOT redefine the channels. It references the canonical spec as the
+#   single source of truth and scores the proxies registered in
+#   scripts/structural_replay_v2.py :: PROXY_REGISTRY against it.
+#
+# CONSUMERS
+#   scripts/proxy_quality_scorer.py   — computes scores + tiers from this rubric.
+#   tests/governance/test_proxy_quality_scorer.py — locks the gate behaviour.
+#
+# HONESTY RULE
+#   Criteria that need price/return history (regime coverage, discrimination
+#   power, baseline increment) are NOT fabricated here. They are declared
+#   `pending_empirical` and reported as such. The active gate uses only the
+#   criteria that are derivable from registry metadata.
+
+schema_version: proxy_quality_rules.v1
+references:
+  canonical_spec: governance/canonical_proxy_spec.yaml
+  semantic_boundary: governance/semantic_registry.json
+  wired_registry: scripts/structural_replay_v2.py::PROXY_REGISTRY
+reasoning_target: daily_market_space   # the gate is tuned for daily market-space reasoning
+
+# ── Active criteria: computable from ProxySpec registry metadata ─────────────
+criteria:
+
+  semantic_distance:
+    description: >
+      How close the proxy sits to the canonical construct, encoded by the
+      canonical alignment review outcome (ProxySpec.canonical_status).
+    lower_is_better: true
+    # canonical_status -> semantic_distance (0 direct .. 3 weak/drifted)
+    from_canonical_status:
+      canonical_primary: 1
+      canonical_voting: 1
+      candidate_pending_promotion: 2
+      diagnostic_consistent: 2
+      derived_observation_layer: 2
+      reassigned_to_pi_observable: 3
+      awaiting_data: 3
+      quarantined_drift: 3
+      drifted_pending_repair: 3
+      extension_beyond_canonical: 3
+      unevaluated: 3
+
+  frequency_fit:
+    description: >
+      Native cadence vs the daily reasoning target. Daily reasoning may use
+      daily directly, weekly with explicit weekly context, and treats
+      monthly/quarterly/sparse as background only.
+    from_freq:
+      daily: full          # score 2
+      weekly: conditional  # score 1
+      monthly: background  # score 0
+      quarterly: background
+      sparse: background
+      mixed: background
+
+  family_diversity:
+    description: >
+      A channel must not rest on a single source family. Counted per
+      target_variable over voting-eligible proxies (canonical_voting /
+      canonical_primary), excluding the NOT_IMPLEMENTED placeholder family.
+    bands:
+      high: 3      # >= 3 distinct families -> score 2
+      medium: 2    # 2 families -> score 1
+      low: 1       # 1 family -> score 0
+
+  mechanism_clarity:
+    description: >
+      The proxy must explain why it belongs to its construct: a named
+      mechanism AND a canonical sub-basket binding.
+    rule:
+      full: mechanism_set_and_subbasket_set   # score 2
+      partial: mechanism_set_only             # score 1
+      none: neither                           # score 0
+
+  lineage_completeness:
+    description: >
+      Auditability: raw series, a real source family, and a declared
+      transform must all be present.
+    rule:
+      full: series_and_family_and_transform   # score 2
+      partial: some_missing                   # score 1
+      none: no_series                         # score 0
+
+# ── Pending criteria: require price/return history, not fabricated here ──────
+pending_empirical:
+  regime_coverage:
+    description: >
+      Whether the proxy has data across stress regimes (GFC, COVID, SVB,
+      Volmageddon, Repo 2019, Taper 2013). Needs panel history; reported as
+      `data_availability` coarse flag only until a coverage pass is wired.
+  discrimination_power:
+    description: >
+      Event-vs-quiet activation separation and a sane trigger rate. Needs the
+      replay harness; not scored here.
+  baseline_increment:
+    description: >
+      Incremental out-of-sample content beyond a plain volatility / credit
+      dashboard (the canonical K falsification gate, §7.2.2). Needs backtest.
+
+# ── Gate: final quality tier decision table ─────────────────────────────────
+# Evaluated top-to-bottom; first match wins.
+quality_tiers:
+  - tier: REJECTED
+    when_canonical_status_in: [quarantined_drift, drifted_pending_repair, extension_beyond_canonical]
+    reason: drifted_from_canonical
+  - tier: REJECTED
+    when_canonical_status_in: [awaiting_data]
+    reason: no_data_awaiting_source
+  - tier: REJECTED
+    when_family_equals: NOT_IMPLEMENTED
+    reason: no_data_not_implemented
+  - tier: BACKGROUND_ONLY
+    when_canonical_status_in: [reassigned_to_pi_observable, derived_observation_layer]
+    reason: validation_observable_not_a_voter
+  - tier: DIAGNOSTIC_ONLY
+    when_canonical_status_in: [diagnostic_consistent, candidate_pending_promotion]
+    reason: visible_but_non_voting
+  - tier: CORE_ELIGIBLE
+    when_canonical_status_in: [canonical_voting, canonical_primary]
+    require:
+      frequency_fit: full
+      mechanism_clarity: full
+      min_channel_family_count: 2
+    reason: passes_frequency_family_and_mechanism
+  - tier: CONSTRUCT_SUPPORT
+    when_canonical_status_in: [canonical_voting, canonical_primary]
+    require_any_frequency_fit: [full, conditional]
+    reason: votes_but_below_core_bar
+  - tier: BACKGROUND_ONLY
+    when_canonical_status_in: [canonical_voting, canonical_primary]
+    reason: voting_proxy_at_background_frequency
+  - tier: REJECTED
+    reason: unevaluated_or_unmatched
+
+# ── Conflict flags surfaced in the report ───────────────────────────────────
+conflict_flags:
+  declared_core_but_not_eligible:
+    description: >
+      ProxySpec.tier == "core" but the computed quality tier is below
+      CORE_ELIGIBLE. Signals drift between declared importance and quality.
+  legacy_drift:
+    description: >
+      A proxy wired in the legacy scripts/compute_proxies.py PROXY_MAP whose
+      raw series violates a canonical exclusion (e.g. K=VIX, X=H41 facilities,
+      M=T10Y2Y). Surfaced as REJECTED legacy drift.
+
+# Legacy exclusion checks for scripts/compute_proxies.py (the proxy-first script
+# the canonical spec already supersedes). Each rule is (channel, banned_token,
+# canonical_reason).
+legacy_exclusions:
+  - channel: K_PROXY
+    banned_series_token: "VIX"
+    reason: "Canonical K explicitly excludes VIX / volatility (canonical_proxy_spec §4.4 explicit_exclusions)."
+  - channel: X_PROXY
+    banned_series_token: "H41"
+    reason: "H41 facility usage is a Pi_t validation observable, not an X input (canonical_proxy_spec X_agg architectural_note)."
+  - channel: M_PROXY
+    banned_series_token: "T10Y2Y"
+    reason: "T10Y2Y is a yield-curve slope, not an anchor-mismatch indicator (canonical M = funding/verifiability/liquidation gaps)."

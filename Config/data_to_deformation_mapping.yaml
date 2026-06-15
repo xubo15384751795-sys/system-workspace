@@ -1,0 +1,214 @@
+# Data → Deformation Dimension Mapping
+#
+# Maps each data source through primitives to M/D/K/X deformation dimensions.
+# Rule: NO series may directly enter a deformation dimension without going through
+# a primitive variable first. direct_to_deformation_allowed is FALSE by default.
+
+schema_version: data_to_deformation_mapping.v1
+generated: "2026-06-04"
+
+# ── M: Anchor Mismatch Dynamics ────────────────────────────────────────
+#
+# M measures: gap between policy anchor and market pricing
+# Primitive path: A_t (primary) + τ_t (secondary)
+# Strongest dimension — data layer is GOOD.
+
+M:
+  primitives: [A_t, tau_t]
+  data_sources:
+    # Primary (A_t)
+    - series: FRED:DFF
+      role: policy_rate_anchor
+      direct_to_deformation_allowed: false
+    - series: FRED:T10Y2Y
+      role: curve_shape_anchor
+      direct_to_deformation_allowed: false
+    - series: FRED:T10YIE
+      role: inflation_anchor
+      direct_to_deformation_allowed: false
+    - series: FRED:DTWEXBGS
+      role: dollar_anchor
+      direct_to_deformation_allowed: false
+    - series: FRED:DPRIME
+      role: bank_lending_anchor
+      direct_to_deformation_allowed: false
+    - series: FRED:DGS3MO
+      role: short_rate_anchor
+      direct_to_deformation_allowed: false
+    # Secondary (τ_t)
+    - series: FRED:DCPF3M
+      role: funding_lag_indicator
+      direct_to_deformation_allowed: false
+    - series: DERIVED:SOFR_IORB_SPREAD
+      role: funding_latency
+      direct_to_deformation_allowed: false
+  current_status: STRONG
+  differentiation_from_raw: HIGH  # 80% unique info
+
+# ── D: Path Geometry / Credit-Funding Depth ────────────────────────────
+#
+# D measures: depth and feasibility of credit/funding paths
+# Primitive path: L_t (primary) + P_t (secondary)
+# Strong dimension — data layer is GOOD.
+
+D:
+  primitives: [L_t, P_t]
+  data_sources:
+    # Primary (L_t)
+    - series: FRED:NFCI
+      role: financial_conditions_composite
+      direct_to_deformation_allowed: false
+    - series: FRED:NFCICREDIT
+      role: credit_conditions
+      direct_to_deformation_allowed: false
+    - series: FRED:NFCILEVERAGE
+      role: leverage_conditions
+      direct_to_deformation_allowed: false
+    - series: FRED:DCPF3M
+      role: cp_funding_stress
+      direct_to_deformation_allowed: false
+    - series: DERIVED:SOFR_IORB_SPREAD
+      role: secured_funding_stress
+      direct_to_deformation_allowed: false
+    - series: FRED:RRPONTSYD
+      role: liquidity_drain
+      direct_to_deformation_allowed: false
+    - series: FRED:WTREGEN
+      role: fiscal_liquidity
+      direct_to_deformation_allowed: false
+    - series: FRED:WRESBAL
+      role: bank_reserves
+      direct_to_deformation_allowed: false
+    - series: H41:primary_credit
+      role: official_support
+      direct_to_deformation_allowed: false
+    - series: H41:discount_window
+      role: official_support
+      direct_to_deformation_allowed: false
+    # Secondary (P_t)
+    - series: KRE
+      role: regional_bank_stress
+      direct_to_deformation_allowed: false
+    - series: KBE
+      role: bank_stress
+      direct_to_deformation_allowed: false
+  current_status: STRONG
+  differentiation_from_raw: HIGH
+
+# ── K: Curvature Geometry ──────────────────────────────────────────────
+#
+# K measures: vol surface curvature, tail risk, cross-asset stress
+# Primitive path: K_t (vol surface) + cross-asset indicators
+# Currently WEAK (mostly SKEW+VVIX), needs rebuild.
+
+K:
+  primitives: [K_t]
+  data_sources:
+    # Vol surface (allowed)
+    - series: CBOE:SKEW
+      role: tail_risk_pricing
+      direct_to_deformation_allowed: true  # canonical voting
+    - series: CBOE:VVIX
+      role: vol_of_vol
+      direct_to_deformation_allowed: true  # canonical voting
+    - series: CBOE:VIX9D
+      role: short_term_vol
+      direct_to_deformation_allowed: true  # canonical voting (via butterfly)
+    - series: CBOE:VIX3M
+      role: medium_term_vol
+      direct_to_deformation_allowed: true  # canonical voting (via butterfly)
+    - series: CBOE:VIX6M
+      role: long_term_vol
+      direct_to_deformation_allowed: false  # diagnostic only
+    - series: CBOE:MOVE
+      role: rates_vol
+      direct_to_deformation_allowed: false  # not in canonical K
+    # Credit surface (quarantined — drifted from canonical)
+    - series: FRED:BAMLH0A0HYM2
+      role: credit_surface_hy
+      direct_to_deformation_allowed: false  # quarantined_drift
+    - series: FRED:BAMLC0A0CM
+      role: credit_surface_ig
+      direct_to_deformation_allowed: false  # quarantined_drift
+    - series: FRED:BAMLC0A4CBBB
+      role: credit_surface_bbb
+      direct_to_deformation_allowed: false  # quarantined_drift
+  cross_asset_etf:
+    - pair: [SPY, TLT]
+      role: equity_bond_rotation
+      direct_to_deformation_allowed: false
+    - pair: [HYG, TLT]
+      role: credit_duration_rotation
+      direct_to_deformation_allowed: false
+    - pair: [SLV, GLD]
+      role: precious_metals_ratio
+      direct_to_deformation_allowed: false
+    - series: UUP
+      role: dollar_curvature
+      direct_to_deformation_allowed: false
+  forbidden:
+    - FRED:VIXCLS  # canonical K explicitly excludes VIX level
+    - direct_vol_level_as_curvature
+  current_status: WEAK  # mostly SKEW+VVIX, needs rebuild
+  differentiation_from_raw: LOW  # 22% unique info
+
+# ── X: Hidden Leverage / Shadow Accumulation ───────────────────────────
+#
+# X measures: shadow leverage accumulation not yet reflected in prices
+# Primitive path: X_t (primary) + P_t (secondary) + V_t (validation)
+# Currently REBUILDING — old X was OFR_FSI ≈ VIX, new X_v3 uses real leverage.
+
+X:
+  primitives: [X_t, P_t, V_t]
+  data_sources:
+    # Primary (X_t) — institutional leverage
+    - series: FRED:BOGZ1FL663067003Q
+      role: broker_dealer_margin
+      direct_to_deformation_allowed: false  # quarterly, diagnostic
+      frequency_note: quarterly — cannot make daily spike claims
+    - series: FRED:BOGZ1FL624123035Q
+      role: hedge_fund_leverage
+      direct_to_deformation_allowed: false  # quarterly, diagnostic
+      frequency_note: quarterly — cannot make daily spike claims
+    - series: FRED:SBDDSA
+      role: broker_dealer_debt
+      direct_to_deformation_allowed: false  # quarterly, diagnostic
+    - series: FRED:TOTBKCR
+      role: bank_credit_growth
+      direct_to_deformation_allowed: false  # weekly background
+    - series: FRED:SCABSHNO
+      role: client_cash_positioning
+      direct_to_deformation_allowed: false  # quarterly, diagnostic
+    # Secondary (L_t context)
+    - series: FRED:NFCILEVERAGE
+      role: leverage_subindex
+      direct_to_deformation_allowed: false  # composite, diagnostic only
+    - series: FRED:BUSLOANS
+      role: business_credit
+      direct_to_deformation_allowed: false  # monthly background
+    # Validation (V_t)
+    - series: SEC:OBS_DERIV_TO_ASSETS
+      role: derivatives_exposure_validation
+      direct_to_deformation_allowed: false  # quarterly, 33 rows only
+  # Legacy (REJECTED — these cannot enter X)
+  forbidden_legacy:
+    - series: OFR_FSI
+      reason: "OFR_FSI correlates r=0.88 with VIX — measures market stress, not hidden leverage"
+    - series: TREASURY:debt_to_penny:tot_pub_debt_out_amt
+      reason: "Measures government debt size, not shadow leverage"
+    - series: TREASURY:daily_treasury_statement:open_today_bal
+      reason: "Series ended 2022, stale"
+  current_status: REBUILDING  # X_agg_v3 has r=0.047 with old, 7/8 event detection
+  differentiation_from_raw: HIGH  # new X is completely different from VIX
+
+# ── Stale / Dead Sources ───────────────────────────────────────────────
+stale_sources:
+  - series: TREASURY:daily_treasury_statement:open_today_bal
+    reason: "Series ended 2022-09-08"
+    action: "Archive only, do not use for current diagnostics"
+  - series: CBOE:TYVIX
+    reason: "Series ended 2023-07-14"
+    action: "Archive only, historical reference"
+  - series: SEC:OBS_DERIV_TO_ASSETS
+    reason: "Only 33 observations, quarterly"
+    action: "Background validation only, not daily source"

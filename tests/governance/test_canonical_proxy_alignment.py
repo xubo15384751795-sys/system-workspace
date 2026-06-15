@@ -37,6 +37,7 @@ SPEC_PATH = REPO / "governance" / "canonical_proxy_spec.yaml"
 VALID_CANONICAL_STATUS = {
     "canonical_voting",
     "awaiting_data",
+    "candidate_pending_promotion",  # has data + builder, interim, NOT yet voting
     "quarantined_drift",
     "reassigned_to_pi_observable",
     "diagnostic_consistent",
@@ -180,4 +181,56 @@ def test_canonical_voting_proxies_have_subbasket_tag():
     assert not bad, (
         f"canonical_voting proxies without canonical_subbasket: {bad}. "
         f"Every voter must declare which canonical sub-basket it fills."
+    )
+
+
+@pytest.mark.governance_loop
+@pytest.mark.semantic
+def test_k_has_at_least_one_canonical_voting_proxy():
+    """K channel must have at least one canonical_voting proxy (not all quarantined)."""
+    voting = [
+        s.name for s in srv.PROXY_REGISTRY
+        if s.target_variable == "K"
+        and s.canonical_status == "canonical_voting"
+        and s.tier in ("core", "auxiliary")
+    ]
+    assert voting, (
+        "K channel has zero canonical_voting proxies. "
+        "K needs options-derived proxies (iv_distortion / tail_convexity) "
+        "with canonical_voting status to produce non-NaN channel values."
+    )
+
+
+@pytest.mark.governance_loop
+@pytest.mark.semantic
+def test_x_agg_has_at_least_one_canonical_voting_proxy():
+    """X_agg channel must have at least one canonical_voting proxy."""
+    voting = [
+        s.name for s in srv.PROXY_REGISTRY
+        if s.target_variable == "X_agg"
+        and s.canonical_status == "canonical_voting"
+        and s.tier in ("core", "auxiliary")
+    ]
+    assert voting, (
+        "X_agg channel has zero canonical_voting proxies. "
+        "X_agg needs at least one canonical_voting proxy to produce "
+        "non-NaN channel values."
+    )
+
+
+@pytest.mark.governance_loop
+@pytest.mark.semantic
+def test_k_voting_proxies_are_options_derived():
+    """K canonical_voting proxies must use options-derived data (§4.4)."""
+    forbidden_groups = {"credit_surface", "cross_asset_curvature", "rates_curve", "funding_spread"}
+    bad = [
+        (s.name, s.independence_group)
+        for s in srv.PROXY_REGISTRY
+        if s.target_variable == "K"
+        and s.canonical_status == "canonical_voting"
+        and s.independence_group in forbidden_groups
+    ]
+    assert not bad, (
+        f"K canonical_voting proxies with forbidden independence groups: {bad}. "
+        f"K is options-derived IV/jump/tail (§4.4), NOT credit-spread."
     )

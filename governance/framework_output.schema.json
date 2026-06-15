@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "framework_output.v3",
+  "title": "Framework Output",
+  "description": "Canonical framework output schema. Single source of truth for ./sys check.",
+  "version": "3.0.0",
+  "type": "object",
+  "required": ["schema_version", "framework_id", "run_id", "as_of", "status", "basic", "advanced"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "workbench.framework_output.v3"
+    },
+    "framework_id": {
+      "type": "string"
+    },
+    "framework_version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Must start with 'replay_bridge_' for canonical path"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active_full", "active_partial", "degraded_partial", "degraded", "missing_output", "full", "partial", "missing", "stale"]
+    },
+    "basic": {
+      "type": "object",
+      "required": ["overall", "quality_status", "main_pressure", "confidence", "summary"],
+      "properties": {
+        "overall": {
+          "type": "string",
+          "enum": ["ACTIVE_FULL", "ACTIVE_PARTIAL", "DEGRADED_PARTIAL", "DEGRADED", "MISSING_OUTPUT"]
+        },
+        "quality_status": {
+          "type": "string",
+          "enum": ["FULL_HIGH_CONFIDENCE", "FULL_PROXY_REDUCED", "FULL_WITH_WARNINGS", "PARTIAL"]
+        },
+        "main_pressure": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "primary_market_space": {
+          "type": "string"
+        },
+        "daily_readout_policy": {
+          "type": "string"
+        },
+        "legacy_diagnostic_pressure": {
+          "type": "string"
+        },
+        "legacy_diagnostic_confidence": {
+          "type": "string"
+        }
+      }
+    },
+    "advanced": {
+      "type": "object",
+      "required": ["sigma_vector", "channel_coverage", "channel_confidence", "quality_status"],
+      "properties": {
+        "sigma_vector": {
+          "type": "object",
+          "required": ["M", "D", "K", "X_agg", "channels_live", "channels_not_implemented", "complete", "dominant_channel", "cofire_count"],
+          "properties": {
+            "M": { "type": ["number", "null"] },
+            "D": { "type": ["number", "null"] },
+            "K": { "type": ["number", "null"] },
+            "X_agg": { "type": ["number", "null"] },
+            "channels_live": { "type": "array", "items": { "type": "string" } },
+            "channels_not_implemented": { "type": "array", "items": { "type": "string" } },
+            "complete": { "type": "boolean" },
+            "dominant_channel": { "type": "string" },
+            "cofire_count": { "type": "integer" },
+            "measurement_eligibility": {
+              "type": "object",
+              "description": "Per-channel framework/readout role. Does not alter the canonical four-channel SigmaVector."
+            },
+            "primary_readout": {
+              "type": "object",
+              "description": "Daily executive state computed from current measurement-eligible M/D readout."
+            },
+            "semantic_warning": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "channel_coverage": {
+          "type": "object",
+          "required": ["channels_live", "channels_not_implemented", "total_canonical", "coverage_ratio", "complete"]
+        },
+        "channel_confidence": {
+          "type": "object",
+          "description": "Per-channel confidence: M, D, K, X_agg"
+        },
+        "measurement_eligibility": {
+          "type": "object"
+        },
+        "primary_readout": {
+          "type": "object"
+        },
+        "quality_status": {
+          "type": "string"
+        },
+        "measurement_blind_spot": {
+          "type": "boolean"
+        },
+        "coverage_ratio": {
+          "type": "string"
+        },
+        "harvester_release": {
+          "type": "string"
+        },
+        "semantic_warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "k_interpretation": {
+          "type": "object"
+        },
+        "x_agg_validation": {
+          "type": "object"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object"
+    },
+    "evidence_links": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

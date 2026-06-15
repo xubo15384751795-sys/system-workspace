@@ -33,15 +33,53 @@ def test_not_implemented_concept_cannot_support_structural_claim() -> None:
         semantic.require_safe_for_structural_claim("V")
 
 
-def test_sigma_vector_preserves_channel_shape() -> None:
+def test_sigma_vector_uses_canonical_four_channels() -> None:
+    # Canonical four-channel contract: M / D / K / X_agg remain the framework
+    # dimensions; the retired X_PRE / X_REALIZED splits are no longer part of
+    # the Sigma vector.
     semantic = SemanticRegistry(ROOT / "governance" / "semantic_registry.json")
 
     vector = build_sigma_vector(
-        {"M": 0.2, "D": -0.4, "K": 0.88, "X_PRE": 0.7, "X_REALIZED": 0.1, "operator_penalty": 0.4},
+        {"M": 0.2, "D": -0.4, "K": 0.88, "X_agg": 0.7, "operator_penalty": 0.4},
         semantic,
     )
 
+    assert vector["complete"] is True
     assert vector["dominant_channel"] == "K"
-    assert vector["cofire_count"] == 2
-    assert any("X_PRE" in warning for warning in vector["semantic_warning"])
+    assert vector["cofire_count"] == 2  # K=0.88 and X_agg=0.70 are ≥ 0.65
+    assert "X_PRE" not in vector and "X_REALIZED" not in vector
+    assert "X_agg" in vector
+    assert vector["primary_readout"]["state"] == "FUNDING_PATH_NARROWING"
+    assert vector["primary_readout"]["blocked_from_primary"] == ["K", "X_agg"]
+    # K carries semantic_distance=3 in the registry -> distance warning surfaces.
+    assert any("K:" in warning for warning in vector["semantic_warning"])
 
+
+def test_sigma_vector_flags_partial_coverage_without_silent_collapse() -> None:
+    # The real current state: only M and D are live; K and X_agg are absent.
+    # They must NOT silently become 0.0 and let M/D pose as a complete reading.
+    semantic = SemanticRegistry(ROOT / "governance" / "semantic_registry.json")
+
+    vector = build_sigma_vector({"M": 0.2, "D": -0.4, "operator_penalty": 0.4}, semantic)
+
+    assert vector["complete"] is False
+    assert set(vector["channels_not_implemented"]) == {"K", "X_agg"}
+    assert vector["K"] is None and vector["X_agg"] is None
+    assert any("PARTIAL_CHANNEL_COVERAGE" in warning for warning in vector["semantic_warning"])
+
+
+def test_measurement_eligibility_marks_md_primary_and_kx_limited() -> None:
+    semantic = SemanticRegistry(ROOT / "governance" / "semantic_registry.json")
+
+    vector = build_sigma_vector(
+        {"M": 0.76, "D": -0.78, "K": 0.93, "X_agg": 0.91},
+        semantic,
+    )
+
+    eligibility = vector["measurement_eligibility"]
+    assert set(eligibility) == {"M", "D", "K", "X_agg"}
+    assert eligibility["M"]["readout_role"] == "primary_readout"
+    assert eligibility["D"]["readout_role"] == "primary_readout"
+    assert eligibility["K"]["current_status"] == "THEORY_RETAINED_MEASUREMENT_INCOMPLETE"
+    assert eligibility["X_agg"]["current_status"] == "BACKGROUND_ONLY_REBUILD_REQUIRED"
+    assert vector["primary_readout"]["state"] == "MIXED_ANCHOR_PATH_STRESS"

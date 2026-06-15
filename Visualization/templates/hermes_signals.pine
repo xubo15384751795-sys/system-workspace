@@ -1,0 +1,211 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Hermes Structural Signal System
+
+//@version=5
+indicator("Hermes M/D/K/X Signals", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// ============================================================
+// INPUT: M/D/K/X Channel Scores (update weekly)
+// ============================================================
+group_mdkx = "M/D/K/X Channel Scores"
+m_score = input.float(0.479, "M (Funding Mismatch)", minval=-2, maxval=2, step=0.01, group=group_mdkx)
+d_score = input.float(-1.194, "D (Credit Depth)", minval=-2, maxval=2, step=0.01, group=group_mdkx)
+k_score = input.float(-0.564, "K (Jump Instability)", minval=-2, maxval=2, step=0.01, group=group_mdkx)
+x_score = input.float(0.219, "X (Cross-Market)", minval=-2, maxval=2, step=0.01, group=group_mdkx)
+
+// ============================================================
+// INPUT: Regime
+// ============================================================
+group_regime = "Regime"
+regime = input.string("STABLE_LOCAL", "Current Regime", options=["STABLE_LOCAL", "TRANSITIONAL", "STRESSED"], group=group_regime)
+sigma = input.float(0.473, "Sigma", minval=0, maxval=2, step=0.01, group=group_regime)
+
+// ============================================================
+// INPUT: Horizon Events (add your events here)
+// ============================================================
+group_events = "Horizon Events"
+show_events = input.bool(true, "Show Event Markers", group=group_events)
+
+// Event 1
+evt1_date = input.time(timestamp("2026-06-02"), "Event 1 Date", group=group_events)
+evt1_label = input.string("AI CapEx → Balance Sheet Expansion", "Event 1 Label", group=group_events)
+evt1_signal = input.string("HIGH", "Event 1 Signal", options=["HIGH", "MEDIUM", "LOW"], group=group_events)
+
+// Event 2
+evt2_date = input.time(timestamp("2026-05-15"), "Event 2 Date", group=group_events)
+evt2_label = input.string("Summer Rally Begins", "Event 2 Label", group=group_events)
+evt2_signal = input.string("HIGH", "Event 2 Signal", options=["HIGH", "MEDIUM", "LOW"], group=group_events)
+
+// Event 3
+evt3_date = input.time(timestamp("2026-04-01"), "Event 3 Date", group=group_events)
+evt3_label = input.string("Recovery Accelerates", "Event 3 Label", group=group_events)
+evt3_signal = input.string("HIGH", "Event 3 Signal", options=["HIGH", "MEDIUM", "LOW"], group=group_events)
+
+// Event 4
+evt4_date = input.time(timestamp("2026-03-15"), "Event 4 Date", group=group_events)
+evt4_label = input.string("Banking Crisis Fears", "Event 4 Label", group=group_events)
+evt4_signal = input.string("MEDIUM", "Event 4 Signal", options=["HIGH", "MEDIUM", "LOW"], group=group_events)
+
+// Event 5
+evt5_date = input.time(timestamp("2026-02-01"), "Event 5 Date", group=group_events)
+evt5_label = input.string("Macro Stability", "Event 5 Label", group=group_events)
+evt5_signal = input.string("MEDIUM", "Event 5 Signal", options=["HIGH", "MEDIUM", "LOW"], group=group_events)
+
+// ============================================================
+// INPUT: Next Variables Watchlist
+// ============================================================
+group_watchlist = "Next Variables"
+show_watchlist = input.bool(true, "Show Watchlist Table", group=group_watchlist)
+var1 = input.string("SOFR-OIS spread", "Variable 1", group=group_watchlist)
+var1_threshold = input.string("15bps", "Var 1 Threshold", group=group_watchlist)
+var1_current = input.string("8bps", "Var 1 Current", group=group_watchlist)
+
+var2 = input.string("MOVE index", "Variable 2", group=group_watchlist)
+var2_threshold = input.string("120", "Var 2 Threshold", group=group_watchlist)
+var2_current = input.string("105", "Var 2 Current", group=group_watchlist)
+
+var3 = input.string("IG credit spreads", "Variable 3", group=group_watchlist)
+var3_threshold = input.string("150bps", "Var 3 Threshold", group=group_watchlist)
+var3_current = input.string("128bps", "Var 3 Current", group=group_watchlist)
+
+// ============================================================
+// COLORS
+// ============================================================
+color_high = color.new(color.red, 0)
+color_medium = color.new(color.orange, 0)
+color_low = color.new(color.green, 0)
+color_regime_stable = color.new(color.green, 80)
+color_regime_transitional = color.new(color.orange, 80)
+color_regime_stressed = color.new(color.red, 80)
+
+// ============================================================
+// FUNCTIONS
+// ============================================================
+get_signal_color(signal) =>
+    signal == "HIGH" ? color_high : signal == "MEDIUM" ? color_medium : color_low
+
+get_signal_shape(signal) =>
+    signal == "HIGH" ? shape.triangleup : signal == "MEDIUM" ? shape.diamond : shape.circle
+
+// ============================================================
+// PLOT: M/D/K/X Score Background
+// ============================================================
+// Calculate composite score
+composite = (m_score + d_score + k_score + x_score) / 4
+bgcolor(composite > 0.3 ? color_regime_stable : composite > -0.3 ? color_regime_transitional : color_regime_stressed, title="Regime Background")
+
+// ============================================================
+// PLOT: Event Markers
+// ============================================================
+if show_events and time == evt1_date
+    label.new(bar_index, low - atr * 0.5, evt1_label + "\n[" + evt1_signal + "]", 
+              color=get_signal_color(evt1_signal), textcolor=color.white, 
+              style=label.style_label_up, size=size.normal)
+    plotshape(true, title="Event 1", location=location.belowbar, 
+              color=get_signal_color(evt1_signal), style=get_signal_shape(evt1_signal), size=size.small)
+
+if show_events and time == evt2_date
+    label.new(bar_index, low - atr * 0.5, evt2_label + "\n[" + evt2_signal + "]", 
+              color=get_signal_color(evt2_signal), textcolor=color.white, 
+              style=label.style_label_up, size=size.normal)
+    plotshape(true, title="Event 2", location=location.belowbar, 
+              color=get_signal_color(evt2_signal), style=get_signal_shape(evt2_signal), size=size.small)
+
+if show_events and time == evt3_date
+    label.new(bar_index, low - atr * 0.5, evt3_label + "\n[" + evt3_signal + "]", 
+              color=get_signal_color(evt3_signal), textcolor=color.white, 
+              style=label.style_label_up, size=size.normal)
+    plotshape(true, title="Event 3", location=location.belowbar, 
+              color=get_signal_color(evt3_signal), style=get_signal_shape(evt3_signal), size=size.small)
+
+if show_events and time == evt4_date
+    label.new(bar_index, low - atr * 0.5, evt4_label + "\n[" + evt4_signal + "]", 
+              color=get_signal_color(evt4_signal), textcolor=color.white, 
+              style=label.style_label_up, size=size.normal)
+    plotshape(true, title="Event 4", location=location.belowbar, 
+              color=get_signal_color(evt4_signal), style=get_signal_shape(evt4_signal), size=size.small)
+
+if show_events and time == evt5_date
+    label.new(bar_index, low - atr * 0.5, evt5_label + "\n[" + evt5_signal + "]", 
+              color=get_signal_color(evt5_signal), textcolor=color.white, 
+              style=label.style_label_up, size=size.normal)
+    plotshape(true, title="Event 5", location=location.belowbar, 
+              color=get_signal_color(evt5_signal), style=get_signal_shape(evt5_signal), size=size.small)
+
+// ============================================================
+// TABLE: M/D/K/X Scores
+// ============================================================
+var table mdkx_table = table.new(position.top_right, 2, 5, 
+                                 bgcolor=color.new(color.black, 80), 
+                                 border_width=1, border_color=color.gray)
+
+if barstate.islast
+    table.cell(mdkx_table, 0, 0, "Channel", text_color=color.white, text_size=size.small)
+    table.cell(mdkx_table, 1, 0, "Score", text_color=color.white, text_size=size.small)
+    
+    table.cell(mdkx_table, 0, 1, "M (Funding)", text_color=color.white, text_size=size.small)
+    table.cell(mdkx_table, 1, 1, str.tostring(m_score, "#.###"), 
+               text_color=m_score > 0 ? color.green : color.red, text_size=size.small)
+    
+    table.cell(mdkx_table, 0, 2, "D (Credit)", text_color=color.white, text_size=size.small)
+    table.cell(mdkx_table, 1, 2, str.tostring(d_score, "#.###"), 
+               text_color=d_score > 0 ? color.green : color.red, text_size=size.small)
+    
+    table.cell(mdkx_table, 0, 3, "K (Jump)", text_color=color.white, text_size=size.small)
+    table.cell(mdkx_table, 1, 3, str.tostring(k_score, "#.###"), 
+               text_color=k_score > 0 ? color.green : color.red, text_size=size.small)
+    
+    table.cell(mdkx_table, 0, 4, "X (Cross)", text_color=color.white, text_size=size.small)
+    table.cell(mdkx_table, 1, 4, str.tostring(x_score, "#.###"), 
+               text_color=x_score > 0 ? color.green : color.red, text_size=size.small)
+
+// ============================================================
+// TABLE: Regime Info
+// ============================================================
+var table regime_table = table.new(position.bottom_right, 2, 3, 
+                                   bgcolor=color.new(color.black, 80), 
+                                   border_width=1, border_color=color.gray)
+
+if barstate.islast
+    table.cell(regime_table, 0, 0, "Regime", text_color=color.white, text_size=size.small)
+    table.cell(regime_table, 1, 0, regime, 
+               text_color=regime == "STABLE_LOCAL" ? color.green : regime == "TRANSITIONAL" ? color.orange : color.red, 
+               text_size=size.small)
+    
+    table.cell(regime_table, 0, 1, "Sigma", text_color=color.white, text_size=size.small)
+    table.cell(regime_table, 1, 1, str.tostring(sigma, "#.###"), text_color=color.yellow, text_size=size.small)
+    
+    table.cell(regime_table, 0, 2, "Composite", text_color=color.white, text_size=size.small)
+    table.cell(regime_table, 1, 2, str.tostring(composite, "#.###"), 
+               text_color=composite > 0 ? color.green : color.red, text_size=size.small)
+
+// ============================================================
+// TABLE: Watchlist
+// ============================================================
+if show_watchlist and barstate.islast
+    var table watchlist_table = table.new(position.bottom_left, 3, 4, 
+                                          bgcolor=color.new(color.black, 80), 
+                                          border_width=1, border_color=color.gray)
+    
+    table.cell(watchlist_table, 0, 0, "Watchlist", text_color=color.yellow, text_size=size.small)
+    table.cell(watchlist_table, 1, 0, "Threshold", text_color=color.yellow, text_size=size.small)
+    table.cell(watchlist_table, 2, 0, "Current", text_color=color.yellow, text_size=size.small)
+    
+    table.cell(watchlist_table, 0, 1, var1, text_color=color.white, text_size=size.small)
+    table.cell(watchlist_table, 1, 1, var1_threshold, text_color=color.orange, text_size=size.small)
+    table.cell(watchlist_table, 2, 1, var1_current, text_color=color.green, text_size=size.small)
+    
+    table.cell(watchlist_table, 0, 2, var2, text_color=color.white, text_size=size.small)
+    table.cell(watchlist_table, 1, 2, var2_threshold, text_color=color.orange, text_size=size.small)
+    table.cell(watchlist_table, 2, 2, var2_current, text_color=color.green, text_size=size.small)
+    
+    table.cell(watchlist_table, 0, 3, var3, text_color=color.white, text_size=size.small)
+    table.cell(watchlist_table, 1, 3, var3_threshold, text_color=color.orange, text_size=size.small)
+    table.cell(watchlist_table, 2, 3, var3_current, text_color=color.green, text_size=size.small)
+
+// ============================================================
+// ALERTS
+// ============================================================
+alertcondition(ta.change(composite) > 0.5, title="M/D/K/X Improvement", message="Hermes: M/D/K/X composite improved significantly")
+alertcondition(ta.change(composite) < -0.5, title="M/D/K/X Deterioration", message="Hermes: M/D/K/X composite deteriorated significantly")
+alertcondition(regime == "STRESSED", title="Stressed Regime", message="Hermes: System in STRESSED regime - caution advised")

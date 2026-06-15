@@ -1,0 +1,198 @@
+# Data → Primitive Variable Mapping
+#
+# Maps each data source to S/A/L/V/P/τ primitive variables.
+# Defines what each series is ALLOWED and FORBIDDEN to do.
+
+schema_version: data_to_primitive_mapping.v1
+generated: "2026-06-04"
+
+# ── Primitive Definitions ──────────────────────────────────────────────
+#
+# S_t  Strategic actor configuration   (who is positioned where)
+# A_t  Anchor configuration            (what anchors the market)
+# L_t  Liquidation-path feasibility    (can you exit)
+# V_t  Verifiability density           (can you trust the numbers)
+# P_t  Positional power concentration  (who has leverage)
+# τ_t  Latency structure               (how fast does info propagate)
+
+# ── Mapping ────────────────────────────────────────────────────────────
+
+# A_t: Anchor configuration — STRONGEST layer
+A_t:
+  primary_sources:
+    - FRED:DFF            # policy rate anchor
+    - FRED:SOFR           # secured funding anchor
+    - FRED:IORB           # reserve rate anchor
+    - FRED:T10Y2Y         # curve shape anchor
+    - FRED:T10YIE         # inflation expectation anchor
+    - FRED:T5YIE          # inflation expectation anchor
+    - FRED:DTWEXBGS       # dollar anchor
+    - FRED:DPRIME         # bank lending anchor
+    - FRED:DGS3MO         # short-term rate anchor
+  secondary_sources:
+    - FRED:DAAA           # credit yield anchor
+    - FRED:DBAA           # credit yield anchor
+    - FRED:BAA10YM        # credit-Treasury anchor
+    - FRED:DCPF3M         # CP funding anchor
+  allowed_use:
+    - anchor_mismatch_detection
+    - policy_market_gap_measurement
+    - curve_shape_analysis
+    - inflation_expectation_drift
+    - dollar_pressure_assessment
+  forbidden_use:
+    - direct_vol_surface_measurement
+    - direct_leverage_measurement
+    - direct_credit_depth_measurement
+
+# L_t: Liquidation-path feasibility — STRONG layer
+L_t:
+  primary_sources:
+    - FRED:SOFR_IORB_SPREAD   # funding stress
+    - FRED:DCPF3M             # CP stress
+    - FRED:RRPONTSYD          # liquidity drain
+    - FRED:WTREGEN            # fiscal liquidity
+    - FRED:WRESBAL            # bank reserves
+    - FRED:TOTBKCR            # bank credit availability
+    - H41:primary_credit      # official support usage
+    - H41:discount_window     # official support usage
+    - H41:btfp                # emergency facility
+  secondary_sources:
+    - FRED:WALCL              # Fed balance sheet size
+    - FRED:TREAST             # Treasury at Fed
+    - FRED:NFCILEVERAGE       # leverage context
+    - FRED:NFCICREDIT         # credit conditions
+    - FRED:STLFSI4            # financial stress
+    - HYG                     # credit market health
+    - LQD                     # IG credit health
+    - KRE                     # regional bank stress
+    - KBE                     # bank stress
+  allowed_use:
+    - funding_path_stress
+    - liquidity_drain_detection
+    - official_support_monitoring
+    - credit_path_narrowing
+    - bank_stress_detection
+  forbidden_use:
+    - direct_shadow_leverage_claim
+    - direct_hidden_exposure_claim
+
+# K_t: Curvature geometry — NEEDS REBUILD
+K_t:
+  primary_sources:
+    - CBOE:SKEW               # tail risk pricing
+    - CBOE:VVIX               # vol-of-vol
+    - CBOE:VIX9D              # short-term vol
+    - CBOE:VIX3M              # medium-term vol
+    - CBOE:VIX6M              # long-term vol
+    - CBOE:MOVE               # rates vol
+  secondary_sources:
+    - FRED:BAMLH0A0HYM2      # credit surface
+    - FRED:BAMLC0A0CM         # credit surface
+    - FRED:BAMLC0A4CBBB       # credit surface
+    - SPY/TLT                 # equity-bond rotation
+    - HYG/TLT                 # credit-duration rotation
+    - SLV/GLD                 # precious metals ratio
+    - UUP                     # dollar curvature
+  allowed_use:
+    - vol_surface_curvature
+    - tail_risk_pricing
+    - cross_asset_regime_stress_diagnostic
+  forbidden_use:
+    - direct_leverage_measurement
+    - direct_anchor_mismatch_claim
+
+# X_t: Hidden leverage / shadow accumulation — REBUILDING
+X_t:
+  primary_sources:
+    - FRED:BOGZ1FL663067003Q  # broker-dealer margin loans
+    - FRED:BOGZ1FL624123035Q  # hedge fund prime brokerage
+    - FRED:SBDDSA             # broker-dealer debt securities
+    - FRED:TOTBKCR            # bank credit growth
+    - FRED:SCABSHNO           # client cash accounts
+  secondary_sources:
+    - FRED:NFCILEVERAGE       # leverage sub-index
+    - FRED:BUSLOANS           # C&I loans
+    - FRED:RRPONTSYD          # liquidity parked at Fed
+    - FRED:WTREGEN            # fiscal drain
+    - SEC:OBS_DERIV_TO_ASSETS # derivatives exposure (quarterly, sparse)
+  allowed_use:
+    - slow_leverage_regime_detection
+    - institutional_leverage_monitoring
+    - shadow_accumulation_background
+  forbidden_use:
+    - daily_spike_trigger  # quarterly data cannot make daily claims
+    - direct_trading_signal
+    - claiming_complete_shadow_measurement
+
+# S_t: Strategic actor configuration — WEAK
+S_t:
+  primary_sources:
+    - XLB, XLE, XLF, XLI, XLK, XLP, XLRE, XLU, XLV, XLY, XLC  # sector breadth
+    - SPY, QQQ, IWM, VTI, DIA  # size/style
+    - SMH                     # tech concentration
+  secondary_sources:
+    - KRE, KBE                # bank positioning
+    - GLD, SLV, DBC, USO      # commodity positioning
+    - UUP                     # dollar positioning
+  allowed_use:
+    - sector_breadth
+    - market_concentration
+    - risk_on_off_rotation
+  forbidden_use:
+    - direct_actor_identification
+    - direct_holdings_claim
+
+# V_t: Verifiability density — WEAK
+V_t:
+  primary_sources:
+    - SEC:OBS_DERIV_TO_ASSETS # quarterly disclosure
+    - FRED:DRSFRMACBS         # mortgage delinquency
+  secondary_sources:
+    - OFR_FSI                 # systemic visibility
+    - CISS                    # European stress visibility
+  allowed_use:
+    - slow_disclosure_background
+    - credit_quality_context
+  forbidden_use:
+    - daily_verifiability_claim
+    - direct_accounting_gap_measurement
+
+# P_t: Positional power concentration — WEAK-TO-MEDIUM
+P_t:
+  primary_sources:
+    - FRED:BOGZ1FL663067003Q  # broker-dealer leverage
+    - FRED:BOGZ1FL624123035Q  # hedge fund leverage
+    - SMH                     # tech concentration
+    - QQQ/SPY                 # growth/value rotation
+    - IWM/SPY                 # small/large rotation
+  secondary_sources:
+    - KRE/XLF                 # regional vs large bank
+    - sector ETF relative     # sector concentration
+  allowed_use:
+    - concentration_monitoring
+    - leverage_regime_detection
+    - sector_rotation_tracking
+  forbidden_use:
+    - direct_holdings_claim
+    - direct_13f_equivalent
+    - direct_gex_claim
+
+# τ_t: Latency structure — DEVELOPING
+τ_t:
+  primary_sources:
+    - DERIVED:SOFR_IORB_SPREAD  # funding latency
+    - FRED:DCPF3M               # CP vs Treasury lag
+    - frequency_mismatch_audit   # from proxy registry
+  secondary_sources:
+    - H41:primary_credit        # official response timing
+    - H41:discount_window       # emergency response timing
+    - H41:btfp                   # emergency facility timing
+    - OFR_FSI vs VIXCLS          # stress visibility lag
+  allowed_use:
+    - frequency_latency_tracking
+    - policy_response_lag
+    - stress_visibility_gap
+  forbidden_use:
+    - real_time_latency_claim
+    - intraday_timing_signal

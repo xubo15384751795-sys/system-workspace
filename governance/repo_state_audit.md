@@ -1,8 +1,8 @@
-# Repo State Audit — 2026-05-21 (updated 2026-05-22)
+# Repo State Audit — 2026-05-21 (updated 2026-05-22, second pass)
 
 **Auditor:** routing assist  
 **Scope:** `/Users/a1/System` 仓库结构、命名一致性、文档/现实漂移  
-**Verdict (2026-05-22):** Phase 1 完成 — git 布局锁定、文档对齐、symlink 就位。Phase 3 剩余：`scripts/` 分流。
+**Verdict (2026-05-22, evening):** Phase 1 完成；Phase 3 收尾通过——`scripts/` 已就地标记、`events/` legacy 已归档、submodule pin 清理铺好执行计划（决策权留给用户）。父仓库范围内的重整结束。
 
 ## 重整结论（已锁定，不再三选一）
 
@@ -30,10 +30,12 @@
 - [x] `scripts/bootstrap.sh` → submodule init + symlink 重建
 - [x] `system_learning` 收口：`Workbench/Output/system_learning/` 删除；hub cartography 写入 `Data/system_learning/`；`system-learning-hub/data` → symlink
 
-### Phase 3 — 仍 open
+### Phase 3 — 收尾通过 (2026-05-22 evening)
 
-- [ ] 顶层 `scripts/` 非 wrapper 脚本归 owning module
-- [ ] `Output/system_learning/events/` legacy 路径完全迁移到 runtime log
+- [x] 顶层 `scripts/` 12 个非 wrapper 脚本就地加 deprecation banner（`#` 注释，零副作用），目标位置写进 banner；物理迁移延后，sys/Justfile/tests/configs 引用面零破坏。详见 `governance/repo_layout_map.md §6`。
+- [x] `Output/system_learning/events/` 4 个 legacy `events_*.jsonl` 归档到 `Output/system_learning/legacy/events/`；原目录留 README.md 指向 `runtime/` + `record_runtime_event.py`。
+- [~] Submodule pin 清理：父仓内出执行计划 `governance/submodule_commit_plan.md`（每个 submodule dirty 概要 + 切片建议 + parent pin 更新命令）。**实际 commit 留给用户**（commit message / 切片粒度是用户决策）。
+- [ ] **追加 open**：peer writer 代码（仍在 4 个 submodule 内）→ `system_learning record`。属于 submodule 内重构，不在本轮父仓收尾范围。
 
 ---
 
@@ -65,9 +67,9 @@
 
 `Structural Deformation Research System/` 是 git submodule；外层 `scripts/`/`tests/`/`Output/` 分工见 `repo_layout_map.md` §6。
 
-### P2 — 顶层 scripts 名实不符 → **open**
+### P2 — 顶层 scripts 名实不符 → **就地标记完成**
 
-28 个 `.py`；非 wrapper 清单在 `repo_layout_map.md` §6。迁移 pending。
+12 个非 wrapper 脚本（`structural_replay_v2.py`、`structural_replay_evaluation.py`、`run_c005_morphology_replay.py`、`build_c005_morphology_report.py`、`nlp_ingest.py`、`nlp_extract.py`、`ask_evidence.py`、`openbb_secondary_audit.py`、`repair_openbb_entrypoints.py`、`framework_cli.py`、`audit_boundaries.py`、`prepare_dl_training_data.py`）已加 `DEPRECATED LOCATION (marked 2026-05-22)` banner，目标 submodule 写进各 banner。物理迁移延后到 submodule pin 清理之后做（届时配 thin wrapper）。`repo_layout_map.md §6 §7` 已同步。
 
 ### P3 — 噪音 → **已处理**
 
@@ -86,8 +88,10 @@
 
 ---
 
-## 3. 建议下一步
+## 3. 建议下一步（父仓收尾后剩余，全部跨入 submodule 边界）
 
-1. **scripts/ 分流** — 按 `repo_layout_map.md` §6 表，移动后保留 thin wrapper
-2. **runtime log 迁移** — 废弃 `Output/system_learning/events/` 的非 Hub writer
-3. **Submodule pin 清理** — 各子仓库 commit 本地改动后更新 parent gitlink
+1. **按 `governance/submodule_commit_plan.md` 在 4 个 submodule 内提交在途工作**——这是 dirty pin 唯一的解。
+2. **更新 parent gitlink**——4 个 submodule commit 完后 `git add <submodule> && git commit`，让 `git status` 的 `m` 前缀清干净。
+3. **物理迁移 12 个 deprecated 脚本**到各 submodule `scripts/`，并在父仓 `scripts/` 留 thin wrapper 调用 submodule 入口。建议放在 submodule pin 清理之后单独一轮。
+4. **退役 peer writer**：`Workbench/agents/harness/events/system_event_writer.py` 等 4 处仍在写 `Output/system_learning/events/` 的代码，迁到 `system_learning record`。属于 Hub 接管运行日志的最后一步。
+5. **（低优先）** `.DS_Store` 从历史清除（当前 git 已未追踪，只是 working tree 残留）。

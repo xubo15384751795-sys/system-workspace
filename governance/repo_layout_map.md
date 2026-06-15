@@ -1,7 +1,7 @@
 # Repository Layout Map
 
 **Status:** current reality as of 2026-05-22  
-**Policy:** docs follow reality (Phase 2b). Physical moves under `Workbench/` are deferred.
+**Policy:** docs follow on-disk reality (locked 2026-05-22). Sister repos stay as **top-level submodules**; physical nest under `Workbench/` is **retired**.
 
 This file is the authoritative map when `FOLDER_OWNERSHIP.md`, older README
 sections, or bootstrap history disagree with the tree on disk.
@@ -104,15 +104,21 @@ promote_snapshot.py
 system_status.py
 ```
 
-### Module-owned scripts (still at workspace root — migration pending)
+### Module-owned scripts (in-place marked 2026-05-22, physical move pending)
 
-| Script | Should live in |
-|---|---|
-| `structural_replay_v2.py`, `structural_replay_evaluation.py`, `run_c005_morphology_replay.py`, `build_c005_morphology_report.py` | `Structural Deformation Research System/scripts/` |
-| `nlp_ingest.py`, `nlp_extract.py`, `ask_evidence.py` | `Workbench/` CLI entry |
-| `openbb_secondary_audit.py`, `repair_openbb_entrypoints.py` | `structural-risk-harvester/scripts/` |
-| `framework_cli.py` | `Workbench/` or Framework CLI (TBD) |
-| `audit_boundaries.py`, `prepare_dl_training_data.py` | workspace audit / research utilities |
+Each script below carries a `DEPRECATED LOCATION (marked 2026-05-22)` banner in
+its header pointing to the target submodule. **Files are not yet moved**; they
+remain at `scripts/` so `sys`, Justfile, tests, and config references keep
+working. Physical migration happens after the submodule pin cleanup
+(`governance/submodule_commit_plan.md`), paired with thin wrappers.
+
+| Script | Should live in | Banner present? |
+|---|---|---|
+| `structural_replay_v2.py`, `structural_replay_evaluation.py`, `run_c005_morphology_replay.py`, `build_c005_morphology_report.py` | `Structural Deformation Research System/scripts/` | ✓ |
+| `nlp_ingest.py`, `nlp_extract.py`, `ask_evidence.py` | `Workbench/` CLI entry | ✓ |
+| `openbb_secondary_audit.py`, `repair_openbb_entrypoints.py` | `structural-risk-harvester/scripts/` | ✓ |
+| `framework_cli.py` | `Workbench/` or Framework CLI (TBD) | ✓ |
+| `audit_boundaries.py`, `prepare_dl_training_data.py` | workspace audit / research utilities | ✓ |
 
 ### Internal / maintenance
 
@@ -127,8 +133,13 @@ _run_descriptive_quality_tests.py, github_preflight.py, bootstrap.sh
 
 1. ~~Register four sister repos as git submodules~~ (done 2026-05-22)
 2. ~~Consolidate duplicate `system_learning` trees~~ (done 2026-05-22)
-3. Move non-wrapper scripts into owning module repos.
+3. ~~Mark non-wrapper scripts with deprecation banner pointing to target submodule~~ (done 2026-05-22, evening)
+4. ~~Archive legacy `Output/system_learning/events/*.jsonl`~~ (done 2026-05-22, evening)
+5. **Submodule pin cleanup**: each sister repo commits in-flight work; parent updates gitlinks. Plan: `governance/submodule_commit_plan.md`.
+6. **Physical migration** of the 12 marked scripts into their target submodule `scripts/` directories — only after step 5 lands, with thin wrappers retained at parent `scripts/`.
+7. **Peer-writer retirement**: route remaining `Output/system_learning/events/` writers through `system_learning record` (cross-submodule cleanup).
 
 Retired: nest harvester/hub under `Workbench/` — do not pursue without a new migration plan.
 
-See `governance/repo_state_audit.md` for phase plan and risks.
+See `governance/repo_state_audit.md` for phase plan and risks, and
+`governance/submodule_commit_plan.md` for step 5 details.

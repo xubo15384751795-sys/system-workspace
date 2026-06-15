@@ -19,15 +19,21 @@ Default rule:
 These are the active project threads. A thread is a work lane with its own
 owner, paths, and allowed communication points.
 
-| Thread | Owns | Primary location | Context file |
-|---|---|---|---|
-| Workbench | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` |
-| Deformation Framework | Structural theory, operators, diagnostics, dynamics, claims | `Structural Deformation Research System/` | `module_contexts/framework.md` |
-| Harvester | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` |
-| Protocols | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` |
-| Data and Output | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` |
-| Learning Hub | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` |
-| Agent Routing | Sparse activation, expert routing, workflow guards | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` |
+**Status legend:** ACTIVE = real data flows, PARTIAL = gaps exist, PAPER = code exists but no data, UNKNOWN = not checked
+
+| Thread | Status | Owns | Primary location | Context file |
+|---|---|---|---|---|
+| Workbench | ACTIVE | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` |
+| Deformation Framework | ACTIVE | Structural theory, operators, diagnostics, dynamics, claims | `Structural Deformation Research System/` | `module_contexts/framework.md` |
+| Harvester | ACTIVE | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` |
+| Protocols | ACTIVE | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` |
+| Data and Output | ACTIVE | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` |
+| Learning Hub | **PAPER** | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` |
+| Agent Routing | **PAPER** | Sparse activation, expert routing, workflow guards | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` |
+| NLP Pipeline | **PAPER** | Event extraction, case similarity, narrative drift | `Workbench/src/nlp/` | — |
+| ML Signals | **PAPER** | Regime detection, factor model, graph embeddings | `Workbench/src/ml/` | — |
+| Backtest Lens | **PAPER** | Market feedback, historical replay evaluation | `ExternalTools/`, `scripts/run_historical_replay.py` | — |
+| Research Terminal | **UNKNOWN** | Embedded research terminal | `research_terminal/` | — |
 
 ## Dependency Rule
 

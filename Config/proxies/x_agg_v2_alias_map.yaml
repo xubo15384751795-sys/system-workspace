@@ -1,0 +1,87 @@
+# X_agg v2 Proxy Alias Map
+# Maps X_agg sub-basket proxies to raw series in the Harvester panel.
+
+X1_official_support:
+  - alias: X_PRIMARY_CREDIT
+    series_id: "H41:primary_credit"
+    frequency: weekly
+    status: canonical_voting
+    temporal_precision: weekly
+
+  - alias: X_DISCOUNT_WINDOW
+    series_id: "H41:discount_window"
+    frequency: weekly
+    status: canonical_voting
+    temporal_precision: weekly
+
+  - alias: X_BTFP
+    series_id: "H41:btfp"
+    frequency: weekly
+    status: canonical_voting
+    temporal_precision: weekly
+
+X2_shadow_funding:
+  - alias: X_SOFR_IORB_SPREAD
+    series_id: "DERIVED:SOFR_IORB_SPREAD"
+    frequency: daily
+    status: canonical_voting
+    temporal_precision: daily
+
+  - alias: X_SOFR
+    series_id: "FRED:SOFR"
+    frequency: daily
+    status: candidate
+    temporal_precision: daily
+
+  - alias: X_IORB
+    series_id: "FRED:IORB"
+    frequency: daily
+    status: candidate
+    temporal_precision: daily
+
+X3_obs_balance_sheet:
+  - alias: X_OBS_ASSETS
+    series_id: "SEC:OBS_DERIV_TO_ASSETS"
+    frequency: quarterly
+    status: diagnostic_only
+    temporal_precision: quarterly_forward_filled
+    warning: "quarterly proxy — must not manufacture daily spike"
+
+X4_market_leverage:
+  - alias: X_OFR_SYSTEMIC_STRESS
+    series_id: "OFR_FSI"
+    frequency: daily
+    status: canonical_voting
+    temporal_precision: daily
+
+  - alias: X_TREASURY_DEBT
+    series_id: "TREASURY:debt_to_penny:tot_pub_debt_out_amt"
+    frequency: daily
+    status: canonical_voting
+    temporal_precision: daily
+
+  - alias: X_TREASURY_CASH
+    series_id: "TREASURY:daily_treasury_statement:open_today_bal"
+    frequency: daily
+    status: canonical_voting
+    temporal_precision: daily
+
+  - alias: X_NFCILEVERAGE
+    series_id: "FRED:NFCILEVERAGE"
+    frequency: weekly
+    status: diagnostic_only
+    temporal_precision: weekly
+    warning: "broad composite — candidate only, not canonical voting"
+
+  - alias: X_NFCICREDIT
+    series_id: "FRED:NFCICREDIT"
+    frequency: weekly
+    status: diagnostic_only
+    temporal_precision: weekly
+    warning: "broad composite — candidate only, not canonical voting"
+
+  - alias: X_STLFSI
+    series_id: "FRED:STLFSI4"
+    frequency: weekly
+    status: candidate
+    temporal_precision: weekly

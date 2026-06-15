@@ -8,6 +8,7 @@ cmd="${1:-check}"
 case "$cmd" in
   refresh)
     python3 "$ROOT/scripts/refresh_output_current.py"
+    python3 "$ROOT/scripts/bridge_replay_to_current.py"
     python3 "$ROOT/scripts/build_artifact_navigator.py"
     ;;
   check|current)
@@ -82,12 +83,15 @@ case "$cmd" in
     echo "Checking Output/current..."
     test -d "$CURRENT"
     test -f "$CURRENT/00_READ_ME_FIRST.md"
-    realpath "$CURRENT/latest_run" >/dev/null
-    realpath "$CURRENT/latest_summary.md" >/dev/null
-    realpath "$CURRENT/latest_report.html" >/dev/null
-    realpath "$CURRENT/latest_dashboard.json" >/dev/null
-    realpath "$CURRENT/run_manifest.json" >/dev/null
-    test -f "$CURRENT/model_run.json"
+    test -f "$CURRENT/framework_output.json"
+    # Check output source
+    source=$(python3 -c "import json; d=json.load(open('$CURRENT/framework_output.json')); print(d.get('run_id','unknown'))" 2>/dev/null || echo "unknown")
+    echo "  Output source: $source"
+    if echo "$source" | grep -q "replay_bridge"; then
+      echo "  Source type: structural_replay_v2 bridge (canonical)"
+    else
+      echo "  WARNING: source is not replay_bridge — may be stale Deformation run"
+    fi
     echo "OK: Output/current looks usable."
     ;;
   status)

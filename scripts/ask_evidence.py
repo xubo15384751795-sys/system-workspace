@@ -1,3 +1,13 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPRECATED LOCATION (marked 2026-05-22) — migration tracked in
+#   governance/repo_layout_map.md §6
+#   governance/repo_state_audit.md Phase 3
+# This script should eventually live in:
+#   Workbench/ (CLI entry, TBD)
+# Path here is preserved as a thin entry point so `sys`, Justfile, tests, and
+# configs continue to work. New code should target the module-owned location
+# once the owning submodule absorbs this script.
+# ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
 import sys

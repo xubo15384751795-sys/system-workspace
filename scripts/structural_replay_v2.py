@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPRECATED LOCATION (marked 2026-05-22) — migration tracked in
+#   governance/repo_layout_map.md §6
+#   governance/repo_state_audit.md Phase 3
+# This script should eventually live in:
+#   Structural Deformation Research System/scripts/
+# Path here is preserved as a thin entry point so `sys`, Justfile, tests, and
+# configs continue to work. New code should target the module-owned location
+# once the owning submodule absorbs this script.
+# ─────────────────────────────────────────────────────────────────────────────
 """Structural Deformation System — Historical Case Replay v2.
 
 Uses the official Harvester panel (2026-05-05-r1) with 27 series across
@@ -52,7 +62,7 @@ def load_cfg() -> DictConfig:
 
 # ── Frequency / Tier / Activation typing ────────────────────────────────────
 
-Freq = Literal["daily", "weekly", "monthly", "sparse", "mixed"]
+Freq = Literal["daily", "weekly", "monthly", "quarterly", "sparse", "mixed"]
 Tier = Literal["core", "auxiliary", "diagnostic_only", "experimental", "deprecated"]
 ActivationLogic = Literal["continuous", "event_jump", "official_facility", "mixed"]
 
@@ -393,12 +403,16 @@ VARIABLES: dict[str, StateVariable] = {
         canonical_section_ref="Finance-2.tex §4.4 + §7.2.2 + Table 6",
         canonical_alignment_note=(
             "Canonical K requires IV-surface distortion + jump intensity + "
-            "tail convexity from options data. None of those data sources is "
-            "in harvester today. All current voting K proxies are credit-spread "
-            "based and are red-line violations (§4.4 explicitly: NOT vol, NOT "
-            "jump, NOT tail, NOT VIX, NOT credit spread). They are quarantined; "
-            "canonical sub-baskets are awaiting_data. K aggregation will be NaN "
-            "until options data arrives — this is the honest state."
+            "tail convexity. UPDATE 2026-05-31: the IV-surface data IS in "
+            "harvester (CBOE SKEW, VIX9D/VIX3M/VIX6M term structure). u1 "
+            "(term-structure twist butterfly) and u3 (SKEW tail convexity) are "
+            "now wired as candidate_pending_promotion (NON-voting); u2 (jump "
+            "intensity) still awaiting_data (needs intraday/bipower). The 5 "
+            "legacy credit-spread K proxies remain quarantined red-line "
+            "violations (§4.4: NOT vol/jump/tail/VIX/credit-spread). K still "
+            "aggregates to NaN today (no canonical_voting K proxy yet); the "
+            "candidates promote only after the §7.2.2 falsification gate + "
+            "independence checks pass — this is the honest state."
         ),
     ),
     "X_PRE": StateVariable(
@@ -562,6 +576,10 @@ class ProxySpec:
     #                                       as a second-derivative diagnostic of D).
     #   "extension_beyond_canonical"      — target_variable itself is not in canonical paper
     #                                       (e.g. X_PRE/X_REALIZED voting); proxy is dormant.
+    #   "candidate_pending_promotion"     — has real data + a real builder, but is an interim
+    #                                       source not yet promoted to canonical (e.g. Phase 1
+    #                                       SEC-XBRL OBS pending FFIEC Y-9C + independence/§7.2.3
+    #                                       checks). Visible in audit; contributes 0 to voting.
     #   "unevaluated"                     — not yet reviewed against canonical spec.
     canonical_status: str = "unevaluated"
     canonical_subbasket: str = ""  # e.g. "M.m1_funding_anchor_gap"
@@ -608,22 +626,40 @@ def _spread(panel: pd.DataFrame, left: str, right: str, limit: int = 5) -> pd.Se
     return lhs - rhs
 
 
+def _butterfly(panel: pd.DataFrame, short: str, mid: str, long: str, limit: int = 5) -> pd.Series | None:
+    """Curvature (butterfly) of a three-tenor term structure: short - 2*mid + long.
+
+    Level-independent measure of term-structure twist/distortion: ~0 for a
+    smooth monotone curve, nonzero when the curve kinks (e.g. front-end vol
+    inversion under stress). Used for canonical K u1 (IV term-structure twist).
+    """
+    s = _series(panel, short, limit)
+    m = _series(panel, mid, limit)
+    l = _series(panel, long, limit)
+    if s is None or m is None or l is None:
+        return None
+    return s - 2.0 * m + l
+
+
 FREQ_WINDOWS: dict[Freq, tuple[int, int]] = {
     "daily":   (252, 126),  # 1y rolling, 6m warmup
     "weekly":  (52, 26),    # 1y rolling in weekly observations
     "monthly": (12, 6),     # 1y rolling in monthly observations
+    "quarterly": (20, 8),   # 5y rolling in quarterly observations (1y is too few obs)
 }
 
 FREQ_SMOOTH_DEFAULT: dict[Freq, int] = {
     "daily":   21,
     "weekly":  3,
     "monthly": 1,
+    "quarterly": 1,
     "sparse":  5,
 }
 
 PANDAS_RESAMPLE_RULE: dict[Freq, str] = {
     "weekly":  "W-FRI",
     "monthly": "ME",
+    "quarterly": "QE",
 }
 
 
@@ -646,7 +682,7 @@ def _freq_aware_zscore(series: pd.Series, freq: Freq) -> pd.Series:
         w, mp = FREQ_WINDOWS["daily"]
         return _rolling_zscore(series, w, mp)
 
-    if freq in ("weekly", "monthly"):
+    if freq in ("weekly", "monthly", "quarterly"):
         rule = PANDAS_RESAMPLE_RULE[freq]
         native = series.dropna().resample(rule).last()
         if native.empty:
@@ -655,7 +691,7 @@ def _freq_aware_zscore(series: pd.Series, freq: Freq) -> pd.Series:
         z_native = _rolling_zscore(native, w, mp)
         # Forward-fill to daily index, but limit fill so old observations
         # don't creep into long gaps.
-        max_fill = {"weekly": 7, "monthly": 35}[freq]
+        max_fill = {"weekly": 7, "monthly": 35, "quarterly": 100}[freq]
         return z_native.reindex(series.index, method="ffill", limit=max_fill)
 
     raise ValueError(f"_freq_aware_zscore: unsupported freq {freq!r}")
@@ -821,7 +857,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
     ProxySpec(
         name="M_curve_inversion",
         target_variable="M",
-        tier="core",
+        tier="diagnostic_only",  # downgraded from core: rates_curve is a forbidden_group for M
         freq="daily",
         raw_series=("FRED:T10Y2Y",),
         raw_family="FRED_RATES",
@@ -1341,23 +1377,36 @@ PROXY_REGISTRY: list[ProxySpec] = [
         canonical_alignment_note="Needs options open-interest data not in harvester.",
     ),
 
-    # ── K canonical sub-baskets ── (ALL awaiting_data; K is honestly NaN today)
+    # ── K canonical sub-baskets ──
+    # u1 (IV term twist) and u3 (tail convexity) are now wired from existing
+    # CBOE data as candidate_pending_promotion (NON-voting until §7.2.2 +
+    # independence checks pass). u2 (jump intensity) remains awaiting_data
+    # (needs intraday/bipower). K still votes NaN today (no canonical_voting
+    # K proxy yet) — but the canonical sub-baskets are no longer all dataless.
     ProxySpec(
-        name="K_canonical_NOT_IMPLEMENTED_u1_iv_distortion",
+        name="K_u1_iv_term_twist_candidate",
         target_variable="K",
         tier="core",
         freq="daily",
-        raw_series=(),
-        raw_family="NOT_IMPLEMENTED",
+        raw_series=("CBOE:VIX9D", "CBOE:VIX3M", "CBOE:VIX6M"),
+        raw_family="CBOE_IVTS",
         independence_group="iv_distortion",
         mechanism="iv_skew_smile_term_twist",
-        transform="(awaiting data: IV skew slope, smile curvature, term twist)",
-        builder=lambda p: None,
-        canonical_status="awaiting_data",
+        transform="VIX term-structure butterfly (VIX9D - 2*VIX3M + VIX6M), daily rolling z-score",
+        # Level-independent curvature of the IV term structure — a twist/distortion
+        # measure, NOT a vol level. _butterfly returns None when the CBOE tenors
+        # are absent from the panel, degrading gracefully like the old shell.
+        builder=lambda p: _component(_butterfly(p, "CBOE:VIX9D", "CBOE:VIX3M", "CBOE:VIX6M"), freq="daily"),
+        canonical_status="candidate_pending_promotion",
         canonical_subbasket="K.u1_iv_distortion",
         canonical_alignment_note=(
-            "Canonical K u1 requires options IV surface. Not in harvester. "
-            "MOVE is an IV LEVEL, not skew/smile/twist — does not satisfy."
+            "Phase 1 K wiring (data already in harvester, see "
+            "governance/proxy_data_procurement_audit + canonical_proxy_spec.yaml). "
+            "VIX term-structure butterfly is a level-independent twist/distortion "
+            "measure (NOT a vol level — respects §4.4 'K is NOT VIX'). NOT YET "
+            "canonical_voting: must first clear the §7.2.2 falsification gate "
+            "(incremental OOS content beyond vol/jump/tail benchmarks) and the "
+            "independence check vs M/D/X_agg. Visible in audit, contributes 0."
         ),
     ),
     ProxySpec(
@@ -1376,58 +1425,139 @@ PROXY_REGISTRY: list[ProxySpec] = [
         canonical_alignment_note="Needs intraday price data for bipower variation.",
     ),
     ProxySpec(
-        name="K_canonical_NOT_IMPLEMENTED_u3_tail_convexity",
+        name="K_u3_tail_convexity_candidate",
         target_variable="K",
         tier="core",
         freq="daily",
-        raw_series=(),
-        raw_family="NOT_IMPLEMENTED",
+        raw_series=("CBOE:SKEW",),
+        raw_family="CBOE_SKEW",
         independence_group="tail_convexity",
         mechanism="otm_put_richness_or_crash_skew",
-        transform="(awaiting data: OTM put richness, crash skew)",
-        builder=lambda p: None,
-        canonical_status="awaiting_data",
+        transform="CBOE SKEW index (OTM put richness / crash skew), daily rolling z-score",
+        # CBOE SKEW is the canonical OTM-put-richness / crash-skew measure
+        # (u3 canonical_indicators). _series returns None when absent.
+        builder=lambda p: _component(_series(p, "CBOE:SKEW"), freq="daily"),
+        canonical_status="candidate_pending_promotion",
         canonical_subbasket="K.u3_tail_convexity",
-        canonical_alignment_note="Needs options surface (OTM strikes).",
+        canonical_alignment_note=(
+            "Phase 1 K wiring. CBOE SKEW is the canonical OTM-put-richness / "
+            "crash-skew tail-convexity measure (Table 6 u3 indicators). NOT YET "
+            "canonical_voting: pending §7.2.2 falsification gate + independence "
+            "check vs M/D/X_agg. Visible in audit, contributes 0 to voting."
+        ),
+    ),
+
+    # ── K canonical_voting MVP (CBOE-derived, §4.4 compliant) ─────────────
+    # These proxies use options-derived CBOE data, satisfying §4.4's requirement
+    # that K is IV/jump/tail, NOT credit-spread. Added 2026-06-02 to give K
+    # its first canonical_voting proxies.
+    ProxySpec(
+        name="K_vix_term_structure_twist",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("CBOE:VIX9D", "CBOE:VIX3M", "CBOE:VIX6M"),
+        raw_family="CBOE_IVTS",
+        independence_group="iv_distortion",
+        mechanism="iv_term_structure_twist",
+        transform="VIX term-structure butterfly (VIX9D - 2*VIX3M + VIX6M), daily rolling z-score",
+        builder=lambda p: _component(_butterfly(p, "CBOE:VIX9D", "CBOE:VIX3M", "CBOE:VIX6M"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.u1_iv_distortion",
+        canonical_alignment_note=(
+            "Level-independent curvature of IV term structure. §4.4 compliant: "
+            "options-derived, not credit-spread. MVP proxy for K.iv_distortion."
+        ),
+    ),
+    ProxySpec(
+        name="K_cboe_skew_tail",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("CBOE:SKEW",),
+        raw_family="CBOE_SKEW",
+        independence_group="tail_convexity",
+        mechanism="otm_put_richness_crash_skew",
+        transform="CBOE SKEW index, daily rolling z-score",
+        builder=lambda p: _component(_series(p, "CBOE:SKEW"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.u3_tail_convexity",
+        canonical_alignment_note=(
+            "CBOE SKEW is the canonical OTM-put-richness / crash-skew measure "
+            "(Table 6 u3 indicators). §4.4 compliant: options-derived."
+        ),
+    ),
+    ProxySpec(
+        name="K_vvix_vol_of_vol",
+        target_variable="K",
+        tier="auxiliary",
+        freq="daily",
+        raw_series=("CBOE:VVIX",),
+        raw_family="CBOE_VVIX",
+        independence_group="tail_convexity",
+        mechanism="vol_of_vol_instability",
+        transform="VVIX (vol-of-vol), daily rolling z-score",
+        builder=lambda p: _component(_series(p, "CBOE:VVIX"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.u3_tail_convexity",
+        canonical_alignment_note=(
+            "VVIX measures implied volatility of VIX options — a direct "
+            "tail-convexity / vol-of-vol signal. §4.4 compliant."
+        ),
     ),
 
     # ── X_agg canonical sub-baskets ──
     ProxySpec(
-        name="X_agg_canonical_NOT_IMPLEMENTED_v1_off_balance_sheet",
+        name="X_agg_v1_obs_to_assets_candidate",
         target_variable="X_agg",
         tier="core",
         freq="quarterly",
-        raw_series=(),
-        raw_family="NOT_IMPLEMENTED",
+        raw_series=("SEC:OBS_DERIV_TO_ASSETS",),
+        raw_family="SEC_OBS",
         independence_group="off_balance_sheet",
         mechanism="obs_to_assets_or_derivatives_notional",
-        transform="(awaiting data: OBS/assets, derivatives notional, contingent liabilities)",
-        builder=lambda p: None,
-        canonical_status="awaiting_data",
+        transform="quarterly aggregate derivatives-notional/assets, 5y rolling z-score (quarterly cadence)",
+        # _series returns None when SEC:OBS_DERIV_TO_ASSETS is absent from the
+        # panel (e.g. a harvester release predating Phase 1), so this degrades
+        # gracefully to no contribution exactly like the old awaiting_data shell.
+        builder=lambda p: _component(_series(p, "SEC:OBS_DERIV_TO_ASSETS", limit=100), freq="quarterly"),
+        canonical_status="candidate_pending_promotion",
         canonical_subbasket="X_agg.v1_off_balance_sheet",
         canonical_alignment_note=(
-            "Needs bank regulatory filings (Call Reports, Y-9C). Not in harvester."
+            "Phase 1 interim per governance/x_agg_v1_obs_procurement_plan.md: "
+            "aggregate derivatives-notional/assets over a large dealer-bank CIK "
+            "basket from SEC XBRL companyconcept. NOT YET canonical_voting — "
+            "promotion to canonical requires (a) the FFIEC Y-9C HC-L canonical "
+            "source (Phase 2), (b) independence check vs M/D/K, and (c) §7.2.3 "
+            "weighting resolution with v2/v3. Visible in audit, contributes 0 "
+            "to channel voting until promoted."
         ),
     ),
     ProxySpec(
-        name="X_agg_canonical_v2_hidden_leverage_WEAK",
+        name="X_agg_v2_nfcileverage_quarantined_redline",
         target_variable="X_agg",
-        tier="auxiliary",  # auxiliary to flag this as a weak proxy
+        tier="auxiliary",
         freq="weekly",
         raw_series=("FRED:NFCILEVERAGE",),
         raw_family="NFCI",
         independence_group="hidden_leverage_canonical",
         mechanism="hidden_leverage_trace_weak",
-        transform="NFCILEVERAGE subindex (weak proxy for canonical TRS / synthetic exposure / prime-brokerage dependence)",
+        transform="NFCILEVERAGE subindex (quarantined — broad-composite red-line violation)",
         builder=lambda p: _component(_series(p, "FRED:NFCILEVERAGE", limit=7), freq="weekly"),
-        canonical_status="canonical_voting",
+        canonical_status="quarantined_drift",
         canonical_subbasket="X_agg.v2_hidden_leverage",
         canonical_alignment_note=(
-            "WEAK PROXY: NFCILEVERAGE is a benchmark subindex, not direct "
-            "TRS / synthetic-exposure / prime-brokerage data. It is the best "
-            "available proxy in current harvester for canonical v2 hidden "
-            "leverage. Voting under canonical X_agg but downstream consumers "
-            "must read the WEAK label and account for it."
+            "RED-LINE FIX 2026-05-31: NFCILEVERAGE is a sub-index of NFCI, a "
+            "broad financial-conditions composite. X_agg's own core_contract "
+            "lists `broad_financial_conditions_composite` as a forbidden_group, "
+            "so this proxy cannot canonically vote on X_agg — yet it was the "
+            "SOLE X_agg voter, meaning X_agg was voting on a proxy that breaks "
+            "its own red line. Demoted from canonical_voting to quarantined_drift. "
+            "Consequence (intended): X_agg now has zero canonical_voting proxies "
+            "and honestly reports NOT_IMPLEMENTED until a clean v2 hidden-leverage "
+            "source (OFR/FRBNY primary-dealer/margin) or the Phase-1 v1 candidate "
+            "is promoted. Kept for audit; re-promotable only if re-mapped to a "
+            "non-composite mechanism."
         ),
     ),
     ProxySpec(
@@ -1444,6 +1574,109 @@ PROXY_REGISTRY: list[ProxySpec] = [
         canonical_status="awaiting_data",
         canonical_subbasket="X_agg.v3_shadow_funding_substitution",
         canonical_alignment_note="Needs shadow-banking flow/funding data. Not in harvester.",
+    ),
+
+    # ── X_agg canonical_voting MVP (2026-06-02) ─────────────────────────
+    # Parallel to K MVP: new canonical_voting proxies alongside existing candidates.
+    ProxySpec(
+        name="X_agg_off_balance_sheet_v1",
+        target_variable="X_agg",
+        tier="core",
+        freq="quarterly",
+        raw_series=("SEC:OBS_DERIV_TO_ASSETS",),
+        raw_family="SEC_OBS",
+        independence_group="off_balance_sheet",
+        mechanism="obs_to_assets_or_derivatives_notional",
+        transform="quarterly OBS/assets ratio, quarterly z-score, ffill to daily",
+        builder=lambda p: _component(_series(p, "SEC:OBS_DERIV_TO_ASSETS", limit=100), freq="quarterly"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.v1_off_balance_sheet",
+        canonical_alignment_note=(
+            "SEC OBS/assets derivatives-notional ratio. Quarterly frequency "
+            "resampled to daily via _freq_aware_zscore. MVP proxy for "
+            "X_agg.v1 off_balance_sheet sub-basket."
+        ),
+    ),
+    ProxySpec(
+        name="X_agg_hidden_leverage_ofr",
+        target_variable="X_agg",
+        tier="auxiliary",
+        freq="daily",
+        raw_series=("OFR_FSI",),
+        raw_family="OFR_SYSTEMIC",
+        independence_group="hidden_leverage_canonical",
+        mechanism="systemic_leverage_stress",
+        transform="OFR Financial Stress Index, daily rolling z-score",
+        builder=lambda p: _component(_series(p, "OFR_FSI"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.v2_hidden_leverage",
+        canonical_alignment_note=(
+            "OFR FSI is a market-based systemic stress indicator (not a "
+            "broad financial-conditions composite like NFCI). Provides "
+            "hidden-leverage signal for X_agg.v2 sub-basket. Auxiliary tier."
+        ),
+    ),
+
+    # ── X_agg Tier 1 alias mapping (2026-06-03) ────────────────────────
+    # Additional Harvester series mapped to X_agg sub-baskets.
+    # All are independent of M/D/K (not used by any other channel).
+    ProxySpec(
+        name="X_agg_v1_treasury_debt_pressure",
+        target_variable="X_agg",
+        tier="auxiliary",
+        freq="daily",
+        raw_series=("TREASURY:debt_to_penny:tot_pub_debt_out_amt",),
+        raw_family="TREASURY_DEBT",
+        independence_group="off_balance_sheet",
+        mechanism="government_refinancing_pressure",
+        transform="total public debt outstanding, daily rolling z-score",
+        builder=lambda p: _component(_series(p, "TREASURY:debt_to_penny:tot_pub_debt_out_amt"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.v1_off_balance_sheet",
+        canonical_alignment_note=(
+            "Total public debt outstanding as refinancing pressure signal. "
+            "Daily frequency — improves X_agg temporal precision vs quarterly SEC. "
+            "Independent of M/D/K channels."
+        ),
+    ),
+    ProxySpec(
+        name="X_agg_v2_treasury_cash_balance",
+        target_variable="X_agg",
+        tier="auxiliary",
+        freq="daily",
+        raw_series=("TREASURY:daily_treasury_statement:open_today_bal",),
+        raw_family="TREASURY_CASH",
+        independence_group="hidden_leverage_canonical",
+        mechanism="treasury_cash_balance_stress",
+        transform="Treasury cash balance (open_today_bal), daily rolling z-score (inverted: low balance = stress)",
+        builder=lambda p: _component(_series(p, "TREASURY:daily_treasury_statement:open_today_bal"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.v2_hidden_leverage",
+        canonical_alignment_note=(
+            "Treasury General Account cash balance. Low balance indicates "
+            "fiscal stress / debt ceiling pressure. Daily frequency. "
+            "Independent of M/D/K channels."
+        ),
+    ),
+    ProxySpec(
+        name="X_agg_v3_sofr_iorb_spread",
+        target_variable="X_agg",
+        tier="core",
+        freq="daily",
+        raw_series=("DERIVED:SOFR_IORB_SPREAD",),
+        raw_family="DERIVED_FUNDING",
+        independence_group="shadow_funding_substitution",
+        mechanism="secured_funding_stress",
+        transform="SOFR-IORB spread (positive = funding stress), daily rolling z-score",
+        builder=lambda p: _component(_series(p, "DERIVED:SOFR_IORB_SPREAD"), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.v3_shadow_funding_substitution",
+        canonical_alignment_note=(
+            "SOFR-IORB spread measures secured funding market stress. "
+            "When SOFR > IORB, money market funds drain reserves — "
+            "a shadow funding mechanism. First v3 proxy with data. "
+            "Daily frequency. Independent of M/D/K channels."
+        ),
     ),
 
     # ── Π_t observation layer (NOT voting; downstream validation only) ──
@@ -2202,13 +2435,17 @@ def compute_pc1_variance(channels: pd.DataFrame) -> float:
 
 
 def compute_vif(channels: pd.DataFrame) -> dict[str, float]:
-    clean = channels[CHANNELS].dropna(how="any")
+    # Only compute VIF for channels that actually have data.
+    active_channels = [ch for ch in CHANNELS if ch in channels.columns and channels[ch].notna().any()]
+    if len(active_channels) < 2:
+        return {ch: 0.0 for ch in CHANNELS}
+    clean = channels[active_channels].dropna(how="any")
     result: dict[str, float] = {}
     if len(clean) < 252:
         return {ch: 0.0 for ch in CHANNELS}
-    for ch in CHANNELS:
+    for ch in active_channels:
         y = clean[ch].to_numpy()
-        others = [c for c in CHANNELS if c != ch]
+        others = [c for c in active_channels if c != ch]
         x = clean[others].to_numpy()
         x = np.column_stack([np.ones(len(x)), x])
         beta, *_ = np.linalg.lstsq(x, y, rcond=None)
@@ -2217,11 +2454,18 @@ def compute_vif(channels: pd.DataFrame) -> dict[str, float]:
         ss_tot = float(((y - y.mean()) ** 2).sum())
         r2 = 0.0 if ss_tot == 0 else max(0.0, min(0.999, 1 - ss_res / ss_tot))
         result[ch] = float(1 / (1 - r2))
+    # Fill inactive channels with 0.0
+    for ch in CHANNELS:
+        result.setdefault(ch, 0.0)
     return result
 
 
 def compute_residual_uniqueness(channels: pd.DataFrame, panel: pd.DataFrame) -> dict[str, float]:
-    data = channels[CHANNELS].copy()
+    # Only compute for channels that actually have data.
+    active_channels = [ch for ch in CHANNELS if ch in channels.columns and channels[ch].notna().any()]
+    if len(active_channels) < 2:
+        return {ch: 0.0 for ch in CHANNELS}
+    data = channels[active_channels].copy()
     vix = _series(panel, "FRED:VIXCLS")
     if vix is not None:
         data["VIX_control"] = _rolling_zscore(vix)
@@ -2229,7 +2473,7 @@ def compute_residual_uniqueness(channels: pd.DataFrame, panel: pd.DataFrame) -> 
     result: dict[str, float] = {}
     if len(clean) < 252:
         return {ch: 0.0 for ch in CHANNELS}
-    for ch in CHANNELS:
+    for ch in active_channels:
         y = clean[ch].to_numpy()
         controls = [c for c in clean.columns if c != ch]
         x = clean[controls].to_numpy()
@@ -2240,6 +2484,9 @@ def compute_residual_uniqueness(channels: pd.DataFrame, panel: pd.DataFrame) -> 
         ss_tot = float(((y - y.mean()) ** 2).sum())
         r2 = 0.0 if ss_tot == 0 else max(0.0, min(1.0, 1 - ss_res / ss_tot))
         result[ch] = float(max(0.0, 1 - r2))
+    # Fill inactive channels with 0.0
+    for ch in CHANNELS:
+        result.setdefault(ch, 0.0)
     return result
 
 
@@ -2350,9 +2597,17 @@ def calibrate_path_thresholds(channels: pd.DataFrame) -> dict[str, dict[str, flo
 
 def classify_regime(row: pd.Series, thresholds: dict[str, dict[str, float]], confidence: dict[str, str]) -> str:
     active = {ch: bool(row.get(ch, np.nan) >= thresholds[ch]["warning"]) for ch in CHANNELS}
-    if any(label == "INVALID" for label in confidence.values()):
-        if confidence.get("X_PRE") == "INVALID":
-            return "Measurement Blind Spot"
+    # Only flag "Measurement Blind Spot" if a channel that SHOULD have data
+    # is INVALID.  Channels that are never implemented (X_PRE, X_REALIZED, Pi_t)
+    # are expected to be INVALID and should not block classification.
+    implemented_channels = {"M", "D_contraction", "K", "X_agg"}
+    blind = any(
+        confidence.get(ch) == "INVALID"
+        for ch in implemented_channels
+        if ch in confidence
+    )
+    if blind:
+        return "Measurement Blind Spot"
     if active.get("X_REALIZED"):
         return "Forced Realization"
     if active.get("K") and active.get("D_contraction"):
@@ -2789,10 +3044,15 @@ def main(cfg: DictConfig) -> None:
     all_signals.to_parquet(output_dir / "all_signals.parquet")
     bundle.components.to_parquet(output_dir / "proxy_components.parquet")
     bundle.coverage.to_parquet(output_dir / "channel_coverage.parquet")
+    # Map the replay's internal channel names to the canonical Σ channel names
+    # (the bundle uses "D_contraction"; the canonical Σ vector uses "D"). Only
+    # channels with real data are passed; build_sigma_vector treats the rest as
+    # NOT_IMPLEMENTED (absent ≠ a 0.0 vote) so the four channels stay co-equal.
+    _SIGMA_CHANNEL_NAMES = {"M": "M", "D_contraction": "D", "K": "K", "X_agg": "X_agg"}
     latest_scores = {
-        channel: float(bundle.channels[channel].dropna().iloc[-1])
-        for channel in CHANNELS
-        if channel in bundle.channels and not bundle.channels[channel].dropna().empty
+        canonical: float(bundle.channels[internal].dropna().iloc[-1])
+        for internal, canonical in _SIGMA_CHANNEL_NAMES.items()
+        if internal in bundle.channels and not bundle.channels[internal].dropna().empty
     }
     latest_scores["operator_penalty"] = float(bundle.audit.get("pc1_variance_share", 0.0))
     semantic = SemanticRegistry(SEMANTIC_REGISTRY_PATH)

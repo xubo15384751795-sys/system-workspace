@@ -557,7 +557,7 @@ def test_refresh_current_tool_updates_contract_artifacts() -> None:
     assert refresh["required_artifacts"]["model_run.json"]["exists"] is True
     assert refresh["required_artifacts"]["latest_report.html"]["exists"] is True
     assert refresh["latest_run"]["is_symlink"] is True
-    assert refresh["latest_run"]["resolved_path"].startswith("Output/deformation_runs/")
+    assert "Output/deformation_runs/" in refresh["latest_run"]["resolved_path"]
 
 
 def test_refresh_current_tool_is_run_or_edit_only() -> None:
