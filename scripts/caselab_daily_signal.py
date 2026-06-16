@@ -29,7 +29,13 @@ OUTPUT_DIR = ROOT / "Output" / "caselab"
 
 
 def get_latest_state() -> dict:
-    """Read latest M/D/K/X from proxy_readings and structural_state."""
+    """Read latest M/D/K/X from framework_output.json (preferred) or proxy_readings (fallback).
+
+    framework_output.json is updated by the bridge script after each daily run
+    and contains the most current M/D/K/X values from the structural replay.
+    proxy_readings.parquet may be stale if the data pipeline has gaps.
+    """
+    framework_path = ROOT / "Output" / "current" / "framework_output.json"
     proxy_path = ROOT / "Data" / "structural_lab" / "processed" / "proxies" / "proxy_readings.parquet"
     state_path = ROOT / "Data" / "structural_lab" / "processed" / "state" / "structural_state.parquet"
 
@@ -45,8 +51,26 @@ def get_latest_state() -> dict:
         "escalation": False,
     }
 
-    # Proxy readings
-    if proxy_path.exists():
+    # Primary source: framework_output.json (always fresh after daily run)
+    if framework_path.exists():
+        try:
+            fw = json.loads(framework_path.read_text(encoding="utf-8"))
+            sv = fw.get("advanced", {}).get("sigma_vector", {})
+            state["date"] = str(fw.get("as_of", ""))[:10]
+            state["M"] = float(sv.get("M", 0)) if sv.get("M") is not None else None
+            state["K"] = float(sv.get("K", 0)) if sv.get("K") is not None else None
+            state["D"] = float(sv.get("D", 0)) if sv.get("D") is not None else None
+            state["X"] = float(sv.get("X_agg", 0)) if sv.get("X_agg") is not None else None
+            state["leading_channel"] = str(sv.get("dominant_channel", ""))
+            # Direction from basic status
+            basic = fw.get("basic", {})
+            state["direction"] = str(basic.get("main_pressure", ""))
+            state["pattern"] = str(basic.get("primary_market_space", ""))
+        except Exception:
+            pass
+
+    # Fallback: proxy_readings.parquet
+    if state["M"] is None and proxy_path.exists():
         df = pd.read_parquet(proxy_path)
         latest_date = df["run_date"].max()
         latest = df[df["run_date"] == latest_date]
