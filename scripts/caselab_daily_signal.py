@@ -255,7 +255,13 @@ def derive_tags(state: dict) -> list[str]:
 
 
 def derive_event_text(state: dict) -> str:
-    """Build a natural language description of current state for text matching."""
+    """Build a natural language description of current state for text matching.
+
+    CRITICAL: The text must match the ACTUAL regime.
+    When M/D/K/X are negative (relief), use relief/stability keywords.
+    When positive (stress building), use stress/crisis keywords.
+    Using the wrong keywords will match wrong cases.
+    """
     parts: list[str] = []
 
     M = state.get("M") or 0
@@ -263,55 +269,55 @@ def derive_event_text(state: dict) -> str:
     D = state.get("D") or 0
     X = state.get("X") or 0
     pattern = state.get("pattern", "")
-    direction = state.get("direction", "")
+    stress_direction = (M + K + X) / 3.0
 
-    # State description
-    if K > 0.6:
-        parts.append("High structural stress in the system.")
-    elif K > 0.3:
-        parts.append("Moderate structural stress with elevated vigilance.")
-    else:
-        parts.append("Low structural stress, system appears calm.")
+    if stress_direction > 0.3:
+        # STRESS BUILDING — use stress keywords
+        if K > 0.6:
+            parts.append("High structural stress in the system.")
+        elif K > 0.3:
+            parts.append("Moderate structural stress with elevated vigilance.")
+        if D < -0.3:
+            parts.append("Deteriorating conditions with negative D signal.")
+        if M > 0.5:
+            parts.append("Macro stress elevated with policy pressure.")
+        if X > 0.4:
+            parts.append("Cross-market stress and shadow leverage building.")
+        parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
 
-    if D < -0.3:
-        parts.append("Deteriorating conditions with negative D signal.")
-    if M > 0.5:
-        parts.append("Macro stress elevated with policy pressure.")
-    if X > 0.4:
-        parts.append("Cross-market stress and shadow leverage building.")
-
-    parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
-
-    # Operator descriptions
-    operators = state.get("active_operators", [])
-    if operators:
-        op_descriptions = []
+        # Stress operators
+        operators = state.get("active_operators", [])
+        op_map = {
+            "FUNDING_LIQUIDITY_SPIRAL": "funding liquidity spiral active",
+            "COLLATERAL_LEVERAGE_CYCLE": "collateral leverage cycle",
+            "MARKET_LIQUIDITY_GAP": "market liquidity gap",
+            "NETWORK_CONCENTRATION": "network concentration risk",
+            "POLICY_DELAY": "policy delay creating time pressure",
+        }
         for op in operators:
-            op_lower = op.lower()
-            if "funding_liquidity" in op_lower:
-                op_descriptions.append("funding liquidity spiral active")
-            elif "collateral_leverage" in op_lower:
-                op_descriptions.append("collateral leverage cycle")
-            elif "market_liquidity" in op_lower:
-                op_descriptions.append("market liquidity gap")
-            elif "network_concentration" in op_lower:
-                op_descriptions.append("network concentration risk")
-            elif "policy_delay" in op_lower:
-                op_descriptions.append("policy delay creating time pressure")
-            elif "procyclical" in op_lower:
-                op_descriptions.append("procyclical leverage amplification")
-            elif "compression" in op_lower:
-                op_descriptions.append("volatility compression masking risk")
-            elif "intermediary" in op_lower:
-                op_descriptions.append("intermediary capacity constraint")
-            elif "capital_constraint" in op_lower:
-                op_descriptions.append("capital constraint")
-            elif "tranching" in op_lower:
-                op_descriptions.append("structured product complexity")
-            elif "collateral_anchor" in op_lower:
-                op_descriptions.append("collateral anchor valuation gap")
-        if op_descriptions:
-            parts.append("Active mechanisms: " + ", ".join(op_descriptions) + ".")
+            for key, desc in op_map.items():
+                if key in op.upper():
+                    parts.append(desc)
+
+    elif stress_direction < -0.3:
+        # STRESS RELIEVING — use relief/stability/growth keywords
+        # IMPORTANT: Do NOT use "stress", "volatility", "spread", "liquidity" —
+        # these keywords match crisis cases. Use growth/stability keywords instead.
+        parts.append("Post-crisis recovery phase. Pressure easing across all dimensions.")
+        parts.append("Deleveraging complete. Credit conditions normalizing.")
+        parts.append("Calm markets with low realized variance. Stability restored.")
+        parts.append("Monetary easing with policy support. Growth resuming and accelerating.")
+        parts.append("Technology scaling and platform expansion driving productivity improvement.")
+        parts.append("Manufacturing excellence and supply chain optimization across industries.")
+        parts.append("Institutional trust rebuilding. Capital flowing to productive long-term investment.")
+        parts.append("GDP growth above trend. Employment strong. Consumer confidence rising.")
+        parts.append("Innovation cycle active. New products and services scaling rapidly.")
+        parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
+
+    else:
+        # NEUTRAL
+        parts.append("Neutral conditions. No clear directional stress.")
+        parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
 
     if state.get("escalation"):
         parts.append("ESCALATION flagged — conditions worsening.")
