@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────────────────────────────────────
-# DEPRECATED LOCATION (marked 2026-05-22) — migration tracked in
+# COMPATIBILITY LOCATION (retained 2026-06-16) — referenced by
+#   scripts/build_abandoned_work_report.py
 #   governance/repo_layout_map.md §6
-#   governance/repo_state_audit.md Phase 3
-# This script should eventually live in:
-#   workspace research utility (retain at root with marker)
-# Path here is preserved as a thin entry point so `sys`, Justfile, tests, and
-# configs continue to work. New code should target the module-owned location
-# once the owning submodule absorbs this script.
+# This script is retained because build_abandoned_work_report.py imports it.
+# Once that dependency is resolved, this file can move to scripts/archive/.
 # ─────────────────────────────────────────────────────────────────────────────
 """Freeze Harvester export panels into Data/dl_training/ (read-only copies).
 
