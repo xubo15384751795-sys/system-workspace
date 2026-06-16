@@ -26,14 +26,22 @@ ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 
 def load_etf() -> pd.DataFrame:
     etf = pd.read_parquet(ETF_PANEL)
-    etf["date"] = pd.to_datetime(etf["date"])
+    etf["date"] = pd.to_datetime(etf["date"]).dt.normalize()
+    etf = etf.drop_duplicates(subset=["date", "symbol"], keep="last")
     return etf
 
 
 def pivot_close(etf: pd.DataFrame) -> pd.DataFrame:
     """Pivot ETF panel to wide format (date x symbol)."""
-    wide = etf.pivot_table(index="date", columns="symbol", values="close", aggfunc="last")
-    return wide.sort_index()
+    all_dates = sorted(etf["date"].unique())
+    symbols = sorted(etf["symbol"].unique())
+    data = {}
+    for sym in symbols:
+        sub = etf[etf["symbol"] == sym].set_index("date")["close"]
+        data[sym] = sub
+    wide = pd.DataFrame(data, index=all_dates)
+    wide.index.name = "date"
+    return wide
 
 
 def compute_returns(close: pd.DataFrame, periods: list[int] = [1, 5, 20, 60]) -> dict[str, pd.DataFrame]:
