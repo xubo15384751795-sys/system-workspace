@@ -260,9 +260,14 @@ def main() -> None:
     if caselab_script.exists():
         steps.append(run_step("caselab_signal", [sys.executable, str(caselab_script), "--json"]))
 
-    # Step 7: Learning Hub Governance Audit (blocks reuse of contaminated/frozen/
-    # missing-artifact entities on the live daily surface; non-fatal to the run).
-    print("[6/6] Running Learning Hub governance audit...")
+    # Step 7.5: Agent Routing decision record
+    print("[7.5/8] Recording routing decisions...")
+    routing_script = ROOT / "scripts" / "daily_routing_decision.py"
+    if routing_script.exists():
+        steps.append(run_step("routing_decision", [sys.executable, str(routing_script)]))
+
+    # Step 8: Learning Hub Governance Audit
+    print("[8/8] Running Learning Hub governance audit...")
     hub_src = ROOT / "system-learning-hub" / "src"
     steps.append(run_step(
         "governance_audit",
