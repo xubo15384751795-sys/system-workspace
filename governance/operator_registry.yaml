@@ -1,0 +1,199 @@
+# Operator Registry — all operators must be registered here
+# Each operator declares its type, inputs, outputs, and constraints.
+
+schema_version: operator_registry.v1
+updated_at: 2026-06-16
+
+operators:
+  # ── Data Acquisition ──────────────────────────────────────────
+  harvester:
+    type: data_acquisition
+    description: "Fetches market data from external sources"
+    inputs: ["external_apis"]
+    outputs: ["Data/harvester/exports/latest"]
+    claim_ceiling: none
+    cannot_create: ["judgment", "signal", "trade"]
+
+  # ── World Model ───────────────────────────────────────────────
+  sync_paper_world_model:
+    type: world_model
+    description: "Extracts structured mechanisms/cases/variables from Paper"
+    inputs: ["/Users/a1/Paper"]
+    outputs: ["Data/paper_world_model/*.jsonl"]
+    claim_ceiling: none
+    cannot_create: ["judgment", "signal", "trade"]
+
+  # ── Event Radar ───────────────────────────────────────────────
+  horizon_event_adapter:
+    type: event_radar
+    description: "Detects external events and matches to Paper mechanisms"
+    inputs: ["Horizon output", "paper_world_model"]
+    outputs: ["Data/horizon_events/events.jsonl", "Data/horizon_events/event_mechanism_matches.jsonl"]
+    claim_ceiling: background_only
+    cannot_create: ["judgment", "signal", "trade"]
+    role: "background input only"
+
+  # ── Measurement Operators ─────────────────────────────────────
+  structural_replay:
+    type: measurement_operator
+    description: "Computes M/D/K/X structural proxies"
+    inputs: ["benchmark_panel"]
+    outputs: ["Output/deformation_runs/"]
+    claim_ceiling: diagnostic
+    cannot_create: ["signal", "trade", "position"]
+
+  k_measurement_gate:
+    type: measurement_gate
+    description: "Validates K proxy quality"
+    inputs: ["benchmark_panel", "etf_panel"]
+    outputs: ["Output/k_measurement/k_measurement_gate.json"]
+    claim_ceiling: diagnostic
+    cannot_create: ["signal", "trade", "position"]
+    gate_verdicts: ["PASS", "WATCH", "FAIL"]
+
+  x_measurement_gate:
+    type: measurement_gate
+    description: "Validates X_agg proxy quality"
+    inputs: ["benchmark_panel"]
+    outputs: ["Output/x_measurement/x_measurement_gate.json"]
+    claim_ceiling: diagnostic
+    cannot_create: ["signal", "trade", "position"]
+    gate_verdicts: ["PASS", "WATCH", "FAIL"]
+
+  # ── State Recognition ─────────────────────────────────────────
+  regime_detection:
+    type: state_recognition
+    description: "HMM regime detection"
+    inputs: ["benchmark_panel"]
+    outputs: ["Output/ml_signals/latest/regime_hmm.json"]
+    claim_ceiling: regime_hint
+    role: "state recognition, not trade signal"
+    cannot_create: ["direction", "signal", "trade", "position"]
+
+  hmm_stability_audit:
+    type: state_recognition_gate
+    description: "Audits HMM stability"
+    inputs: ["regime_hmm.json"]
+    outputs: ["Output/hmm_stability/hmm_stability_audit.json"]
+    claim_ceiling: diagnostic
+    gate_verdicts: ["ADEQUATE", "WEAK"]
+
+  # ── Case Matching ─────────────────────────────────────────────
+  caselab_daily_signal:
+    type: case_matching
+    description: "Matches current state to historical cases"
+    inputs: ["framework_output", "paper_world_model"]
+    outputs: ["Output/caselab/YYYY-MM-DD.json"]
+    claim_ceiling: analogy_only
+    cannot_create: ["signal", "trade"]
+    scoring_policy:
+      strong: ">= 0.70"
+      usable: "0.55 - 0.70"
+      weak: "0.40 - 0.55"
+      no_reliable: "< 0.40"
+
+  # ── Judgment Operator ─────────────────────────────────────────
+  judgment_layer:
+    type: judgment_operator
+    description: "Synthesizes measurements into bounded judgment"
+    inputs: ["framework_output", "hmm", "caselab", "k_gate", "x_gate"]
+    outputs: ["Output/judgment/latest.json"]
+    claim_ceiling: diagnostic_watch_only
+    cannot_create: ["signal", "trade", "position"]
+
+  judgment_promotion_gate:
+    type: gate
+    description: "Enforces claim strength boundaries"
+    inputs: ["judgment", "promotion_gate"]
+    outputs: ["Output/judgment/promotion_gate.json"]
+    claim_ceiling: diagnostic
+    gate_verdicts: ["PASS", "BLOCKED"]
+
+  # ── Uncertainty Operator ──────────────────────────────────────
+  gluonts_probabilistic_context:
+    type: uncertainty_operator
+    description: "Provides probabilistic forecast context"
+    inputs: ["etf_panel"]
+    outputs: ["Output/probabilistic_context/latest.json"]
+    claim_ceiling: uncertainty_context
+    allowed_use: ["volatility_context", "tail_risk_context", "confidence_adjustment"]
+    forbidden_use: ["direct_direction_signal", "trade_trigger"]
+
+  # ── Decision Operator ─────────────────────────────────────────
+  trade_decision_layer:
+    type: decision_operator
+    description: "Generates trade decision card"
+    inputs: ["judgment", "promotion_gate", "paper_world_model", "system_sources"]
+    outputs: ["Output/trade_decision/latest.json"]
+    claim_ceiling: decision_permission
+    cannot_create: ["signal", "position"]
+    must_obey: ["freshness_gate", "evidence_authority_gate", "language_gate"]
+
+  # ── Risk Gate ─────────────────────────────────────────────────
+  trade_risk_gate:
+    type: gate
+    description: "Enforces risk constraints on trade decisions"
+    inputs: ["trade_decision"]
+    outputs: ["Output/trade_decision/risk_gate.json"]
+    claim_ceiling: diagnostic
+    gate_verdicts: ["APPROVED_FOR_RESEARCH", "APPROVED_FOR_PAPER_TRADING", "BLOCKED"]
+    hard_rule: "live_execution_always_blocked"
+
+  # ── Position Sizing ───────────────────────────────────────────
+  position_sizing_layer:
+    type: position_operator
+    description: "Translates trade decision into position weights"
+    inputs: ["trade_decision", "risk_gate", "freshness"]
+    outputs: ["Output/position/latest.json"]
+    claim_ceiling: position_intent
+    hard_rule: "only_translates_approved_decisions"
+
+  # ── Calibration ───────────────────────────────────────────────
+  market_feedback:
+    type: calibration_operator
+    description: "Provides market feedback for calibration"
+    inputs: ["trade_ledger", "etf_panel"]
+    outputs: ["Output/market_feedback/feedback_decision.json"]
+    claim_ceiling: calibration_feedback
+    source_types: ["qlib", "replay", "sample"]
+    source_must_be_declared: true
+
+  learning_hub_comprehensive_summary:
+    type: calibration_operator
+    description: "Aggregates all calibration data"
+    inputs: ["judgment_calibration", "trade_calibration", "market_feedback"]
+    outputs: ["Output/system_learning/latest/comprehensive_summary.json"]
+    claim_ceiling: calibration_summary
+
+  # ── Freshness Gate ────────────────────────────────────────────
+  freshness_validator:
+    type: gate
+    description: "Validates artifact freshness and temporal ordering"
+    inputs: ["all_artifacts"]
+    outputs: ["Output/quality/freshness_report.json"]
+    claim_ceiling: diagnostic
+    gate_verdicts: ["PASS", "WARN", "FAIL"]
+    on_fail: "block_decisions"
+
+  # ── Output Assembly ───────────────────────────────────────────
+  build_system_index:
+    type: output_assembly
+    description: "Builds unified system index"
+    inputs: ["all_artifacts"]
+    outputs: ["Data/system_index/latest.json"]
+    claim_ceiling: none
+
+  build_readme_first:
+    type: output_assembly
+    description: "Builds user-facing README from index"
+    inputs: ["system_index"]
+    outputs: ["Output/current/00_READ_ME_FIRST.md"]
+    claim_ceiling: none
+    must_not_use_forbidden_language: true
+
+  build_next_actions:
+    type: output_assembly
+    description: "Builds agent-readable next actions"
+    inputs: ["system_index", "judgment", "promotion_gate"]
+    outputs: ["Output/current/NEXT_ACTIONS.md"]
+    claim_ceiling: none

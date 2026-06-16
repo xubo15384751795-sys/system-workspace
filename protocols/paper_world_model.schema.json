@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Paper World Model",
+  "description": "Structured world model extracted from Paper knowledge base",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "cases", "mechanisms", "variables", "indicators", "trade_ideas"],
+  "properties": {
+    "schema_version": {
+      "const": "paper_world_model.v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/case"
+      }
+    },
+    "mechanisms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/mechanism"
+      }
+    },
+    "variables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/variable"
+      }
+    },
+    "indicators": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/indicator"
+      }
+    },
+    "trade_ideas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/trade_idea"
+      }
+    }
+  },
+  "definitions": {
+    "case": {
+      "type": "object",
+      "required": ["case_id", "source_file", "review_status"],
+      "properties": {
+        "case_id": {"type": "string"},
+        "case_type": {"type": "string", "enum": ["trading", "structural", "macro", "micro"]},
+        "status": {"type": "string", "enum": ["candidate", "validated", "deprecated"]},
+        "main_entity": {"type": "string"},
+        "country": {"type": "string"},
+        "sector": {"type": "string"},
+        "mechanism_ids": {"type": "array", "items": {"type": "string"}},
+        "trade_relevance": {"type": "string", "enum": ["high", "medium", "low"]},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]},
+        "review_score": {"type": ["number", "null"]},
+        "source_file": {"type": "string"},
+        "extracted_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "mechanism": {
+      "type": "object",
+      "required": ["mechanism_id", "source_file", "review_status"],
+      "properties": {
+        "mechanism_id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "causal_claim": {"type": "string"},
+        "observable_signals": {"type": "array", "items": {"type": "string"}},
+        "invalidation_conditions": {"type": "array", "items": {"type": "string"}},
+        "related_cases": {"type": "array", "items": {"type": "string"}},
+        "related_variables": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]},
+        "source_file": {"type": "string"},
+        "extracted_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "variable": {
+      "type": "object",
+      "required": ["variable_id", "source_file", "review_status"],
+      "properties": {
+        "variable_id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "data_source": {"type": "string"},
+        "frequency": {"type": "string", "enum": ["daily", "weekly", "monthly", "quarterly"]},
+        "related_mechanisms": {"type": "array", "items": {"type": "string"}},
+        "trade_implication": {"type": "string"},
+        "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]},
+        "source_file": {"type": "string"},
+        "extracted_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "indicator": {
+      "type": "object",
+      "required": ["indicator_id", "source_file", "review_status"],
+      "properties": {
+        "indicator_id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "data_source": {"type": "string"},
+        "frequency": {"type": "string", "enum": ["daily", "weekly", "monthly", "quarterly"]},
+        "related_variables": {"type": "array", "items": {"type": "string"}},
+        "signal_interpretation": {"type": "string"},
+        "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]},
+        "source_file": {"type": "string"},
+        "extracted_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "trade_idea": {
+      "type": "object",
+      "required": ["idea_id", "source_file", "review_status"],
+      "properties": {
+        "idea_id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "asset_class": {"type": "string"},
+        "market_regime": {"type": "string"},
+        "historical_period": {"type": "string"},
+        "causal_claim": {"type": "string"},
+        "observable_signals": {"type": "array", "items": {"type": "string"}},
+        "invalidation_conditions": {"type": "array", "items": {"type": "string"}},
+        "trade_implication": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "related_mechanisms": {"type": "array", "items": {"type": "string"}},
+        "related_variables": {"type": "array", "items": {"type": "string"}},
+        "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]},
+        "source_file": {"type": "string"},
+        "extracted_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

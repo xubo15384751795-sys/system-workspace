@@ -27,6 +27,16 @@ gate_defaults:
   missing_required_severity: warn
   retired_used_severity: block
 
+# Evidence release TTL — see governance/architecture_reality_decisions.md §3-4
+# Protocols: protocols/evidence_release.schema.json
+evidence_release:
+  default_ttl_days: 3
+  force_refresh_after_days: 3
+  core_judgment_on_expired: blocked
+  research_on_expired: allowed_with_stale_warning
+  training_feedback_on_expired: allowed_if_marked_stale
+  user_override_allowed: true
+
 indicators:
   NFCI:
     required: true

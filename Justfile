@@ -54,6 +54,8 @@ nightly:
     python3 -m pytest tests/ -n auto -q --tb=short
     python3 -m pytest "Structural Deformation Research System/tests/" -n auto -q --tb=short 2>/dev/null || true
     python3 -m pytest Workbench/governance/system-learning-hub/tests/ -q --tb=short 2>/dev/null || true
+    echo "--- architecture reality audit ---"
+    python3 scripts/architecture_reality_audit.py 2>/dev/null || echo "(audit script encountered issues)"
     echo "--- semgrep full audit ---"
     semgrep --config=semgrep_rules/ --error --metrics=off 2>/dev/null || echo "(semgrep not configured or not installed)"
 
@@ -73,3 +75,12 @@ report:
 benchmark:
     python3 -m pytest tests/ -m benchmark -v --tb=short
     python3 -m pytest "Structural Deformation Research System/tests/" -m benchmark -q --tb=short 2>/dev/null || true
+
+# Architecture reality audit — governance drift detection.
+audit-reality:
+    #!/usr/bin/env zsh
+    set -e
+    echo "=== architecture reality audit ==="
+    python3 scripts/architecture_reality_audit.py
+    echo "--- framework boundary tests ---"
+    python3 -m pytest tests/test_framework_boundary.py tests/test_architecture_boundary.py -v --tb=short

@@ -1,0 +1,495 @@
+# Daily Pipeline Registry
+# Authority: governance/architecture_reality_decisions.md
+# Created: 2026-06-16
+# Updated: 2026-06-17 — enriched with input, artifact_path, ttl_hours, core_judgment_dependency
+#
+# Every scripts/daily_run.py step must be registered here before it can be
+# treated as part of the governed daily pipeline.
+#
+# Step status enum:
+#   active            — runs in daily_run and may produce governed artifacts
+#   blocked           — known gap; must not affect core judgment
+#   shadow_active     — records diagnostics only; cannot execute authority
+#   compatibility     — active bridge/wrapper pending migration
+#   experimental      — research/training feedback only
+
+schema_version: daily_pipeline_registry.v2
+updated_at: "2026-06-17"
+
+steps:
+  harvester:
+    order: 1
+    status: active
+    owner: Harvester
+    command: "python -m harvester daily-release"
+    input:
+      - external_providers
+    produces:
+      - Data/harvester/exports/latest/
+    artifact_path: Data/harvester/exports/latest/catalog.json
+    ttl_hours: 48
+    requires_harvester_evidence: true
+    requires_provenance: true
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_core_judgment
+
+  etf_refresh:
+    order: 2
+    status: blocked
+    owner: Harvester
+    command: "python scripts/refresh_etf_panel.py"
+    input:
+      - Data/panels/cross_asset_daily_panel.parquet
+    produces:
+      - Data/features/k_features_daily.csv
+    consumes:
+      - Data/panels/cross_asset_daily_panel.parquet
+    artifact_path: Data/features/k_features_daily.csv
+    ttl_hours: 48
+    requires_harvester_evidence: true
+    requires_provenance: true
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: research_only
+    blocker: "ETF acquisition is not yet published as a Harvester evidence release; root script may recompute features only."
+
+  paper_sync:
+    order: 3
+    status: active
+    owner: Harvester
+    command: "python scripts/sync_paper_world_model.py"
+    input:
+      - Data/harvester/exports/latest/
+    produces:
+      - Data/paper_world_model/
+    artifact_path: Data/paper_world_model/
+    ttl_hours: 72
+    requires_harvester_evidence: true
+    requires_provenance: true
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: lower_claim_ceiling
+
+  horizon_events:
+    order: 4
+    status: active
+    owner: Harvester
+    command: "python scripts/horizon_event_adapter.py --sample"
+    input:
+      - Data/horvester/exports/latest/
+    produces:
+      - Data/horizon_events/
+    artifact_path: Data/horizon_events/
+    ttl_hours: 48
+    requires_harvester_evidence: true
+    requires_provenance: true
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: false
+    failure_behavior: lower_claim_ceiling
+
+  structural_replay:
+    order: 5
+    status: compatibility
+    owner: Deformation Framework
+    command: "python scripts/structural_replay_v2.py"
+    input:
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    consumes:
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+      - Output/sandbox/structural_replay_v2/
+    artifact_path: Output/sandbox/structural_replay_v2/results.json
+    ttl_hours: 48
+    requires_harvester_evidence: true
+    requires_provenance: false
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_current_readout
+    blocker: "Root script is a compatibility wrapper; canonical Framework location still pending."
+
+  bridge:
+    order: 6
+    status: compatibility
+    owner: Workbench
+    command: "python scripts/bridge_replay_to_current.py"
+    input:
+      - Output/sandbox/structural_replay_v2/
+    consumes:
+      - Output/sandbox/structural_replay_v2/
+    produces:
+      - Output/current/framework_output.json
+    artifact_path: Output/current/framework_output.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_current_readout
+
+  quality_validation:
+    order: 7
+    status: active
+    owner: Protocols
+    command: "python scripts/quality_field_validator.py"
+    input:
+      - Output/current/framework_output.json
+    produces:
+      - Output/current/quality_validation.json
+    artifact_path: Output/current/quality_validation.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_promotion
+
+  regime_detection:
+    order: 8
+    status: experimental
+    owner: ML Signals
+    command: "Workbench ml.regime_detector.detect_regime(...)"
+    input:
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    consumes:
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+      - Output/ml_signals/
+    artifact_path: Output/ml_signals/
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  hmm_stability_audit:
+    order: 8
+    status: experimental
+    owner: ML Signals
+    command: "python scripts/hmm_stability_audit.py"
+    input:
+      - Output/ml_signals/
+    produces:
+      - Output/ml_signals/
+    artifact_path: Output/ml_signals/hmm_stability_audit.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  k_measurement_gate:
+    order: 9
+    status: active
+    owner: Workbench
+    command: "python scripts/k_measurement_gate.py"
+    input:
+      - Data/harvester/exports/latest/
+    artifact_path: Output/current/
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: lower_claim_ceiling
+
+  x_measurement_gate:
+    order: 9
+    status: active
+    owner: Workbench
+    command: "python scripts/x_measurement_gate.py"
+    input:
+      - Data/harvester/exports/latest/
+    artifact_path: Output/current/
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: lower_claim_ceiling
+
+  caselab_signal:
+    order: 10
+    status: active
+    owner: CaseLab Context
+    command: "python scripts/caselab_daily_signal.py --json"
+    input:
+      - caselab_context/
+      - caselab_runtime/
+    produces:
+      - Output/caselab/
+    artifact_path: Output/caselab/
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: false
+    failure_behavior: lower_claim_ceiling
+
+  judgment_layer:
+    order: 11
+    status: active
+    owner: Workbench
+    command: "python scripts/judgment_layer.py"
+    input:
+      - Output/current/framework_output.json
+      - Output/caselab/
+    produces:
+      - Output/judgment/latest.json
+    artifact_path: Output/judgment/latest.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_current_readout
+
+  judgment_replay_audit:
+    order: 11
+    status: active
+    owner: Workbench
+    command: "python scripts/judgment_replay_audit.py"
+    input:
+      - Output/judgment/latest.json
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  judgment_promotion_gate:
+    order: 12
+    status: active
+    owner: Workbench
+    command: "python scripts/judgment_promotion_gate.py"
+    input:
+      - Output/judgment/latest.json
+    produces:
+      - Output/judgment/promotion_gate.json
+    artifact_path: Output/judgment/promotion_gate.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_promotion
+
+  probabilistic_context:
+    order: 13
+    status: experimental
+    owner: ML Signals
+    command: "python scripts/gluonts_probabilistic_context.py"
+    input:
+      - Data/harvester/exports/latest/
+    produces:
+      - Output/probabilistic_context/latest.json
+    artifact_path: Output/probabilistic_context/latest.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  trade_decision:
+    order: 14
+    status: active
+    owner: Workbench
+    command: "python scripts/trade_decision_layer.py"
+    input:
+      - Output/judgment/latest.json
+      - Output/judgment/promotion_gate.json
+    produces:
+      - Output/trade_decisions/
+    artifact_path: Output/trade_decisions/latest.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: hold_flat
+
+  risk_gate:
+    order: 15
+    status: active
+    owner: Workbench
+    command: "python scripts/trade_risk_gate.py"
+    input:
+      - Output/trade_decisions/latest.json
+    artifact_path: Output/trade_decisions/risk_gate.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: hold_flat
+
+  record_trade_decision:
+    order: 16
+    status: active
+    owner: Learning Hub
+    command: "python scripts/record_trade_decision.py"
+    input:
+      - Output/trade_decisions/latest.json
+    produces:
+      - Output/system_learning/decision_trace/
+    artifact_path: Output/system_learning/decision_trace/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  market_feedback:
+    order: 17
+    status: experimental
+    owner: Learning Hub
+    command: "python scripts/market_feedback.py"
+    input:
+      - Output/trade_decisions/
+    produces:
+      - Output/market_feedback/
+    artifact_path: Output/market_feedback/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  learning_summary:
+    order: 18
+    status: active
+    owner: Learning Hub
+    command: "python scripts/learning_hub_comprehensive_summary.py"
+    input:
+      - Output/system_learning/
+    produces:
+      - Output/system_learning/latest/comprehensive_summary.md
+    artifact_path: Output/system_learning/latest/comprehensive_summary.md
+    ttl_hours: 72
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  judgment_calibration_event:
+    order: 18
+    status: active
+    owner: Learning Hub
+    command: "python scripts/learning_hub_judgment_calibration.py"
+    input:
+      - Output/judgment/
+    produces:
+      - Output/system_learning/events/judgment_calibration_*.jsonl
+    artifact_path: Output/system_learning/events/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  trade_calibration_event:
+    order: 18
+    status: active
+    owner: Learning Hub
+    command: "python scripts/learning_hub_trade_calibration.py"
+    input:
+      - Output/trade_decisions/
+    produces:
+      - Output/system_learning/events/trade_decision_calibration_*.jsonl
+    artifact_path: Output/system_learning/events/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  operator_registry_audit:
+    order: 19
+    status: active
+    owner: Learning Hub
+    command: "python scripts/operator_registry_audit.py"
+    input:
+      - governance/operator_registry.yaml
+    artifact_path: Output/system_learning/latest/operator_registry_audit.json
+    ttl_hours: 72
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  position_sizing:
+    order: 20
+    status: active
+    owner: Workbench
+    command: "python scripts/position_sizing_layer.py"
+    input:
+      - Output/trade_decisions/latest.json
+      - Output/judgment/latest.json
+    artifact_path: Output/trade_decisions/position_intent.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: hold_flat
+
+  system_index:
+    order: 21
+    status: active
+    owner: Data/Output
+    command: "python scripts/build_system_index.py"
+    input:
+      - Output/current/
+    produces:
+      - Data/system_index/latest.json
+    artifact_path: Data/system_index/latest.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: false
+    failure_behavior: block_current_readout
+
+  readme_first:
+    order: 22
+    status: active
+    owner: Workbench
+    command: "python scripts/build_readme_first.py"
+    input:
+      - Output/current/
+      - Output/judgment/
+    produces:
+      - Output/current/00_READ_ME_FIRST.md
+    artifact_path: Output/current/00_READ_ME_FIRST.md
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  next_actions:
+    order: 22
+    status: active
+    owner: Learning Hub
+    command: "python scripts/build_next_actions.py"
+    input:
+      - Output/system_learning/latest/
+    produces:
+      - Output/current/next_actions.md
+    artifact_path: Output/current/next_actions.md
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  freshness_validator:
+    order: 23
+    status: active
+    owner: Data/Output
+    command: "python scripts/freshness_validator.py"
+    input:
+      - Output/current/
+      - Data/harvester/exports/latest/
+    artifact_path: Output/quality/freshness_report.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+    failure_behavior: block_core_judgment
+
+  architecture_reality_audit:
+    order: 24
+    status: active
+    owner: Learning Hub
+    command: "python scripts/architecture_reality_audit.py"
+    input:
+      - governance/
+      - scripts/
+      - Structural Deformation Research System/src/
+    produces:
+      - Output/system_learning/latest/architecture_reality_audit.md
+      - Output/system_learning/latest/architecture_reality_audit.json
+    artifact_path: Output/system_learning/latest/architecture_reality_audit.md
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+
+  routing_decision:
+    order: null
+    status: shadow_active
+    owner: Agent Routing
+    command: "python scripts/daily_routing_decision.py"
+    produces:
+      - Output/system_learning/routing_decisions/
+    artifact_path: Output/system_learning/routing_decisions/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    note: "Shadow diagnostics only; cannot execute routed tasks or bypass module ownership."

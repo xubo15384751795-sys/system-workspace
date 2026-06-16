@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Probabilistic Context",
+  "description": "Probabilistic forecast context from GluonTS",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "forecasts"],
+  "properties": {
+    "schema_version": {
+      "const": "probabilistic_context.v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "forecasts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/forecast"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "overall_risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
+        "tail_risk_detected": {"type": "boolean"},
+        "model_confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "method": {"type": "string"}
+      }
+    }
+  },
+  "definitions": {
+    "forecast": {
+      "type": "object",
+      "required": ["source_series", "forecast_horizon", "intervals"],
+      "properties": {
+        "source_series": {"type": "string"},
+        "forecast_horizon": {"type": "string", "enum": ["1d", "1w", "1m"]},
+        "intervals": {
+          "type": "object",
+          "properties": {
+            "p10": {"type": "number"},
+            "p25": {"type": "number"},
+            "p50": {"type": "number"},
+            "p75": {"type": "number"},
+            "p90": {"type": "number"}
+          }
+        },
+        "tail_probability": {
+          "type": "object",
+          "properties": {
+            "left_tail": {"type": "number"},
+            "right_tail": {"type": "number"}
+          }
+        },
+        "calibrated_risk_probability": {"type": "number"},
+        "model_confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "method": {"type": "string"}
+      }
+    }
+  }
+}

@@ -28,6 +28,11 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "Output" / "caselab"
 
+# Scoring policy thresholds
+STRONG_THRESHOLD = 0.70
+USABLE_THRESHOLD = 0.55
+WEAK_THRESHOLD = 0.40
+
 
 def get_latest_state() -> dict:
     """Read latest M/D/K/X from framework_output.json (preferred) or proxy_readings (fallback).
@@ -300,18 +305,17 @@ def derive_event_text(state: dict) -> str:
                     parts.append(desc)
 
     elif stress_direction < -0.3:
-        # STRESS RELIEVING — use relief/stability/growth keywords
-        # IMPORTANT: Do NOT use "stress", "volatility", "spread", "liquidity" —
-        # these keywords match crisis cases. Use growth/stability keywords instead.
-        parts.append("Post-crisis recovery phase. Pressure easing across all dimensions.")
-        parts.append("Deleveraging complete. Credit conditions normalizing.")
-        parts.append("Calm markets with low realized variance. Stability restored.")
-        parts.append("Monetary easing with policy support. Growth resuming and accelerating.")
-        parts.append("Technology scaling and platform expansion driving productivity improvement.")
-        parts.append("Manufacturing excellence and supply chain optimization across industries.")
-        parts.append("Institutional trust rebuilding. Capital flowing to productive long-term investment.")
-        parts.append("GDP growth above trend. Employment strong. Consumer confidence rising.")
-        parts.append("Innovation cycle active. New products and services scaling rapidly.")
+        # STRESS RELIEVING — keep this factual. Extra macro-growth keywords can
+        # dominate text similarity and create unrelated CaseLab matches.
+        parts.append("M/D/K/X composite direction is negative, indicating pressure relief in current proxy readings.")
+        if M < -0.5:
+            parts.append("M anchor pressure is negative.")
+        if D < -0.5:
+            parts.append("D path pressure is negative.")
+        if K < -0.5:
+            parts.append("K curvature proxy is compressed.")
+        if X < -0.3:
+            parts.append("X shadow-load proxy is negative.")
         parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
 
     else:
@@ -360,6 +364,12 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
     # HMM regime
     hmm_regime = "unknown"
     hmm_path = _Path(str(ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"))
+    state_date = str(state.get("date") or "")
+    dated_path = None
+    if state_date:
+        dated_path = ROOT / "Output" / "ml_signals" / f"harvester_{state_date}" / "regime_hmm.json"
+    if dated_path and dated_path.exists():
+        hmm_path = dated_path
     if hmm_path.exists():
         try:
             with open(hmm_path) as f:
@@ -393,6 +403,8 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
         "unified_regime": unified_regime,
         "divergence": divergence,
         "stress_direction": round(stress_direction, 3),
+        "hmm_signal_path": str(hmm_path),
+        "hmm_signal_found": hmm_path.exists(),
         "note": note,
     }
 
@@ -424,6 +436,21 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
         event_text=event_text,
         top_k=top_k,
     )
+    top_score = float(results[0].score) if results else 0.0
+
+    # New scoring policy
+    if top_score >= STRONG_THRESHOLD:
+        match_quality = "strong"
+        interpretation = "CaseLab match is strong analogy only, not forecast."
+    elif top_score >= USABLE_THRESHOLD:
+        match_quality = "usable"
+        interpretation = "CaseLab match is usable as analogy only, not as forecast."
+    elif top_score >= WEAK_THRESHOLD:
+        match_quality = "weak"
+        interpretation = "CaseLab match is weak analogy only; do not treat as historical forecast."
+    else:
+        match_quality = "no_reliable_analogy"
+        interpretation = "No reliable historical analogy today. Top matches are debug/reference only."
 
     # 5. Build output
     output = {
@@ -445,6 +472,16 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
         "derived_tags": tags,
         "event_text": event_text[:500],
         "regime_reconciliation": reconciliation,
+        "match_quality": {
+            "label": match_quality,
+            "top_score": round(top_score, 4),
+            "thresholds": {
+                "strong": STRONG_THRESHOLD,
+                "usable": USABLE_THRESHOLD,
+                "weak": WEAK_THRESHOLD,
+            },
+            "interpretation": interpretation,
+        },
         "matches": [
             {
                 "rank": i + 1,
@@ -456,7 +493,12 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
                 "text_score": r.text_score,
                 "shared_tags": r.shared_tags,
                 "shared_concepts": [{"concept": c, "freq": s} for c, s in r.shared_concepts],
-                "narrative": r.narrative_summary[:200],
+                # Suppress narratives for weak/no-reliable matches
+                "narrative": (
+                    r.narrative_summary[:200]
+                    if match_quality in ("strong", "usable")
+                    else "[suppressed: weak/no reliable analogy]"
+                ),
             }
             for i, r in enumerate(results)
         ],
@@ -504,6 +546,12 @@ def _format_markdown(output: dict) -> str:
         f"## Event Description",
         f"> {output['event_text'][:300]}",
         "",
+        "## Match Quality",
+        f"- **Label:** {output['match_quality']['label']}",
+        f"- **Top score:** {output['match_quality']['top_score']:.3f}",
+        f"- **Thresholds:** strong ≥ {output['match_quality']['thresholds']['strong']:.2f}, usable ≥ {output['match_quality']['thresholds']['usable']:.2f}, weak ≥ {output['match_quality']['thresholds']['weak']:.2f}",
+        f"- **Interpretation:** {output['match_quality']['interpretation']}",
+        "",
         f"## Top Matches",
         "",
     ]
@@ -516,7 +564,7 @@ def _format_markdown(output: dict) -> str:
         if m["shared_concepts"]:
             concepts = ", ".join(f"{c['concept']}({c['freq']:.0f})" for c in m["shared_concepts"][:5])
             lines.append(f"- concepts: {concepts}")
-        if m["narrative"]:
+        if m["narrative"] and not m["narrative"].startswith("[suppressed"):
             lines.append(f"- narrative: {m['narrative'][:150]}")
         lines.append("")
 

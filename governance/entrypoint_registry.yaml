@@ -1,0 +1,351 @@
+# Entrypoint Registry — Script status and ownership
+# Created: 2026-06-16
+# See: governance/capability_registry.yaml
+#
+# Status enum:
+#   active             — 当前使用，有真实数据流
+#   compatibility_wrapper — root thin wrapper，真实实现在 owner module
+#   shadow_active      — 只产出诊断/记录，不能执行权威动作
+#   experimental       — 一次性实验，不进入主路径
+#   deprecated         — 已弃用，等待清理
+#   archive_candidate  — 应移入 scripts/archive/
+
+# === ACTIVE ENTRPOINTS ===
+
+daily_run:
+  script: scripts/daily_run.py
+  status: active
+  owner: Deformation Framework
+  description: Daily pipeline entry point
+  allowed_use:
+    - daily_deformation_run
+    - current_output_generation
+
+refresh_output_current:
+  script: scripts/refresh_output_current.py
+  status: active
+  owner: Workbench
+  description: Refresh Output/current/ artifacts
+  allowed_use:
+    - current_artifact_generation
+
+promote_snapshot:
+  script: scripts/promote_snapshot.py
+  status: active
+  owner: Data/Output
+  description: Snapshot promotion with gate validation
+  allowed_use:
+    - snapshot_promotion
+
+list_latest:
+  script: scripts/list_latest.py
+  status: active
+  owner: Data/Output
+  description: List latest artifacts
+  allowed_use:
+    - artifact_listing
+
+system_status:
+  script: scripts/system_status.py
+  status: active
+  owner: Workbench
+  description: System status check
+  allowed_use:
+    - status_check
+
+# === COMPATIBILITY WRAPPERS ===
+
+structural_replay_v2:
+  script: scripts/structural_replay_v2.py
+  status: compatibility_wrapper
+  owner: Deformation Framework
+  target_location: "Structural Deformation Research System/scripts/"
+  allowed_use:
+    - legacy_replay
+    - current_bridge_until_replacement
+  replacement:
+    - scripts/daily_run.py
+  retire_after: "2026-07-15"
+
+bridge_replay_to_current:
+  script: scripts/bridge_replay_to_current.py
+  status: compatibility_wrapper
+  owner: Workbench
+  target_location: Workbench/scripts/
+  allowed_use:
+    - replay_to_current_bridge
+  replacement:
+    - scripts/refresh_output_current.py
+  retire_after: "2026-07-15"
+
+# === ACTIVE BUT MODULE-OWNED ===
+
+learning_hub_comprehensive_summary:
+  script: scripts/learning_hub_comprehensive_summary.py
+  status: active
+  owner: Learning Hub
+  target_location: system-learning-hub/scripts/
+  allowed_use:
+    - comprehensive_summary_generation
+
+learning_hub_judgment_calibration:
+  script: scripts/learning_hub_judgment_calibration.py
+  status: active
+  owner: Learning Hub
+  target_location: system-learning-hub/scripts/
+  allowed_use:
+    - judgment_calibration
+
+learning_hub_trade_calibration:
+  script: scripts/learning_hub_trade_calibration.py
+  status: active
+  owner: Learning Hub
+  target_location: system-learning-hub/scripts/
+  allowed_use:
+    - trade_calibration
+
+# === EXPERIMENTAL / ONE-OFF ===
+
+blind_replay_test:
+  script: scripts/blind_replay_test.py
+  status: experimental
+  owner: Workbench
+  description: Blind replay test for validation
+  allowed_use:
+    - validation_only
+
+benchmark_comparison:
+  script: scripts/benchmark_comparison.py
+  status: experimental
+  owner: Qlib Benchmark
+  allowed_use:
+    - benchmark_comparison
+
+calibration:
+  script: scripts/calibration.py
+  status: experimental
+  owner: Deformation Framework
+  allowed_use:
+    - calibration_analysis
+
+# === LEGACY COMPATIBILITY (retire_after: 2026-07-15) ===
+
+legacy_data_sources:
+  script: "Structural Deformation Research System/src/data/data_sources.py"
+  status: deprecated
+  owner: Deformation Framework
+  allowed_use:
+    - legacy_replay
+    - migration_validation
+    - dual_path_compare
+  retire_after: "2026-07-15"
+  note: "LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline"
+
+legacy_data_hub:
+  script: "Structural Deformation Research System/src/data/gateway/data_hub.py"
+  status: deprecated
+  owner: Deformation Framework
+  allowed_use:
+    - legacy_replay
+    - migration_validation
+    - dual_path_compare
+  retire_after: "2026-07-15"
+  note: "LEGACY_COMPATIBILITY_ONLY — production must use Harvester-backed DataHubLite"
+
+# === DEPRECATED / ARCHIVE CANDIDATES ===
+
+structural_replay_evaluation:
+  script: scripts/structural_replay_evaluation.py
+  status: archive_candidate
+  owner: Deformation Framework
+  reason: "Not called by any runtime pipeline; uses yfinance directly (violates Harvester-only rule)"
+  allowed_use:
+    - historical_reference_only
+  retire_after: "2026-07-01"
+
+refresh_etf_panel:
+  script: scripts/refresh_etf_panel.py
+  status: active
+  owner: Harvester
+  description: "Recomputes K features from existing panel parquet; does NOT acquire ETF data"
+  allowed_use:
+    - feature_recomputation
+  note: "ETF acquisition must come from Harvester evidence release; this script only recomputes features"
+
+solution_phase1:
+  script: scripts/solution_phase1.py
+  status: archive_candidate
+  owner: unknown
+  reason: "One-off solution script, no active consumers"
+
+solution_phase2:
+  script: scripts/solution_phase2.py
+  status: archive_candidate
+  owner: unknown
+  reason: "One-off solution script, no active consumers"
+
+hmm_generate_history:
+  script: scripts/hmm_generate_history.py
+  status: archive_candidate
+  owner: ML Signals
+  reason: "HMM experiment, not in active pipeline"
+
+hmm_stability_audit:
+  script: scripts/hmm_stability_audit.py
+  status: archive_candidate
+  owner: ML Signals
+  reason: "HMM experiment, not in active pipeline"
+
+prepare_dl_training_data:
+  script: scripts/prepare_dl_training_data.py
+  status: archive_candidate
+  owner: ML Signals
+  reason: "DL training data prep, not in active pipeline"
+
+# === ACTIVE BUT NEEDS MIGRATION ===
+
+caselab_daily_signal:
+  script: scripts/caselab_daily_signal.py
+  status: active
+  owner: CaseLab Context
+  target_location: caselab_context/scripts/
+  allowed_use:
+    - daily_signal_generation
+
+nlp_extract:
+  script: scripts/nlp_extract.py
+  status: active
+  owner: NLP Pipeline
+  target_location: Workbench/src/nlp/scripts/
+  allowed_use:
+    - nlp_extraction
+
+nlp_ingest:
+  script: scripts/nlp_ingest.py
+  status: active
+  owner: NLP Pipeline
+  target_location: Workbench/src/nlp/scripts/
+  allowed_use:
+    - nlp_ingestion
+
+# === GOVERNANCE / AUDIT ===
+
+audit_boundaries:
+  script: scripts/audit_boundaries.py
+  status: active
+  owner: Governance
+  allowed_use:
+    - boundary_audit
+
+record_runtime_event:
+  script: scripts/record_runtime_event.py
+  status: active
+  owner: Learning Hub
+  allowed_use:
+    - runtime_event_recording
+
+record_trade_decision:
+  script: scripts/record_trade_decision.py
+  status: active
+  owner: Learning Hub
+  allowed_use:
+    - trade_decision_recording
+
+daily_routing_decision:
+  script: scripts/daily_routing_decision.py
+  status: shadow_active
+  owner: Agent Routing
+  allowed_use:
+    - routing_diagnostics
+    - learning_hub_record
+  forbidden_use:
+    - execute_routed_task
+    - affect_core_judgment
+    - bypass_module_ownership
+  blocker: "Shadow diagnostics only; needs tests and explicit authority before ACTIVE_PARTIAL."
+
+routing_cli:
+  script: Workbench/agents/harness/entrypoints/routing_cli.py
+  status: shadow_active
+  owner: Agent Routing
+  allowed_use:
+    - public_shadow_routing_api
+    - routing_diagnostics
+  forbidden_use:
+    - execute_routed_task
+    - affect_core_judgment
+
+# === VALIDATION / QUALITY ===
+
+quality_field_validator:
+  script: scripts/quality_field_validator.py
+  status: active
+  owner: Protocols
+  allowed_use:
+    - field_validation
+
+validate_workbench_contract:
+  script: scripts/validate_workbench_contract.py
+  status: active
+  owner: Workbench
+  allowed_use:
+    - contract_validation
+
+freshness_validator:
+  script: scripts/freshness_validator.py
+  status: active
+  owner: Data/Output
+  allowed_use:
+    - freshness_validation
+
+architecture_reality_audit:
+  script: scripts/architecture_reality_audit.py
+  status: active
+  owner: Learning Hub
+  allowed_use:
+    - architecture_reality_audit
+    - governance_drift_detection
+
+proxy_quality_scorer:
+  script: scripts/proxy_quality_scorer.py
+  status: active
+  owner: Deformation Framework
+  allowed_use:
+    - proxy_quality_scoring
+
+# === TRADE / RISK ===
+
+trade_decision_layer:
+  script: scripts/trade_decision_layer.py
+  status: active
+  owner: Workbench
+  allowed_use:
+    - trade_decision_generation
+
+trade_risk_gate:
+  script: scripts/trade_risk_gate.py
+  status: active
+  owner: Workbench
+  allowed_use:
+    - risk_gate_validation
+
+position_sizing_layer:
+  script: scripts/position_sizing_layer.py
+  status: active
+  owner: Workbench
+  allowed_use:
+    - position_sizing
+
+judgment_layer:
+  script: scripts/judgment_layer.py
+  status: active
+  owner: Workbench
+  allowed_use:
+    - judgment_generation
+
+judgment_promotion_gate:
+  script: scripts/judgment_promotion_gate.py
+  status: active
+  owner: Workbench
+  allowed_use:
+    - promotion_gate_validation

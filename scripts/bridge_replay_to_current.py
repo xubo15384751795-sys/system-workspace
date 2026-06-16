@@ -20,13 +20,14 @@ WORKBENCH_SRC = ROOT / "Workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from workbench.governance.semantic import MEASUREMENT_ELIGIBILITY, build_primary_readout
+from workbench.governance.semantic import MEASUREMENT_ELIGIBILITY, SemanticRegistry, build_primary_readout
 
 CURRENT = ROOT / "Output" / "current"
 REPLAY_DIR = ROOT / "Output" / "sandbox" / "structural_replay_v2"
 HARVESTER_LATEST = ROOT / "Data" / "harvester" / "exports" / "latest"
 REBASE_DIR = ROOT / "Output" / "rebase"
 DAILY_MARKET_SPACE_DIR = ROOT / "Output" / "daily_market_space"
+SEMANTIC_REGISTRY_PATH = ROOT / "governance" / "semantic_registry.json"
 
 # Proxy metadata for confidence assessment
 CHANNEL_META = {
@@ -83,6 +84,12 @@ def _load_replay_results() -> list:
     return json.loads(results_path.read_text(encoding="utf-8"))
 
 
+def _load_semantic_registry() -> SemanticRegistry | None:
+    if not SEMANTIC_REGISTRY_PATH.exists():
+        return None
+    return SemanticRegistry(SEMANTIC_REGISTRY_PATH)
+
+
 def _channel_coverage(sv: dict) -> dict:
     vector = sv.get("sigma_vector", {})
     live = vector.get("channels_live", [])
@@ -101,43 +108,55 @@ def _build_channel_confidence(sv: dict, results: list) -> dict:
     """Per-channel confidence assessment."""
     vector = sv.get("sigma_vector", {})
     warnings = vector.get("semantic_warning", [])
+    semantic = _load_semantic_registry()
 
     confidence = {}
     for ch in ["M", "D", "K", "X_agg"]:
         meta = CHANNEL_META.get(ch, {})
+        semantic_meta = {}
+        if semantic is not None:
+            try:
+                semantic_meta = semantic.get(ch)
+            except KeyError:
+                semantic_meta = {}
         val = vector.get(ch)
         is_live = val is not None
+        distance = semantic_meta.get("semantic_distance", meta.get("semantic_distance"))
+        proxy_status = semantic_meta.get("proxy_status")
 
         # Determine confidence level
         if not is_live:
             level = "not_implemented"
-        elif meta.get("semantic_distance", 0) >= 3:
+        elif distance is not None and distance >= 3:
             level = "low"  # PROXY_REDUCED
-        elif meta.get("family", "").count("+") > 0:
+        elif distance is not None and distance >= 2:
             level = "medium"  # multi-family but reduced
         else:
             level = "high"
 
         # Check if channel has warnings
         ch_warnings = [w for w in warnings if w.startswith(f"{ch}:") and "PARTIAL" not in w]
+        readout_role = MEASUREMENT_ELIGIBILITY[ch]["readout_role"]
 
         confidence[ch] = {
             "status": "live" if is_live else "not_implemented",
             "confidence": level,
             "value": val,
             "framework_role": MEASUREMENT_ELIGIBILITY[ch]["framework_role"],
-            "readout_role": MEASUREMENT_ELIGIBILITY[ch]["readout_role"],
+            "readout_role": readout_role,
             "current_status": MEASUREMENT_ELIGIBILITY[ch]["current_status"],
             "readout_reason": MEASUREMENT_ELIGIBILITY[ch]["reason"],
-            "proxy_quality": "PROXY_REDUCED" if meta.get("semantic_distance", 0) >= 3 else "CANONICAL",
+            "proxy_quality": proxy_status or ("PROXY_REDUCED" if distance is not None and distance >= 3 else "CANONICAL"),
             "data_frequency": meta.get("expected_freq", "unknown"),
             "family_diversity": "monoculture" if "+" not in meta.get("family", "") else "multi-family",
             "family": meta.get("family", "unknown"),
             "voting_proxies": meta.get("voting_proxies", 0),
-            "semantic_distance": meta.get("semantic_distance", None),
+            "semantic_distance": distance,
             "canonical_section": meta.get("canonical_section", ""),
             "warnings": ch_warnings,
-            "allowed_in_canonical_voting": is_live,
+            "valid_for": semantic_meta.get("valid_for", []),
+            "not_valid_for": semantic_meta.get("not_valid_for", []),
+            "allowed_in_canonical_voting": is_live and readout_role == "primary_readout",
         }
 
     return confidence
@@ -156,6 +175,8 @@ def _quality_status(coverage: dict, channel_confidence: dict) -> str:
     if all(level == "high" for level in levels):
         return "FULL_HIGH_CONFIDENCE"
     if all(level == "low" for level in levels):
+        return "FULL_PROXY_REDUCED"
+    if all(ch.get("proxy_quality") == "PROXY_REDUCED" for ch in channel_confidence.values() if ch["status"] == "live"):
         return "FULL_PROXY_REDUCED"
     if all_warnings:
         return "FULL_WITH_WARNINGS"
@@ -907,11 +928,8 @@ def main() -> None:
     fw_path.write_text(json.dumps(fw_output, indent=2, default=str), encoding="utf-8")
     print(f"Wrote: {fw_path}")
 
-    # Write 00_READ_ME_FIRST.md
-    readme = write_readme(fw_output)
-    readme_path = CURRENT / "00_READ_ME_FIRST.md"
-    readme_path.write_text(readme, encoding="utf-8")
-    print(f"Wrote: {readme_path}")
+    # Note: 00_READ_ME_FIRST.md is now written by build_readme_first.py
+    # after system index is built
 
     # Write latest_summary.md
     summary = _generate_summary(fw_output)

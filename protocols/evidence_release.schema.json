@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Harvester Evidence Release",
+  "description": "Schema for Harvester evidence release bundles. All evidence enters the system through Harvester. See governance/architecture_reality_decisions.md §3.",
+  "type": "object",
+  "required": ["id", "source", "created_at", "ttl_days", "quality_status", "schema_version", "allowed_use"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique release identifier"
+    },
+    "source": {
+      "type": "string",
+      "description": "Data source identifier (FRED, SEC, Treasury, etc.)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when the evidence was created"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when the evidence expires (created_at + ttl_days)"
+    },
+    "ttl_days": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3,
+      "description": "Time-to-live in days. Default 3. See governance/system_constitution.yaml snapshot_policy."
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source", "method"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Original data source name"
+        },
+        "method": {
+          "type": "string",
+          "description": "Acquisition method (api, scrape, file_import, etc.)"
+        },
+        "vintage": {
+          "type": "string",
+          "description": "Data vintage date if applicable"
+        },
+        "checksum": {
+          "type": "string",
+          "description": "Content hash for integrity verification"
+        }
+      },
+      "additionalProperties": false
+    },
+    "quality_status": {
+      "type": "string",
+      "enum": ["fresh", "acceptable_lag", "stale", "missing"],
+      "description": "Data freshness classification"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version identifier"
+    },
+    "allowed_use": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["core_judgment", "research", "training_feedback"]
+      },
+      "minItems": 1,
+      "description": "Permitted use cases for this evidence"
+    },
+    "stale_behavior": {
+      "type": "string",
+      "enum": ["block", "warn", "allow_with_marking"],
+      "default": "block",
+      "description": "Behavior when evidence is stale: block core_judgment, warn, or allow with stale marking"
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path"],
+        "properties": {
+          "id": {"type": "string"},
+          "path": {"type": "string"},
+          "rows": {"type": "integer"},
+          "columns": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Individual datasets included in this release"
+    }
+  },
+  "additionalProperties": false
+}

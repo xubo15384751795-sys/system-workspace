@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Context Packet",
+  "description": "Output of the Contextual Meaning Resolver. All resolver outputs, agent enrichments, and feedback logs must conform to this schema.",
+  "type": "object",
+  "required": ["context_packet"],
+  "properties": {
+    "context_packet": {
+      "$ref": "#/definitions/context_packet"
+    },
+    "feedback_id": {
+      "type": "string",
+      "description": "Assigned when --log is used"
+    }
+  },
+  "definitions": {
+    "context_packet": {
+      "type": "object",
+      "required": ["actor", "regime", "action", "contextual_meaning", "confidence", "matched_rules"],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "description": "Canonical entity name"
+        },
+        "entity_dna": {
+          "type": "object",
+          "description": "Behavioral defaults from Entity frontmatter",
+          "properties": {
+            "core_functions": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "default_behavior": {
+              "type": "string"
+            },
+            "inertia_tags": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          },
+          "additionalProperties": true
+        },
+        "regime": {
+          "type": "object",
+          "description": "Current macro environment axes",
+          "properties": {
+            "liquidity": {
+              "type": "string",
+              "enum": ["abundant", "tightening", "stressed"]
+            },
+            "rates": {
+              "type": "string",
+              "enum": ["stable", "rising", "falling"]
+            },
+            "credit": {
+              "type": "string",
+              "enum": ["expanding", "fragile", "contracting"]
+            },
+            "regulation": {
+              "type": "string",
+              "enum": ["loose", "tightening", "punitive"]
+            },
+            "market_mood": {
+              "type": "string",
+              "enum": ["risk_on", "risk_off", "crisis", "bubble", "tightening"]
+            },
+            "technology_cycle": {
+              "type": "string",
+              "enum": ["early", "scaling", "mature", "overbuilt"]
+            }
+          },
+          "additionalProperties": {"type": "string"}
+        },
+        "action": {
+          "type": "object",
+          "required": ["verb", "object"],
+          "properties": {
+            "verb": {"type": "string"},
+            "object": {"type": "string"}
+          }
+        },
+        "contextual_meaning": {
+          "$ref": "#/definitions/contextual_meaning"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "matched_rules": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "IDs of matched resolver rules, ordered by specificity"
+        },
+        "entity_source": {
+          "type": ["string", "null"],
+          "description": "Path to the Entity markdown file"
+        },
+        "similar_notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/similar_note"
+          },
+          "description": "Retrieved similar Paper notes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextual_meaning": {
+      "type": "object",
+      "required": ["surface_action", "deeper_structure", "risk_transfer"],
+      "properties": {
+        "surface_action": {
+          "type": "string",
+          "description": "What the actor appears to be doing"
+        },
+        "deeper_structure": {
+          "type": "string",
+          "description": "What is actually happening structurally"
+        },
+        "regime_dependency": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "description": "How meaning changes by regime axis"
+        },
+        "risk_transfer": {
+          "$ref": "#/definitions/risk_transfer"
+        },
+        "historical_analogies": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Case names that structurally resemble this situation"
+        },
+        "non_transferable_conditions": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Conditions that cannot be transferred or assumed away"
+        },
+        "failure_modes": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "How this interpretation could be wrong"
+        },
+        "next_checks": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Actionable follow-up checks"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_transfer": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Who bears risk before the action"
+        },
+        "to": {
+          "type": "string",
+          "description": "Who bears risk after the action"
+        }
+      },
+      "additionalProperties": false
+    },
+    "similar_note": {
+      "type": "object",
+      "required": ["score", "title", "id"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Similarity score"
+        },
+        "title": {"type": "string"},
+        "id": {"type": "string", "description": "Relative path from Paper root"},
+        "path": {"type": "string"},
+        "type": {"type": "string"},
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "text": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

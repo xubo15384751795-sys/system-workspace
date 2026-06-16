@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Position Intent",
+  "description": "Structured position intent from trade decision translation",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "decision", "allowed_mode", "positions", "blockers"],
+  "properties": {
+    "schema_version": {
+      "const": "position_intent.v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"]
+    },
+    "allowed_mode": {
+      "type": "string",
+      "enum": ["research_only", "paper_trading", "live_trading"]
+    },
+    "portfolio_action": {
+      "type": "string",
+      "enum": ["hold_flat", "reduce_exposure", "add_hedge", "flatten_all"]
+    },
+    "positions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/position"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "risk_notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "definitions": {
+    "position": {
+      "type": "object",
+      "required": ["asset", "direction", "target_weight", "max_weight", "risk_unit"],
+      "properties": {
+        "asset": {"type": "string"},
+        "direction": {"type": "string", "enum": ["long", "short", "flat"]},
+        "target_weight": {"type": "number", "minimum": -1, "maximum": 1},
+        "max_weight": {"type": "number", "minimum": -1, "maximum": 1},
+        "risk_unit": {"type": "number", "minimum": 0},
+        "invalidation": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

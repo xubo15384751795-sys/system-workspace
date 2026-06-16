@@ -1,0 +1,56 @@
+# Artifact Lifecycle Policy
+# Authority: governance/architecture_reality_decisions.md §11
+# Created: 2026-06-16
+
+schema_version: artifact_policy.v1
+updated_at: "2026-06-16"
+
+categories:
+  current:
+    description: "Active artifacts in Output/current/ — the live system view"
+    ttl: none
+    must_be_registered: true
+    registration_location: governance/capability_registry.yaml
+    on_unregistered: warn
+    on_stale_in_main_path: block
+
+  snapshot:
+    description: "Point-in-time snapshots for reproducibility"
+    ttl_days: 3
+    force_refresh: true
+    on_expired_in_main_path: block
+    on_expired_in_research: allowed_with_stale_warning
+
+  experimental:
+    description: "Experimental artifacts from backtest, ML, Qlib, NLP experiments"
+    ttl_days: 7
+    on_unregistered: abandoned_report
+    on_unconsumed: mark_frozen
+    allowed_use:
+      - research
+      - training_feedback
+    forbidden_use:
+      - core_judgment
+      - current_state
+      - trade_decision
+
+  training_feedback:
+    description: "Feedback and calibration artifacts from Learning Hub"
+    ttl_days: 7
+    stale_allowed: true
+    must_mark_stale: true
+    allowed_use:
+      - calibration
+      - feedback
+      - improvement_queue
+
+enforcement:
+  abandoned_report_location: Output/system_learning/latest/abandoned_artifacts.md
+  audit_cadence: weekly
+  audit_script: scripts/architecture_reality_audit.py
+
+# Rules:
+# 1. 7 days unregistered: enters abandoned report
+# 2. 7 days unconsumed: marked frozen
+# 3. 7 days without refresh but referenced by main entry: block
+# 4. Not deleted immediately, but cannot continue to pretend active

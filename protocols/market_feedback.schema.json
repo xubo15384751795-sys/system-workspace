@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Market Feedback",
+  "description": "Market feedback from Qlib/replay calibration",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "feedback_type"],
+  "properties": {
+    "schema_version": {
+      "const": "market_feedback.v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "feedback_type": {
+      "type": "string",
+      "enum": ["qlib_benchmark", "replay_calibration", "forward_outcome"]
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "incremental_explanation_power": {"type": "number"},
+        "mechanism_usefulness_score": {"type": "number"},
+        "feature_promotion_candidates": {"type": "array", "items": {"type": "string"}},
+        "gate_threshold_adjustments": {"type": "object"}
+      }
+    },
+    "details": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/feedback_item"
+      }
+    }
+  },
+  "definitions": {
+    "feedback_item": {
+      "type": "object",
+      "properties": {
+        "item_id": {"type": "string"},
+        "description": {"type": "string"},
+        "metric": {"type": "string"},
+        "value": {"type": "number"},
+        "interpretation": {"type": "string"},
+        "action_implication": {"type": "string"}
+      }
+    }
+  }
+}

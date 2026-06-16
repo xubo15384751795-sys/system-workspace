@@ -6,15 +6,39 @@ and produces a routing decision record for the Learning Hub.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HARNESS_SRC = ROOT / "Workbench" / "agents"
-sys.path.insert(0, str(HARNESS_SRC))
+ROUTING_CLI = ROOT / "Workbench" / "agents" / "harness" / "entrypoints" / "routing_cli.py"
 
-from harness.tools.task_router import route_task
+
+def route_task_via_cli(task: str) -> dict:
+    """Route a task through the Agent Routing public shadow CLI."""
+    if not ROUTING_CLI.exists():
+        return {
+            "primary_module": "unknown",
+            "recommended_mode": "unknown",
+            "activated_experts": [],
+            "error": f"routing CLI missing: {ROUTING_CLI}",
+        }
+    result = subprocess.run(
+        [sys.executable, str(ROUTING_CLI), task],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        return {
+            "primary_module": "unknown",
+            "recommended_mode": "unknown",
+            "activated_experts": [],
+            "error": result.stderr.strip() or result.stdout.strip(),
+        }
+    return json.loads(result.stdout)
 
 
 def generate_daily_routing(steps: list[dict]) -> dict:
@@ -27,7 +51,7 @@ def generate_daily_routing(steps: list[dict]) -> dict:
         # Map step names to task descriptions
         task_map = {
             "harvester": "Fetch latest market data from providers",
-            "etf_refresh": "Refresh ETF panel and K features from OpenBB",
+            "etf_refresh": "Recompute K features from admitted ETF panel; ETF acquisition is blocked until Harvester evidence release exists",
             "structural_replay": "Run structural replay on latest harvester release",
             "bridge": "Bridge replay output to current framework output",
             "regime_detection": "Detect current market regime via HMM",
@@ -38,7 +62,7 @@ def generate_daily_routing(steps: list[dict]) -> dict:
         }
 
         task = task_map.get(name, f"Execute {name}")
-        routing = route_task(task)
+        routing = route_task_via_cli(task)
 
         decisions.append({
             "step": name,

@@ -94,3 +94,37 @@ def test_freshness_manifest_distinguishes_date_semantics(tmp_path: Path) -> None
     assert by_series["VIXCLS"]["vintage_date"] == "2026-05-01"
     assert by_series["VIXCLS"]["freshness_status"] == "fresh"
     assert by_series["NFCI"]["freshness_status"] == "acceptable_lag"
+
+
+# --- Evidence Release TTL Tests ---
+# See: governance/architecture_reality_decisions.md §3-4
+# See: configs/freshness_policy.yaml evidence_release section
+
+
+def test_evidence_release_ttl_policy_exists() -> None:
+    """Freshness policy must define evidence_release TTL rules."""
+    policy_path = ROOT / "configs" / "freshness_policy.yaml"
+    if not policy_path.exists():
+        return
+    import yaml
+    policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+    assert "evidence_release" in policy, (
+        "freshness_policy.yaml missing evidence_release section"
+    )
+    er = policy["evidence_release"]
+    assert er["default_ttl_days"] == 3
+    assert er["core_judgment_on_expired"] == "blocked"
+    assert er["research_on_expired"] == "allowed_with_stale_warning"
+    assert er["training_feedback_on_expired"] == "allowed_if_marked_stale"
+
+
+def test_constitution_has_evidence_release_ttl() -> None:
+    """System constitution must define evidence release TTL rules."""
+    import yaml
+    constitution_path = ROOT / "governance" / "system_constitution.yaml"
+    constitution = yaml.safe_load(constitution_path.read_text(encoding="utf-8"))
+    fr = constitution["freshness_rules"]
+    assert fr["evidence_release_ttl_days"] == 3
+    assert fr["core_judgment_on_expired_snapshot"] == "blocked"
+    assert fr["research_use_on_expired_snapshot"] == "allowed_with_stale_warning"
+    assert fr["training_feedback_on_expired_snapshot"] == "allowed_if_marked_stale"

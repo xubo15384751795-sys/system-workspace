@@ -1,0 +1,80 @@
+# Position Sizing Policy v0 — conservative rules
+# Translates trade decisions into position weights.
+
+schema_version: position_sizing_policy.v1
+updated_at: 2026-06-16
+
+# Hard blocks — any of these means zero position
+hard_blocks:
+  freshness_fail: zero_position
+  evidence_grade_d: zero_position
+  promotion_gate_blocked: zero_position
+  paper_support_missing: zero_position
+  risk_gate_not_approved: zero_position
+  confidence_low: zero_position
+
+# Decision mapping
+decision_mapping:
+  NO_TRADE:
+    target_weight: 0.0
+    max_weight: 0.0
+    risk_unit: 0.0
+    action: hold_flat
+
+  WATCH:
+    target_weight: 0.0
+    max_weight: 0.0
+    risk_unit: 0.0
+    action: hold_flat
+    note: "record observation only"
+
+  RISK_REDUCE:
+    action: reduce_existing_exposure
+    max_reduction_pct: 25
+    risk_unit: 0.25
+    requires: ["freshness_pass", "evidence_grade_b_or_higher", "paper_support"]
+
+  HEDGE:
+    action: add_hedge
+    max_risk_unit: 0.25
+    max_weight: 0.10
+    requires: ["freshness_pass", "evidence_grade_b_or_higher", "paper_support"]
+
+  TACTICAL_LONG:
+    enabled: false  # Disabled until replay calibration passes
+    note: "disabled until calibration proves effectiveness"
+
+  TACTICAL_SHORT:
+    enabled: false  # Disabled until replay calibration passes
+    note: "disabled until calibration proves effectiveness"
+
+# Risk unit definition
+risk_unit:
+  definition: "1 risk unit = 0.25% of portfolio value at risk"
+  max_risk_per_trade: 1.0
+  max_portfolio_risk: 2.0
+
+# Asset scope
+default_assets:
+  - SPY
+  - HYG
+  - TLT
+
+# Volatility adjustment
+volatility_adjustment:
+  enabled: true
+  method: "inverse_volatility"
+  lookback_days: 20
+  high_vol_threshold: 1.5  # If vol > 1.5x normal, reduce position
+
+# Correlation adjustment
+correlation_adjustment:
+  enabled: true
+  max_correlation: 0.7
+  if_crowded: reduce_position
+
+# Drawdown kill switch
+drawdown_kill_switch:
+  enabled: true
+  max_drawdown_pct: 5.0
+  action: flatten_all

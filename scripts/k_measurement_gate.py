@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""K Measurement Gate — thin wrapper.
+
+See Workbench/src/workbench/signals/k_gate.py for core logic.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKBENCH_SRC = ROOT / "Workbench" / "src"
+if str(WORKBENCH_SRC) not in sys.path:
+    sys.path.insert(0, str(WORKBENCH_SRC))
+
+from workbench.signals.k_gate import run_gate, write_outputs
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run K measurement gate.")
+    parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
+    args = parser.parse_args()
+
+    report = run_gate()
+    paths = write_outputs(report)
+
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(f"K measurement gate: {report['gate_verdict']}")
+        for test_name, test in report["tests"].items():
+            print(f"  {test_name}: {test['status']}")
+
+
+if __name__ == "__main__":
+    main()

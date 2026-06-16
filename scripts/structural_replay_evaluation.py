@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────────────────────────────────────
-# DEPRECATED LOCATION (marked 2026-05-22) — migration tracked in
-#   governance/repo_layout_map.md §6
-#   governance/repo_state_audit.md Phase 3
-# This script should eventually live in:
-#   Structural Deformation Research System/scripts/
-# Path here is preserved as a thin entry point so `sys`, Justfile, tests, and
-# configs continue to work. New code should target the module-owned location
-# once the owning submodule absorbs this script.
+# ARCHIVE_CANDIDATE (marked 2026-06-17)
+# This script is NOT called by any runtime pipeline (daily_run, refresh, etc.).
+# It uses yfinance directly, which violates the Harvester-only evidence entry rule.
+# Status: governance/entrypoint_registry.yaml (structural_replay_evaluation)
+# Action: move to scripts/archive/ after 2026-07-01 if no consumer is found.
 # ─────────────────────────────────────────────────────────────────────────────
 """Structural Deformation System — Historical Case Replay & Evaluation.
 

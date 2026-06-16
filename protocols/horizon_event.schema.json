@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Horizon Event",
+  "description": "Structured event from Horizon event radar",
+  "type": "object",
+  "required": ["schema_version", "event_id", "title", "source_type", "published_at"],
+  "properties": {
+    "schema_version": {
+      "const": "horizon_event.v1"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["news", "rss", "reddit", "github", "openbb_news", "sec_filing", "earnings", "macro_data"]
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ai_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "related_assets": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "related_entities": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "possible_mechanisms": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "source_run_id": {
+      "type": "string"
+    }
+  }
+}

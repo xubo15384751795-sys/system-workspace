@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────────────────────────────────────
-# DEPRECATED LOCATION (marked 2026-05-22) — migration tracked in
+# COMPATIBILITY LOCATION (marked 2026-06-16) — migration tracked in
 #   governance/repo_layout_map.md §6
 #   governance/repo_state_audit.md Phase 3
 # This script should eventually live in:

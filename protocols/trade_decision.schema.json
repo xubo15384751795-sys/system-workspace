@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trade Decision",
+  "description": "Structured trade decision from System + Paper synthesis",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "decision", "confidence", "asset_scope", "time_horizon", "invalidation", "risk_notes", "evidence_grade", "paper_sources", "system_sources"],
+  "properties": {
+    "schema_version": {
+      "const": "trade_decision.v2"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "allowed_size": {
+      "type": "string",
+      "enum": ["zero", "small", "medium", "large"]
+    },
+    "time_horizon": {
+      "type": "string",
+      "enum": ["1d", "1w", "1m", "3m"]
+    },
+    "asset_scope": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "invalidation": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "risk_notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "evidence_grade": {
+      "type": "string",
+      "enum": ["A", "B", "C", "D"]
+    },
+    "paper_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_file", "content_type"],
+        "properties": {
+          "source_file": {"type": "string"},
+          "content_type": {"type": "string", "enum": ["case", "mechanism", "variable", "indicator", "trade_idea"]},
+          "content_id": {"type": "string"},
+          "relevance": {"type": "string", "enum": ["high", "medium", "low"]},
+          "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]}
+        }
+      }
+    },
+    "system_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_type", "source_path"],
+        "properties": {
+          "source_type": {"type": "string", "enum": ["judgment", "k_gate", "x_gate", "hmm", "caselab", "framework_output"]},
+          "source_path": {"type": "string"},
+          "status": {"type": "string"},
+          "value": {}
+        }
+      }
+    },
+    "trade_thesis": {
+      "type": "object",
+      "properties": {
+        "hypothesis": {"type": "string"},
+        "mechanism_support": {"type": "array", "items": {"type": "string"}},
+        "observable_conditions": {"type": "array", "items": {"type": "string"}},
+        "what_would_upgrade": {"type": "array", "items": {"type": "string"}},
+        "what_would_invalidate": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

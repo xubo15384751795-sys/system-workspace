@@ -1,0 +1,29 @@
+version: 2
+source_files:
+- /Users/a1/Paper/90_Admin/Agent Rules.md
+- /Users/a1/Paper/90_Admin/Review-Target.md
+core_principles: []
+review_standards:
+- 如果没有 Cross-Layer Links，最高只能是 **seed**。
+- 如果没有 Differentiation，最高只能是 **useful**。
+- 如果没有 Observable / Formalizable 部分，不能成为 **core_candidate**。
+- 如果没有 Failure Modes，不能成为 **core**。
+- Type Clarity
+- Functional Positioning
+- Cross-Layer Links
+- Differentiation
+- Observable or Formalizable structure
+- Failure Modes
+- Evidence Awareness
+- No Generic Template Prose
+rules:
+- id: core_is_status_not_directory
+  enforce: use_yaml_status_fields
+- id: no_trade_without_evidence
+  enforce: directional_signal_requires_evidence
+- id: generated_needs_review
+  enforce: default_review_status_needs_review
+- id: context_before_trade_idea
+  enforce: attach_context_packet_when_entity_known
+- id: cross_layer_links_required
+  enforce: note_must_link_adjacent_layers

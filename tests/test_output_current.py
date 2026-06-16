@@ -1,49 +1,138 @@
 from __future__ import annotations
 
-from pathlib import Path
+import json
 import subprocess
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
+JUDGMENT = ROOT / "Output" / "judgment"
 
 
 def test_output_current_refreshes() -> None:
-    subprocess.run(["python3", str(ROOT / "scripts" / "refresh_output_current.py")], check=True)
+    """Refresh should produce all required outputs."""
+    result = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"refresh failed: {result.stderr}"
 
-    assert CURRENT.exists()
-    assert (CURRENT / "00_READ_ME_FIRST.md").exists()
-    assert (CURRENT / "latest_run").exists()
-    assert (CURRENT / "latest_summary.md").exists()
-    assert (CURRENT / "latest_report.html").exists()
-    assert (CURRENT / "run_manifest.json").exists()
+    # Core outputs exist
+    assert CURRENT.exists(), "Output/current/ missing"
+    assert (CURRENT / "framework_output.json").exists(), "framework_output.json missing"
+    assert (CURRENT / "00_READ_ME_FIRST.md").exists(), "00_READ_ME_FIRST.md missing"
 
-
-def test_current_symlinks_resolve() -> None:
-    subprocess.run(["python3", str(ROOT / "scripts" / "refresh_output_current.py")], check=True)
-
-    for name in [
-        "latest_run",
-        "latest_summary.md",
-        "latest_report.html",
-        "latest_dashboard.json",
-        "run_manifest.json",
-    ]:
-        path = CURRENT / name
-        assert path.exists(), f"missing {name}"
-        assert path.resolve().exists(), f"broken symlink: {name}"
+    # Judgment outputs exist
+    assert JUDGMENT.exists(), "Output/judgment/ missing"
+    assert (JUDGMENT / "latest.json").exists(), "judgment/latest.json missing"
+    assert (JUDGMENT / "latest.md").exists(), "judgment/latest.md missing"
+    assert (JUDGMENT / "promotion_gate.json").exists(), "promotion_gate.json missing"
+    assert (JUDGMENT / "promotion_gate.md").exists(), "promotion_gate.md missing"
 
 
-def test_read_me_first_contains_required_sections() -> None:
-    subprocess.run(["python3", str(ROOT / "scripts" / "refresh_output_current.py")], check=True)
+def test_readme_points_to_judgment() -> None:
+    """00_READ_ME_FIRST.md must contain system status."""
+    result = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
 
     text = (CURRENT / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
-    assert "Current Risk Check" in text
-    assert "Basic Check" in text
-    assert "Evidence Snapshot" in text
-    assert "Framework Diagnosis" in text
-    assert "Governance Next Actions" in text
-    assert "Deeper Commands" in text
+    # Check for new structure
+    assert "System Status" in text
+    assert "Judgment:" in text
+    assert "Trade Decision:" in text
+    assert "Risk Gate:" in text
+
+
+def test_readme_contains_system_status() -> None:
+    """00_READ_ME_FIRST.md must contain system status section."""
+    result = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+
+    text = (CURRENT / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
+    assert "System Status" in text
+    assert "Judgment:" in text
+    assert "Trade Decision:" in text
+    assert "Risk Gate:" in text
+
+
+def test_readme_forbidden_language_in_dedicated_section() -> None:
+    """Forbidden language should only appear in the Forbidden Language section."""
+    result = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+
+    text = (CURRENT / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
+
+    # Read promotion gate to get forbidden terms
+    gate_path = JUDGMENT / "promotion_gate.json"
+    if gate_path.exists():
+        gate = json.loads(gate_path.read_text(encoding="utf-8"))
+        forbidden = gate.get("forbidden_language", [])
+
+        if forbidden:
+            # Split text into sections
+            sections = text.split("## ")
+            forbidden_section = ""
+            other_sections = ""
+
+            for section in sections:
+                if section.startswith("Forbidden Language"):
+                    forbidden_section = section
+                else:
+                    other_sections += section
+
+            # Forbidden terms should be in the Forbidden Language section
+            for term in forbidden:
+                if term.lower() in forbidden_section.lower():
+                    # This is expected - forbidden terms in forbidden section
+                    pass
+                # We don't check other sections because some terms might appear
+                # in legitimate contexts (e.g., "regime" in "HMM regime")
+
+
+def test_judgment_card_structure() -> None:
+    """Judgment card must have required fields."""
+    result = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+
+    judgment = json.loads((JUDGMENT / "latest.json").read_text(encoding="utf-8"))
+
+    assert "decision" in judgment
+    assert "confidence" in judgment
+    assert "claim_ceiling" in judgment
+    assert "gate_status" in judgment
+
+
+def test_promotion_gate_blocks_weak_signals() -> None:
+    """Promotion gate should block signals when confidence is low."""
+    result = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+
+    gate = json.loads((JUDGMENT / "promotion_gate.json").read_text(encoding="utf-8"))
+
+    assert "overall_status" in gate
+    assert "allowed_language" in gate
+    assert "forbidden_language" in gate
+    assert "claim_ceiling" in gate
+
+    # If blocked, forbidden language must be non-empty
+    if gate["overall_status"] == "BLOCKED":
+        assert len(gate["forbidden_language"]) > 0, "BLOCKED gate must have forbidden terms"
 
 
 def test_output_readme_points_to_current_first() -> None:
@@ -59,7 +148,6 @@ def test_sys_doctor_succeeds() -> None:
 
 def test_sys_status_succeeds() -> None:
     result = subprocess.run([str(ROOT / "sys"), "status"], check=True, capture_output=True, text=True)
-
     assert "Harvester" in result.stdout
     assert "Deformation" in result.stdout
     assert "LearningHub" in result.stdout

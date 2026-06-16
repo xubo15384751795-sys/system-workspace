@@ -1,0 +1,108 @@
+# Trade Decision Policy
+# Defines rules for trade decision generation
+
+schema_version: trade_decision_policy.v1
+updated_at: 2026-06-16
+
+# Decision levels and their requirements
+decision_levels:
+  NO_TRADE:
+    description: No trade opportunity identified
+    min_confidence: low
+    allowed_size: zero
+    requires_paper_sources: false
+    requires_system_sources: true
+    requires_calibration: false
+
+  WATCH:
+    description: Monitor for setup
+    min_confidence: low
+    allowed_size: zero
+    requires_paper_sources: false
+    requires_system_sources: true
+    requires_calibration: false
+
+  RISK_REDUCE:
+    description: Reduce existing exposure
+    min_confidence: medium
+    allowed_size: small
+    requires_paper_sources: true
+    requires_system_sources: true
+    requires_calibration: false
+
+  HEDGE:
+    description: Add hedging position
+    min_confidence: medium
+    allowed_size: small
+    requires_paper_sources: true
+    requires_system_sources: true
+    requires_calibration: false
+
+  TACTICAL_LONG:
+    description: Add long exposure
+    min_confidence: high
+    allowed_size: medium
+    requires_paper_sources: true
+    requires_system_sources: true
+    requires_calibration: true
+
+  TACTICAL_SHORT:
+    description: Add short exposure
+    min_confidence: high
+    allowed_size: medium
+    requires_paper_sources: true
+    requires_system_sources: true
+    requires_calibration: true
+
+# Gate requirements
+gate_requirements:
+  # K gate must pass for TACTICAL decisions
+  k_gate_for_tactical: PASS
+  # X gate must pass for TACTICAL decisions
+  x_gate_for_tactical: PASS
+  # HMM stability must be ADEQUATE for TACTICAL decisions
+  hmm_stability_for_tactical: ADEQUATE
+  # CaseLab must be usable/strong for TACTICAL decisions
+  caselab_for_tactical: usable
+
+# Evidence grading
+evidence_grade:
+  A:
+    description: Strong evidence from multiple sources
+    requirements:
+      - paper_review_status: approved
+      - system_confidence: high
+      - forward_calibration: favorable
+  B:
+    description: Moderate evidence
+    requirements:
+      - paper_review_status: approved
+      - system_confidence: medium
+  C:
+    description: Weak evidence
+    requirements:
+      - paper_review_status: needs_review
+      - system_confidence: low
+  D:
+    description: Insufficient evidence
+    requirements:
+      - paper_review_status: needs_review
+
+# Risk constraints
+risk_constraints:
+  allow_live_execution: false
+  allow_paper_trading: true
+  require_stop_or_invalidation: true
+  require_asset_scope: true
+  require_time_horizon: true
+  require_paper_sources_for_active: true
+  require_data_freshness: true
+  max_days_without_calibration: 30
+
+# Paper source rules
+paper_source_rules:
+  approved_can_enter_strong: true
+  needs_review_can_enter_background: true
+  rejected_cannot_enter: true
+  require_source_file: true
+  require_review_status: true

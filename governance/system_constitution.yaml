@@ -1,0 +1,159 @@
+# System Constitution — hard governance rules
+# Every module must declare its role and obey these rules.
+
+schema_version: system_constitution.v1
+updated_at: 2026-06-16
+
+# Core principles
+core_principles:
+  paper_is_world_model: true
+  proxy_is_observation_not_alpha: true
+  operator_is_decision_core: true
+  ml_cannot_directly_trade: true
+  horizon_is_event_radar_not_signal: true
+  qlib_replay_is_calibration_not_judgment: true
+  freshness_fail_blocks_snapshot: true
+  live_execution_allowed: false
+
+# Authority order — gates must be checked in this order
+authority_order:
+  - freshness_gate
+  - evidence_authority_gate
+  - language_gate
+  - trade_permission_gate
+  - risk_gate
+  - position_sizing_gate
+
+# Module role classification
+module_roles:
+  world_model:
+    description: "Provides mechanisms, cases, variables, indicators"
+    allowed_outputs: ["hypothesis", "mechanism", "evidence_record"]
+    forbidden_outputs: ["signal", "trade", "position"]
+    examples: ["Paper", "CaseLab"]
+
+  proxy:
+    description: "Provides observable measurements"
+    allowed_outputs: ["measurement", "reading", "quality_score"]
+    forbidden_outputs: ["signal", "trade", "position"]
+    examples: ["M_proxy", "D_proxy", "K_proxy", "X_proxy"]
+
+  operator:
+    description: "Transforms observations into structured judgments"
+    allowed_outputs: ["judgment", "decision", "permission"]
+    forbidden_outputs: ["direct_position"]
+    examples: ["judgment_layer", "trade_decision_layer"]
+
+  gate:
+    description: "Enforces constraints on outputs"
+    allowed_outputs: ["pass", "fail", "block", "allow"]
+    forbidden_outputs: ["signal", "trade"]
+    examples: ["promotion_gate", "risk_gate", "freshness_gate"]
+
+  uncertainty:
+    description: "Provides probabilistic context"
+    allowed_outputs: ["forecast_interval", "tail_probability", "confidence_band"]
+    forbidden_outputs: ["direction", "signal", "trade"]
+    examples: ["GluonTS", "probabilistic_context"]
+
+  calibration:
+    description: "Provides feedback and learning"
+    allowed_outputs: ["feedback", "calibration_score", "hit_rate"]
+    forbidden_outputs: ["signal", "trade", "position"]
+    examples: ["Qlib", "replay", "Learning Hub"]
+
+  event_radar:
+    description: "Detects external events"
+    allowed_outputs: ["event_candidate", "mechanism_match"]
+    forbidden_outputs: ["signal", "trade", "position"]
+    examples: ["Horizon"]
+
+# Decision permission hierarchy
+decision_permissions:
+  NO_TRADE:
+    requires: []
+    allowed_size: zero
+
+  WATCH:
+    requires: ["freshness_pass"]
+    allowed_size: zero
+
+  RISK_REDUCE:
+    requires: ["freshness_pass", "evidence_grade_b_or_higher", "paper_support"]
+    allowed_size: small
+
+  HEDGE:
+    requires: ["freshness_pass", "evidence_grade_b_or_higher", "paper_support"]
+    allowed_size: small
+
+  TACTICAL_LONG:
+    requires: ["freshness_pass", "evidence_grade_a", "paper_support", "calibration_pass"]
+    enabled: false  # Disabled until replay calibration passes
+    allowed_size: medium
+
+  TACTICAL_SHORT:
+    requires: ["freshness_pass", "evidence_grade_a", "paper_support", "calibration_pass"]
+    enabled: false  # Disabled until replay calibration passes
+    allowed_size: medium
+
+# Evidence authority levels
+evidence_authority:
+  approved:
+    can_enter: "mechanism_support"
+    weight: 1.0
+
+  needs_review:
+    can_enter: "background_context_only"
+    weight: 0.0
+
+  rejected:
+    can_enter: "excluded"
+    weight: 0.0
+
+  missing:
+    can_enter: "excluded"
+    weight: 0.0
+
+# Language governance
+language_governance:
+  forbidden_in_active_status:
+    - "compression"
+    - "crisis"
+    - "signal"
+    - "prediction"
+    - "regime call"
+    - "forecast"
+
+  allowed_replacements:
+    compression: "withheld (diagnostic-only)"
+    crisis: "withheld (diagnostic-only)"
+    signal: "observation"
+    prediction: "projection"
+    regime call: "state observation"
+
+# Freshness rules
+freshness_rules:
+  # Evidence release TTL — see governance/architecture_reality_decisions.md §4
+  evidence_release_ttl_days: 3
+  core_judgment_on_expired_snapshot: blocked
+  research_use_on_expired_snapshot: allowed_with_stale_warning
+  training_feedback_on_expired_snapshot: allowed_if_marked_stale
+
+  max_age_hours:
+    judgment: 48
+    trade_decision: 48
+    risk_gate: 48
+    learning_summary: 72
+    system_index: 24
+    readme: 24
+
+  temporal_ordering:
+    - "judgment before trade_decision"
+    - "trade_decision before risk_gate"
+    - "risk_gate before learning_summary"
+    - "learning_summary before system_index"
+    - "system_index before readme"
+
+  on_fail:
+    readme_header: "SNAPSHOT INVALID — DO NOT USE FOR DECISION"
+    block_decisions: true

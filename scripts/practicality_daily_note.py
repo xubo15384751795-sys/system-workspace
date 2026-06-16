@@ -463,7 +463,7 @@ Fill BEFORE looking at Hermes output.
 
 
 def append_scores_csv(date_str: str, fw: dict) -> None:
-    """Append today's scores to the CSV."""
+    """Upsert today's scores in the CSV so reruns do not duplicate dates."""
     basic = fw.get("basic", {})
     adv = fw.get("advanced", {})
     sv = adv.get("sigma_vector", {})
@@ -491,12 +491,19 @@ def append_scores_csv(date_str: str, fw: dict) -> None:
         "total_manual": "",  # manual
     }
 
-    file_exists = SCORES_CSV.exists()
-    with SCORES_CSV.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(row)
+    fieldnames = list(row.keys())
+    rows: list[dict[str, object]] = []
+    if SCORES_CSV.exists():
+        with SCORES_CSV.open(newline="", encoding="utf-8") as f:
+            for existing in csv.DictReader(f):
+                if existing.get("date") != date_str:
+                    rows.append(existing)
+    rows.append(row)
+
+    with SCORES_CSV.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def main() -> None:
@@ -525,7 +532,7 @@ def main() -> None:
 
     # Append scores
     append_scores_csv(date_str, fw)
-    print(f"Scores appended: {SCORES_CSV}")
+    print(f"Scores updated: {SCORES_CSV}")
 
     # Print summary
     basic = fw.get("basic", {})

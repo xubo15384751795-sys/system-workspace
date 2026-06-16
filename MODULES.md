@@ -19,21 +19,24 @@ Default rule:
 These are the active project threads. A thread is a work lane with its own
 owner, paths, and allowed communication points.
 
-**Status legend:** ACTIVE = real data flows, PARTIAL = gaps exist, PAPER = code exists but no data, UNKNOWN = not checked
+**Status legend:** See `governance/capability_registry.yaml` for full status enum and details.
+**Architecture authority:** `governance/architecture_reality_decisions.md` — constitution-layer decisions override historical docs and audit reports.
 
-| Thread | Status | Owns | Primary location | Context file |
-|---|---|---|---|---|
-| Workbench | ACTIVE | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` |
-| Deformation Framework | ACTIVE | Structural theory, operators, diagnostics, dynamics, claims | `Structural Deformation Research System/` | `module_contexts/framework.md` |
-| Harvester | ACTIVE | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` |
-| Protocols | ACTIVE | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` |
-| Data and Output | ACTIVE | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` |
-| Learning Hub | **PAPER** | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` |
-| Agent Routing | **PAPER** | Sparse activation, expert routing, workflow guards | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` |
-| NLP Pipeline | **PAPER** | Event extraction, case similarity, narrative drift | `Workbench/src/nlp/` | — |
-| ML Signals | **PAPER** | Regime detection, factor model, graph embeddings | `Workbench/src/ml/` | — |
-| Backtest Lens | **PAPER** | Market feedback, historical replay evaluation | `ExternalTools/`, `scripts/run_historical_replay.py` | — |
-| Research Terminal | **UNKNOWN** | Embedded research terminal | `research_terminal/` | — |
+| Thread | Status | Owns | Primary location | Context file | Tests |
+|---|---|---|---|---|---|
+| Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
+| Deformation Framework | `ACTIVE_PARTIAL` | Structural theory, operators, diagnostics, dynamics, claims | `Structural Deformation Research System/` | `module_contexts/framework.md` | 15 |
+| Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
+| Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
+| Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
+| Learning Hub | `ACTIVE_PARTIAL` | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` | 7 |
+| Agent Routing | `SHADOW_ACTIVE` | Sparse activation, expert routing, workflow guards; diagnostics only | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
+| CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval | `caselab_context/`, `caselab_runtime/`, Paper `90_Admin/Context/` | `module_contexts/caselab-context.md` | — |
+| NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift | `Workbench/src/nlp/` | — | 3 |
+| ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `Workbench/src/ml/` | — | 3 |
+| Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/`, `scripts/run_historical_replay.py` | — | — |
+| Qlib Benchmark | `REAL_EXPERIMENTAL` | Isolated benchmark runner, alpha metrics | `ExternalTools/qlib_benchmark_runner/` | — | 1 |
+| Research Terminal | `PAPER_RETAIN` | Embedded research terminal | `research_terminal/` | — | — |
 
 ## Dependency Rule
 
@@ -254,6 +257,20 @@ Legacy DataHub can be re-enabled with `ALLOW_LEGACY_DATAHUB=1` for:
 - Emergency fallback
 
 Mock mode (`use_mock=True`) is exempt from the freeze to preserve test compatibility.
+
+## Submodule Structure (Transitional)
+
+The current 4-submodule structure (Workbench, Deformation Framework, Harvester, Learning Hub)
+is **transitional, not strategic**. Buffer period: 30-45 days from 2026-06-16.
+
+Buffer period goals:
+1. Clear dirty submodule state.
+2. Unify test entry points.
+3. Unify Python version and dependency strategy.
+4. Clarify migration path.
+5. Final target: single-repo workspace with `packages/` directory.
+
+See `governance/architecture_reality_decisions.md` §9 for details.
 
 ## Escalation Rules
 

@@ -1,0 +1,63 @@
+{
+  "schema_version": "governance.hmm_source_policy.v1",
+  "updated_at": "2026-06-16T00:00:00Z",
+  "purpose": "Define how HMM sources should be interpreted and consumed.",
+  "sources": {
+    "k_feature_hmm": {
+      "description": "HMM trained on K features for structural regime detection.",
+      "location": "Output/ml_signals/latest/regime_hmm.json",
+      "allowed_use": "regime_hint",
+      "forbidden_use": ["truth", "certainty", "standalone_signal", "primary_claim"],
+      "consumers": ["judgment_layer", "caselab_daily_signal"],
+      "notes": "This is the primary HMM source for structural analysis."
+    },
+    "daily_raw_hmm": {
+      "description": "HMM trained on raw market data for conflict monitoring.",
+      "location": "Output/ml_signals/harvester_*/regime_hmm.json",
+      "allowed_use": "conflict_monitor",
+      "forbidden_use": ["regime_hint", "primary_claim", "standalone_signal"],
+      "consumers": ["hmm_stability_audit"],
+      "notes": "Used to detect divergence with structural proxies."
+    },
+    "latest": {
+      "description": "Symlink or latest HMM output. Must declare source explicitly.",
+      "location": "Output/ml_signals/latest/",
+      "allowed_use": "must_declare_source",
+      "forbidden_use": ["implicit_interpretation"],
+      "consumers": ["all"],
+      "notes": "Any consumer reading 'latest' must document which source it came from."
+    }
+  },
+  "conflict_resolution": {
+    "when_sources_diverge": {
+      "action": "output_model_conflict",
+      "language": ["model_conflict", "do_not_reconcile", "monitor_only"],
+      "forbidden_language": ["resolved", "unified", "consensus"],
+      "notes": "When HMM sources disagree, do not force reconciliation."
+    },
+    "when_hmm_diverges_from_mdx": {
+      "action": "flag_divergence",
+      "language": ["HMM and M/D/K/X diverge", "conflict to monitor"],
+      "forbidden_language": ["HMM is wrong", "M/D/K/X is wrong"],
+      "notes": "Divergence is information, not error."
+    }
+  },
+  "stability_requirements": {
+    "minimum_sample_days": 252,
+    "minimum_posterior_entropy": 0.1,
+    "maximum_posterior_concentration": 0.95,
+    "minimum_rolling_refit_agreement": 0.7,
+    "minimum_label_stability": 0.6,
+    "when_requirements_not_met": {
+      "allowed_use": "conflict_monitor_only",
+      "forbidden_use": ["regime_hint", "primary_claim"],
+      "must_display": ["stability_grade", "sample_days", "entropy"]
+    }
+  },
+  "display_rules": {
+    "always_show": ["source", "stability_grade", "sample_days"],
+    "never_show_as": ["truth", "certainty", "fact"],
+    "must_qualify_with": ["model_posterior", "regime_hint", "posterior_probability"],
+    "forbidden_qualifiers": ["is", "will be", "definitely", "certainly"]
+  }
+}
