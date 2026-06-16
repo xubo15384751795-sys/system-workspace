@@ -2,6 +2,7 @@
 # Authority: governance/architecture_reality_decisions.md
 # Created: 2026-06-16
 # Updated: 2026-06-17 — enriched with input, artifact_path, ttl_hours, core_judgment_dependency
+#            structural_replay + bridge changed from compatibility → active (Option A)
 #
 # Every scripts/daily_run.py step must be registered here before it can be
 # treated as part of the governed daily pipeline.
@@ -90,7 +91,7 @@ steps:
 
   structural_replay:
     order: 5
-    status: compatibility
+    status: active
     owner: Deformation Framework
     command: "python scripts/structural_replay_v2.py"
     input:
@@ -106,11 +107,10 @@ steps:
     allowed_to_affect_core_judgment: true
     core_judgment_dependency: true
     failure_behavior: block_current_readout
-    blocker: "Root script is a compatibility wrapper; canonical Framework location still pending."
 
   bridge:
     order: 6
-    status: compatibility
+    status: active
     owner: Workbench
     command: "python scripts/bridge_replay_to_current.py"
     input:

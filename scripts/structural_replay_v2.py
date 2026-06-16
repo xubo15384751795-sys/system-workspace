@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────────────────────────────────────
-# COMPATIBILITY LOCATION (marked 2026-06-16) — migration tracked in
-#   governance/repo_layout_map.md §6
-#   governance/repo_state_audit.md Phase 3
-# This script should eventually live in:
-#   Structural Deformation Research System/scripts/
-# Path here is preserved as a thin entry point so `sys`, Justfile, tests, and
-# configs continue to work. New code should target the module-owned location
-# once the owning submodule absorbs this script.
+# ACTIVE LOCATION — canonical workspace entrypoint for structural replay.
+# This script contains the full replay logic (not a thin wrapper).
+# Registered in governance/daily_pipeline_registry.yaml as step 5.
 # ─────────────────────────────────────────────────────────────────────────────
 """Structural Deformation System — Historical Case Replay v2.
 
