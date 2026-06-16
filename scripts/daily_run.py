@@ -189,13 +189,19 @@ def main() -> None:
 
     # Step 1: Harvester
     if not args.skip_harvester:
-        print("[1/6] Running Harvester...")
+        print("[1/7] Running Harvester...")
         steps.append(run_step("harvester", [sys.executable, "-m", "harvester", "daily-release"]))
     else:
-        print("[1/6] Skipping Harvester (--skip-harvester)")
+        print("[1/7] Skipping Harvester (--skip-harvester)")
+
+    # Step 1.5: Refresh ETF panel + K features
+    print("[1.5/7] Refreshing ETF panel...")
+    etf_script = ROOT / "scripts" / "refresh_etf_panel.py"
+    if etf_script.exists():
+        steps.append(run_step("etf_refresh", [sys.executable, str(etf_script)]))
 
     # Step 2: Structural Replay
-    print("[2/6] Running Structural Replay...")
+    print("[2/7] Running Structural Replay...")
     # Find latest harvester release
     latest = ROOT / "Data" / "harvester" / "exports" / "latest"
     catalog_path = latest / "catalog.json"
@@ -220,8 +226,17 @@ def main() -> None:
     print("[3/6] Running Bridge...")
     steps.append(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
 
+    # Step 3.5: Regime detection (ML Signals)
+    print("[3.5/7] Running regime detection...")
+    steps.append(run_step("regime_detection", [
+        sys.executable, "-c",
+        "from pathlib import Path; from ml.regime_detector import detect_regime; "
+        "detect_regime(Path('Data/harvester/exports/latest/data/benchmark_panel.parquet'), "
+        "source_release='daily', source_created_at='" + datetime.now(UTC).strftime("%Y-%m-%d") + "', write=True)",
+    ], env={"PYTHONPATH": str(ROOT / "Workbench" / "src")}))
+
     # Step 4: Warnings + Alerts
-    print("[4/6] Checking warnings...")
+    print("[4/7] Checking warnings...")
     freshness = check_freshness()
     warnings = check_warnings()
 
