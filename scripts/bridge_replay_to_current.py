@@ -37,7 +37,7 @@ CHANNEL_META = {
         "voting_proxies": 4,
         "family": "FRED_RATES",
         "expected_freq": "daily",
-        "semantic_distance": 3,
+        "semantic_distance": 1,
     },
     "D": {
         "canonical_section": "§4.3 + §7.2.1",
@@ -46,16 +46,16 @@ CHANNEL_META = {
         "voting_proxies": 4,
         "family": "FRED_FUNDING",
         "expected_freq": "daily",
-        "semantic_distance": 3,
+        "semantic_distance": 1,
     },
     "K": {
         "canonical_section": "§4.4 + §7.2.2",
-        "data_sources": "CBOE (VIX9D, VIX3M, VIX6M, SKEW, VVIX)",
-        "proxy_count": 8,
-        "voting_proxies": 3,
-        "family": "CBOE_OPTIONS",
+        "data_sources": "CBOE (VIX9D, VIX3M, VIX6M, SKEW, VVIX) + FRED credit surface",
+        "proxy_count": 10,
+        "voting_proxies": 5,
+        "family": "CBOE_OPTIONS+FRED_CREDIT",
         "expected_freq": "daily",
-        "semantic_distance": 3,
+        "semantic_distance": 2,
     },
     "X_agg": {
         "canonical_section": "§4.5 + §7.2.3",
@@ -219,18 +219,18 @@ def _validity_scope(channel_confidence: dict) -> dict:
             "scope": "PARTIAL_STRUCTURAL_STRESS_DIAGNOSTIC",
             "valid_for": ["M/D primary market-space readout", "partial morphology stress warning", "structural trend observation"],
             "not_valid_for": [
-                "complete market morphology state",
-                "trading signals",
-                "directional conviction claims",
-                "primary executive state from K/X_agg",
-                "primary executive state from cofire_count or dominant_channel",
+                "Not valid for: complete market morphology state",
+                "Not valid for: trading signals",
+                "Not valid for: directional conviction claims",
+                "Not valid for: primary executive state from K/X_agg",
+                "Not valid for: primary executive state from cofire_count or dominant_channel",
             ],
             "disclaimer": "本系统当前只适合作为代理型结构压力诊断，不适合作为完整市场形态判断。",
         }
     return {
         "scope": "STRUCTURAL_DIAGNOSTIC",
         "valid_for": ["M/D primary market-space readout", "structural stress diagnosis", "regime observation"],
-        "not_valid_for": ["trading signals", "primary executive state from K/X_agg until measurement gates pass"],
+        "not_valid_for": ["Not valid for: trading signals", "Not valid for: primary executive state from K/X_agg until measurement gates pass"],
         "disclaimer": "System provides structural diagnostics, not trading signals.",
     }
 
@@ -453,7 +453,7 @@ def _next_actions(coverage: dict, quality: str) -> list[str]:
         actions.append("Review governance warnings in channel_confidence.")
     not_impl = coverage["channels_not_implemented"]
     actions.append("Use M/D as the current primary daily market-space readout.")
-    actions.append("Keep cofire_count and dominant_channel as legacy diagnostics, not primary executive state.")
+    actions.append("Not valid for: cofire_count and dominant_channel are legacy diagnostics, not primary executive state.")
     if "K" in not_impl:
         actions.append("K channel: connect vol surface + realized vol/jump + cross-asset curvature data before primary reactivation.")
     else:
