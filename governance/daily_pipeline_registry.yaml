@@ -40,6 +40,8 @@ steps:
     status: blocked
     owner: Harvester
     command: "python scripts/refresh_etf_panel.py"
+    # Evolution: blocked until Harvester publishes ETF evidence release.
+    # Check: structural-risk-harvester ETF provider development status.
     input:
       - Data/panels/cross_asset_daily_panel.parquet
     produces:
@@ -145,6 +147,7 @@ steps:
     status: experimental
     owner: ML Signals
     command: "Workbench ml.regime_detector.detect_regime(...)"
+    # Evolution: needs accuracy benchmark vs HMM baseline before promotion.
     input:
       - Data/harvester/exports/latest/data/benchmark_panel.parquet
     consumes:
@@ -162,6 +165,7 @@ steps:
     status: experimental
     owner: ML Signals
     command: "python scripts/hmm_stability_audit.py"
+    # Evolution: merge into regime_detection once regime detector is promoted.
     input:
       - Output/ml_signals/
     produces:
@@ -261,6 +265,7 @@ steps:
     status: experimental
     owner: ML Signals
     command: "python scripts/gluonts_probabilistic_context.py"
+    # Evolution: needs calibration backtest showing improved claim accuracy.
     input:
       - Data/harvester/exports/latest/
     produces:
@@ -320,6 +325,7 @@ steps:
     status: experimental
     owner: Learning Hub
     command: "python scripts/market_feedback.py"
+    # Evolution: needs closed-loop proof that feedback improves future decisions.
     input:
       - Output/trade_decisions/
     produces:
@@ -485,6 +491,7 @@ steps:
     status: shadow_active
     owner: Agent Routing
     command: "python scripts/daily_routing_decision.py"
+    # Evolution: shadow diagnostics only; cannot execute routed tasks or bypass module ownership.
     produces:
       - Output/system_learning/routing_decisions/
     artifact_path: Output/system_learning/routing_decisions/
