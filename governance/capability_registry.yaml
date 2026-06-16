@@ -1,239 +1,219 @@
-# Capability Registry — Single source of truth for module status
-# Created: 2026-06-16
-# See: governance/capability_registry.yaml in MODULES.md
-# Authority: governance/architecture_reality_decisions.md §5
-#
-# Status enum:
-#   CANONICAL        — 主链路，真实数据，测试覆盖，日常刷新
-#   ACTIVE_PARTIAL   — 可运行但有明确限制
-#   REAL_EXPERIMENTAL — 有真实产物，只能研究引用
-#   PROTOTYPE_RETAIN — 原型保留，等验证
-#   PAPER_RETAIN     — 只有代码/设计，暂不接入，保留参考
-#   SHADOW_ACTIVE    — 只产出诊断/记录，不能执行权威动作
-#   BLOCKED          — 卡在数据/依赖/决策
-#   FROZEN           — 暂停，不再扩大
-#   RETIRED          — 明确退役
-#   UNKNOWN          — 未审计，必须限期处理
-#
-# Status transition rules — see governance/architecture_reality_decisions.md §5.2
-# Audit cadence — see governance/architecture_reality_decisions.md §5.3
-
 workbench:
   status: CANONICAL
   owner: system
   producer:
-    - ./sys check
-    - ./sys refresh
-    - ./sys next
-    - scripts/refresh_output_current.py
+  - ./sys check
+  - ./sys refresh
+  - ./sys next
+  - scripts/refresh_output_current.py
   artifacts:
-    - Output/current/status.json
-    - Output/current/latest_summary.md
-    - Output/current/next_actions.md
-    - Output/current/framework_output.json
-    - Output/current/freshness_manifest.json
-    - Output/current/learning_summary.md
+  - Output/current/status.json
+  - Output/current/latest_summary.md
+  - Output/current/next_actions.md
+  - Output/current/framework_output.json
+  - Output/current/freshness_manifest.json
+  - Output/current/learning_summary.md
   consumers:
-    - ./sys check
-    - ./sys next
-    - Output/current/00_READ_ME_FIRST.md
+  - ./sys check
+  - ./sys next
+  - Output/current/00_READ_ME_FIRST.md
   allowed_claims:
-    - user_facing_display
-    - contract_validation
-    - artifact_navigation
-    - evidence_view
+  - user_facing_display
+  - contract_validation
+  - artifact_navigation
+  - evidence_view
   forbidden_claims:
-    - mutate_canonical_data
-    - direct_http_acquire
-    - promote_without_gate
+  - mutate_canonical_data
+  - direct_http_acquire
+  - promote_without_gate
   blockers: []
-  last_verified: "2026-06-16"
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements: []
   test_count: 14
   test_location: Workbench/tests/
-
+  next_audit_due: '2026-07-17'
 deformation_framework:
   status: ACTIVE_PARTIAL
   owner: system
   producer:
-    - scripts/daily_run.py
-    - scripts/structural_replay_v2.py
+  - scripts/daily_run.py
+  - scripts/structural_replay_v2.py
   artifacts:
-    - Output/deformation_runs/
-    - Output/current/framework_output.json
+  - Output/deformation_runs/
+  - Output/current/framework_output.json
   consumers:
-    - ./sys check
-    - Output/current/
+  - ./sys check
+  - Output/current/
   allowed_claims:
-    - consume_admitted_evidence
-    - transform
-    - compute_diagnostics
-    - write_run_output
+  - consume_admitted_evidence
+  - transform
+  - compute_diagnostics
+  - write_run_output
   forbidden_claims:
-    - direct_http_acquire
-    - raw_public_data_fetch
-    - silent_legacy_fallback
-    - promote
+  - direct_http_acquire
+  - raw_public_data_fetch
+  - silent_legacy_fallback
+  - promote
   blockers:
-    - legacy_data_acquisition_layer_still_exposed
-    - data_sources.py_has_direct_http_calls
-  last_verified: "2026-06-16"
+  - legacy_data_acquisition_layer_still_exposed
+  - data_sources.py_has_direct_http_calls
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-    - isolate_legacy_acquisition_in_src_data_init
-    - add_boundary_tests_forbidden_imports
-    - harvester_becomes_only_provider_owner
+  - isolate_legacy_acquisition_in_src_data_init
+  - add_boundary_tests_forbidden_imports
+  - harvester_becomes_only_provider_owner
   test_count: 15
-  test_location: "Structural Deformation Research System/tests/"
-
+  test_location: Structural Deformation Research System/tests/
+  next_audit_due: '2026-07-01'
 harvester:
   status: CANONICAL
   owner: system
   producer:
-    - structural-risk-harvester/src/
+  - structural-risk-harvester/src/
   artifacts:
-    - Data/harvester/exports/
-    - structural-risk-harvester/data/
+  - Data/harvester/exports/
+  - structural-risk-harvester/data/
   consumers:
-    - Data/
-    - Deformation Framework
-    - Workbench
+  - Data/
+  - Deformation Framework
+  - Workbench
   allowed_claims:
-    - acquire
-    - acquire_via_openbb
-    - normalize
-    - provenance
-    - release_evidence
+  - acquire
+  - acquire_via_openbb
+  - normalize
+  - provenance
+  - release_evidence
   forbidden_claims:
-    - promote
-    - write_deformation_output
-    - direct_structural_claim
-    - leak_openbb_import_outside_providers
+  - promote
+  - write_deformation_output
+  - direct_structural_claim
+  - leak_openbb_import_outside_providers
   blockers: []
-  last_verified: "2026-06-16"
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements: []
   test_count: 12
   test_location: structural-risk-harvester/tests/
-
+  next_audit_due: '2026-07-17'
 protocols:
   status: CANONICAL
   owner: system
   producer:
-    - protocols/
-    - Workbench/contracts/workbench/
+  - protocols/
+  - Workbench/contracts/workbench/
   artifacts:
-    - protocols/*.schema.json
-    - Workbench/contracts/workbench/
+  - protocols/*.schema.json
+  - Workbench/contracts/workbench/
   consumers:
-    - all_modules
+  - all_modules
   allowed_claims:
-    - schema_definition
-    - contract_validation
-    - cross_module_exchange
+  - schema_definition
+  - contract_validation
+  - cross_module_exchange
   forbidden_claims: []
   blockers: []
-  last_verified: "2026-06-16"
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements: []
-
+  next_audit_due: '2026-07-17'
 data_output:
   status: ACTIVE_PARTIAL
   owner: system
   producer:
-    - scripts/promote_snapshot.py
-    - scripts/list_latest.py
+  - scripts/promote_snapshot.py
+  - scripts/list_latest.py
   artifacts:
-    - Data/system_index/
-    - Output/current/
-    - Output/archive/
+  - Data/system_index/
+  - Output/current/
+  - Output/archive/
   consumers:
-    - all_modules
+  - all_modules
   allowed_claims:
-    - canonical_truth
-    - snapshot_management
-    - promotion_boundary
+  - canonical_truth
+  - snapshot_management
+  - promotion_boundary
   forbidden_claims: []
   blockers:
-    - output_artifact_registry_missing
-    - abandoned_artifacts_not_tracked
-  last_verified: "2026-06-16"
+  - output_artifact_registry_missing
+  - abandoned_artifacts_not_tracked
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-    - create_artifact_registry_json
-    - classify_all_output_subdirectories
-
+  - create_artifact_registry_json
+  - classify_all_output_subdirectories
+  next_audit_due: '2026-07-01'
 learning_hub:
   status: ACTIVE_PARTIAL
   owner: system-learning-hub
   producer:
-    - python -m system_learning governance-audit
-    - system-learning-hub/run_hub.py
-    - scripts/learning_hub_comprehensive_summary.py
+  - python -m system_learning governance-audit
+  - system-learning-hub/run_hub.py
+  - scripts/learning_hub_comprehensive_summary.py
   artifacts:
-    - Output/system_learning/latest/system_health_report.md
-    - Output/system_learning/latest/learning_summary.md
-    - Output/system_learning/latest/improvement_queue.md
-    - Output/system_learning/latest/comprehensive_summary.md
-    - Data/system_learning/ledgers/system_event_ledger.parquet
+  - Output/system_learning/latest/system_health_report.md
+  - Output/system_learning/latest/learning_summary.md
+  - Output/system_learning/latest/improvement_queue.md
+  - Output/system_learning/latest/comprehensive_summary.md
+  - Data/system_learning/ledgers/system_event_ledger.parquet
   consumers:
-    - ./sys next
-    - Output/current/learning_summary.md
+  - ./sys next
+  - Output/current/learning_summary.md
   allowed_claims:
-    - governance_memory
-    - improvement_queue
-    - recurrence_detection
-    - routing_decision
+  - governance_memory
+  - improvement_queue
+  - recurrence_detection
+  - routing_decision
   forbidden_claims:
-    - autonomous_system_repair
-    - direct_http_acquire
-    - mutate_deformation_core
-    - silent_promotion
+  - autonomous_system_repair
+  - direct_http_acquire
+  - mutate_deformation_core
+  - silent_promotion
   blockers:
-    - low_test_coverage_for_ledger_ops
-    - dirty_submodule_state
-  last_verified: "2026-06-16"
+  - low_test_coverage_for_ledger_ops
+  - dirty_submodule_state
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-    - tests_for_ledger_append_query
-    - stable_daily_runtime_event_path
-    - modules_md_status_sync
+  - tests_for_ledger_append_query
+  - stable_daily_runtime_event_path
+  - modules_md_status_sync
   test_count: 7
   test_location: system-learning-hub/tests/
-
+  next_audit_due: '2026-07-01'
 caselab_context:
   status: ACTIVE_PARTIAL
   owner: system
   producer:
-    - caselab_context/
-    - caselab_runtime/
+  - caselab_context/
+  - caselab_runtime/
   artifacts:
-    - caselab_context/feedback_log.jsonl
-    - caselab_runtime/
+  - caselab_context/feedback_log.jsonl
+  - caselab_runtime/
   consumers:
-    - Workbench/src/nlp/caselab/
+  - Workbench/src/nlp/caselab/
   allowed_claims:
-    - entity_dna
-    - regime_context
-    - meaning_resolver
-    - note_retrieval
+  - entity_dna
+  - regime_context
+  - meaning_resolver
+  - note_retrieval
   forbidden_claims: []
   blockers:
-    - needs_test_coverage
-  last_verified: "2026-06-16"
+  - needs_test_coverage
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-    - add_unit_tests
-    - document_data_flow
-
+  - add_unit_tests
+  - document_data_flow
+  next_audit_due: '2026-07-01'
 nlp_pipeline:
   status: ACTIVE_PARTIAL
   owner: system
@@ -241,198 +221,199 @@ nlp_pipeline:
     caselab_integration: ACTIVE
     general_nlp: EXPERIMENTAL
   producer:
-    - Workbench/src/nlp/
-    - scripts/nlp_extract.py
-    - scripts/nlp_ingest.py
+  - Workbench/src/nlp/
+  - scripts/nlp_extract.py
+  - scripts/nlp_ingest.py
   artifacts:
-    - Output/nlp/
-    - Workbench/src/nlp/candidate_ledger.py
+  - Output/nlp/
+  - Workbench/src/nlp/candidate_ledger.py
   consumers:
-    - Workbench
-    - CaseLab
+  - Workbench
+  - CaseLab
   allowed_claims:
-    - event_extraction
-    - case_similarity
-    - narrative_drift
-    - candidate_ledger
+  - event_extraction
+  - case_similarity
+  - narrative_drift
+  - candidate_ledger
   forbidden_claims: []
   blockers:
-    - general_nlp_lacks_end_to_end_validation
-  last_verified: "2026-06-16"
+  - general_nlp_lacks_end_to_end_validation
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-    - end_to_end_nlp_pipeline_test
-    - golden_set_validation
+  - end_to_end_nlp_pipeline_test
+  - golden_set_validation
   test_count: 3
   test_location: tests/test_nlp_*.py
-
+  next_audit_due: '2026-07-01'
 ml_signals:
   status: REAL_EXPERIMENTAL
   owner: system
   producer:
-    - Workbench/src/ml/
-    - scripts/market_state_classifier.py
+  - Workbench/src/ml/
+  - scripts/market_state_classifier.py
   artifacts:
-    - Output/ml_signals/
-    - Output/ml/
+  - Output/ml_signals/
+  - Output/ml/
   consumers:
-    - research_only
+  - research_only
   allowed_claims:
-    - regime_detection
-    - factor_model
-    - graph_embeddings
-    - governance_signal
+  - regime_detection
+  - factor_model
+  - graph_embeddings
+  - governance_signal
   forbidden_claims:
-    - production_trading_signal
-    - autonomous_decision
+  - production_trading_signal
+  - autonomous_decision
   blockers:
-    - no_production_validation
-    - no_live_data_feed
-  last_verified: "2026-06-16"
+  - no_production_validation
+  - no_live_data_feed
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
-    - walk_forward_validation
-    - live_data_integration
-    - performance_benchmark
+  - walk_forward_validation
+  - live_data_integration
+  - performance_benchmark
   test_count: 3
   test_location: Workbench/tests/test_ml_*.py
-
+  next_audit_due: '2026-07-17'
 backtest_lens:
   status: REAL_EXPERIMENTAL
   owner: system
   producer:
-    - scripts/run_historical_replay.py
-    - scripts/structural_replay_evaluation.py
-    - scripts/walk_forward_validation.py
+  - scripts/run_historical_replay.py
+  - scripts/structural_replay_evaluation.py
+  - scripts/walk_forward_validation.py
   artifacts:
-    - Output/backtest_lens/
-    - Output/backtest_pipeline_v0/
-    - Output/backtest_pipeline_v1/
-    - Output/backtest_lens_combined/
-    - Output/backtest_lens_phase2/
-    - Output/backtest_lens_phase4/
-    - Output/walk_forward_validation/
+  - Output/backtest_lens/
+  - Output/backtest_pipeline_v0/
+  - Output/backtest_pipeline_v1/
+  - Output/backtest_lens_combined/
+  - Output/backtest_lens_phase2/
+  - Output/backtest_lens_phase4/
+  - Output/walk_forward_validation/
   consumers:
-    - research_only
+  - research_only
   allowed_claims:
-    - market_feedback
-    - historical_replay
-    - walk_forward
+  - market_feedback
+  - historical_replay
+  - walk_forward
   forbidden_claims:
-    - production_performance_claim
+  - production_performance_claim
   blockers:
-    - no_live_trading_validation
-    - prototype_artifacts_scattered
-  last_verified: "2026-06-16"
+  - no_live_trading_validation
+  - prototype_artifacts_scattered
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
-    - consolidate_backtest_outputs
-    - add_live_paper_trading_comparison
-    - define_success_criteria
-
+  - consolidate_backtest_outputs
+  - add_live_paper_trading_comparison
+  - define_success_criteria
+  next_audit_due: '2026-07-17'
 qlib_benchmark:
   status: REAL_EXPERIMENTAL
   owner: system
   producer:
-    - ExternalTools/qlib_benchmark_runner/
-    - scripts/benchmark_comparison.py
+  - ExternalTools/qlib_benchmark_runner/
+  - scripts/benchmark_comparison.py
   artifacts:
-    - Output/benchmarks/
-    - Output/benchmark_comparison/
+  - Output/benchmarks/
+  - Output/benchmark_comparison/
   consumers:
-    - research_only
+  - research_only
   allowed_claims:
-    - run_isolated_benchmark
-    - emit_alpha_metrics
+  - run_isolated_benchmark
+  - emit_alpha_metrics
   forbidden_claims:
-    - define_structural_truth
-    - write_core_proxy
-    - modify_deformation_output
+  - define_structural_truth
+  - write_core_proxy
+  - modify_deformation_output
   blockers:
-    - sandbox_isolation_only
-    - no_promotion_path
-  last_verified: "2026-06-16"
+  - sandbox_isolation_only
+  - no_promotion_path
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
-    - define_qlib_to_structural_bridge
-    - add_anti_gaming_tests
-
+  - define_qlib_to_structural_bridge
+  - add_anti_gaming_tests
+  next_audit_due: '2026-07-17'
 agent_routing:
   status: SHADOW_ACTIVE
   owner: system
   producer:
-    - Workbench/agents/harness/
-    - ROUTING_CONSTITUTION.md
-    - scripts/daily_routing_decision.py
-    - Workbench/agents/harness/entrypoints/routing_cli.py
+  - Workbench/agents/harness/
+  - ROUTING_CONSTITUTION.md
+  - scripts/daily_routing_decision.py
+  - Workbench/agents/harness/entrypoints/routing_cli.py
   artifacts:
-    - ROUTING_CONSTITUTION.md
-    - Output/system_learning/routing_decisions/
+  - ROUTING_CONSTITUTION.md
+  - Output/system_learning/routing_decisions/
   consumers:
-    - module_contexts
+  - module_contexts
   allowed_claims:
-    - sparse_activation
-    - expert_routing
-    - workflow_guard
-    - routing_diagnostics
+  - sparse_activation
+  - expert_routing
+  - workflow_guard
+  - routing_diagnostics
   forbidden_claims: []
   forbidden_actions:
-    - execute_routed_task
-    - bypass_module_ownership
-    - affect_core_judgment
+  - execute_routed_task
+  - bypass_module_ownership
+  - affect_core_judgment
   blockers:
-    - no_authority_to_execute_routes
-    - needs_routing_decision_tests
-  last_verified: "2026-06-16"
+  - no_authority_to_execute_routes
+  - needs_routing_decision_tests
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
-    - add_routing_decision_tests
-    - explicit_authority_model_for_route_execution
-
+  - add_routing_decision_tests
+  - explicit_authority_model_for_route_execution
+  next_audit_due: '2026-07-17'
 research_terminal:
   status: PAPER_RETAIN
   owner: system
   producer:
-    - research_terminal/
+  - research_terminal/
   artifacts: []
   consumers: []
   allowed_claims: []
   forbidden_claims: []
   blockers:
-    - no_real_data_flow
-    - no_active_consumers
-  last_verified: "2026-06-16"
+  - no_real_data_flow
+  - no_active_consumers
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
-    - demonstrate_real_data_flow
-    - add_test_coverage
-  decision: "2026-06-16: Reclassified from UNKNOWN to PAPER_RETAIN — no artifacts, no consumers, no data flow"
-
+  - demonstrate_real_data_flow
+  - add_test_coverage
+  decision: '2026-06-16: Reclassified from UNKNOWN to PAPER_RETAIN — no artifacts, no consumers, no data flow'
+  next_audit_due: '2026-07-17'
 etf_data_path:
   status: BLOCKED
   owner: Harvester
-  description: "ETF/cross-asset panel data path — no Harvester evidence release yet"
+  description: ETF/cross-asset panel data path — no Harvester evidence release yet
   producer: []
   artifacts:
-    - Data/panels/cross_asset_daily_panel.parquet
+  - Data/panels/cross_asset_daily_panel.parquet
   consumers:
-    - scripts/refresh_etf_panel.py
-    - scripts/k_features_from_etf.py
+  - scripts/refresh_etf_panel.py
+  - scripts/k_features_from_etf.py
   allowed_claims: []
   forbidden_claims:
-    - core_judgment_input
+  - core_judgment_input
   blockers:
-    - no_harvester_etf_evidence_release
-  last_verified: "2026-06-17"
+  - no_harvester_etf_evidence_release
+  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
-    - implement_harvester_etf_provider
-    - publish_etf_evidence_release
-    - etf_panel_from_harvester_not_standalone
+  - implement_harvester_etf_provider
+  - publish_etf_evidence_release
+  - etf_panel_from_harvester_not_standalone
+  next_audit_due: '2026-07-17'
