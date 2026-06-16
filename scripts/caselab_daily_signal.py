@@ -21,6 +21,7 @@ import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -124,91 +125,122 @@ def get_latest_state() -> dict:
 def mdx_to_salvptau(state: dict) -> dict[str, float]:
     """Convert M/D/K/X proxy values to S-A-L-V-P-tau vector.
 
-    Mapping logic:
-      S (Stress)       ← K stress + abs(D) deterioration
-      A (Asymmetry     ← abs(D) + sigma_t singularity pressure
-      L (Leverage)     ← X (shadow leverage) + K
-      V (Volatility)   ← sigma_t + K stress
-      P (Positioning)  ← M macro + leading channel
-      tau (Time)       ← D direction + escalation + operator time pressure
+    CRITICAL: M/D/K/X are signed values.
+      Positive M/K = stress building
+      Negative M/K = stress relieving
+      D = -K (always opposite sign)
+      Positive X = cross-market stress building
+
+    The conversion must respect signs. Negative M/K means LOW stress,
+    not high stress.
     """
-    M = state.get("M") or 0.3
-    K = state.get("K") or 0.3
+    M = state.get("M") or 0.0
+    K = state.get("K") or 0.0
     D = state.get("D") or 0.0
-    X = state.get("X") or 0.3
+    X = state.get("X") or 0.0
     sigma = state.get("sigma_t") or 0.5
 
-    d_abs = abs(D)
+    # Directional indicators
+    # stress_level: how much stress is present (use max of M,K,X, clamped to [0,1])
+    stress_level = max(0.0, min(1.0, (abs(M) + abs(K) + abs(X)) / 3.0))
+    # stress_direction: positive = building, negative = relieving
+    stress_direction = (M + K + X) / 3.0  # positive = stress building
 
-    # Base mapping
+    # Base mapping — uses signed values
+    # When M/K are negative (relief), S should be LOW
     vec = {
-        "S": 0.3 * K + 0.3 * d_abs + 0.2 * sigma,
-        "A": 0.3 * d_abs + 0.3 * sigma + 0.2 * X,
-        "L": 0.3 * X + 0.3 * K + 0.2 * d_abs,
-        "V": 0.4 * sigma + 0.3 * K,
-        "P": 0.3 * M + 0.2 * K + 0.2 * X,
-        "tau": 0.3 * M + 0.3 * d_abs + 0.2 * sigma,
+        # S: stress level, scaled by sign. Negative M/K = low S
+        "S": max(0.0, min(1.0, 0.4 * max(0, K) + 0.3 * max(0, M) + 0.2 * sigma)),
+        # A: asymmetry from D magnitude and X. D negative = improving visibility
+        "A": max(0.0, min(1.0, 0.3 * abs(D) + 0.2 * abs(X) + 0.2 * sigma)),
+        # L: leverage from X and K. Negative K/X = deleveraging
+        "L": max(0.0, min(1.0, 0.3 * max(0, X) + 0.3 * max(0, K) + 0.2 * sigma)),
+        # V: volatility from sigma and K. Compression when K negative
+        "V": max(0.0, min(1.0, 0.4 * sigma + 0.3 * max(0, K))),
+        # P: positioning from M. Negative M = risk-off
+        "P": max(0.0, min(1.0, 0.3 * max(0, M) + 0.2 * max(0, K))),
+        # tau: time pressure from D direction and sigma
+        "tau": max(0.0, min(1.0, 0.3 * abs(D) + 0.2 * sigma)),
     }
 
-    # Operator-based adjustments
-    operators = " ".join(state.get("active_operators", [])).upper()
-    if "FUNDING_LIQUIDITY_SPIRAL" in operators:
-        vec["S"] += 0.08
-        vec["tau"] += 0.06
-    if "COLLATERAL_LEVERAGE_CYCLE" in operators:
-        vec["L"] += 0.08
-        vec["A"] += 0.05
-    if "NETWORK_CONCENTRATION" in operators:
-        vec["P"] += 0.08
-        vec["A"] += 0.04
-    if "POLICY_DELAY" in operators:
-        vec["tau"] += 0.08
-    if "MARKET_LIQUIDITY_GAP" in operators:
-        vec["S"] += 0.06
-        vec["V"] += 0.05
-    if "PROCyclical_LEVERAGE" in operators:
-        vec["L"] += 0.06
-    if "COMPRESSION_ERROR" in operators:
-        vec["V"] -= 0.05  # compression = low vol
-    if "INTERMEDIARY_CAPACITY" in operators:
-        vec["L"] += 0.05
-    if "CAPITAL_CONSTRAINT" in operators:
-        vec["S"] += 0.05
-    if "TRANCHING_COMPLEXITY" in operators:
-        vec["A"] += 0.06
+    # Directional adjustment: if overall stress is DECREASING, reduce all vectors
+    if stress_direction < -0.3:
+        reduction = min(0.4, abs(stress_direction) * 0.3)
+        for k in vec:
+            vec[k] = max(0.0, vec[k] - reduction)
+
+    # Operator-based adjustments (only if stress is building)
+    if stress_direction > 0:
+        operators = " ".join(state.get("active_operators", [])).upper()
+        if "FUNDING_LIQUIDITY_SPIRAL" in operators:
+            vec["S"] += 0.08
+            vec["tau"] += 0.06
+        if "COLLATERAL_LEVERAGE_CYCLE" in operators:
+            vec["L"] += 0.08
+            vec["A"] += 0.05
+        if "NETWORK_CONCENTRATION" in operators:
+            vec["P"] += 0.08
+            vec["A"] += 0.04
+        if "POLICY_DELAY" in operators:
+            vec["tau"] += 0.08
+        if "MARKET_LIQUIDITY_GAP" in operators:
+            vec["S"] += 0.06
+            vec["V"] += 0.05
 
     # Escalation boost
     if state.get("escalation"):
         vec["S"] += 0.10
         vec["tau"] += 0.10
 
-    # Clamp
     return {k: max(0.0, min(1.0, round(v, 3))) for k, v in vec.items()}
 
 
 def derive_tags(state: dict) -> list[str]:
-    """Derive tags from active operators and state."""
+    """Derive tags from active operators AND M/D/K/X regime state.
+
+    Tags must reflect the ACTUAL regime, not just operator names.
+    When M/D/K/X are negative (relief), stress tags should NOT be added.
+    """
     tags: list[str] = []
-    operators = " ".join(state.get("active_operators", [])).upper()
 
-    op_tag_map = {
-        "FUNDING_LIQUIDITY_SPIRAL": ["liquidity", "spiral", "funding"],
-        "COLLATERAL_LEVERAGE_CYCLE": ["leverage", "collateral"],
-        "MARKET_LIQUIDITY_GAP": ["liquidity", "market_microstructure"],
-        "NETWORK_CONCENTRATION": ["concentration", "systemic"],
-        "POLICY_DELAY": ["policy", "regulation"],
-        "PROCyclical_LEVERAGE": ["leverage", "procyclical"],
-        "COMPRESSION_ERROR": ["volatility", "compression"],
-        "INTERMEDIARY_CAPACITY": ["intermediary", "credit"],
-        "CAPITAL_CONSTRAINT": ["capital", "constraint"],
-        "TRANCHING_COMPLEXITY": ["structured", "tranching"],
-        "COLLATERAL_ANCHOR_GAP": ["collateral", "valuation"],
-        "TRANCHE_VERIFIABILITY_GAP": ["visibility", "structured"],
-    }
+    M = state.get("M") or 0.0
+    K = state.get("K") or 0.0
+    D = state.get("D") or 0.0
+    X = state.get("X") or 0.0
+    stress_direction = (M + K + X) / 3.0
 
-    for op_name, op_tags in op_tag_map.items():
-        if op_name in operators:
-            tags.extend(op_tags)
+    # Regime-aware tags based on M/D/K/X signs
+    if stress_direction > 0.3:
+        # Stress building — add stress tags from operators
+        operators = " ".join(state.get("active_operators", [])).upper()
+        op_tag_map = {
+            "FUNDING_LIQUIDITY_SPIRAL": ["liquidity", "spiral", "funding"],
+            "COLLATERAL_LEVERAGE_CYCLE": ["leverage", "collateral"],
+            "MARKET_LIQUIDITY_GAP": ["liquidity", "market_microstructure"],
+            "NETWORK_CONCENTRATION": ["concentration", "systemic"],
+            "POLICY_DELAY": ["policy", "regulation"],
+            "PROCyclical_LEVERAGE": ["leverage", "procyclical"],
+            "COMPRESSION_ERROR": ["volatility", "compression"],
+            "INTERMEDIARY_CAPACITY": ["intermediary", "credit"],
+            "CAPITAL_CONSTRAINT": ["capital", "constraint"],
+            "TRANCHING_COMPLEXITY": ["structured", "tranching"],
+            "COLLATERAL_ANCHOR_GAP": ["collateral", "valuation"],
+            "TRANCHE_VERIFIABILITY_GAP": ["visibility", "structured"],
+        }
+        for op_name, op_tags in op_tag_map.items():
+            if op_name in operators:
+                tags.extend(op_tags)
+        tags.append("stress_building")
+    elif stress_direction < -0.3:
+        # Stress relieving — add relief tags
+        tags.extend(["stress_relief", "deleveraging", "volatility_compression"])
+        if K < -0.5:
+            tags.append("structural_improvement")
+        if M < -1.0:
+            tags.append("macro_easing")
+    else:
+        # Neutral
+        tags.append("neutral")
 
     # Pattern-based tags
     pattern = (state.get("pattern") or "").upper()
@@ -287,6 +319,78 @@ def derive_event_text(state: dict) -> str:
     return " ".join(parts)
 
 
+def reconcile_regime(state: dict) -> dict[str, Any]:
+    """Compare HMM regime with M/D/K/X and produce unified signal.
+
+    The HMM classifies based on raw market data (volatility, correlations).
+    M/D/K/X are structural proxies. They can diverge:
+    - HMM says "crisis" (high vol still present) but M/D/K/X say "relief" (stress declining)
+    - HMM says "compression" (low vol) but M/D/K/X say "stress building" (K rising)
+
+    When they diverge, M/D/K/X should take precedence for structural analysis,
+    because they measure the RATE OF CHANGE, not the LEVEL.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    M = state.get("M") or 0.0
+    K = state.get("K") or 0.0
+    D = state.get("D") or 0.0
+    X = state.get("X") or 0.0
+    stress_direction = (M + K + X) / 3.0
+
+    # M/D/K/X regime
+    if stress_direction > 0.5:
+        mdx_regime = "stress_building"
+    elif stress_direction > 0.2:
+        mdx_regime = "elevated"
+    elif stress_direction > -0.2:
+        mdx_regime = "neutral"
+    elif stress_direction > -0.5:
+        mdx_regime = "relieving"
+    else:
+        mdx_regime = "stress_relief"
+
+    # HMM regime
+    hmm_regime = "unknown"
+    hmm_path = _Path(str(ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"))
+    if hmm_path.exists():
+        try:
+            with open(hmm_path) as f:
+                hmm = _json.load(f)
+            hmm_regime = hmm.get("regime", {}).get("current", "unknown")
+        except Exception:
+            pass
+
+    # Reconciliation
+    divergence = False
+    unified_regime = mdx_regime  # default: trust M/D/K/X
+
+    if hmm_regime == "crisis" and mdx_regime in ("relieving", "stress_relief"):
+        divergence = True
+        unified_regime = "post_crisis_relief"
+        note = "HMM still sees crisis patterns in raw data, but M/D/K/X show stress is declining. Trust M/D/K/X: system is in post-crisis relief phase."
+    elif hmm_regime == "compression" and mdx_regime in ("stress_building", "elevated"):
+        divergence = True
+        unified_regime = "pre_stress_buildup"
+        note = "HMM sees calm (low vol), but M/D/K/X show stress building underneath. Trust M/D/K/X: pre-stress buildup phase."
+    elif hmm_regime == "crisis" and mdx_regime in ("stress_building", "elevated"):
+        unified_regime = "active_stress"
+        note = "Both HMM and M/D/K/X agree: stress is active and building."
+        divergence = False
+    else:
+        note = f"HMM={hmm_regime}, M/D/K/X={mdx_regime}. Aligned."
+
+    return {
+        "hmm_regime": hmm_regime,
+        "mdx_regime": mdx_regime,
+        "unified_regime": unified_regime,
+        "divergence": divergence,
+        "stress_direction": round(stress_direction, 3),
+        "note": note,
+    }
+
+
 def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     """Run the daily CaseLab signal and return results."""
     sys.path.insert(0, str(ROOT / "Workbench" / "src"))
@@ -302,6 +406,9 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     # 3. Derive tags and text
     tags = derive_tags(state)
     event_text = derive_event_text(state)
+
+    # 3.5. Reconcile HMM vs M/D/K/X
+    reconciliation = reconcile_regime(state)
 
     # 4. Run similarity
     engine = EnhancedSimilarityEngine(ROOT)
@@ -331,6 +438,7 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
         "derived_vector": vec,
         "derived_tags": tags,
         "event_text": event_text[:500],
+        "regime_reconciliation": reconciliation,
         "matches": [
             {
                 "rank": i + 1,
