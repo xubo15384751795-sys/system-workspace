@@ -41,7 +41,10 @@ steps:
     owner: Harvester
     command: "python scripts/refresh_etf_panel.py"
     # Evolution: blocked until Harvester publishes ETF evidence release.
-    # Check: structural-risk-harvester ETF provider development status.
+    # Path: 1) Add HYG/LQD/TLT to Harvester OFFICIAL_SERIES_MAP openbb_yfinance
+    #        2) Include ETF series in daily release benchmark_panel.parquet
+    #        3) Update refresh_etf_panel.py to read from Harvester release
+    # Current: Harvester has openbb_yfinance provider but no ETF series map entry.
     input:
       - Data/panels/cross_asset_daily_panel.parquet
     produces:
