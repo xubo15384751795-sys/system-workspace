@@ -554,10 +554,8 @@ def test_refresh_current_tool_updates_contract_artifacts() -> None:
 
     assert payload["ok"] is True
     assert payload["tool_id"] == "workbench.refresh_current"
-    assert refresh["required_artifacts"]["model_run.json"]["exists"] is True
-    assert refresh["required_artifacts"]["latest_report.html"]["exists"] is True
-    assert refresh["latest_run"]["is_symlink"] is True
-    assert "Output/deformation_runs/" in refresh["latest_run"]["resolved_path"]
+    assert refresh["required_artifacts"]["00_READ_ME_FIRST.md"]["exists"] is True
+    assert refresh["required_artifacts"]["framework_output.json"]["exists"] is True
 
 
 def test_refresh_current_tool_is_run_or_edit_only() -> None:

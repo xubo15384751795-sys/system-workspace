@@ -81,8 +81,8 @@ def test_artifact_navigator_builds_from_current() -> None:
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "workbench.report_artifact.v1"
     names = {item["name"]: item for item in payload["artifacts"]}
-    assert names["Latest HTML report"]["exists"] is True
-    assert names["Benchmark evidence dashboard"]["exists"] is True
+    assert names["Current status card"]["exists"] is True
+    assert names["Framework output"]["exists"] is True
 
 
 def test_workbench_scripts_do_not_import_framework_or_provider_packages() -> None:
