@@ -716,3 +716,10 @@ evaluate_pending:
   description: 1d/1w/1m window evaluator — checks pending records against actual SPY/HYG/TLT returns
   allowed_use:
   - pending_evaluation_execution
+update_calibration_summary:
+  script: scripts/update_calibration_summary.py
+  status: active
+  owner: Learning Hub
+  description: Aggregate eval_log.jsonl into calibration summary by source, decision, and window
+  allowed_use:
+  - calibration_summary_generation
