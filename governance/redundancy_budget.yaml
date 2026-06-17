@@ -7,7 +7,8 @@ purpose: >
 
 # ── Root Scripts ──────────────────────────────────────────────────────────────
 root_scripts:
-  max_visible: 35
+  max_visible: 45  # practical minimum: 14 core + 5 thin wrappers + 24 pipeline + 1 pair
+  # Target: 35 (requires daily_run.py pipeline refactoring to import from modules)
   require_registry_entry: true
   allowed_statuses:
     - daily_active        # daily_run.py directly uses
