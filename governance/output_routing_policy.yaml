@@ -1,0 +1,89 @@
+schema_version: output_routing.v1
+created: "2026-06-17"
+purpose: >
+  Automatic routing, lifecycle, and archival of Output artifacts.
+  Every output must have a display_group, lifecycle status, and TTL.
+
+groups:
+  current:
+    path: Output/current/
+    description: "Authority user entry points only"
+    can_affect_user_readout: true
+    allowed_artifacts:
+      - 00_READ_ME_FIRST.md
+      - framework_output.json
+      - status.json
+      - next_actions.md
+      - artifact_navigator.md
+      - artifact_navigator.json
+      - benchmark_evidence_dashboard.md
+      - benchmark_evidence_dashboard.html
+      - learning_summary.md
+      - system_health.md
+
+  runs:
+    path: Output/deformation_runs/
+    description: "Formal run packages with provenance"
+    can_affect_core_judgment: true
+
+  research:
+    path: Output/research/
+    description: "Backtest, ML, K/X/NLP experiments"
+    can_affect_core_judgment: false
+    default_ttl_days: 30
+
+  governance:
+    path: Output/system_learning/
+    description: "Audit, learning, feedback"
+    can_affect_core_judgment: false
+
+  sandbox:
+    path: Output/sandbox/
+    description: "Temporary experiments"
+    can_affect_core_judgment: false
+    default_ttl_days: 7
+
+  archive:
+    path: Output/archive/
+    description: "Frozen history"
+    can_affect_core_judgment: false
+
+lifecycle_statuses:
+  draft:
+    description: "Being generated, not yet complete"
+    can_be_consumed: false
+
+  candidate:
+    description: "Complete but not yet validated"
+    can_be_consumed: true
+    can_affect_core_judgment: false
+
+  current:
+    description: "Active authority artifact"
+    can_be_consumed: true
+    can_affect_core_judgment: true
+
+  research_only:
+    description: "Research/training only"
+    can_be_consumed: true
+    can_affect_core_judgment: false
+
+  superseded:
+    description: "Replaced by newer version"
+    can_be_consumed: false
+    archive_after_days: 7
+
+  archived:
+    description: "Frozen, kept for traceability"
+    can_be_consumed: false
+
+  retired:
+    description: "No longer relevant"
+    can_be_consumed: false
+
+rules:
+  - "Output/current/ must only contain artifacts listed in groups.current.allowed_artifacts"
+  - "sandbox artifacts older than ttl_days must be moved to archive"
+  - "research artifacts with no consumers for 30 days become archive_candidate"
+  - "unregistered Output directories require owner and lifecycle status"
+  - "legacy display symlinks must not exist in Output/current/"
