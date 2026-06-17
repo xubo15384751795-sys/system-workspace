@@ -150,8 +150,8 @@ hmm_stability_audit:
   owner: ML Signals
   reason: HMM experiment, not in active pipeline
 prepare_dl_training_data:
-  script: scripts/prepare_dl_training_data.py
-  status: archive_candidate
+  script: scripts/archive/prepare_dl_training_data.py
+  status: archived
   owner: ML Signals
   reason: DL training data prep, not in active pipeline
 caselab_daily_signal:
@@ -341,8 +341,8 @@ judgment_replay_audit:
   allowed_use:
   - governance_audit
 reality_reconciliation_audit:
-  script: scripts/reality_reconciliation_audit.py
-  status: active
+  script: scripts/archive/reality_reconciliation_audit.py
+  status: archived
   owner: Governance
   description: Reconcile system claims with reality
   allowed_use:
@@ -355,22 +355,22 @@ sync_paper_world_model:
   allowed_use:
   - paper_model_sync
 practicality_daily_note:
-  script: scripts/practicality_daily_note.py
-  status: active
+  script: scripts/archive/practicality_daily_note.py
+  status: archived
   owner: Governance
   description: Daily practicality note generation
   allowed_use:
   - governance_note
 market_state_classifier:
-  script: scripts/market_state_classifier.py
-  status: active
+  script: scripts/archive/market_state_classifier.py
+  status: archived
   owner: ML Signals
   description: Market state classification
   allowed_use:
   - market_classification
 build_daily_run_summary:
-  script: scripts/build_daily_run_summary.py
-  status: active
+  script: scripts/archive/build_daily_run_summary.py
+  status: archived
   owner: Workbench
   description: Build daily run summary report
   allowed_use:
@@ -411,22 +411,22 @@ build_next_actions:
   allowed_use:
   - next_actions_generation
 enrich_agent_context:
-  script: scripts/enrich_agent_context.py
-  status: active
+  script: scripts/archive/enrich_agent_context.py
+  status: archived
   owner: Governance
   description: Enrich agent context packets
   allowed_use:
   - agent_context_enrichment
 github_preflight:
-  script: scripts/github_preflight.py
-  status: tool_active
+  script: scripts/archive/github_preflight.py
+  status: archived
   owner: Governance
   description: GitHub preflight checks
   allowed_use:
   - ci_preflight
 run_all_tests:
-  script: scripts/run_all_tests.py
-  status: tool_active
+  script: scripts/archive/run_all_tests.py
+  status: archived
   owner: Governance
   description: Run all test suites
   allowed_use:
@@ -453,15 +453,15 @@ _paths:
   allowed_use:
   - path_config
 _run_descriptive_quality_tests:
-  script: scripts/_run_descriptive_quality_tests.py
-  status: governance_active
+  script: scripts/archive/_run_descriptive_quality_tests.py
+  status: archived
   owner: Governance
   description: Run descriptive quality tests
   allowed_use:
   - quality_test
 wiki_system_bridge_audit:
-  script: scripts/wiki_system_bridge_audit.py
-  status: governance_active
+  script: scripts/archive/wiki_system_bridge_audit.py
+  status: archived
   owner: Governance
   description: Audit wiki system bridge
   allowed_use:
