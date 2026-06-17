@@ -155,13 +155,11 @@ legacy_data_hub:
 # === DEPRECATED / ARCHIVE CANDIDATES ===
 
 structural_replay_evaluation:
-  script: scripts/structural_replay_evaluation.py
-  status: archive_candidate
+  script: scripts/archive/structural_replay_evaluation.py
+  status: archived
   owner: Deformation Framework
   reason: "Not called by any runtime pipeline; uses yfinance directly (violates Harvester-only rule)"
-  allowed_use:
-    - historical_reference_only
-  retire_after: "2026-07-01"
+  archived_at: "2026-06-17"
 
 refresh_etf_panel:
   script: scripts/refresh_etf_panel.py
