@@ -247,6 +247,25 @@ def derive_tags(state: dict) -> list[str]:
         # Neutral
         tags.append("neutral")
 
+    # Mechanism-derived tags — bridge to case library patterns.
+    # These add structural keywords that overlap with case tags,
+    # improving tag Jaccard from 0.0 to nonzero for relief states.
+    mechanism_tag_map = {
+        "anchor_drift": ["valuation", "mispricing", "fundamental"],
+        "funding_path_stress": ["liquidity", "funding", "repo"],
+        "liquidity_compression": ["volatility", "compression"],
+        "leverage_unwind": ["leverage", "forced_selling", "margin"],
+        "volatility_regime_mismatch": ["divergence", "regime"],
+        "relief_decompression": ["recovery", "stabilization"],
+        "cross_market_contagion": ["contagion", "spillover", "correlation"],
+        "policy_delay_stress": ["policy", "regulation"],
+    }
+    # Detect mechanism types from current state
+    _mechs = detect_mechanism_types(state)
+    for mech_name in _mechs.get("mechanism_types", []):
+        mech_tags = mechanism_tag_map.get(mech_name, [])
+        tags.extend(mech_tags)
+
     # Pattern-based tags
     pattern = (state.get("pattern") or "").upper()
     if "STABLE" in pattern:
@@ -659,9 +678,9 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
             "interpretation": interpretation,
             "score_breakdown": {
                 "var_weight": 0.25,
-                "tag_weight": 0.10,
-                "keyword_weight": 0.40,
-                "mechanism_weight": 0.25,
+                "tag_weight": 0.05,
+                "keyword_weight": 0.35,
+                "mechanism_weight": 0.35,
             },
         },
         "matches": [
