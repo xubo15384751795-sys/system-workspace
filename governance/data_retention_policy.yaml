@@ -1,0 +1,41 @@
+schema_version: data_retention.v1
+updated_at: "2026-06-17"
+purpose: >
+  Data directory retention rules.
+  Prevents unbounded growth of experimental data, debug releases, and duplicate formats.
+
+harvester_exports:
+  keep_latest: true
+  keep_last_n_daily: 7
+  keep_monthly_checkpoints: true
+  archive_debug_releases: true
+  debug_release_archive_path: Data/archive/harvester_debug/
+  current_debug_releases:
+    - test-debug
+    - test-debug2
+    - test-debug3
+
+panels:
+  canonical_format: parquet
+  csv_exports:
+    retention_days: 7
+    affects_core_judgment: false
+    note: "CSV is export-only; parquet is canonical"
+
+structural_lab:
+  runtime:
+    status: legacy_candidate
+    require_owner: true
+    archive_after_days: 7
+    note: "47MB — must confirm consumer or archive"
+
+merged_data:
+  status: migration_artifact
+  require_owner: true
+  archive_after_days: 14
+  note: "4.3MB — likely duplicates from migration"
+
+data_root:
+  total_size_budget_mb: 300
+  current_size_mb: 205
+  headroom_mb: 95
