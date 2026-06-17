@@ -21,6 +21,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
+FRAMEWORK_OUTPUT_PATH = ROOT / "Output" / "current" / "framework_output.json"
 OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
 
 
@@ -30,10 +31,21 @@ def load_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_readme_from_index(index: dict[str, Any]) -> str:
+def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, Any] | None = None) -> str:
     """Build README from System Index."""
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     date = index.get("generated_at", now)[:10]
+
+    # Output source and quality from framework_output.json
+    fw = framework_output or {}
+    run_id = fw.get("run_id", "unknown")
+    quality_status = (fw.get("basic") or {}).get("quality_status", "N/A")
+    if run_id.startswith("replay_bridge"):
+        output_source = f"structural_replay_v2 bridge ({run_id})"
+    elif run_id.startswith("deformation"):
+        output_source = f"deformation run ({run_id})"
+    else:
+        output_source = run_id
 
     # Extract key sections
     measurement = index.get("measurement_state", {})
@@ -87,6 +99,8 @@ def build_readme_from_index(index: dict[str, Any]) -> str:
         "",
         "## System Status",
         "",
+        f"- **Output source:** {output_source}",
+        f"- **Quality:** {quality_status}",
         f"- **Judgment:** {judgment.get('decision', 'N/A')}",
         f"- **Trade Decision:** {trade_decision.get('decision', 'N/A')}",
         f"- **Risk Gate:** {risk_gate.get('status', 'N/A')}",
@@ -200,10 +214,12 @@ def main() -> None:
         print("No System Index found. Run: python3 scripts/build_system_index.py")
         return
 
+    framework_output = load_json(FRAMEWORK_OUTPUT_PATH)
+
     if args.json:
         print(json.dumps(index, indent=2, ensure_ascii=False))
     else:
-        md = build_readme_from_index(index)
+        md = build_readme_from_index(index, framework_output)
         OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
         OUTPUT_PATH.write_text(md, encoding="utf-8")
         print(f"Wrote: {OUTPUT_PATH}")

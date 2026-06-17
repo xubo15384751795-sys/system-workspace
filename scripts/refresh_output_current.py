@@ -8,7 +8,8 @@ Chain:
     1. bridge_replay_to_current.py
     2. judgment_layer.py
     3. judgment_promotion_gate.py
-    4. build_readme_first.py
+    4. build_system_index.py
+    5. build_readme_first.py
 
 Usage:
     python3 scripts/refresh_output_current.py
@@ -75,28 +76,33 @@ def main() -> int:
             print("  1. bridge_replay_to_current.py")
         print("  2. judgment_layer.py")
         print("  3. judgment_promotion_gate.py")
-        print("  4. build_readme_first.py")
+        print("  4. build_system_index.py")
+        print("  5. build_readme_first.py")
         return 0
 
     steps = []
 
     # Step 1: Bridge (unless skipped)
     if not args.skip_bridge:
-        print("[1/4] Running bridge...")
+        print("[1/5] Running bridge...")
         steps.append(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
     else:
-        print("[1/4] Skipping bridge (--skip-bridge)")
+        print("[1/5] Skipping bridge (--skip-bridge)")
 
     # Step 2: Judgment Layer
-    print("[2/4] Generating judgment card...")
+    print("[2/5] Generating judgment card...")
     steps.append(run_step("judgment_layer", [sys.executable, str(ROOT / "scripts" / "judgment_layer.py")]))
 
     # Step 3: Promotion Gate
-    print("[3/4] Running promotion gate...")
+    print("[3/5] Running promotion gate...")
     steps.append(run_step("promotion_gate", [sys.executable, str(ROOT / "scripts" / "judgment_promotion_gate.py")]))
 
-    # Step 4: Build README
-    print("[4/4] Building 00_READ_ME_FIRST.md...")
+    # Step 4: System Index (must run before readme_first)
+    print("[4/5] Building system index...")
+    steps.append(run_step("system_index", [sys.executable, str(ROOT / "scripts" / "build_system_index.py")]))
+
+    # Step 5: Build README
+    print("[5/5] Building 00_READ_ME_FIRST.md...")
     steps.append(run_step("readme_first", [sys.executable, str(ROOT / "scripts" / "build_readme_first.py")]))
 
     # Summary
