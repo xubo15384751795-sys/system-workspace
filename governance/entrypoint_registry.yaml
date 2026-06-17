@@ -709,3 +709,10 @@ pending_evaluation:
   description: Write pending evaluation records for feedback loop — tracks judgment/trade decisions for future calibration
   allowed_use:
   - pending_evaluation_management
+evaluate_pending:
+  script: scripts/evaluate_pending.py
+  status: active
+  owner: Learning Hub
+  description: 1d/1w/1m window evaluator — checks pending records against actual SPY/HYG/TLT returns
+  allowed_use:
+  - pending_evaluation_execution
