@@ -111,6 +111,16 @@ packages/learning_hub
 - Experiments exist: but they have identity, owner, TTL, and cannot impersonate judgment.
 - Complexity is allowed: but it must have structure, lifecycle, and accountability.
 
+### D8: Incentive layer — reward reusable exploration
+
+```
+系统不惩罚探索，但奖励可追溯、可复用、被消费、能改进规则的探索。
+```
+
+Non-compliant exploration is allowed when declared, but starts as low priority.
+Successful explorations can be promoted, absorbed, and even modify governance rules.
+See: governance/incentive_policy.yaml, governance/experimental_submission_registry.yaml
+
 ---
 
 ## Referenced by
@@ -122,3 +132,5 @@ packages/learning_hub
 - governance/data_request_registry.yaml
 - governance/output_routing_policy.yaml
 - governance/module_contract_registry.yaml
+- governance/incentive_policy.yaml
+- governance/experimental_submission_registry.yaml
