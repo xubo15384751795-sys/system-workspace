@@ -1,0 +1,87 @@
+"""Entrypoint Registry Completeness — every root script must be registered.
+
+See: governance/entrypoint_registry.yaml
+     governance/redundancy_budget.yaml
+"""
+from __future__ import annotations
+
+import yaml
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+REGISTRY_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
+SCRIPTS_DIR = ROOT / "scripts"
+DAILY_RUN_PATH = ROOT / "scripts" / "daily_run.py"
+
+VALID_STATUSES = {
+    "active",
+    "daily_active",
+    "tool_active",
+    "governance_active",
+    "compatibility_wrapper",
+    "shadow_active",
+    "experimental",
+    "archive_candidate",
+    "archived",
+    "deprecated",
+    "blocked",
+}
+
+
+def _load_registry() -> dict:
+    return yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+
+
+def _registered_scripts(registry: dict) -> set[str]:
+    scripts = set()
+    for entry in registry.values():
+        if isinstance(entry, dict) and "script" in entry:
+            scripts.add(entry["script"])
+    return scripts
+
+
+def _root_scripts() -> set[str]:
+    return {f"scripts/{p.name}" for p in SCRIPTS_DIR.iterdir() if p.suffix == ".py" and p.is_file()}
+
+
+def test_all_root_scripts_registered() -> None:
+    """Every scripts/*.py must appear in entrypoint_registry.yaml."""
+    registry = _load_registry()
+    registered = _registered_scripts(registry)
+    root = _root_scripts()
+    unregistered = root - registered
+    assert not unregistered, f"Unregistered scripts: {sorted(unregistered)}"
+
+
+def test_registry_paths_exist() -> None:
+    """Every script path in registry must exist on disk."""
+    registry = _load_registry()
+    for name, entry in registry.items():
+        if isinstance(entry, dict) and "script" in entry:
+            path = ROOT / entry["script"]
+            assert path.exists(), f"{name}: script not found: {entry['script']}"
+
+
+def test_registry_statuses_valid() -> None:
+    """Every registry entry must have a valid status."""
+    registry = _load_registry()
+    for name, entry in registry.items():
+        if isinstance(entry, dict) and "status" in entry:
+            assert entry["status"] in VALID_STATUSES, f"{name}: invalid status '{entry['status']}'"
+
+
+def test_archive_candidates_not_in_daily_run() -> None:
+    """archive_candidate scripts must not be called by daily_run.py."""
+    registry = _load_registry()
+    daily_run_text = DAILY_RUN_PATH.read_text(encoding="utf-8")
+
+    archive_candidates = []
+    for name, entry in registry.items():
+        if isinstance(entry, dict) and entry.get("status") == "archive_candidate":
+            script_name = Path(entry["script"]).stem
+            archive_candidates.append((name, script_name))
+
+    for name, script_name in archive_candidates:
+        assert script_name not in daily_run_text, (
+            f"{name} is archive_candidate but referenced in daily_run.py"
+        )

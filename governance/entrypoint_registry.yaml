@@ -146,7 +146,7 @@ hmm_generate_history:
   reason: HMM experiment, not in active pipeline
 hmm_stability_audit:
   script: scripts/hmm_stability_audit.py
-  status: archive_candidate
+  status: experimental
   owner: ML Signals
   reason: HMM experiment, not in active pipeline
 prepare_dl_training_data:
@@ -162,22 +162,22 @@ caselab_daily_signal:
   allowed_use:
   - daily_signal_generation
 nlp_extract:
-  script: scripts/nlp_extract.py
-  status: active
+  script: scripts/archive/nlp_extract.py
+  status: archived
   owner: NLP Pipeline
   target_location: Workbench/src/nlp/scripts/
   allowed_use:
   - nlp_extraction
 nlp_ingest:
-  script: scripts/nlp_ingest.py
-  status: active
+  script: scripts/archive/nlp_ingest.py
+  status: archived
   owner: NLP Pipeline
   target_location: Workbench/src/nlp/scripts/
   allowed_use:
   - nlp_ingestion
 audit_boundaries:
-  script: scripts/audit_boundaries.py
-  status: active
+  script: scripts/archive/audit_boundaries.py
+  status: archived
   owner: Governance
   allowed_use:
   - boundary_audit
