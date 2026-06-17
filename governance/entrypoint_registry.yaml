@@ -106,8 +106,8 @@ legacy_data_sources:
   retire_after: '2026-07-15'
   note: LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline
 legacy_data_hub:
-  script: Structural Deformation Research System/src/data/gateway/data_hub.py
-  status: deprecated
+  script: Structural Deformation Research System/src/_legacy/data_hub.py
+  status: archived
   owner: Deformation Framework
   allowed_use:
   - legacy_replay
