@@ -20,12 +20,15 @@ Environment:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_DIR = ROOT / "Output" / "runtime_events"
@@ -192,6 +195,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # Configure logging: process steps go to log, CLI summary stays as print
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     # Resolve output root — default is ROOT/Output, override for test isolation
     output_root = Path(args.output_root) if args.output_root else ROOT / "Output"
     if args.output_root:
@@ -199,12 +209,12 @@ def main() -> None:
         os.environ["DAILY_OUTPUT_ROOT"] = str(output_root)
 
     start_time = datetime.now(UTC)
-    print(f"=== Daily Run — {start_time.strftime('%Y-%m-%d %H:%M')} ===")
+    logger.info("Daily Run — %s", start_time.strftime('%Y-%m-%d %H:%M'))
 
     # Start run bundle — atomic record of this execution
     # Always use ROOT for bundle location (bundles live in Output/runs/, not test output root)
     bundle = RunBundle.start(mode="daily_pipeline")
-    print(f"  Run bundle: {bundle.run_id}")
+    logger.info("Run bundle: %s", bundle.run_id)
 
     if args.dry_run:
         print("DRY RUN — would execute:")
@@ -252,34 +262,34 @@ def main() -> None:
 
     # Step 1: Harvester
     if not args.skip_harvester:
-        print(f"[1/{TOTAL_STEPS}] Running Harvester...")
+        logger.info("[%d/%d] Running Harvester...", 1, TOTAL_STEPS)
         _record(run_step("harvester", [sys.executable, "-m", "harvester", "daily-release"]))
     else:
-        print(f"[1/{TOTAL_STEPS}] Skipping Harvester (--skip-harvester)")
+        logger.info("[%d/%d] Skipping Harvester (--skip-harvester)", 1, TOTAL_STEPS)
 
     # Step 2: Refresh ETF panel
     if not args.skip_etf:
-        print(f"[2/{TOTAL_STEPS}] Refreshing ETF panel...")
+        logger.info("[%d/%d] Refreshing ETF panel...", 2, TOTAL_STEPS)
         etf_script = ROOT / "scripts" / "refresh_etf_panel.py"
         if etf_script.exists():
             _record(run_step("etf_refresh", [sys.executable, str(etf_script)]))
     else:
-        print(f"[2/{TOTAL_STEPS}] Skipping ETF refresh (--skip-etf)")
+        logger.info("[%d/%d] Skipping ETF refresh (--skip-etf)", 2, TOTAL_STEPS)
 
     # Step 3: Paper world model sync
-    print(f"[3/{TOTAL_STEPS}] Syncing Paper world model...")
+    logger.info("[%d/%d] Syncing Paper world model...", 3, TOTAL_STEPS)
     paper_sync_script = ROOT / "scripts" / "sync_paper_world_model.py"
     if paper_sync_script.exists():
         _record(run_step("paper_sync", [sys.executable, str(paper_sync_script)]))
 
     # Step 4: Horizon event adapter
-    print(f"[4/{TOTAL_STEPS}] Running Horizon event adapter...")
+    logger.info("[%d/%d] Running Horizon event adapter...", 4, TOTAL_STEPS)
     horizon_script = ROOT / "scripts" / "horizon_event_adapter.py"
     if horizon_script.exists():
         _record(run_step("horizon_events", [sys.executable, str(horizon_script), "--sample"]))
 
     # Step 5: Structural Replay
-    print(f"[5/{TOTAL_STEPS}] Running Structural Replay...")
+    logger.info("[%d/%d] Running Structural Replay...", 5, TOTAL_STEPS)
     latest = ROOT / "Data" / "harvester" / "exports" / "latest"
     catalog_path = latest / "catalog.json"
     release_id = "latest"
@@ -300,17 +310,17 @@ def main() -> None:
     _record(run_step("structural_replay", replay_cmd))
 
     # Step 6: Bridge
-    print(f"[6/{TOTAL_STEPS}] Running Bridge...")
+    logger.info("[%d/%d] Running Bridge...", 6, TOTAL_STEPS)
     _record(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
 
     # Step 7: Quality validation
-    print(f"[7/{TOTAL_STEPS}] Validating quality fields...")
+    logger.info("[%d/%d] Validating quality fields...", 7, TOTAL_STEPS)
     quality_script = ROOT / "scripts" / "quality_field_validator.py"
     if quality_script.exists():
         _record(run_step("quality_validation", [sys.executable, str(quality_script)]))
 
     # Step 8: HMM / HMM stability
-    print(f"[8/{TOTAL_STEPS}] Running HMM regime detection + stability audit...")
+    logger.info("[%d/%d] Running HMM regime detection + stability audit...", 8, TOTAL_STEPS)
     today_str = datetime.now(UTC).strftime("%Y-%m-%d")
     _record(run_step("regime_detection", [
         sys.executable, "-c",
@@ -327,7 +337,7 @@ def main() -> None:
         _record(run_step("hmm_stability_audit", [sys.executable, str(hmm_audit_script)]))
 
     # Step 9: K/X gates
-    print(f"[9/{TOTAL_STEPS}] Running K/X measurement gates...")
+    logger.info("[%d/%d] Running K/X measurement gates...", 9, TOTAL_STEPS)
     k_gate_script = ROOT / "scripts" / "k_measurement_gate.py"
     if k_gate_script.exists():
         _record(run_step("k_measurement_gate", [sys.executable, str(k_gate_script)]))
@@ -336,13 +346,13 @@ def main() -> None:
         _record(run_step("x_measurement_gate", [sys.executable, str(x_gate_script)]))
 
     # Step 10: CaseLab
-    print(f"[10/{TOTAL_STEPS}] Running CaseLab daily signal...")
+    logger.info("[%d/%d] Running CaseLab daily signal...", 10, TOTAL_STEPS)
     caselab_script = ROOT / "scripts" / "caselab_daily_signal.py"
     if caselab_script.exists():
         _record(run_step("caselab_signal", [sys.executable, str(caselab_script), "--json"]))
 
     # Step 11: Judgment
-    print(f"[11/{TOTAL_STEPS}] Generating judgment card...")
+    logger.info("[%d/%d] Generating judgment card...", 11, TOTAL_STEPS)
     judgment_script = ROOT / "scripts" / "judgment_layer.py"
     if judgment_script.exists():
         _record(run_step("judgment_layer", [sys.executable, str(judgment_script)]))
@@ -351,43 +361,43 @@ def main() -> None:
         _record(run_step("judgment_replay_audit", [sys.executable, str(judgment_audit_script)]))
 
     # Step 12: Promotion gate
-    print(f"[12/{TOTAL_STEPS}] Running judgment promotion gate...")
+    logger.info("[%d/%d] Running judgment promotion gate...", 12, TOTAL_STEPS)
     promotion_script = ROOT / "scripts" / "judgment_promotion_gate.py"
     if promotion_script.exists():
         _record(run_step("judgment_promotion_gate", [sys.executable, str(promotion_script)]))
 
     # Step 13: Probabilistic context
-    print(f"[13/{TOTAL_STEPS}] Generating probabilistic context...")
+    logger.info("[%d/%d] Generating probabilistic context...", 13, TOTAL_STEPS)
     prob_script = ROOT / "scripts" / "gluonts_probabilistic_context.py"
     if prob_script.exists():
         _record(run_step("probabilistic_context", [sys.executable, str(prob_script)]))
 
     # Step 14: Trade decision
-    print(f"[14/{TOTAL_STEPS}] Generating trade decision...")
+    logger.info("[%d/%d] Generating trade decision...", 14, TOTAL_STEPS)
     trade_script = ROOT / "scripts" / "trade_decision_layer.py"
     if trade_script.exists():
         _record(run_step("trade_decision", [sys.executable, str(trade_script)]))
 
     # Step 15: Risk gate
-    print(f"[15/{TOTAL_STEPS}] Running risk gate...")
+    logger.info("[%d/%d] Running risk gate...", 15, TOTAL_STEPS)
     risk_script = ROOT / "scripts" / "trade_risk_gate.py"
     if risk_script.exists():
         _record(run_step("risk_gate", [sys.executable, str(risk_script)]))
 
     # Step 16: Record trade decision
-    print(f"[16/{TOTAL_STEPS}] Recording trade decision...")
+    logger.info("[%d/%d] Recording trade decision...", 16, TOTAL_STEPS)
     record_script = ROOT / "scripts" / "record_trade_decision.py"
     if record_script.exists():
         _record(run_step("record_trade_decision", [sys.executable, str(record_script)]))
 
     # Step 17: Market feedback
-    print(f"[17/{TOTAL_STEPS}] Generating market feedback...")
+    logger.info("[%d/%d] Generating market feedback...", 17, TOTAL_STEPS)
     feedback_script = ROOT / "scripts" / "market_feedback.py"
     if feedback_script.exists():
         _record(run_step("market_feedback", [sys.executable, str(feedback_script)]))
 
     # Step 18: Learning comprehensive summary
-    print(f"[18/{TOTAL_STEPS}] Generating Learning Hub comprehensive summary...")
+    logger.info("[%d/%d] Generating Learning Hub comprehensive summary...", 18, TOTAL_STEPS)
     learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
     if learning_summary_script.exists():
         _record(run_step("learning_summary", [sys.executable, str(learning_summary_script)]))
@@ -399,25 +409,25 @@ def main() -> None:
         _record(run_step("trade_calibration_event", [sys.executable, str(trade_calibration_script)]))
 
     # Step 19: Operator registry audit
-    print(f"[19/{TOTAL_STEPS}] Running operator registry audit...")
+    logger.info("[%d/%d] Running operator registry audit...", 19, TOTAL_STEPS)
     operator_audit_script = ROOT / "scripts" / "operator_registry_audit.py"
     if operator_audit_script.exists():
         _record(run_step("operator_registry_audit", [sys.executable, str(operator_audit_script)]))
 
     # Step 20: Position sizing layer
-    print(f"[20/{TOTAL_STEPS}] Running position sizing layer...")
+    logger.info("[%d/%d] Running position sizing layer...", 20, TOTAL_STEPS)
     position_script = ROOT / "scripts" / "position_sizing_layer.py"
     if position_script.exists():
         _record(run_step("position_sizing", [sys.executable, str(position_script)]))
 
     # Step 21: Build system index
-    print(f"[21/{TOTAL_STEPS}] Building system index...")
+    logger.info("[%d/%d] Building system index...", 21, TOTAL_STEPS)
     index_script = ROOT / "scripts" / "build_system_index.py"
     if index_script.exists():
         _record(run_step("system_index", [sys.executable, str(index_script)]))
 
     # Step 22: Build current README / NEXT_ACTIONS
-    print(f"[22/{TOTAL_STEPS}] Generating README and next actions...")
+    logger.info("[%d/%d] Generating README and next actions...", 22, TOTAL_STEPS)
     readme_script = ROOT / "scripts" / "build_readme_first.py"
     if readme_script.exists():
         _record(run_step("readme_first", [sys.executable, str(readme_script)]))
@@ -426,13 +436,13 @@ def main() -> None:
         _record(run_step("next_actions", [sys.executable, str(next_actions_script)]))
 
     # Step 23: Freshness validator (after index/README to check their timestamps)
-    print(f"[23/{TOTAL_STEPS}] Running freshness validator...")
+    logger.info("[%d/%d] Running freshness validator...", 23, TOTAL_STEPS)
     freshness_script = ROOT / "scripts" / "freshness_validator.py"
     if freshness_script.exists():
         _record(run_step("freshness_validator", [sys.executable, str(freshness_script)]))
 
     # Step 24: Architecture reality audit (non-strict daily sensor)
-    print(f"[24/{TOTAL_STEPS}] Running architecture reality audit...")
+    logger.info("[%d/%d] Running architecture reality audit...", 24, TOTAL_STEPS)
     architecture_audit_script = ROOT / "scripts" / "architecture_reality_audit.py"
     if architecture_audit_script.exists():
         _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
@@ -475,7 +485,7 @@ def main() -> None:
 
     # Finish run bundle
     bundle_dir = bundle.finish(status=run_status)
-    print(f"  Run bundle saved: {bundle_dir}")
+    logger.info("Run bundle saved: %s", bundle_dir)
 
     # Symlink decision_trace.json into Output/current/ for easy access
     dt_src = bundle_dir / "decision_trace.json"

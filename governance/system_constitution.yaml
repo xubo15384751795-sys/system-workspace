@@ -135,6 +135,24 @@ language_governance:
     prediction: "projection"
     regime call: "state observation"
 
+# Governance freeze — stop governance expansion
+# Rationale: governance files grew from 77 to 81 during feature work.
+# Governance must only converge, not expand, during active development.
+governance_freeze:
+  active: true
+  effective_from: "2026-06-17"
+  review_after: "2026-07-01"
+  rules:
+    - "No new governance files unless explicitly approved"
+    - "New rules go into existing governance files, not new ones"
+    - "Runtime artifacts go into Output/, not governance/"
+    - "Code-inferred rules stay in code, not governance docs"
+    - "Output/runs/ run bundles are exempt (they are run traces, not governance)"
+  enforcement:
+    - "New functionality prioritizes code and output over policy files"
+    - "If a rule can be expressed as code validation, write code not docs"
+    - "Prefer updating system_constitution.yaml over creating new files"
+
 # Freshness rules
 freshness_rules:
   # Evidence release TTL — see governance/architecture_reality_decisions.md §4

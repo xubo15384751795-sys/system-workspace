@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 HMM_DIR = ROOT / "Output" / "ml_signals"
@@ -200,7 +203,12 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
         allowed_use = "regime_hint"
         forbidden_use = ["truth", "certainty", "standalone_signal"]
 
-    return {
+    # Calibration data (from confidence_calibration wrapper, if present)
+    cal = hmm.get("calibration", {})
+    calibrated_confidence = regime.get("calibrated_confidence")
+    calibration_passed = regime.get("calibration_passed")
+
+    result = {
         "schema_version": "system.hmm_stability_audit.v1",
         "generated_at": datetime.now(UTC).isoformat(),
         "sample_days": sample_days,
@@ -208,6 +216,7 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
         "train_window": train_window,
         "current_regime": regime.get("current", "unknown"),
         "current_probability": current_prob,
+        "raw_probability": _as_float(regime.get("raw_probability", current_prob)),
         "posterior_entropy": round(posterior_entropy, 4),
         "rolling_refit_agreement": round(rolling_refit, 4),
         "label_stability": round(label_stability, 4),
@@ -218,6 +227,22 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
         "forbidden_use": forbidden_use,
         "history_length": len(history),
     }
+
+    # Add calibration fields if available
+    if cal:
+        result["calibration"] = {
+            "calibrated_confidence": calibrated_confidence,
+            "calibration_passed": calibration_passed,
+            "cap_applied": cal.get("cap_applied"),
+            "degradation_reasons": cal.get("degradation_reasons", []),
+        }
+    elif calibrated_confidence is not None:
+        result["calibration"] = {
+            "calibrated_confidence": calibrated_confidence,
+            "calibration_passed": calibration_passed,
+        }
+
+    return result
 
 
 def format_markdown(report: dict[str, Any]) -> str:
@@ -278,13 +303,19 @@ def format_markdown(report: dict[str, Any]) -> str:
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     parser = argparse.ArgumentParser(description="Audit HMM stability.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
     args = parser.parse_args()
 
     hmm = load_json(HMM_LATEST)
     if not hmm:
-        print("No HMM output found at", HMM_LATEST)
+        logger.warning("No HMM output found at %s", HMM_LATEST)
         return
 
     history = load_hmm_history()
@@ -298,13 +329,14 @@ def main() -> None:
     md_path.write_text(format_markdown(report), encoding="utf-8")
 
     if args.json:
+        # CLI output — keep as print for piping
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
-        print(f"HMM stability audit: {report['stability_grade']}")
-        print(f"Sample days: {report['sample_days']}, Features: {report['feature_count']}")
-        print(f"Posterior entropy: {report['posterior_entropy']:.3f}")
-        print(f"Rolling refit: {report['rolling_refit_agreement']:.3f}")
-        print(f"Label stability: {report['label_stability']:.3f}")
+        logger.info("HMM stability audit: %s", report['stability_grade'])
+        logger.info("Sample days: %d, Features: %d", report['sample_days'], report['feature_count'])
+        logger.info("Posterior entropy: %.3f", report['posterior_entropy'])
+        logger.info("Rolling refit: %.3f", report['rolling_refit_agreement'])
+        logger.info("Label stability: %.3f", report['label_stability'])
 
 
 if __name__ == "__main__":

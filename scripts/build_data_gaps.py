@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
@@ -382,7 +385,7 @@ def write_request_candidates_to_registry(report: dict[str, Any]) -> int:
     Returns the number of new requests added.
     """
     if yaml is None:
-        print("WARNING: pyyaml not installed; cannot write registry")
+        logger.warning("pyyaml not installed; cannot write registry")
         return 0
 
     reg = _load_yaml(DATA_REQUEST_PATH)
@@ -608,6 +611,12 @@ def generate_markdown(report: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     parser = argparse.ArgumentParser(description="Build data gaps report")
     parser.add_argument("--json", action="store_true", help="JSON output")
     parser.add_argument(
@@ -630,11 +639,12 @@ def main() -> None:
     if args.write_requests:
         n = write_request_candidates_to_registry(report)
         if n > 0:
-            print(f"Synced {n} new request(s) to {DATA_REQUEST_PATH}")
+            logger.info("Synced %d new request(s) to %s", n, DATA_REQUEST_PATH)
         else:
-            print("No new requests to sync (all candidates already in registry)")
+            logger.info("No new requests to sync (all candidates already in registry)")
 
     if args.json:
+        # CLI output — keep as print for piping
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print(generate_markdown(report))

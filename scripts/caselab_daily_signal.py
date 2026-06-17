@@ -305,17 +305,17 @@ def derive_event_text(state: dict) -> str:
                     parts.append(desc)
 
     elif stress_direction < -0.3:
-        # STRESS RELIEVING — keep this factual. Extra macro-growth keywords can
-        # dominate text similarity and create unrelated CaseLab matches.
-        parts.append("M/D/K/X composite direction is negative, indicating pressure relief in current proxy readings.")
+        # STRESS RELIEVING — use relief keywords for mechanism matching
+        parts.append("M/D/K/X composite direction is negative, indicating pressure relief and deleveraging.")
+        parts.append("Volatility compression with stabilizing conditions.")
         if M < -0.5:
-            parts.append("M anchor pressure is negative.")
+            parts.append("M anchor relief — macro easing environment.")
         if D < -0.5:
-            parts.append("D path pressure is negative.")
+            parts.append("D path improvement — structural recovery.")
         if K < -0.5:
-            parts.append("K curvature proxy is compressed.")
+            parts.append("K curvature compressed — low structural stress.")
         if X < -0.3:
-            parts.append("X shadow-load proxy is negative.")
+            parts.append("X shadow-load unwinding — cross-market normalization.")
         parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
 
     else:
@@ -327,6 +327,174 @@ def derive_event_text(state: dict) -> str:
         parts.append("ESCALATION flagged — conditions worsening.")
 
     return " ".join(parts)
+
+
+def detect_mechanism_types(state: dict) -> dict[str, Any]:
+    """Detect which mechanism archetypes the current state resembles.
+
+    Returns a context packet with mechanism types, descriptions, and
+    what kind of historical cases to look for.
+    """
+    M = state.get("M") or 0.0
+    K = state.get("K") or 0.0
+    D = state.get("D") or 0.0
+    X = state.get("X") or 0.0
+    sigma = state.get("sigma_t") or 0.5
+    stress_direction = (M + K + X) / 3.0
+    operators = " ".join(state.get("active_operators", [])).upper()
+
+    mechanism_types: list[str] = []
+    missing_case_types: list[str] = []
+
+    # Anchor drift: M is significant and moving
+    if abs(M) > 0.3:
+        mechanism_types.append("anchor_drift")
+
+    # Funding path stress: funding-related operators active or high L
+    if "FUNDING" in operators or "LIQUIDITY" in operators or (abs(K) > 0.4 and abs(X) > 0.3):
+        mechanism_types.append("funding_path_stress")
+
+    # Liquidity compression: low vol, low stress, compression-like
+    if stress_direction < -0.2 and sigma < 0.4:
+        mechanism_types.append("liquidity_compression")
+
+    # Leverage unwind: X declining, K declining, deleveraging
+    if stress_direction < -0.3 and X < -0.2:
+        mechanism_types.append("leverage_unwind")
+
+    # Volatility regime mismatch: HMM and M/D/K/X might diverge
+    # (we detect this but let reconcile_regime confirm)
+    if abs(stress_direction) < 0.3 and sigma > 0.6:
+        mechanism_types.append("volatility_regime_mismatch")
+
+    # Relief decompression: overall stress declining
+    if stress_direction < -0.3:
+        mechanism_types.append("relief_decompression")
+
+    # Cross-market contagion: X elevated
+    if abs(X) > 0.4:
+        mechanism_types.append("cross_market_contagion")
+
+    # Policy delay: policy operators active
+    if "POLICY" in operators or "DELAY" in operators:
+        mechanism_types.append("policy_delay_stress")
+
+    # If no mechanisms detected, note what we're missing
+    if not mechanism_types:
+        if stress_direction < -0.2:
+            missing_case_types.append("relief_decompression")
+            missing_case_types.append("leverage_unwind")
+        else:
+            missing_case_types.append("neutral_transition")
+
+    return {
+        "mechanism_types": mechanism_types,
+        "missing_case_types": missing_case_types,
+        "context_description": _describe_mechanism_context(
+            mechanism_types, M, K, D, X, stress_direction
+        ),
+        "stress_direction": round(stress_direction, 3),
+        "what_to_look_for": _what_to_look_for(mechanism_types),
+    }
+
+
+def _describe_mechanism_context(
+    types: list[str], M: float, K: float, D: float, X: float, sd: float
+) -> str:
+    """Generate a human-readable description of the mechanism context."""
+    if not types:
+        return "No specific mechanism archetype detected."
+    descs = []
+    if "anchor_drift" in types:
+        descs.append(f"anchor drift (M={M:.2f})")
+    if "funding_path_stress" in types:
+        descs.append("funding/lubricity path stress")
+    if "liquidity_compression" in types:
+        descs.append("liquidity compression (low vol, low stress)")
+    if "leverage_unwind" in types:
+        descs.append(f"leverage unwind (X={X:.2f})")
+    if "volatility_regime_mismatch" in types:
+        descs.append("volatility regime mismatch")
+    if "relief_decompression" in types:
+        descs.append(f"relief decompression (stress_dir={sd:.2f})")
+    if "cross_market_contagion" in types:
+        descs.append(f"cross-market contagion (X={X:.2f})")
+    if "policy_delay_stress" in types:
+        descs.append("policy delay stress")
+    return "Detected: " + ", ".join(descs) + "."
+
+
+def _what_to_look_for(types: list[str]) -> list[str]:
+    """Describe what kind of historical cases would be useful."""
+    mapping = {
+        "anchor_drift": "historical episodes of anchor valuation mispricing",
+        "funding_path_stress": "funding liquidity spirals and repo market stress",
+        "liquidity_compression": "volatility compression periods before stress emergence",
+        "leverage_unwind": "forced deleveraging and margin call cascades",
+        "volatility_regime_mismatch": "periods where HMM and structural signals diverged",
+        "relief_decompression": "post-crisis relief and normalization episodes",
+        "cross_market_contagion": "cross-market contagion and spillover events",
+        "policy_delay_stress": "policy response delay creating market stress",
+    }
+    return [mapping[t] for t in types if t in mapping]
+
+
+def build_context_packet(state: dict, vec: dict, reconciliation: dict) -> dict[str, Any]:
+    """Build a rich context packet for CaseLab matching.
+
+    This goes into the output alongside the match results, helping
+    downstream consumers understand WHY the system is looking for
+    certain types of cases.
+    """
+    M = state.get("M") or 0.0
+    K = state.get("K") or 0.0
+    D = state.get("D") or 0.0
+    X = state.get("X") or 0.0
+    stress_direction = (M + K + X) / 3.0
+
+    # Direction and strength
+    if abs(stress_direction) < 0.2:
+        direction_label = "neutral"
+        strength = "weak"
+    elif abs(stress_direction) < 0.5:
+        direction_label = "stress_relief" if stress_direction < 0 else "stress_building"
+        strength = "moderate"
+    else:
+        direction_label = "stress_relief" if stress_direction < 0 else "stress_building"
+        strength = "strong"
+
+    # K/X degradation reasons
+    kx_notes = []
+    if K < -0.3:
+        kx_notes.append(f"K={K:.2f}: curvature proxy compressed — low structural stress signal")
+    if X < -0.2:
+        kx_notes.append(f"X={X:.2f}: shadow-load declining — cross-market stress easing")
+    if abs(K) < 0.2 and abs(X) < 0.2:
+        kx_notes.append("K and X near neutral — no strong directional signal")
+
+    return {
+        "structural_state": {
+            "M": round(M, 3),
+            "D": round(D, 3),
+            "K": round(K, 3),
+            "X": round(X, 3),
+            "stress_direction": round(stress_direction, 3),
+            "direction_label": direction_label,
+            "strength": strength,
+        },
+        "vector": vec,
+        "kx_degradation_notes": kx_notes,
+        "hmm_vs_structural": {
+            "hmm_regime": reconciliation.get("hmm_regime", "unknown"),
+            "mdx_regime": reconciliation.get("mdx_regime", "unknown"),
+            "divergence": reconciliation.get("divergence", False),
+            "unified_regime": reconciliation.get("unified_regime", "unknown"),
+        },
+        "claim_ceiling": "diagnostic_watch_only",
+        "needs_mechanism_type": _what_to_look_for(
+            detect_mechanism_types(state).get("mechanism_types", [])
+        ),
+    }
 
 
 def reconcile_regime(state: dict) -> dict[str, Any]:
@@ -429,12 +597,17 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     # 3.5. Reconcile HMM vs M/D/K/X
     reconciliation = reconcile_regime(state)
 
-    # 4. Run similarity
+    # 3.6. Detect mechanism types and build context packet
+    mechanism_ctx = detect_mechanism_types(state)
+    context_packet = build_context_packet(state, vec, reconciliation)
+
+    # 4. Run similarity (with mechanism context)
     engine = EnhancedSimilarityEngine(ROOT)
     results = engine.find_similar(
         variable_vector=vec,
         tags=tags,
         event_text=event_text,
+        mechanism_context=mechanism_ctx,
         top_k=top_k,
     )
     top_score = float(results[0].score) if results else 0.0
@@ -469,6 +642,8 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
             "escalation": state.get("escalation"),
             "active_operators": state.get("active_operators", []),
         },
+        "context_packet": context_packet,
+        "mechanism_context": mechanism_ctx,
         "derived_vector": vec,
         "derived_tags": tags,
         "event_text": event_text[:500],
@@ -482,6 +657,12 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
                 "weak": WEAK_THRESHOLD,
             },
             "interpretation": interpretation,
+            "score_breakdown": {
+                "var_weight": 0.25,
+                "tag_weight": 0.10,
+                "keyword_weight": 0.40,
+                "mechanism_weight": 0.25,
+            },
         },
         "matches": [
             {
@@ -492,6 +673,8 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
                 "var_score": r.var_score,
                 "tag_score": r.tag_score,
                 "text_score": r.text_score,
+                "mechanism_score": r.mechanism_score,
+                "matched_mechanisms": r.matched_mechanisms,
                 "shared_tags": r.shared_tags,
                 "shared_concepts": [{"concept": c, "freq": s} for c, s in r.shared_concepts],
                 # Suppress narratives for weak/no-reliable matches
