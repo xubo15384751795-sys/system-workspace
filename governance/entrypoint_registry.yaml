@@ -77,15 +77,15 @@ learning_hub_trade_calibration:
   allowed_use:
   - trade_calibration
 blind_replay_test:
-  script: scripts/blind_replay_test.py
-  status: experimental
+  script: scripts/archive/blind_replay_test.py
+  status: archived
   owner: Workbench
   description: Blind replay test for validation
   allowed_use:
   - validation_only
 benchmark_comparison:
-  script: scripts/benchmark_comparison.py
-  status: experimental
+  script: scripts/archive/benchmark_comparison.py
+  status: archived
   owner: Qlib Benchmark
   allowed_use:
   - benchmark_comparison
@@ -130,18 +130,18 @@ refresh_etf_panel:
   - feature_recomputation
   note: ETF acquisition must come from Harvester evidence release; this script only recomputes features
 solution_phase1:
-  script: scripts/solution_phase1.py
-  status: archive_candidate
+  script: scripts/archive/solution_phase1.py
+  status: archived
   owner: unknown
   reason: One-off solution script, no active consumers
 solution_phase2:
-  script: scripts/solution_phase2.py
-  status: archive_candidate
+  script: scripts/archive/solution_phase2.py
+  status: archived
   owner: unknown
   reason: One-off solution script, no active consumers
 hmm_generate_history:
-  script: scripts/hmm_generate_history.py
-  status: archive_candidate
+  script: scripts/archive/hmm_generate_history.py
+  status: archived
   owner: ML Signals
   reason: HMM experiment, not in active pipeline
 hmm_stability_audit:
@@ -475,143 +475,143 @@ compute_proxies:
   - proxy_computation
   retire_after: '2026-07-15'
 d_proxy_daily:
-  script: scripts/d_proxy_daily.py
-  status: experimental
+  script: scripts/archive/d_proxy_daily.py
+  status: archived
   owner: ML Signals
   description: Daily D proxy computation — experimental
   allowed_use:
   - proxy_computation
   retire_after: '2026-07-15'
 m_proxy_daily:
-  script: scripts/m_proxy_daily.py
-  status: experimental
+  script: scripts/archive/m_proxy_daily.py
+  status: archived
   owner: ML Signals
   description: Daily M proxy computation — experimental
   allowed_use:
   - proxy_computation
   retire_after: '2026-07-15'
 m_proxy_optimization:
-  script: scripts/m_proxy_optimization.py
-  status: experimental
+  script: scripts/archive/m_proxy_optimization.py
+  status: archived
   owner: ML Signals
   description: M proxy optimization — experimental
   allowed_use:
   - proxy_optimization
   retire_after: '2026-07-15'
 k_features_from_etf:
-  script: scripts/k_features_from_etf.py
-  status: experimental
+  script: scripts/archive/k_features_from_etf.py
+  status: archived
   owner: ML Signals
   description: K features from ETF panel — experimental
   allowed_use:
   - feature_computation
 k_state_machine:
-  script: scripts/k_state_machine.py
-  status: experimental
+  script: scripts/archive/k_state_machine.py
+  status: archived
   owner: ML Signals
   description: K state machine — experimental
   allowed_use:
   - state_machine_diagnostics
 k_v2_robustness:
-  script: scripts/k_v2_robustness.py
-  status: experimental
+  script: scripts/archive/k_v2_robustness.py
+  status: archived
   owner: ML Signals
   description: K v2 robustness test — experimental
   allowed_use:
   - robustness_test
 k_v2_robustness_z2:
-  script: scripts/k_v2_robustness_z2.py
-  status: experimental
+  script: scripts/archive/k_v2_robustness_z2.py
+  status: archived
   owner: ML Signals
   description: K v2 z2 robustness test — experimental
   allowed_use:
   - robustness_test
 identification:
-  script: scripts/identification.py
-  status: experimental
+  script: scripts/archive/identification.py
+  status: archived
   owner: ML Signals
   description: Structural identification — experimental
   allowed_use:
   - identification_diagnostics
 proxy_validation:
-  script: scripts/proxy_validation.py
-  status: experimental
+  script: scripts/archive/proxy_validation.py
+  status: archived
   owner: ML Signals
   description: Proxy validation — experimental
   allowed_use:
   - proxy_validation
 primitive_readiness_matrix:
-  script: scripts/primitive_readiness_matrix.py
-  status: experimental
+  script: scripts/archive/primitive_readiness_matrix.py
+  status: archived
   owner: Governance
   description: Primitive readiness matrix — experimental
   allowed_use:
   - readiness_assessment
 walk_forward_validation:
-  script: scripts/walk_forward_validation.py
-  status: experimental
+  script: scripts/archive/walk_forward_validation.py
+  status: archived
   owner: ML Signals
   description: Walk-forward validation — experimental
   allowed_use:
   - validation
 reconstruction_data_availability:
-  script: scripts/reconstruction_data_availability.py
-  status: experimental
+  script: scripts/archive/reconstruction_data_availability.py
+  status: archived
   owner: Governance
   description: Reconstruction data availability check — experimental
   allowed_use:
   - data_availability_check
 trade_decision_replay:
-  script: scripts/trade_decision_replay.py
-  status: experimental
+  script: scripts/archive/trade_decision_replay.py
+  status: archived
   owner: Governance
   description: Trade decision replay — experimental
   allowed_use:
   - decision_replay
 x_agg_daily_retest:
-  script: scripts/x_agg_daily_retest.py
-  status: experimental
+  script: scripts/archive/x_agg_daily_retest.py
+  status: archived
   owner: ML Signals
   description: X aggregate daily retest — experimental
   allowed_use:
   - x_agg_retest
 x_agg_v3_rebuild:
-  script: scripts/x_agg_v3_rebuild.py
-  status: experimental
+  script: scripts/archive/x_agg_v3_rebuild.py
+  status: archived
   owner: ML Signals
   description: X aggregate v3 rebuild — experimental
   allowed_use:
   - x_agg_rebuild
 run_harvester_no_proxy:
-  script: scripts/run_harvester_no_proxy.py
-  status: experimental
+  script: scripts/archive/run_harvester_no_proxy.py
+  status: archived
   owner: Harvester
   description: Run harvester without proxy — experimental
   allowed_use:
   - harvester_test
 merge_data_hub:
-  script: scripts/merge_data_hub.py
-  status: experimental
+  script: scripts/archive/merge_data_hub.py
+  status: archived
   owner: Governance
   description: Merge data hub — experimental migration script
   allowed_use:
   - data_migration
   retire_after: '2026-07-15'
 x_agg_contamination_lockdown:
-  script: scripts/x_agg_contamination_lockdown.py
-  status: archive_candidate
+  script: scripts/archive/x_agg_contamination_lockdown.py
+  status: archived
   owner: ML Signals
   reason: One-time lockdown script, no runtime consumers
   retire_after: '2026-07-01'
 x_agg_frequency_split:
-  script: scripts/x_agg_frequency_split.py
-  status: archive_candidate
+  script: scripts/archive/x_agg_frequency_split.py
+  status: archived
   owner: ML Signals
   reason: One-time frequency split, no runtime consumers
   retire_after: '2026-07-01'
 x_agg_trigger_decommission:
-  script: scripts/x_agg_trigger_decommission.py
-  status: archive_candidate
+  script: scripts/archive/x_agg_trigger_decommission.py
+  status: archived
   owner: ML Signals
   reason: One-time decommission script, no runtime consumers
   retire_after: '2026-07-01'
