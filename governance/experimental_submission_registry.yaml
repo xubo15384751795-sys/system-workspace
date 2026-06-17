@@ -1,0 +1,34 @@
+schema_version: experimental_submission.v1
+created: "2026-06-17"
+purpose: >
+  Registry for non-compliant but potentially valuable explorations.
+  Submissions are reviewed weekly. Successful submissions can modify rules,
+  enter Harvester pipeline, or promote to preferred/canonical.
+  See: governance/incentive_policy.yaml
+
+submissions: []
+  # Example submission:
+  # - submission_id: alt_etf_panel_builder_001
+  #   submitted_by: Workbench Signals
+  #   date: "2026-06-17"
+  #   status: submitted
+  #   current_priority: low
+  #   rule_deviation:
+  #     - did_not_enter_harvester_first
+  #   description: "Direct yfinance ETF acquisition bypassing Harvester"
+  #   evidence:
+  #     - "Faster iteration on ETF panel composition"
+  #     - "Harvester ETF provider not yet available"
+  #   proposed_resolution:
+  #     option_a: "Move logic to Harvester provider"
+  #     option_b: "Keep as temporary bridge with explicit retire_after"
+  #   review_deadline: "2026-06-24"
+  #   reviewer: null
+  #   decision: null
+  #   decision_reason: null
+
+review_schedule:
+  cadence: weekly
+  day: monday
+  max_open_age_days: 14
+  auto_close_action: archive
