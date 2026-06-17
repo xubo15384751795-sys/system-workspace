@@ -64,3 +64,21 @@ entries:
     allowed_use: [research, benchmark]
     forbidden_use: [core_judgment_primary_input]
     note: "ETF prices for benchmark comparison"
+
+  - path: "Structural Deformation Research System/src/benchmarks/historical_replay.py"
+    authority: research_only_non_harvester
+    owner: Deformation Framework
+    allowed_use: [research, benchmark, historical_replay]
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: >
+      Fetches FRED macro data directly via urllib for historical replay.
+      Active macro data must come through Harvester.
+
+  - path: "Structural Deformation Research System/src/research_corpus/providers/brevan_howard.py"
+    authority: research_only_non_harvester
+    owner: Deformation Framework
+    allowed_use: [research, corpus_archival]
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: >
+      Scrapes public Brevan Howard pages for research corpus archival.
+      Not an active data acquisition path.

@@ -411,7 +411,8 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
 
 def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     """Run the daily CaseLab signal and return results."""
-    sys.path.insert(0, str(ROOT / "Workbench" / "src"))
+    from _workspace_imports import add_workbench_src
+    add_workbench_src()
 
     from nlp.caselab.enhanced_similarity import EnhancedSimilarityEngine
 
@@ -523,12 +524,14 @@ def _format_markdown(output: dict) -> str:
     """Format output as readable markdown."""
     s = output["system_state"]
     vec = output["derived_vector"]
+    def _fv(v):
+        return f"{v:.3f}" if v is not None else "N/A"
     lines = [
         f"# CaseLab Daily Signal — {output['timestamp'][:10]}",
         "",
         f"## System State",
         f"- **Date:** {s['date']}",
-        f"- **M/D/K/X:** {s['M']:.3f} / {s['D']:.3f} / {s['K']:.3f} / {s['X']:.3f}",
+        f"- **M/D/K/X:** {_fv(s['M'])} / {_fv(s['D'])} / {_fv(s['K'])} / {_fv(s['X'])}",
         f"- **σ(t):** {s['sigma_t']:.3f}" if s.get("sigma_t") else "- **σ(t):** N/A",
         f"- **Pattern:** {s['pattern']}",
         f"- **Leading channel:** {s['leading_channel']}",
@@ -582,7 +585,8 @@ def main():
     # Print summary
     s = output["system_state"]
     print(f"\n=== CaseLab Daily Signal — {s['date']} ===")
-    print(f"M/D/K/X: {s['M']:.3f} / {s['D']:.3f} / {s['K']:.3f} / {s['X']:.3f}")
+    _fv = lambda v: f"{v:.3f}" if v is not None else "N/A"
+    print(f"M/D/K/X: {_fv(s['M'])} / {_fv(s['D'])} / {_fv(s['K'])} / {_fv(s['X'])}")
     print(f"Pattern: {s['pattern']}  Leading: {s['leading_channel']}  Direction: {s['direction']}")
     print()
 

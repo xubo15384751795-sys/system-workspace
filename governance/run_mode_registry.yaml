@@ -1,0 +1,133 @@
+schema_version: run_mode.v1
+created: "2026-06-17"
+purpose: >
+  Defines work cycle modes for the system.  Each mode specifies what the
+  system does, how long it takes, and what artifacts it produces.
+  Referenced by: scripts/run_work_cycle.py, governance/opencode_supervisor_policy.yaml
+
+modes:
+  quick_reaction:
+    purpose: >
+      Read current artifacts, generate reaction brief, signal card, data gaps,
+      and supervisor check.  No external data refresh.  No pipeline execution.
+      Use after: rule changes, questions, experiments, session starts.
+      Default high-frequency mode — run as often as needed.
+    external_data_refresh: false
+    expected_seconds: 15
+    steps:
+      - build_work_brief
+      - build_signal_card
+      - build_data_gaps
+      - supervisor_check
+    writes:
+      - Output/current/work_brief.md
+      - Output/current/work_brief.json
+      - Output/current/signal_card.md
+      - Output/current/signal_card.json
+      - Output/current/data_gaps.md
+      - Output/current/data_gaps.json
+      - Output/current/latest_run_id.txt
+      - Output/runs/{run_id}/run_manifest.json
+      - Output/system_learning/latest/supervisor_check.md
+      - Output/system_learning/latest/supervisor_check.json
+    learning_hub_events:
+      - work_cycle_started
+      - artifact_generated
+      - supervisor_check_completed
+      - work_cycle_completed
+
+  standard_run:
+    purpose: >
+      Run core judgment chain without refreshing external data.
+      Use when: updating framework status, checking judgment consistency.
+    external_data_refresh: false
+    expected_seconds: 120
+    steps:
+      - bridge
+      - quality_validation
+      - judgment
+      - promotion_gate
+      - trade_decision
+      - risk_gate
+      - build_work_brief
+      - build_signal_card
+      - build_data_gaps
+      - supervisor_check
+    writes:
+      - Output/current/framework_output.json
+      - Output/current/status.json
+      - Output/judgment/latest.json
+      - Output/trade_decisions/latest.json
+      - Output/current/work_brief.md
+      - Output/current/work_brief.json
+      - Output/current/signal_card.md
+      - Output/current/signal_card.json
+      - Output/current/data_gaps.md
+      - Output/current/data_gaps.json
+      - Output/current/latest_run_id.txt
+      - Output/runs/{run_id}/run_manifest.json
+      - Output/system_learning/latest/supervisor_check.md
+    learning_hub_events:
+      - work_cycle_started
+      - artifact_generated
+      - module_activity_recorded
+      - supervisor_check_completed
+      - work_cycle_completed
+
+  full_refresh:
+    purpose: >
+      Full pipeline refresh including Harvester data acquisition.
+      Use when: data is stale, new evidence release needed.
+    external_data_refresh: true
+    expected_seconds: 600
+    steps:
+      - all_daily_pipeline_steps
+      - build_work_brief
+      - build_signal_card
+      - build_data_gaps
+      - supervisor_check
+    writes:
+      - all_daily_pipeline_outputs
+      - Output/current/work_brief.md
+      - Output/current/work_brief.json
+      - Output/current/signal_card.md
+      - Output/current/signal_card.json
+      - Output/current/data_gaps.md
+      - Output/current/data_gaps.json
+      - Output/current/latest_run_id.txt
+      - Output/runs/{run_id}/run_manifest.json
+      - Output/system_learning/latest/supervisor_check.md
+    learning_hub_events:
+      - work_cycle_started
+      - data_request_created
+      - artifact_generated
+      - module_activity_recorded
+      - supervisor_check_completed
+      - work_cycle_completed
+
+# ── Work Brief Required Sections ────────────────────────────────────────────
+work_brief_sections:
+  - id: current_reaction
+    question: "当前系统反应是什么？"
+    required: true
+  - id: evidence_basis
+    question: "依据是什么？"
+    required: true
+  - id: contributing_factors
+    question: "哪些因素贡献最大？"
+    required: true
+  - id: upgrade_blockers
+    question: "为什么不能升级判断？"
+    required: true
+  - id: data_requests
+    question: "有哪些 Harvester 数据请求？"
+    required: false
+  - id: active_modules
+    question: "哪些模块本次实际工作了？"
+    required: true
+  - id: learning_hub_feedback
+    question: "哪些输出进入 Learning Hub 反馈？"
+    required: false
+  - id: human_review_items
+    question: "哪些事项需要人类 review？"
+    required: false

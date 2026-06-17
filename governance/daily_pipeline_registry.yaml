@@ -1,5 +1,16 @@
 schema_version: daily_pipeline_registry.v2
 updated_at: '2026-06-17'
+# Known external inputs — paths consumed by steps but not produced by any
+# prior step.  These are sourced from Harvester, CaseLab, or manual imports.
+external_inputs:
+  - external_providers
+  - Data/panels/cross_asset_daily_panel.parquet
+  - caselab_context/
+  - caselab_runtime/
+  - governance/operator_registry.yaml
+  - governance/
+  - scripts/
+  - "Structural Deformation Research System/src/"
 steps:
   harvester:
     order: 1
@@ -100,7 +111,7 @@ steps:
     owner: Harvester
     command: python scripts/horizon_event_adapter.py --sample
     input: &id007
-    - Data/horvester/exports/latest/
+    - Data/harvester/exports/latest/
     produces: &id008
     - Data/horizon_events/
     artifact_path: Data/horizon_events/

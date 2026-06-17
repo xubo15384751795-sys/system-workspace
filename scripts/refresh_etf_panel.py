@@ -11,7 +11,6 @@ Usage:
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -38,20 +37,23 @@ def check_panel() -> None:
 
 
 def update_k_features():
-    """Re-run K feature computation."""
-    sys.path.insert(0, str(ROOT / "scripts"))
-    # Import and run
+    """Re-run K feature computation via importlib (no exec fallback)."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("k_features", str(ROOT / "scripts" / "k_features_from_etf.py"))
+
+    script_path = ROOT / "scripts" / "k_features_from_etf.py"
+    if not script_path.exists():
+        raise FileNotFoundError(f"K features script not found: {script_path}")
+
+    spec = importlib.util.spec_from_file_location("k_features", str(script_path))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    # The script runs on import if __name__ == "__main__"
-    # Call the main function directly
-    if hasattr(mod, "main"):
-        mod.main()
-    else:
-        # Re-run the script
-        exec(open(ROOT / "scripts" / "k_features_from_etf.py").read())
+
+    if not hasattr(mod, "main"):
+        raise AttributeError(
+            f"{script_path} has no main() function — "
+            "cannot call via importlib.  Add main() to the script."
+        )
+    mod.main()
 
 
 if __name__ == "__main__":

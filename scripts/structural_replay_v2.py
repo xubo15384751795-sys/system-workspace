@@ -30,9 +30,9 @@ import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WORKBENCH_SRC = REPO_ROOT / "Workbench" / "src"
-if str(WORKBENCH_SRC) not in sys.path:
-    sys.path.insert(0, str(WORKBENCH_SRC))
+from _workspace_imports import add_workbench_src, add_framework_src
+add_workbench_src()
+add_framework_src()
 
 from workbench.governance.report_gate import validate_report_verdict
 from workbench.governance.semantic import SemanticRegistry, build_sigma_vector
@@ -212,7 +212,18 @@ def load_official_panel(panel_path: Path) -> pd.DataFrame:
 # CHANNELS for backward compatibility (audit, downstream code) but every proxy
 # pointed at them is marked canonical_status='extension_beyond_canonical', so
 # they evaluate to NaN under the canonical voting rule.
-CHANNELS = ["M", "D_contraction", "K", "X_agg", "X_PRE", "X_REALIZED", "Pi_t"]
+from replay.scoring import (  # noqa: E402
+    CHANNELS,
+    compute_family_concentration,
+    compute_derivative_contamination,
+    compute_sparsity_flags,
+    compute_horizon_consistency,
+    compute_realized_activation_quality,
+    compute_contract_violations,
+    compute_pc1_variance,
+    compute_vif,
+    compute_residual_uniqueness,
+)
 
 
 # Known data gaps that limit the proxy registry. These are not measurement-
@@ -1984,8 +1995,8 @@ def audit_measurement_layers(
     family_concentration = compute_family_concentration(voting)
     derivative_contamination = compute_derivative_contamination(channels)
     sparsity_flag = compute_sparsity_flags(channels, registry_rows)
-    contract_violations = compute_contract_violations(registry_rows)
-    horizon_consistency = compute_horizon_consistency(registry_rows)
+    contract_violations = compute_contract_violations(registry_rows, VARIABLES)
+    horizon_consistency = compute_horizon_consistency(registry_rows, VARIABLES)
 
     # ── 6) Build warnings (v2: tier-aware severity) ─────────────────────────
     warnings: list[str] = []
@@ -2104,386 +2115,9 @@ def audit_measurement_layers(
     }
 
 
-def compute_family_concentration(voting_rows: list[dict]) -> dict[str, dict[str, float]]:
-    """Per-variable share of (core+aux) proxies coming from each raw_family.
 
-    A variable whose proxies all come from one family has no sourcing diversity
-    even if its proxies look numerous. Returns {}-shaped dict per channel.
-    """
-    counters: dict[str, dict[str, int]] = {ch: {} for ch in CHANNELS}
-    for row in voting_rows:
-        ch = row["target_variable"]
-        fam = row.get("raw_family", "UNKNOWN")
-        if ch not in counters:
-            continue
-        counters[ch][fam] = counters[ch].get(fam, 0) + 1
-    out: dict[str, dict[str, float]] = {}
-    for ch, fams in counters.items():
-        total = sum(fams.values())
-        if total == 0:
-            out[ch] = {}
-        else:
-            out[ch] = {fam: round(n / total, 3) for fam, n in fams.items()}
-    return out
-
-
-def compute_derivative_contamination(channels: pd.DataFrame) -> list[dict]:
-    """Check whether one channel is ≈ a finite-difference derivative of another.
-
-    For each ordered pair (ch1, ch2) and order in {1, 2}, compute
-    corr(channels[ch1], abs( channels[ch2].diff(periods=order) )) on the
-    overlap window and flag if it exceeds 0.45.
-
-    This catches K = Δ²(D) style relationships even when raw families differ.
-    """
-    findings: list[dict] = []
-    for ch1 in CHANNELS:
-        for ch2 in CHANNELS:
-            if ch1 == ch2:
-                continue
-            for order in (1, 2):
-                src = channels[ch2].diff(order).abs()
-                joint = pd.concat([channels[ch1], src], axis=1).dropna()
-                if len(joint) < 252:
-                    continue
-                corr = float(joint.iloc[:, 0].corr(joint.iloc[:, 1]))
-                if abs(corr) > 0.45:
-                    findings.append({
-                        "channel": ch1,
-                        "source": ch2,
-                        "order": order,
-                        "correlation": round(corr, 3),
-                    })
-    return findings
-
-
-def compute_sparsity_flags(channels: pd.DataFrame, registry_rows: list[dict]) -> dict[str, dict]:
-    """Flag channels whose statistical independence is sparsity-driven.
-
-    For each channel, compute:
-      - coverage_total: fraction of days with non-NaN channel value
-      - non_zero_coverage: fraction of (covered) days with |z| > 0.1
-      - flag: True iff non_zero_coverage < 0.20 (i.e. mostly silent)
-    """
-    out: dict[str, dict] = {}
-    for ch in CHANNELS:
-        if ch not in channels.columns:
-            out[ch] = {"non_zero_coverage": 0.0, "false_independence": False}
-            continue
-        s = channels[ch]
-        covered = s.notna()
-        total = int(covered.sum())
-        if total == 0:
-            out[ch] = {"non_zero_coverage": 0.0, "false_independence": False}
-            continue
-        non_zero = (s.abs() > 0.1) & covered
-        non_zero_cov = float(non_zero.sum() / total)
-        out[ch] = {
-            "covered_days": total,
-            "non_zero_coverage": round(non_zero_cov, 3),
-            "false_independence": non_zero_cov < 0.20,
-        }
-    return out
-
-
-def compute_horizon_consistency(registry_rows: list[dict]) -> dict:
-    """Per-variable horizon distribution + warning if mixed-frequency aggregation.
-
-    A channel whose voting proxies span multiple frequencies (daily + weekly +
-    monthly) implicitly weights spec contributions unevenly along the time
-    axis: a daily proxy contributes a fresh value every business day, a
-    weekly proxy contributes the same value 5x, a monthly proxy 21x. Simple-
-    mean aggregation thus over-weights low-frequency specs in information-
-    per-unit-time terms.
-
-    A variable can legitimately span horizons (X_REALIZED's OFFICIAL+MARKET
-    design needs both sparse and daily); these declare expected_freq='mixed'
-    and are not flagged. Variables with a single nominal expected_freq that
-    accumulate cross-horizon proxies via fallback (K daily OAS + monthly
-    BAA10YM) are flagged so the operator knows the channel value is a
-    cross-frequency mix.
-    """
-    import collections as _coll
-    out: dict[str, dict] = {}
-    for ch in CHANNELS:
-        voting = [
-            r for r in registry_rows
-            if r.get("target_variable") == ch
-            and r.get("tier") in ("core", "auxiliary")
-            and r.get("available")
-        ]
-        if not voting:
-            out[ch] = {"horizons": {}, "n_freq_classes": 0, "warning": False}
-            continue
-        freq_counter = _coll.Counter(r.get("freq", "unknown") for r in voting)
-        n_classes = len(freq_counter)
-        var = VARIABLES.get(ch)
-        legitimately_mixed = bool(var and var.expected_freq == "mixed")
-        # Mixing primary expected_freq with declared historical_fallback_freqs
-        # is a legitimate design choice (e.g. K daily OAS + monthly BAA10YM).
-        accepted = set()
-        if var:
-            accepted.add(var.expected_freq)
-            accepted.update(var.historical_fallback_freqs)
-        observed = set(freq_counter)
-        within_contract = bool(accepted) and observed.issubset(accepted)
-        warn = (n_classes > 1) and (not legitimately_mixed) and (not within_contract)
-        out[ch] = {
-            "horizons": dict(freq_counter),
-            "n_freq_classes": n_classes,
-            "expected_freq": var.expected_freq if var else None,
-            "accepted_fallback_freqs": list(var.historical_fallback_freqs) if var else [],
-            "legitimately_mixed": legitimately_mixed,
-            "within_fallback_contract": within_contract,
-            "warning": warn,
-        }
-    return out
-
-
-def compute_realized_activation_quality(
-    channels: pd.DataFrame,
-    components: pd.DataFrame,
-    registry_rows: list[dict],
-    events: list[dict],
-    thresholds: dict[str, dict[str, float]],
-) -> dict:
-    """Activation-quality audit for X_REALIZED.
-
-    Per your Phase 4 brief: don't only look at correlation. Ask:
-      activation_recall   — in events that did force realization
-                            (rescue OR market jump), did X_REALIZED fire?
-      false_activation_rate — outside any known event window, how often
-                              does X_REALIZED still cross its warning?
-      first_trigger_lead — for events that did fire, how many days
-                            before peak did the first trigger occur?
-      sub_family_split   — within X_REALIZED, what share of activation
-                            came from OFFICIAL (H41_RESCUE) vs MARKET
-                            (VIX_JUMP / OAS_JUMP)?
-
-    Activation = X_REALIZED z >= warning threshold.
-    """
-    if "X_REALIZED" not in channels.columns:
-        return {}
-    x = channels["X_REALIZED"]
-    warn = thresholds.get("X_REALIZED", {}).get("warning", 1.0)
-    critical = thresholds.get("X_REALIZED", {}).get("critical", 1.5)
-
-    per_event: list[dict] = []
-    for ev in events:
-        peak = pd.Timestamp(ev["peak"])
-        win_start = peak - pd.Timedelta(days=120)
-        win_end = peak + pd.Timedelta(days=30)
-        window = x[(x.index >= win_start) & (x.index <= win_end)]
-        valid_window = window.dropna()
-        if valid_window.empty:
-            per_event.append({
-                "event_id": ev["id"],
-                "event_name": ev["name"],
-                "activated": None,
-                "reason": "no_data",
-            })
-            continue
-        triggered = valid_window[valid_window >= warn]
-        activated = bool(not triggered.empty)
-        first_lead = None
-        peak_val = None
-        if activated:
-            first_lead = int((triggered.index[0] - peak).days)
-            peak_val = float(valid_window.max())
-        per_event.append({
-            "event_id": ev["id"],
-            "event_name": ev["name"],
-            "activated": activated,
-            "first_trigger_lead_days": first_lead,
-            "peak_window_max": peak_val,
-        })
-
-    n_with_data = sum(1 for e in per_event if e["activated"] is not None)
-    n_activated = sum(1 for e in per_event if e["activated"])
-    recall = (n_activated / n_with_data) if n_with_data else 0.0
-
-    # False-activation rates over calm days (outside any STRESS_EVENTS pre→post
-    # window). We report at BOTH warning and critical thresholds:
-    #   warning (90th pctile): inclusive — minor market shocks not on the
-    #                          STRESS_EVENTS list (e.g. Asian crisis 1997,
-    #                          Russia 1998 outside the official LTCM window,
-    #                          WorldCom 2002, Brexit 2016) trigger here. A
-    #                          high warning false_rate often means the event
-    #                          list is incomplete, not that the channel is
-    #                          mis-firing.
-    #   critical (95th pctile): semantic — "true" forced-realization-grade
-    #                           activation. False rate at critical is the
-    #                           more honest measurement of channel quality.
-    in_event = pd.Series(False, index=x.index)
-    for ev in events:
-        e_start = pd.Timestamp(ev["pre_start"])
-        e_end = pd.Timestamp(ev["post_end"])
-        in_event |= (x.index >= e_start) & (x.index <= e_end)
-    calm_idx = (~in_event) & x.notna()
-    calm_days = int(calm_idx.sum())
-    calm_activated_warn = int(((x >= warn) & calm_idx).sum())
-    calm_activated_crit = int(((x >= critical) & calm_idx).sum())
-    false_rate_warn = (calm_activated_warn / calm_days) if calm_days else 0.0
-    false_rate_crit = (calm_activated_crit / calm_days) if calm_days else 0.0
-    # Default `false_activation_rate` reports the critical-threshold rate so
-    # cross-Phase comparisons are not contaminated by threshold drift.
-    calm_activated = calm_activated_crit
-    false_rate = false_rate_crit
-
-    # Sub-family split: where does activation come from?
-    family_for_spec = {
-        r["name"]: r.get("raw_family", "UNKNOWN")
-        for r in registry_rows
-        if r.get("target_variable") == "X_REALIZED"
-        and r.get("tier") in ("core", "auxiliary")
-        and r.get("available")
-    }
-    sub_aggregates: dict[str, dict] = {}
-    for fam in set(family_for_spec.values()):
-        cols = [name for name, f in family_for_spec.items() if f == fam and name in components.columns]
-        if not cols:
-            continue
-        sub = components[cols].mean(axis=1, skipna=True)
-        valid_count = int(sub.notna().sum())
-        active_count = int((sub >= warn).sum())
-        in_event_mask = in_event.reindex(sub.index, fill_value=False)
-        active_in_event = int(((sub >= warn) & in_event_mask).sum())
-        active_calm = int(((sub >= warn) & ~in_event_mask & sub.notna()).sum())
-        sub_aggregates[fam] = {
-            "n_voting_proxies": len(cols),
-            "voting_proxies": cols,
-            "valid_days": valid_count,
-            "active_days_total": active_count,
-            "active_days_in_event_window": active_in_event,
-            "active_days_calm": active_calm,
-        }
-
-    return {
-        "warning_threshold": float(warn),
-        "critical_threshold": float(critical),
-        "events_with_data": n_with_data,
-        "events_activated": n_activated,
-        "activation_recall": round(recall, 3),
-        "false_activation_rate": round(false_rate, 4),
-        "false_activation_rate_at_warning": round(false_rate_warn, 4),
-        "false_activation_rate_at_critical": round(false_rate_crit, 4),
-        "calm_days": calm_days,
-        "calm_activated_days": calm_activated,
-        "calm_activated_at_warning": calm_activated_warn,
-        "calm_activated_at_critical": calm_activated_crit,
-        "per_event": per_event,
-        "sub_family_split": sub_aggregates,
-    }
-
-
-def compute_contract_violations(registry_rows: list[dict]) -> list[dict]:
-    """Compare each available core proxy's freq to its variable's expected_freq.
-
-    Rules:
-      daily       → accepts daily core only.
-      weekly      → accepts weekly or daily core.
-      monthly     → accepts monthly, weekly, or daily core.
-      sparse      → accepts sparse core only.
-      mixed       → accepts any (sparse + daily/weekly OK by design;
-                     used for variables with multi-mode activation logic
-                     such as X_REALIZED = OFFICIAL (sparse) ∪ MARKET (daily)).
-    """
-    violations: list[dict] = []
-    rank = {"daily": 3, "weekly": 2, "monthly": 1, "sparse": 0, "mixed": -1}
-    for row in registry_rows:
-        if not row.get("available"):
-            continue
-        if row.get("tier") != "core":
-            continue
-        var = VARIABLES.get(row["target_variable"])
-        if var is None:
-            continue
-        actual = row.get("freq")
-        expected = var.expected_freq
-        if expected == "mixed":
-            ok = True
-        elif expected == "sparse":
-            ok = actual == "sparse"
-        else:
-            ok = actual != "sparse" and rank.get(actual, -1) >= rank.get(expected, -1)
-        if not ok:
-            violations.append({
-                "variable": row["target_variable"],
-                "expected_freq": expected,
-                "proxy": row["name"],
-                "actual_freq": actual,
-            })
-    return violations
-
-
-def compute_pc1_variance(channels: pd.DataFrame) -> float:
-    clean = channels[CHANNELS].dropna(how="any")
-    if len(clean) < 252 or clean.shape[1] < 2:
-        return 0.0
-    x = clean - clean.mean()
-    cov = np.cov(x.to_numpy(), rowvar=False)
-    eigvals = np.linalg.eigvalsh(cov)
-    total = eigvals.sum()
-    if total <= 0:
-        return 0.0
-    return float(eigvals.max() / total)
-
-
-def compute_vif(channels: pd.DataFrame) -> dict[str, float]:
-    # Only compute VIF for channels that actually have data.
-    active_channels = [ch for ch in CHANNELS if ch in channels.columns and channels[ch].notna().any()]
-    if len(active_channels) < 2:
-        return {ch: 0.0 for ch in CHANNELS}
-    clean = channels[active_channels].dropna(how="any")
-    result: dict[str, float] = {}
-    if len(clean) < 252:
-        return {ch: 0.0 for ch in CHANNELS}
-    for ch in active_channels:
-        y = clean[ch].to_numpy()
-        others = [c for c in active_channels if c != ch]
-        x = clean[others].to_numpy()
-        x = np.column_stack([np.ones(len(x)), x])
-        beta, *_ = np.linalg.lstsq(x, y, rcond=None)
-        pred = x @ beta
-        ss_res = float(((y - pred) ** 2).sum())
-        ss_tot = float(((y - y.mean()) ** 2).sum())
-        r2 = 0.0 if ss_tot == 0 else max(0.0, min(0.999, 1 - ss_res / ss_tot))
-        result[ch] = float(1 / (1 - r2))
-    # Fill inactive channels with 0.0
-    for ch in CHANNELS:
-        result.setdefault(ch, 0.0)
-    return result
-
-
-def compute_residual_uniqueness(channels: pd.DataFrame, panel: pd.DataFrame) -> dict[str, float]:
-    # Only compute for channels that actually have data.
-    active_channels = [ch for ch in CHANNELS if ch in channels.columns and channels[ch].notna().any()]
-    if len(active_channels) < 2:
-        return {ch: 0.0 for ch in CHANNELS}
-    data = channels[active_channels].copy()
-    vix = _series(panel, "FRED:VIXCLS")
-    if vix is not None:
-        data["VIX_control"] = _rolling_zscore(vix)
-    clean = data.dropna(how="any")
-    result: dict[str, float] = {}
-    if len(clean) < 252:
-        return {ch: 0.0 for ch in CHANNELS}
-    for ch in active_channels:
-        y = clean[ch].to_numpy()
-        controls = [c for c in clean.columns if c != ch]
-        x = clean[controls].to_numpy()
-        x = np.column_stack([np.ones(len(x)), x])
-        beta, *_ = np.linalg.lstsq(x, y, rcond=None)
-        pred = x @ beta
-        ss_res = float(((y - pred) ** 2).sum())
-        ss_tot = float(((y - y.mean()) ** 2).sum())
-        r2 = 0.0 if ss_tot == 0 else max(0.0, min(1.0, 1 - ss_res / ss_tot))
-        result[ch] = float(max(0.0, 1 - r2))
-    # Fill inactive channels with 0.0
-    for ch in CHANNELS:
-        result.setdefault(ch, 0.0)
-    return result
-
+# compute_* functions moved to replay/scoring.py
+# Import: from replay.scoring import compute_family_concentration, ...
 
 # ── Benchmark Signals ────────────────────────────────────────────────────────
 

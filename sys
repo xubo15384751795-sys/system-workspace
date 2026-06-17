@@ -101,6 +101,16 @@ case "$cmd" in
     shift || true
     python3 "$ROOT/scripts/framework_cli.py" "$@"
     ;;
+  work)
+    python3 "$ROOT/scripts/run_work_cycle.py" --mode quick
+    ;;
+  work-cycle)
+    shift || true
+    python3 "$ROOT/scripts/run_work_cycle.py" "$@"
+    ;;
+  supervisor)
+    python3 "$ROOT/scripts/run_supervisor_check.py"
+    ;;
   *)
     echo "Usage:"
     echo "  ./sys check     Show current risk check"
@@ -117,6 +127,9 @@ case "$cmd" in
     echo "  ./sys learning  Alias for next"
     echo "  ./sys report    Open latest HTML report"
     echo "  ./sys status    Show workspace subsystem status"
+    echo "  ./sys work      Run quick work cycle"
+    echo "  ./sys work-cycle [--mode quick|standard|full]  Run work cycle"
+    echo "  ./sys supervisor  Run supervisor self-audit"
     echo "  ./sys framework list|register|unregister  Manage analysis frameworks"
     exit 1
     ;; 

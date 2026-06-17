@@ -1,0 +1,135 @@
+schema_version: pipeline_test_baseline.v1
+created: "2026-06-17"
+purpose: >
+  Defines the pipeline governance test baseline — the minimum test suite that
+  must pass before any pipeline, registry, or artifact change is accepted.
+  Also connects test passage to trust credit in incentive_policy.yaml.
+  Referenced by: incentive_policy.yaml, deferred_work_register.yaml
+
+# ── Test Baseline Status ─────────────────────────────────────────────────────
+baseline_status: COMPLETE
+total_tests: 77
+last_verified: "2026-06-17"
+layers:
+  - name: io_contract
+    file: tests/test_daily_pipeline_io_contract.py
+    tests: 6
+    description: "Registry metadata, path traceability, blocked/experimental isolation"
+    priority: P0
+    status: complete
+
+  - name: artifact_chain
+    file: tests/test_current_artifact_chain.py
+    tests: 18
+    description: "Output schema, date consistency, judgment/status cross-validation"
+    priority: P1
+    status: complete
+
+  - name: refresh_bundle
+    file: tests/test_current_refresh_bundle.py
+    tests: 6
+    description: "Current refresh atomicity — bundle artifacts must share dates"
+    priority: P0
+    status: complete
+
+  - name: failure_behavior
+    file: tests/test_daily_pipeline_failure_behavior.py
+    tests: 14
+    description: "Harvester/framework/promotion failure propagation chains"
+    priority: P1
+    status: complete
+
+  - name: subprocess_smoke
+    file: tests/test_daily_pipeline_subprocess_smoke.py
+    tests: 26
+    description: "Main chain script existence, --help, ordering, artifact paths"
+    priority: P2
+    status: complete
+
+  - name: registry_consistency
+    file: tests/test_daily_pipeline_registry.py
+    tests: 7
+    description: "daily_run ↔ registry alignment, schema version, owner checks"
+    priority: P0
+    status: complete
+
+  - name: callable_e2e
+    file: tests/test_daily_pipeline_callable_e2e.py
+    tests: 0
+    description: "Direct import step.run(context) E2E"
+    priority: P3
+    status: deferred
+    blocked_by: pipeline_runner_import_migration
+
+# ── Acceptance Criteria ──────────────────────────────────────────────────────
+# Any pipeline/registry/artifact change must pass this before merge.
+acceptance:
+  command: |
+    python3 -m pytest \
+      tests/test_daily_pipeline_io_contract.py \
+      tests/test_current_artifact_chain.py \
+      tests/test_current_refresh_bundle.py \
+      tests/test_daily_pipeline_failure_behavior.py \
+      tests/test_daily_pipeline_subprocess_smoke.py \
+      tests/test_daily_pipeline_registry.py \
+      -q
+  expected: "77 passed"
+  timeout_seconds: 30
+  notes: >
+    This is the minimum acceptance gate.  Callable E2E (P3) will be added
+    when pipeline runner supports module callable mode.
+
+# ── Trust Credit Integration ─────────────────────────────────────────────────
+# Maps test passage to incentive_policy.yaml credit_sources.
+trust_credits:
+  - source: pipeline_io_contract_pass
+    points: 2
+    rule: >
+      Step, artifact, or data path passes all IO contract tests
+      (test_daily_pipeline_io_contract.py).  Registry metadata is complete,
+      path is traceable, failure_behavior declared.
+    promotes_to: registered
+    applies_to: [step, artifact_path, data_path]
+
+  - source: artifact_chain_pass
+    points: 2
+    rule: >
+      Artifact passes all semantic chain tests
+      (test_current_artifact_chain.py).  Schema valid, dates consistent,
+      cross-references resolve.
+    promotes_to: preferred
+    applies_to: [artifact]
+
+  - source: refresh_bundle_pass
+    points: 3
+    rule: >
+      Artifact is part of the current refresh bundle and all bundle dates
+      are consistent (test_current_refresh_bundle.py).
+    promotes_to: preferred
+    applies_to: [artifact]
+
+  - source: failure_behavior_pass
+    points: 3
+    rule: >
+      Step's failure_behavior is structurally verified — blocks/degrades
+      correctly when upstream fails (test_daily_pipeline_failure_behavior.py).
+    promotes_to: canonical_candidate
+    applies_to: [step]
+
+  - source: subprocess_smoke_pass
+    points: 1
+    rule: >
+      Script exists, responds to --help, has main() entry point, and
+      registry declares correct artifact_path
+      (test_daily_pipeline_subprocess_smoke.py).
+    promotes_to: registered
+    applies_to: [script, step]
+
+  - source: full_baseline_pass
+    points: 5
+    rule: >
+      All 77 baseline tests pass.  This is the highest non-operational
+      trust signal — the step/artifact is part of a fully verified
+      governance chain.
+    promotes_to: canonical_candidate
+    applies_to: [step, artifact, module]

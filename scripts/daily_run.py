@@ -5,11 +5,17 @@ Usage:
     python3 scripts/daily_run.py              # full run
     python3 scripts/daily_run.py --skip-harvester  # skip data fetch
     python3 scripts/daily_run.py --dry-run    # print plan, don't execute
+    python3 scripts/daily_run.py --output-root /tmp/test_run  # isolate output
 
 Output:
+    Output/runs/{run_id}/            — atomic run bundle (new)
     Output/runtime_events/YYYY-MM-DD.jsonl
     Output/alerts/latest_alert.md
     Output/alerts/latest_alert.json
+
+Environment:
+    DAILY_OUTPUT_ROOT  — alternative to --output-root; scripts that opt-in
+                         use this to redirect their output directory.
 """
 from __future__ import annotations
 
@@ -24,6 +30,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_DIR = ROOT / "Output" / "runtime_events"
 ALERT_DIR = ROOT / "Output" / "alerts"
+
+# RunBundle integration — use auditable path management
+from _workspace_imports import add_scripts
+add_scripts()
+from run_bundle import RunBundle
 
 # Total steps in the pipeline
 TOTAL_STEPS = 24
@@ -113,18 +124,20 @@ def check_warnings() -> list[str]:
     return warnings
 
 
-def write_runtime_event(event: dict) -> None:
+def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
     """Append event to daily JSONL log."""
-    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    runtime_dir = output_root / "runtime_events" if output_root else RUNTIME_DIR
+    runtime_dir.mkdir(parents=True, exist_ok=True)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    path = RUNTIME_DIR / f"{today}.jsonl"
+    path = runtime_dir / f"{today}.jsonl"
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(event, default=str, ensure_ascii=False) + "\n")
 
 
-def write_alert(warnings: list[str], steps: list[dict]) -> None:
+def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None = None) -> None:
     """Write alert files."""
-    ALERT_DIR.mkdir(parents=True, exist_ok=True)
+    alert_dir = output_root / "alerts" if output_root else ALERT_DIR
+    alert_dir.mkdir(parents=True, exist_ok=True)
     now = datetime.now(UTC).isoformat()
     failed_steps = [s for s in steps if s.get("status") != "success"]
 
@@ -140,7 +153,7 @@ def write_alert(warnings: list[str], steps: list[dict]) -> None:
         ),
     }
 
-    (ALERT_DIR / "latest_alert.json").write_text(
+    (alert_dir / "latest_alert.json").write_text(
         json.dumps(alert, indent=2, default=str), encoding="utf-8"
     )
 
@@ -163,7 +176,7 @@ def write_alert(warnings: list[str], steps: list[dict]) -> None:
             lines.append(f"- {w}")
         lines.append("")
 
-    (ALERT_DIR / "latest_alert.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (alert_dir / "latest_alert.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -172,10 +185,26 @@ def main() -> None:
     parser.add_argument("--skip-harvester", action="store_true")
     parser.add_argument("--skip-etf", action="store_true", help="Skip ETF panel refresh step")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--output-root", type=str, default=None,
+        help="Redirect Output/ under this root (for test isolation). "
+             "Sets DAILY_OUTPUT_ROOT env for child scripts.",
+    )
     args = parser.parse_args()
+
+    # Resolve output root — default is ROOT/Output, override for test isolation
+    output_root = Path(args.output_root) if args.output_root else ROOT / "Output"
+    if args.output_root:
+        output_root.mkdir(parents=True, exist_ok=True)
+        os.environ["DAILY_OUTPUT_ROOT"] = str(output_root)
 
     start_time = datetime.now(UTC)
     print(f"=== Daily Run — {start_time.strftime('%Y-%m-%d %H:%M')} ===")
+
+    # Start run bundle — atomic record of this execution
+    # Always use ROOT for bundle location (bundles live in Output/runs/, not test output root)
+    bundle = RunBundle.start(mode="daily_pipeline")
+    print(f"  Run bundle: {bundle.run_id}")
 
     if args.dry_run:
         print("DRY RUN — would execute:")
@@ -211,10 +240,20 @@ def main() -> None:
 
     steps = []
 
+    def _record(step_result: dict) -> None:
+        """Record step into both local list and run bundle."""
+        steps.append(step_result)
+        bundle.record_step(
+            name=step_result["step"],
+            status=step_result.get("status", "unknown"),
+            duration_s=step_result.get("duration_s", 0),
+            returncode=step_result.get("returncode", 0),
+        )
+
     # Step 1: Harvester
     if not args.skip_harvester:
         print(f"[1/{TOTAL_STEPS}] Running Harvester...")
-        steps.append(run_step("harvester", [sys.executable, "-m", "harvester", "daily-release"]))
+        _record(run_step("harvester", [sys.executable, "-m", "harvester", "daily-release"]))
     else:
         print(f"[1/{TOTAL_STEPS}] Skipping Harvester (--skip-harvester)")
 
@@ -223,7 +262,7 @@ def main() -> None:
         print(f"[2/{TOTAL_STEPS}] Refreshing ETF panel...")
         etf_script = ROOT / "scripts" / "refresh_etf_panel.py"
         if etf_script.exists():
-            steps.append(run_step("etf_refresh", [sys.executable, str(etf_script)]))
+            _record(run_step("etf_refresh", [sys.executable, str(etf_script)]))
     else:
         print(f"[2/{TOTAL_STEPS}] Skipping ETF refresh (--skip-etf)")
 
@@ -231,13 +270,13 @@ def main() -> None:
     print(f"[3/{TOTAL_STEPS}] Syncing Paper world model...")
     paper_sync_script = ROOT / "scripts" / "sync_paper_world_model.py"
     if paper_sync_script.exists():
-        steps.append(run_step("paper_sync", [sys.executable, str(paper_sync_script)]))
+        _record(run_step("paper_sync", [sys.executable, str(paper_sync_script)]))
 
     # Step 4: Horizon event adapter
     print(f"[4/{TOTAL_STEPS}] Running Horizon event adapter...")
     horizon_script = ROOT / "scripts" / "horizon_event_adapter.py"
     if horizon_script.exists():
-        steps.append(run_step("horizon_events", [sys.executable, str(horizon_script), "--sample"]))
+        _record(run_step("horizon_events", [sys.executable, str(horizon_script), "--sample"]))
 
     # Step 5: Structural Replay
     print(f"[5/{TOTAL_STEPS}] Running Structural Replay...")
@@ -258,157 +297,196 @@ def main() -> None:
         f"panel.path={bp_path}",
         f"run.tag=daily_{datetime.now(UTC).strftime('%Y%m%d')}",
     ]
-    steps.append(run_step("structural_replay", replay_cmd))
+    _record(run_step("structural_replay", replay_cmd))
 
     # Step 6: Bridge
     print(f"[6/{TOTAL_STEPS}] Running Bridge...")
-    steps.append(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
+    _record(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
 
     # Step 7: Quality validation
     print(f"[7/{TOTAL_STEPS}] Validating quality fields...")
     quality_script = ROOT / "scripts" / "quality_field_validator.py"
     if quality_script.exists():
-        steps.append(run_step("quality_validation", [sys.executable, str(quality_script)]))
+        _record(run_step("quality_validation", [sys.executable, str(quality_script)]))
 
     # Step 8: HMM / HMM stability
     print(f"[8/{TOTAL_STEPS}] Running HMM regime detection + stability audit...")
-    steps.append(run_step("regime_detection", [
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    _record(run_step("regime_detection", [
         sys.executable, "-c",
         "from pathlib import Path; from ml.regime_detector import detect_regime; "
-        "detect_regime(Path('Data/harvester/exports/latest/data/benchmark_panel.parquet'), "
-        "source_release='daily', source_created_at='" + datetime.now(UTC).strftime("%Y-%m-%d") + "', write=True)",
+        "import json; "
+        "result = detect_regime(Path('Data/harvester/exports/latest/data/benchmark_panel.parquet'), "
+        f"source_release='daily', source_created_at='{today_str}', train_window=756, write=True); "
+        "print(json.dumps({'regime': result['regime']['current'], "
+        "'usable': result['degeneracy']['usable_for_core_judgment'], "
+        "'warnings': result['degeneracy']['warnings']}, indent=2))",
     ], env={"PYTHONPATH": str(ROOT / "Workbench" / "src")}))
     hmm_audit_script = ROOT / "scripts" / "hmm_stability_audit.py"
     if hmm_audit_script.exists():
-        steps.append(run_step("hmm_stability_audit", [sys.executable, str(hmm_audit_script)]))
+        _record(run_step("hmm_stability_audit", [sys.executable, str(hmm_audit_script)]))
 
     # Step 9: K/X gates
     print(f"[9/{TOTAL_STEPS}] Running K/X measurement gates...")
     k_gate_script = ROOT / "scripts" / "k_measurement_gate.py"
     if k_gate_script.exists():
-        steps.append(run_step("k_measurement_gate", [sys.executable, str(k_gate_script)]))
+        _record(run_step("k_measurement_gate", [sys.executable, str(k_gate_script)]))
     x_gate_script = ROOT / "scripts" / "x_measurement_gate.py"
     if x_gate_script.exists():
-        steps.append(run_step("x_measurement_gate", [sys.executable, str(x_gate_script)]))
+        _record(run_step("x_measurement_gate", [sys.executable, str(x_gate_script)]))
 
     # Step 10: CaseLab
     print(f"[10/{TOTAL_STEPS}] Running CaseLab daily signal...")
     caselab_script = ROOT / "scripts" / "caselab_daily_signal.py"
     if caselab_script.exists():
-        steps.append(run_step("caselab_signal", [sys.executable, str(caselab_script), "--json"]))
+        _record(run_step("caselab_signal", [sys.executable, str(caselab_script), "--json"]))
 
     # Step 11: Judgment
     print(f"[11/{TOTAL_STEPS}] Generating judgment card...")
     judgment_script = ROOT / "scripts" / "judgment_layer.py"
     if judgment_script.exists():
-        steps.append(run_step("judgment_layer", [sys.executable, str(judgment_script)]))
+        _record(run_step("judgment_layer", [sys.executable, str(judgment_script)]))
     judgment_audit_script = ROOT / "scripts" / "judgment_replay_audit.py"
     if judgment_audit_script.exists():
-        steps.append(run_step("judgment_replay_audit", [sys.executable, str(judgment_audit_script)]))
+        _record(run_step("judgment_replay_audit", [sys.executable, str(judgment_audit_script)]))
 
     # Step 12: Promotion gate
     print(f"[12/{TOTAL_STEPS}] Running judgment promotion gate...")
     promotion_script = ROOT / "scripts" / "judgment_promotion_gate.py"
     if promotion_script.exists():
-        steps.append(run_step("judgment_promotion_gate", [sys.executable, str(promotion_script)]))
+        _record(run_step("judgment_promotion_gate", [sys.executable, str(promotion_script)]))
 
     # Step 13: Probabilistic context
     print(f"[13/{TOTAL_STEPS}] Generating probabilistic context...")
     prob_script = ROOT / "scripts" / "gluonts_probabilistic_context.py"
     if prob_script.exists():
-        steps.append(run_step("probabilistic_context", [sys.executable, str(prob_script)]))
+        _record(run_step("probabilistic_context", [sys.executable, str(prob_script)]))
 
     # Step 14: Trade decision
     print(f"[14/{TOTAL_STEPS}] Generating trade decision...")
     trade_script = ROOT / "scripts" / "trade_decision_layer.py"
     if trade_script.exists():
-        steps.append(run_step("trade_decision", [sys.executable, str(trade_script)]))
+        _record(run_step("trade_decision", [sys.executable, str(trade_script)]))
 
     # Step 15: Risk gate
     print(f"[15/{TOTAL_STEPS}] Running risk gate...")
     risk_script = ROOT / "scripts" / "trade_risk_gate.py"
     if risk_script.exists():
-        steps.append(run_step("risk_gate", [sys.executable, str(risk_script)]))
+        _record(run_step("risk_gate", [sys.executable, str(risk_script)]))
 
     # Step 16: Record trade decision
     print(f"[16/{TOTAL_STEPS}] Recording trade decision...")
     record_script = ROOT / "scripts" / "record_trade_decision.py"
     if record_script.exists():
-        steps.append(run_step("record_trade_decision", [sys.executable, str(record_script)]))
+        _record(run_step("record_trade_decision", [sys.executable, str(record_script)]))
 
     # Step 17: Market feedback
     print(f"[17/{TOTAL_STEPS}] Generating market feedback...")
     feedback_script = ROOT / "scripts" / "market_feedback.py"
     if feedback_script.exists():
-        steps.append(run_step("market_feedback", [sys.executable, str(feedback_script)]))
+        _record(run_step("market_feedback", [sys.executable, str(feedback_script)]))
 
     # Step 18: Learning comprehensive summary
     print(f"[18/{TOTAL_STEPS}] Generating Learning Hub comprehensive summary...")
     learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
     if learning_summary_script.exists():
-        steps.append(run_step("learning_summary", [sys.executable, str(learning_summary_script)]))
+        _record(run_step("learning_summary", [sys.executable, str(learning_summary_script)]))
     calibration_event_script = ROOT / "scripts" / "learning_hub_judgment_calibration.py"
     if calibration_event_script.exists():
-        steps.append(run_step("judgment_calibration_event", [sys.executable, str(calibration_event_script)]))
+        _record(run_step("judgment_calibration_event", [sys.executable, str(calibration_event_script)]))
     trade_calibration_script = ROOT / "scripts" / "learning_hub_trade_calibration.py"
     if trade_calibration_script.exists():
-        steps.append(run_step("trade_calibration_event", [sys.executable, str(trade_calibration_script)]))
+        _record(run_step("trade_calibration_event", [sys.executable, str(trade_calibration_script)]))
 
     # Step 19: Operator registry audit
     print(f"[19/{TOTAL_STEPS}] Running operator registry audit...")
     operator_audit_script = ROOT / "scripts" / "operator_registry_audit.py"
     if operator_audit_script.exists():
-        steps.append(run_step("operator_registry_audit", [sys.executable, str(operator_audit_script)]))
+        _record(run_step("operator_registry_audit", [sys.executable, str(operator_audit_script)]))
 
     # Step 20: Position sizing layer
     print(f"[20/{TOTAL_STEPS}] Running position sizing layer...")
     position_script = ROOT / "scripts" / "position_sizing_layer.py"
     if position_script.exists():
-        steps.append(run_step("position_sizing", [sys.executable, str(position_script)]))
+        _record(run_step("position_sizing", [sys.executable, str(position_script)]))
 
     # Step 21: Build system index
     print(f"[21/{TOTAL_STEPS}] Building system index...")
     index_script = ROOT / "scripts" / "build_system_index.py"
     if index_script.exists():
-        steps.append(run_step("system_index", [sys.executable, str(index_script)]))
+        _record(run_step("system_index", [sys.executable, str(index_script)]))
 
     # Step 22: Build current README / NEXT_ACTIONS
     print(f"[22/{TOTAL_STEPS}] Generating README and next actions...")
     readme_script = ROOT / "scripts" / "build_readme_first.py"
     if readme_script.exists():
-        steps.append(run_step("readme_first", [sys.executable, str(readme_script)]))
+        _record(run_step("readme_first", [sys.executable, str(readme_script)]))
     next_actions_script = ROOT / "scripts" / "build_next_actions.py"
     if next_actions_script.exists():
-        steps.append(run_step("next_actions", [sys.executable, str(next_actions_script)]))
+        _record(run_step("next_actions", [sys.executable, str(next_actions_script)]))
 
     # Step 23: Freshness validator (after index/README to check their timestamps)
     print(f"[23/{TOTAL_STEPS}] Running freshness validator...")
     freshness_script = ROOT / "scripts" / "freshness_validator.py"
     if freshness_script.exists():
-        steps.append(run_step("freshness_validator", [sys.executable, str(freshness_script)]))
+        _record(run_step("freshness_validator", [sys.executable, str(freshness_script)]))
 
     # Step 24: Architecture reality audit (non-strict daily sensor)
     print(f"[24/{TOTAL_STEPS}] Running architecture reality audit...")
     architecture_audit_script = ROOT / "scripts" / "architecture_reality_audit.py"
     if architecture_audit_script.exists():
-        steps.append(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
+        _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
+
+    # Capture decision + signal traces into bundle
+    _capture_traces(bundle)
+
+    # Auto-generate feedback pending for degenerate signals
+    _collect_feedback_pending(bundle)
+
+    # Record key artifacts into bundle
+    for artifact_rel in [
+        "Output/current/framework_output.json",
+        "Output/current/work_brief.json",
+        "Output/current/signal_card.json",
+        "Output/current/data_gaps.json",
+    ]:
+        artifact = ROOT / artifact_rel
+        if artifact.exists():
+            bundle.record_artifact(artifact)
 
     # Runtime event
     end_time = datetime.now(UTC)
     freshness = check_freshness()
     warnings = check_warnings()
+    run_status = "success" if all(s.get("status") == "success" for s in steps) else "partial_failure"
     event = {
         "run_id": f"daily_{start_time.strftime('%Y%m%d_%H%M')}",
+        "bundle_run_id": bundle.run_id,
         "started_at": start_time.isoformat(),
         "finished_at": end_time.isoformat(),
         "duration_s": round((end_time - start_time).total_seconds(), 1),
-        "status": "success" if all(s.get("status") == "success" for s in steps) else "partial_failure",
+        "status": run_status,
         "steps": steps,
         "warnings": warnings,
         "data_freshness": freshness,
     }
-    write_runtime_event(event)
-    write_alert(warnings, steps)
+    write_runtime_event(event, output_root=output_root if args.output_root else None)
+    write_alert(warnings, steps, output_root=output_root if args.output_root else None)
+
+    # Finish run bundle
+    bundle_dir = bundle.finish(status=run_status)
+    print(f"  Run bundle saved: {bundle_dir}")
+
+    # Symlink decision_trace.json into Output/current/ for easy access
+    dt_src = bundle_dir / "decision_trace.json"
+    dt_dst = ROOT / "Output" / "current" / "decision_trace.json"
+    if dt_src.exists():
+        try:
+            if dt_dst.is_symlink() or dt_dst.exists():
+                dt_dst.unlink()
+            dt_dst.symlink_to(dt_src.resolve())
+        except OSError:
+            pass
 
     # Summary
     print(f"\n=== Summary ===")
@@ -423,6 +501,100 @@ def main() -> None:
             print(f"  ⚠️  {w}")
     else:
         print("No warnings.")
+
+
+def _collect_feedback_pending(bundle: RunBundle) -> None:
+    """Auto-generate feedback_pending items for degenerate or weak signals."""
+    # HMM degeneracy
+    hmm_path = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
+    if hmm_path.exists():
+        try:
+            hmm = json.loads(hmm_path.read_text(encoding="utf-8"))
+            degeneracy = hmm.get("degeneracy", {})
+            if not degeneracy.get("usable_for_core_judgment", True):
+                flags = degeneracy.get("flags", [])
+                warnings = degeneracy.get("warnings", [])
+                bundle.add_feedback_pending(
+                    f"HMM signal degenerate: {', '.join(flags)}",
+                    source="hmm_regime_signal",
+                    validation_type="ml_signal_calibration",
+                    priority="high",
+                )
+                for w in warnings:
+                    bundle.add_feedback_pending(
+                        w,
+                        source="hmm_regime_signal",
+                        validation_type="ml_signal_calibration",
+                        priority="medium",
+                    )
+        except Exception:
+            pass
+
+    # Judgment confidence low
+    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    if judgment_path.exists():
+        try:
+            judgment = json.loads(judgment_path.read_text(encoding="utf-8"))
+            conf_level = (judgment.get("confidence") or {}).get("level", "")
+            if conf_level == "low":
+                reasons = (judgment.get("confidence") or {}).get("reasons", [])[:2]
+                for r in reasons:
+                    bundle.add_feedback_pending(
+                        f"Low confidence: {r}",
+                        source="judgment_layer",
+                        validation_type="judgment_calibration",
+                        priority="medium",
+                    )
+        except Exception:
+            pass
+
+
+def _capture_traces(bundle: RunBundle) -> None:
+    """Capture decision and signal traces from current artifacts."""
+    # Decision trace: judgment + trade
+    for rel in [
+        "Output/judgment/latest.json",
+        "Output/trade_decision/latest.json",
+        "Output/trade_decisions/latest.json",
+    ]:
+        p = ROOT / rel
+        if p.exists():
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                bundle.capture_decision_trace({rel: data})
+            except Exception:
+                pass
+
+    # Signal trace: framework output (sigma vector summary only)
+    fw_path = ROOT / "Output" / "current" / "framework_output.json"
+    if fw_path.exists():
+        try:
+            fw = json.loads(fw_path.read_text(encoding="utf-8"))
+            sv = fw.get("advanced", {}).get("sigma_vector", {})
+            bundle.capture_signal_trace({
+                "source": "framework_output",
+                "framework_status": fw.get("status"),
+                "overall": fw.get("basic", {}).get("overall"),
+                "quality_status": fw.get("basic", {}).get("quality_status"),
+                "sigma_vector": sv,
+                "primary_readout": fw.get("advanced", {}).get("primary_readout"),
+            })
+        except Exception:
+            pass
+
+    # Signal trace: HMM regime signal with degeneracy info
+    hmm_path = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
+    if hmm_path.exists():
+        try:
+            hmm = json.loads(hmm_path.read_text(encoding="utf-8"))
+            bundle.capture_signal_trace({
+                "source": "hmm_regime_signal",
+                "regime": hmm.get("regime", {}),
+                "stability": hmm.get("stability", {}),
+                "degeneracy": hmm.get("degeneracy", {}),
+            })
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

@@ -63,95 +63,6 @@ def _as_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def determine_decision(
-    judgment: dict[str, Any],
-    promotion_gate: dict[str, Any],
-    k_gate: dict[str, Any] | None,
-    x_gate: dict[str, Any] | None,
-    hmm_audit: dict[str, Any] | None,
-    caselab: dict[str, Any] | None,
-    paper_sources: list[dict[str, Any]] | None = None,
-) -> tuple[str, str, str, list[str]]:
-    """Determine trade decision based on all inputs.
-
-    Returns: (decision, confidence, evidence_grade, risk_notes)
-    """
-    risk_notes = []
-
-    # Get judgment confidence
-    conf_level = (judgment.get("confidence") or {}).get("level", "low")
-    claim_ceiling = judgment.get("claim_ceiling", "diagnostic_watch_only")
-
-    # Get gate statuses
-    gate_status = promotion_gate.get("overall_status", "BLOCKED")
-    k_verdict = (k_gate or {}).get("gate_verdict", "UNKNOWN")
-    x_verdict = (x_gate or {}).get("gate_verdict", "UNKNOWN")
-    hmm_grade = (hmm_audit or {}).get("stability_grade", "UNKNOWN")
-    caselab_label = ((caselab or {}).get("match_quality") or {}).get("label", "unknown")
-
-    # Check Paper source quality
-    approved_sources = [s for s in (paper_sources or []) if s.get("review_status") == "approved"]
-    has_approved_paper = len(approved_sources) > 0
-
-    # Default to NO_TRADE
-    decision = "NO_TRADE"
-    confidence = "low"
-    evidence_grade = "D"
-
-    # Check if we can make any decision
-    if gate_status == "BLOCKED":
-        risk_notes.append(f"Promotion gate blocked: {promotion_gate.get('blocking_reasons', [])}")
-        return "NO_TRADE", confidence, evidence_grade, risk_notes
-
-    # Paper quality gate: no approved sources = max WATCH
-    if not has_approved_paper:
-        risk_notes.append("No approved Paper sources - max WATCH")
-        return "WATCH", "low", "D", risk_notes
-
-    # Determine decision based on confidence and gates
-    if conf_level == "low":
-        decision = "WATCH"
-        confidence = "low"
-        evidence_grade = "C"
-        risk_notes.append("Low confidence - watch only")
-    elif conf_level == "medium":
-        # Check if gates allow active decisions
-        if k_verdict == "PASS" and x_verdict == "PASS" and hmm_grade in ("ADEQUATE", "HIGH"):
-            if caselab_label in ("usable", "strong"):
-                decision = "HEDGE"
-                confidence = "medium"
-                evidence_grade = "B"
-            else:
-                decision = "WATCH"
-                confidence = "medium"
-                evidence_grade = "C"
-                risk_notes.append("CaseLab not usable - watch only")
-        else:
-            decision = "WATCH"
-            confidence = "medium"
-            evidence_grade = "C"
-            risk_notes.append(f"K={k_verdict}, X={x_verdict}, HMM={hmm_grade}")
-    elif conf_level == "high":
-        # High confidence requires all gates to pass
-        if k_verdict == "PASS" and x_verdict == "PASS" and hmm_grade == "HIGH":
-            if caselab_label == "strong":
-                decision = "TACTICAL_LONG"
-                confidence = "high"
-                evidence_grade = "A"
-            else:
-                decision = "HEDGE"
-                confidence = "high"
-                evidence_grade = "B"
-                risk_notes.append("CaseLab not strong - hedge only")
-        else:
-            decision = "RISK_REDUCE"
-            confidence = "medium"
-            evidence_grade = "B"
-            risk_notes.append("Gates not fully passing - risk reduce only")
-
-    return decision, confidence, evidence_grade, risk_notes
-
-
 def find_paper_sources(
     caselab: dict[str, Any] | None,
     judgment: dict[str, Any],
@@ -209,134 +120,89 @@ def find_paper_sources(
     return approved_sources, background_sources
 
 
-def build_system_sources(
-    judgment: dict[str, Any],
-    k_gate: dict[str, Any] | None,
-    x_gate: dict[str, Any] | None,
-    hmm_audit: dict[str, Any] | None,
-    caselab: dict[str, Any] | None,
+def _build_system_sources(
+    judgment: dict, k_gate: dict | None, x_gate: dict | None,
+    hmm_audit: dict | None, caselab: dict | None,
 ) -> list[dict[str, Any]]:
-    """Build list of system sources."""
+    """Build list of system sources that informed the decision."""
     sources = []
-
-    # Judgment
-    sources.append({
-        "source_type": "judgment",
-        "source_path": str(JUDGMENT_PATH),
-        "status": judgment.get("decision", "UNKNOWN"),
-        "value": {
-            "decision": judgment.get("decision"),
-            "confidence": (judgment.get("confidence") or {}).get("level"),
-            "claim_ceiling": judgment.get("claim_ceiling"),
-        },
-    })
-
-    # K gate
+    if judgment:
+        sources.append({"source": "judgment_layer", "type": "system", "status": judgment.get("decision", "UNKNOWN")})
     if k_gate:
-        sources.append({
-            "source_type": "k_gate",
-            "source_path": str(K_GATE_PATH),
-            "status": k_gate.get("gate_verdict", "UNKNOWN"),
-            "value": {"verdict": k_gate.get("gate_verdict")},
-        })
-
-    # X gate
+        sources.append({"source": "k_gate", "type": "gate", "status": k_gate.get("verdict", "UNKNOWN")})
     if x_gate:
-        sources.append({
-            "source_type": "x_gate",
-            "source_path": str(X_GATE_PATH),
-            "status": x_gate.get("gate_verdict", "UNKNOWN"),
-            "value": {"verdict": x_gate.get("gate_verdict")},
-        })
-
-    # HMM
+        sources.append({"source": "x_gate", "type": "gate", "status": x_gate.get("verdict", "UNKNOWN")})
     if hmm_audit:
-        sources.append({
-            "source_type": "hmm",
-            "source_path": str(HMM_AUDIT_PATH),
-            "status": hmm_audit.get("stability_grade", "UNKNOWN"),
-            "value": {
-                "stability_grade": hmm_audit.get("stability_grade"),
-                "sample_days": hmm_audit.get("sample_days"),
-            },
-        })
-
-    # CaseLab
+        sources.append({"source": "hmm_stability", "type": "audit", "status": hmm_audit.get("stability_grade", "UNKNOWN")})
     if caselab:
-        sources.append({
-            "source_type": "caselab",
-            "source_path": str(CASELAB_DIR / f"{datetime.now(UTC).strftime('%Y-%m-%d')}.json"),
-            "status": ((caselab or {}).get("match_quality") or {}).get("label", "unknown"),
-            "value": {
-                "top_score": ((caselab or {}).get("match_quality") or {}).get("top_score"),
-                "label": ((caselab or {}).get("match_quality") or {}).get("label"),
-            },
-        })
-
+        sources.append({"source": "caselab", "type": "analogy", "status": caselab.get("label", "UNKNOWN")})
     return sources
 
 
-def build_trade_thesis(
-    decision: str,
-    judgment: dict[str, Any],
-    paper_sources: list[dict[str, Any]],
-    system_sources: list[dict[str, Any]],
+def _build_trade_thesis(
+    decision: str, judgment: dict, approved_sources: list, system_sources: list,
 ) -> dict[str, Any]:
-    """Build trade thesis from decision and sources."""
-    # Get structural state
-    primary = (judgment.get("meaning") or [""])[0] if judgment.get("meaning") else ""
+    """Build trade thesis from decision and supporting evidence."""
+    conf = judgment.get("confidence", {})
+    conf_level = conf.get("level", "unknown") if isinstance(conf, dict) else "unknown"
+    claim = judgment.get("claim_ceiling", "unknown")
+    meaning = judgment.get("meaning", [])
 
-    # Build hypothesis
-    if decision == "NO_TRADE":
-        hypothesis = "No trade opportunity identified based on current evidence."
-    elif decision == "WATCH":
-        hypothesis = "Monitor for setup - evidence insufficient for active position."
-    elif decision == "RISK_REDUCE":
-        hypothesis = "Consider reducing exposure - structural risks elevated."
-    elif decision == "HEDGE":
-        hypothesis = "Add hedging position - moderate risk of adverse move."
-    elif decision in ("TACTICAL_LONG", "TACTICAL_SHORT"):
-        hypothesis = f"Active position warranted - {decision.lower().replace('tactical_', '')} bias."
-    else:
-        hypothesis = "Decision pending further analysis."
-
-    # Build mechanism support
-    mechanism_support = []
-    for source in paper_sources:
-        if source.get("content_type") == "case":
-            mechanism_support.append(f"Case: {source.get('content_id', 'unknown')}")
-
-    # Build observable conditions
-    observable_conditions = []
-    for source in system_sources:
-        if source.get("source_type") == "judgment":
-            observable_conditions.append(f"Judgment: {source.get('status', 'unknown')}")
-        elif source.get("source_type") == "k_gate":
-            observable_conditions.append(f"K gate: {source.get('status', 'unknown')}")
-        elif source.get("source_type") == "x_gate":
-            observable_conditions.append(f"X gate: {source.get('status', 'unknown')}")
-
-    # Build upgrade conditions
-    what_would_upgrade = []
-    if decision in ("NO_TRADE", "WATCH"):
-        what_would_upgrade.append("Confidence improves to medium/high")
-        what_would_upgrade.append("K/X gates pass")
-        what_would_upgrade.append("CaseLab match quality improves")
-
-    # Build invalidation conditions
-    what_would_invalidate = [
-        "Data freshness degrades",
-        "Promotion gate blocks",
-        "Paper mechanism match fails",
-    ]
-
+    hypothesis = meaning[0] if meaning else f"Decision: {decision} at confidence={conf_level}"
     return {
         "hypothesis": hypothesis,
-        "mechanism_support": mechanism_support,
-        "observable_conditions": observable_conditions,
-        "what_would_upgrade": what_would_upgrade,
-        "what_would_invalidate": what_would_invalidate,
+        "confidence": conf_level,
+        "claim_ceiling": claim,
+        "support_count": len(approved_sources),
     }
+
+
+def _determine_decision(
+    judgment: dict, promotion_gate: dict, k_gate: dict | None,
+    x_gate: dict | None, hmm_audit: dict | None, caselab: dict | None,
+    approved_sources: list,
+) -> tuple[str, str, str, list[str]]:
+    """Determine trade decision from system state."""
+    risk_notes: list[str] = []
+
+    pg_status = promotion_gate.get("overall_status", "UNKNOWN")
+    conf_level = (judgment.get("confidence", {}).get("level") if isinstance(judgment.get("confidence"), dict) else "unknown")
+    claim_ceiling = judgment.get("claim_ceiling", "unknown")
+
+    # If promotion gate is blocked, no trade
+    if pg_status == "BLOCKED":
+        blocked = promotion_gate.get("blocked_gates", [])
+        risk_notes.append(f"Promotion gate BLOCKED: {', '.join(blocked)}")
+        return "NO_TRADE", "low", "D", risk_notes
+
+    # Low confidence → watch only
+    if conf_level == "low":
+        risk_notes.append("Confidence is low")
+        return "NO_TRADE", "low", "D", risk_notes
+
+    # Check HMM stability
+    if hmm_audit:
+        hmm_grade = hmm_audit.get("stability_grade", "UNKNOWN")
+        if hmm_grade == "WEAK":
+            risk_notes.append("HMM stability WEAK")
+            return "NO_TRADE", "low", "D", risk_notes
+
+    # Check gates
+    if k_gate and k_gate.get("verdict") == "FAIL":
+        risk_notes.append("K gate FAIL")
+    if x_gate and x_gate.get("verdict") == "FAIL":
+        risk_notes.append("X gate FAIL")
+
+    # If we have approved paper sources and gates pass, consider watch
+    if approved_sources and conf_level in ("medium", "high"):
+        evidence_grade = "B" if len(approved_sources) >= 2 else "C"
+        return "WATCH", conf_level, evidence_grade, risk_notes
+
+    # Default
+    if risk_notes:
+        return "NO_TRADE", "low", "D", risk_notes
+
+    return "WATCH", conf_level or "low", "D", risk_notes
 
 
 def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
@@ -374,15 +240,15 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     approved_sources, background_sources = find_paper_sources(caselab, judgment)
 
     # Determine decision (now includes Paper quality gate)
-    decision, confidence, evidence_grade, risk_notes = determine_decision(
+    decision, confidence, evidence_grade, risk_notes = _determine_decision(
         judgment, promotion_gate, k_gate, x_gate, hmm_audit, caselab, approved_sources
     )
 
     # Build system sources
-    system_sources = build_system_sources(judgment, k_gate, x_gate, hmm_audit, caselab)
+    system_sources = _build_system_sources(judgment, k_gate, x_gate, hmm_audit, caselab)
 
     # Build trade thesis (only approved sources can be mechanism support)
-    trade_thesis = build_trade_thesis(decision, judgment, approved_sources, system_sources)
+    trade_thesis = _build_trade_thesis(decision, judgment, approved_sources, system_sources)
 
     # Combine all paper sources for output
     all_paper_sources = approved_sources + background_sources
@@ -462,124 +328,32 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     }
 
 
-def format_markdown(decision: dict[str, Any]) -> str:
+def _format_markdown(d: dict[str, Any]) -> str:
     """Format trade decision as markdown."""
     lines = [
-        f"# Trade Decision — {decision['date']}",
+        f"# Trade Decision — {d.get('date', 'unknown')}",
         "",
-        f"**Generated:** {decision['generated_at']}",
-        "",
-        "---",
-        "",
-        "## Decision",
-        "",
-        f"- **Decision:** {decision['decision']}",
-        f"- **Confidence:** {decision['confidence']}",
-        f"- **Evidence Grade:** {decision['evidence_grade']}",
-        f"- **Allowed Size:** {decision['allowed_size']}",
-        f"- **Time Horizon:** {decision['time_horizon']}",
-        f"- **Asset Scope:** {', '.join(decision['asset_scope'])}",
-        "",
-        "## Trade Thesis",
-        "",
-        f"**Hypothesis:** {decision['trade_thesis']['hypothesis']}",
+        f"- **Decision:** {d['decision']}",
+        f"- **Confidence:** {d['confidence']}",
+        f"- **Evidence Grade:** {d['evidence_grade']}",
+        f"- **Allowed Size:** {d.get('allowed_size', 'N/A')}",
+        f"- **Time Horizon:** {d.get('time_horizon', 'N/A')}",
         "",
     ]
-
-    if decision['trade_thesis'].get('mechanism_support'):
-        lines.append("**Mechanism Support:**")
-        for m in decision['trade_thesis']['mechanism_support']:
-            lines.append(f"- {m}")
+    thesis = d.get("trade_thesis", {})
+    if thesis.get("hypothesis"):
+        lines += ["## Thesis", "", thesis["hypothesis"], ""]
+    risk = d.get("risk_notes", [])
+    if risk:
+        lines += ["## Risk Notes", ""]
+        for r in risk:
+            lines.append(f"- {r}")
         lines.append("")
-
-    if decision['trade_thesis'].get('observable_conditions'):
-        lines.append("**Observable Conditions:**")
-        for c in decision['trade_thesis']['observable_conditions']:
-            lines.append(f"- {c}")
-        lines.append("")
-
-    lines += [
-        "## Invalidation",
-        "",
-    ]
-    for inv in decision['invalidation']:
-        lines.append(f"- {inv}")
-
-    if decision.get('trigger_conditions'):
-        lines += [
-            "",
-            "## Trigger Conditions (What Would Upgrade This)",
-            "",
-        ]
-        for cond in decision['trigger_conditions']:
-            lines.append(f"- {cond}")
-
-    if decision['risk_notes']:
-        lines += [
-            "",
-            "## Risk Notes",
-            "",
-        ]
-        for note in decision['risk_notes']:
-            lines.append(f"- {note}")
-
-    if decision.get('learning_hooks'):
-        lines += [
-            "",
-            "## Learning Hooks",
-            "",
-        ]
-        for hook in decision['learning_hooks']:
-            lines.append(f"- {hook}")
-
-    lines += [
-        "",
-        "## Paper Sources",
-        "",
-    ]
-
-    paper = decision.get('paper_sources', {})
-    if isinstance(paper, dict):
-        approved = paper.get('approved_support', [])
-        background = paper.get('background_context', [])
-
-        if approved:
-            lines.append("### Approved Support")
-            for source in approved:
-                lines.append(f"- [{source['content_type']}] {source['content_id']}")
-            lines.append("")
-
-        if background:
-            lines.append("### Background Context")
-            for source in background:
-                lines.append(f"- [{source['content_type']}] {source['content_id']} ({source['review_status']})")
-            lines.append("")
-
-        if not approved and not background:
-            lines.append("- None")
-    else:
-        # Legacy format
-        if paper:
-            for source in paper:
-                lines.append(f"- [{source.get('content_type', 'unknown')}] {source.get('content_id', 'unknown')} ({source.get('review_status', 'unknown')})")
-        else:
-            lines.append("- None")
-
-    lines += [
-        "",
-        "## System Sources",
-        "",
-    ]
-    for source in decision['system_sources']:
-        lines.append(f"- [{source['source_type']}] {source['status']}")
-
-    lines += [
-        "",
-        "---",
-        "",
-        "*This is a research judgment, not a trading signal. Use for paper trading and calibration only.*",
-    ]
-
+    sources = d.get("system_sources", [])
+    if sources:
+        lines += ["## System Sources", ""]
+        for s in sources:
+            lines.append(f"- {s.get('source', '?')}: {s.get('status', '?')}")
     return "\n".join(lines) + "\n"
 
 
@@ -591,7 +365,7 @@ def write_outputs(decision: dict[str, Any]) -> dict[str, Path]:
     md_path = OUTPUT_DIR / "latest.md"
 
     json_path.write_text(json.dumps(decision, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    md_path.write_text(format_markdown(decision), encoding="utf-8")
+    md_path.write_text(_format_markdown(decision), encoding="utf-8")
 
     return {"json": json_path, "markdown": md_path}
 

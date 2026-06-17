@@ -1,0 +1,57 @@
+schema_version: opencode_supervisor.v1
+created: "2026-06-17"
+purpose: >
+  Defines opencode's supervisory role in work cycles.
+  After each work cycle, opencode runs a supervisor check and produces
+  a structured report.  This is the system's self-audit layer.
+  Referenced by: scripts/run_work_cycle.py, governance/run_mode_registry.yaml
+
+# ── Supervisor Responsibilities ─────────────────────────────────────────────
+responsibilities:
+  - id: work_cycle_completeness
+    description: "Was the work cycle complete? Did all declared steps run?"
+    check: "Compare declared steps in run_mode_registry.yaml against actual outputs"
+
+  - id: artifact_consistency
+    description: "Are current artifacts consistent with each other?"
+    check: "framework_output.json, status.json, judgment/latest.json dates match"
+
+  - id: unmarked_data
+    description: "Is there non-Harvester data not marked research_only?"
+    check: "data_authority_registry.yaml entries cover all data sources"
+
+  - id: deferred_work_overdue
+    description: "Is any deferred work past its hard_deadline?"
+    check: "deferred_work_register.yaml hard_deadline < today"
+
+  - id: experimental_submission_review
+    description: "Are there experimental submissions worth reviewing?"
+    check: "experimental_submission_registry.yaml has unreviewed entries"
+
+  - id: module_activity
+    description: "Which modules actually produced output this cycle?"
+    check: "Scan Output/ for fresh artifacts (mtime within cycle window)"
+
+  - id: data_request_backlog
+    description: "Are there unfulfilled data requests?"
+    check: "data_request_registry.yaml has status=pending entries"
+
+  - id: priority_drift
+    description: "Has any module changed priority without governance review?"
+    check: "Compare module_contract_registry.yaml priority vs actual usage"
+
+# ── Supervisor Output ──────────────────────────────────────────────────────
+output:
+  markdown: Output/system_learning/latest/supervisor_check.md
+  json: Output/system_learning/latest/supervisor_check.json
+
+# ── Review Queue ───────────────────────────────────────────────────────────
+# Items the supervisor flags for human review go here.
+review_queue:
+  location: Output/system_learning/latest/review_queue.json
+  auto_populate: true
+  sources:
+    - deferred_work_overdue
+    - experimental_submission_review
+    - data_request_backlog
+    - priority_drift

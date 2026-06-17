@@ -622,3 +622,83 @@ promotion_gate:
   description: Enforce claim strength boundaries — blocks claims above ceiling
   allowed_use:
   - promotion_gate_check
+
+# --- Work cycle + supervisor + run bundle layer (batch 10) ---
+
+_workspace_imports:
+  script: scripts/_workspace_imports.py
+  status: tool_active
+  owner: Governance
+  description: Centralized sys.path management — replaces ad-hoc sys.path.insert across scripts
+  allowed_use:
+  - path_management
+apply_data_retention_policy:
+  script: scripts/apply_data_retention_policy.py
+  status: active
+  owner: Governance
+  description: Dry-run executor for data retention policy — checks Data/ against budget rules
+  allowed_use:
+  - data_retention_enforcement
+apply_output_routing_policy:
+  script: scripts/apply_output_routing_policy.py
+  status: active
+  owner: Governance
+  description: Dry-run executor for output routing policy — checks Output/current/ against allowed artifacts
+  allowed_use:
+  - output_routing_enforcement
+build_data_gaps:
+  script: scripts/build_data_gaps.py
+  status: active
+  owner: Governance
+  description: Extract unmet data needs from judgment artifacts — produce Harvester request candidates
+  allowed_use:
+  - data_gap_analysis
+build_incentive_review:
+  script: scripts/build_incentive_review.py
+  status: active
+  owner: Learning Hub
+  description: Review experimental submissions and incentive policy status
+  allowed_use:
+  - incentive_review_generation
+build_module_activity_distribution:
+  script: scripts/build_module_activity_distribution.py
+  status: active
+  owner: Learning Hub
+  description: Report which modules produced artifacts in recent pipeline runs
+  allowed_use:
+  - module_activity_report
+build_signal_card:
+  script: scripts/build_signal_card.py
+  status: active
+  owner: Workbench
+  description: Explain reasoning — decompose M/D/K/X channels, counterfactuals, evidence ranking
+  allowed_use:
+  - signal_card_generation
+build_work_brief:
+  script: scripts/build_work_brief.py
+  status: active
+  owner: Workbench
+  description: "Answer 4 key questions from existing artifacts: reaction, reasoning, blocker, next work"
+  allowed_use:
+  - work_brief_generation
+run_bundle:
+  script: scripts/run_bundle.py
+  status: active
+  owner: Workbench
+  description: Atomic run record system — Output/runs/{run_id}/ with manifest, traces, artifact index
+  allowed_use:
+  - run_bundle_management
+run_supervisor_check:
+  script: scripts/run_supervisor_check.py
+  status: active
+  owner: Governance
+  description: Self-audit after each work cycle — checks completeness, consistency, overdue work
+  allowed_use:
+  - supervisor_check
+run_work_cycle:
+  script: scripts/run_work_cycle.py
+  status: active
+  owner: Workbench
+  description: Formal work entry point — orchestrates work cycles in quick/standard/full modes
+  allowed_use:
+  - work_cycle_orchestration

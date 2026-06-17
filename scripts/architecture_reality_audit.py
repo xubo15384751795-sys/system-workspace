@@ -25,8 +25,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from _workspace_imports import add_root
+add_root()
 
 FRAMEWORK_SRC = ROOT / "Structural Deformation Research System" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
@@ -198,6 +198,197 @@ def _scan_for_api_keys(directory: Path) -> list[dict[str, str]]:
                     "line": str(lineno),
                     "match": patterns.search(line).group(0) if patterns.search(line) else "",
                 })
+    return findings
+
+
+def _check_forbidden_exec_open() -> list[dict[str, str]]:
+    """Scan root scripts for exec(open(...).read()) — a security red line."""
+    findings = []
+    scripts_dir = ROOT / "scripts"
+    if not scripts_dir.exists():
+        return findings
+    for py_file in scripts_dir.glob("*.py"):
+        try:
+            source = py_file.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        in_docstring = False
+        for lineno, line in enumerate(source.splitlines(), 1):
+            stripped = line.strip()
+            # Track docstring state
+            if stripped.startswith('"""') or stripped.startswith("'''"):
+                if stripped.count('"""') == 1 or stripped.count("'''") == 1:
+                    in_docstring = not in_docstring
+                continue
+            if in_docstring:
+                continue
+            if stripped.startswith("#"):
+                continue
+            # Skip string comparisons (the audit check itself)
+            if '"exec(' in stripped or "'exec(" in stripped:
+                continue
+            if "exec(open(" in stripped or "exec(open (" in stripped:
+                findings.append({
+                    "script": str(py_file.relative_to(ROOT)),
+                    "line": str(lineno),
+                    "code": stripped[:120],
+                })
+    return findings
+
+
+def _check_legacy_display_in_current() -> list[dict[str, str]]:
+    """Check that Output/current does not contain legacy deformation display files."""
+    legacy_names = {
+        "latest_report.html",
+        "latest_dashboard.json",
+        "latest_screenshot.png",
+    }
+    # Also check for latest_run directory or symlink
+    current = ROOT / "Output" / "current"
+    findings = []
+    if not current.exists():
+        return findings
+    for item in current.iterdir():
+        if item.name in legacy_names:
+            findings.append({
+                "file": str(item.relative_to(ROOT)),
+                "type": "directory" if item.is_dir() else "symlink" if item.is_symlink() else "file",
+                "action": "move_to_Output/archive/legacy_display/",
+            })
+        if item.name == "latest_run" and (item.is_symlink() or item.is_dir()):
+            findings.append({
+                "file": str(item.relative_to(ROOT)),
+                "type": "symlink" if item.is_symlink() else "directory",
+                "action": "move_to_Output/archive/legacy_display/",
+            })
+    return findings
+
+
+def _check_unmarked_http_in_framework() -> list[dict[str, str]]:
+    """Scan Framework research/benchmark files for HTTP imports not marked research_only_non_harvester."""
+    http_modules = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3", "urllib"}
+    research_dirs = [
+        ROOT / "Structural Deformation Research System" / "src" / "benchmarks",
+        ROOT / "Structural Deformation Research System" / "src" / "research_corpus",
+    ]
+    findings = []
+    for dir_path in research_dirs:
+        if not dir_path.exists():
+            continue
+        for py_file in dir_path.rglob("*.py"):
+            if "__pycache__" in str(py_file):
+                continue
+            try:
+                source = py_file.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            # Check if file has HTTP imports
+            has_http = False
+            try:
+                tree = ast.parse(source, filename=str(py_file))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import):
+                        for alias in node.names:
+                            if alias.name in http_modules or any(alias.name.startswith(m + ".") for m in http_modules):
+                                has_http = True
+                    elif isinstance(node, ast.ImportFrom):
+                        if node.module and (node.module in http_modules or any(node.module.startswith(m + ".") for m in http_modules)):
+                            has_http = True
+            except SyntaxError:
+                continue
+            if has_http and "research_only_non_harvester" not in source:
+                findings.append({
+                    "file": str(py_file.relative_to(ROOT)),
+                    "issue": "HTTP import without research_only_non_harvester marker",
+                })
+    return findings
+
+
+def _check_manual_sys_path_insert() -> list[dict[str, str]]:
+    """Scan root scripts for hand-written sys.path.insert — should use _workspace_imports."""
+    scripts_dir = ROOT / "scripts"
+    findings = []
+    for py_file in sorted(scripts_dir.glob("*.py")):
+        if py_file.name.startswith("_"):
+            continue  # Skip helpers like _workspace_imports.py
+        try:
+            source = py_file.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for lineno, line in enumerate(source.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if "sys.path.insert" in stripped and "_workspace_imports" not in stripped:
+                findings.append({
+                    "script": str(py_file.relative_to(ROOT)),
+                    "line": str(lineno),
+                    "code": stripped[:120],
+                })
+    return findings
+
+
+def _check_legacy_deadline_countdown() -> list[dict[str, str]]:
+    """Check deferred_work_register.yaml for legacy items approaching deadline."""
+    import yaml as _yaml
+    from datetime import datetime as _dt
+
+    reg_path = ROOT / "governance" / "deferred_work_register.yaml"
+    if not reg_path.exists():
+        return []
+    try:
+        reg = _yaml.safe_load(reg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+    findings = []
+    today = _dt.now()
+    for item in reg.get("items", []):
+        hard_dl = item.get("hard_deadline")
+        if not hard_dl:
+            continue
+        try:
+            deadline = _dt.strptime(str(hard_dl), "%Y-%m-%d")
+        except ValueError:
+            continue
+        days_left = (deadline - today).days
+        if days_left < 0:
+            findings.append({
+                "id": item.get("id", "unknown"),
+                "status": "OVERDUE",
+                "days_overdue": str(-days_left),
+                "hard_deadline": str(hard_dl),
+            })
+        elif days_left <= 14:
+            findings.append({
+                "id": item.get("id", "unknown"),
+                "status": "APPROACHING",
+                "days_left": str(days_left),
+                "hard_deadline": str(hard_dl),
+            })
+    return findings
+
+
+def _check_data_retention_policy_unapplied() -> list[dict[str, str]]:
+    """Check if data retention policy exists but has no executor script."""
+    policy_path = ROOT / "governance" / "data_retention_policy.yaml"
+    executor_path = ROOT / "scripts" / "apply_data_retention_policy.py"
+    output_routing_path = ROOT / "scripts" / "apply_output_routing_policy.py"
+
+    findings = []
+    if policy_path.exists() and not executor_path.exists():
+        findings.append({
+            "policy": "governance/data_retention_policy.yaml",
+            "missing": "scripts/apply_data_retention_policy.py",
+            "note": "Policy exists but no executor script to enforce it",
+        })
+    routing_policy = ROOT / "governance" / "output_routing_policy.yaml"
+    if routing_policy.exists() and not output_routing_path.exists():
+        findings.append({
+            "policy": "governance/output_routing_policy.yaml",
+            "missing": "scripts/apply_output_routing_policy.py",
+            "note": "Policy exists but no executor script to enforce it",
+        })
     return findings
 
 
@@ -383,6 +574,60 @@ def run_audit() -> dict[str, Any]:
     }
     if compatibility_findings:
         findings_count += len(compatibility_findings)
+
+    # Check 11: Forbidden exec(open(...)) in root scripts
+    exec_findings = _check_forbidden_exec_open()
+    results["checks"]["forbidden_exec_open"] = {
+        "status": "PASS" if not exec_findings else "FAIL",
+        "findings": exec_findings,
+    }
+    if exec_findings:
+        findings_count += len(exec_findings)
+
+    # Check 12: Legacy display files in Output/current
+    legacy_display_findings = _check_legacy_display_in_current()
+    results["checks"]["output_current_legacy_display"] = {
+        "status": "PASS" if not legacy_display_findings else "FAIL",
+        "findings": legacy_display_findings,
+    }
+    if legacy_display_findings:
+        findings_count += len(legacy_display_findings)
+
+    # Check 13: Unmarked HTTP in Framework research files
+    unmarked_http_findings = _check_unmarked_http_in_framework()
+    results["checks"]["unmarked_http_in_framework"] = {
+        "status": "PASS" if not unmarked_http_findings else "WARN",
+        "findings": unmarked_http_findings,
+    }
+    if unmarked_http_findings:
+        findings_count += len(unmarked_http_findings)
+
+    # Check 14: Manual sys.path.insert in root scripts
+    sys_path_findings = _check_manual_sys_path_insert()
+    results["checks"]["manual_sys_path_insert"] = {
+        "status": "PASS" if not sys_path_findings else "WARN",
+        "findings": sys_path_findings,
+    }
+    if sys_path_findings:
+        findings_count += len(sys_path_findings)
+
+    # Check 15: Legacy deadline countdown
+    deadline_findings = _check_legacy_deadline_countdown()
+    results["checks"]["legacy_deadline_countdown"] = {
+        "status": "PASS" if not deadline_findings else "WARN",
+        "findings": deadline_findings,
+    }
+    if deadline_findings:
+        findings_count += len(deadline_findings)
+
+    # Check 16: Data retention policy executor
+    retention_findings = _check_data_retention_policy_unapplied()
+    results["checks"]["data_retention_policy_unapplied"] = {
+        "status": "PASS" if not retention_findings else "WARN",
+        "findings": retention_findings,
+    }
+    if retention_findings:
+        findings_count += len(retention_findings)
 
     results["summary"] = {
         "total_findings": findings_count,

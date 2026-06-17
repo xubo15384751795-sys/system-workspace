@@ -1,44 +1,111 @@
 schema_version: data_request.v1
-created: "2026-06-17"
-purpose: >
-  Modules request data from Harvester through this registry.
-  Harvester aggregates, prioritizes, and responds.
-  No module should permanently bypass Harvester with direct acquisition.
+created: '2026-06-17'
+purpose: 'Modules request data from Harvester through this registry. Harvester aggregates,
+  prioritizes, and responds. No module should permanently bypass Harvester with direct
+  acquisition.
 
+  '
 requests:
-  - request_id: etf_cross_asset_panel
-    requested_by: Workbench Signals
-    needed_for: K cross-asset confirmation
-    current_source: Data/panels/cross_asset_daily_panel.parquet
-    current_authority: non_harvester_transitional
-    status: sourcing
-    priority: medium
-    harvester_response: >
-      openbb_yfinance now has SPY/QQQ/IWM/DIA in OFFICIAL_SERIES_MAP.
-      ETF evidence release pending daily run integration.
-    core_judgment_priority: low_until_harvester_release
-    created: "2026-06-17"
+- request_id: etf_cross_asset_panel
+  requested_by: Workbench Signals
+  needed_for: K cross-asset confirmation
+  current_source: Data/panels/cross_asset_daily_panel.parquet
+  current_authority: non_harvester_transitional
+  status: sourcing
+  priority: medium
+  harvester_response: 'openbb_yfinance now has SPY/QQQ/IWM/DIA in OFFICIAL_SERIES_MAP.
+    ETF evidence release pending daily run integration.
 
-  - request_id: merged_data_proxy_inputs
-    requested_by: Deformation Framework
-    needed_for: compute_proxies.py proxy signal computation
-    current_source: Data/merged_data/benchmark_panel_with_etfs.parquet
-    current_authority: migration_artifact
-    status: transitional_import_required
-    priority: medium
-    harvester_response: pending
-    core_judgment_priority: low_until_harvester_release
-    created: "2026-06-17"
+    '
+  core_judgment_priority: low_until_harvester_release
+  created: '2026-06-17'
+- request_id: merged_data_proxy_inputs
+  requested_by: Deformation Framework
+  needed_for: compute_proxies.py proxy signal computation
+  current_source: Data/merged_data/benchmark_panel_with_etfs.parquet
+  current_authority: migration_artifact
+  status: transitional_import_required
+  priority: medium
+  harvester_response: pending
+  core_judgment_priority: low_until_harvester_release
+  created: '2026-06-17'
+- request_id: fred_cached_data
+  requested_by: Deformation Framework
+  needed_for: FRED series (TEDRATE, STLFSI4, etc.)
+  current_source: Data/structural_lab/runtime/fred_cache/
+  current_authority: legacy_runtime_cache
+  status: available_via_harvester
+  priority: low
+  harvester_response: 'FRED data available through Harvester official release (openbb_fred
+    provider). fred_cache is legacy; consumers should migrate to Harvester evidence
+    bundle.
 
-  - request_id: fred_cached_data
-    requested_by: Deformation Framework
-    needed_for: FRED series (TEDRATE, STLFSI4, etc.)
-    current_source: Data/structural_lab/runtime/fred_cache/
-    current_authority: legacy_runtime_cache
-    status: available_via_harvester
-    priority: low
-    harvester_response: >
-      FRED data available through Harvester official release (openbb_fred provider).
-      fred_cache is legacy; consumers should migrate to Harvester evidence bundle.
-    core_judgment_priority: low
-    created: "2026-06-17"
+    '
+  core_judgment_priority: low
+  created: '2026-06-17'
+- request_id: hmm_training_data
+  requested_by: ML Signals
+  needed_for: HMM stability — regime detection confidence
+  data_needed: 252+ days of benchmark OHLCV via Harvester
+  current_source: Data/harvester/exports/latest/data/benchmark_panel.parquet
+  current_authority: harvester
+  non_harvester_flag: false
+  core_judgment_allowed: true
+  status: pending
+  priority: high
+  harvester_response: pending
+  core_judgment_priority: normal
+  created: '2026-06-17'
+- request_id: claim_ceiling_lift
+  requested_by: Workbench
+  needed_for: Claim ceiling — operational decision capability
+  data_needed: Governance approval, not a data acquisition task
+  current_source: N/A (governance gate)
+  current_authority: N/A
+  non_harvester_flag: false
+  core_judgment_allowed: false
+  status: pending
+  priority: high
+  harvester_response: pending
+  core_judgment_priority: blocked_until_harvester
+  created: '2026-06-17'
+- request_id: K_measurement_quality
+  requested_by: Workbench
+  needed_for: K channel authority and K/X gate passage
+  data_needed: Higher quality K curvature signals from Harvester
+  current_source: Data/harvester/exports/latest/
+  current_authority: harvester
+  non_harvester_flag: false
+  core_judgment_allowed: true
+  status: pending
+  priority: medium
+  harvester_response: pending
+  core_judgment_priority: normal
+  created: '2026-06-17'
+- request_id: X_agg_measurement_quality
+  requested_by: Workbench
+  needed_for: X_agg channel authority and K/X gate passage
+  data_needed: Higher quality X aggregate signals from Harvester
+  current_source: Data/harvester/exports/latest/
+  current_authority: harvester
+  non_harvester_flag: false
+  core_judgment_allowed: true
+  status: pending
+  priority: medium
+  harvester_response: pending
+  core_judgment_priority: normal
+  created: '2026-06-17'
+- request_id: cross_asset_confirmation
+  requested_by: Workbench Signals
+  needed_for: K channel — cross-asset curvature family
+  data_needed: SPY/TLT/HYG/GLD daily panel via Harvester
+  current_source: Data/panels/cross_asset_daily_panel.parquet
+  current_authority: non_harvester_transitional
+  non_harvester_flag: true
+  core_judgment_allowed: false
+  status: pending
+  priority: medium
+  harvester_response: pending
+  core_judgment_priority: blocked_until_harvester
+  created: '2026-06-17'
+updated_at: '2026-06-17'

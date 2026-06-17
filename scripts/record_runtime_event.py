@@ -9,9 +9,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HUB_SRC = ROOT / "system-learning-hub" / "src"
-if str(HUB_SRC) not in sys.path:
-    sys.path.insert(0, str(HUB_SRC))
+from _workspace_imports import add_learning_hub_src
+add_learning_hub_src()
 
 from system_learning.runtime.record import append_runtime_record  # noqa: E402
 

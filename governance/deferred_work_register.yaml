@@ -66,6 +66,32 @@ items:
     fallback_if_expired: >
       Mark as legacy_migrated; add data_authority_registry entry.
 
+  - id: callable_e2e_pipeline_tests
+    title: "Callable E2E pipeline tests — step.run(context) direct import"
+    owner: Workbench
+    status: deferred
+    blocked_by: pipeline_runner_import_migration
+    reason: >
+      Current tests cover IO contract, artifact chain, failure behavior, and
+      subprocess smoke.  True callable E2E requires each daily_run step to
+      support direct import via future_callable.  Until the pipeline runner
+      migrates from subprocess to module callable, this test layer cannot be
+      written without half-baked imports that would destabilize the current
+      subprocess pipeline.
+    trigger_condition: >
+      Enable only when daily_run step execution supports future_callable /
+      module runner mode.  At that point, add:
+        tests/test_daily_pipeline_callable_e2e.py
+      with step.run(context) for the main chain (11 steps).
+    target_window: "2026-07-01 to 2026-07-31"
+    review_date: "2026-07-01"
+    hard_deadline: "2026-08-15"
+    risk_if_ignored: >
+      No import-level integration testing; subprocess smoke remains the ceiling.
+    fallback_if_expired: >
+      Keep subprocess smoke as the E2E ceiling; governance contract tests
+      already cover the critical invariants.
+
   - id: root_scripts_pipeline_refactoring
     title: "Reduce root scripts to ≤35 by moving pipeline implementations to modules"
     owner: Workbench
@@ -82,15 +108,144 @@ items:
       Accept 44 as practical minimum; enforce structural role audit quarterly.
 
   - id: data_sources_retirement
-    title: "Retire data_sources.py after adapter migration"
+    title: "Retire data_sources.py after adapter migration — 7/15 legacy deadline"
     owner: Deformation Framework
     status: deferred
     reason: >
       data_sources.py (1361 lines) is still used by adapters/public_adapters.py.
       Cannot archive until adapters migrate to Harvester-backed providers.
-    review_date: "2026-07-15"
-    hard_deadline: "2026-07-31"
+    migration_steps:
+      - step: freeze
+        description: >
+          Active pipeline must not import. Add ALLOW_LEGACY_DATAHUB=1 guard.
+          Only dual_path_compare, legacy replay, migration validation may use.
+        target_date: "2026-06-24"
+      - step: move
+        description: >
+          Move to src/data/_legacy/. Public import no longer exposes legacy symbols.
+          src/data/__init__.py stops exporting legacy symbols.
+        target_date: "2026-07-01"
+      - step: retire_or_seal
+        description: >
+          7/15 decision: delete or keep as read-only in _legacy.
+          Update entrypoint_registry.yaml and this register.
+        target_date: "2026-07-15"
+    affected_files:
+      - src/data/data_sources.py
+      - src/data/gateway/data_hub.py
+      - src/data/adapters/public_adapters.py
+      - src/data/external_downloads.py
+      - src/data_access/legacy_adapter.py
+    review_date: "2026-07-01"
+    hard_deadline: "2026-07-15"
     risk_if_ignored: >
-      Legacy acquisition layer partially remains.
+      Legacy acquisition layer partially remains; ~2854 lines unmanaged.
     fallback_if_expired: >
-      Mark as legacy_retain; add ALLOW_LEGACY_DATASOURCES guard.
+      Mark as legacy_retain; add ALLOW_LEGACY_DATASOURCES guard; keep in _legacy/.
+
+  - id: sys_path_consolidation
+    title: "Consolidate sys.path.insert to _workspace_imports.py"
+    owner: Workbench
+    status: in_progress
+    reason: >
+      15 scripts used hand-written sys.path.insert. Migrated to
+      scripts/_workspace_imports.py for auditable path management.
+    progress:
+      - "2026-06-17: _workspace_imports.py created with 6 helper functions"
+      - "2026-06-17: 15 scripts migrated to use helper"
+      - "2026-06-17: architecture_reality_audit check_manual_sys_path_insert: 0 findings"
+    remaining:
+      - "Verify all migrated scripts pass --help smoke test"
+      - "Update test_daily_pipeline_subprocess_smoke.py if needed"
+    review_date: "2026-07-01"
+    hard_deadline: "2026-07-15"
+    risk_if_ignored: >
+      sys.path management remains unstructured; migration to module runner harder.
+    fallback_if_expired: >
+      Keep _workspace_imports.py as permanent transitional layer.
+
+  - id: legacy_data_move_step2
+    title: "Move legacy data modules to _legacy/data/ (P1 Step 2)"
+    owner: Deformation Framework
+    status: deferred
+    blocked_by: data_sources_retirement
+    reason: >
+      Step 1 FREEZE complete (ALLOW_LEGACY_DATAHUB=1 guard on data_sources.py,
+      external_downloads.py, public_adapters.py).  Step 2 MOVE requires:
+      (a) move files to src/_legacy/data/, (b) update src/data/__init__.py
+      to stop exporting legacy symbols, (c) update all internal imports.
+      Blocked until freeze period proves stable (no active pipeline breakage).
+    trigger_condition: >
+      Execute after 2026-06-24 if no ALLOW_LEGACY_DATAHUB-related breakage
+      reported.  Requires full test pass after move.
+    migration_steps:
+      - "mkdir -p src/_legacy/data/"
+      - "mv src/data/data_sources.py src/_legacy/data/"
+      - "mv src/data/external_downloads.py src/_legacy/data/"
+      - "mv src/data/adapters/public_adapters.py src/_legacy/data/"
+      - "Update src/data/__init__.py — remove legacy symbol exports"
+      - "Update internal imports (data_hub.py, legacy_adapter.py)"
+      - "Verify: python3 scripts/architecture_reality_audit.py --json"
+    review_date: "2026-06-24"
+    hard_deadline: "2026-07-01"
+    risk_if_ignored: >
+      Legacy files remain in public src/data/ — import guard is only defense.
+    fallback_if_expired: >
+      Keep files in place with guard; mark as legacy_retain.
+
+  - id: dependency_locking
+    title: "Lock dependencies per module (P5)"
+    owner: Workbench
+    status: deferred
+    reason: >
+      Each submodule (Workbench, Harvester, Learning Hub, Framework) has
+      different dependency needs.  Short-term: add constraints.txt or
+      requirements-lock.txt per module.  Long-term: unified lock.
+    trigger_condition: >
+      Execute when any module adds a new dependency that causes version
+      conflict, or when CI is set up.
+    deliverables:
+      - "Workbench/constraints.txt — pin pandas, numpy, omegaconf versions"
+      - "Harvester/constraints.txt — pin requests, pyarrow versions"
+      - "Learning Hub/constraints.txt — pin torch, sentence-transformers"
+      - "Framework: mark optional deps in requirements.txt as [optional]"
+    review_date: "2026-07-15"
+    hard_deadline: "2026-08-15"
+    risk_if_ignored: >
+      Version drift between modules; reproducibility issues.
+    fallback_if_expired: >
+      Document known version ranges in MODULES.md; accept manual management.
+
+  - id: p6_low_priority_improvements
+    title: "Low-priority continuous improvements (P6)"
+    owner: Various
+    status: deferred
+    reason: >
+      These items do not block the pipeline or governance.  They improve
+      code quality and coverage over time.
+    items:
+      - id: terminal_service_cleanup
+        title: "terminal/service.py — mark PAPER_RETAIN or delete"
+        owner: Workbench
+        status: deferred
+        review_date: "2026-07-15"
+      - id: tda_stub_proof_period
+        title: "TDA/topology_stub — set proof period"
+        owner: ML Signals
+        status: deferred
+        review_date: "2026-08-01"
+      - id: ui_smoke_tests
+        title: "UI tests — add smoke test"
+        owner: Workbench
+        status: deferred
+        review_date: "2026-08-01"
+      - id: research_coverage
+        title: "research/ — import/contract tests"
+        owner: Deformation Framework
+        status: deferred
+        review_date: "2026-08-01"
+    hard_deadline: "2026-09-01"
+    risk_if_ignored: >
+      Code quality debt accumulates slowly; no immediate pipeline risk.
+    fallback_if_expired: >
+      Accept current state; revisit quarterly.

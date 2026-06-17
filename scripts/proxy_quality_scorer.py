@@ -35,7 +35,8 @@ SCRIPTS = ROOT / "scripts"
 RULES_PATH = ROOT / "governance" / "proxy_quality_rules.yaml"
 OUT_DIR = ROOT / "Output" / "measurement"
 
-sys.path.insert(0, str(SCRIPTS))
+from _workspace_imports import add_scripts
+add_scripts()
 
 # Registry imports are side-effect free (verified): they only construct dataclasses.
 import structural_replay_v2 as srv2  # noqa: E402
