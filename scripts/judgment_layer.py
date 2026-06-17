@@ -19,6 +19,7 @@ from workbench.judgment.layer import (
     load_caselab, load_hmm, load_k_gate, load_x_gate, load_validation,
     _date_from_framework, FW_PATH,
 )
+from pending_evaluation import write_pending_evaluation
 
 
 def main() -> None:
@@ -40,6 +41,7 @@ def main() -> None:
 
     card = build_judgment(fw, caselab, hmm, k_gate, x_gate, validation)
     paths = write_outputs(card)
+    eval_path = write_pending_evaluation("judgment_layer", card)
     if args.json:
         print(json.dumps(card, indent=2, ensure_ascii=False))
     else:

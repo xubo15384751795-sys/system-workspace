@@ -702,3 +702,10 @@ run_work_cycle:
   description: Formal work entry point — orchestrates work cycles in quick/standard/full modes
   allowed_use:
   - work_cycle_orchestration
+pending_evaluation:
+  script: scripts/pending_evaluation.py
+  status: active
+  owner: Learning Hub
+  description: Write pending evaluation records for feedback loop — tracks judgment/trade decisions for future calibration
+  allowed_use:
+  - pending_evaluation_management

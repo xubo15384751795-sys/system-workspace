@@ -7,7 +7,7 @@ purpose: >
 
 # ── Root Scripts ──────────────────────────────────────────────────────────────
 root_scripts:
-  max_visible: 55  # 14 core + 5 wrappers + 24 pipeline + 1 pair + 8 work-cycle/supervisor + 3 policy
+  max_visible: 56  # 14 core + 5 wrappers + 24 pipeline + 1 pair + 9 work-cycle/supervisor + 3 policy
   # Target: 35 (requires module absorption: work_cycle→Workbench, supervisor→Governance, policies→Governance)
   require_registry_entry: true
   allowed_statuses:

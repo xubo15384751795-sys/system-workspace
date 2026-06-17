@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from pending_evaluation import write_pending_evaluation
+
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
@@ -378,6 +380,7 @@ def main() -> None:
 
     decision = build_trade_decision(args.date)
     paths = write_outputs(decision)
+    eval_path = write_pending_evaluation("trade_decision_layer", decision)
 
     if args.json:
         print(json.dumps(decision, indent=2, ensure_ascii=False))
