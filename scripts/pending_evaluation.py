@@ -44,6 +44,48 @@ def _compute_eval_windows(date_str: str) -> dict[str, str]:
     }
 
 
+def _extract_contributing_modules(source: str, card: dict[str, Any]) -> list[str]:
+    """Extract which modules contributed to this judgment/decision.
+
+    For trade decisions, reads system_sources. For judgments, infers
+    from gate_status (all judgments go through Framework + Workbench gates).
+    """
+    modules = set()
+
+    # From trade decision system_sources
+    system_sources = card.get("system_sources", [])
+    for src in system_sources:
+        src_name = src.get("source", "") if isinstance(src, dict) else str(src)
+        if src_name in ("judgment_layer", "promotion_gate"):
+            modules.add("Workbench")
+        elif src_name in ("k_gate", "x_gate"):
+            modules.add("ML Signals")
+        elif src_name == "hmm_stability":
+            modules.add("ML Signals")
+        elif src_name == "caselab":
+            modules.add("CaseLab Context")
+        elif src_name == "market_feedback":
+            modules.add("Learning Hub")
+
+    # For judgment cards (no system_sources), infer from gate_status
+    if not modules and source == "judgment_layer":
+        gate_status = card.get("gate_status", {})
+        if gate_status.get("hmm_stability") or gate_status.get("k_gate") or gate_status.get("x_gate"):
+            modules.add("ML Signals")
+        if gate_status.get("quality_validation"):
+            modules.add("Framework")
+        modules.add("Workbench")  # always produces the card
+
+    # Fallback
+    if not modules:
+        if source == "trade_decision_layer":
+            modules.update(["Workbench", "ML Signals"])
+        else:
+            modules.add("Workbench")
+
+    return sorted(modules)
+
+
 def write_pending_evaluation(
     source: str,
     card: dict[str, Any],
@@ -69,6 +111,7 @@ def write_pending_evaluation(
 
     eval_id = _make_eval_id(source, date_str, timestamp)
     windows = _compute_eval_windows(date_str)
+    contributing_modules = _extract_contributing_modules(source, card)
 
     record = {
         "eval_id": eval_id,
@@ -77,6 +120,7 @@ def write_pending_evaluation(
         "decision": decision,
         "confidence": confidence,
         "generated_at": timestamp,
+        "contributing_modules": contributing_modules,
         **windows,
         "status": "pending",
         "evaluations": {

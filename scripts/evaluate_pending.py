@@ -200,6 +200,7 @@ def evaluate_record(
         log_entries.append({
             "eval_id": record.get("eval_id"),
             "source": record.get("source", "unknown"),
+            "contributing_modules": record.get("contributing_modules", []),
             "window": window,
             "evaluated_at": today.isoformat(),
             "decision": record.get("decision"),

@@ -723,3 +723,10 @@ update_calibration_summary:
   description: Aggregate eval_log.jsonl into calibration summary by source, decision, and window
   allowed_use:
   - calibration_summary_generation
+build_module_contribution_report:
+  script: scripts/build_module_contribution_report.py
+  status: active
+  owner: Learning Hub
+  description: Module contribution effectiveness — aggregates eval outcomes by contributing module with hit rates and grades
+  allowed_use:
+  - module_contribution_report
