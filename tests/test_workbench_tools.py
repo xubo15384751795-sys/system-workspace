@@ -106,10 +106,7 @@ def test_workbench_scripts_are_thin_wrappers() -> None:
     wrappers = {
         "scripts/build_benchmark_evidence_dashboard.py": "workbench.evidence_dashboard",
         "scripts/build_artifact_navigator.py": "workbench.artifact_navigator",
-        "scripts/refresh_output_current.py": "workbench.current",
         "scripts/validate_workbench_contract.py": "workbench.contract_validator",
-        "scripts/build_system_index.py": "workbench.workspace.build_system_index",
-        "scripts/list_latest.py": "workbench.workspace.list_latest",
         "scripts/promote_snapshot.py": "workbench.workspace.promote_snapshot",
         "scripts/system_status.py": "workbench.workspace.system_status",
     }
@@ -117,6 +114,29 @@ def test_workbench_scripts_are_thin_wrappers() -> None:
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert module in text
         assert len(text.splitlines()) <= 18
+
+
+def test_refresh_output_current_is_authority_entry_point() -> None:
+    """refresh_output_current.py is the unified authority entry point, not a thin wrapper."""
+    text = (ROOT / "scripts" / "refresh_output_current.py").read_text(encoding="utf-8")
+    assert "Refresh Output/current" in text
+    assert "judgment_layer" in text
+    assert "promotion_gate" in text
+    assert "system_index" in text
+    assert "readme_first" in text
+
+
+def test_build_system_index_is_authority_entry_point() -> None:
+    """build_system_index.py is the unified fact source, not a thin wrapper."""
+    text = (ROOT / "scripts" / "build_system_index.py").read_text(encoding="utf-8")
+    assert "system index" in text.lower()
+    assert "measurement_state" in text
+
+
+def test_list_latest_is_authority_entry_point() -> None:
+    """list_latest.py reads from unified index, not a thin wrapper."""
+    text = (ROOT / "scripts" / "list_latest.py").read_text(encoding="utf-8")
+    assert "system_index" in text or "latest.json" in text
 
 
 def test_workbench_contract_examples_validate() -> None:

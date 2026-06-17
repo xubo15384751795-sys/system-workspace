@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -52,11 +53,14 @@ def test_promotion_blocks_when_latest_routing_decision_denies(tmp_path, monkeypa
 def test_promotion_allows_when_latest_routing_decision_allows(tmp_path, monkeypatch) -> None:
     decisions_dir = tmp_path / "Output" / "system_learning" / "routing_decisions"
     decisions_dir.mkdir(parents=True)
-    (decisions_dir / "2026-05-10-allow.yaml").write_text(
+    # Use a recent timestamp so the decision isn't expired (max 30 days)
+    recent = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    recent_date = recent[:10]
+    (decisions_dir / f"{recent_date}-allow.yaml").write_text(
         "\n".join(
             [
                 "decision_id: allow_current_snapshot",
-                "timestamp: 2026-05-10T00:00:00Z",
+                f"timestamp: {recent}",
                 "promotion_gate_decision:",
                 "  may_promote_current_snapshot: true",
             ]
