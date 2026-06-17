@@ -1,5 +1,9 @@
 # Module Routing
 
+> **Governance**: [governance/architecture_cleanup_decisions.md](governance/architecture_cleanup_decisions.md) |
+> [Deferred work](governance/deferred_work_register.yaml) |
+> [Data requests](governance/data_request_registry.yaml)
+
 This file is the first stop for humans and agents working in this workspace.
 It keeps the IDE simple: open the single `System/` folder, then route each task
 to the smallest owning module.

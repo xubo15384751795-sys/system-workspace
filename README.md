@@ -1,5 +1,9 @@
 # Structural Risk Workbench
 
+> **Governance**: See [governance/architecture_cleanup_decisions.md](governance/architecture_cleanup_decisions.md)
+> for the current principles governing this project. All deferred work is in
+> [governance/deferred_work_register.yaml](governance/deferred_work_register.yaml).
+
 This is a structural-risk workbench.
 It does three things:
 

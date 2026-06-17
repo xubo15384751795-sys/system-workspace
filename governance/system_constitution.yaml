@@ -1,8 +1,12 @@
 # System Constitution — hard governance rules
 # Every module must declare its role and obey these rules.
+#
+# Architecture decisions: governance/architecture_cleanup_decisions.md
+# Deferred work: governance/deferred_work_register.yaml
+# Data requests: governance/data_request_registry.yaml
 
 schema_version: system_constitution.v1
-updated_at: 2026-06-16
+updated_at: "2026-06-17"
 
 # Core principles
 core_principles:

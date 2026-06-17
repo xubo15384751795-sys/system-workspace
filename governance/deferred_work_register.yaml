@@ -1,0 +1,96 @@
+schema_version: deferred_work.v1
+created: "2026-06-17"
+purpose: >
+  Highest-level register for work that cannot be completed short-term.
+  Every deferred item has a maturity date, review cadence, and fallback plan.
+  Referenced by: README.md, MODULES.md, system_constitution.yaml
+
+items:
+  - id: pipeline_runner_import_migration
+    title: "daily_run subprocess → module callable runner"
+    owner: Workbench
+    status: deferred
+    reason: >
+      Requires preserving cwd, env, logging, exit-code, and failure semantics.
+      Each step already has module-runner-grade metadata in daily_pipeline_registry.
+    target_window: "2026-07-01 to 2026-07-31"
+    review_date: "2026-07-01"
+    hard_deadline: "2026-08-15"
+    risk_if_ignored: >
+      subprocess overhead remains; no runtime code reuse across modules.
+    fallback_if_expired: >
+      Keep subprocess mode indefinitely; metadata is already sufficient for governance.
+
+  - id: duckdb_snapshot_store_migration
+    title: "Migrate DuckDBSnapshotStore from structural_lab/runtime/ to Harvester-backed store"
+    owner: Deformation Framework
+    status: deferred
+    reason: >
+      DuckDBSnapshotStore (46MB) is actively used by runtime. Migration requires
+      dual-write period to ensure snapshot query compatibility.
+    strategy: dual_write_before_cutover
+    review_date: "2026-07-15"
+    hard_deadline: "2026-07-31"
+    risk_if_ignored: >
+      46MB legacy runtime store remains canonical; cannot compress or archive.
+    fallback_if_expired: >
+      Keep DuckDB as-is; mark as legacy_runtime_store in data_retention_policy.
+
+  - id: submodule_consolidation_plan
+    title: "Consolidate 4 submodules into packages/ monorepo structure"
+    owner: System
+    status: deferred
+    reason: >
+      Requires packaging design, dependency resolution, and public reuse API.
+      Current submodule structure works; consolidation is optimization, not fix.
+    target_window: "30 to 45 days from 2026-06-17"
+    review_date: "2026-07-01"
+    hard_deadline: "2026-07-31"
+    risk_if_ignored: >
+      Submodule dirty state, Python version inconsistency, pytest config scatter.
+    fallback_if_expired: >
+      Keep submodules; add cross-repo CI to catch drift.
+
+  - id: merged_data_harvester_consolidation
+    title: "Migrate Data/merged_data/ into Harvester evidence release"
+    owner: Deformation Framework
+    status: deferred
+    reason: >
+      compute_proxies.py hardcodes absolute paths to merged_data.
+      Must first register as transitional Harvester artifact, then migrate consumers.
+    strategy: "register → provenance → migrate consumer → archive"
+    review_date: "2026-07-01"
+    hard_deadline: "2026-07-15"
+    risk_if_ignored: >
+      Shadow data source persists outside Harvester governance.
+    fallback_if_expired: >
+      Mark as legacy_migrated; add data_authority_registry entry.
+
+  - id: root_scripts_pipeline_refactoring
+    title: "Reduce root scripts to ≤35 by moving pipeline implementations to modules"
+    owner: Workbench
+    status: deferred
+    reason: >
+      24 pipeline implementations are called via subprocess from daily_run.py.
+      Moving them to modules requires updating daily_run.py to import from modules.
+      Current 44 scripts is structurally clean; 35 target requires pipeline refactoring.
+    review_date: "2026-07-15"
+    hard_deadline: "2026-08-15"
+    risk_if_ignored: >
+      Root scripts stays at 44; acceptable if structural role principle is maintained.
+    fallback_if_expired: >
+      Accept 44 as practical minimum; enforce structural role audit quarterly.
+
+  - id: data_sources_retirement
+    title: "Retire data_sources.py after adapter migration"
+    owner: Deformation Framework
+    status: deferred
+    reason: >
+      data_sources.py (1361 lines) is still used by adapters/public_adapters.py.
+      Cannot archive until adapters migrate to Harvester-backed providers.
+    review_date: "2026-07-15"
+    hard_deadline: "2026-07-31"
+    risk_if_ignored: >
+      Legacy acquisition layer partially remains.
+    fallback_if_expired: >
+      Mark as legacy_retain; add ALLOW_LEGACY_DATASOURCES guard.
