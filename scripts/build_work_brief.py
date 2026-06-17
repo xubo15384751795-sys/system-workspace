@@ -187,6 +187,13 @@ def build_work_brief() -> dict[str, Any]:
     }
     if hmm:
         result["hmm_signal"] = hmm
+
+    # Claim ladder from judgment card
+    if judgment:
+        ladder = judgment.get("claim_ladder")
+        if ladder:
+            result["claim_ladder"] = ladder
+
     return result
 
 
@@ -242,6 +249,25 @@ def to_markdown(b: dict) -> str:
         if state_probs:
             probs_str = ", ".join(f"{k}={v:.3f}" for k, v in state_probs.items() if isinstance(v, (int, float)))
             lines.append(f"- State probs: {probs_str}")
+
+    # Claim ladder
+    ladder = b.get("claim_ladder")
+    if ladder:
+        tier = ladder.get("tier", 0)
+        label = ladder.get("label", "diagnostic_claim")
+        lines += [
+            "",
+            "## Claim Ladder",
+            "",
+            f"- **Tier {tier}: {label}**",
+            f"- Claim: {ladder.get('claim_statement', 'N/A')}",
+        ]
+        if ladder.get("promotion_conditions"):
+            lines.append("- Next step:")
+            for tier_key, cond in ladder["promotion_conditions"].items():
+                lines.append(f"  - {tier_key}: {cond}")
+        if ladder.get("demotion_risk"):
+            lines.append(f"- Demotion risk: {ladder['demotion_risk']}")
 
     sigma = b.get("sigma")
     if sigma:

@@ -149,14 +149,31 @@ def _build_trade_thesis(
     conf_level = conf.get("level", "unknown") if isinstance(conf, dict) else "unknown"
     claim = judgment.get("claim_ceiling", "unknown")
     meaning = judgment.get("meaning", [])
+    ladder = judgment.get("claim_ladder", {})
 
     hypothesis = meaning[0] if meaning else f"Decision: {decision} at confidence={conf_level}"
-    return {
+
+    thesis = {
         "hypothesis": hypothesis,
         "confidence": conf_level,
         "claim_ceiling": claim,
         "support_count": len(approved_sources),
     }
+
+    # Add claim ladder info if available
+    if ladder:
+        thesis["claim_ladder"] = {
+            "tier": ladder.get("tier", 0),
+            "label": ladder.get("label", "diagnostic_claim"),
+            "claim_statement": ladder.get("claim_statement", ""),
+        }
+        # Add watch/invalidation conditions to the thesis
+        if ladder.get("watch_conditions"):
+            thesis["watch_conditions"] = ladder["watch_conditions"]
+        if ladder.get("invalidation_conditions"):
+            thesis["invalidation_conditions"] = ladder["invalidation_conditions"]
+
+    return thesis
 
 
 def _determine_decision(
@@ -170,16 +187,29 @@ def _determine_decision(
     pg_status = promotion_gate.get("overall_status", "UNKNOWN")
     conf_level = (judgment.get("confidence", {}).get("level") if isinstance(judgment.get("confidence"), dict) else "unknown")
     claim_ceiling = judgment.get("claim_ceiling", "unknown")
+    ladder = judgment.get("claim_ladder", {})
+    ladder_tier = ladder.get("tier", 0) if ladder else 0
 
     # If promotion gate is blocked, no trade
     if pg_status == "BLOCKED":
         blocked = promotion_gate.get("blocked_gates", [])
         risk_notes.append(f"Promotion gate BLOCKED: {', '.join(blocked)}")
+        # Include claim ladder context even when blocked
+        if ladder_tier >= 1:
+            risk_notes.append(
+                f"Claim ladder: Tier {ladder_tier} ({ladder.get('label', '?')}) — "
+                f"{ladder.get('claim_statement', '')[:100]}"
+            )
         return "NO_TRADE", "low", "D", risk_notes
 
     # Low confidence → watch only
     if conf_level == "low":
         risk_notes.append("Confidence is low")
+        if ladder_tier >= 1:
+            risk_notes.append(
+                f"Claim ladder: Tier {ladder_tier} ({ladder.get('label', '?')}) — "
+                f"mechanism hypothesis available but not operationally actionable"
+            )
         return "NO_TRADE", "low", "D", risk_notes
 
     # Check HMM stability

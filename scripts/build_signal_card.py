@@ -530,6 +530,9 @@ def build_signal_card() -> dict[str, Any]:
 
     now = datetime.now(UTC)
 
+    # Claim ladder from judgment card
+    claim_ladder = judgment.get("claim_ladder", {})
+
     card = {
         "schema_version": "signal_card.v2",
         "generated_at": now.isoformat(),
@@ -537,6 +540,7 @@ def build_signal_card() -> dict[str, Any]:
             "decision": judgment.get("decision", "UNKNOWN"),
             "confidence": (judgment.get("confidence") or {}).get("level", "UNKNOWN"),
             "claim_ceiling": judgment.get("claim_ceiling", "UNKNOWN"),
+            "claim_ladder": claim_ladder,
             "trade_decision": trade.get("decision", "NO_ARTIFACT") if trade else "NO_ARTIFACT",
             "framework_status": fw.get("status", "UNKNOWN") if fw else "UNKNOWN",
         },
@@ -588,6 +592,35 @@ def generate_markdown(card: dict[str, Any]) -> str:
         f"- **Framework Status:** {r['framework_status']}",
         "",
     ]
+
+    # Claim ladder section
+    ladder = r.get("claim_ladder", {})
+    if ladder:
+        lines += [
+            "### Claim Ladder",
+            "",
+            f"- **Tier:** {ladder.get('tier', 0)} ({ladder.get('label', 'diagnostic_claim')})",
+            f"- **Claim:** {ladder.get('claim_statement', 'N/A')}",
+            "",
+        ]
+        if ladder.get("watch_conditions"):
+            lines.append("**Watch conditions:**")
+            for wc in ladder["watch_conditions"]:
+                lines.append(f"- {wc}")
+            lines.append("")
+        if ladder.get("invalidation_conditions"):
+            lines.append("**Invalidation conditions:**")
+            for ic in ladder["invalidation_conditions"][:3]:
+                lines.append(f"- {ic}")
+            lines.append("")
+        if ladder.get("promotion_conditions"):
+            lines.append("**Promotion path:**")
+            for tier_key, cond in ladder["promotion_conditions"].items():
+                lines.append(f"- {tier_key}: {cond}")
+            lines.append("")
+        if ladder.get("demotion_risk"):
+            lines.append(f"**Demotion risk:** {ladder['demotion_risk']}")
+            lines.append("")
 
     # Channel decomposition — new section
     lines += [
