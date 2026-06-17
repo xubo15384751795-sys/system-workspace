@@ -432,22 +432,22 @@ run_all_tests:
   allowed_use:
   - test_runner
 _audit_coupling:
-  script: scripts/_audit_coupling.py
-  status: governance_active
+  script: scripts/archive/_audit_coupling.py
+  status: archived
   owner: Governance
   description: Audit module coupling
   allowed_use:
   - governance_audit
 _check_data:
-  script: scripts/_check_data.py
-  status: governance_active
+  script: scripts/archive/_check_data.py
+  status: archived
   owner: Governance
   description: Check data integrity
   allowed_use:
   - data_integrity_check
 _paths:
-  script: scripts/_paths.py
-  status: governance_active
+  script: scripts/archive/_paths.py
+  status: archived
   owner: Governance
   description: Path configuration utility
   allowed_use:
