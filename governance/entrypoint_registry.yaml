@@ -1,349 +1,624 @@
-# Entrypoint Registry — Script status and ownership
-# Created: 2026-06-16
-# See: governance/capability_registry.yaml
-#
-# Status enum:
-#   active             — 当前使用，有真实数据流
-#   compatibility_wrapper — root thin wrapper，真实实现在 owner module
-#   shadow_active      — 只产出诊断/记录，不能执行权威动作
-#   experimental       — 一次性实验，不进入主路径
-#   deprecated         — 已弃用，等待清理
-#   archive_candidate  — 应移入 scripts/archive/
-
-# === ACTIVE ENTRPOINTS ===
-
 daily_run:
   script: scripts/daily_run.py
   status: active
   owner: Deformation Framework
   description: Daily pipeline entry point
   allowed_use:
-    - daily_deformation_run
-    - current_output_generation
-
+  - daily_deformation_run
+  - current_output_generation
 refresh_output_current:
   script: scripts/refresh_output_current.py
   status: active
   owner: Workbench
   description: Refresh Output/current/ artifacts
   allowed_use:
-    - current_artifact_generation
-
+  - current_artifact_generation
 promote_snapshot:
   script: scripts/promote_snapshot.py
   status: active
   owner: Data/Output
   description: Snapshot promotion with gate validation
   allowed_use:
-    - snapshot_promotion
-
+  - snapshot_promotion
 list_latest:
   script: scripts/list_latest.py
   status: active
   owner: Data/Output
   description: List latest artifacts
   allowed_use:
-    - artifact_listing
-
+  - artifact_listing
 system_status:
   script: scripts/system_status.py
   status: active
   owner: Workbench
   description: System status check
   allowed_use:
-    - status_check
-
-# === COMPATIBILITY WRAPPERS ===
-
+  - status_check
 structural_replay_v2:
   script: scripts/structural_replay_v2.py
   status: compatibility_wrapper
   owner: Deformation Framework
-  target_location: "Structural Deformation Research System/scripts/"
+  target_location: Structural Deformation Research System/scripts/
   allowed_use:
-    - legacy_replay
-    - current_bridge_until_replacement
+  - legacy_replay
+  - current_bridge_until_replacement
   replacement:
-    - scripts/daily_run.py
-  retire_after: "2026-07-15"
-
+  - scripts/daily_run.py
+  retire_after: '2026-07-15'
 bridge_replay_to_current:
   script: scripts/bridge_replay_to_current.py
   status: compatibility_wrapper
   owner: Workbench
   target_location: Workbench/scripts/
   allowed_use:
-    - replay_to_current_bridge
+  - replay_to_current_bridge
   replacement:
-    - scripts/refresh_output_current.py
-  retire_after: "2026-07-15"
-
-# === ACTIVE BUT MODULE-OWNED ===
-
+  - scripts/refresh_output_current.py
+  retire_after: '2026-07-15'
 learning_hub_comprehensive_summary:
   script: scripts/learning_hub_comprehensive_summary.py
   status: active
   owner: Learning Hub
   target_location: system-learning-hub/scripts/
   allowed_use:
-    - comprehensive_summary_generation
-
+  - comprehensive_summary_generation
 learning_hub_judgment_calibration:
   script: scripts/learning_hub_judgment_calibration.py
   status: active
   owner: Learning Hub
   target_location: system-learning-hub/scripts/
   allowed_use:
-    - judgment_calibration
-
+  - judgment_calibration
 learning_hub_trade_calibration:
   script: scripts/learning_hub_trade_calibration.py
   status: active
   owner: Learning Hub
   target_location: system-learning-hub/scripts/
   allowed_use:
-    - trade_calibration
-
-# === EXPERIMENTAL / ONE-OFF ===
-
+  - trade_calibration
 blind_replay_test:
   script: scripts/blind_replay_test.py
   status: experimental
   owner: Workbench
   description: Blind replay test for validation
   allowed_use:
-    - validation_only
-
+  - validation_only
 benchmark_comparison:
   script: scripts/benchmark_comparison.py
   status: experimental
   owner: Qlib Benchmark
   allowed_use:
-    - benchmark_comparison
-
+  - benchmark_comparison
 calibration:
   script: scripts/calibration.py
   status: experimental
   owner: Deformation Framework
   allowed_use:
-    - calibration_analysis
-
-# === LEGACY COMPATIBILITY (retire_after: 2026-07-15) ===
-
+  - calibration_analysis
 legacy_data_sources:
-  script: "Structural Deformation Research System/src/data/data_sources.py"
+  script: Structural Deformation Research System/src/data/data_sources.py
   status: deprecated
   owner: Deformation Framework
   allowed_use:
-    - legacy_replay
-    - migration_validation
-    - dual_path_compare
-  retire_after: "2026-07-15"
-  note: "LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline"
-
+  - legacy_replay
+  - migration_validation
+  - dual_path_compare
+  retire_after: '2026-07-15'
+  note: LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline
 legacy_data_hub:
-  script: "Structural Deformation Research System/src/data/gateway/data_hub.py"
+  script: Structural Deformation Research System/src/data/gateway/data_hub.py
   status: deprecated
   owner: Deformation Framework
   allowed_use:
-    - legacy_replay
-    - migration_validation
-    - dual_path_compare
-  retire_after: "2026-07-15"
-  note: "LEGACY_COMPATIBILITY_ONLY — production must use Harvester-backed DataHubLite"
-
-# === DEPRECATED / ARCHIVE CANDIDATES ===
-
+  - legacy_replay
+  - migration_validation
+  - dual_path_compare
+  retire_after: '2026-07-15'
+  note: LEGACY_COMPATIBILITY_ONLY — production must use Harvester-backed DataHubLite
 structural_replay_evaluation:
   script: scripts/archive/structural_replay_evaluation.py
   status: archived
   owner: Deformation Framework
-  reason: "Not called by any runtime pipeline; uses yfinance directly (violates Harvester-only rule)"
-  archived_at: "2026-06-17"
-
+  reason: Not called by any runtime pipeline; uses yfinance directly (violates Harvester-only rule)
+  archived_at: '2026-06-17'
 refresh_etf_panel:
   script: scripts/refresh_etf_panel.py
   status: active
   owner: Harvester
-  description: "Recomputes K features from existing panel parquet; does NOT acquire ETF data"
+  description: Recomputes K features from existing panel parquet; does NOT acquire ETF data
   allowed_use:
-    - feature_recomputation
-  note: "ETF acquisition must come from Harvester evidence release; this script only recomputes features"
-
+  - feature_recomputation
+  note: ETF acquisition must come from Harvester evidence release; this script only recomputes features
 solution_phase1:
   script: scripts/solution_phase1.py
   status: archive_candidate
   owner: unknown
-  reason: "One-off solution script, no active consumers"
-
+  reason: One-off solution script, no active consumers
 solution_phase2:
   script: scripts/solution_phase2.py
   status: archive_candidate
   owner: unknown
-  reason: "One-off solution script, no active consumers"
-
+  reason: One-off solution script, no active consumers
 hmm_generate_history:
   script: scripts/hmm_generate_history.py
   status: archive_candidate
   owner: ML Signals
-  reason: "HMM experiment, not in active pipeline"
-
+  reason: HMM experiment, not in active pipeline
 hmm_stability_audit:
   script: scripts/hmm_stability_audit.py
   status: archive_candidate
   owner: ML Signals
-  reason: "HMM experiment, not in active pipeline"
-
+  reason: HMM experiment, not in active pipeline
 prepare_dl_training_data:
   script: scripts/prepare_dl_training_data.py
   status: archive_candidate
   owner: ML Signals
-  reason: "DL training data prep, not in active pipeline"
-
-# === ACTIVE BUT NEEDS MIGRATION ===
-
+  reason: DL training data prep, not in active pipeline
 caselab_daily_signal:
   script: scripts/caselab_daily_signal.py
   status: active
   owner: CaseLab Context
   target_location: caselab_context/scripts/
   allowed_use:
-    - daily_signal_generation
-
+  - daily_signal_generation
 nlp_extract:
   script: scripts/nlp_extract.py
   status: active
   owner: NLP Pipeline
   target_location: Workbench/src/nlp/scripts/
   allowed_use:
-    - nlp_extraction
-
+  - nlp_extraction
 nlp_ingest:
   script: scripts/nlp_ingest.py
   status: active
   owner: NLP Pipeline
   target_location: Workbench/src/nlp/scripts/
   allowed_use:
-    - nlp_ingestion
-
-# === GOVERNANCE / AUDIT ===
-
+  - nlp_ingestion
 audit_boundaries:
   script: scripts/audit_boundaries.py
   status: active
   owner: Governance
   allowed_use:
-    - boundary_audit
-
+  - boundary_audit
 record_runtime_event:
   script: scripts/record_runtime_event.py
   status: active
   owner: Learning Hub
   allowed_use:
-    - runtime_event_recording
-
+  - runtime_event_recording
 record_trade_decision:
   script: scripts/record_trade_decision.py
   status: active
   owner: Learning Hub
   allowed_use:
-    - trade_decision_recording
-
+  - trade_decision_recording
 daily_routing_decision:
   script: scripts/daily_routing_decision.py
   status: shadow_active
   owner: Agent Routing
   allowed_use:
-    - routing_diagnostics
-    - learning_hub_record
+  - routing_diagnostics
+  - learning_hub_record
   forbidden_use:
-    - execute_routed_task
-    - affect_core_judgment
-    - bypass_module_ownership
-  blocker: "Shadow diagnostics only; needs tests and explicit authority before ACTIVE_PARTIAL."
-
+  - execute_routed_task
+  - affect_core_judgment
+  - bypass_module_ownership
+  blocker: Shadow diagnostics only; needs tests and explicit authority before ACTIVE_PARTIAL.
 routing_cli:
   script: Workbench/agents/harness/entrypoints/routing_cli.py
   status: shadow_active
   owner: Agent Routing
   allowed_use:
-    - public_shadow_routing_api
-    - routing_diagnostics
+  - public_shadow_routing_api
+  - routing_diagnostics
   forbidden_use:
-    - execute_routed_task
-    - affect_core_judgment
-
-# === VALIDATION / QUALITY ===
-
+  - execute_routed_task
+  - affect_core_judgment
 quality_field_validator:
   script: scripts/quality_field_validator.py
   status: active
   owner: Protocols
   allowed_use:
-    - field_validation
-
+  - field_validation
 validate_workbench_contract:
   script: scripts/validate_workbench_contract.py
   status: active
   owner: Workbench
   allowed_use:
-    - contract_validation
-
+  - contract_validation
 freshness_validator:
   script: scripts/freshness_validator.py
   status: active
   owner: Data/Output
   allowed_use:
-    - freshness_validation
-
+  - freshness_validation
 architecture_reality_audit:
   script: scripts/architecture_reality_audit.py
   status: active
   owner: Learning Hub
   allowed_use:
-    - architecture_reality_audit
-    - governance_drift_detection
-
+  - architecture_reality_audit
+  - governance_drift_detection
 proxy_quality_scorer:
   script: scripts/proxy_quality_scorer.py
   status: active
   owner: Deformation Framework
   allowed_use:
-    - proxy_quality_scoring
-
-# === TRADE / RISK ===
-
+  - proxy_quality_scoring
 trade_decision_layer:
   script: scripts/trade_decision_layer.py
   status: active
   owner: Workbench
   allowed_use:
-    - trade_decision_generation
-
+  - trade_decision_generation
 trade_risk_gate:
   script: scripts/trade_risk_gate.py
   status: active
   owner: Workbench
   allowed_use:
-    - risk_gate_validation
-
+  - risk_gate_validation
 position_sizing_layer:
   script: scripts/position_sizing_layer.py
   status: active
   owner: Workbench
   allowed_use:
-    - position_sizing
-
+  - position_sizing
 judgment_layer:
   script: scripts/judgment_layer.py
   status: active
   owner: Workbench
   allowed_use:
-    - judgment_generation
-
+  - judgment_generation
 judgment_promotion_gate:
   script: scripts/judgment_promotion_gate.py
+  status: compatibility_wrapper
+  owner: Workbench
+  description: Thin wrapper for Workbench judgment promotion gate
+  allowed_use:
+  - promotion_gate_check
+build_system_index:
+  script: scripts/build_system_index.py
   status: active
   owner: Workbench
+  description: Build unified system index from all pipeline outputs
   allowed_use:
-    - promotion_gate_validation
+  - system_index_generation
+build_readme_first:
+  script: scripts/build_readme_first.py
+  status: active
+  owner: Workbench
+  description: Build 00_READ_ME_FIRST.md from system index
+  allowed_use:
+  - current_artifact_generation
+k_measurement_gate:
+  script: scripts/k_measurement_gate.py
+  status: active
+  owner: ML Signals
+  description: K measurement gate — diagnostic rebuild role
+  allowed_use:
+  - k_gate_diagnostics
+x_measurement_gate:
+  script: scripts/x_measurement_gate.py
+  status: active
+  owner: ML Signals
+  description: X measurement gate — background-only
+  allowed_use:
+  - x_gate_diagnostics
+market_feedback:
+  script: scripts/market_feedback.py
+  status: experimental
+  owner: Learning Hub
+  description: Market feedback loop — experimental
+  allowed_use:
+  - market_feedback_diagnostics
+gluonts_probabilistic_context:
+  script: scripts/gluonts_probabilistic_context.py
+  status: experimental
+  owner: ML Signals
+  description: GluonTS probabilistic context — experimental
+  allowed_use:
+  - probabilistic_context_diagnostics
+horizon_event_adapter:
+  script: scripts/horizon_event_adapter.py
+  status: active
+  owner: Workbench
+  description: Adapt horizon events for pipeline consumption
+  allowed_use:
+  - horizon_event_adaptation
+operator_registry_audit:
+  script: scripts/operator_registry_audit.py
+  status: active
+  owner: Governance
+  description: Audit operator registry completeness
+  allowed_use:
+  - governance_audit
+judgment_replay_audit:
+  script: scripts/judgment_replay_audit.py
+  status: active
+  owner: Governance
+  description: Audit judgment replay consistency
+  allowed_use:
+  - governance_audit
+reality_reconciliation_audit:
+  script: scripts/reality_reconciliation_audit.py
+  status: active
+  owner: Governance
+  description: Reconcile system claims with reality
+  allowed_use:
+  - governance_audit
+sync_paper_world_model:
+  script: scripts/sync_paper_world_model.py
+  status: active
+  owner: Workbench
+  description: Sync paper world model data
+  allowed_use:
+  - paper_model_sync
+practicality_daily_note:
+  script: scripts/practicality_daily_note.py
+  status: active
+  owner: Governance
+  description: Daily practicality note generation
+  allowed_use:
+  - governance_note
+market_state_classifier:
+  script: scripts/market_state_classifier.py
+  status: active
+  owner: ML Signals
+  description: Market state classification
+  allowed_use:
+  - market_classification
+build_daily_run_summary:
+  script: scripts/build_daily_run_summary.py
+  status: active
+  owner: Workbench
+  description: Build daily run summary report
+  allowed_use:
+  - daily_summary_generation
+ask_evidence:
+  script: scripts/ask_evidence.py
+  status: compatibility_wrapper
+  owner: Workbench
+  description: Thin wrapper for Workbench NLP evidence query
+  allowed_use:
+  - evidence_query
+build_abandoned_work_report:
+  script: scripts/build_abandoned_work_report.py
+  status: active
+  owner: Governance
+  description: Report abandoned or stale work items
+  allowed_use:
+  - governance_report
+build_artifact_navigator:
+  script: scripts/build_artifact_navigator.py
+  status: active
+  owner: Workbench
+  description: Build artifact navigator for Output/current
+  allowed_use:
+  - artifact_navigation
+build_benchmark_evidence_dashboard:
+  script: scripts/build_benchmark_evidence_dashboard.py
+  status: active
+  owner: Workbench
+  description: Build benchmark evidence dashboard
+  allowed_use:
+  - evidence_dashboard
+build_next_actions:
+  script: scripts/build_next_actions.py
+  status: active
+  owner: Workbench
+  description: Build next actions from system learning
+  allowed_use:
+  - next_actions_generation
+enrich_agent_context:
+  script: scripts/enrich_agent_context.py
+  status: active
+  owner: Governance
+  description: Enrich agent context packets
+  allowed_use:
+  - agent_context_enrichment
+github_preflight:
+  script: scripts/github_preflight.py
+  status: tool_active
+  owner: Governance
+  description: GitHub preflight checks
+  allowed_use:
+  - ci_preflight
+run_all_tests:
+  script: scripts/run_all_tests.py
+  status: tool_active
+  owner: Governance
+  description: Run all test suites
+  allowed_use:
+  - test_runner
+_audit_coupling:
+  script: scripts/_audit_coupling.py
+  status: governance_active
+  owner: Governance
+  description: Audit module coupling
+  allowed_use:
+  - governance_audit
+_check_data:
+  script: scripts/_check_data.py
+  status: governance_active
+  owner: Governance
+  description: Check data integrity
+  allowed_use:
+  - data_integrity_check
+_paths:
+  script: scripts/_paths.py
+  status: governance_active
+  owner: Governance
+  description: Path configuration utility
+  allowed_use:
+  - path_config
+_run_descriptive_quality_tests:
+  script: scripts/_run_descriptive_quality_tests.py
+  status: governance_active
+  owner: Governance
+  description: Run descriptive quality tests
+  allowed_use:
+  - quality_test
+wiki_system_bridge_audit:
+  script: scripts/wiki_system_bridge_audit.py
+  status: governance_active
+  owner: Governance
+  description: Audit wiki system bridge
+  allowed_use:
+  - governance_audit
+compute_proxies:
+  script: scripts/compute_proxies.py
+  status: experimental
+  owner: ML Signals
+  description: Compute proxy signals — experimental
+  allowed_use:
+  - proxy_computation
+  retire_after: '2026-07-15'
+d_proxy_daily:
+  script: scripts/d_proxy_daily.py
+  status: experimental
+  owner: ML Signals
+  description: Daily D proxy computation — experimental
+  allowed_use:
+  - proxy_computation
+  retire_after: '2026-07-15'
+m_proxy_daily:
+  script: scripts/m_proxy_daily.py
+  status: experimental
+  owner: ML Signals
+  description: Daily M proxy computation — experimental
+  allowed_use:
+  - proxy_computation
+  retire_after: '2026-07-15'
+m_proxy_optimization:
+  script: scripts/m_proxy_optimization.py
+  status: experimental
+  owner: ML Signals
+  description: M proxy optimization — experimental
+  allowed_use:
+  - proxy_optimization
+  retire_after: '2026-07-15'
+k_features_from_etf:
+  script: scripts/k_features_from_etf.py
+  status: experimental
+  owner: ML Signals
+  description: K features from ETF panel — experimental
+  allowed_use:
+  - feature_computation
+k_state_machine:
+  script: scripts/k_state_machine.py
+  status: experimental
+  owner: ML Signals
+  description: K state machine — experimental
+  allowed_use:
+  - state_machine_diagnostics
+k_v2_robustness:
+  script: scripts/k_v2_robustness.py
+  status: experimental
+  owner: ML Signals
+  description: K v2 robustness test — experimental
+  allowed_use:
+  - robustness_test
+k_v2_robustness_z2:
+  script: scripts/k_v2_robustness_z2.py
+  status: experimental
+  owner: ML Signals
+  description: K v2 z2 robustness test — experimental
+  allowed_use:
+  - robustness_test
+identification:
+  script: scripts/identification.py
+  status: experimental
+  owner: ML Signals
+  description: Structural identification — experimental
+  allowed_use:
+  - identification_diagnostics
+proxy_validation:
+  script: scripts/proxy_validation.py
+  status: experimental
+  owner: ML Signals
+  description: Proxy validation — experimental
+  allowed_use:
+  - proxy_validation
+primitive_readiness_matrix:
+  script: scripts/primitive_readiness_matrix.py
+  status: experimental
+  owner: Governance
+  description: Primitive readiness matrix — experimental
+  allowed_use:
+  - readiness_assessment
+walk_forward_validation:
+  script: scripts/walk_forward_validation.py
+  status: experimental
+  owner: ML Signals
+  description: Walk-forward validation — experimental
+  allowed_use:
+  - validation
+reconstruction_data_availability:
+  script: scripts/reconstruction_data_availability.py
+  status: experimental
+  owner: Governance
+  description: Reconstruction data availability check — experimental
+  allowed_use:
+  - data_availability_check
+trade_decision_replay:
+  script: scripts/trade_decision_replay.py
+  status: experimental
+  owner: Governance
+  description: Trade decision replay — experimental
+  allowed_use:
+  - decision_replay
+x_agg_daily_retest:
+  script: scripts/x_agg_daily_retest.py
+  status: experimental
+  owner: ML Signals
+  description: X aggregate daily retest — experimental
+  allowed_use:
+  - x_agg_retest
+x_agg_v3_rebuild:
+  script: scripts/x_agg_v3_rebuild.py
+  status: experimental
+  owner: ML Signals
+  description: X aggregate v3 rebuild — experimental
+  allowed_use:
+  - x_agg_rebuild
+run_harvester_no_proxy:
+  script: scripts/run_harvester_no_proxy.py
+  status: experimental
+  owner: Harvester
+  description: Run harvester without proxy — experimental
+  allowed_use:
+  - harvester_test
+merge_data_hub:
+  script: scripts/merge_data_hub.py
+  status: experimental
+  owner: Governance
+  description: Merge data hub — experimental migration script
+  allowed_use:
+  - data_migration
+  retire_after: '2026-07-15'
+x_agg_contamination_lockdown:
+  script: scripts/x_agg_contamination_lockdown.py
+  status: archive_candidate
+  owner: ML Signals
+  reason: One-time lockdown script, no runtime consumers
+  retire_after: '2026-07-01'
+x_agg_frequency_split:
+  script: scripts/x_agg_frequency_split.py
+  status: archive_candidate
+  owner: ML Signals
+  reason: One-time frequency split, no runtime consumers
+  retire_after: '2026-07-01'
+x_agg_trigger_decommission:
+  script: scripts/x_agg_trigger_decommission.py
+  status: archive_candidate
+  owner: ML Signals
+  reason: One-time decommission script, no runtime consumers
+  retire_after: '2026-07-01'
+promotion_gate:
+  script: scripts/promotion_gate.py
+  status: active
+  owner: Governance
+  description: Enforce claim strength boundaries — blocks claims above ceiling
+  allowed_use:
+  - promotion_gate_check

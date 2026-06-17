@@ -1,0 +1,79 @@
+schema_version: redundancy_budget.v1
+updated_at: "2026-06-17"
+purpose: >
+  Hard rules for entry, artifact, and data governance.
+  Any new script, Output directory, or Data directory must be registered
+  with owner, TTL, and whether it can affect core judgment.
+
+# ── Root Scripts ──────────────────────────────────────────────────────────────
+root_scripts:
+  max_visible: 35
+  require_registry_entry: true
+  allowed_statuses:
+    - daily_active        # daily_run.py directly uses
+    - tool_active         # ./sys or user-facing tool uses
+    - governance_active   # audit, registry, learning system uses
+    - compatibility_wrapper  # thin wrapper until module absorbs
+    - experimental        # research experiment, cannot affect core judgment
+    - archive_candidate   # ready to move to scripts/archive/
+    - archived            # moved to scripts/archive/
+
+  # Scripts NOT in daily_run or ./sys must have a retire_after or ttl_days.
+  experimental_ttl_days: 30
+  archive_candidate_ttl_days: 14
+
+# ── Output Artifacts ─────────────────────────────────────────────────────────
+output:
+  allowed_groups:
+    - current             # Output/current/ — user-facing entry
+    - runs                # Output/deformation_runs/ — formal run packages
+    - research            # Output/backtest_*, ml*, k_*, x_*, nlp/
+    - governance          # Output/system_learning/, judgment/, reports/
+    - sandbox             # Output/sandbox/ — 7-day TTL experiments
+    - archive             # Output/archive/ — frozen history
+
+  default_sandbox_ttl_days: 7
+  experimental_archive_after_days: 7
+  unregistered_dirs_require_owner: true
+
+  # Display group mapping (artifact_registry.json display_group field)
+  display_group_rules:
+    current: ["current/"]
+    runs: ["deformation_runs/"]
+    research: ["backtest_*", "ml*", "k_*", "x_*", "nlp*", "practicality_*", "solution/"]
+    governance: ["system_learning/", "judgment/", "reports/"]
+    sandbox: ["sandbox/"]
+    archive: ["archive/"]
+
+# ── Data Retention ───────────────────────────────────────────────────────────
+data:
+  harvester_exports:
+    keep_latest: true
+    keep_last_n_daily: 7
+    keep_monthly_checkpoints: true
+    archive_debug_releases: true
+    max_debug_release_age_days: 0  # archive immediately
+
+  panels:
+    canonical_format: parquet
+    csv_exports:
+      retention_days: 7
+      affects_core_judgment: false
+
+  structural_lab:
+    runtime:
+      status: legacy_candidate
+      require_owner: true
+      archive_after_days: 7
+
+  merged_data:
+    status: migration_artifact
+    require_owner: true
+    archive_after_days: 14
+
+# ── Core Judgment Protection ─────────────────────────────────────────────────
+core_judgment:
+  experimental_artifacts_can_affect_core: false
+  unregistered_artifacts_can_affect_core: false
+  archive_candidates_can_affect_core: false
+  compatibility_wrappers_can_affect_core: true  # transitional
