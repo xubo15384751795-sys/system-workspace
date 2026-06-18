@@ -32,6 +32,58 @@ def load_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _normalize_paper_sources(raw: Any) -> list[dict[str, str]]:
+    """Normalize paper_sources from both old (list) and new (dict) formats.
+
+    Old format: list of source dicts
+    New format (trade_decision.v2): {"approved_support": [...], "background_context": [...]}
+    """
+    if isinstance(raw, list):
+        # Old format: list of source dicts
+        return [
+            {
+                "source_file": s.get("source_file", ""),
+                "content_type": s.get("content_type", ""),
+                "content_id": s.get("content_id", ""),
+                "review_status": s.get("review_status", "needs_review"),
+            }
+            for s in raw
+        ]
+    if isinstance(raw, dict):
+        # New format: dict with approved_support and background_context
+        sources = []
+        for category in ("approved_support", "background_context"):
+            for s in raw.get(category, []):
+                if isinstance(s, dict):
+                    sources.append({
+                        "source_file": s.get("source_file", s.get("source", "")),
+                        "content_type": s.get("content_type", s.get("type", category)),
+                        "content_id": s.get("content_id", s.get("source", "")),
+                        "review_status": s.get("review_status", "needs_review"),
+                        "category": category,
+                    })
+        return sources
+    return []
+
+
+def _normalize_system_sources(raw: Any) -> list[dict[str, str]]:
+    """Normalize system_sources from both old and new formats.
+
+    Old format: {"source_type": ..., "status": ...}
+    New format: {"source": ..., "type": ..., "status": ...}
+    """
+    if not isinstance(raw, list):
+        return []
+    return [
+        {
+            "source_type": s.get("source_type", s.get("type", s.get("source", ""))),
+            "status": s.get("status", ""),
+        }
+        for s in raw
+        if isinstance(s, dict)
+    ]
+
+
 def build_ledger_entry(
     decision: dict[str, Any],
     risk_gate: dict[str, Any],
@@ -49,22 +101,8 @@ def build_ledger_entry(
         "asset_scope": decision.get("asset_scope", []),
         "invalidation": decision.get("invalidation", []),
         "risk_notes": decision.get("risk_notes", []),
-        "paper_sources": [
-            {
-                "source_file": s.get("source_file", ""),
-                "content_type": s.get("content_type", ""),
-                "content_id": s.get("content_id", ""),
-                "review_status": s.get("review_status", "needs_review"),
-            }
-            for s in decision.get("paper_sources", [])
-        ],
-        "system_sources": [
-            {
-                "source_type": s.get("source_type", ""),
-                "status": s.get("status", ""),
-            }
-            for s in decision.get("system_sources", [])
-        ],
+        "paper_sources": _normalize_paper_sources(decision.get("paper_sources", [])),
+        "system_sources": _normalize_system_sources(decision.get("system_sources", [])),
         "risk_gate_status": risk_gate.get("risk_check", {}).get("status", "UNKNOWN"),
         "risk_level": risk_gate.get("risk_check", {}).get("risk_level", "UNKNOWN"),
         "trade_thesis": decision.get("trade_thesis", {}),

@@ -133,8 +133,35 @@ def check_state_distribution(hmm: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _get_model_signature(hmm: dict[str, Any]) -> str:
+    """Extract a model signature from HMM output to group compatible history.
+
+    Uses method + train_window + feature_count to identify model versions.
+    """
+    method = hmm.get("method", "unknown")
+    stability = hmm.get("stability", {})
+    train_window = stability.get("train_window", "unknown")
+    feature_count = stability.get("feature_count", 0)
+    return f"{method}:{train_window}:{feature_count}"
+
+
+def _filter_history_by_signature(
+    history: list[dict[str, Any]], signature: str,
+) -> list[dict[str, Any]]:
+    """Filter history to entries with matching model signature."""
+    return [h for h in history if _get_model_signature(h) == signature]
+
+
 def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, Any]:
-    """Run complete HMM stability audit."""
+    """Run complete HMM stability audit.
+
+    Splits assessment into two independent dimensions:
+    - model_health: Is the model structurally sound? (PASS/WATCH/FAIL)
+    - calibration_status: Do we have enough calibration data?
+      (INSUFFICIENT_HISTORY / CALIBRATING / PASSED)
+
+    This avoids conflating "model is bad" with "not enough history yet".
+    """
     regime = hmm.get("regime", {})
     stability = hmm.get("stability", {})
     provenance = hmm.get("provenance", {})
@@ -153,67 +180,143 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
         state_probs = state_probs_raw
     posterior_entropy = compute_posterior_entropy(state_probs) if state_probs else 0.0
 
-    # Rolling analysis
-    rolling_refit = compute_rolling_refit_agreement(history)
-    label_stability = compute_label_stability(history)
+    # Filter history by model signature to avoid mixing old/new model outputs
+    model_signature = _get_model_signature(hmm)
+    compatible_history = _filter_history_by_signature(history, model_signature)
+
+    # Rolling analysis (only on compatible history)
+    rolling_refit = compute_rolling_refit_agreement(compatible_history)
+    label_stability = compute_label_stability(compatible_history)
 
     # State distribution
     dist_check = check_state_distribution(hmm)
-
-    # Stability grade
-    issues = []
-    grade = "ADEQUATE"
-
-    if sample_days < 252:
-        issues.append(f"Sample days={sample_days} < 252 — limited training data")
-        grade = "WEAK"
-
-    if feature_count < 3:
-        issues.append(f"Feature count={feature_count} < 3 — may be underfitting")
-        grade = "WEAK"
-
-    if posterior_entropy < 0.1:
-        issues.append(f"Posterior entropy={posterior_entropy:.3f} < 0.1 — possibly overconfident")
-        grade = "WEAK"
-
-    # Only check rolling refit if we have enough history
-    if len(history) >= 2:
-        if rolling_refit < 0.7:
-            issues.append(f"Rolling refit agreement={rolling_refit:.3f} < 0.7 — unstable")
-            grade = "WEAK"
-
-        if label_stability < 0.6:
-            issues.append(f"Label stability={label_stability:.3f} < 0.6 — regime labels unstable")
-            grade = "WEAK"
-    else:
-        issues.append("Insufficient history for rolling refit/label stability checks")
-
-    if not dist_check["balanced"]:
-        issues.append(f"State distribution imbalanced: max={dist_check.get('max_proportion', '?')}")
-        grade = "WEAK"
-
-    if not issues:
-        issues.append("All stability checks passed")
-
-    # Usage recommendations
-    if grade == "WEAK":
-        allowed_use = "conflict_monitor_only"
-        forbidden_use = ["regime_label", "primary_signal", "standalone_claim"]
-    else:
-        allowed_use = "regime_hint"
-        forbidden_use = ["truth", "certainty", "standalone_signal"]
 
     # Calibration data (from confidence_calibration wrapper, if present)
     cal = hmm.get("calibration", {})
     calibrated_confidence = regime.get("calibrated_confidence")
     calibration_passed = regime.get("calibration_passed")
+    cal_history_len = cal.get("diagnostics", {}).get("calibration_history_length", 0)
+
+    # ── Dimension 1: Model Health ────────────────────────────────────
+    # Is the model structurally sound? Does it have enough data to fit?
+    model_health_issues = []
+    model_health = "PASS"
+
+    if sample_days < 252:
+        model_health_issues.append(f"Sample days={sample_days} < 252 — limited training data")
+        model_health = "FAIL"
+
+    if feature_count < 3:
+        model_health_issues.append(f"Feature count={feature_count} < 3 — may be underfitting")
+        model_health = "FAIL"
+
+    if not dist_check["balanced"]:
+        model_health_issues.append(f"State distribution imbalanced: max={dist_check.get('max_proportion', '?')}")
+        model_health = "WATCH"
+
+    if posterior_entropy < 0.01:
+        # Extremely low entropy is a model health issue (degenerate posterior)
+        model_health_issues.append(f"Posterior entropy={posterior_entropy:.4f} near zero — degenerate posterior")
+        model_health = "FAIL"
+
+    if not model_health_issues:
+        model_health_issues.append("Model structure is healthy")
+
+    # ── Dimension 2: Calibration Status ──────────────────────────────
+    # Do we have enough history to trust the model's outputs?
+    calibration_issues = []
+
+    if len(compatible_history) < 2:
+        calibration_status = "INSUFFICIENT_HISTORY"
+        calibration_issues.append(
+            f"Only {len(compatible_history)} compatible runs — "
+            f"need >= 2 for rolling refit, >= 10 for calibration"
+        )
+    elif len(compatible_history) < 10:
+        calibration_status = "CALIBRATING"
+        if rolling_refit < 0.7:
+            calibration_issues.append(
+                f"Rolling refit agreement={rolling_refit:.3f} < 0.7 — "
+                f"needs more consistent runs"
+            )
+        if label_stability < 0.6:
+            calibration_issues.append(
+                f"Label stability={label_stability:.3f} < 0.6 — "
+                f"regime labels still stabilizing"
+            )
+        if not calibration_issues:
+            calibration_issues.append(
+                f"Rolling metrics OK but only {len(compatible_history)} runs — "
+                f"need >= 10 for full calibration"
+            )
+    else:
+        # 10+ compatible runs — check if calibration passes
+        if rolling_refit >= 0.7 and label_stability >= 0.6 and posterior_entropy >= 0.1:
+            calibration_status = "PASSED"
+            calibration_issues.append("Calibration checks passed")
+        else:
+            calibration_status = "CALIBRATING"
+            if rolling_refit < 0.7:
+                calibration_issues.append(f"Rolling refit={rolling_refit:.3f} < 0.7")
+            if label_stability < 0.6:
+                calibration_issues.append(f"Label stability={label_stability:.3f} < 0.6")
+            if posterior_entropy < 0.1:
+                calibration_issues.append(f"Entropy={posterior_entropy:.3f} < 0.1")
+
+    # ── Combined Grade (backward compat) ─────────────────────────────
+    if model_health == "FAIL" or calibration_status == "INSUFFICIENT_HISTORY":
+        grade = "WEAK"
+    elif model_health == "WATCH" or calibration_status == "CALIBRATING":
+        grade = "ADEQUATE"
+    else:
+        grade = "HIGH"
+
+    # ── Usage Recommendations ────────────────────────────────────────
+    # Split by claim type, not one-size-fits-all
+    if model_health == "FAIL":
+        allowed_use = "none"
+        forbidden_use = ["regime_label", "mechanism_hypothesis", "any_claim"]
+    elif calibration_status == "INSUFFICIENT_HISTORY":
+        allowed_use = "conflict_monitor_only"
+        forbidden_use = ["regime_label", "primary_signal", "standalone_claim"]
+    elif calibration_status == "CALIBRATING":
+        allowed_use = "regime_hint"
+        forbidden_use = ["regime_label", "certainty", "standalone_signal"]
+    else:
+        allowed_use = "regime_hint"
+        forbidden_use = ["truth", "certainty", "standalone_signal"]
+
+    # What HMM can support regardless of calibration
+    hmm_supportable = [
+        "m_d_structural_readout",
+        "mechanism_hypothesis",
+        "watch_condition",
+        "invalidation_condition",
+        "conflict_monitoring",
+    ]
+
+    # What HMM blocks when not calibrated
+    hmm_blocked_claims = []
+    if calibration_status != "PASSED":
+        hmm_blocked_claims = [
+            "regime_call",
+            "crisis_conclusion",
+            "compression_conclusion",
+            "directional_forecast",
+            "trading_signal",
+        ]
+
+    # All issues combined for backward compat
+    all_issues = model_health_issues + calibration_issues
 
     result = {
-        "schema_version": "system.hmm_stability_audit.v1",
+        "schema_version": "system.hmm_stability_audit.v2",
         "generated_at": datetime.now(UTC).isoformat(),
         "sample_days": sample_days,
         "feature_count": feature_count,
         "train_window": train_window,
+        "model_signature": model_signature,
+        "compatible_history_length": len(compatible_history),
         "current_regime": regime.get("current", "unknown"),
         "current_probability": current_prob,
         "raw_probability": _as_float(regime.get("raw_probability", current_prob)),
@@ -221,8 +324,26 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
         "rolling_refit_agreement": round(rolling_refit, 4),
         "label_stability": round(label_stability, 4),
         "state_distribution": dist_check,
+
+        # New: split dimensions
+        "model_health": {
+            "grade": model_health,
+            "issues": model_health_issues,
+        },
+        "calibration_status": {
+            "status": calibration_status,
+            "issues": calibration_issues,
+            "compatible_history": len(compatible_history),
+            "required_for_passed": 10,
+        },
+
+        # Claim-type-aware blocking
+        "hmm_supportable_claims": hmm_supportable,
+        "hmm_blocked_claims": hmm_blocked_claims,
+
+        # Backward compat
         "stability_grade": grade,
-        "issues": issues,
+        "issues": all_issues,
         "allowed_use": allowed_use,
         "forbidden_use": forbidden_use,
         "history_length": len(history),
@@ -246,18 +367,23 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
 
 
 def format_markdown(report: dict[str, Any]) -> str:
+    mh = report.get("model_health", {})
+    cs = report.get("calibration_status", {})
     lines = [
         "# HMM Stability Audit",
         "",
         f"- Generated: {report['generated_at']}",
         f"- Stability grade: **{report['stability_grade']}**",
+        f"- Model health: **{mh.get('grade', 'N/A')}**",
+        f"- Calibration status: **{cs.get('status', 'N/A')}**",
         "",
         "## Basic Metrics",
         "",
         f"- Sample days: {report['sample_days']}",
         f"- Feature count: {report['feature_count']}",
         f"- Train window: {report['train_window']}",
-        f"- History length: {report['history_length']}",
+        f"- Model signature: {report.get('model_signature', 'N/A')}",
+        f"- History length: {report['history_length']} (compatible: {report.get('compatible_history_length', 'N/A')})",
         "",
         "## Current State",
         "",
@@ -283,11 +409,33 @@ def format_markdown(report: dict[str, Any]) -> str:
 
     lines += [
         "",
-        "## Issues",
+        "## Model Health",
         "",
     ]
-    for issue in report["issues"]:
+    for issue in mh.get("issues", []):
         lines.append(f"- {issue}")
+
+    lines += [
+        "",
+        "## Calibration Status",
+        "",
+    ]
+    for issue in cs.get("issues", []):
+        lines.append(f"- {issue}")
+
+    lines += [
+        "",
+        "## Claim-Type Blocking",
+        "",
+        "HMM supports:",
+    ]
+    for claim in report.get("hmm_supportable_claims", []):
+        lines.append(f"- ✅ {claim}")
+    if report.get("hmm_blocked_claims"):
+        lines.append("")
+        lines.append("HMM blocks:")
+        for claim in report["hmm_blocked_claims"]:
+            lines.append(f"- ❌ {claim}")
 
     lines += [
         "",
