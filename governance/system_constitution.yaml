@@ -19,6 +19,29 @@ core_principles:
   freshness_fail_blocks_snapshot: true
   live_execution_allowed: false
 
+# Hard authority rule — sandbox/research/archive/system_learning cannot affect core.
+# They must go through bridge/gate to produce Output/current/ or Output/deformation_runs/.
+hard_authority_rule:
+  only_current_or_formal_runs_can_affect_core_judgment: true
+  prohibited_from_core_judgment:
+    - "Output/sandbox/"
+    - "Output/research/"
+    - "Output/archive/"
+    - "Output/system_learning/"
+  # authorized_runtime_chain: outputs that MAY participate in core judgment.
+  # This is the single source of truth for "what can affect core".
+  # Tests must read from this list, not hardcode their own.
+  authorized_runtime_chain:
+    - "Output/current/"
+    - "Output/deformation_runs/"
+    - "Output/judgment/"
+    - "Output/trade_decision/"
+    - "Output/quality/"
+    - "Output/freshness/"
+    - "canonical Data evidence releases"
+  # Sandbox/research outputs can only influence core through authorized bridge/gate.
+  bridge_rule: "sandbox/research → bridge/gate → current (then current is authorized)"
+
 # Authority order — gates must be checked in this order
 authority_order:
   - freshness_gate

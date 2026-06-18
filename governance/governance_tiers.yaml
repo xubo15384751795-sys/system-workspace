@@ -56,3 +56,14 @@ archived:
     - runtime_log_contract.md
     - x_agg_v1_obs_procurement_plan.md
     - hmm_source_policy.json
+
+# Historical snapshots — NOT current authority
+# These reports record past observations. Current authority comes from
+# hard_rules or live registries, not from historical audit snapshots.
+historical_snapshots:
+  description: "Past audit/review reports. Reference only, not current authority."
+  path: governance/audit-reports/
+  rule: >
+    Files in governance/audit-reports/ are historical snapshots.
+    They cannot override hard_rules, live registries, or current test results.
+    They may be cited as evidence but not as authority.

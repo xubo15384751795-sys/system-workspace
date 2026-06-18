@@ -153,8 +153,8 @@ steps:
     ttl_hours: 48
     requires_harvester_evidence: true
     requires_provenance: false
-    allowed_to_affect_core_judgment: true
-    core_judgment_dependency: true
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
     failure_behavior: block_current_readout
     execution:
       mode: subprocess
@@ -167,7 +167,7 @@ steps:
       outputs: *id010
       emits_run_event: true
     authority:
-      affects_core_judgment: true
+      affects_core_judgment: false
       failure_behavior: block_current_readout
       owner: Deformation Framework
   bridge:

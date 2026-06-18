@@ -122,7 +122,7 @@ def test_governance_status_reports_watch_tier(tmp_path: Path) -> None:
     assert report["run_trace"]["trace_complete"] is True
     assert report["gates"]["can_enter_current"] is True
     assert report["gates"]["can_affect_core_judgment"] is False
-    assert report["incentive"]["governance_tier"] == "preferred"
+    assert report["incentive"]["review_status"] == "preferred"
 
 
 def test_governance_status_surfaces_overdue_exceptions(tmp_path: Path) -> None:

@@ -63,9 +63,8 @@ submissions: []
   #                         # reject | accepted_for_manual_integration |
   #                         # update_rule_proposal
   #   decision_reason: null
-  #   ttl: null             # exception expires after this date
   #   owner: null           # who is responsible for this exception
-  #   rollback_plan: null   # what happens when TTL expires
+  #   rollback_plan: null   # what happens when exception expires
   #   retire_after: null    # hard expiry date for this exception
 
 review_schedule:

@@ -194,16 +194,16 @@ def _incentive_status(root: Path, gates: dict[str, Any], run_trace: dict[str, An
     levels = policy.get("priority_levels", {})
     level = levels.get(tier, {})
     return {
-        "governance_tier": tier,
+        "review_status": tier,
         "meaning": level.get("meaning", ""),
         "credits_active": credits,
         "can_enter_current": bool(level.get("can_enter_current", False)),
         "can_affect_core_judgment": bool(level.get("can_affect_core_judgment", False)),
-        "next_promotion_hint": _promotion_hint(tier, gates, run_trace),
+        "next_review_hint": _review_hint(tier, gates, run_trace),
     }
 
 
-def _promotion_hint(tier: str, gates: dict[str, Any], run_trace: dict[str, Any]) -> str:
+def _review_hint(tier: str, gates: dict[str, Any], run_trace: dict[str, Any]) -> str:
     if tier == "canonical":
         return "Maintain passing gates and trace completeness."
     if not run_trace.get("trace_complete"):
@@ -211,7 +211,7 @@ def _promotion_hint(tier: str, gates: dict[str, Any], run_trace: dict[str, Any])
     if gates.get("promotion_gate") == "WATCH":
         return "Resolve watch gates before core judgment authority is allowed."
     if gates.get("promotion_gate") == "BLOCKED":
-        return "Resolve blocked promotion gates before entering current readout."
+        return "Resolve blocked gates before entering current readout."
     return "Add downstream consumption and stable passing runs."
 
 
@@ -312,9 +312,9 @@ def generate_markdown(report: dict[str, Any]) -> str:
         f"Generated: {report['generated_at']}",
         f"Overall status: {report['overall_status']}",
         "",
-        "## Layer Authority",
+        "## Boundary Status",
         "",
-        f"- Governance tier: {incentive['governance_tier']}",
+        f"- Review status: {incentive['review_status']}",
         f"- Can enter current: {gates['can_enter_current']}",
         f"- Can affect core judgment: {gates['can_affect_core_judgment']}",
         f"- Can affect trade decision: {gates['can_affect_trade_decision']}",
@@ -356,9 +356,9 @@ def generate_markdown(report: dict[str, Any]) -> str:
 
     lines += [
         "",
-        "## Next Promotion Hint",
+        "## Next Review Hint",
         "",
-        incentive["next_promotion_hint"],
+        incentive["next_review_hint"],
         "",
         "---",
         "",
@@ -392,7 +392,7 @@ def main() -> None:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print(f"Governance status: {report['overall_status']}")
-        print(f"Governance tier: {report['incentive']['governance_tier']}")
+        print(f"Review status: {report['incentive']['review_status']}")
         print(f"Can affect core judgment: {report['gates']['can_affect_core_judgment']}")
         print(f"Report: {paths['markdown']}")
 

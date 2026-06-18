@@ -288,3 +288,124 @@ class TestExperimentalSubmissionRegistry:
         decisions = self.REG.get("allowed_decisions", [])
         assert "update_rule_proposal" in decisions, \
             "update_rule_proposal must be an allowed decision"
+
+
+# ── pipeline_test_baseline.yaml ──────────────────────────────────────────
+
+class TestPipelineTestBaseline:
+    REG = _load("pipeline_test_baseline.yaml")
+
+    def test_schema_version(self):
+        assert "pipeline_test_baseline" in self.REG["schema_version"]
+
+    def test_no_promotes_to(self):
+        """Trust credits must use suggests_review_for, not promotes_to."""
+        import yaml as _yaml
+        raw = (GOV / "pipeline_test_baseline.yaml").read_text(encoding="utf-8")
+        assert "promotes_to" not in raw, \
+            "pipeline_test_baseline.yaml must not contain promotes_to — use suggests_review_for"
+
+    def test_no_canonical_candidate(self):
+        """Trust credits must not reference canonical_candidate."""
+        import yaml as _yaml
+        raw = (GOV / "pipeline_test_baseline.yaml").read_text(encoding="utf-8")
+        assert "canonical_candidate" not in raw, \
+            "pipeline_test_baseline.yaml must not reference canonical_candidate — use preferred"
+
+    def test_trust_credits_use_review_weight(self):
+        """Trust credits must use review_weight, not points."""
+        for credit in self.REG.get("trust_credits", []):
+            assert "review_weight" in credit, \
+                f"Trust credit '{credit.get('source')}' missing review_weight"
+            assert "points" not in credit, \
+                f"Trust credit '{credit.get('source')}' still uses 'points' — use review_weight"
+
+    def test_trust_credits_suggest_review_not_canonical(self):
+        """Trust credits must not suggest canonical status."""
+        for credit in self.REG.get("trust_credits", []):
+            suggests = credit.get("suggests_review_for", "")
+            assert suggests != "canonical", \
+                f"Trust credit '{credit.get('source')}' must not suggest canonical"
+            assert suggests != "canonical_candidate", \
+                f"Trust credit '{credit.get('source')}' must not suggest canonical_candidate"
+
+
+# ── system_constitution.yaml ─────────────────────────────────────────────
+
+class TestSystemConstitution:
+    CONST = _load("system_constitution.yaml")
+
+    def test_schema_version(self):
+        assert "system_constitution" in self.CONST["schema_version"]
+
+    def test_prohibited_from_core_judgment(self):
+        """Constitution must declare prohibited output paths."""
+        har = self.CONST.get("hard_authority_rule", {})
+        prohibited = har.get("prohibited_from_core_judgment", [])
+        assert "Output/sandbox/" in prohibited
+        assert "Output/research/" in prohibited
+        assert "Output/system_learning/" in prohibited
+
+    def test_authorized_runtime_chain(self):
+        """Constitution must declare authorized runtime chain outputs."""
+        har = self.CONST.get("hard_authority_rule", {})
+        chain = har.get("authorized_runtime_chain", [])
+        assert len(chain) > 0, "authorized_runtime_chain is empty"
+        assert "Output/current/" in chain
+
+    def test_bridge_rule_declared(self):
+        """Constitution must declare how sandbox reaches core."""
+        har = self.CONST.get("hard_authority_rule", {})
+        assert "bridge_rule" in har, "Missing bridge_rule — how does sandbox reach core?"
+
+
+# ── Code-Level Governance Invariants ─────────────────────────────────────
+
+class TestCodeGovernance:
+    """Tests that enforce governance rules at the code level, not just YAML."""
+
+    def test_framework_output_single_writer(self):
+        """Only bridge_replay_to_current.py may write Output/current/framework_output.json.
+
+        All other scripts must read it, not write it. This prevents
+        multiple writers from producing conflicting core artifacts.
+        """
+        scripts_dir = ROOT / "scripts"
+        canonical_writer = "bridge_replay_to_current.py"
+        violations = []
+
+        for py_file in scripts_dir.glob("*.py"):
+            if py_file.name == canonical_writer:
+                continue
+            if py_file.name.startswith("_"):
+                continue  # skip internal modules
+            source = py_file.read_text(encoding="utf-8")
+            # Check for write patterns targeting framework_output.json in current/
+            if "framework_output.json" in source:
+                # Only flag if it looks like a write operation
+                for line in source.splitlines():
+                    if "framework_output.json" in line and any(
+                        w in line.lower() for w in ("write_text", "write", "dump", "open(", "json.dump")
+                    ):
+                        if "current" in line or "CURRENT" in line:
+                            violations.append(
+                                f"{py_file.name}: writes framework_output.json to current — "
+                                f"only {canonical_writer} is authorized"
+                            )
+                            break
+
+        assert not violations, (
+            "Non-canonical framework_output writers:\n" + "\n".join(violations)
+        )
+
+    def test_root_scripts_budget(self):
+        """Root scripts must not exceed 65. One-in-one-out rule."""
+        scripts_dir = ROOT / "scripts"
+        root_scripts = [
+            f for f in scripts_dir.glob("*.py")
+            if not f.name.startswith("_") and f.name != "__init__.py"
+        ]
+        assert len(root_scripts) <= 65, (
+            f"Root scripts count {len(root_scripts)} exceeds budget of 65. "
+            f"Archive or module-absorb a script before adding new ones."
+        )

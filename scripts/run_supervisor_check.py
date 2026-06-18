@@ -277,7 +277,8 @@ def _check_priority_drift() -> dict[str, Any]:
 def _check_unreviewed_exceptions() -> dict[str, Any]:
     """Check for expired or incomplete exceptions in submission registry.
 
-    Exceptions need: TTL, owner, rollback plan.
+    Exceptions need: retire_after, owner, rollback_plan, reviewer, decision_reason.
+    Only enforced for non-reject decisions.
     """
     reg = _load_yaml(SUBMISSIONS_PATH)
     if not reg:
@@ -291,29 +292,39 @@ def _check_unreviewed_exceptions() -> dict[str, Any]:
     today = datetime.now()
     for sub in submissions:
         sid = sub.get("submission_id", "unknown")
+        decision = sub.get("decision")
 
-        # Check TTL
-        ttl = sub.get("ttl")
-        if ttl:
+        # Only enforce completeness for non-reject, non-empty decisions
+        if not decision or decision == "reject":
+            continue
+
+        # Check retire_after (replaces old "ttl")
+        retire_after = sub.get("retire_after")
+        if retire_after:
             try:
-                ttl_date = datetime.strptime(str(ttl), "%Y-%m-%d")
-                if ttl_date < today:
-                    issues.append(f"Exception '{sid}' TTL expired on {ttl}")
+                retire_date = datetime.strptime(str(retire_after), "%Y-%m-%d")
+                if retire_date < today:
+                    issues.append(f"Exception '{sid}' retire_after expired on {retire_after}")
             except ValueError:
-                issues.append(f"Exception '{sid}' has invalid TTL format")
+                issues.append(f"Exception '{sid}' has invalid retire_after format")
         else:
-            if sub.get("decision") and sub.get("decision") != "reject":
-                issues.append(f"Exception '{sid}' has no TTL — exceptions must expire")
+            issues.append(f"Exception '{sid}' has no retire_after — exceptions must expire")
+
+        # Check rollback_plan (replaces old "rollback")
+        if not sub.get("rollback_plan"):
+            issues.append(f"Exception '{sid}' has no rollback_plan")
 
         # Check owner
         if not sub.get("owner"):
-            if sub.get("decision") and sub.get("decision") != "reject":
-                issues.append(f"Exception '{sid}' has no owner")
+            issues.append(f"Exception '{sid}' has no owner")
 
-        # Check rollback
-        if not sub.get("rollback"):
-            if sub.get("decision") and sub.get("decision") != "reject":
-                issues.append(f"Exception '{sid}' has no rollback plan")
+        # Check reviewer
+        if not sub.get("reviewer"):
+            issues.append(f"Exception '{sid}' has no reviewer")
+
+        # Check decision_reason
+        if not sub.get("decision_reason"):
+            issues.append(f"Exception '{sid}' has no decision_reason")
 
     return {
         "status": "PASS" if not issues else "INCOMPLETE_EXCEPTIONS",
