@@ -111,6 +111,12 @@ case "$cmd" in
   supervisor)
     python3 "$ROOT/scripts/run_supervisor_check.py"
     ;;
+  governance)
+    python3 "$ROOT/scripts/governance_status.py"
+    if [ -e "$ROOT/Output/system_learning/latest/governance_status.md" ]; then
+      sed -n '1,90p' "$ROOT/Output/system_learning/latest/governance_status.md"
+    fi
+    ;;
   *)
     echo "Usage:"
     echo "  ./sys check     Show current risk check"
@@ -130,6 +136,7 @@ case "$cmd" in
     echo "  ./sys work      Run quick work cycle"
     echo "  ./sys work-cycle [--mode quick|standard|full]  Run work cycle"
     echo "  ./sys supervisor  Run supervisor self-audit"
+    echo "  ./sys governance  Show latest governance status"
     echo "  ./sys framework list|register|unregister  Manage analysis frameworks"
     exit 1
     ;; 

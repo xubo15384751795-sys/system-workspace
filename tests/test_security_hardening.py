@@ -247,6 +247,6 @@ def test_scripts_use_workspace_helper() -> None:
         if not script.exists():
             continue
         source = script.read_text(encoding="utf-8")
-        assert f"from _workspace_imports import {expected_func}" in source, (
-            f"{script_name} should use 'from _workspace_imports import {expected_func}'"
+        assert expected_func in source and "from _workspace_imports import" in source, (
+            f"{script_name} should use 'from _workspace_imports import ...{expected_func}...'"
         )

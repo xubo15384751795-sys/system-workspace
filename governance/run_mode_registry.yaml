@@ -19,6 +19,7 @@ modes:
       - build_signal_card
       - build_data_gaps
       - supervisor_check
+      - governance_status
     writes:
       - Output/current/work_brief.md
       - Output/current/work_brief.json
@@ -30,10 +31,13 @@ modes:
       - Output/runs/{run_id}/run_manifest.json
       - Output/system_learning/latest/supervisor_check.md
       - Output/system_learning/latest/supervisor_check.json
+      - Output/system_learning/latest/governance_status.md
+      - Output/system_learning/latest/governance_status.json
     learning_hub_events:
       - work_cycle_started
       - artifact_generated
       - supervisor_check_completed
+      - governance_status_completed
       - work_cycle_completed
 
   standard_run:
@@ -53,6 +57,7 @@ modes:
       - build_signal_card
       - build_data_gaps
       - supervisor_check
+      - governance_status
     writes:
       - Output/current/framework_output.json
       - Output/current/status.json
@@ -67,11 +72,14 @@ modes:
       - Output/current/latest_run_id.txt
       - Output/runs/{run_id}/run_manifest.json
       - Output/system_learning/latest/supervisor_check.md
+      - Output/system_learning/latest/governance_status.md
+      - Output/system_learning/latest/governance_status.json
     learning_hub_events:
       - work_cycle_started
       - artifact_generated
       - module_activity_recorded
       - supervisor_check_completed
+      - governance_status_completed
       - work_cycle_completed
 
   full_refresh:
@@ -86,6 +94,7 @@ modes:
       - build_signal_card
       - build_data_gaps
       - supervisor_check
+      - governance_status
     writes:
       - all_daily_pipeline_outputs
       - Output/current/work_brief.md
@@ -97,12 +106,15 @@ modes:
       - Output/current/latest_run_id.txt
       - Output/runs/{run_id}/run_manifest.json
       - Output/system_learning/latest/supervisor_check.md
+      - Output/system_learning/latest/governance_status.md
+      - Output/system_learning/latest/governance_status.json
     learning_hub_events:
       - work_cycle_started
       - data_request_created
       - artifact_generated
       - module_activity_recorded
       - supervisor_check_completed
+      - governance_status_completed
       - work_cycle_completed
 
 # ── Work Brief Required Sections ────────────────────────────────────────────

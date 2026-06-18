@@ -1,10 +1,40 @@
 schema_version: experimental_submission.v1
 created: "2026-06-17"
+updated: "2026-06-18"
 purpose: >
-  Registry for non-compliant but potentially valuable explorations.
+  Exception registry for non-compliant but potentially valuable explorations.
   Submissions are reviewed weekly. Successful submissions can modify rules,
-  enter Harvester pipeline, or promote to preferred/canonical.
+  enter Harvester pipeline, or be recommended for main chain integration.
+  This is an exception log, not a promotion system.
+  Canonical entry requires code wiring + artifact contract + tests — never a registry decision.
   See: governance/incentive_policy.yaml
+
+required_fields:
+  - submission_id
+  - submitted_by
+  - owner
+  - status
+  - current_priority
+  - rule_deviation
+  - affected_paths
+  - evidence_paths
+  - review_deadline
+  - reviewer
+  - decision
+  - decision_reason
+  - rollback_plan
+  - retire_after
+
+# Allowed decisions — canonical is NOT among them.
+# Canonical entry requires code wiring + artifact contract + tests — never a registry decision.
+allowed_decisions:
+  - keep_research_only
+  - needs_runtime_wiring
+  - needs_harvester_path
+  - needs_tests
+  - accepted_for_manual_integration
+  - reject
+  - update_rule_proposal
 
 submissions: []
   # Example submission:
@@ -15,6 +45,10 @@ submissions: []
   #   current_priority: low
   #   rule_deviation:
   #     - did_not_enter_harvester_first
+  #   affected_paths:
+  #     - "scripts/etf_panel_builder.py"
+  #   evidence_paths:
+  #     - "Output/system_learning/latest/etf_panel_test.json"
   #   description: "Direct yfinance ETF acquisition bypassing Harvester"
   #   evidence:
   #     - "Faster iteration on ETF panel composition"
@@ -24,8 +58,15 @@ submissions: []
   #     option_b: "Keep as temporary bridge with explicit retire_after"
   #   review_deadline: "2026-06-24"
   #   reviewer: null
-  #   decision: null
+  #   decision: null        # keep_research_only | needs_runtime_wiring |
+  #                         # needs_harvester_path | needs_tests |
+  #                         # reject | accepted_for_manual_integration |
+  #                         # update_rule_proposal
   #   decision_reason: null
+  #   ttl: null             # exception expires after this date
+  #   owner: null           # who is responsible for this exception
+  #   rollback_plan: null   # what happens when TTL expires
+  #   retire_after: null    # hard expiry date for this exception
 
 review_schedule:
   cadence: weekly

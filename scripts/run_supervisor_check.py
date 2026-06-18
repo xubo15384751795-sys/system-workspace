@@ -1,7 +1,15 @@
-"""Run supervisor check — opencode's self-audit after each work cycle.
+"""Run supervisor check — boundary audit after each work cycle.
 
 Reads current artifacts and governance policies, produces a structured
-supervisor report.  This is the system's self-audit layer.
+supervisor report.  This is the system's boundary audit layer.
+
+The supervisor can FLAG issues but CANNOT:
+- Auto-fix problems
+- Auto-promote artifacts
+- Auto-delete anything
+- Grant authority to any artifact
+
+Authority belongs to the main chain. The supervisor only reports.
 
 Usage:
     python3 scripts/run_supervisor_check.py
@@ -24,6 +32,9 @@ LEARNING = ROOT / "Output" / "system_learning" / "latest"
 DEFERRED_PATH = ROOT / "governance" / "deferred_work_register.yaml"
 DATA_AUTHORITY_PATH = ROOT / "governance" / "data_authority_registry.yaml"
 SUPERVISOR_POLICY_PATH = ROOT / "governance" / "opencode_supervisor_policy.yaml"
+INCENTIVE_POLICY_PATH = ROOT / "governance" / "incentive_policy.yaml"
+SUBMISSIONS_PATH = ROOT / "governance" / "experimental_submission_registry.yaml"
+ROUTING_POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -171,6 +182,146 @@ def _check_module_activity() -> dict[str, Any]:
     }
 
 
+def _check_current_authority_contamination() -> dict[str, Any]:
+    """Check if Output/current/ contains unauthorized artifacts.
+
+    Only artifacts listed in output_routing_policy.yaml groups.current.allowed_artifacts
+    should exist in Output/current/. Research/sandbox output must not enter authority readout.
+    """
+    routing = _load_yaml(ROUTING_POLICY_PATH)
+    if not routing or not CURRENT.exists():
+        return {"status": "NO_ROUTING_POLICY"}
+
+    allowed = set(routing.get("groups", {}).get("current", {}).get("allowed_artifacts", []))
+    if not allowed:
+        return {"status": "NO_ALLOWED_LIST"}
+
+    actual = {f.name for f in CURRENT.iterdir() if f.is_file()}
+    unauthorized = actual - allowed
+
+    return {
+        "status": "PASS" if not unauthorized else "CONTAMINATION",
+        "allowed_count": len(allowed),
+        "actual_count": len(actual),
+        "unauthorized": sorted(unauthorized),
+    }
+
+
+def _check_incentive_overreach() -> dict[str, Any]:
+    """Check if incentive policy declares automatic authorization.
+
+    Governance can veto but cannot grant core authority.
+    Credit must never grant authority.
+    """
+    policy = _load_yaml(INCENTIVE_POLICY_PATH)
+    if not policy:
+        return {"status": "NO_POLICY"}
+
+    issues = []
+    ab = policy.get("authority_boundary", {})
+
+    if not ab:
+        issues.append("Missing authority_boundary section")
+    else:
+        if ab.get("credit_never_grants_authority") is not True:
+            issues.append("credit_never_grants_authority must be true")
+        if ab.get("governance_can_grant_core_authority") is not False:
+            issues.append("governance_can_grant_core_authority must be false")
+        if ab.get("canonical_authority_requires_runtime_wiring") is not True:
+            issues.append("canonical_authority_requires_runtime_wiring must be true")
+
+    # Check credit sources for direct canonical suggestion
+    for name, src in policy.get("credit_sources", {}).items():
+        suggests = src.get("suggests_review_for", src.get("promotes_to", ""))
+        if suggests in ("canonical", "canonical_candidate"):
+            issues.append(f"Credit source '{name}' suggests canonical — credit cannot grant authority")
+
+    # Check review outcomes for automatic promotion
+    for outcome in policy.get("review_outcomes", []):
+        if "promote_to_canonical" in outcome:
+            issues.append(f"Review outcome '{outcome}' implies automatic canonical promotion")
+
+    return {
+        "status": "PASS" if not issues else "OVERREACH",
+        "issues": issues,
+    }
+
+
+def _check_priority_drift() -> dict[str, Any]:
+    """Check if artifact usage exceeds declared priority.
+
+    An artifact at 'preferred' level should not be used in authority paths
+    that require 'canonical' level.
+    """
+    policy = _load_yaml(INCENTIVE_POLICY_PATH)
+    if not policy:
+        return {"status": "NO_POLICY"}
+
+    # Check if any preferred-level artifact is in Output/current/
+    # This is a soft check — the routing policy is the hard gate
+    preferred_can_enter_current = policy.get("priority_levels", {}).get("preferred", {}).get(
+        "can_enter_authority_current",
+        policy.get("priority_levels", {}).get("preferred", {}).get("can_enter_current", True)
+    )
+
+    drift_issues = []
+    if preferred_can_enter_current:
+        drift_issues.append("preferred level allows can_enter_authority_current — should be false")
+
+    return {
+        "status": "PASS" if not drift_issues else "DRIFT",
+        "issues": drift_issues,
+    }
+
+
+def _check_unreviewed_exceptions() -> dict[str, Any]:
+    """Check for expired or incomplete exceptions in submission registry.
+
+    Exceptions need: TTL, owner, rollback plan.
+    """
+    reg = _load_yaml(SUBMISSIONS_PATH)
+    if not reg:
+        return {"status": "NO_REGISTRY"}
+
+    submissions = reg.get("submissions", [])
+    if not submissions:
+        return {"status": "NO_SUBMISSIONS"}
+
+    issues = []
+    today = datetime.now()
+    for sub in submissions:
+        sid = sub.get("submission_id", "unknown")
+
+        # Check TTL
+        ttl = sub.get("ttl")
+        if ttl:
+            try:
+                ttl_date = datetime.strptime(str(ttl), "%Y-%m-%d")
+                if ttl_date < today:
+                    issues.append(f"Exception '{sid}' TTL expired on {ttl}")
+            except ValueError:
+                issues.append(f"Exception '{sid}' has invalid TTL format")
+        else:
+            if sub.get("decision") and sub.get("decision") != "reject":
+                issues.append(f"Exception '{sid}' has no TTL — exceptions must expire")
+
+        # Check owner
+        if not sub.get("owner"):
+            if sub.get("decision") and sub.get("decision") != "reject":
+                issues.append(f"Exception '{sid}' has no owner")
+
+        # Check rollback
+        if not sub.get("rollback"):
+            if sub.get("decision") and sub.get("decision") != "reject":
+                issues.append(f"Exception '{sid}' has no rollback plan")
+
+    return {
+        "status": "PASS" if not issues else "INCOMPLETE_EXCEPTIONS",
+        "total_submissions": len(submissions),
+        "issues": issues,
+    }
+
+
 def run_supervisor_check() -> dict[str, Any]:
     """Run all supervisor checks."""
     now = datetime.now(UTC)
@@ -181,21 +332,29 @@ def run_supervisor_check() -> dict[str, Any]:
         "unmarked_data": _check_unmarked_data(),
         "deferred_work_overdue": _check_deferred_work_overdue(),
         "module_activity": _check_module_activity(),
+        "current_authority_contamination": _check_current_authority_contamination(),
+        "incentive_overreach": _check_incentive_overreach(),
+        "priority_drift": _check_priority_drift(),
+        "unreviewed_exceptions": _check_unreviewed_exceptions(),
     }
 
     # Determine overall status
     statuses = [c.get("status", "UNKNOWN") for c in checks.values()]
     if "OVERDUE" in statuses:
         overall = "OVERDUE"
+    elif "CONTAMINATION" in statuses or "OVERREACH" in statuses:
+        overall = "BOUNDARY_VIOLATION"
     elif "INCONSISTENT" in statuses or "INCOMPLETE" in statuses:
         overall = "FINDINGS"
-    elif "WARN" in statuses:
+    elif "WARN" in statuses or "DRIFT" in statuses or "INCOMPLETE_EXCEPTIONS" in statuses:
         overall = "WARN"
     else:
         overall = "PASS"
 
-    # Build review queue
+    # Build review queue — supervisor flags for human review, never auto-fixes
     review_queue = []
+
+    # Deferred work overdue
     for item in checks["deferred_work_overdue"].get("overdue", []):
         review_queue.append({
             "source": "deferred_work_overdue",
@@ -211,21 +370,64 @@ def run_supervisor_check() -> dict[str, Any]:
             "action": f"{item['days_left']} days to deadline",
         })
 
+    # Current authority contamination
+    for artifact in checks["current_authority_contamination"].get("unauthorized", []):
+        review_queue.append({
+            "source": "current_authority_contamination",
+            "id": artifact,
+            "severity": "high",
+            "action": f"Unauthorized artifact in Output/current/: {artifact}",
+        })
+
+    # Incentive overreach
+    for issue in checks["incentive_overreach"].get("issues", []):
+        review_queue.append({
+            "source": "incentive_overreach",
+            "id": "incentive_policy",
+            "severity": "high",
+            "action": issue,
+        })
+
+    # Priority drift
+    for issue in checks["priority_drift"].get("issues", []):
+        review_queue.append({
+            "source": "priority_drift",
+            "id": "priority_config",
+            "severity": "medium",
+            "action": issue,
+        })
+
+    # Unreviewed exceptions
+    for issue in checks["unreviewed_exceptions"].get("issues", []):
+        review_queue.append({
+            "source": "unreviewed_exceptions",
+            "id": "submission_registry",
+            "severity": "medium",
+            "action": issue,
+        })
+
     return {
         "timestamp": now.isoformat(),
         "overall_status": overall,
         "checks": checks,
         "review_queue": review_queue,
+        "authority_note": (
+            "This report is observation only. "
+            "Supervisor can flag issues but cannot auto-fix, auto-promote, or grant authority."
+        ),
     }
 
 
 def generate_markdown(results: dict[str, Any]) -> str:
     """Generate markdown supervisor report."""
     lines = [
-        "# Supervisor Check",
+        "# Supervisor Check — Boundary Audit",
         "",
         f"**Timestamp:** {results['timestamp']}",
         f"**Overall Status:** {results['overall_status']}",
+        "",
+        "> Supervisor can flag issues but cannot auto-fix, auto-promote, or grant authority.",
+        "> Authority belongs to the main chain.",
         "",
         "---",
         "",
@@ -233,8 +435,11 @@ def generate_markdown(results: dict[str, Any]) -> str:
 
     status_icons = {
         "PASS": "✅", "ACTIVE": "✅", "NO_DATA": "⚪", "NO_REGISTRY": "⚪",
+        "NO_ROUTING_POLICY": "⚪", "NO_ALLOWED_LIST": "⚪", "NO_SUBMISSIONS": "⚪",
         "IDLE": "⚪", "INCOMPLETE": "⚠️", "INCONSISTENT": "⚠️",
         "WARN": "⚠️", "OVERDUE": "❌", "FINDINGS": "⚠️",
+        "CONTAMINATION": "🚨", "OVERREACH": "🚨", "BOUNDARY_VIOLATION": "🚨",
+        "DRIFT": "⚠️", "INCOMPLETE_EXCEPTIONS": "⚠️",
     }
 
     for check_name, check_data in results["checks"].items():
@@ -263,6 +468,16 @@ def generate_markdown(results: dict[str, Any]) -> str:
             for item in check_data["approaching_deadline"]:
                 lines.append(f"  - {item['id']}: {item['days_left']} days left")
             lines.append("")
+        if check_data.get("unauthorized"):
+            lines.append("Unauthorized in Output/current/:")
+            for artifact in check_data["unauthorized"]:
+                lines.append(f"  - 🚨 {artifact}")
+            lines.append("")
+        if check_data.get("issues"):
+            lines.append("Issues:")
+            for issue in check_data["issues"]:
+                lines.append(f"  - ⚠️ {issue}")
+            lines.append("")
 
     if results.get("review_queue"):
         lines += [
@@ -270,9 +485,12 @@ def generate_markdown(results: dict[str, Any]) -> str:
             "",
             "## Review Queue",
             "",
+            "*These items require human review. Supervisor cannot auto-fix.*",
+            "",
         ]
         for item in results["review_queue"]:
-            lines.append(f"- [{item['severity']}] {item['id']}: {item['action']}")
+            severity_icon = {"high": "🔴", "medium": "🟡", "low": "⚪"}.get(item["severity"], "⚪")
+            lines.append(f"- {severity_icon} [{item['severity']}] **{item['source']}** — {item['id']}: {item['action']}")
         lines.append("")
 
     lines += [
@@ -286,7 +504,7 @@ def generate_markdown(results: dict[str, Any]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run supervisor check")
+    parser = argparse.ArgumentParser(description="Run supervisor boundary audit")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
 

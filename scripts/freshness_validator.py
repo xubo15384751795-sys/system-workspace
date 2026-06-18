@@ -147,61 +147,73 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
     return issues
 
 
-def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
+def check_temporal_ordering(now: datetime, *, mode: str = "standard") -> list[dict[str, Any]]:
     """Check that artifacts are in correct temporal order."""
     issues = []
 
     # Define expected ordering — the full pipeline chain
     ordering_rules = [
+        # Full-chain rules — quick mode marks these as ADVISORY_EXPECTED
         {
             "earlier": ("judgment", OUTPUT_DIR / "judgment" / "latest.json"),
             "later": ("promotion_gate", OUTPUT_DIR / "judgment" / "promotion_gate.json"),
             "rule": "promotion_gate must be after judgment",
+            "chain": "full",
         },
         {
             "earlier": ("promotion_gate", OUTPUT_DIR / "judgment" / "promotion_gate.json"),
             "later": ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json"),
             "rule": "trade_decision must be after promotion_gate",
+            "chain": "full",
         },
         {
             "earlier": ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json"),
             "later": ("risk_gate", OUTPUT_DIR / "trade_decision" / "risk_gate.json"),
             "rule": "risk_gate must be after trade_decision",
+            "chain": "full",
         },
         {
             "earlier": ("risk_gate", OUTPUT_DIR / "trade_decision" / "risk_gate.json"),
             "later": ("record_trade_decision", OUTPUT_DIR / "trade_ledger" / "latest.md"),
             "rule": "record_trade_decision must be after risk_gate",
+            "chain": "full",
         },
         {
             "earlier": ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json"),
             "later": ("learning_summary", OUTPUT_DIR / "system_learning" / "latest" / "comprehensive_summary.json"),
             "rule": "learning_summary must be after trade_decision",
+            "chain": "full",
         },
         {
             "earlier": ("learning_summary", OUTPUT_DIR / "system_learning" / "latest" / "comprehensive_summary.json"),
             "later": ("system_index", ROOT / "Data" / "system_index" / "latest.json"),
             "rule": "system_index must be after learning_summary",
+            "chain": "full",
         },
         {
             "earlier": ("system_index", ROOT / "Data" / "system_index" / "latest.json"),
             "later": ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md"),
             "rule": "readme_first must be after system_index",
+            "chain": "full",
         },
+        # Current-output rules — always hard FAIL
         {
             "earlier": ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md"),
             "later": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
             "rule": "signal_card must be after readme_first",
+            "chain": "current",
         },
         {
             "earlier": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
             "later": ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json"),
             "rule": "signal_consensus must be after signal_card",
+            "chain": "current",
         },
         {
             "earlier": ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json"),
             "later": ("work_brief", OUTPUT_DIR / "current" / "work_brief.json"),
             "rule": "work_brief must be after signal_consensus",
+            "chain": "current",
         },
     ]
 
@@ -214,13 +226,15 @@ def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
 
         if earlier_time and later_time:
             if later_time < earlier_time:
+                chain = rule.get("chain", "full")
+                is_advisory = (mode == "quick" and chain == "full")
                 issues.append({
                     "rule": rule["rule"],
                     "earlier": earlier_name,
                     "earlier_time": earlier_time.isoformat(),
                     "later": later_name,
                     "later_time": later_time.isoformat(),
-                    "status": "VIOLATION",
+                    "status": "ADVISORY_EXPECTED" if is_advisory else "VIOLATION",
                     "hint": (
                         f"Ordering violation: {later_name} is older than {earlier_name}. "
                         f"Re-run: python3 scripts/run_work_cycle.py --mode standard"
@@ -230,7 +244,7 @@ def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
     return issues
 
 
-def build_freshness_report(now: datetime) -> dict[str, Any]:
+def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str, Any]:
     """Build complete freshness report."""
     # Check artifact freshness
     artifacts = [
@@ -260,7 +274,7 @@ def build_freshness_report(now: datetime) -> dict[str, Any]:
         freshness_checks.append(er_check)
 
     # Check temporal ordering
-    ordering_issues = check_temporal_ordering(now)
+    ordering_issues = check_temporal_ordering(now, mode=mode)
 
     # Check closure chain — all current outputs must be from the same run
     closure_issues = check_closure_chain(now)
@@ -269,7 +283,9 @@ def build_freshness_report(now: datetime) -> dict[str, Any]:
     stale_artifacts = [a for a in freshness_checks if a["status"] == "STALE"]
     missing_artifacts = [a for a in freshness_checks if a["status"] == "MISSING"]
 
-    if ordering_issues or closure_issues:
+    # Only hard violations count toward FAIL; ADVISORY_EXPECTED is informational
+    hard_ordering = [i for i in ordering_issues if i["status"] != "ADVISORY_EXPECTED"]
+    if hard_ordering or closure_issues:
         verdict = "FAIL"
     elif stale_artifacts:
         verdict = "WARN"
@@ -377,10 +393,14 @@ def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run freshness validator.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
+    parser.add_argument(
+        "--mode", choices=["quick", "standard", "full"], default="standard",
+        help="Validation mode: quick marks full-chain ordering as advisory.",
+    )
     args = parser.parse_args()
 
     now = datetime.now(UTC)
-    report = build_freshness_report(now)
+    report = build_freshness_report(now, mode=args.mode)
     paths = write_outputs(report)
 
     if args.json:

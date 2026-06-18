@@ -704,6 +704,14 @@ run_supervisor_check:
   description: Self-audit after each work cycle — checks completeness, consistency, overdue work
   allowed_use:
   - supervisor_check
+governance_status:
+  script: scripts/governance_status.py
+  status: active
+  owner: Learning Hub
+  description: Visible governance status for latest run trace, gates, exceptions, and incentive tier
+  allowed_use:
+  - governance_status_readout
+  - default_work_cycle_summary
 run_work_cycle:
   script: scripts/run_work_cycle.py
   status: active

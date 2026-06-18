@@ -19,7 +19,15 @@ SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-import proxy_quality_scorer as pqs  # noqa: E402
+try:
+    import proxy_quality_scorer as pqs  # noqa: E402
+except (ImportError, ModuleNotFoundError):
+    pqs = None  # type: ignore[assignment]
+
+if pqs is None:
+    pytestmark = pytest.mark.skipif(True, reason="replay.scoring not available")
+else:
+    pytestmark = pytest.mark.semantic
 
 VALID_TIERS = {
     "CORE_ELIGIBLE",

@@ -40,6 +40,18 @@ responsibilities:
     description: "Has any module changed priority without governance review?"
     check: "Compare module_contract_registry.yaml priority vs actual usage"
 
+  - id: current_authority_contamination
+    description: "Are non-authority artifacts present in Output/current/?"
+    check: "Output/current/ should only contain authority-level artifacts, not research/sandbox output"
+
+  - id: incentive_overreach
+    description: "Does incentive policy contain authority-granting language?"
+    check: "incentive_policy.yaml must not have promotes_to:canonical or promote_to_canonical in credit_sources"
+
+  - id: unreviewed_exception
+    description: "Are there submissions missing owner, TTL, rollback, reviewer, or past review deadline?"
+    check: "experimental_submission_registry.yaml entries must have all required_fields filled"
+
 # ── Supervisor Output ──────────────────────────────────────────────────────
 output:
   markdown: Output/system_learning/latest/supervisor_check.md
@@ -55,3 +67,6 @@ review_queue:
     - experimental_submission_review
     - data_request_backlog
     - priority_drift
+    - current_authority_contamination
+    - incentive_overreach
+    - unreviewed_exception

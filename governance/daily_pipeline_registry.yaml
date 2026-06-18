@@ -12,6 +12,8 @@ external_inputs:
   - scripts/
   - "Structural Deformation Research System/src/"
   - Output/runs/
+  - Output/system_learning/latest/supervisor_check.json
+  - Output/system_learning/latest/output_routing_report.json
 steps:
   harvester:
     order: 1
@@ -489,8 +491,9 @@ steps:
     - Output/judgment/latest.json
     - Output/judgment/promotion_gate.json
     produces: &id031
-    - Output/trade_decisions/
-    artifact_path: Output/trade_decisions/latest.json
+    - Output/trade_decision/latest.json
+    - Output/trade_decision/latest.md
+    artifact_path: Output/trade_decision/latest.json
     ttl_hours: 48
     allowed_to_affect_core_judgment: true
     core_judgment_dependency: true
@@ -515,8 +518,11 @@ steps:
     owner: Workbench
     command: python scripts/trade_risk_gate.py
     input: &id032
-    - Output/trade_decisions/latest.json
-    artifact_path: Output/trade_decisions/risk_gate.json
+    - Output/trade_decision/latest.json
+    produces: &id032p
+    - Output/trade_decision/risk_gate.json
+    - Output/trade_decision/risk_gate.md
+    artifact_path: Output/trade_decision/risk_gate.json
     ttl_hours: 48
     allowed_to_affect_core_judgment: true
     core_judgment_dependency: true
@@ -529,6 +535,7 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs: *id032
+      outputs: *id032p
       outputs: []
       emits_run_event: true
     authority:
@@ -541,7 +548,7 @@ steps:
     owner: Learning Hub
     command: python scripts/record_trade_decision.py
     input: &id033
-    - Output/trade_decisions/latest.json
+    - Output/trade_decision/latest.json
     produces: &id034
     - Output/system_learning/decision_trace/
     - Output/trade_ledger/decisions.jsonl
@@ -570,7 +577,7 @@ steps:
     owner: Learning Hub
     command: python scripts/market_feedback.py
     input: &id035
-    - Output/trade_decisions/
+    - Output/trade_decision/
     produces: &id036
     - Output/market_feedback/
     artifact_path: Output/market_feedback/
@@ -713,7 +720,7 @@ steps:
     owner: Learning Hub
     command: python scripts/learning_hub_trade_calibration.py
     input: &id041
-    - Output/trade_decisions/
+    - Output/trade_decision/
     produces: &id042
     - Output/system_learning/events/trade_decision_calibration_*.jsonl
     artifact_path: Output/system_learning/events/
@@ -767,9 +774,9 @@ steps:
     owner: Workbench
     command: python scripts/position_sizing_layer.py
     input: &id044
-    - Output/trade_decisions/latest.json
+    - Output/trade_decision/latest.json
     - Output/judgment/latest.json
-    artifact_path: Output/trade_decisions/position_intent.json
+    artifact_path: Output/trade_decision/position_intent.json
     ttl_hours: 48
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -1026,6 +1033,69 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
+  governance_status:
+    order: 28
+    status: active
+    owner: Learning Hub
+    command: python scripts/governance_status.py
+    input: &id082
+    - Output/current/latest_run_id.txt
+    - Output/runs/
+    - Output/judgment/promotion_gate.json
+    - Output/trade_decision/risk_gate.json
+    - Output/system_learning/latest/supervisor_check.json
+    - Output/system_learning/latest/architecture_reality_audit.json
+    - Output/system_learning/latest/output_routing_report.json
+    - governance/incentive_policy.yaml
+    - governance/experimental_submission_registry.yaml
+    produces: &id083
+    - Output/system_learning/latest/governance_status.md
+    - Output/system_learning/latest/governance_status.json
+    artifact_path: Output/system_learning/latest/governance_status.md
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/governance_status.py
+      future_callable: scripts.governance_status:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id082
+      outputs: *id083
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  governance_status_refresh:
+    order: 29
+    status: active
+    owner: Learning Hub
+    command: python scripts/governance_status.py
+    input: *id082
+    produces: *id083
+    artifact_path: Output/system_learning/latest/governance_status.md
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/governance_status.py
+      future_callable: scripts.governance_status:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id082
+      outputs: *id083
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
   routing_decision:
     order: null
     status: shadow_active

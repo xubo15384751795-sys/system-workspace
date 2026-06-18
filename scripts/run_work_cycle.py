@@ -49,6 +49,14 @@ STANDARD_STEPS = [
     "scripts/judgment_promotion_gate.py",
     "scripts/trade_decision_layer.py",
     "scripts/trade_risk_gate.py",
+    "scripts/record_trade_decision.py",
+    "scripts/market_feedback.py",
+    "scripts/claim_evaluator.py",
+    "scripts/claim_ladder_tracker.py",
+    "scripts/learning_hub_comprehensive_summary.py",
+    "scripts/build_system_index.py",
+    "scripts/build_readme_first.py",
+    "scripts/build_next_actions.py",
 ]
 
 # Quick cycle scripts — read-only, no data refresh
@@ -58,6 +66,8 @@ QUICK_SCRIPTS = [
     "scripts/build_work_brief.py",
     "scripts/build_data_gaps.py",
 ]
+
+GOVERNANCE_STATUS_SCRIPT = "scripts/governance_status.py"
 
 
 
@@ -158,6 +168,18 @@ def _capture_bundle_traces(bundle: RunBundle) -> None:
             pass
 
 
+def _run_governance_status(bundle: RunBundle, step_results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Generate the visible governance status and record it as a normal step."""
+    result = _run_script(GOVERNANCE_STATUS_SCRIPT)
+    step = {"step": "governance_status", **result}
+    step_results.append(step)
+    _record_step(bundle, result)
+    _write_learning_hub_event("governance_status_completed", {
+        "status": result["status"],
+    })
+    return step
+
+
 def run_quick_cycle(bundle: RunBundle) -> dict[str, Any]:
     """Quick reaction mode — read artifacts, build brief + signal card +
     data gaps, supervisor check.  No external data refresh."""
@@ -182,6 +204,7 @@ def run_quick_cycle(bundle: RunBundle) -> dict[str, Any]:
     })
 
     _capture_bundle_traces(bundle)
+    _run_governance_status(bundle, step_results)
 
     return {
         "mode": "quick_reaction",
@@ -223,6 +246,7 @@ def run_standard_cycle(bundle: RunBundle) -> dict[str, Any]:
     })
 
     _capture_bundle_traces(bundle)
+    _run_governance_status(bundle, step_results)
 
     return {
         "mode": "standard_run",
@@ -259,6 +283,7 @@ def run_full_cycle(bundle: RunBundle) -> dict[str, Any]:
     })
 
     _capture_bundle_traces(bundle)
+    _run_governance_status(bundle, step_results)
 
     return {
         "mode": "full_refresh",
@@ -407,6 +432,17 @@ def main() -> None:
     # Finish run bundle
     overall = "OK" if all(s.get("status") == "OK" for s in result["steps"]) else "PARTIAL"
     bundle.finish(status=overall)
+
+    # Refresh governance status after the bundle has its final manifest.
+    governance_result = _run_script(GOVERNANCE_STATUS_SCRIPT)
+    if governance_result.get("status") == "OK":
+        for artifact_rel in [
+            "Output/system_learning/latest/governance_status.json",
+            "Output/system_learning/latest/governance_status.md",
+        ]:
+            artifact = ROOT / artifact_rel
+            if artifact.exists():
+                bundle.record_artifact(artifact)
 
     _write_learning_hub_event("work_cycle_completed", {
         "run_id": bundle.run_id,

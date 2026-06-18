@@ -30,7 +30,7 @@ import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-from _workspace_imports import add_workbench_src, add_framework_src
+from _workspace_imports import add_framework_src, add_workbench_src
 add_workbench_src()
 add_framework_src()
 

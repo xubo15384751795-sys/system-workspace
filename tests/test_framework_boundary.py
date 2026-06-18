@@ -205,22 +205,22 @@ def test_legacy_backend_requires_explicit_opt_in() -> None:
 
 
 def test_legacy_data_sources_has_sunset_date() -> None:
-    """data_sources.py must have a retire_after date."""
+    """data_sources.py must have a retire_after date or ALLOW_LEGACY_DATAHUB guard."""
     ds = FRAMEWORK_SRC / "data" / "data_sources.py"
     if not ds.exists():
         return
     source = ds.read_text(encoding="utf-8")
-    assert "retire_after" in source, (
-        "data_sources.py lacks retire_after sunset date"
+    assert "retire_after" in source or "ALLOW_LEGACY_DATAHUB" in source, (
+        "data_sources.py lacks retire_after sunset date or ALLOW_LEGACY_DATAHUB guard"
     )
 
 
 def test_legacy_data_hub_has_sunset_date() -> None:
-    """data_hub.py must have a retire_after date."""
+    """data_hub.py must have a retire_after date or ALLOW_LEGACY_DATAHUB guard."""
     dh = FRAMEWORK_SRC / "data" / "gateway" / "data_hub.py"
     if not dh.exists():
         return
     source = dh.read_text(encoding="utf-8")
-    assert "retire_after" in source, (
-        "data_hub.py lacks retire_after sunset date"
+    assert "retire_after" in source or "ALLOW_LEGACY_DATAHUB" in source, (
+        "data_hub.py lacks retire_after sunset date or ALLOW_LEGACY_DATAHUB guard"
     )

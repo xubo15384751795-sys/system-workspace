@@ -1,8 +1,9 @@
 schema_version: incentive_policy.v1
 created: "2026-06-17"
+updated: "2026-06-18"
 purpose: >
   Priority incentive system — rewards compliant, useful, and reusable contributions
-  with trust, priority, visibility, and reuse. Non-compliant exploration is allowed
+  with visibility and review priority. Non-compliant exploration is allowed
   when declared, but starts as low-priority and cannot affect core judgment until reviewed.
   Referenced by: architecture_cleanup_decisions.md
 
@@ -12,6 +13,20 @@ core_principle: >
   Priority is earned, not assumed.
   Core judgment authority is reviewed, not self-claimed.
   Useful deviation can improve the rules.
+
+# ── Authority Boundary ──────────────────────────────────────────────────────
+# Governance has veto power but not granting power.
+# Credit improves review priority, never grants authority.
+authority_boundary:
+  credit_never_grants_authority: true
+  governance_can_veto: true
+  governance_can_grant_core_authority: false
+  canonical_authority_requires_runtime_wiring: true
+  principle: >
+    治理拥有边界权威，不拥有事实权威；治理可以阻止越权，不能替代验证。
+    Governance has boundary authority, not factual authority.
+    It can block overreach, but cannot substitute for verification.
+    Canonical entry requires: code wiring + artifact contract + tests + data provenance.
 
 # ── Priority Levels ──────────────────────────────────────────────────────────
 priority_levels:
@@ -30,63 +45,67 @@ priority_levels:
     review_cadence: biweekly
 
   preferred:
-    meaning: "System may choose it over alternatives. Has consumers and tests."
+    meaning: "Worth reviewing and considering for reuse. Has consumers and tests."
     visibility: cross_module
-    can_enter_current: true
+    can_enter_review_surface: true
+    can_enter_authority_current: false
     can_affect_core_judgment: false
     review_cadence: weekly
 
   canonical:
     meaning: "Default trusted path. Enters core judgment chain."
     visibility: system_wide
-    can_enter_current: true
+    can_enter_review_surface: true
+    can_enter_authority_current: true
     can_affect_core_judgment: true
     review_cadence: continuous
 
-# ── Trust Credit Sources ─────────────────────────────────────────────────────
+# ── Trust Credit Sources (Review Signals, Not Authority Grants) ─────────────
+# credit → review priority → integration proposal → code wiring → possible canonical
+# No step can be skipped. Credit only raises attention, never grants trust.
 credit_sources:
   registration:
-    points: 1
+    review_weight: 1
     rule: "Has owner, status, input contract, output contract, TTL"
-    promotes_to: registered
+    suggests_review_for: registered
 
   provenance:
-    points: 2
+    review_weight: 2
     rule: "Data or artifact provenance declared and traceable"
-    promotes_to: registered
+    suggests_review_for: registered
 
   test_coverage:
-    points: 2
+    review_weight: 2
     rule: "Has passing test or validation check"
-    promotes_to: registered
+    suggests_review_for: registered
 
   consumed_by_module:
-    points: 2
+    review_weight: 2
     rule: "Consumed by at least one active module in daily_run or sys"
-    promotes_to: preferred
+    suggests_review_for: preferred
 
   improves_existing_rule:
-    points: 4
+    review_weight: 4
     rule: "Accepted as governance improvement via experimental submission review"
-    promotes_to: preferred
+    suggests_review_for: preferred
 
   harvester_aligned:
-    points: 3
+    review_weight: 3
     rule: "Data enters or requests Harvester path"
-    promotes_to: preferred
+    suggests_review_for: preferred
 
   stable_consumption:
-    points: 3
+    review_weight: 3
     rule: "Consumed for 7+ consecutive runs without failure"
-    promotes_to: canonical_candidate
+    suggests_review_for: preferred
 
   pipeline_baseline_pass:
-    points: 5
+    review_weight: 5
     rule: >
       All 77 pipeline governance baseline tests pass.  Step, artifact, or
       module is part of a fully verified governance chain.  See
       governance/pipeline_test_baseline.yaml for test layer breakdown.
-    promotes_to: canonical_candidate
+    suggests_review_for: preferred
 
 # ── Non-Compliant Exploration ────────────────────────────────────────────────
 non_compliant_exploration:
@@ -109,14 +128,16 @@ review_cadence:
   canonical_audits: monthly
 
 # ── Review Outcomes ──────────────────────────────────────────────────────────
+# Note: promote_to_canonical is NOT a review outcome.
+# Canonical status requires code wiring + artifact contract + tests + data provenance.
+# Review can recommend integration, but canonical entry happens in the main chain.
 review_outcomes:
-  - reject_keep_experimental  # Stay as research_only
-  - accept_as_research        # Promote to registered
-  - promote_to_active_partial # Promote to preferred
-  - promote_to_preferred      # Full cross-module visibility
-  - promote_to_canonical      # Enter core judgment chain
-  - update_rule               # Modify governance rule
-  - create_harvester_request  # Submit data request to Harvester
+  - reject_keep_experimental       # Stay as research_only
+  - accept_as_research             # Promote to registered
+  - recommend_for_review           # Promote to preferred (review priority)
+  - recommend_for_integration      # Suggest main chain integration (manual wiring required)
+  - update_rule                    # Modify governance rule
+  - create_harvester_request       # Submit data request to Harvester
   - create_module_contract_change  # Update module contract
 
 # ── Anti-Gaming Rules ────────────────────────────────────────────────────────
@@ -127,6 +148,8 @@ anti_gaming:
     - "Bypassing Harvester without declaring"
     - "Writing scripts without tests"
     - "Making system harder to understand"
+    - "Using credit score to claim authority"
+    - "Treating preferred status as automatic canonical entry"
 
   rewarded:
     - "Being consumed by active modules"

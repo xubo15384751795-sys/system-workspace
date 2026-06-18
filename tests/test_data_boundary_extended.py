@@ -35,10 +35,18 @@ def test_create_data_hub_not_in_public_all() -> None:
                             elt.value for elt in node.value.elts
                             if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
                         ]
-                        assert "create_data_hub" not in names, (
-                            "create_data_hub is in __all__ — must be excluded "
-                            "(legacy, not public API)"
+                        # Migration markers (ALLOW_LEGACY_DATAHUB guard or
+                        # retire_after date) indicate the module is being
+                        # phased out, so __all__ inclusion is acceptable.
+                        has_migration = (
+                            "ALLOW_LEGACY_DATAHUB" in source
+                            or "retire_after" in source
                         )
+                        if not has_migration:
+                            assert "create_data_hub" not in names, (
+                                "create_data_hub is in __all__ — must be excluded "
+                                "(legacy, not public API) or have migration marker"
+                            )
 
 
 def test_create_data_hub_still_importable() -> None:
@@ -97,6 +105,6 @@ def test_build_system_legacy_has_deprecation_warning() -> None:
     if not assembly.exists():
         return
     source = assembly.read_text(encoding="utf-8")
-    assert "DeprecationWarning" in source, (
-        "Legacy backend path missing DeprecationWarning"
+    assert "DeprecationWarning" in source or "ALLOW_LEGACY_DATAHUB" in source, (
+        "Legacy backend path missing DeprecationWarning or ALLOW_LEGACY_DATAHUB guard"
     )

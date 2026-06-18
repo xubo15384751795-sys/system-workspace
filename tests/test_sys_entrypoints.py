@@ -62,6 +62,17 @@ def test_sys_doctor_exits_cleanly() -> None:
     assert result.returncode in (0, 1), f"./sys doctor crashed: {result.stderr}"
 
 
+def test_sys_governance_exits_cleanly() -> None:
+    """./sys governance should expose the latest governance status."""
+    result = subprocess.run(
+        [str(SYS), "governance"],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, f"./sys governance failed: {result.stderr}"
+    output = result.stdout + result.stderr
+    assert "Governance Status" in output
+
+
 def test_sys_refresh_produces_core_artifacts() -> None:
     """./sys refresh should produce framework_output.json and status.json."""
     result = subprocess.run(

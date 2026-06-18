@@ -40,7 +40,7 @@ add_scripts()
 from run_bundle import RunBundle
 
 # Total steps in the pipeline
-TOTAL_STEPS = 27
+TOTAL_STEPS = 28
 
 
 def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
@@ -211,11 +211,6 @@ def main() -> None:
     start_time = datetime.now(UTC)
     logger.info("Daily Run — %s", start_time.strftime('%Y-%m-%d %H:%M'))
 
-    # Start run bundle — atomic record of this execution
-    # Always use ROOT for bundle location (bundles live in Output/runs/, not test output root)
-    bundle = RunBundle.start(mode="daily_pipeline")
-    logger.info("Run bundle: %s", bundle.run_id)
-
     if args.dry_run:
         print("DRY RUN — would execute:")
         steps = [
@@ -242,13 +237,20 @@ def main() -> None:
             "21. Build system index",
             "22. Build current README / NEXT_ACTIONS",
             "23. Build signal card",
-            "24. Build work brief",
-            "25. Freshness validator",
-            "26. Architecture reality audit",
+            "24. Build signal consensus",
+            "25. Build work brief",
+            "26. Freshness validator",
+            "27. Architecture reality audit",
+            "28. Governance status",
         ]
         for step in steps:
             print(f"  {step}")
         return
+
+    # Start run bundle — atomic record of this execution.
+    # Always use ROOT for bundle location (bundles live in Output/runs/, not test output root).
+    bundle = RunBundle.start(mode="daily_pipeline")
+    logger.info("Run bundle: %s", bundle.run_id)
 
     steps = []
 
@@ -477,6 +479,12 @@ def main() -> None:
     if architecture_audit_script.exists():
         _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
 
+    # Step 28: Governance status (visible summary of gates, trace, exceptions)
+    logger.info("[%d/%d] Building governance status...", 28, TOTAL_STEPS)
+    governance_status_script = ROOT / "scripts" / "governance_status.py"
+    if governance_status_script.exists():
+        _record(run_step("governance_status", [sys.executable, str(governance_status_script)]))
+
     # Capture decision + signal traces into bundle
     _capture_traces(bundle)
 
@@ -517,6 +525,24 @@ def main() -> None:
     # Finish run bundle
     bundle_dir = bundle.finish(status=run_status)
     logger.info("Run bundle saved: %s", bundle_dir)
+
+    # Refresh governance status after the bundle has its final manifest.
+    governance_status_script = ROOT / "scripts" / "governance_status.py"
+    if governance_status_script.exists():
+        subprocess.run(
+            [sys.executable, str(governance_status_script)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=str(ROOT),
+        )
+        for artifact_rel in [
+            "Output/system_learning/latest/governance_status.json",
+            "Output/system_learning/latest/governance_status.md",
+        ]:
+            artifact = ROOT / artifact_rel
+            if artifact.exists():
+                bundle.record_artifact(artifact)
 
     # Symlink decision_trace.json into Output/current/ for easy access
     dt_src = bundle_dir / "decision_trace.json"

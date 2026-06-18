@@ -20,6 +20,19 @@ groups:
       - benchmark_evidence_dashboard.html
       - learning_summary.md
       - system_health.md
+      - latest_run_id.txt
+      - latest_summary.md
+      - quality_validation.json
+      - model_run.json
+      - decision_trace.json
+      - work_brief.md
+      - work_brief.json
+      - signal_card.md
+      - signal_card.json
+      - signal_consensus.md
+      - signal_consensus.json
+      - data_gaps.md
+      - data_gaps.json
 
   runs:
     path: Output/deformation_runs/

@@ -54,10 +54,13 @@ def test_all_root_scripts_registered() -> None:
 
 
 def test_registry_paths_exist() -> None:
-    """Every script path in registry must exist on disk."""
+    """Every active script path in registry must exist on disk."""
     registry = _load_registry()
     for name, entry in registry.items():
         if isinstance(entry, dict) and "script" in entry:
+            # Archived entries may reference removed submodule files
+            if entry.get("status") == "archived":
+                continue
             path = ROOT / entry["script"]
             assert path.exists(), f"{name}: script not found: {entry['script']}"
 
