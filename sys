@@ -99,7 +99,7 @@ case "$cmd" in
     ;;
   framework)
     shift || true
-    python3 "$ROOT/scripts/framework_cli.py" "$@"
+    python3 "$ROOT/scripts/archive/framework_cli.py" "$@"
     ;;
   work)
     python3 "$ROOT/scripts/run_work_cycle.py" --mode quick
