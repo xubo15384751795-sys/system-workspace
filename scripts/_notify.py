@@ -1,14 +1,69 @@
-"""Desktop notifications for pipeline failures (macOS osascript)."""
+"""Desktop and remote notifications for pipeline failures.
+
+Channels (in priority order):
+  1. macOS desktop notification (osascript) — always attempted on Darwin
+  2. Webhook (HTTP POST) — if NOTIFY_WEBHOOK_URL env var is set
+
+Webhook payload:
+  {"title": "...", "message": "...", "status": "...", "timestamp": "..."}
+
+Configure:
+  export NOTIFY_WEBHOOK_URL="https://hooks.slack.com/services/..."   # Slack
+  export NOTIFY_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/..."  # Feishu
+  export NOTIFY_WEBHOOK_URL="https://your-server.com/webhook"        # Generic
+"""
 from __future__ import annotations
 
+import json
+import os
 import platform
 import subprocess
 import sys
+import urllib.request
+from datetime import UTC, datetime
 from typing import Any
 
 
+def _notify_webhook(title: str, message: str) -> bool:
+    """Send notification via webhook if NOTIFY_WEBHOOK_URL is configured."""
+    webhook_url = os.environ.get("NOTIFY_WEBHOOK_URL", "")
+    if not webhook_url:
+        return False
+
+    payload = json.dumps({
+        "title": title,
+        "message": message,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }).encode("utf-8")
+
+    # Slack-compatible payload (also works for Feishu, generic webhooks)
+    if "hooks.slack.com" in webhook_url or "open.feishu.cn" in webhook_url:
+        payload = json.dumps({
+            "text": f"*{title}*\n{message}",
+        }).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            webhook_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status < 400
+    except Exception:
+        return False
+
+
 def notify_failure(title: str, message: str) -> bool:
-    """Show a desktop notification. Returns True if a notifier ran."""
+    """Show notification via all available channels. Returns True if any ran."""
+    desktop_ok = _notify_desktop(title, message)
+    webhook_ok = _notify_webhook(title, message)
+    return desktop_ok or webhook_ok
+
+
+def _notify_desktop(title: str, message: str) -> bool:
+    """Show a macOS desktop notification. Returns True if a notifier ran."""
     if platform.system() != "Darwin":
         print(f"NOTIFY: {title} — {message}", file=sys.stderr)
         return False

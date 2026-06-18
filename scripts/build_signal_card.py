@@ -17,7 +17,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from _runtime_io import load_json
+from _runtime_io import load_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
@@ -801,7 +801,7 @@ def main() -> None:
     CURRENT.mkdir(parents=True, exist_ok=True)
 
     json_path = CURRENT / "signal_card.json"
-    json_path.write_text(json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, card)
 
     md_path = CURRENT / "signal_card.md"
     md_path.write_text(generate_markdown(card), encoding="utf-8")

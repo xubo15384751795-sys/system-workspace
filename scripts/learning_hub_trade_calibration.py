@@ -20,39 +20,20 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _runtime_io import (
+    dedupe_entries,
+    ensure_dir,
+    load_json,
+    load_jsonl,
+    utc_now,
+    write_json,
+)
 
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
 RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
 EVENTS_DIR = ROOT / "Output" / "system_learning" / "events"
 
-
-def _entry_key(entry: dict[str, Any]) -> tuple[Any, ...]:
-    thesis = entry.get("trade_thesis") or {}
-    claim = ""
-    if isinstance(thesis, dict):
-        ladder = thesis.get("claim_ladder") or {}
-        if isinstance(ladder, dict):
-            claim = str(ladder.get("claim_statement", ""))
-        claim = claim or str(thesis.get("hypothesis", ""))
-    return (
-        entry.get("date"),
-        entry.get("decision"),
-        entry.get("confidence"),
-        entry.get("evidence_grade"),
-        entry.get("time_horizon"),
-        tuple(sorted(entry.get("asset_scope") or [])),
-        entry.get("decision_fingerprint") or claim,
-    )
-
-
-def dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep the latest record for each observable decision state."""
-    deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
-    for entry in entries:
-        deduped[_entry_key(entry)] = entry
-    return list(deduped.values())
 
 
 def build_calibration_event(

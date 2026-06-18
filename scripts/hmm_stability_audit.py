@@ -27,7 +27,7 @@ from typing import Any
 
 import numpy as np
 
-from _runtime_io import ensure_dir, load_json, utc_now, write_json
+from _runtime_io import as_float as _as_float, ensure_dir, load_json, utc_now, write_json
 
 logger = logging.getLogger(__name__)
 
@@ -35,15 +35,6 @@ ROOT = Path(__file__).resolve().parents[1]
 HMM_DIR = ROOT / "Output" / "ml_signals"
 HMM_LATEST = HMM_DIR / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "hmm_stability"
-
-
-def _as_float(value: Any, default: float = 0.0) -> float:
-    try:
-        if value is None:
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def load_hmm_history() -> list[dict[str, Any]]:

@@ -23,10 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 K_FEATURES_PATH = ROOT / "Data" / "features" / "k_features_daily.csv"
 
-# Add Harvester to path
-HARVESTER_ROOT = ROOT / "structural-risk-harvester" / "src"
-if HARVESTER_ROOT.exists():
-    sys.path.insert(0, str(HARVESTER_ROOT))
+from _workspace_imports import add_harvester_src
+add_harvester_src()
 
 
 def _compute_k_features(panel: pd.DataFrame) -> pd.DataFrame:

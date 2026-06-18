@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from claim_ladder_tracker import (
+    _check_rule,
+    _evaluate_policy_rules,
+    apply_transitions,
     check_caselab_improvement,
     check_hmm_conflict,
     check_invalidation,
@@ -23,6 +26,8 @@ from claim_ladder_tracker import (
     find_previous_claim_run_dir,
     find_previous_run_dir,
     load_previous_pending,
+    load_state,
+    save_state,
 )
 
 
@@ -272,3 +277,308 @@ def test_load_previous_pending_missing(_isolated_dirs):
     run_dir.mkdir()
     loaded = load_previous_pending(run_dir)
     assert loaded == []
+
+
+# ── _check_rule ─────────────────────────────────────────────────────────────
+
+class TestCheckRule:
+    """Tests for the policy rule evaluation engine."""
+
+    def test_ge_comparison_float(self):
+        evidence = {"caselab_top_score": 0.45}
+        assert _check_rule("caselab_top_score >= 0.30", evidence) is True
+        assert _check_rule("caselab_top_score >= 0.50", evidence) is False
+
+    def test_le_comparison_float(self):
+        evidence = {"replay_false_positive_rate": 0.35}
+        assert _check_rule("replay_false_positive_rate <= 0.40", evidence) is True
+        assert _check_rule("replay_false_positive_rate <= 0.30", evidence) is False
+
+    def test_eq_comparison_bool(self):
+        evidence = {"hmm_conflict": False}
+        assert _check_rule("hmm_conflict == false", evidence) is True
+        assert _check_rule("hmm_conflict == true", evidence) is False
+
+    def test_ne_comparison(self):
+        evidence = {"md_direction": "up"}
+        assert _check_rule("md_direction != down", evidence) is True
+
+    def test_gt_lt_comparison_int(self):
+        evidence = {"active_mechanism_count": 2}
+        assert _check_rule("active_mechanism_count > 1", evidence) is True
+        assert _check_rule("active_mechanism_count < 3", evidence) is True
+
+    def test_or_compound_rule(self):
+        evidence = {"active_mechanism_count": 0, "caselab_top_score": 0.45}
+        assert _check_rule("active_mechanism_count >= 1 OR caselab_top_score >= 0.30", evidence) is True
+
+    def test_or_compound_rule_both_false(self):
+        evidence = {"active_mechanism_count": 0, "caselab_top_score": 0.10}
+        assert _check_rule("active_mechanism_count >= 1 OR caselab_top_score >= 0.30", evidence) is False
+
+    def test_and_compound_rule(self):
+        evidence = {"active_mechanism_count": 0, "caselab_top_score": 0.25}
+        assert _check_rule("active_mechanism_count == 0 AND caselab_top_score < 0.30", evidence) is True
+
+    def test_and_compound_rule_one_false(self):
+        evidence = {"active_mechanism_count": 1, "caselab_top_score": 0.25}
+        assert _check_rule("active_mechanism_count == 0 AND caselab_top_score < 0.30", evidence) is False
+
+    def test_missing_evidence_returns_false(self):
+        evidence = {}
+        assert _check_rule("caselab_top_score >= 0.30", evidence) is False
+
+    def test_bare_boolean_variable(self):
+        evidence = {"some_flag": True}
+        assert _check_rule("some_flag", evidence) is True
+        evidence["some_flag"] = False
+        assert _check_rule("some_flag", evidence) is False
+
+    def test_special_any_tier2_trigger(self):
+        evidence = {}
+        assert _check_rule("any tier 2 demotion trigger", evidence) is False
+
+    def test_unparseable_rule_returns_false(self):
+        evidence = {}
+        assert _check_rule("not_a_real_rule", evidence) is False
+
+
+# ── _evaluate_policy_rules ──────────────────────────────────────────────────
+
+class TestEvaluatePolicyRules:
+    """Tests for promotion/demotion policy evaluation."""
+
+    @pytest.fixture
+    def policy(self):
+        return {
+            "tiers": {
+                0: {
+                    "label": "diagnostic_claim",
+                    "demotion_triggers": [],
+                },
+                1: {
+                    "label": "mechanism_hypothesis",
+                    "promotion_requirements": [
+                        {"id": "caselab_score", "rule": "caselab_top_score >= 0.30", "description": "CaseLab threshold"},
+                    ],
+                    "demotion_triggers": [
+                        {"id": "low_score", "rule": "caselab_top_score < 0.10", "severity": "immediate", "description": "Score too low"},
+                    ],
+                },
+                2: {
+                    "label": "watch_condition",
+                    "promotion_requirements": [
+                        {"id": "md_persist", "rule": "md_direction_consecutive_runs >= 2", "description": "Direction persistence"},
+                        {"id": "no_conflict", "rule": "hmm_conflict == false", "description": "No HMM conflict"},
+                    ],
+                    "demotion_triggers": [],
+                },
+            }
+        }
+
+    def test_promotion_eligible(self, policy):
+        claim = {"current_tier": 0}
+        evidence = {"caselab_top_score": 0.40}
+        eligible, blockers, triggers = _evaluate_policy_rules(claim, evidence, policy)
+        assert eligible is True
+        assert blockers == []
+        assert triggers == []
+
+    def test_promotion_blocked(self, policy):
+        claim = {"current_tier": 0}
+        evidence = {"caselab_top_score": 0.20}
+        eligible, blockers, triggers = _evaluate_policy_rules(claim, evidence, policy)
+        assert eligible is False
+        assert len(blockers) == 1
+        assert blockers[0]["id"] == "caselab_score"
+
+    def test_demotion_triggered(self, policy):
+        claim = {"current_tier": 1}
+        evidence = {"caselab_top_score": 0.05}
+        eligible, blockers, triggers = _evaluate_policy_rules(claim, evidence, policy)
+        assert len(triggers) == 1
+        assert triggers[0]["id"] == "low_score"
+
+    def test_max_tier_returns_blocker(self, policy):
+        claim = {"current_tier": 2}
+        evidence = {}
+        eligible, blockers, triggers = _evaluate_policy_rules(claim, evidence, policy)
+        assert eligible is False
+        assert any(b["id"] == "max_tier" for b in blockers)
+
+    def test_multiple_promotion_requirements(self, policy):
+        claim = {"current_tier": 1}
+        # Both requirements met
+        evidence = {"md_direction_consecutive_runs": 3, "hmm_conflict": False}
+        eligible, blockers, triggers = _evaluate_policy_rules(claim, evidence, policy)
+        assert eligible is True
+        assert blockers == []
+
+    def test_partial_promotion_requirements(self, policy):
+        claim = {"current_tier": 1}
+        # Only one requirement met
+        evidence = {"md_direction_consecutive_runs": 3, "hmm_conflict": True}
+        eligible, blockers, triggers = _evaluate_policy_rules(claim, evidence, policy)
+        assert eligible is False
+        assert len(blockers) == 1
+
+
+# ── apply_transitions ────────────────────────────────────────────────────────
+
+class TestApplyTransitions:
+    """Tests for the state transition engine."""
+
+    @pytest.fixture
+    def policy(self):
+        return {
+            "tiers": {
+                0: {"label": "diagnostic_claim", "demotion_triggers": []},
+                1: {
+                    "label": "mechanism_hypothesis",
+                    "promotion_requirements": [
+                        {"id": "score", "rule": "caselab_top_score >= 0.30", "description": "Score threshold"},
+                    ],
+                    "demotion_triggers": [
+                        {"id": "low", "rule": "caselab_top_score < 0.10", "severity": "immediate", "description": "Too low"},
+                    ],
+                },
+                2: {
+                    "label": "watch_condition",
+                    "promotion_requirements": [],
+                    "demotion_triggers": [],
+                },
+                3: {
+                    "label": "operational_research",
+                    "promotion_requirements": [],
+                    "demotion_triggers": [],
+                },
+            }
+        }
+
+    def test_new_claim_created(self, policy):
+        state = {"schema_version": "claim_ladder_state.v1", "claims": []}
+        progression = [{
+            "previous_run_claim": {"claim_tier": 0, "claim_label": "diagnostic_claim", "mechanism_hypothesis": "test hypothesis"},
+            "checks": {
+                "caselab_improvement": {"current_gap": 0.20, "status": "stable"},
+                "md_persistence": {"persisted": False, "current_direction": "unknown", "status": "unknown"},
+                "hmm_conflict": {"conflict": False, "status": "no_data"},
+                "invalidation": {"triggered": [], "conditions_checked": 0},
+            },
+            "overall_status": "tracking",
+        }]
+        result = apply_transitions(state, progression, policy)
+        assert len(result["claims"]) == 1
+        assert result["claims"][0]["mechanism_hypothesis"] == "test hypothesis"
+
+    def test_promotion_applied(self, policy):
+        state = {"schema_version": "claim_ladder_state.v1", "claims": []}
+        progression = [{
+            "previous_run_claim": {"claim_tier": 0, "claim_label": "diagnostic_claim", "mechanism_hypothesis": "promotable"},
+            "checks": {
+                "caselab_improvement": {"current_gap": 0.10, "status": "improved"},
+                "md_persistence": {"persisted": True, "current_direction": "up", "status": "confirmed"},
+                "hmm_conflict": {"conflict": False, "status": "aligned"},
+                "invalidation": {"triggered": [], "conditions_checked": 1},
+            },
+            "overall_status": "progressing",
+        }]
+        result = apply_transitions(state, progression, policy)
+        claim = result["claims"][0]
+        assert claim["current_tier"] == 1
+        assert claim["status"] == "promoted"
+        assert result["summary"]["promotions_this_run"] == 1
+
+    def test_invalidation_applied(self, policy):
+        state = {"schema_version": "claim_ladder_state.v1", "claims": []}
+        progression = [{
+            "previous_run_claim": {"claim_tier": 1, "claim_label": "mechanism_hypothesis", "mechanism_hypothesis": "doomed"},
+            "checks": {
+                "caselab_improvement": {"current_gap": 0.20, "status": "stable"},
+                "md_persistence": {"persisted": False, "current_direction": "down", "status": "reversed"},
+                "hmm_conflict": {"conflict": True, "status": "conflict"},
+                "invalidation": {"triggered": ["M reverses sign"], "conditions_checked": 1},
+            },
+            "overall_status": "invalidated",
+        }]
+        result = apply_transitions(state, progression, policy)
+        claim = result["claims"][0]
+        assert claim["current_tier"] == 0
+        assert claim["status"] == "invalidated"
+        assert result["summary"]["demotions_this_run"] == 1
+
+    def test_existing_claim_accumulates(self, policy):
+        state = {
+            "schema_version": "claim_ladder_state.v1",
+            "claims": [{
+                "claim_id": "claim-test",
+                "current_tier": 1,
+                "tier_label": "mechanism_hypothesis",
+                "mechanism_hypothesis": "existing",
+                "status": "active",
+                "entered_tier_at": "2026-06-17T00:00:00",
+                "runs_at_current_tier": 3,
+                "evidence": {"md_direction_consecutive_runs": 2},
+                "history": [],
+            }],
+        }
+        progression = [{
+            "previous_run_claim": {"claim_tier": 1, "claim_label": "mechanism_hypothesis", "mechanism_hypothesis": "existing"},
+            "checks": {
+                "caselab_improvement": {"current_gap": 0.20, "status": "stable"},
+                "md_persistence": {"persisted": True, "current_direction": "up", "status": "confirmed"},
+                "hmm_conflict": {"conflict": False, "status": "aligned"},
+                "invalidation": {"triggered": [], "conditions_checked": 0},
+            },
+            "overall_status": "tracking",
+        }]
+        result = apply_transitions(state, progression, policy)
+        claim = result["claims"][0]
+        assert claim["runs_at_current_tier"] == 4
+        # md_direction_consecutive_runs should accumulate from previous state
+        assert claim["evidence"]["md_direction_consecutive_runs"] == 3
+
+    def test_summary_computed(self, policy):
+        state = {"schema_version": "claim_ladder_state.v1", "claims": []}
+        result = apply_transitions(state, [], policy)
+        assert result["summary"]["total_claims"] == 0
+        assert result["summary"]["active_claims"] == 0
+        assert result["summary"]["highest_tier"] == 0
+
+
+# ── load_state / save_state ──────────────────────────────────────────────────
+
+class TestStateIO:
+    """Tests for persistent state I/O."""
+
+    def test_load_state_missing_file(self, _isolated_dirs, monkeypatch):
+        output_dir = _isolated_dirs[1]
+        monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", output_dir / "state.json")
+        state = load_state()
+        assert state["schema_version"] == "claim_ladder_state.v1"
+        assert state["claims"] == []
+
+    def test_save_and_load_roundtrip(self, _isolated_dirs, monkeypatch):
+        output_dir = _isolated_dirs[1]
+        state_path = output_dir / "state.json"
+        monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", state_path)
+        monkeypatch.setattr("claim_ladder_tracker.OUTPUT_DIR", output_dir)
+
+        state = {
+            "schema_version": "claim_ladder_state.v1",
+            "claims": [{"mechanism_hypothesis": "test", "current_tier": 1}],
+        }
+        save_state(state)
+        loaded = load_state()
+        assert loaded["claims"][0]["mechanism_hypothesis"] == "test"
+        assert loaded["claims"][0]["current_tier"] == 1
+
+    def test_load_state_wrong_schema(self, _isolated_dirs, monkeypatch):
+        output_dir = _isolated_dirs[1]
+        state_path = output_dir / "state.json"
+        state_path.write_text('{"schema_version": "wrong.v1", "claims": []}')
+        monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", state_path)
+        state = load_state()
+        # Should return fresh state since schema version doesn't match
+        assert state["schema_version"] == "claim_ladder_state.v1"
+        assert state["claims"] == []

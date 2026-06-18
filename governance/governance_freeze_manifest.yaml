@@ -59,15 +59,15 @@ baseline_hashes:
   architecture_cleanup_decisions.md: "446262635117bdf3"
   architecture_reality_decisions.md: "349c61656d98e0ac"
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
-  capability_registry.schema.json: "8180a383852ae580"
-  capability_registry.yaml: "912270d329a780d5"
-  config_authority_registry.yaml: "58be24ae9b44e360"
-  daily_pipeline_registry.yaml: "24a0855fdc56530a"
+  capability_registry.schema.json: "36a5be75b05d591e"
+  capability_registry.yaml: "31d3df56e2f91f30"
+  config_authority_registry.yaml: "0467b7d9faa99c9f"
+  daily_pipeline_registry.yaml: "c6b5d5aa268c2a99"
   data_authority_registry.yaml: "c9ac74cb25cdca5c"
   data_request_registry.yaml: "fba3503f685b2ac8"
   data_retention_policy.yaml: "e6efe4330eef54b8"
-  deferred_work_register.yaml: "6b0d63c2a5da6e57"
-  entrypoint_registry.yaml: "31feac4296437df9"
+  deferred_work_register.yaml: "5fca937e0425457a"
+  entrypoint_registry.yaml: "7963c1d707847934"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
   git_workspace_policy.md: "52cfed5adc3fa9db"
@@ -76,17 +76,17 @@ baseline_hashes:
   module_contract_registry.yaml: "d336a718a12ae232"
   opencode_supervisor_policy.yaml: "822ecdea6cb684da"
   operator_registry.yaml: "cf43e31b5b235e1e"
-  output_routing_policy.yaml: "4350319aa22c5c2a"
+  output_routing_policy.yaml: "09b172ce00ba13d5"
   pipeline_test_baseline.yaml: "61815b7786710674"
   position_sizing_policy.yaml: "38c986ec89459328"
-  proxy_quality_rules.yaml: "ed3daee1d86713af"
-  redundancy_budget.yaml: "31b7bfeafe50ccbc"
+  proxy_quality_rules.yaml: "49c1aa73ca880944"
+  redundancy_budget.yaml: "b877f6469704c8c6"
   repo_layout_map.md: "782106601619c97b"
   run_mode_registry.yaml: "4bb67bfd1072bee8"
   run_observability_summary.template.md: "69bb81c0d223cf9e"
   semantic_registry.json: "d72f277e4d56e813"
   submodule_commit_plan.md: "71a15104c9459142"
-  system_constitution.yaml: "943992af108ce6b6"
+  system_constitution.yaml: "3def2eaaf5fcfca8"
 
 # Post-freeze additions — each requires explicit approval record
 approved_additions:
@@ -118,7 +118,68 @@ approved_additions:
     approved_at: "2026-06-18"
     commit: "be2ffcd"
     reason: "HMM/mechanism calibration gate — close incentive review authority semantics"
+  - file: claim_ladder_policy.yaml
+    approved_at: "2026-06-18"
+    commit: "agent-quality-hardening"
+    reason: "Claim ladder lifecycle policy for judgment feedback; approved under freeze budget"
+  - file: feedback_sampling_policy.yaml
+    approved_at: "2026-06-18"
+    commit: "agent-quality-hardening"
+    reason: "Feedback sample policy for sparse replay validation; approved under freeze budget"
+
+# Baseline hash updates — approved modifications to existing frozen files
+baseline_updates:
+  - file: system_constitution.yaml
+    approved_at: "2026-06-18"
+    old_hash: "943992af108ce6b6"
+    new_hash: "3def2eaaf5fcfca8"
+    reason: "Added dual_clock + agent_work_protocol hard rules (三层固化)"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-06-18"
+    old_hash: "6b0d63c2a5da6e57"
+    new_hash: "5fca937e0425457a"
+    reason: "Added evidence_window fields per dual_clock requirement"
+  - file: capability_registry.yaml
+    approved_at: "2026-06-18"
+    old_hash: "912270d329a780d5"
+    new_hash: "31d3df56e2f91f30"
+    reason: "Recorded feedback and lifecycle capabilities without granting core authority"
+  - file: capability_registry.schema.json
+    approved_at: "2026-06-18"
+    old_hash: "8180a383852ae580"
+    new_hash: "36a5be75b05d591e"
+    reason: "Allowed capability metadata needed by feedback lifecycle registration"
+  - file: config_authority_registry.yaml
+    approved_at: "2026-06-18"
+    old_hash: "58be24ae9b44e360"
+    new_hash: "0467b7d9faa99c9f"
+    reason: "Registered new feedback configuration authority"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-06-18"
+    old_hash: "24a0855fdc56530a"
+    new_hash: "c6b5d5aa268c2a99"
+    reason: "Registered daily feedback and proxy lifecycle steps with non-core authority"
+  - file: entrypoint_registry.yaml
+    approved_at: "2026-06-18"
+    old_hash: "31feac4296437df9"
+    new_hash: "7963c1d707847934"
+    reason: "Registered all root scripts and shared helpers for entrypoint completeness"
+  - file: output_routing_policy.yaml
+    approved_at: "2026-06-18"
+    old_hash: "4350319aa22c5c2a"
+    new_hash: "09b172ce00ba13d5"
+    reason: "Recorded output routing for feedback and diagnostic artifacts"
+  - file: proxy_quality_rules.yaml
+    approved_at: "2026-06-18"
+    old_hash: "ed3daee1d86713af"
+    new_hash: "49c1aa73ca880944"
+    reason: "Added proxy lifecycle quality rules used by diagnostic reports"
+  - file: redundancy_budget.yaml
+    approved_at: "2026-06-18"
+    old_hash: "31b7bfeafe50ccbc"
+    new_hash: "b877f6469704c8c6"
+    reason: "Aligned redundancy budget with registered feedback scripts"
 
 work_support_budget:
-  max_files: 18
+  max_files: 17
   source: governance/governance_tiers.yaml

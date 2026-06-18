@@ -22,12 +22,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from _workspace_imports import add_root, add_scripts
+add_root()
+add_scripts()
 
-from caselab_context.paper_paths import paper_root
+from caselab_context.paper_paths import paper_root  # noqa: E402
 
-from _runtime_io import load_json, utc_now, write_json
+from _runtime_io import load_json, utc_now, write_json  # noqa: E402
 
 GATE_PATH = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 WEIGHTS_PATH = ROOT / "Data" / "nlp" / "caselab_calibration" / "weight_adjustments.json"

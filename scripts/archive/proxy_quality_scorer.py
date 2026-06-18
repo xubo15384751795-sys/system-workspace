@@ -40,7 +40,39 @@ add_scripts()
 
 # Registry imports are side-effect free (verified): they only construct dataclasses.
 import structural_replay_v2 as srv2  # noqa: E402
-import compute_proxies as legacy  # noqa: E402
+
+# Inlined from archived scripts/compute_proxies.py (deleted 2026-06-18).
+# Only the data structure is needed for scan_legacy(); computation logic is in
+# structural_replay_v2.
+LEGACY_PROXY_MAP = {
+    'M_PROXY': {
+        'series': [
+            {'id': 'FRED:T10Y2Y', 'invert': True, 'weight': 1.0},
+            {'id': 'FRED:DFF', 'invert': False, 'weight': 1.0},
+        ],
+    },
+    'D_PROXY': {
+        'series': [
+            {'id': 'FRED:BAMLH0A0HYM2', 'invert': True, 'weight': 1.0},
+            {'id': 'FRED:VIXCLS', 'invert': True, 'weight': 1.0},
+            {'id': 'H41:discount_window', 'invert': True, 'weight': 1.0},
+        ],
+    },
+    'K_PROXY': {
+        'series': [
+            {'id': 'FRED:VIXCLS', 'invert': False, 'weight': 1.0},
+            {'id': 'TREASURY:debt_to_penny:tot_pub_debt_out_amt', 'invert': False, 'weight': 1.0},
+            {'id': 'TREASURY:daily_treasury_statement:open_today_bal', 'invert': True, 'weight': 1.0},
+        ],
+    },
+    'X_PROXY': {
+        'series': [
+            {'id': 'H41:primary_credit', 'invert': False, 'weight': 1.0},
+            {'id': 'H41:btfp', 'invert': False, 'weight': 0.5},
+            {'id': 'SEC:0000072971', 'invert': False, 'weight': 0.3},
+        ],
+    },
+}
 
 NOT_IMPLEMENTED_FAMILY = "NOT_IMPLEMENTED"
 
@@ -183,7 +215,7 @@ def scan_legacy(rules: dict) -> list[dict]:
     for excl in rules["legacy_exclusions"]:
         channel = excl["channel"]
         token = excl["banned_series_token"]
-        spec = legacy.PROXY_MAP.get(channel, {})
+        spec = LEGACY_PROXY_MAP.get(channel, {})
         for s in spec.get("series", []):
             sid = s.get("id", "")
             if token in sid:

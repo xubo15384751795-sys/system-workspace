@@ -34,6 +34,9 @@ steps:
   - id: market_feedback
   - id: claim_evaluator
   - id: claim_ladder_tracker
+  - id: learning_hub_feedback
+  - id: proxy_quality_report
+  - id: proxy_lifecycle
   - id: mechanism_calibration
     schedule: weekly
   - id: learning_summary

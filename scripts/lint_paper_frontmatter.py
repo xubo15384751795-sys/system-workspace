@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "scripts"))
+from _workspace_imports import add_root, add_scripts
+add_root()
+add_scripts()
 
-from caselab_context.paper_paths import paper_root
+from caselab_context.paper_paths import paper_root  # noqa: E402
 from sync_paper_world_model import (
     SCAN_DIRS,
     extract_case,
@@ -22,7 +22,7 @@ from sync_paper_world_model import (
     extract_trade_idea,
     extract_variable,
     parse_frontmatter,
-)
+)  # noqa: E402
 
 EXTRACTORS = {
     "01_Cases": extract_case,

@@ -28,7 +28,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-GH_USER="xubo15384751795-sys"
+GH_USER="${GH_USER:-xubo15384751795-sys}"
 GH_PROTO="${GH_PROTO:-ssh}"  # set GH_PROTO=https to use HTTPS instead
 
 repo_url() {
@@ -64,8 +64,8 @@ ensure_symlink() {
     return 0
   fi
   if [ -e "$link_path" ]; then
-    echo "[skip]   $link_path exists and is not a symlink (leaving alone)"
-    return 0
+    echo "[WARN]  $link_path exists and is not a symlink — workspace may be inconsistent"
+    return 1
   fi
   echo "[link]   $link_path -> $target"
   ln -s "$target" "$link_path"
@@ -85,10 +85,10 @@ fi
 
 echo
 echo "=== Recreating top-level symlinks ==="
-ensure_symlink "Structural Research Harness" "Workbench/agents/harness"
-ensure_symlink "System Learning Hub"         "system-learning-hub"
-ensure_symlink "Structural Risk Harvester"   "structural-risk-harvester"
-ensure_symlink "contracts"                   "Workbench/contracts"
+ensure_symlink "Structural Research Harness" "Workbench/agents/harness" || true
+ensure_symlink "System Learning Hub"         "system-learning-hub" || true
+ensure_symlink "Structural Risk Harvester"   "structural-risk-harvester" || true
+ensure_symlink "contracts"                   "Workbench/contracts" || true
 
 echo
 echo "=== Linking Learning Hub data alias ==="
@@ -97,10 +97,10 @@ HUB_DATA_TARGET="../Data/system_learning"
 if [ -L "$HUB_DATA" ]; then
   : # already linked
 elif [ -d "$HUB_DATA" ] && [ -z "$(ls -A "$HUB_DATA" 2>/dev/null)" ]; then
-  rmdir "$HUB_DATA"
-  ensure_symlink "system-learning-hub/data" "$HUB_DATA_TARGET"
+  rmdir "$HUB_DATA" || true
+  ensure_symlink "system-learning-hub/data" "$HUB_DATA_TARGET" || true
 elif [ ! -e "$HUB_DATA" ]; then
-  ensure_symlink "system-learning-hub/data" "$HUB_DATA_TARGET"
+  ensure_symlink "system-learning-hub/data" "$HUB_DATA_TARGET" || true
 else
   echo "[skip]   system-learning-hub/data exists with content (migrate to Data/system_learning/ manually)"
 fi

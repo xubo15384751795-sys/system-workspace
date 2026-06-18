@@ -46,6 +46,10 @@ hard_authority_rule:
   bridge_rule: "sandbox/research → bridge/gate → current (then current is authorized)"
 
 # Authority order — gates must be checked in this order
+# NOTE: This is a LOGICAL ordering of concerns, not a literal script execution
+# order. In the daily pipeline, freshness_validator runs near the end (step 56
+# of 60) as a post-hoc validation. The freshness check is ALSO performed inline
+# by judgment_layer.py and trade_decision_layer.py at their point of execution.
 authority_order:
   - freshness_gate
   - evidence_authority_gate
@@ -120,11 +124,16 @@ decision_permissions:
     requires: ["freshness_pass", "evidence_grade_a", "paper_support", "calibration_pass"]
     enabled: false  # Disabled until replay calibration passes
     allowed_size: medium
+    # NOTE: trade_decision_layer.py currently only produces NO_TRADE and WATCH.
+    # RISK_REDUCE, HEDGE, TACTICAL_LONG, TACTICAL_SHORT require calibration
+    # milestones that have not yet been met. This is intentional safe-mode
+    # behavior enforced at three layers: constitution, decision layer, and risk gate.
 
   TACTICAL_SHORT:
     requires: ["freshness_pass", "evidence_grade_a", "paper_support", "calibration_pass"]
     enabled: false  # Disabled until replay calibration passes
     allowed_size: medium
+    # See TACTICAL_LONG note above.
 
 # Evidence authority levels
 evidence_authority:
@@ -196,6 +205,14 @@ freshness_rules:
     learning_summary: 72
     system_index: 24
     readme: 24
+    # Additional categories enforced by freshness_validator.py
+    harvester: 48
+    structural_replay: 48
+    framework_output: 48
+    promotion_gate: 48
+    signal_card: 24
+    signal_consensus: 24
+    work_brief: 24
 
   temporal_ordering:
     - "judgment before trade_decision"
@@ -207,3 +224,57 @@ freshness_rules:
   on_fail:
     readme_header: "SNAPSHOT INVALID — DO NOT USE FOR DECISION"
     block_decisions: true
+
+# Dual clock — Agent can compress implementation time, not evidence time.
+# Every work item has two clocks: execution (1-3 days) and evidence (14-45 days).
+# A module is not "done" when code is written; it is done when evidence gates pass.
+dual_clock:
+  principle: >
+    Agent can compress implementation time but cannot compress evidence time.
+    Every work item has two clocks: execution (1-3 days) and evidence (14-45 days).
+    A module is not "done" when code is written; it is done when evidence gates pass.
+  execution_clock:
+    description: "Agent-accelerated. 1-3 day cycles."
+    applies_to:
+      - file migration
+      - registry alignment
+      - test coverage
+      - script cleanup
+      - schema validation
+      - thin wrapper conversion
+  evidence_clock:
+    description: "Cannot be fully compressed. Requires real data/time."
+    applies_to:
+      - market feedback sample accumulation
+      - walk-forward / forward return windows
+      - post-migration stability observation
+      - paper worldview validation
+      - experiment module promotion decisions
+  hard_rule: >
+    Every deferred item in deferred_work_register.yaml must declare both
+    execution_window and evidence_window. An item with only execution_window
+    is incomplete.
+
+# Agent work protocol — structured declaration required before any Agent code change.
+# Enforced by: scripts/verify_agent_work_protocol.py
+# Template: module_contexts/agent_work_protocol.template.yaml
+agent_work_protocol:
+  required: true
+  applies_to: "all Agent-initiated code changes"
+  declaration_fields:
+    - owner_module        # from capability_registry.yaml
+    - touched_paths       # file paths to be modified
+    - authority_level     # what this module is allowed to do
+    - expected_artifact   # what the change produces
+    - verification_command  # how to verify the change
+    - affects_core_judgment  # yes/no — if yes, requires extra gates
+  hard_rules:
+    - "No new root scripts unless thin wrapper (redundancy_budget)"
+    - "No new governance files unless explicitly approved (governance_freeze)"
+    - "Schema changes require producer+consumer sync"
+    - "Experiment outputs default to research_only"
+    - "Cross-module changes require protocol/schema first"
+  enforcement:
+    - "Pre-edit: Agent must declare protocol before modifying files"
+    - "Post-edit: Agent must provide verification command"
+    - "Machine check: scripts/verify_agent_work_protocol.py"

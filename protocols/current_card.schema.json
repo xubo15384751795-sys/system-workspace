@@ -1,17 +1,43 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Workbench Current Card",
+  "title": "System Status Card",
+  "description": "Schema for Output/current/status.json — produced by build_next_actions.py gather_status(). Previously named current_card; renamed to reflect actual structure.",
   "type": "object",
-  "required": ["schema_version", "overall", "main_pressure", "confidence", "evidence_snapshot", "next_actions"],
+  "required": ["generated_at", "date", "judgment", "promotion_gate", "signals"],
   "properties": {
-    "schema_version": {"const": "workbench.current_card.v1"},
-    "overall": {"type": "string"},
-    "main_pressure": {"type": "string"},
-    "confidence": {"type": "string"},
-    "summary": {"type": "string"},
-    "evidence_snapshot": {"type": "array"},
-    "framework_diagnosis": {"type": "object"},
-    "next_actions": {"type": "array", "items": {"type": "string"}},
-    "provenance": {"type": "object"}
-  }
+    "generated_at": {"type": "string"},
+    "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "judgment": {
+      "type": "object",
+      "required": ["decision", "confidence"],
+      "properties": {
+        "decision": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "claim_ceiling": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "promotion_gate": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"type": "string"},
+        "blocked_gates": {"type": "array", "items": {"type": "string"}},
+        "forbidden_language": {"type": "array", "items": {"type": "string"}},
+        "allowed_language": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "signals": {
+      "type": "object",
+      "properties": {
+        "k_gate": {"type": "object"},
+        "x_gate": {"type": "object"},
+        "hmm": {"type": "object"},
+        "caselab": {"type": "object"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
 }

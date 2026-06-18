@@ -63,6 +63,33 @@ groups:
     description: "Frozen history"
     can_affect_core_judgment: false
 
+  legacy_proxy_pipeline:
+    path: "Output/{benchmark_comparison,calibration,d_proxy_daily,m_proxy_daily,m_proxy_optimized,market_state_classifier,proxy_validation,solution,walk_forward_validation}/"
+    description: "Legacy proxy pipeline outputs — produced by archived scripts only"
+    can_affect_core_judgment: false
+    lifecycle: archived
+    owner: ML Signals
+    default_ttl_days: 90
+    note: "No active code reads these. Last updated 2026-06-09. Safe to delete after 2026-09-09."
+
+  legacy_reports:
+    path: Output/reports/
+    description: "Legacy morphology reports"
+    can_affect_core_judgment: false
+    lifecycle: archived
+    owner: ML Signals
+    default_ttl_days: 90
+    note: "Last updated 2026-05-17. Safe to delete after 2026-08-17."
+
+  legacy_evaluation:
+    path: Output/workbench/evaluation/
+    description: "Legacy replay evaluation data"
+    can_affect_core_judgment: false
+    lifecycle: archived
+    owner: Workbench
+    default_ttl_days: 90
+    note: "Last updated 2026-05-05. Safe to delete after 2026-08-05."
+
 lifecycle_statuses:
   draft:
     description: "Being generated, not yet complete"

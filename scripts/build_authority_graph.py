@@ -11,14 +11,27 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
 
-from _authority_graph import build_authority_graph, write_authority_graph  # noqa: E402
+
+def _load_authority_graph_module():
+    path = ROOT / "scripts" / "_authority_graph.py"
+    spec = importlib.util.spec_from_file_location("_authority_graph", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load authority graph module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_AUTHORITY_GRAPH = _load_authority_graph_module()
+build_authority_graph = _AUTHORITY_GRAPH.build_authority_graph
+write_authority_graph = _AUTHORITY_GRAPH.write_authority_graph
 
 
 def main() -> None:

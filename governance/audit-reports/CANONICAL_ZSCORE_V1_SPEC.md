@@ -79,7 +79,7 @@ def canonical_zscore_v1(series, freq="daily"):
 
 ### Differences from Existing Implementations
 
-| Property | canonical_zscore_v1 | proxy_builder | replay_v2 | compute_proxies |
+| Property | canonical_zscore_v1 | proxy_builder | replay_v2 | compute_proxies (archived) |
 |----------|--------------------|--------------|-----------|-----------------|
 | Window | 252d / 52w / 12m / 20q | 260w fixed | 252d fixed | 260w fixed |
 | Winsor | ±3σ | ±3σ | ±4 clip | ±3σ |

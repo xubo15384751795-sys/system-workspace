@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CURRENT="$ROOT/Output/current"
 cmd="${1:-check}"
 
@@ -99,7 +99,13 @@ case "$cmd" in
     ;;
   framework)
     shift || true
-    python3 "$ROOT/scripts/archive/framework_cli.py" "$@"
+    cli="$ROOT/scripts/archive/framework_cli.py"
+    if [ ! -f "$cli" ]; then
+      echo "Error: framework_cli.py not found at $cli"
+      echo "It may have been removed from archive/. Check scripts/archive/."
+      exit 1
+    fi
+    python3 "$cli" "$@"
     ;;
   work)
     python3 "$ROOT/scripts/run_work_cycle.py" --mode quick

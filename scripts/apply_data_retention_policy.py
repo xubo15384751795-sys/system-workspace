@@ -3,10 +3,13 @@
 Reads governance/data_retention_policy.yaml and checks each rule against
 the actual Data/ directory.  Generates a report of violations.
 
+WARNING: --apply is NOT yet implemented. Only dry-run mode works.
+         Using --apply will print an error and exit.
+
 Usage:
     python3 scripts/apply_data_retention_policy.py              # dry-run report
     python3 scripts/apply_data_retention_policy.py --json       # JSON output
-    python3 scripts/apply_data_retention_policy.py --apply      # actually move files (future)
+    python3 scripts/apply_data_retention_policy.py --apply      # NOT IMPLEMENTED — exits with error
 
 This script is the executor for governance/data_retention_policy.yaml.
 First version: dry-run only (report).  --apply will be added in a future version.

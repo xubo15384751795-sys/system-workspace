@@ -53,7 +53,7 @@
 | `proxy_builder.py` | Pending — window decision needed |
 | `data_sources.py` | Pending — legacy data layer |
 | `gateway/bridge.py` | Pending — deprecated |
-| `compute_proxies.py` | Pending — standalone script |
+| `compute_proxies.py` | ARCHIVED — moved to `scripts/archive/`; standalone script |
 | All PAPER implementations | Pending — no active consumer |
 
 ---

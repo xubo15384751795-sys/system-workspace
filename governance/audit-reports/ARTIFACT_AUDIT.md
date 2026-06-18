@@ -19,7 +19,7 @@ Scope: All critical pipeline artifacts in `/Users/a1/System`
 | 8 | measurement_audit.json | `Output/sandbox/structural_replay_v2/measurement_audit.json` | ✅ | ~8KB | 2026-06-03 | `scripts/structural_replay_v2.py` | Audit reports | ✅ | FRESH |
 | 9 | proxy_registry.json | `Output/sandbox/structural_replay_v2/proxy_registry.json` | ✅ | ~3KB | 2026-06-03 | `scripts/structural_replay_v2.py` | Audit reports | ✅ | FRESH |
 | 10 | config_snapshot.json | `Output/sandbox/structural_replay_v2/config_snapshot.json` | ✅ | ~1KB | 2026-06-03 | `scripts/structural_replay_v2.py` | Audit reports | ✅ | FRESH |
-| 11 | benchmark_panel.parquet | `Structural Deformation Research System/data/benchmark_panel.parquet` | ✅ | ~2MB | 2026-06-03 | `scripts/fetch_full_benchmark_panel.py` | `scripts/compute_proxies.py`, `scripts/structural_replay_v2.py` | ✅ | FRESH |
+| 11 | benchmark_panel.parquet | `Structural Deformation Research System/data/benchmark_panel.parquet` | ✅ | ~2MB | 2026-06-03 | `scripts/fetch_full_benchmark_panel.py` | `scripts/archive/compute_proxies.py` (archived), `scripts/structural_replay_v2.py` | ✅ | FRESH |
 | 12 | channel_coverage.parquet | `Output/sandbox/structural_replay_v2/channel_coverage.parquet` | ✅ | ~50KB | 2026-06-03 | `scripts/structural_replay_v2.py` | Audit reports | ✅ | FRESH |
 | 13 | all_signals.parquet | `Output/sandbox/structural_replay_v2/all_signals.parquet` | ✅ | ~200KB | 2026-06-03 | `scripts/structural_replay_v2.py` | `scripts/bridge_replay_to_current.py` | ✅ | FRESH |
 | 14 | proxy_components.parquet | `Output/sandbox/structural_replay_v2/proxy_components.parquet` | ✅ | ~100KB | 2026-06-03 | `scripts/structural_replay_v2.py` | Audit reports | ✅ | FRESH |

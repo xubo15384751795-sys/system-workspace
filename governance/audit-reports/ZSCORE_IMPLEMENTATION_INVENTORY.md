@@ -20,7 +20,7 @@
 | 9 | OTHER | residualization.py | `zscore` | expanding | ❌ | ❌ | Series |
 | 10 | OTHER | data_sources.py | `_zscore` | 260w | ±3σ | ❌ | Series |
 | 11 | OTHER | gateway/bridge.py | `_zscore` | full-sample | ❌ | ❌ | Series |
-| 12 | OTHER | compute_proxies.py | `zscore` | 260w | ±3σ | ❌ | scalar |
+| 12 | ARCHIVED | compute_proxies.py | `zscore` | 260w | ±3σ | ❌ | scalar |
 
 ---
 
@@ -93,7 +93,7 @@ def _freq_aware_zscore(series, freq):
 | 9 | residualization.py::zscore | expanding | Diagnostic only |
 | 10 | data_sources.py::_zscore | 260w | Legacy data layer |
 | 11 | gateway/bridge.py::_zscore | full-sample | **LEGACY — full-sample, not causal** |
-| 12 | compute_proxies.py::zscore | 260w | Standalone script |
+| 12 | compute_proxies.py::zscore | 260w | ARCHIVED — standalone script (moved to scripts/archive/) |
 
 ---
 

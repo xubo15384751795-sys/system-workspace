@@ -51,3 +51,13 @@ jobs:
         run: |
           export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/operator_registry_audit.py --json
+
+      - name: Experiment → core judgment check
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/verify_experiment_core_judgment.py
+
+      - name: Output freshness check
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/check_output_freshness.py

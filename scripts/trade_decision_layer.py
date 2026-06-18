@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _runtime_io import as_float as _as_float, ensure_dir, load_json, load_jsonl, utc_now, write_json
 from pending_evaluation import write_pending_evaluation
 from paper_freshness import check_paper_world_model_freshness
 
@@ -37,15 +37,6 @@ HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 PAPER_WORLD_MODEL_DIR = ROOT / "Data" / "paper_world_model"
 OUTPUT_DIR = ROOT / "Output" / "trade_decision"
-
-
-def _as_float(value: Any, default: float = 0.0) -> float:
-    try:
-        if value is None:
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def find_paper_sources(

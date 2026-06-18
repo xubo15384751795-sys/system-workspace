@@ -19,6 +19,7 @@ import ast
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_root
 add_root()
 
+from _runtime_io import load_yaml as _load_yaml_raw  # noqa: E402
+
 FRAMEWORK_SRC = ROOT / "Structural Deformation Research System" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 DAILY_PIPELINE_REGISTRY = ROOT / "governance" / "daily_pipeline_registry.yaml"
@@ -35,22 +38,9 @@ MODULES_MD = ROOT / "MODULES.md"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
-def _load_capability_registry() -> dict[str, Any]:
-    """Load capability_registry.yaml."""
-    try:
-        import yaml
-        return yaml.safe_load(CAPABILITY_REGISTRY.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
 def _load_yaml(path: Path) -> dict[str, Any]:
     """Load a YAML file, returning an empty dict on failure."""
-    try:
-        import yaml
-        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
+    return _load_yaml_raw(path) or {}
 
 
 def _scan_for_http_imports(directory: Path) -> list[dict[str, str]]:
@@ -456,6 +446,80 @@ def _check_legacy_imports_in_main_pipeline() -> list[dict[str, str]]:
     return findings
 
 
+def _check_active_partial_lifecycle() -> list[dict[str, str]]:
+    """Check 17: Track how long modules have been ACTIVE_PARTIAL.
+
+    Modules stuck in ACTIVE_PARTIAL for >60 days without a review_date
+    are flagged. >90 days is escalated to BLOCKED severity.
+    """
+    registry = _load_yaml(CAPABILITY_REGISTRY)
+    if not registry:
+        return []
+
+    findings: list[dict[str, str]] = []
+    today = datetime.now(UTC).date()
+
+    for name, entry in registry.items():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("status") != "ACTIVE_PARTIAL":
+            continue
+
+        # Check for explicit review_date in the entry
+        review_date_str = entry.get("review_date")
+        if review_date_str:
+            try:
+                review_date = datetime.fromisoformat(str(review_date_str)).date()
+                if review_date >= today:
+                    continue  # review date not yet reached
+            except (ValueError, TypeError):
+                pass
+
+        # Try to find when status was set via git log
+        try:
+            result = subprocess.run(
+                [
+                    "git", "log", "--format=%aI", "--follow", "-1",
+                    "--", str(CAPABILITY_REGISTRY.relative_to(ROOT)),
+                ],
+                capture_output=True, text=True, cwd=str(ROOT), timeout=10,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                last_modified = datetime.fromisoformat(
+                    result.stdout.strip().split("\n")[0]
+                ).date()
+                age_days = (today - last_modified).days
+            else:
+                age_days = None
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            age_days = None
+
+        if age_days is not None and age_days > 90:
+            findings.append({
+                "module": name,
+                "status": "ACTIVE_PARTIAL",
+                "age_days": str(age_days),
+                "severity": "BLOCKED",
+                "message": (
+                    f"{name} has been ACTIVE_PARTIAL for {age_days} days "
+                    f"(>90 day threshold). Consider promoting or demoting."
+                ),
+            })
+        elif age_days is not None and age_days > 60:
+            findings.append({
+                "module": name,
+                "status": "ACTIVE_PARTIAL",
+                "age_days": str(age_days),
+                "severity": "WARN",
+                "message": (
+                    f"{name} has been ACTIVE_PARTIAL for {age_days} days "
+                    f"(>60 day threshold). Review needed."
+                ),
+            })
+
+    return findings
+
+
 def run_audit() -> dict[str, Any]:
     """Run all architecture reality checks."""
     results: dict[str, Any] = {
@@ -628,6 +692,15 @@ def run_audit() -> dict[str, Any]:
     }
     if retention_findings:
         findings_count += len(retention_findings)
+
+    # Check 17: ACTIVE_PARTIAL lifecycle tracking
+    active_partial_findings = _check_active_partial_lifecycle()
+    results["checks"]["active_partial_lifecycle"] = {
+        "status": "PASS" if not active_partial_findings else "WARN",
+        "findings": active_partial_findings,
+    }
+    if active_partial_findings:
+        findings_count += len(active_partial_findings)
 
     results["summary"] = {
         "total_findings": findings_count,

@@ -78,3 +78,73 @@ jobs:
           python scripts/daily_run.py --dry-run
         env:
           PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Schema validation
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python -c "
+          import json
+          from pathlib import Path
+          try:
+              import jsonschema
+          except ImportError:
+              print('jsonschema not installed, skipping validation')
+              exit(0)
+
+          root = Path('.')
+          errors = []
+
+          # Validate framework_output.json against its schema
+          fw_path = root / 'Output' / 'current' / 'framework_output.json'
+          schema_path = root / 'governance' / 'framework_output.schema.json'
+          if fw_path.exists() and schema_path.exists():
+              data = json.loads(fw_path.read_text())
+              schema = json.loads(schema_path.read_text())
+              try:
+                  jsonschema.validate(data, schema)
+                  print('framework_output.json: PASS')
+              except jsonschema.ValidationError as e:
+                  errors.append(f'framework_output.json: {e.message}')
+                  print(f'framework_output.json: FAIL — {e.message}')
+
+          # Validate status.json against its schema
+          status_path = root / 'Output' / 'current' / 'status.json'
+          card_schema_path = root / 'protocols' / 'current_card.schema.json'
+          if status_path.exists() and card_schema_path.exists():
+              data = json.loads(status_path.read_text())
+              schema = json.loads(card_schema_path.read_text())
+              try:
+                  jsonschema.validate(data, schema)
+                  print('status.json: PASS')
+              except jsonschema.ValidationError as e:
+                  errors.append(f'status.json: {e.message}')
+                  print(f'status.json: FAIL — {e.message}')
+
+          if errors:
+              print(f'Schema validation failed: {len(errors)} error(s)')
+              exit(1)
+          print('All schema validations passed.')
+          "
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Entrypoint registry completeness
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python -m pytest tests/test_entrypoint_registry_completeness.py::test_registry_paths_exist -q --tb=short
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Experiment → core judgment check
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/verify_experiment_core_judgment.py
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Output freshness check
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/check_output_freshness.py
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"

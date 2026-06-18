@@ -1,0 +1,215 @@
+# Feedback Sampling Policy
+# Governs the Feedback Sample Factory — batch generation of judgment-closed-loop
+# samples for calibration, rule evaluation, and governance learning.
+#
+# This is NOT model training. It is decision calibration.
+# Samples train the system's evidence discipline, not a language model's fluency.
+#
+# Authority: work_support tier (governance_tiers.yaml)
+# Consumers: build_feedback_sample_pool.py, run_feedback_replay_batch.py,
+#            evaluate_feedback_samples.py, review_feedback_samples.py
+# Schema: protocols/feedback_sample.schema.json
+
+schema_version: feedback_sampling_policy.v1
+last_updated: "2026-06-18"
+
+# ---------------------------------------------------------------------------
+# Sampling targets
+# ---------------------------------------------------------------------------
+targets:
+  # Minimum viable pool — enough to start answering "does WATCH have signal?"
+  mvp:
+    total_samples: 300
+    real_judgment_days: 20
+    replay_dates: 250
+    event_windows: 20
+    caselab_context: 10
+
+  # First meaningful calibration — enough for confidence calibration
+  first_calibration:
+    total_samples: 500
+    real_judgment_days: 60
+    replay_dates: 350
+    event_windows: 50
+    caselab_context: 40
+
+  # Full feedback pool — enough for proxy/channel contribution analysis
+  full:
+    total_samples: 1000
+    real_judgment_days: 150
+    replay_dates: 650
+    event_windows: 100
+    caselab_context: 100
+
+# ---------------------------------------------------------------------------
+# Stratification rules for replay dates
+# ---------------------------------------------------------------------------
+stratification:
+  # Percentages must sum to 1.0
+  stress_window: 0.30
+  turning_point: 0.20
+  quiet_window: 0.20
+  false_alarm: 0.15
+  random: 0.15
+
+  # Stress window includes (not limited to):
+  #   2008 GFC, 2011 EU/US debt, 2015-16 CNY/oil/credit,
+  #   2018 Q4, 2020 COVID, 2022 rate hikes, 2023 bank crisis,
+  #   2024-26 AI capex / rate path / liquidity shifts
+  stress_periods:
+    - { start: "2008-09-01", end: "2009-03-31", label: "gfc_2008" }
+    - { start: "2011-07-01", end: "2011-10-31", label: "debt_ceiling_2011" }
+    - { start: "2015-08-01", end: "2016-02-29", label: "cny_oil_credit_2015" }
+    - { start: "2018-10-01", end: "2018-12-31", label: "q4_2018" }
+    - { start: "2020-02-15", end: "2020-04-30", label: "covid_2020" }
+    - { start: "2022-01-01", end: "2022-10-31", label: "rate_hikes_2022" }
+    - { start: "2023-03-01", end: "2023-05-31", label: "bank_crisis_2023" }
+
+  # Turning points: moments where market direction changed
+  turning_point_periods:
+    - { start: "2009-03-01", end: "2009-06-30", label: "gfc_bottom" }
+    - { start: "2016-02-15", end: "2016-04-30", label: "post_cny_recovery" }
+    - { start: "2018-12-24", end: "2019-02-28", label: "dec2018_bottom" }
+    - { start: "2020-03-23", end: "2020-06-30", label: "covid_recovery" }
+    - { start: "2022-10-15", end: "2023-01-31", label: "inflation_peak" }
+
+  # False alarm windows: looked like stress but didn't materialize
+  false_alarm_periods:
+    - { start: "2010-05-01", end: "2010-07-31", label: "flash_crash_2010" }
+    - { start: "2012-05-01", end: "2012-07-31", label: "eu_summit_fade" }
+    - { start: "2014-10-01", end: "2014-12-31", label: "ebola_scare" }
+    - { start: "2015-08-24", end: "2015-09-30", label: "aug2015_flash" }
+    - { start: "2019-08-01", end: "2019-10-31", label: "repo_spike_2019" }
+
+# ---------------------------------------------------------------------------
+# Forward outcome computation
+# ---------------------------------------------------------------------------
+forward_windows:
+  # Which assets to track
+  assets:
+    - ticker: "SPY"
+      label: "S&P 500 ETF"
+    - ticker: "HYG"
+      label: "High Yield Bond ETF"
+    - ticker: "TLT"
+      label: "20+ Year Treasury ETF"
+    - ticker: "GLD"
+      label: "Gold ETF"
+    - ticker: "VIX"
+      label: "CBOE Volatility Index"
+      is_index: true
+    - ticker: "MOVE"
+      label: "Merrill Lynch Bond Volatility Index"
+      is_index: true
+
+  # Time horizons for forward outcome
+  horizons:
+    - "1d"
+    - "1w"
+    - "1m"
+    - "3m"
+
+  # Minimum days of data required to compute a forward window
+  min_days:
+    "1d": 1
+    "1w": 5
+    "1m": 20
+    "3m": 60
+
+# ---------------------------------------------------------------------------
+# Auto-labeling rules
+# ---------------------------------------------------------------------------
+auto_labeling:
+  # Rules for assigning review_label without human intervention
+  rules:
+    - label: "useful"
+      condition: "judgment was WATCH/RESEARCH_REVIEW AND stress materialized within 1m"
+      description: "System correctly identified elevated risk before it materialized"
+
+    - label: "false_positive"
+      condition: "judgment was WATCH/RESEARCH_REVIEW AND no stress within forward window AND max_drawdown_1m < 2%"
+      description: "System flagged risk that didn't materialize"
+
+    - label: "missed_stress"
+      condition: "judgment was NO_TRADE/low confidence AND stress_event_happened within 1w AND max_drawdown_1m > 5%"
+      description: "System missed a real stress event"
+
+    - label: "too_early"
+      condition: "judgment was WATCH AND stress materialized but only after > 1m delay"
+      description: "System was right but too early to be actionable"
+
+    - label: "misleading"
+      condition: "mechanism_hypothesis direction was wrong — claimed stress but market rallied, or claimed relief but market sold off"
+      description: "System's directional read was wrong"
+
+    - label: "correct_but_low_value"
+      condition: "judgment was correct but confidence was low AND claim_tier was 0-1 AND no actionable conditions met"
+      description: "Technically correct but provided no useful signal"
+
+  # Confidence thresholds for auto-labeling
+  stress_thresholds:
+    max_drawdown_significant: 0.05    # 5% drawdown = stress event
+    max_drawdown_moderate: 0.02       # 2% drawdown = moderate
+    vix_spike_significant: 5.0        # 5-point VIX spike
+    hyg_drop_significant: -0.03       # 3% HYG drop
+
+# ---------------------------------------------------------------------------
+# Human review rules
+# ---------------------------------------------------------------------------
+human_review:
+  # Minimum samples to review per batch
+  min_review_per_batch: 20
+
+  # Prioritize these for human review
+  priority_review:
+    - "false_positive"    # Was the system too alarmist?
+    - "missed_stress"     # Did the system miss something real?
+    - "misleading"        # Was the mechanism hypothesis wrong?
+    - "needs_review"      # Auto-labeler couldn't determine
+
+  # CaseLab context samples always need human review
+  caselab_always_review: true
+
+  # Maximum samples before auto-label is trusted without review
+  auto_label_confidence_threshold: 100  # After 100 reviewed samples with >80% agreement
+
+# ---------------------------------------------------------------------------
+# Output routing
+# ---------------------------------------------------------------------------
+output:
+  # Raw sample pool
+  sample_manifest: "Data/feedback_samples/sample_manifest.jsonl"
+
+  # Per-sample replay outputs
+  replay_dir: "Output/feedback_samples/replay_runs/"
+
+  # Evaluation outputs
+  evaluation_report: "Output/feedback_samples/evaluation_report.md"
+  calibration_summary: "Output/feedback_samples/calibration_summary.json"
+
+  # Human review queue
+  review_queue: "Output/feedback_samples/review_queue.jsonl"
+
+  # Failure cases for deep analysis
+  failure_cases: "Output/feedback_samples/failure_cases.md"
+
+# ---------------------------------------------------------------------------
+# Integration with Learning Hub
+# ---------------------------------------------------------------------------
+learning_hub:
+  # Feedback findings enter Learning Hub as improvement queue items
+  ingest_format: "calibration_finding"
+
+  # Categories of findings
+  finding_categories:
+    - confidence_calibration    # Are confidence levels well-calibrated?
+    - claim_ladder_calibration  # Are tier promotions/demotions appropriate?
+    - proxy_contribution        # Which proxies add marginal value?
+    - mechanism_reliability     # Which mechanism hypotheses are reliable?
+    - invalidation_effectiveness  # Which invalidation conditions actually trigger?
+    - caselab_quality           # Which CaseLab rules should be promoted/demoted?
+
+  # Rule changes require human confirmation
+  auto_promote: false
+  auto_demote: false
+  auto_adjust_weights: false

@@ -6,7 +6,7 @@ Workbench protocols define how Product, Harvester, and Framework layers exchange
 
 - `evidence.schema.json`: admitted evidence exposed to the Workbench
 - `framework_output.schema.json`: framework diagnosis exposed to the Workbench
-- `current_card.schema.json`: user-facing current risk check
+- `current_card.schema.json`: system status card (Output/current/status.json) — produced by build_next_actions.py
 
 ## NLP Boundary
 

@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from _runtime_io import load_json as _load_json, write_json
+
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_CURRENT = ROOT / "Output" / "current"
 
@@ -34,15 +36,6 @@ PROB_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest.json"
 
 # CaseLab uses dated files
 CASELAB_DIR = ROOT / "Output" / "caselab"
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
 
 
 def _latest_caselab() -> dict[str, Any] | None:
@@ -536,7 +529,7 @@ def main() -> None:
     json_path = OUTPUT_CURRENT / "signal_consensus.json"
     md_path = OUTPUT_CURRENT / "signal_consensus.md"
 
-    json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, result)
     md_path.write_text(format_markdown(result), encoding="utf-8")
 
     if args.json:

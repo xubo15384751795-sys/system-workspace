@@ -56,7 +56,7 @@ All files defining z-score computation functions:
 | 7 | `Structural Deformation Research System/src/benchmarks/portfolio_baselines.py` | `portfolio_z_score()` | Portfolio baselines |
 | 8 | `Structural Deformation Research System/src/benchmarks/institutional_risk.py` | `institutional_z_score()` | Institutional risk |
 | 9 | `Structural Deformation Research System/src/core/models.py` | `ZScoreModel` | Core model |
-| 10 | `scripts/compute_proxies.py` | `compute_z_scores()` | Script-level |
+| 10 | `scripts/archive/compute_proxies.py` | `compute_z_scores()` | ARCHIVED — script-level |
 
 ### Additional References (not definitions)
 

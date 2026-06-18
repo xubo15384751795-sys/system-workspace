@@ -15,6 +15,21 @@ external_inputs:
   - Output/system_learning/latest/supervisor_check.json
   - Output/system_learning/latest/output_routing_report.json
   - Paper/90_Admin/
+
+# Step defaults — individual steps override only when they differ.
+# NOTE: This block is documentation for human readers. The merge logic
+# lives in scripts/daily_run.py (or _daily_run_sequence.py) which reads
+# _defaults and applies them as fallback values for each step.
+_defaults:
+  ttl_hours: 48
+  failure_behavior: continue_with_warning
+  allowed_to_affect_core_judgment: false
+  core_judgment_dependency: false
+  execution:
+    mode: subprocess
+    cwd_policy: workspace_root
+    env_policy: inherited_minimal
+
 steps:
   harvester:
     order: 1
@@ -689,6 +704,97 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
+  learning_hub_feedback:
+    order: 17.7
+    status: active
+    owner: Learning Hub
+    command: python scripts/build_learning_hub_feedback.py
+    input: &id_lh_feedback_in
+    - Output/claim_ladder/
+    - caselab_context/feedback_log.jsonl
+    - Output/caselab/causal/mechanism_calibration_gate.json
+    produces: &id_lh_feedback_out
+    - Output/system_learning/latest/claim_ladder_feedback.json
+    - Output/system_learning/latest/caselab_review_feedback.json
+    artifact_path: Output/system_learning/latest/claim_ladder_feedback.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_learning_hub_feedback.py
+      future_callable: scripts.build_learning_hub_feedback:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_lh_feedback_in
+      outputs: *id_lh_feedback_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  proxy_quality_report:
+    order: 17.8
+    status: active
+    owner: ML Signals
+    command: python scripts/build_proxy_quality_report.py
+    input: &id_proxy_quality_in
+    - scripts/structural_replay_v2.py
+    - governance/proxy_quality_rules.yaml
+    produces: &id_proxy_quality_out
+    - Output/system_learning/latest/proxy_quality_report.json
+    - Output/system_learning/latest/proxy_quality_report.md
+    artifact_path: Output/system_learning/latest/proxy_quality_report.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_proxy_quality_report.py
+      future_callable: scripts.build_proxy_quality_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_proxy_quality_in
+      outputs: *id_proxy_quality_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+  proxy_lifecycle:
+    order: 17.9
+    status: active
+    owner: ML Signals
+    command: python scripts/evaluate_proxy_lifecycle.py
+    input: &id_proxy_lifecycle_in
+    - Output/system_learning/latest/proxy_quality_report.json
+    - governance/proxy_quality_rules.yaml
+    produces: &id_proxy_lifecycle_out
+    - Output/system_learning/latest/proxy_lifecycle_report.json
+    - Output/system_learning/latest/proxy_lifecycle_report.md
+    artifact_path: Output/system_learning/latest/proxy_lifecycle_report.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/evaluate_proxy_lifecycle.py
+      future_callable: scripts.evaluate_proxy_lifecycle:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_proxy_lifecycle_in
+      outputs: *id_proxy_lifecycle_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
   learning_summary:
     order: 18
     status: active
@@ -1135,32 +1241,6 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
-  governance_status_refresh:
-    order: 29
-    status: active
-    owner: Learning Hub
-    command: python scripts/governance_status.py
-    input: *id082
-    produces: *id083
-    artifact_path: Output/system_learning/latest/governance_status.md
-    ttl_hours: 24
-    allowed_to_affect_core_judgment: false
-    core_judgment_dependency: false
-    failure_behavior: continue_with_warning
-    execution:
-      mode: subprocess
-      current_command: python scripts/governance_status.py
-      future_callable: scripts.governance_status:main
-      cwd_policy: workspace_root
-      env_policy: inherited_minimal
-    contracts:
-      inputs: *id082
-      outputs: *id083
-      emits_run_event: true
-    authority:
-      affects_core_judgment: false
-      failure_behavior: continue_with_warning
-      owner: Learning Hub
   routing_decision:
     order: null
     status: shadow_active
@@ -1312,7 +1392,7 @@ steps:
       failure_behavior: continue_with_warning
       owner: Learning Hub
   mechanism_calibration:
-    order: 17.7
+    order: 17.95
     status: active
     schedule: weekly
     owner: Learning Hub

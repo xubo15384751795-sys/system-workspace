@@ -149,11 +149,11 @@ conflict_flags:
       CORE_ELIGIBLE. Signals drift between declared importance and quality.
   legacy_drift:
     description: >
-      A proxy wired in the legacy scripts/compute_proxies.py PROXY_MAP whose
+      A proxy wired in the legacy scripts/archive/compute_proxies.py PROXY_MAP whose
       raw series violates a canonical exclusion (e.g. K=VIX, X=H41 facilities,
       M=T10Y2Y). Surfaced as REJECTED legacy drift.
 
-# Legacy exclusion checks for scripts/compute_proxies.py (the proxy-first script
+# Legacy exclusion checks for scripts/archive/compute_proxies.py (the proxy-first script
 # the canonical spec already supersedes). Each rule is (channel, banned_token,
 # canonical_reason).
 legacy_exclusions:
@@ -166,3 +166,40 @@ legacy_exclusions:
   - channel: M_PROXY
     banned_series_token: "T10Y2Y"
     reason: "T10Y2Y is a yield-curve slope, not an anchor-mismatch indicator (canonical M = funding/verifiability/liquidation gaps)."
+
+# ── Proxy lifecycle: keep / watch / downgrade / retire ────────────────────────
+# Proxies are not permanent. They must demonstrate ongoing contribution.
+# This section defines lifecycle transitions based on empirical feedback.
+
+lifecycle:
+  keep:
+    description: "Proxy contributes positively and doesn't conflict with valid mechanisms"
+    criteria:
+      min_samples: 50
+      min_marginal_contribution: 0
+      max_mechanism_conflict_rate: 0.20
+      max_semantic_distance: 2
+
+  watch:
+    description: "Proxy shows mixed signals — monitor but don't act"
+    triggers:
+      - "marginal_contribution near zero over 30+ samples"
+      - "occasional mechanism conflict (rate 0.20-0.40)"
+      - "inconsistent performance across regimes"
+    review_cadence: biweekly
+
+  downgrade:
+    description: "Proxy actively harms decision quality — reduce weight"
+    triggers:
+      - "marginal_contribution < 0 over 50+ samples"
+      - "frequent false positives in calm regimes"
+      - "only useful in crisis samples (crisis_hit_rate > 0.70 AND calm_fp_rate > 0.50)"
+    action: reduce_weight_and_mark_research_only
+
+  retire:
+    description: "Proxy has no remaining value — remove from pipeline"
+    triggers:
+      - "no marginal contribution over 100+ samples"
+      - "consistently conflicts with accepted mechanisms (conflict_rate > 0.50)"
+      - "canonical_status unknown for > 30 days"
+    action: move_to_archive_and_remove_from_pipeline

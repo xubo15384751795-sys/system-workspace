@@ -1,0 +1,31 @@
+# Agent Work Protocol — required declaration before any code change
+# Reference: governance/system_constitution.yaml → agent_work_protocol
+#
+# Every Agent-initiated code change must fill this template BEFORE editing.
+# The Agent declares: what it will change, why it's allowed, and how to verify.
+# This is not a governance file — it is a module context template.
+schema_version: agent_work_protocol.v1
+
+# Task identification
+task_id: ""           # auto-generated or user-provided
+timestamp: ""         # ISO 8601
+
+# Ownership
+owner_module: ""      # from governance/capability_registry.yaml
+touched_paths: []     # absolute or repo-relative paths to be modified
+
+# Authority
+authority_level: ""   # module's allowed_claims from capability_registry
+expected_artifact: "" # what the change produces
+
+# Verification
+verification_command: ""  # command to verify the change works
+affects_core_judgment: false  # true if change touches Output/current/ or judgment chain
+
+# Cross-module guard
+protocol_schema_first: false  # true if changing a schema in protocols/
+producer_consumer_sync: false  # true if schema change requires sync
+
+# Experiment guard
+experiment_status: ""  # research_only | candidate | promoted
+promotion_gate_passed: false  # required before entering core judgment

@@ -1,3 +1,13 @@
+# Canonical module names — all governance files MUST use these exact names.
+# Cross-reference:
+#   capability_registry (this file):    snake_case   e.g. workbench, harvester
+#   module_authority_registry:          PascalCase   e.g. Workbench, Harvester
+#   module_contract_registry:           snake_case   e.g. workbench, harvester
+#   daily_pipeline_registry:            display_name e.g. Workbench, Harvester
+#
+# If adding a new module, add an entry here FIRST, then reference it
+# in the other registries using the appropriate casing convention.
+
 workbench:
   status: CANONICAL
   owner: system

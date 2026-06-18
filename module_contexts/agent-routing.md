@@ -93,6 +93,32 @@ To turn the routing result into a ToolSpec-bound checklist, use:
 system tools run routing.create_task_plan task="<user task>" --mode explore --json
 ```
 
+## Work Protocol
+
+Every Agent-initiated code change must follow the work protocol defined in
+`governance/system_constitution.yaml → agent_work_protocol`.
+
+Before editing any file, the Agent must declare:
+
+| Field | Source |
+|-------|--------|
+| owner module | `governance/capability_registry.yaml` |
+| touched paths | target files |
+| authority level | module's `allowed_claims` in registry |
+| expected artifact | what the change produces |
+| verification command | how to confirm it works |
+| affects core judgment | yes/no — if yes, extra gates apply |
+
+Template: `module_contexts/agent_work_protocol.template.yaml`
+
+Hard rules:
+
+- No new root scripts unless thin wrapper (see `governance/redundancy_budget.yaml`)
+- No new governance files unless explicitly approved (see `governance/governance_freeze_manifest.yaml`)
+- Schema changes: protocol → producer → consumer
+- Experiment outputs default to `research_only`
+- Cross-module changes require explicit reason and routing decision record
+
 Each plan step names its phase, owner, mode, risk category, verification rule,
 and registered ToolSpec candidates. A step marked `missing_tool_spec` is blocked
 planning debt; it is not permission to run a free-form script.

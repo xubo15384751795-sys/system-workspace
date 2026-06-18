@@ -99,8 +99,8 @@ benchmark_comparison:
   allowed_use:
   - benchmark_comparison
 calibration:
-  script: scripts/calibration.py
-  status: experimental
+  script: scripts/archive/calibration.py
+  status: archived
   owner: Deformation Framework
   allowed_use:
   - calibration_analysis
@@ -250,8 +250,8 @@ architecture_reality_audit:
   - architecture_reality_audit
   - governance_drift_detection
 proxy_quality_scorer:
-  script: scripts/archive/proxy_quality_scorer.py
-  status: archived
+  script: scripts/build_proxy_quality_report.py
+  status: active
   owner: Deformation Framework
   allowed_use:
   - proxy_quality_scoring
@@ -497,8 +497,8 @@ wiki_system_bridge_audit:
   allowed_use:
   - governance_audit
 compute_proxies:
-  script: scripts/compute_proxies.py
-  status: experimental
+  script: scripts/archive/compute_proxies.py
+  status: archived
   owner: ML Signals
   description: Compute proxy signals — experimental
   allowed_use:
@@ -683,11 +683,11 @@ build_data_gaps:
   description: Extract unmet data needs from judgment artifacts — produce Harvester request candidates
   allowed_use:
   - data_gap_analysis
-build_incentive_review:
+x_build_incentive_review:
   script: scripts/archive/build_incentive_review.py
   status: archived
   owner: Learning Hub
-  description: Review experimental submissions and incentive policy status
+  description: Review experimental submissions and incentive policy status (superseded by active build_incentive_review)
   allowed_use:
   - incentive_review_generation
 build_module_activity_distribution:
@@ -833,3 +833,263 @@ _runtime_io:
   allowed_use:
   - shared_utility
   - main_chain_import
+check_retire_after:
+  script: scripts/check_retire_after.py
+  status: active
+  owner: Governance
+  description: Check for entrypoints past their retire_after date
+  allowed_use:
+  - governance_audit
+archive_daily_snapshots:
+  script: scripts/archive_daily_snapshots.py
+  status: active
+  owner: Governance
+  description: Archive daily Output snapshots for historical replay
+  allowed_use:
+  - daily_archive
+backfill_judgment_calibration:
+  script: scripts/backfill_judgment_calibration.py
+  status: active
+  owner: Learning Hub
+  description: Backfill judgment calibration data from historical runs
+  allowed_use:
+  - calibration_backfill
+mechanism_calibration:
+  script: scripts/run_mechanism_calibration.py
+  status: active
+  owner: Learning Hub
+  description: Run mechanism calibration gate (weekly)
+  allowed_use:
+  - mechanism_calibration
+suggest_paper_updates:
+  script: scripts/suggest_paper_updates.py
+  status: active
+  owner: CaseLab
+  description: Suggest paper world model updates based on CaseLab signals
+  allowed_use:
+  - paper_update_suggestion
+promote_paper_inbox:
+  script: scripts/promote_paper_inbox.py
+  status: active
+  owner: CaseLab
+  description: Promote approved paper inbox items to world model
+  allowed_use:
+  - paper_promotion
+change_analysis:
+  script: scripts/build_change_analysis.py
+  status: active
+  owner: Workbench
+  description: Build change analysis comparing current vs previous run
+  allowed_use:
+  - change_analysis
+build_policy_from_paper:
+  script: caselab_runtime/policies/build_policy_from_paper.py
+  status: active
+  owner: CaseLab
+  description: Build agent policy from paper world model
+  allowed_use:
+  - policy_generation
+check_governance_freeze:
+  script: scripts/check_governance_freeze.py
+  status: active
+  owner: Governance
+  description: Machine-checkable governance freeze enforcement
+  allowed_use:
+  - governance_freeze_check
+lint_paper_frontmatter:
+  script: scripts/lint_paper_frontmatter.py
+  status: active
+  owner: CaseLab
+  description: Lint paper frontmatter for required fields
+  allowed_use:
+  - paper_lint
+paper_freshness:
+  script: scripts/paper_freshness.py
+  status: active
+  owner: Engineering
+  description: Paper world model freshness checker (imported by trade_decision_layer)
+  allowed_use:
+  - freshness_check
+  - main_chain_import
+refresh_etf_from_harvester:
+  script: scripts/refresh_etf_from_harvester.py
+  status: active
+  owner: Harvester
+  description: Refresh ETF data from harvester exports
+  allowed_use:
+  - etf_refresh
+submit_experiment:
+  script: scripts/submit_experiment.py
+  status: active
+  owner: Governance
+  description: Submit non-compliant experiment to experimental_submission_registry
+  allowed_use:
+  - experiment_submission
+check_pipeline_watchdog:
+  script: scripts/check_pipeline_watchdog.py
+  status: active
+  owner: Engineering
+  description: Pipeline watchdog — verify last successful run is within max-age window
+  allowed_use:
+  - pipeline_monitoring
+build_context_review_queue:
+  script: scripts/build_context_review_queue.py
+  status: active
+  owner: CaseLab
+  description: Build CaseLab context review queue with auto-accept for complete fields
+  allowed_use:
+  - context_review
+promote_context_reviews:
+  script: scripts/promote_context_reviews.py
+  status: active
+  owner: CaseLab
+  description: Manage CaseLab review state transitions (accept/reject/golden)
+  allowed_use:
+  - context_review
+build_learning_hub_feedback:
+  script: scripts/build_learning_hub_feedback.py
+  status: active
+  owner: Learning Hub
+  description: Summarize claim ladder and CaseLab review results for Learning Hub
+  allowed_use:
+  - learning_hub_feedback
+evaluate_proxy_lifecycle:
+  script: scripts/evaluate_proxy_lifecycle.py
+  status: active
+  owner: ML Signals
+  description: Evaluate proxy lifecycle — suggest keep/watch/downgrade/retire
+  allowed_use:
+  - proxy_evaluation
+_authority_graph:
+  script: scripts/_authority_graph.py
+  status: active
+  owner: Engineering
+  description: Shared authority graph library imported by governance scripts
+  allowed_use:
+  - shared_utility
+  - governance_audit
+_daily_run_sequence:
+  script: scripts/_daily_run_sequence.py
+  status: active
+  owner: Engineering
+  description: Shared daily run sequence loader
+  allowed_use:
+  - shared_utility
+  - daily_pipeline_metadata
+_governance_freeze:
+  script: scripts/_governance_freeze.py
+  status: active
+  owner: Governance
+  description: Shared governance freeze enforcement library
+  allowed_use:
+  - shared_utility
+  - governance_freeze_check
+_incentive_engine:
+  script: scripts/_incentive_engine.py
+  status: active
+  owner: Governance
+  description: Shared incentive review engine
+  allowed_use:
+  - shared_utility
+  - incentive_review
+_mechanism_calibration_gate:
+  script: scripts/_mechanism_calibration_gate.py
+  status: active
+  owner: Learning Hub
+  description: Shared mechanism calibration gate logic
+  allowed_use:
+  - shared_utility
+  - mechanism_calibration
+_notify:
+  script: scripts/_notify.py
+  status: active
+  owner: Engineering
+  description: Shared notification utilities for run scripts
+  allowed_use:
+  - shared_utility
+  - runtime_notification
+_paper_paths:
+  script: scripts/_paper_paths.py
+  status: active
+  owner: CaseLab
+  description: Compatibility re-export of Paper path helper
+  allowed_use:
+  - shared_utility
+  - paper_path_resolution
+build_feedback_sample_pool:
+  script: scripts/build_feedback_sample_pool.py
+  status: active
+  owner: Learning Hub
+  description: Build stratified feedback sample manifest
+  allowed_use:
+  - feedback_sampling
+build_incentive_review:
+  script: scripts/build_incentive_review.py
+  status: active
+  owner: Governance
+  description: Build incentive review and anti-gaming report
+  allowed_use:
+  - incentive_review
+check_output_freshness:
+  script: scripts/check_output_freshness.py
+  status: active
+  owner: Governance
+  description: Check Output/current freshness against constitution windows
+  allowed_use:
+  - freshness_check
+evaluate_feedback_samples:
+  script: scripts/evaluate_feedback_samples.py
+  status: active
+  owner: Learning Hub
+  description: Evaluate feedback replay samples against forward outcomes
+  allowed_use:
+  - feedback_evaluation
+feedback_daily_cron:
+  script: scripts/feedback_daily_cron.py
+  status: active
+  owner: Learning Hub
+  description: Daily feedback sample ingestion and backfill helper
+  allowed_use:
+  - feedback_backfill
+ingest_feedback_to_learning_hub:
+  script: scripts/ingest_feedback_to_learning_hub.py
+  status: active
+  owner: Learning Hub
+  description: Ingest feedback sample findings into Learning Hub outputs
+  allowed_use:
+  - learning_hub_feedback
+ingest_real_judgments:
+  script: scripts/ingest_real_judgments.py
+  status: active
+  owner: Learning Hub
+  description: Add real daily judgment cards to feedback sample pool
+  allowed_use:
+  - feedback_sampling
+review_feedback_samples:
+  script: scripts/review_feedback_samples.py
+  status: active
+  owner: Learning Hub
+  description: Human review helper for feedback samples
+  allowed_use:
+  - feedback_review
+run_feedback_replay_batch:
+  script: scripts/run_feedback_replay_batch.py
+  status: active
+  owner: Learning Hub
+  description: Run lightweight historical feedback replay samples
+  allowed_use:
+  - feedback_replay
+run_feedback_replay_v2:
+  script: scripts/run_feedback_replay_v2.py
+  status: active
+  owner: Learning Hub
+  description: Run high-fidelity historical feedback replay samples
+  allowed_use:
+  - feedback_replay
+verify_experiment_core_judgment:
+  script: scripts/verify_experiment_core_judgment.py
+  status: active
+  owner: Governance
+  description: Verify experimental outputs do not leak unclassified into core judgment
+  allowed_use:
+  - experiment_core_boundary_check

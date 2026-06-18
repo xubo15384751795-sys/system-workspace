@@ -4,8 +4,10 @@ Avoids duplicating load_json/load_yaml/write_json in every script.
 Only serves active pipeline scripts — not archive, experiments, or
 Framework internals.
 
-Usage:
-    from _runtime_io import load_json, load_yaml, write_json, utc_now
+Public API:
+    load_json, load_jsonl, load_yaml, write_json,
+    entry_key, dedupe_entries, as_float,
+    utc_now, ensure_dir
 """
 from __future__ import annotations
 
@@ -68,3 +70,49 @@ def ensure_dir(path: Path) -> Path:
     """Create directory if it doesn't exist, return it."""
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+# ---------------------------------------------------------------------------
+# Trade ledger helpers
+# ---------------------------------------------------------------------------
+
+def entry_key(entry: dict[str, Any]) -> tuple[Any, ...]:
+    """Compute a deduplication key for a trade ledger entry."""
+    thesis = entry.get("trade_thesis") or {}
+    claim = ""
+    if isinstance(thesis, dict):
+        ladder = thesis.get("claim_ladder") or {}
+        if isinstance(ladder, dict):
+            claim = str(ladder.get("claim_statement", ""))
+        claim = claim or str(thesis.get("hypothesis", ""))
+    return (
+        entry.get("date"),
+        entry.get("decision"),
+        entry.get("confidence"),
+        entry.get("evidence_grade"),
+        entry.get("time_horizon"),
+        tuple(sorted(entry.get("asset_scope") or [])),
+        entry.get("decision_fingerprint") or claim,
+    )
+
+
+def dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the latest record for each observable claim state."""
+    deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for entry in entries:
+        deduped[entry_key(entry)] = entry
+    return list(deduped.values())
+
+
+# ---------------------------------------------------------------------------
+# Type coercion helpers
+# ---------------------------------------------------------------------------
+
+def as_float(value: Any, default: float = 0.0) -> float:
+    """Safely coerce a value to float, returning *default* on failure."""
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default

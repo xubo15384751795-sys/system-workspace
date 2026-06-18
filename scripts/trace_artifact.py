@@ -16,11 +16,12 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from _workspace_imports import add_root, add_scripts
+add_root()
+add_scripts()
 
-from _runtime_io import load_json, load_jsonl, load_yaml
-from caselab_context.paper_paths import paper_root
+from _runtime_io import load_json, load_jsonl, load_yaml  # noqa: E402
+from caselab_context.paper_paths import paper_root  # noqa: E402
 
 PAPER_WORLD_MODEL_DIR = ROOT / "Data" / "paper_world_model"
 MANIFEST_PATH = PAPER_WORLD_MODEL_DIR / "manifest.json"

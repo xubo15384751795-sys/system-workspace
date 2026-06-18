@@ -106,6 +106,12 @@ step_zone_rules:
   - pattern: work_brief
     zone: Z3
     node_type: output_assembly
+  - pattern: change_analysis
+    zone: Z3
+    node_type: output_assembly
+  - pattern: collect_reviews
+    zone: Z_inf
+    node_type: calibration
 
 canonical_data_prefixes:
   - prefix: Data/harvester/
@@ -121,6 +127,8 @@ drift_exempt:
     - signal_card
     - signal_consensus
     - work_brief
+    - change_analysis
+    - collect_reviews
 
 graph_invariants:
   - id: sandbox_requires_bridge

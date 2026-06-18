@@ -17,6 +17,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -265,7 +267,6 @@ def main() -> None:
         print(f"Risk Gate: {entry['risk_gate_status']}")
 
     # Evaluate past claims and update forward_outcomes
-    import subprocess
     claim_eval_script = ROOT / "scripts" / "claim_evaluator.py"
     if claim_eval_script.exists():
         try:
@@ -275,8 +276,8 @@ def main() -> None:
                 text=True,
                 cwd=str(ROOT),
             )
-        except Exception:
-            pass  # Non-critical, don't fail the recording
+        except (OSError, subprocess.SubprocessError) as exc:
+            logging.getLogger(__name__).warning("claim_evaluator subprocess failed: %s", exc)
 
 
 if __name__ == "__main__":

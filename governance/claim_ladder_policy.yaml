@@ -1,0 +1,156 @@
+schema_version: claim_ladder_policy.v1
+created: "2026-06-18"
+purpose: >
+  Policy-driven claim ladder state machine.
+  Defines tier promotion/demotion conditions as machine-checkable rules.
+  Referenced by: claim_ladder_tracker.py, claim_evaluator.py
+  All transitions must produce machine-readable reasons.
+
+# Tier definitions — ascending from observation to operational research.
+# Promotion requires ALL conditions met (AND). Demotion triggers on ANY (OR).
+tiers:
+  0:
+    label: diagnostic_claim
+    description: "Raw observations only — M/D/K/X values, direction, pattern"
+    allowed_language:
+      - measurement
+      - reading
+      - observation
+      - diagnostic
+      - stress_direction
+      - pattern
+      - value
+    forbidden_language:
+      - mechanism
+      - resembles
+      - hypothesis
+      - regime
+      - prediction
+      - forecast
+      - signal
+
+  1:
+    label: mechanism_hypothesis
+    description: "Structural comparison — current state resembles a known mechanism"
+    promotion_requirements:
+      - id: caselab_score_above_threshold
+        rule: caselab_top_score >= 0.30
+        description: "CaseLab match quality must reach minimum threshold"
+      - id: mechanism_detected
+        rule: active_mechanism_count >= 1 OR caselab_top_score >= 0.30
+        description: "At least one mechanism operator must be active"
+    demotion_triggers:
+      - id: caselab_score_below_threshold
+        rule: caselab_top_score < 0.20
+        severity: immediate
+        description: "CaseLab match dropped below demotion threshold"
+      - id: no_mechanism_and_low_score
+        rule: active_mechanism_count == 0 AND caselab_top_score < 0.30
+        severity: immediate
+        description: "No active mechanisms and CaseLab score too low"
+
+  2:
+    label: watch_condition
+    description: "Specific observable conditions to monitor for confirmation/invalidation"
+    promotion_requirements:
+      - id: md_direction_persistence
+        rule: md_direction_consecutive_runs >= 2
+        description: "M/D direction must persist across 2+ consecutive runs"
+      - id: caselab_usable
+        rule: caselab_top_score >= 0.40
+        description: "CaseLab match must reach usable quality"
+      - id: no_hmm_conflict
+        rule: hmm_conflict == false
+        description: "HMM regime must not conflict with hypothesis"
+      - id: invalidation_defined
+        rule: invalidation_condition_count >= 1
+        description: "At least 1 machine-trackable invalidation condition"
+      - id: data_quality_ok
+        rule: data_quality_grade >= C
+        description: "Data quality must meet minimum threshold"
+    demotion_triggers:
+      - id: md_direction_reversal
+        rule: md_direction_reversed == true
+        severity: immediate
+        description: "M/D direction reversed — hypothesis weakening"
+      - id: invalidation_triggered
+        rule: invalidation_triggered_count >= 1
+        severity: immediate
+        description: "An invalidation condition was triggered"
+      - id: hmm_conflict_consecutive
+        rule: hmm_conflict_consecutive_runs >= 2
+        severity: immediate
+        description: "HMM regime conflict persisted for 2+ runs"
+      - id: caselab_dropped
+        rule: caselab_top_score < 0.30
+        severity: immediate
+        description: "CaseLab match quality dropped below threshold"
+
+  3:
+    label: operational_research
+    description: "Can enter research decision support — backed by replay evidence"
+    promotion_requirements:
+      - id: replay_sample_size
+        rule: replay_evaluation_count >= 30
+        description: "Need at least 30 replay evaluation samples"
+      - id: useful_rate
+        rule: replay_useful_rate >= 0.55
+        description: "Useful rate must exceed minimum threshold"
+      - id: false_positive_rate
+        rule: replay_false_positive_rate <= 0.40
+        description: "False positive rate must stay below threshold"
+      - id: invalidation_validated
+        rule: invalidation_triggered_and_recorded >= 1 OR invalidation_never_triggered_in_sample
+        description: "Invalidation conditions must have been tested"
+      - id: mechanism_no_misleading
+        rule: mechanism_misleading_rate <= 0.30
+        description: "Mechanism must not be misleading in historical samples"
+      - id: learning_hub_no_critical_failure
+        rule: learning_hub_unresolved_high_severity == 0
+        description: "No unresolved high-severity failure modes"
+      - id: tier2_stable
+        rule: tier2_duration_runs >= 3
+        description: "Must be stable at Tier 2 for at least 3 runs"
+    demotion_triggers:
+      - id: any_tier2_trigger
+        rule: any tier 2 demotion trigger
+        severity: immediate
+        description: "Any Tier 2 demotion trigger also demotes Tier 3"
+      - id: useful_rate_dropped
+        rule: replay_useful_rate < 0.50
+        severity: immediate
+        description: "Useful rate dropped below critical threshold"
+      - id: misleading_pattern
+        rule: mechanism_misleading_rate > 0.40
+        severity: immediate
+        description: "Mechanism became misleading in recent samples"
+
+# Proxy lifecycle evaluation criteria
+proxy_evaluation:
+  keep:
+    min_samples: 50
+    min_marginal_contribution: 0
+    max_mechanism_conflict_rate: 0.20
+    max_semantic_distance: 2
+    description: "Proxy contributes positively and doesn't conflict with valid mechanisms"
+  watch:
+    triggers:
+      - marginal_contribution_near_zero
+      - occasional_mechanism_conflict
+      - inconsistent_across_regimes
+    review_cadence: biweekly
+    description: "Proxy shows mixed signals — monitor but don't act"
+  downgrade:
+    triggers:
+      - marginal_contribution_negative_over_50_samples
+      - frequent_false_positives_in_calm_regimes
+      - only_useful_in_crisis_samples
+    action: reduce_weight_and_mark_research_only
+    description: "Proxy actively harms decision quality"
+  retire:
+    triggers:
+      - no_marginal_contribution_over_100_samples
+      - consistently_conflicts_with_accepted_mechanisms
+      - canonical_status_unknown_for_30_days
+    action: move_to_archive_and_remove_from_pipeline
+    description: "Proxy has no remaining value"

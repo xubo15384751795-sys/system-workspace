@@ -21,7 +21,7 @@ requests:
   created: '2026-06-17'
 - request_id: merged_data_proxy_inputs
   requested_by: Deformation Framework
-  needed_for: compute_proxies.py proxy signal computation
+  needed_for: compute_proxies.py (archived) proxy signal computation
   current_source: Data/merged_data/benchmark_panel_with_etfs.parquet
   current_authority: migration_artifact
   status: transitional_import_required

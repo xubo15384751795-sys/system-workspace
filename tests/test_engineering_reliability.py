@@ -65,9 +65,11 @@ class TestClosureChain:
         import os
         os.utime(idx, (now.timestamp(), now.timestamp()))
 
-        from scripts.freshness_validator import check_closure_chain
-        issues = check_closure_chain(now)
-        assert len(issues) == 0
+        with patch("scripts.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
+            with patch("scripts.freshness_validator.ROOT", tmp_path):
+                from scripts.freshness_validator import check_closure_chain
+                issues = check_closure_chain(now)
+                assert len(issues) == 0
 
     def test_violation_when_stale_artifact(self, tmp_path):
         """Closure violation when one artifact is 10 minutes older."""

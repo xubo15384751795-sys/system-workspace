@@ -5,13 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from _workspace_imports import add_root
+add_root()
+import sys
 
 PAPER_MANIFEST = ROOT / "Data" / "paper_world_model" / "manifest.json"
 INDEX_MANIFEST = ROOT / "Data" / "caselab_context" / "index_manifest.json"

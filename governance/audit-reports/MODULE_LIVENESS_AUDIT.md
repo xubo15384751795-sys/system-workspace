@@ -102,5 +102,5 @@
 | bridge_replay_to_current.py | ACTIVE | Produces framework_output.json |
 | refresh_output_current.py | **STALE** | Links to 2026-04-22 run |
 | build_benchmark_evidence_dashboard.py | ACTIVE | Produces evidence dashboard |
-| compute_proxies.py | ACTIVE | Computes proxy values |
+| compute_proxies.py | ARCHIVED | Moved to scripts/archive/; proxy computation now via structural_replay_v2.py |
 | Other scripts (~20) | UNKNOWN | Not checked individually |

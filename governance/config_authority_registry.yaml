@@ -1,3 +1,9 @@
+schema_version: config_authority.v1
+updated_at: "2026-06-18"
+purpose: >
+  Declares runtime configuration flags and their authority constraints.
+  Referenced by: run_work_cycle.py, supervisor checks.
+
 allow_legacy_fallback:
   type: AUTHORITY_CONFIG
   default_allowed: false
@@ -28,10 +34,16 @@ policy_enforcement_enabled:
   reason: "Controls whether governance policy is enforced."
 sigma_threshold:
   type: PARAMETER_CONFIG
+  default_allowed: true
   severity: LOW
   audit_event_required: false
+  report_visibility_required: false
+  reason: "Sigma threshold for structural compression detection."
 rolling_window:
   type: PARAMETER_CONFIG
+  default_allowed: true
   severity: LOW
   audit_event_required: false
+  report_visibility_required: false
+  reason: "Rolling window size for proxy computation."
 

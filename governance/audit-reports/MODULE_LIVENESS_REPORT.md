@@ -115,7 +115,7 @@
 
 Key scripts:
 - `structural_replay_v2.py` — Main replay engine (canonical proxy registry)
-- `compute_proxies.py` — Proxy computation
+- `compute_proxies.py` — ARCHIVED (moved to `scripts/archive/`); proxy computation now via `structural_replay_v2.py`
 - `wiki_system_bridge_audit.py` — Wiki-to-system audit
 - `system_status.py`, `list_latest.py`, `build_system_index.py` — Workspace utilities
 

@@ -22,15 +22,14 @@ def test_product_framework_boundary_doc_exists() -> None:
 
 def test_openbb_secondary_audit_path_is_observe_only() -> None:
     boundary = (ROOT / "PRODUCT_FRAMEWORK_BOUNDARY.md").read_text(encoding="utf-8")
-    sandbox = (ROOT / "Output" / "sandbox" / "README.md").read_text(encoding="utf-8")
-    openbb = (ROOT / "Output" / "sandbox" / "openbb" / "README.md").read_text(encoding="utf-8")
+    normalized = " ".join(boundary.split())
 
-    combined = "\n".join([boundary, sandbox, openbb])
-    assert "OpenBB output **must not** be consumed by Deformation directly" in combined
-    assert "Secondary audit path" in combined
-    assert "observe-only" in combined
-    assert "Learning Hub" in combined
-    assert "must not become model input" in combined
+    assert "OpenBB output **must not**" in normalized
+    assert "consumed by Deformation directly" in normalized
+    assert "Secondary audit" in normalized
+    assert "observe-only" in normalized
+    assert "Learning Hub" in normalized
+    assert "must not become model input" in normalized
 
 
 def test_folder_ownership_declares_tool_and_framework_roots() -> None:

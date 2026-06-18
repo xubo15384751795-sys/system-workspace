@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+from _workspace_imports import add_scripts  # noqa: E402
+add_scripts()
 
 from _authority_graph import (  # noqa: E402
     build_authority_graph,
@@ -30,25 +28,9 @@ from _authority_graph import (  # noqa: E402
     runtime_can_affect_core_judgment,
     write_authority_graph,
 )
+from _runtime_io import load_json as _load_json, load_yaml as _load_yaml, write_json  # noqa: E402
+
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def _load_yaml(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 def _latest_run_dir(root: Path) -> Path | None:
@@ -484,7 +466,7 @@ def write_outputs(report: dict[str, Any], root: Path = ROOT) -> dict[str, str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "governance_status.json"
     md_path = output_dir / "governance_status.md"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, report)
     md_path.write_text(generate_markdown(report), encoding="utf-8")
     return {
         "json": str(json_path.relative_to(root)),

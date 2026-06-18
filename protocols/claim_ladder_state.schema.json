@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Claim Ladder State",
+  "description": "Persistent state for the claim ladder state machine. Produced by claim_ladder_tracker.py.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "claims"],
+  "properties": {
+    "schema_version": {"const": "claim_ladder_state.v1"},
+    "generated_at": {"type": "string"},
+    "policy_version": {"type": "string"},
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "current_tier", "tier_label", "mechanism_hypothesis", "status", "history"],
+        "properties": {
+          "claim_id": {"type": "string"},
+          "current_tier": {"type": "integer", "minimum": 0, "maximum": 3},
+          "tier_label": {"type": "string"},
+          "mechanism_hypothesis": {"type": "string"},
+          "status": {
+            "enum": ["active", "invalidated", "demoted", "promoted", "tracking"]
+          },
+          "entered_tier_at": {"type": "string"},
+          "runs_at_current_tier": {"type": "integer", "minimum": 0},
+          "promotion_eligible": {"type": "boolean"},
+          "promotion_blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "rule", "description"],
+              "properties": {
+                "id": {"type": "string"},
+                "rule": {"type": "string"},
+                "description": {"type": "string"},
+                "actual_value": {},
+                "threshold": {}
+              }
+            }
+          },
+          "demotion_triggers_active": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "severity", "description"],
+              "properties": {
+                "id": {"type": "string"},
+                "severity": {"enum": ["immediate", "warning"]},
+                "description": {"type": "string"},
+                "actual_value": {}
+              }
+            }
+          },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "caselab_top_score": {"type": "number"},
+              "md_direction": {"type": "string"},
+              "md_direction_consecutive_runs": {"type": "integer"},
+              "hmm_conflict": {"type": "boolean"},
+              "hmm_conflict_consecutive_runs": {"type": "integer"},
+              "invalidation_condition_count": {"type": "integer"},
+              "invalidation_triggered_count": {"type": "integer"},
+              "active_mechanism_count": {"type": "integer"},
+              "data_quality_grade": {"type": "string"},
+              "replay_evaluation_count": {"type": "integer"},
+              "replay_useful_rate": {"type": "number"},
+              "replay_false_positive_rate": {"type": "number"}
+            },
+            "additionalProperties": true
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["timestamp", "action", "from_tier", "to_tier", "reasons"],
+              "properties": {
+                "timestamp": {"type": "string"},
+                "action": {"enum": ["promoted", "demoted", "invalidated", "created", "tracking"]},
+                "from_tier": {"type": "integer"},
+                "to_tier": {"type": "integer"},
+                "reasons": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_claims": {"type": "integer"},
+        "active_claims": {"type": "integer"},
+        "highest_tier": {"type": "integer"},
+        "promotions_this_run": {"type": "integer"},
+        "demotions_this_run": {"type": "integer"}
+      }
+    }
+  }
+}

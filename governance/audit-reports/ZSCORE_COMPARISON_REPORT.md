@@ -13,7 +13,7 @@
 | proxy_builder | 260w (1820d) | ±3σ | scalar | **-0.172** |
 | replay_v2 | 252d | ±4 clip | Series | **-0.814** |
 | canonical_v1 | 252d | ±3σ | Series | **-0.815** |
-| compute_proxies | 260w | ±3σ | scalar | **-0.717** |
+| compute_proxies (archived) | 260w | ±3σ | scalar | **-0.717** |
 
 **差异来源：**
 - proxy_builder 用 260 周（1820 天）窗口，replay 用 252 天窗口

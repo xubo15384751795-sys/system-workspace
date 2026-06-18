@@ -32,7 +32,7 @@ human_review_triggers:
     action: review proposed authority graph edge changes
 
 work_support_budget:
-  max_files: 16
+  max_files: 17
   one_in_one_out: true
   allowed_hand_edits:
     - authority_graph_policy.yaml

@@ -53,6 +53,9 @@ STANDARD_STEPS = [
     "scripts/market_feedback.py",
     "scripts/claim_evaluator.py",
     "scripts/claim_ladder_tracker.py",
+    "scripts/build_learning_hub_feedback.py",
+    "scripts/build_proxy_quality_report.py",
+    "scripts/evaluate_proxy_lifecycle.py",
     "scripts/learning_hub_comprehensive_summary.py",
     "scripts/build_system_index.py",
     "scripts/build_readme_first.py",
@@ -151,7 +154,7 @@ def _capture_bundle_traces(bundle: RunBundle) -> None:
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
                 bundle.capture_decision_trace({rel: data})
-            except Exception:
+            except (json.JSONDecodeError, OSError, KeyError):
                 pass
 
     fw_path = CURRENT / "framework_output.json"
@@ -164,7 +167,7 @@ def _capture_bundle_traces(bundle: RunBundle) -> None:
                 "overall": fw.get("basic", {}).get("overall"),
                 "sigma_vector": sv,
             })
-        except Exception:
+        except (json.JSONDecodeError, OSError, KeyError):
             pass
 
 
@@ -203,7 +206,7 @@ def _data_freshness() -> dict[str, Any]:
                     last_ts = _dt.fromisoformat(last_finished).timestamp()
                     if fw_mtime <= last_ts:
                         return {"fresh": False, "reason": "no_change_since_last_run"}
-        except Exception:
+        except (ValueError, OSError):
             pass
 
     return {"fresh": True, "reason": "data_updated"}
@@ -446,7 +449,7 @@ def summarize_result(result: dict[str, Any]) -> str:
                 icon = "🔴" if needed else "🟢"
                 lines += ["", f"{icon} **Needs full refresh:** {'YES' if needed else 'No'} ({rec})"]
 
-        except Exception:
+        except (json.JSONDecodeError, OSError, KeyError):
             pass
 
     if result.get("artifacts_written"):

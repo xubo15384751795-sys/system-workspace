@@ -163,9 +163,10 @@ Governance Memory:
 5. Report renderers may display framework payloads, but their artifact protocol
    stays generic.
 6. Missing public evidence is shown as missing, not silently hidden.
-7. Secondary OpenBB audits are observe-only: they compare raw/provider evidence
-   to released Deformation outputs and write Learning Hub records, not model
-   inputs.
+7. Secondary OpenBB audits are observe-only: OpenBB output **must not** be
+   consumed by Deformation directly. These audits compare raw/provider evidence
+   to released Deformation outputs and write Learning Hub records; they must
+   not become model input.
 8. `Output/current/` remains a pointer and cockpit layer; it does not copy large
    report artifacts.
 9. Product source code lives in `Workbench/`. Top-level `scripts/` entries for

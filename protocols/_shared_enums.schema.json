@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://system.internal/schemas/shared_enums",
+  "title": "Shared Enumerations",
+  "description": "Central source of truth for cross-schema enumerations. Other schemas SHOULD reference these via $ref to avoid drift. Adoption status: pending — currently no schemas use $ref to this file; the inline enums in individual schemas must be kept in sync manually until migration is complete.",
+  "$defs": {
+    "structural_variable": {
+      "description": "Structural variables used in NLP event cards and candidate ledger",
+      "enum": ["S", "A", "L", "V", "P", "tau"]
+    },
+    "nlp_status": {
+      "description": "Lifecycle states for NLP candidates",
+      "enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision", "admitted"]
+    },
+    "trade_decision": {
+      "description": "Trade decision types used in trade_decision and position_intent schemas",
+      "enum": ["NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"]
+    },
+    "confidence_level": {
+      "description": "Confidence levels used across trade and judgment schemas",
+      "enum": ["low", "medium", "high"]
+    },
+    "evidence_grade": {
+      "description": "Evidence quality grades",
+      "enum": ["A", "B", "C", "D"]
+    },
+    "time_horizon": {
+      "description": "Decision time horizons",
+      "enum": ["1d", "1w", "1m", "3m"]
+    }
+  }
+}

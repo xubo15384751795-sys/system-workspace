@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+from _workspace_imports import add_scripts
+add_scripts()
 
 from _incentive_engine import build_incentive_review  # noqa: E402
 

@@ -37,10 +37,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from _workspace_imports import add_root
+add_root()
 
-from caselab_context.paper_paths import paper_root
+from caselab_context.paper_paths import paper_root  # noqa: E402
 
 OUTPUT_DIR = ROOT / "Data" / "paper_world_model"
 REPORT_DIR = ROOT / "Output" / "paper_world_model"

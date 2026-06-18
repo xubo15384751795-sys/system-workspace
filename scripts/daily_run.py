@@ -465,6 +465,19 @@ def main() -> None:
     if claim_tracker_script.exists():
         _record(run_step("claim_ladder_tracker", [sys.executable, str(claim_tracker_script)]))
 
+    # Step 17.7: Learning Hub feedback — aggregate claim ladder + CaseLab for Hub
+    lh_feedback_script = ROOT / "scripts" / "build_learning_hub_feedback.py"
+    if lh_feedback_script.exists():
+        _record(run_step("learning_hub_feedback", [sys.executable, str(lh_feedback_script)]))
+
+    # Step 17.8: Proxy quality report + lifecycle evaluation
+    proxy_quality_script = ROOT / "scripts" / "build_proxy_quality_report.py"
+    if proxy_quality_script.exists():
+        _record(run_step("proxy_quality_report", [sys.executable, str(proxy_quality_script)]))
+    proxy_lifecycle_script = ROOT / "scripts" / "evaluate_proxy_lifecycle.py"
+    if proxy_lifecycle_script.exists():
+        _record(run_step("proxy_lifecycle", [sys.executable, str(proxy_lifecycle_script)]))
+
     # Weekly mechanism causal calibration (Monday UTC, or --force-weekly)
     if start_time.weekday() == 0 or args.force_weekly:
         mechanism_cal_script = ROOT / "scripts" / "run_mechanism_calibration.py"

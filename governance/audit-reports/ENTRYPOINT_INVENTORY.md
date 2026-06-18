@@ -56,7 +56,7 @@ All routed through `/Users/a1/System/sys` (bash).
 | `scripts/bridge_replay_to_current.py` | ACTIVE | Bridges structural replay → `framework_output.json` |
 | `scripts/structural_replay_v2.py` | ACTIVE | 4-channel structural replay, 16 events |
 | `scripts/refresh_output_current.py` | PARTIAL | Links to stale Deformation run, bypassed by bridge |
-| `scripts/compute_proxies.py` | ACTIVE | Computes proxy series |
+| `scripts/archive/compute_proxies.py` | ARCHIVED | Was: Computes proxy series (moved to archive) |
 | `scripts/merge_data_hub.py` | ACTIVE | Merges data hub sources |
 | `scripts/run_harvester_no_proxy.py` | ACTIVE | Runs harvester without proxy computation |
 | `scripts/system_status.py` | ACTIVE | Workspace subsystem status |
