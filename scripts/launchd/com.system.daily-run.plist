@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.system.daily-run</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__SYSTEM_ROOT__/scripts/run_daily_scheduled.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>7</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__SYSTEM_ROOT__/Output/runs/launchd-daily-run.log</string>
+  <key>StandardErrorPath</key>
+  <string>__SYSTEM_ROOT__/Output/runs/launchd-daily-run.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SYSTEM_ROOT</key>
+    <string>__SYSTEM_ROOT__</string>
+    <key>PAPER_ROOT</key>
+    <string>__PAPER_ROOT__</string>
+    <key>HORIZON_ROOT</key>
+    <string>__HORIZON_ROOT__</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
