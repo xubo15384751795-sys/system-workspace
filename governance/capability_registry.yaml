@@ -403,7 +403,7 @@ etf_data_path:
   - Data/panels/cross_asset_daily_panel.parquet
   consumers:
   - scripts/refresh_etf_panel.py
-  - scripts/k_features_from_etf.py
+  - scripts/archive/k_features_from_etf.py
   allowed_claims: []
   forbidden_claims:
   - core_judgment_input
