@@ -21,11 +21,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
 from pending_evaluation import write_pending_evaluation
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
@@ -36,24 +36,6 @@ HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 PAPER_WORLD_MODEL_DIR = ROOT / "Data" / "paper_world_model"
 OUTPUT_DIR = ROOT / "Output" / "trade_decision"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -241,7 +223,7 @@ def _determine_decision(
 def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     """Build complete trade decision."""
     if not date_str:
-        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        date_str = utc_now().strftime("%Y-%m-%d")
 
     # Load all inputs
     judgment = load_json(JUDGMENT_PATH)
@@ -254,7 +236,7 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     if not judgment or not promotion_gate:
         return {
             "schema_version": "trade_decision.v1",
-            "generated_at": datetime.now(UTC).isoformat(),
+            "generated_at": utc_now().isoformat(),
             "date": date_str,
             "decision": "NO_TRADE",
             "confidence": "low",
@@ -340,7 +322,7 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
 
     return {
         "schema_version": "trade_decision.v2",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "date": date_str,
         "decision": decision,
         "confidence": confidence,
@@ -392,12 +374,12 @@ def _format_markdown(d: dict[str, Any]) -> str:
 
 def write_outputs(decision: dict[str, Any]) -> dict[str, Path]:
     """Write trade decision outputs."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "latest.json"
     md_path = OUTPUT_DIR / "latest.md"
 
-    json_path.write_text(json.dumps(decision, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, decision)
     md_path.write_text(_format_markdown(decision), encoding="utf-8")
 
     return {"json": json_path, "markdown": md_path}

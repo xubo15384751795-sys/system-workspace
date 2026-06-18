@@ -16,22 +16,17 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 RUNS_DIR = ROOT / "Output" / "runs"
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "claim_ladder"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def find_previous_run_dir() -> Path | None:
@@ -46,8 +41,8 @@ def find_previous_run_dir() -> Path | None:
         manifest_path = run_dir / "manifest.json"
         if manifest_path.exists():
             try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-                if manifest.get("status") in ("success", "partial_failure"):
+                manifest = load_json(manifest_path)
+                if manifest and manifest.get("status") in ("success", "partial_failure"):
                     return run_dir
             except Exception:
                 continue
@@ -59,7 +54,7 @@ def load_previous_pending(run_dir: Path) -> list[dict[str, Any]]:
     pending_path = run_dir / "feedback_pending.json"
     if not pending_path.exists():
         return []
-    return json.loads(pending_path.read_text(encoding="utf-8"))
+    return load_json(pending_path) or []
 
 
 def _extract_claim_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -119,7 +114,7 @@ def check_caselab_improvement(
     current_gap = prev_gap  # default: no change
     if caselab_path.exists():
         try:
-            caselab = json.loads(caselab_path.read_text(encoding="utf-8"))
+            caselab = load_json(caselab_path) or {}
             mq = caselab.get("match_quality", {})
             top_score = mq.get("top_score", 0)
             usable_th = mq.get("thresholds", {}).get("usable", 0.55)
@@ -247,7 +242,7 @@ def evaluate_progression(
 
 def build_progression() -> dict[str, Any]:
     """Build the full claim ladder progression report."""
-    now = datetime.now(UTC)
+    now = utc_now()
 
     # Find previous run
     prev_run_dir = find_previous_run_dir()
@@ -287,12 +282,12 @@ def build_progression() -> dict[str, Any]:
 
 def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
     """Write progression report."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "progression.json"
     md_path = OUTPUT_DIR / "progression.md"
 
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, report)
 
     # Generate markdown
     lines = [

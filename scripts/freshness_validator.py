@@ -37,6 +37,7 @@ MAX_AGE_HOURS = {
     "system_index": 24,
     "readme_first": 24,
     "signal_card": 24,
+    "signal_consensus": 24,
     "work_brief": 24,
 }
 
@@ -44,6 +45,7 @@ MAX_AGE_HOURS = {
 CURRENT_OUTPUT_CHAIN = [
     "readme_first",
     "signal_card",
+    "signal_consensus",
     "work_brief",
     "system_index",
 ]
@@ -104,6 +106,7 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
     chain_paths = {
         "readme_first": OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md",
         "signal_card": OUTPUT_DIR / "current" / "signal_card.json",
+        "signal_consensus": OUTPUT_DIR / "current" / "signal_consensus.json",
         "work_brief": OUTPUT_DIR / "current" / "work_brief.json",
         "system_index": ROOT / "Data" / "system_index" / "latest.json",
     }
@@ -192,8 +195,13 @@ def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
         },
         {
             "earlier": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
+            "later": ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json"),
+            "rule": "signal_consensus must be after signal_card",
+        },
+        {
+            "earlier": ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json"),
             "later": ("work_brief", OUTPUT_DIR / "current" / "work_brief.json"),
-            "rule": "work_brief must be after signal_card",
+            "rule": "work_brief must be after signal_consensus",
         },
     ]
 
@@ -232,6 +240,7 @@ def build_freshness_report(now: datetime) -> dict[str, Any]:
         ("system_index", ROOT / "Data" / "system_index" / "latest.json", MAX_AGE_HOURS["system_index"]),
         ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md", MAX_AGE_HOURS["readme_first"]),
         ("signal_card", OUTPUT_DIR / "current" / "signal_card.json", MAX_AGE_HOURS["signal_card"]),
+        ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json", MAX_AGE_HOURS["signal_consensus"]),
         ("work_brief", OUTPUT_DIR / "current" / "work_brief.json", MAX_AGE_HOURS["work_brief"]),
     ]
 

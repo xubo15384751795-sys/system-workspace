@@ -22,11 +22,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+
 JUDGMENT_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "judgment_calibration_summary.json"
 TRADE_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "trade_decision_calibration_summary.json"
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
@@ -38,27 +39,9 @@ PROBABILISTIC_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
-
-
 def build_comprehensive_summary() -> dict[str, Any]:
     """Build comprehensive Learning Hub summary."""
-    now = datetime.now(UTC)
+    now = utc_now()
 
     # Load all data sources
     judgment_calibration = load_json(JUDGMENT_CALIBRATION_PATH)
@@ -310,12 +293,12 @@ def format_markdown(summary: dict[str, Any]) -> str:
 
 def write_outputs(summary: dict[str, Any]) -> dict[str, Path]:
     """Write comprehensive summary outputs."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "comprehensive_summary.json"
     md_path = OUTPUT_DIR / "comprehensive_summary.md"
 
-    json_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, summary)
     md_path.write_text(format_markdown(summary), encoding="utf-8")
 
     return {"json": json_path, "markdown": md_path}

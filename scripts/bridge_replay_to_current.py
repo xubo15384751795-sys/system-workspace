@@ -140,8 +140,17 @@ def _build_channel_contributors() -> dict[str, list[dict]]:
     channels: dict[str, list[dict]] = {}
     HARVESTER_PREFIXES = ("FRED:", "SEC:", "OFR:", "TREASURY:", "CBOE:", "DERIVED:")
 
+    # Normalize channel keys: proxy_registry uses internal names (e.g.
+    # "D_contraction") while framework_output uses canonical names ("D").
+    _CHANNEL_ALIAS = {
+        "D_contraction": "D",
+        "X_PRE": "X_PRE",
+        "X_REALIZED": "X_REALIZED",
+    }
+
     for proxy in registry:
         ch = proxy.get("channel") or proxy.get("target_variable", "")
+        ch = _CHANNEL_ALIAS.get(ch, ch)
         name = proxy.get("name", "")
         if not ch or not name:
             continue

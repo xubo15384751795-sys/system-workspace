@@ -40,7 +40,7 @@ add_scripts()
 from run_bundle import RunBundle
 
 # Total steps in the pipeline
-TOTAL_STEPS = 26
+TOTAL_STEPS = 27
 
 
 def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
@@ -453,20 +453,26 @@ def main() -> None:
     if signal_card_script.exists():
         _record(run_step("signal_card", [sys.executable, str(signal_card_script)]))
 
-    # Step 24: Build work brief (BEFORE freshness — freshness must validate it)
-    logger.info("[%d/%d] Building work brief...", 24, TOTAL_STEPS)
+    # Step 24: Build signal consensus (AFTER signal card — reads its output)
+    logger.info("[%d/%d] Building signal consensus...", 24, TOTAL_STEPS)
+    consensus_script = ROOT / "scripts" / "signal_consensus.py"
+    if consensus_script.exists():
+        _record(run_step("signal_consensus", [sys.executable, str(consensus_script)]))
+
+    # Step 25: Build work brief (BEFORE freshness — freshness must validate it)
+    logger.info("[%d/%d] Building work brief...", 25, TOTAL_STEPS)
     work_brief_script = ROOT / "scripts" / "build_work_brief.py"
     if work_brief_script.exists():
         _record(run_step("work_brief", [sys.executable, str(work_brief_script)]))
 
-    # Step 25: Freshness validator (AFTER all current outputs are built)
-    logger.info("[%d/%d] Running freshness validator...", 25, TOTAL_STEPS)
+    # Step 26: Freshness validator (AFTER all current outputs are built)
+    logger.info("[%d/%d] Running freshness validator...", 26, TOTAL_STEPS)
     freshness_script = ROOT / "scripts" / "freshness_validator.py"
     if freshness_script.exists():
         _record(run_step("freshness_validator", [sys.executable, str(freshness_script)]))
 
-    # Step 26: Architecture reality audit (non-strict daily sensor)
-    logger.info("[%d/%d] Running architecture reality audit...", 26, TOTAL_STEPS)
+    # Step 27: Architecture reality audit (non-strict daily sensor)
+    logger.info("[%d/%d] Running architecture reality audit...", 27, TOTAL_STEPS)
     architecture_audit_script = ROOT / "scripts" / "architecture_reality_audit.py"
     if architecture_audit_script.exists():
         _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
@@ -482,6 +488,7 @@ def main() -> None:
         "Output/current/framework_output.json",
         "Output/current/work_brief.json",
         "Output/current/signal_card.json",
+        "Output/current/signal_consensus.json",
         "Output/current/data_gaps.json",
     ]:
         artifact = ROOT / artifact_rel

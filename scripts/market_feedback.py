@@ -17,33 +17,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+
 QLIB_OUTPUT_DIR = ROOT / "ExternalTools" / "qlib_benchmark_runner" / "qlib_output"
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
 OUTPUT_DIR = ROOT / "Output" / "market_feedback"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
 
 
 def read_qlib_feedback() -> dict[str, Any] | None:
@@ -61,7 +44,7 @@ def read_calibration_feedback() -> dict[str, Any] | None:
 
 def generate_sample_feedback() -> dict[str, Any]:
     """Generate sample feedback for testing."""
-    now = datetime.now(UTC)
+    now = utc_now()
 
     return {
         "schema_version": "market_feedback.v1",
@@ -112,7 +95,7 @@ def build_market_feedback(sample: bool = False) -> dict[str, Any]:
     if sample:
         return generate_sample_feedback()
 
-    now = datetime.now(UTC)
+    now = utc_now()
 
     # Try to read Qlib feedback
     qlib_feedback = read_qlib_feedback()
@@ -242,12 +225,12 @@ def format_markdown(feedback: dict[str, Any]) -> str:
 
 def write_outputs(feedback: dict[str, Any]) -> dict[str, Path]:
     """Write market feedback outputs."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "feedback_decision.json"
     md_path = OUTPUT_DIR / "feedback_decision.md"
 
-    json_path.write_text(json.dumps(feedback, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, feedback)
     md_path.write_text(format_markdown(feedback), encoding="utf-8")
 
     return {"json": json_path, "markdown": md_path}

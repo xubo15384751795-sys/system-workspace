@@ -16,21 +16,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 OUTPUT_PATH = ROOT / "Output" / "current" / "quality_validation.json"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -185,7 +180,7 @@ def build_validation_report(fw: dict[str, Any] | None, date_str: str) -> dict[st
 
     return {
         "schema_version": "system.quality_validation.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "as_of": date_str,
         "status": "PASS" if not errors else "FAIL",
         "error_count": len(errors),
@@ -207,7 +202,7 @@ def main() -> None:
     args = parser.parse_args()
 
     fw = load_json(FW_PATH)
-    date_str = args.date or datetime.now(UTC).strftime("%Y-%m-%d")
+    date_str = args.date or utc_now().strftime("%Y-%m-%d")
     if fw:
         as_of = str(fw.get("as_of", ""))[:10]
         if as_of:
@@ -215,8 +210,8 @@ def main() -> None:
 
     report = build_validation_report(fw, date_str)
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    ensure_dir(OUTPUT_PATH.parent)
+    write_json(OUTPUT_PATH, report)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

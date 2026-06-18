@@ -7,39 +7,50 @@
 #   make freshness      Run freshness validator
 #   make dry-run        Daily pipeline dry-run (no data fetching)
 #   make status         Show system status
-#   make work-quick     Quick reaction run (skip harvester + ETF)
+#   make work-quick     Quick reaction run (read-only, no pipeline)
+#   make work-standard  Standard work cycle (re-judge, no data fetch)
+#   make work-full      Full daily pipeline
 
-.PHONY: install-dev test audit freshness dry-run status work-quick clean
+.PHONY: install-dev test test-verbose audit freshness dry-run status \
+       work-quick work-standard work-full clean
+
+PYTHON ?= python3
 
 # Python path: scripts + Workbench/src + root
 PYTHONPATH := Workbench/src:scripts:.
 
 install-dev:
-	pip install --upgrade pip
-	pip install pyyaml jsonschema pandas numpy scikit-learn hmmlearn pytest
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install -r requirements-dev.txt
 
 test:
-	PYTHONPATH=$(PYTHONPATH) python -m pytest tests -q
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -q
 
 test-verbose:
-	PYTHONPATH=$(PYTHONPATH) python -m pytest tests -v
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -v
 
 audit:
-	PYTHONPATH=$(PYTHONPATH) python scripts/architecture_reality_audit.py --json
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/architecture_reality_audit.py --json
 
 freshness:
-	PYTHONPATH=$(PYTHONPATH) python scripts/freshness_validator.py
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/freshness_validator.py
 
 dry-run:
-	PYTHONPATH=$(PYTHONPATH) python scripts/daily_run.py --dry-run
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/daily_run.py --dry-run
 
 status:
-	PYTHONPATH=$(PYTHONPATH) python scripts/freshness_validator.py
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/freshness_validator.py
 	@echo "---"
 	@cat Output/current/work_brief.md 2>/dev/null | head -20
 
 work-quick:
-	PYTHONPATH=$(PYTHONPATH) python scripts/daily_run.py --skip-harvester --skip-etf
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/run_work_cycle.py --mode quick
+
+work-standard:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/run_work_cycle.py --mode standard
+
+work-full:
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/daily_run.py --skip-harvester --skip-etf
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

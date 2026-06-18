@@ -302,9 +302,12 @@ steps:
       future_callable: scripts.k_measurement_gate:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
+    produces: &id019p
+    - Output/k_measurement/k_measurement_gate.json
+    - Output/k_measurement/K_MEASUREMENT_GATE.md
     contracts:
       inputs: *id019
-      outputs: []
+      outputs: *id019p
       emits_run_event: true
     authority:
       affects_core_judgment: true
@@ -322,6 +325,9 @@ steps:
     allowed_to_affect_core_judgment: true
     core_judgment_dependency: true
     failure_behavior: lower_claim_ceiling
+    produces: &id020p
+    - Output/x_measurement/x_measurement_gate.json
+    - Output/x_measurement/X_MEASUREMENT_GATE.md
     execution:
       mode: subprocess
       current_command: python scripts/x_measurement_gate.py
@@ -330,7 +336,7 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs: *id020
-      outputs: []
+      outputs: *id020p
       emits_run_event: true
     authority:
       affects_core_judgment: true
@@ -955,8 +961,43 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
-  work_brief:
+  signal_consensus:
     order: 26
+    status: active
+    owner: Workbench
+    command: python scripts/signal_consensus.py
+    input: &id080
+    - Output/current/
+    - Output/judgment/
+    - Output/ml_signals/
+    - Output/k_measurement/
+    - Output/x_measurement/
+    - Output/caselab/
+    - Output/probabilistic_context/
+    produces: &id081
+    - Output/current/signal_consensus.json
+    - Output/current/signal_consensus.md
+    artifact_path: Output/current/signal_consensus.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/signal_consensus.py
+      future_callable: scripts.signal_consensus:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id080
+      outputs: *id081
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+  work_brief:
+    order: 27
     status: active
     owner: Workbench
     command: python scripts/build_work_brief.py

@@ -22,11 +22,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +35,6 @@ ROOT = Path(__file__).resolve().parents[1]
 HMM_DIR = ROOT / "Output" / "ml_signals"
 HMM_LATEST = HMM_DIR / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "hmm_stability"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -311,7 +306,7 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
 
     result = {
         "schema_version": "system.hmm_stability_audit.v2",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "sample_days": sample_days,
         "feature_count": feature_count,
         "train_window": train_window,
@@ -469,11 +464,11 @@ def main() -> None:
     history = load_hmm_history()
     report = audit_hmm(hmm, history)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     json_path = OUTPUT_DIR / "hmm_stability_audit.json"
     md_path = OUTPUT_DIR / "hmm_stability_audit.md"
 
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, report)
     md_path.write_text(format_markdown(report), encoding="utf-8")
 
     if args.json:
