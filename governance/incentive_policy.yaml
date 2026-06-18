@@ -140,6 +140,25 @@ review_outcomes:
   - create_harvester_request       # Submit data request to Harvester
   - create_module_contract_change  # Update module contract
 
+# ── Demotion Triggers (machine-checked by build_incentive_review.py) ─────────
+demotion_triggers:
+  - id: gate_blocked_or_watch
+    from: preferred
+    to: registered
+    rule: "Promotion gate not PASS/WATCH-ready — cannot stay preferred or above"
+  - id: graph_drift_detected
+    from: any
+    to: registered
+    rule: "Authority graph declared/derived drift > 0"
+  - id: graph_invariants_failed
+    from: any
+    to: low
+    rule: "Authority graph high-severity invariant failed"
+  - id: trace_incomplete
+    from: registered
+    to: low
+    rule: "Run bundle trace incomplete"
+
 # ── Anti-Gaming Rules ────────────────────────────────────────────────────────
 anti_gaming:
   not_rewarded:

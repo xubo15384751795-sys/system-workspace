@@ -1,0 +1,60 @@
+schema_version: daily_run_sequence.v1
+updated_at: "2026-06-18"
+purpose: >
+  Authoritative ordered step list for scripts/daily_run.py.
+  daily_run loads this file for dry-run output, step counts, and schedule hints.
+
+steps:
+  - id: harvester
+    skip_flag: skip_harvester
+  - id: etf_refresh
+    skip_flag: skip_etf
+  - id: paper_sync
+  - id: caselab_index
+  - id: build_policy_from_paper
+  - id: horizon_events
+  - id: structural_replay
+  - id: bridge
+  - id: quality_validation
+  - id: regime_detection
+  - id: hmm_stability_audit
+  - id: k_measurement_gate
+  - id: x_measurement_gate
+  - id: caselab_signal
+  - id: archive_daily_snapshots
+  - id: backfill_judgment_calibration
+  - id: judgment_layer
+  - id: judgment_replay_audit
+  - id: judgment_promotion_gate
+  - id: probabilistic_context
+  - id: trade_decision
+  - id: risk_gate
+  - id: record_trade_decision
+  - id: trade_decision_replay
+  - id: market_feedback
+  - id: claim_evaluator
+  - id: claim_ladder_tracker
+  - id: mechanism_calibration
+    schedule: weekly
+  - id: learning_summary
+  - id: judgment_calibration_event
+  - id: trade_calibration_event
+  - id: export_feedback
+  - id: suggest_paper_updates
+    schedule: weekly
+  - id: promote_paper_inbox
+  - id: collect_reviews
+  - id: evaluate_pending
+  - id: operator_registry_audit
+  - id: position_sizing
+  - id: system_index
+  - id: readme_first
+  - id: next_actions
+  - id: signal_card
+  - id: signal_consensus
+  - id: work_brief
+  - id: freshness_validator
+  - id: architecture_reality_audit
+  - id: build_authority_graph
+  - id: governance_status
+  - id: change_analysis

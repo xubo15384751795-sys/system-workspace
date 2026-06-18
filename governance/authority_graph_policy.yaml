@@ -1,0 +1,131 @@
+schema_version: authority_graph_policy.v1
+updated_at: "2026-06-18"
+purpose: >
+  Topology constraints for the authority graph. This is a hand-maintained
+  structural layer — zones, bridge nodes, and invariants. Pipeline steps and
+  artifact edges are derived from daily_pipeline_registry.yaml at build time.
+
+zones:
+  Z0:
+    name: evidence
+    description: Harvester releases, paper cases, external evidence
+  Z1:
+    name: measurement
+    description: Proxy measurements and feature derivations
+  Z2:
+    name: judgment
+    description: Operators, gates, formal run packages
+  Z3:
+    name: surface
+    description: Output/current authority readout
+  Z_inf:
+    name: experimental
+    description: Sandbox, research, governance memory — no direct path to Z3
+
+bridge_nodes:
+  - bridge
+
+surface_path_prefixes:
+  - Output/current/
+
+routing_group_zones:
+  current: Z3
+  runs: Z2
+  research: Z_inf
+  governance: Z_inf
+  sandbox: Z_inf
+  archive: Z_inf
+
+data_path_zones:
+  - prefix: Data/harvester/
+    zone: Z0
+  - prefix: Data/panels/
+    zone: Z1
+  - prefix: Data/features/
+    zone: Z1
+  - prefix: caselab_context/
+    zone: Z0
+  - prefix: caselab_runtime/
+    zone: Z0
+
+step_zone_rules:
+  - pattern: bridge
+    zone: Z2
+    node_type: bridge
+  - pattern: "*_gate"
+    zone: Z2
+    node_type: gate
+  - pattern: harvester
+    zone: Z0
+    node_type: evidence
+  - pattern: paper_sync
+    zone: Z0
+    node_type: world_model
+  - pattern: horizon_events
+    zone: Z0
+    node_type: event_radar
+  - pattern: judgment_*
+    zone: Z2
+    node_type: operator
+  - pattern: trade_decision*
+    zone: Z2
+    node_type: operator
+  - pattern: risk_gate
+    zone: Z2
+    node_type: gate
+  - pattern: learning_*
+    zone: Z_inf
+    node_type: calibration
+  - pattern: "*_calibration_*"
+    zone: Z_inf
+    node_type: calibration
+  - pattern: claim_*
+    zone: Z_inf
+    node_type: calibration
+  - pattern: architecture_*
+    zone: Z_inf
+    node_type: calibration
+  - pattern: governance_status*
+    zone: Z_inf
+    node_type: calibration
+  - pattern: operator_registry_audit
+    zone: Z_inf
+    node_type: calibration
+  - pattern: readme_first
+    zone: Z3
+    node_type: output_assembly
+  - pattern: next_actions
+    zone: Z3
+    node_type: output_assembly
+  - pattern: signal_card
+    zone: Z3
+    node_type: output_assembly
+  - pattern: signal_consensus
+    zone: Z3
+    node_type: output_assembly
+  - pattern: work_brief
+    zone: Z3
+    node_type: output_assembly
+
+canonical_data_prefixes:
+  - prefix: Data/harvester/
+  - prefix: Data/paper_world_model/
+  - prefix: Data/horizon_events/
+
+drift_exempt:
+  output_assembly_node_types:
+    - output_assembly
+  output_assembly_step_patterns:
+    - readme_first
+    - next_actions
+    - signal_card
+    - signal_consensus
+    - work_brief
+
+graph_invariants:
+  - id: sandbox_requires_bridge
+    description: Z_inf artifacts cannot reach Z3 without a bridge node on the path
+  - id: bridge_singleton
+    description: Only declared bridge_nodes may write from sandbox inputs to Z3
+  - id: declared_derived_alignment
+    description: Pipeline declared affects_core_judgment must match graph reachability

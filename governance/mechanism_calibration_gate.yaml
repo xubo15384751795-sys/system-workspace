@@ -1,0 +1,36 @@
+schema_version: mechanism_calibration_gate.v1
+updated_at: "2026-06-18"
+purpose: >
+  Tiered gates for mechanism causal calibration (learning_signal).
+  Independent from Claim Ladder tiers — controls Paper export and judgment support only.
+
+holdout_episode_ids:
+  - covid_2020
+  - svb_2023
+  - uk_pension_2022
+
+min_episodes_total: 15
+
+levels:
+  research:
+    description: "Internal weight suggestions only; no Paper export"
+    min_holdout_episodes: 3
+    min_holdout_direction_accuracy: 0.55
+    max_holdout_mean_absolute_error: 1.0
+    min_per_dimension_direction_accuracy: 0.50
+
+  paper_draft:
+    description: "May export structured drafts to Paper inbox (human review required)"
+    min_holdout_episodes: 3
+    min_holdout_direction_accuracy: 0.65
+    max_holdout_mean_absolute_error: 0.85
+    min_per_dimension_direction_accuracy: 0.60
+    min_total_episodes: 15
+
+  judgment_support:
+    description: "Mechanism may enter approved_support for trade/judgment layers"
+    min_holdout_episodes: 3
+    min_holdout_direction_accuracy: 0.70
+    max_holdout_mean_absolute_error: 0.75
+    min_per_dimension_direction_accuracy: 0.65
+    min_total_episodes: 20

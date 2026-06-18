@@ -7,6 +7,13 @@ purpose: >
   Unmarked non-Harvester data cannot affect core judgment.
 
 entries:
+  - path: Data/paper_world_model/
+    authority: world_model_sync
+    owner: CaseLab Context
+    allowed_use: [hypothesis, mechanism, background, analogy]
+    forbidden_use: [direct_trade_without_review_gate]
+    note: "Derived from Paper via sync_paper_world_model; review_status gates claim ceiling"
+
   - path: Data/panels/cross_asset_daily_panel.parquet
     authority: non_harvester_transitional
     owner: Workbench Signals

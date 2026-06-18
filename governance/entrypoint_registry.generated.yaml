@@ -1,0 +1,981 @@
+schema_version: entrypoint_registry.generated.v1
+generated_at: '2026-06-18T10:25:52.418792+00:00'
+sources:
+- governance/entrypoint_registry.yaml
+- governance/daily_pipeline_registry.yaml
+- scripts/*.py
+entries:
+  apply_data_retention_policy:
+    script: scripts/apply_data_retention_policy.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  apply_output_routing_policy:
+    script: scripts/apply_output_routing_policy.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  architecture_reality_audit:
+    script: scripts/architecture_reality_audit.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: architecture_reality_audit'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: architecture_reality_audit
+  ask_evidence:
+    script: scripts/ask_evidence.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  bridge_replay_to_current:
+    script: scripts/bridge_replay_to_current.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: bridge'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: bridge
+  build_artifact_navigator:
+    script: scripts/build_artifact_navigator.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  build_authority_graph:
+    script: scripts/build_authority_graph.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: build_authority_graph'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: build_authority_graph
+  build_benchmark_evidence_dashboard:
+    script: scripts/build_benchmark_evidence_dashboard.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  build_change_analysis:
+    script: scripts/build_change_analysis.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  build_data_gaps:
+    script: scripts/build_data_gaps.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  build_entrypoint_registry:
+    script: scripts/build_entrypoint_registry.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  build_next_actions:
+    script: scripts/build_next_actions.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: next_actions'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: next_actions
+  build_readme_first:
+    script: scripts/build_readme_first.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: readme_first'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: readme_first
+  build_signal_card:
+    script: scripts/build_signal_card.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: signal_card'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: signal_card
+  build_system_index:
+    script: scripts/build_system_index.py
+    status: pipeline_active
+    owner: Data/Output
+    description: 'Pipeline step: system_index'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: system_index
+  build_work_brief:
+    script: scripts/build_work_brief.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: work_brief'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: work_brief
+  calibration:
+    script: scripts/calibration.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  caselab_daily_signal:
+    script: scripts/caselab_daily_signal.py
+    status: pipeline_active
+    owner: CaseLab Context
+    description: 'Pipeline step: caselab_signal'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: caselab_signal
+  claim_evaluator:
+    script: scripts/claim_evaluator.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: claim_evaluator'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: claim_evaluator
+  claim_ladder_tracker:
+    script: scripts/claim_ladder_tracker.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: claim_ladder_tracker'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: claim_ladder_tracker
+  compute_proxies:
+    script: scripts/compute_proxies.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  daily_run:
+    script: scripts/daily_run.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  evaluate_pending:
+    script: scripts/evaluate_pending.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  export_feedback_to_paper:
+    script: scripts/export_feedback_to_paper.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  freshness_validator:
+    script: scripts/freshness_validator.py
+    status: pipeline_active
+    owner: Data/Output
+    description: 'Pipeline step: freshness_validator'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: freshness_validator
+  gluonts_probabilistic_context:
+    script: scripts/gluonts_probabilistic_context.py
+    status: pipeline_active
+    owner: ML Signals
+    description: 'Pipeline step: probabilistic_context'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: probabilistic_context
+  governance_status:
+    script: scripts/governance_status.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: governance_status_refresh'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: governance_status_refresh
+  hmm_stability_audit:
+    script: scripts/hmm_stability_audit.py
+    status: pipeline_active
+    owner: ML Signals
+    description: 'Pipeline step: hmm_stability_audit'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: hmm_stability_audit
+  horizon_event_adapter:
+    script: scripts/horizon_event_adapter.py
+    status: pipeline_active
+    owner: Harvester
+    description: 'Pipeline step: horizon_events'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: horizon_events
+  judgment_layer:
+    script: scripts/judgment_layer.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: judgment_layer'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: judgment_layer
+  judgment_promotion_gate:
+    script: scripts/judgment_promotion_gate.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: judgment_promotion_gate'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: judgment_promotion_gate
+  judgment_replay_audit:
+    script: scripts/judgment_replay_audit.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: judgment_replay_audit'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: judgment_replay_audit
+  k_measurement_gate:
+    script: scripts/k_measurement_gate.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: k_measurement_gate'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: k_measurement_gate
+  learning_hub_comprehensive_summary:
+    script: scripts/learning_hub_comprehensive_summary.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: learning_summary'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: learning_summary
+  learning_hub_judgment_calibration:
+    script: scripts/learning_hub_judgment_calibration.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: judgment_calibration_event'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: judgment_calibration_event
+  learning_hub_trade_calibration:
+    script: scripts/learning_hub_trade_calibration.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: trade_calibration_event'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: trade_calibration_event
+  lint_paper_frontmatter:
+    script: scripts/lint_paper_frontmatter.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  list_latest:
+    script: scripts/list_latest.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  market_feedback:
+    script: scripts/market_feedback.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: market_feedback'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: market_feedback
+  operator_registry_audit:
+    script: scripts/operator_registry_audit.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: operator_registry_audit'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: operator_registry_audit
+  paper_freshness:
+    script: scripts/paper_freshness.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  pending_evaluation:
+    script: scripts/pending_evaluation.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  position_sizing_layer:
+    script: scripts/position_sizing_layer.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: position_sizing'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: position_sizing
+  promote_snapshot:
+    script: scripts/promote_snapshot.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  promotion_gate:
+    script: scripts/promotion_gate.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  quality_field_validator:
+    script: scripts/quality_field_validator.py
+    status: pipeline_active
+    owner: Protocols
+    description: 'Pipeline step: quality_validation'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: quality_validation
+  record_trade_decision:
+    script: scripts/record_trade_decision.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: record_trade_decision'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: record_trade_decision
+  refresh_etf_from_harvester:
+    script: scripts/refresh_etf_from_harvester.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  refresh_etf_panel:
+    script: scripts/refresh_etf_panel.py
+    status: pipeline_active
+    owner: Harvester
+    description: 'Pipeline step: etf_refresh'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: etf_refresh
+  refresh_output_current:
+    script: scripts/refresh_output_current.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  run_bundle:
+    script: scripts/run_bundle.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  run_supervisor_check:
+    script: scripts/run_supervisor_check.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  run_work_cycle:
+    script: scripts/run_work_cycle.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  signal_consensus:
+    script: scripts/signal_consensus.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: signal_consensus'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: signal_consensus
+  structural_replay_v2:
+    script: scripts/structural_replay_v2.py
+    status: pipeline_active
+    owner: Deformation Framework
+    description: 'Pipeline step: structural_replay'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: structural_replay
+  sync_caselab_index:
+    script: scripts/sync_caselab_index.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  sync_paper_world_model:
+    script: scripts/sync_paper_world_model.py
+    status: pipeline_active
+    owner: Harvester
+    description: 'Pipeline step: paper_sync'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: paper_sync
+  system_status:
+    script: scripts/system_status.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  trace_artifact:
+    script: scripts/trace_artifact.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  trade_decision_layer:
+    script: scripts/trade_decision_layer.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: trade_decision'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: trade_decision
+  trade_risk_gate:
+    script: scripts/trade_risk_gate.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: risk_gate'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: risk_gate
+  validate_workbench_contract:
+    script: scripts/validate_workbench_contract.py
+    status: discovered
+    owner: System
+    description: Auto-discovered root script
+    allowed_use:
+    - discovered_entrypoint
+    source: script_scan
+  x_measurement_gate:
+    script: scripts/x_measurement_gate.py
+    status: pipeline_active
+    owner: Workbench
+    description: 'Pipeline step: x_measurement_gate'
+    allowed_use:
+    - daily_pipeline
+    source: daily_pipeline_registry
+    pipeline_step: x_measurement_gate
+  trade_decision_replay:
+    script: scripts/trade_decision_replay.py
+    status: pipeline_active
+    owner: Learning Hub
+    description: 'Pipeline step: trade_decision_replay'
+    allowed_use:
+    - daily_pipeline
+    pipeline_step: trade_decision_replay
+    source: daily_pipeline_registry
+  daily_routing_decision:
+    script: scripts/daily_routing_decision.py
+    status: pipeline_active
+    owner: Agent Routing
+    description: 'Pipeline step: routing_decision'
+    allowed_use:
+    - daily_pipeline
+    pipeline_step: routing_decision
+    source: daily_pipeline_registry
+hand_maintained_only:
+  blind_replay_test:
+    script: scripts/archive/blind_replay_test.py
+    status: archived
+    owner: Workbench
+    description: Blind replay test for validation
+    allowed_use:
+    - validation_only
+  benchmark_comparison:
+    script: scripts/archive/benchmark_comparison.py
+    status: archived
+    owner: Qlib Benchmark
+    allowed_use:
+    - benchmark_comparison
+  legacy_data_sources:
+    script: Structural Deformation Research System/src/data/data_sources.py
+    status: deprecated
+    owner: Deformation Framework
+    allowed_use:
+    - legacy_replay
+    - migration_validation
+    - dual_path_compare
+    retire_after: '2026-07-15'
+    note: LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline
+  legacy_data_hub:
+    script: Structural Deformation Research System/src/_legacy/data_hub.py
+    status: archived
+    owner: Deformation Framework
+    allowed_use:
+    - legacy_replay
+    - migration_validation
+    - dual_path_compare
+    retire_after: '2026-07-15'
+    note: LEGACY_COMPATIBILITY_ONLY — production must use Harvester-backed DataHubLite
+  structural_replay_evaluation:
+    script: scripts/archive/structural_replay_evaluation.py
+    status: archived
+    owner: Deformation Framework
+    reason: Not called by any runtime pipeline; uses yfinance directly (violates Harvester-only
+      rule)
+    archived_at: '2026-06-17'
+  solution_phase1:
+    script: scripts/archive/solution_phase1.py
+    status: archived
+    owner: unknown
+    reason: One-off solution script, no active consumers
+  solution_phase2:
+    script: scripts/archive/solution_phase2.py
+    status: archived
+    owner: unknown
+    reason: One-off solution script, no active consumers
+  hmm_generate_history:
+    script: scripts/archive/hmm_generate_history.py
+    status: archived
+    owner: ML Signals
+    reason: HMM experiment, not in active pipeline
+  prepare_dl_training_data:
+    script: scripts/archive/prepare_dl_training_data.py
+    status: archived
+    owner: ML Signals
+    reason: DL training data prep, not in active pipeline
+  nlp_extract:
+    script: scripts/archive/nlp_extract.py
+    status: archived
+    owner: NLP Pipeline
+    target_location: Workbench/src/nlp/scripts/
+    allowed_use:
+    - nlp_extraction
+  nlp_ingest:
+    script: scripts/archive/nlp_ingest.py
+    status: archived
+    owner: NLP Pipeline
+    target_location: Workbench/src/nlp/scripts/
+    allowed_use:
+    - nlp_ingestion
+  audit_boundaries:
+    script: scripts/archive/audit_boundaries.py
+    status: archived
+    owner: Governance
+    allowed_use:
+    - boundary_audit
+  record_runtime_event:
+    script: scripts/archive/record_runtime_event.py
+    status: archived
+    owner: Learning Hub
+    allowed_use:
+    - runtime_event_recording
+  routing_cli:
+    script: Workbench/agents/harness/entrypoints/routing_cli.py
+    status: shadow_active
+    owner: Agent Routing
+    allowed_use:
+    - public_shadow_routing_api
+    - routing_diagnostics
+    forbidden_use:
+    - execute_routed_task
+    - affect_core_judgment
+  proxy_quality_scorer:
+    script: scripts/archive/proxy_quality_scorer.py
+    status: archived
+    owner: Deformation Framework
+    allowed_use:
+    - proxy_quality_scoring
+  reality_reconciliation_audit:
+    script: scripts/archive/reality_reconciliation_audit.py
+    status: archived
+    owner: Governance
+    description: Reconcile system claims with reality
+    allowed_use:
+    - governance_audit
+  install_paper_sync_hook:
+    script: scripts/install_paper_sync_hook.sh
+    status: active
+    owner: Workbench
+    description: Install Paper post-commit hook for automatic world-model sync
+    allowed_use:
+    - paper_model_sync
+  practicality_daily_note:
+    script: scripts/archive/practicality_daily_note.py
+    status: archived
+    owner: Governance
+    description: Daily practicality note generation
+    allowed_use:
+    - governance_note
+  market_state_classifier:
+    script: scripts/archive/market_state_classifier.py
+    status: archived
+    owner: ML Signals
+    description: Market state classification
+    allowed_use:
+    - market_classification
+  build_daily_run_summary:
+    script: scripts/archive/build_daily_run_summary.py
+    status: archived
+    owner: Workbench
+    description: Build daily run summary report
+    allowed_use:
+    - daily_summary_generation
+  build_abandoned_work_report:
+    script: scripts/archive/build_abandoned_work_report.py
+    status: archived
+    owner: Governance
+    description: Report abandoned or stale work items
+    allowed_use:
+    - governance_report
+  enrich_agent_context:
+    script: scripts/archive/enrich_agent_context.py
+    status: archived
+    owner: Governance
+    description: Enrich agent context packets
+    allowed_use:
+    - agent_context_enrichment
+  github_preflight:
+    script: scripts/archive/github_preflight.py
+    status: archived
+    owner: Governance
+    description: GitHub preflight checks
+    allowed_use:
+    - ci_preflight
+  run_all_tests:
+    script: scripts/archive/run_all_tests.py
+    status: archived
+    owner: Governance
+    description: Run all test suites
+    allowed_use:
+    - test_runner
+  _audit_coupling:
+    script: scripts/archive/_audit_coupling.py
+    status: archived
+    owner: Governance
+    description: Audit module coupling
+    allowed_use:
+    - governance_audit
+  _check_data:
+    script: scripts/archive/_check_data.py
+    status: archived
+    owner: Governance
+    description: Check data integrity
+    allowed_use:
+    - data_integrity_check
+  _paths:
+    script: scripts/archive/_paths.py
+    status: archived
+    owner: Governance
+    description: Path configuration utility
+    allowed_use:
+    - path_config
+  _run_descriptive_quality_tests:
+    script: scripts/archive/_run_descriptive_quality_tests.py
+    status: archived
+    owner: Governance
+    description: Run descriptive quality tests
+    allowed_use:
+    - quality_test
+  wiki_system_bridge_audit:
+    script: scripts/archive/wiki_system_bridge_audit.py
+    status: archived
+    owner: Governance
+    description: Audit wiki system bridge
+    allowed_use:
+    - governance_audit
+  d_proxy_daily:
+    script: scripts/archive/d_proxy_daily.py
+    status: archived
+    owner: ML Signals
+    description: Daily D proxy computation — experimental
+    allowed_use:
+    - proxy_computation
+    retire_after: '2026-07-15'
+  m_proxy_daily:
+    script: scripts/archive/m_proxy_daily.py
+    status: archived
+    owner: ML Signals
+    description: Daily M proxy computation — experimental
+    allowed_use:
+    - proxy_computation
+    retire_after: '2026-07-15'
+  m_proxy_optimization:
+    script: scripts/archive/m_proxy_optimization.py
+    status: archived
+    owner: ML Signals
+    description: M proxy optimization — experimental
+    allowed_use:
+    - proxy_optimization
+    retire_after: '2026-07-15'
+  k_features_from_etf:
+    script: scripts/archive/k_features_from_etf.py
+    status: archived
+    owner: ML Signals
+    description: K features from ETF panel — experimental
+    allowed_use:
+    - feature_computation
+  k_state_machine:
+    script: scripts/archive/k_state_machine.py
+    status: archived
+    owner: ML Signals
+    description: K state machine — experimental
+    allowed_use:
+    - state_machine_diagnostics
+  k_v2_robustness:
+    script: scripts/archive/k_v2_robustness.py
+    status: archived
+    owner: ML Signals
+    description: K v2 robustness test — experimental
+    allowed_use:
+    - robustness_test
+  k_v2_robustness_z2:
+    script: scripts/archive/k_v2_robustness_z2.py
+    status: archived
+    owner: ML Signals
+    description: K v2 z2 robustness test — experimental
+    allowed_use:
+    - robustness_test
+  identification:
+    script: scripts/archive/identification.py
+    status: archived
+    owner: ML Signals
+    description: Structural identification — experimental
+    allowed_use:
+    - identification_diagnostics
+  proxy_validation:
+    script: scripts/archive/proxy_validation.py
+    status: archived
+    owner: ML Signals
+    description: Proxy validation — experimental
+    allowed_use:
+    - proxy_validation
+  primitive_readiness_matrix:
+    script: scripts/archive/primitive_readiness_matrix.py
+    status: archived
+    owner: Governance
+    description: Primitive readiness matrix — experimental
+    allowed_use:
+    - readiness_assessment
+  walk_forward_validation:
+    script: scripts/archive/walk_forward_validation.py
+    status: archived
+    owner: ML Signals
+    description: Walk-forward validation — experimental
+    allowed_use:
+    - validation
+  reconstruction_data_availability:
+    script: scripts/archive/reconstruction_data_availability.py
+    status: archived
+    owner: Governance
+    description: Reconstruction data availability check — experimental
+    allowed_use:
+    - data_availability_check
+  x_agg_daily_retest:
+    script: scripts/archive/x_agg_daily_retest.py
+    status: archived
+    owner: ML Signals
+    description: X aggregate daily retest — experimental
+    allowed_use:
+    - x_agg_retest
+  x_agg_v3_rebuild:
+    script: scripts/archive/x_agg_v3_rebuild.py
+    status: archived
+    owner: ML Signals
+    description: X aggregate v3 rebuild — experimental
+    allowed_use:
+    - x_agg_rebuild
+  run_harvester_no_proxy:
+    script: scripts/archive/run_harvester_no_proxy.py
+    status: archived
+    owner: Harvester
+    description: Run harvester without proxy — experimental
+    allowed_use:
+    - harvester_test
+  merge_data_hub:
+    script: scripts/archive/merge_data_hub.py
+    status: archived
+    owner: Governance
+    description: Merge data hub — experimental migration script
+    allowed_use:
+    - data_migration
+    retire_after: '2026-07-15'
+  x_agg_contamination_lockdown:
+    script: scripts/archive/x_agg_contamination_lockdown.py
+    status: archived
+    owner: ML Signals
+    reason: One-time lockdown script, no runtime consumers
+    retire_after: '2026-07-01'
+  x_agg_frequency_split:
+    script: scripts/archive/x_agg_frequency_split.py
+    status: archived
+    owner: ML Signals
+    reason: One-time frequency split, no runtime consumers
+    retire_after: '2026-07-01'
+  x_agg_trigger_decommission:
+    script: scripts/archive/x_agg_trigger_decommission.py
+    status: archived
+    owner: ML Signals
+    reason: One-time decommission script, no runtime consumers
+    retire_after: '2026-07-01'
+  _workspace_imports:
+    script: scripts/_workspace_imports.py
+    status: tool_active
+    owner: Governance
+    description: Centralized sys.path management — replaces ad-hoc sys.path.insert
+      across scripts
+    allowed_use:
+    - path_management
+  build_incentive_review:
+    script: scripts/archive/build_incentive_review.py
+    status: archived
+    owner: Learning Hub
+    description: Review experimental submissions and incentive policy status
+    allowed_use:
+    - incentive_review_generation
+  build_module_activity_distribution:
+    script: scripts/archive/build_module_activity_distribution.py
+    status: archived
+    owner: Learning Hub
+    description: Report which modules produced artifacts in recent pipeline runs
+    allowed_use:
+    - module_activity_report
+  orchestrate:
+    script: scripts/orchestrate.sh
+    status: active
+    owner: Workbench
+    description: Cross-repo orchestration entry (daily, horizon, paper-sync, install-automation)
+    allowed_use:
+    - pipeline_orchestration
+  install_daily_run_launchd:
+    script: scripts/install_daily_run_launchd.sh
+    status: active
+    owner: Workbench
+    description: Install macOS launchd job for scheduled daily_run
+    allowed_use:
+    - pipeline_scheduling
+  update_calibration_summary:
+    script: scripts/archive/update_calibration_summary.py
+    status: archived
+    owner: Learning Hub
+    description: Aggregate eval_log.jsonl into calibration summary by source, decision,
+      and window
+    allowed_use:
+    - calibration_summary_generation
+  build_module_contribution_report:
+    script: scripts/archive/build_module_contribution_report.py
+    status: archived
+    owner: Learning Hub
+    description: Module contribution effectiveness — aggregates eval outcomes by contributing
+      module with hit rates and grades
+    allowed_use:
+    - module_contribution_report
+  build_claim_ladder_summary:
+    script: scripts/archive/build_claim_ladder_summary.py
+    status: archived
+    owner: Learning Hub
+    description: Learning Hub claim ladder summary — persisted, invalidated, and stuck-at-weak
+      hypothesis report
+    allowed_use:
+    - claim_ladder_summary
+  _runtime_io:
+    script: scripts/_runtime_io.py
+    status: active
+    owner: Engineering
+    description: Shared runtime I/O utilities for main chain scripts (load_json, load_yaml,
+      write_json)
+    allowed_use:
+    - shared_utility
+    - main_chain_import
+missing_from_hand_registry:
+- build_authority_graph
+- build_change_analysis
+- build_entrypoint_registry
+- lint_paper_frontmatter
+- paper_freshness
+- refresh_etf_from_harvester
+counts:
+  discovered_scripts: 63
+  pipeline_scripts: 37
+  merged_entries: 65
+  hand_maintained_only: 57
+  missing_from_hand_registry: 6

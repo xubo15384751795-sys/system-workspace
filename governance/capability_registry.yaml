@@ -222,8 +222,8 @@ nlp_pipeline:
     general_nlp: EXPERIMENTAL
   producer:
   - Workbench/src/nlp/
-  - scripts/nlp_extract.py
-  - scripts/nlp_ingest.py
+  - scripts/archive/nlp_extract.py
+  - scripts/archive/nlp_ingest.py
   artifacts:
   - Output/nlp/
   - Workbench/src/nlp/candidate_ledger.py
@@ -252,7 +252,7 @@ ml_signals:
   owner: system
   producer:
   - Workbench/src/ml/
-  - scripts/market_state_classifier.py
+  - scripts/archive/market_state_classifier.py
   artifacts:
   - Output/ml_signals/
   - Output/ml/
@@ -283,9 +283,9 @@ backtest_lens:
   status: REAL_EXPERIMENTAL
   owner: system
   producer:
-  - scripts/run_historical_replay.py
-  - scripts/structural_replay_evaluation.py
-  - scripts/walk_forward_validation.py
+  - Structural Deformation Research System/scripts/run_historical_replay.py
+  - scripts/archive/structural_replay_evaluation.py
+  - scripts/archive/walk_forward_validation.py
   artifacts:
   - Output/backtest_lens/
   - Output/backtest_pipeline_v0/
@@ -318,7 +318,7 @@ qlib_benchmark:
   owner: system
   producer:
   - ExternalTools/qlib_benchmark_runner/
-  - scripts/benchmark_comparison.py
+  - scripts/archive/benchmark_comparison.py
   artifacts:
   - Output/benchmarks/
   - Output/benchmark_comparison/
@@ -347,7 +347,7 @@ agent_routing:
   producer:
   - Workbench/agents/harness/
   - ROUTING_CONSTITUTION.md
-  - scripts/daily_routing_decision.py
+  - scripts/archive/daily_routing_decision.py
   - Workbench/agents/harness/entrypoints/routing_cli.py
   artifacts:
   - ROUTING_CONSTITUTION.md

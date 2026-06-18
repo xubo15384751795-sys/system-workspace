@@ -14,6 +14,7 @@ external_inputs:
   - Output/runs/
   - Output/system_learning/latest/supervisor_check.json
   - Output/system_learning/latest/output_routing_report.json
+  - Paper/90_Admin/
 steps:
   harvester:
     order: 1
@@ -112,7 +113,7 @@ steps:
     order: 4
     status: active
     owner: Harvester
-    command: python scripts/horizon_event_adapter.py --sample
+    command: python scripts/horizon_event_adapter.py
     input: &id007
     - Data/harvester/exports/latest/
     produces: &id008
@@ -126,7 +127,7 @@ steps:
     failure_behavior: lower_claim_ceiling
     execution:
       mode: subprocess
-      current_command: python scripts/horizon_event_adapter.py --sample
+      current_command: python scripts/horizon_event_adapter.py
       future_callable: workbench.signals.horizon:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -536,7 +537,6 @@ steps:
     contracts:
       inputs: *id032
       outputs: *id032p
-      outputs: []
       emits_run_event: true
     authority:
       affects_core_judgment: true
@@ -566,6 +566,37 @@ steps:
     contracts:
       inputs: *id033
       outputs: *id034
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  trade_decision_replay:
+    order: 16.5
+    status: active
+    owner: Learning Hub
+    command: python scripts/archive/trade_decision_replay.py
+    input: &id_trade_replay_in
+    - Output/trade_ledger/decisions.jsonl
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces: &id_trade_replay_out
+    - Output/trade_ledger/calibration_report.json
+    - Output/trade_ledger/calibration_report.md
+    artifact_path: Output/trade_ledger/calibration_report.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive/trade_decision_replay.py
+      future_callable: scripts.trade_decision_replay:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_trade_replay_in
+      outputs: *id_trade_replay_out
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -778,8 +809,8 @@ steps:
     - Output/judgment/latest.json
     artifact_path: Output/trade_decision/position_intent.json
     ttl_hours: 48
-    allowed_to_affect_core_judgment: false
-    core_judgment_dependency: false
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
     failure_behavior: hold_flat
     execution:
       mode: subprocess
@@ -789,10 +820,11 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs: *id044
-      outputs: []
+      outputs:
+      - Output/trade_decision/position_intent.json
       emits_run_event: true
     authority:
-      affects_core_judgment: false
+      affects_core_judgment: true
       failure_behavior: hold_flat
       owner: Workbench
   system_index:
@@ -806,7 +838,7 @@ steps:
     - Data/system_index/latest.json
     artifact_path: Data/system_index/latest.json
     ttl_hours: 24
-    allowed_to_affect_core_judgment: true
+    allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: block_current_readout
     execution:
@@ -820,7 +852,7 @@ steps:
       outputs: *id046
       emits_run_event: true
     authority:
-      affects_core_judgment: true
+      affects_core_judgment: false
       failure_behavior: block_current_readout
       owner: Data/Output
   readme_first:
@@ -901,7 +933,8 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs: *id051
-      outputs: []
+      outputs:
+      - Output/quality/freshness_report.json
       emits_run_event: true
     authority:
       affects_core_judgment: true
@@ -1033,6 +1066,36 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
+  build_authority_graph:
+    order: 27
+    status: active
+    owner: Learning Hub
+    command: python scripts/build_authority_graph.py
+    input: &id084
+    - governance/daily_pipeline_registry.yaml
+    - governance/authority_graph_policy.yaml
+    - governance/output_routing_policy.yaml
+    produces: &id084_out
+    - Output/system_learning/latest/authority_graph.json
+    artifact_path: Output/system_learning/latest/authority_graph.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_authority_graph.py
+      future_callable: scripts.build_authority_graph:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id084
+      outputs: *id084_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
   governance_status:
     order: 28
     status: active
@@ -1048,6 +1111,8 @@ steps:
     - Output/system_learning/latest/output_routing_report.json
     - governance/incentive_policy.yaml
     - governance/experimental_submission_registry.yaml
+    - governance/authority_graph_policy.yaml
+    - Output/system_learning/latest/authority_graph.json
     produces: &id083
     - Output/system_learning/latest/governance_status.md
     - Output/system_learning/latest/governance_status.json
@@ -1100,7 +1165,7 @@ steps:
     order: null
     status: shadow_active
     owner: Agent Routing
-    command: python scripts/daily_routing_decision.py
+    command: python scripts/archive/daily_routing_decision.py
     produces: &id058
     - Output/system_learning/routing_decisions/
     artifact_path: Output/system_learning/routing_decisions/
@@ -1111,7 +1176,7 @@ steps:
     note: Shadow diagnostics only; cannot execute routed tasks or bypass module ownership.
     execution:
       mode: subprocess
-      current_command: python scripts/daily_routing_decision.py
+      current_command: python scripts/archive/daily_routing_decision.py
       future_callable: scripts.daily_routing_decision:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1123,3 +1188,342 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Agent Routing
+  caselab_index:
+    order: 3.5
+    status: active
+    owner: CaseLab Context
+    command: python scripts/sync_caselab_index.py
+    input:
+    - caselab_context/
+    produces:
+    - caselab_context/index/
+    artifact_path: caselab_context/index/
+    ttl_hours: 72
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/sync_caselab_index.py
+      future_callable: scripts.sync_caselab_index:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - caselab_context/
+      outputs:
+      - caselab_context/index/
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+  build_policy_from_paper:
+    order: 3.7
+    status: active
+    owner: CaseLab Runtime
+    command: python caselab_runtime/policies/build_policy_from_paper.py
+    input:
+    - Paper/90_Admin/Agent Rules.md
+    - Paper/90_Admin/Review-Target.md
+    produces:
+    - caselab_runtime/policies/agent_policy.yml
+    artifact_path: caselab_runtime/policies/agent_policy.yml
+    ttl_hours: 72
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python caselab_runtime/policies/build_policy_from_paper.py
+      future_callable: caselab_runtime.policies.build_policy_from_paper:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Paper/90_Admin/
+      outputs:
+      - caselab_runtime/policies/agent_policy.yml
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Runtime
+  archive_daily_snapshots:
+    order: 10.5
+    status: active
+    owner: Learning Hub
+    command: python scripts/archive_daily_snapshots.py
+    input:
+    - Output/judgment/
+    - Output/trade_decision/
+    produces:
+    - Output/system_learning/snapshots/
+    artifact_path: Output/system_learning/snapshots/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive_daily_snapshots.py
+      future_callable: scripts.archive_daily_snapshots:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/judgment/
+      - Output/trade_decision/
+      outputs:
+      - Output/system_learning/snapshots/
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  backfill_judgment_calibration:
+    order: 10.6
+    status: active
+    owner: Learning Hub
+    command: python scripts/backfill_judgment_calibration.py
+    input:
+    - Output/judgment/
+    produces:
+    - Output/system_learning/events/
+    artifact_path: Output/system_learning/events/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/backfill_judgment_calibration.py
+      future_callable: scripts.backfill_judgment_calibration:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/judgment/
+      outputs:
+      - Output/system_learning/events/
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  mechanism_calibration:
+    order: 17.7
+    status: active
+    schedule: weekly
+    owner: Learning Hub
+    command: python scripts/run_mechanism_calibration.py
+    input:
+    - Output/trade_ledger/
+    - Data/harvester/exports/latest/
+    produces:
+    - Output/system_learning/latest/mechanism_calibration.json
+    artifact_path: Output/system_learning/latest/mechanism_calibration.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/run_mechanism_calibration.py
+      future_callable: scripts.run_mechanism_calibration:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/trade_ledger/
+      - Data/harvester/exports/latest/
+      outputs:
+      - Output/system_learning/latest/mechanism_calibration.json
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  export_feedback:
+    order: 18.1
+    status: active
+    owner: CaseLab Context
+    command: python scripts/export_feedback_to_paper.py
+    input:
+    - Output/system_learning/latest/
+    produces:
+    - Paper/40_Review/_inbox/
+    artifact_path: Paper/40_Review/_inbox/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/export_feedback_to_paper.py
+      future_callable: scripts.export_feedback_to_paper:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/system_learning/latest/
+      outputs:
+      - Paper/40_Review/_inbox/
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+  suggest_paper_updates:
+    order: 18.2
+    status: active
+    schedule: weekly
+    owner: CaseLab Context
+    command: python scripts/suggest_paper_updates.py
+    input:
+    - Output/system_learning/latest/
+    produces:
+    - Output/system_learning/latest/paper_update_suggestions.json
+    artifact_path: Output/system_learning/latest/paper_update_suggestions.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/suggest_paper_updates.py
+      future_callable: scripts.suggest_paper_updates:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/system_learning/latest/
+      outputs:
+      - Output/system_learning/latest/paper_update_suggestions.json
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+  promote_paper_inbox:
+    order: 18.3
+    status: active
+    owner: CaseLab Context
+    command: python scripts/promote_paper_inbox.py
+    input:
+    - Paper/40_Review/_inbox/
+    produces:
+    - Paper/40_Review/
+    artifact_path: Paper/40_Review/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/promote_paper_inbox.py
+      future_callable: scripts.promote_paper_inbox:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Paper/40_Review/_inbox/
+      outputs:
+      - Paper/40_Review/
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+  collect_reviews:
+    order: 18.4
+    status: active
+    owner: CaseLab Context
+    command: python -m caselab_runtime.feedback.collect_reviews --json
+    input:
+    - caselab_runtime/feedback/
+    produces:
+    - Output/caselab/reviews/
+    artifact_path: Output/caselab/reviews/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python -m caselab_runtime.feedback.collect_reviews --json
+      future_callable: caselab_runtime.feedback.collect_reviews:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - caselab_runtime/feedback/
+      outputs:
+      - Output/caselab/reviews/
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+  evaluate_pending:
+    order: 18.5
+    status: active
+    owner: Learning Hub
+    command: python scripts/evaluate_pending.py
+    input:
+    - Output/trade_ledger/decisions.jsonl
+    produces:
+    - Output/system_learning/latest/eval_log.jsonl
+    artifact_path: Output/system_learning/latest/eval_log.jsonl
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/evaluate_pending.py
+      future_callable: scripts.evaluate_pending:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/trade_ledger/decisions.jsonl
+      outputs:
+      - Output/system_learning/latest/eval_log.jsonl
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  change_analysis:
+    order: 30
+    status: active
+    owner: Analysis
+    command: python scripts/build_change_analysis.py
+    produces:
+      - Output/current/change_analysis.json
+      - Output/current/change_analysis.md
+    artifact_path: Output/current/change_analysis.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_change_analysis.py
+      future_callable: scripts.build_change_analysis:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+        - Output/judgment/
+        - Output/caselab/
+        - Output/current/framework_output.json
+      outputs:
+        - Output/current/change_analysis.json
+        - Output/current/change_analysis.md
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Analysis

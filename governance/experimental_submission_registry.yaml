@@ -9,6 +9,10 @@ purpose: >
   Canonical entry requires code wiring + artifact contract + tests — never a registry decision.
   See: governance/incentive_policy.yaml
 
+submission_types:
+  - exploration
+  - topology_change
+
 required_fields:
   - submission_id
   - submitted_by

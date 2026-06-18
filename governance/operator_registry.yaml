@@ -18,7 +18,7 @@ operators:
   sync_paper_world_model:
     type: world_model
     description: "Extracts structured mechanisms/cases/variables from Paper"
-    inputs: ["/Users/a1/Paper"]
+    inputs: ["$PAPER_ROOT (default /Users/a1/Paper)"]
     outputs: ["Data/paper_world_model/*.jsonl"]
     claim_ceiling: none
     cannot_create: ["judgment", "signal", "trade"]

@@ -1,0 +1,124 @@
+schema_version: governance_freeze_manifest.v2
+updated_at: "2026-06-18"
+freeze_commit: "06e91e906d0f8ce6562240b27db556366edb3e2b"
+freeze_date: "2026-06-17"
+review_after: "2026-07-01"
+purpose: >
+  Machine-checkable governance freeze baseline. Root-level governance files must
+  appear in baseline_root_files or approved_additions. Generated overlays and
+  historical snapshots are exempt.  v2: adds file hashes for content integrity.
+
+approved_additions_budget:
+  max_files: 10
+  reason: "Cap post-freeze additions to prevent governance creep"
+
+ignore_patterns:
+  - "*.generated.yaml"
+  - ".DS_Store"
+
+exempt_directories:
+  - audit-reports
+  - archive
+
+# Files present at governance freeze commit 06e91e9 (governance/ root only)
+baseline_root_files:
+  - architecture_cleanup_decisions.md
+  - architecture_reality_decisions.md
+  - canonical_proxy_spec.yaml
+  - capability_registry.schema.json
+  - capability_registry.yaml
+  - config_authority_registry.yaml
+  - daily_pipeline_registry.yaml
+  - data_authority_registry.yaml
+  - data_request_registry.yaml
+  - data_retention_policy.yaml
+  - deferred_work_register.yaml
+  - entrypoint_registry.yaml
+  - experimental_submission_registry.yaml
+  - framework_output.schema.json
+  - git_workspace_policy.md
+  - incentive_policy.yaml
+  - module_authority_registry.yaml
+  - module_contract_registry.yaml
+  - opencode_supervisor_policy.yaml
+  - operator_registry.yaml
+  - output_routing_policy.yaml
+  - pipeline_test_baseline.yaml
+  - position_sizing_policy.yaml
+  - proxy_quality_rules.yaml
+  - redundancy_budget.yaml
+  - repo_layout_map.md
+  - run_mode_registry.yaml
+  - run_observability_summary.template.md
+  - semantic_registry.json
+  - submodule_commit_plan.md
+  - system_constitution.yaml
+
+# Content integrity — SHA256[:16] at freeze time.  Detects silent modifications.
+baseline_hashes:
+  architecture_cleanup_decisions.md: "446262635117bdf3"
+  architecture_reality_decisions.md: "349c61656d98e0ac"
+  canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
+  capability_registry.schema.json: "8180a383852ae580"
+  capability_registry.yaml: "912270d329a780d5"
+  config_authority_registry.yaml: "58be24ae9b44e360"
+  daily_pipeline_registry.yaml: "24a0855fdc56530a"
+  data_authority_registry.yaml: "c9ac74cb25cdca5c"
+  data_request_registry.yaml: "fba3503f685b2ac8"
+  data_retention_policy.yaml: "e6efe4330eef54b8"
+  deferred_work_register.yaml: "6b0d63c2a5da6e57"
+  entrypoint_registry.yaml: "31feac4296437df9"
+  experimental_submission_registry.yaml: "e362f89e927c1957"
+  framework_output.schema.json: "7378891650ab5040"
+  git_workspace_policy.md: "52cfed5adc3fa9db"
+  incentive_policy.yaml: "eae916244754e015"
+  module_authority_registry.yaml: "54c060b9413d9c48"
+  module_contract_registry.yaml: "d336a718a12ae232"
+  opencode_supervisor_policy.yaml: "822ecdea6cb684da"
+  operator_registry.yaml: "cf43e31b5b235e1e"
+  output_routing_policy.yaml: "4350319aa22c5c2a"
+  pipeline_test_baseline.yaml: "61815b7786710674"
+  position_sizing_policy.yaml: "38c986ec89459328"
+  proxy_quality_rules.yaml: "ed3daee1d86713af"
+  redundancy_budget.yaml: "31b7bfeafe50ccbc"
+  repo_layout_map.md: "782106601619c97b"
+  run_mode_registry.yaml: "4bb67bfd1072bee8"
+  run_observability_summary.template.md: "69bb81c0d223cf9e"
+  semantic_registry.json: "d72f277e4d56e813"
+  submodule_commit_plan.md: "71a15104c9459142"
+  system_constitution.yaml: "943992af108ce6b6"
+
+# Post-freeze additions — each requires explicit approval record
+approved_additions:
+  - file: governance_tiers.yaml
+    approved_at: "2026-06-18"
+    commit: "172f56c"
+    reason: "Consolidation classifier — reduces ad-hoc governance docs"
+  - file: daily_run_sequence.yaml
+    approved_at: "2026-06-18"
+    commit: "172f56c"
+    reason: "Pipeline order source of truth for daily_run.py"
+  - file: authority_graph_policy.yaml
+    approved_at: "2026-06-18"
+    commit: "topology-governance"
+    reason: "Structure-over-rules topology layer; replaces per-script drift patches"
+  - file: decay_policy.yaml
+    approved_at: "2026-06-18"
+    commit: "topology-governance"
+    reason: "Structural forgetting triggers and work_support budget"
+  - file: README.md
+    approved_at: "2026-06-18"
+    commit: "172f56c"
+    reason: "Governance directory index only — not a new rule file"
+  - file: governance_freeze_manifest.yaml
+    approved_at: "2026-06-18"
+    commit: "freeze-enforcement"
+    reason: "Machine-checkable freeze baseline — meta file for CI enforcement"
+  - file: mechanism_calibration_gate.yaml
+    approved_at: "2026-06-18"
+    commit: "be2ffcd"
+    reason: "HMM/mechanism calibration gate — close incentive review authority semantics"
+
+work_support_budget:
+  max_files: 18
+  source: governance/governance_tiers.yaml

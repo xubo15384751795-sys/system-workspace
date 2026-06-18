@@ -191,8 +191,8 @@ audit_boundaries:
   allowed_use:
   - boundary_audit
 record_runtime_event:
-  script: scripts/record_runtime_event.py
-  status: active
+  script: scripts/archive/record_runtime_event.py
+  status: archived
   owner: Learning Hub
   allowed_use:
   - runtime_event_recording
@@ -203,8 +203,8 @@ record_trade_decision:
   allowed_use:
   - trade_decision_recording
 daily_routing_decision:
-  script: scripts/daily_routing_decision.py
-  status: shadow_active
+  script: scripts/archive/daily_routing_decision.py
+  status: archived
   owner: Agent Routing
   allowed_use:
   - routing_diagnostics
@@ -250,8 +250,8 @@ architecture_reality_audit:
   - architecture_reality_audit
   - governance_drift_detection
 proxy_quality_scorer:
-  script: scripts/proxy_quality_scorer.py
-  status: active
+  script: scripts/archive/proxy_quality_scorer.py
+  status: archived
   owner: Deformation Framework
   allowed_use:
   - proxy_quality_scoring
@@ -363,6 +363,27 @@ sync_paper_world_model:
   description: Sync paper world model data
   allowed_use:
   - paper_model_sync
+export_feedback_to_paper:
+  script: scripts/export_feedback_to_paper.py
+  status: active
+  owner: CaseLab Context
+  description: Export System feedback drafts to Paper review inbox
+  allowed_use:
+  - feedback_export
+trace_artifact:
+  script: scripts/trace_artifact.py
+  status: active
+  owner: CaseLab Context
+  description: Trace world-model artifact to Paper source and downstream consumers
+  allowed_use:
+  - provenance_debug
+install_paper_sync_hook:
+  script: scripts/install_paper_sync_hook.sh
+  status: active
+  owner: Workbench
+  description: Install Paper post-commit hook for automatic world-model sync
+  allowed_use:
+  - paper_model_sync
 practicality_daily_note:
   script: scripts/archive/practicality_daily_note.py
   status: archived
@@ -392,8 +413,8 @@ ask_evidence:
   allowed_use:
   - evidence_query
 build_abandoned_work_report:
-  script: scripts/build_abandoned_work_report.py
-  status: active
+  script: scripts/archive/build_abandoned_work_report.py
+  status: archived
   owner: Governance
   description: Report abandoned or stale work items
   allowed_use:
@@ -663,15 +684,15 @@ build_data_gaps:
   allowed_use:
   - data_gap_analysis
 build_incentive_review:
-  script: scripts/build_incentive_review.py
-  status: active
+  script: scripts/archive/build_incentive_review.py
+  status: archived
   owner: Learning Hub
   description: Review experimental submissions and incentive policy status
   allowed_use:
   - incentive_review_generation
 build_module_activity_distribution:
-  script: scripts/build_module_activity_distribution.py
-  status: active
+  script: scripts/archive/build_module_activity_distribution.py
+  status: archived
   owner: Learning Hub
   description: Report which modules produced artifacts in recent pipeline runs
   allowed_use:
@@ -704,6 +725,21 @@ run_supervisor_check:
   description: Self-audit after each work cycle — checks completeness, consistency, overdue work
   allowed_use:
   - supervisor_check
+build_authority_graph:
+  script: scripts/build_authority_graph.py
+  status: governance_active
+  owner: Learning Hub
+  description: Derive authority graph from pipeline topology
+  allowed_use:
+  - authority_graph_generation
+  - governance_topology_audit
+build_entrypoint_registry:
+  script: scripts/build_entrypoint_registry.py
+  status: governance_active
+  owner: Learning Hub
+  description: Generate entrypoint registry overlay from scripts and pipeline
+  allowed_use:
+  - entrypoint_registry_generation
 governance_status:
   script: scripts/governance_status.py
   status: active
@@ -733,16 +769,37 @@ evaluate_pending:
   description: 1d/1w/1m window evaluator — checks pending records against actual SPY/HYG/TLT returns
   allowed_use:
   - pending_evaluation_execution
-update_calibration_summary:
-  script: scripts/update_calibration_summary.py
+orchestrate:
+  script: scripts/orchestrate.sh
   status: active
+  owner: Workbench
+  description: Cross-repo orchestration entry (daily, horizon, paper-sync, install-automation)
+  allowed_use:
+  - pipeline_orchestration
+sync_caselab_index:
+  script: scripts/sync_caselab_index.py
+  status: active
+  owner: CaseLab Context
+  description: Reindex Paper notes when world-model hash changes
+  allowed_use:
+  - caselab_index_sync
+install_daily_run_launchd:
+  script: scripts/install_daily_run_launchd.sh
+  status: active
+  owner: Workbench
+  description: Install macOS launchd job for scheduled daily_run
+  allowed_use:
+  - pipeline_scheduling
+update_calibration_summary:
+  script: scripts/archive/update_calibration_summary.py
+  status: archived
   owner: Learning Hub
   description: Aggregate eval_log.jsonl into calibration summary by source, decision, and window
   allowed_use:
   - calibration_summary_generation
 build_module_contribution_report:
-  script: scripts/build_module_contribution_report.py
-  status: active
+  script: scripts/archive/build_module_contribution_report.py
+  status: archived
   owner: Learning Hub
   description: Module contribution effectiveness — aggregates eval outcomes by contributing module with hit rates and grades
   allowed_use:
@@ -755,8 +812,8 @@ claim_ladder_tracker:
   allowed_use:
   - claim_ladder_tracking
 build_claim_ladder_summary:
-  script: scripts/build_claim_ladder_summary.py
-  status: active
+  script: scripts/archive/build_claim_ladder_summary.py
+  status: archived
   owner: Learning Hub
   description: Learning Hub claim ladder summary — persisted, invalidated, and stuck-at-weak hypothesis report
   allowed_use:

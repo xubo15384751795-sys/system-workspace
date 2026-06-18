@@ -28,6 +28,9 @@ work_support:
     - run_mode_registry.yaml            # work cycle mode definitions
     - opencode_supervisor_policy.yaml   # supervisor audit checks
     - incentive_policy.yaml             # priority credit system
+    - authority_graph_policy.yaml       # topology zones, bridge nodes, invariants
+    - decay_policy.yaml                 # structural forgetting triggers
+    - governance_freeze_manifest.yaml     # machine-checkable freeze baseline
     - experimental_submission_registry.yaml  # non-compliant exploration queue
     - module_authority_registry.yaml    # allowed/forbidden per module
     - data_authority_registry.yaml      # non-Harvester data marking

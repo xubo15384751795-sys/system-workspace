@@ -33,6 +33,8 @@ groups:
       - signal_consensus.json
       - data_gaps.md
       - data_gaps.json
+      - change_analysis.md
+      - change_analysis.json
 
   runs:
     path: Output/deformation_runs/

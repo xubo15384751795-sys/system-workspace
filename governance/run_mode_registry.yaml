@@ -62,7 +62,7 @@ modes:
       - Output/current/framework_output.json
       - Output/current/status.json
       - Output/judgment/latest.json
-      - Output/trade_decisions/latest.json
+      - Output/trade_decision/latest.json
       - Output/current/work_brief.md
       - Output/current/work_brief.json
       - Output/current/signal_card.md

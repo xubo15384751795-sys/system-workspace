@@ -21,6 +21,17 @@ sections, or bootstrap history disagree with the tree on disk.
 Registered in `.gitmodules`. Parent pins each sister repo at a commit; see
 `governance/git_workspace_policy.md` for clone/update workflows.
 
+### Sibling knowledge repo (not a submodule)
+
+| Repo | Actual path | Role |
+|---|---|---|
+| Paper (`case-lab`) | `$PAPER_ROOT` (default `/Users/a1/Paper`) | World model source — cases, mechanisms, variables, indicators |
+| | | Synced into `Data/paper_world_model/` via `scripts/sync_paper_world_model.py` |
+| | | Feedback drafts exported to `Paper/40_Review/_inbox/` via `scripts/export_feedback_to_paper.py` |
+
+Paper is edited in Obsidian and connected by file-system pipes, not git submodule pins.
+Set `PAPER_ROOT` when the vault lives outside the default path.
+
 ### Retired doc paths (do not use)
 
 | Old canonical path in docs | Why wrong |

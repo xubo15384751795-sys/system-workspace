@@ -37,7 +37,10 @@ hard_authority_rule:
     - "Output/judgment/"
     - "Output/trade_decision/"
     - "Output/quality/"
-    - "Output/freshness/"
+    - "Output/horizon_events/"
+    - "Output/k_measurement/"
+    - "Output/x_measurement/"
+    - "Output/caselab/"
     - "canonical Data evidence releases"
   # Sandbox/research outputs can only influence core through authorized bridge/gate.
   bridge_rule: "sandbox/research → bridge/gate → current (then current is authorized)"
@@ -175,6 +178,8 @@ governance_freeze:
     - "New functionality prioritizes code and output over policy files"
     - "If a rule can be expressed as code validation, write code not docs"
     - "Prefer updating system_constitution.yaml over creating new files"
+    - "Machine check: scripts/check_governance_freeze.py (also tests/test_governance_freeze.py)"
+    - "Machine check: scripts/build_incentive_review.py for credit/demotion/anti-gaming"
 
 # Freshness rules
 freshness_rules:
