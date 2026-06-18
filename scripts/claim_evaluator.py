@@ -16,16 +16,47 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
 
+logger = logging.getLogger(__name__)
+
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 FRAMEWORK_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+
+
+def _entry_key(entry: dict[str, Any]) -> tuple[Any, ...]:
+    thesis = entry.get("trade_thesis") or {}
+    claim = ""
+    if isinstance(thesis, dict):
+        ladder = thesis.get("claim_ladder") or {}
+        if isinstance(ladder, dict):
+            claim = str(ladder.get("claim_statement", ""))
+        claim = claim or str(thesis.get("hypothesis", ""))
+    return (
+        entry.get("date"),
+        entry.get("decision"),
+        entry.get("confidence"),
+        entry.get("evidence_grade"),
+        entry.get("time_horizon"),
+        tuple(sorted(entry.get("asset_scope") or [])),
+        entry.get("decision_fingerprint") or claim,
+    )
+
+
+def dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the latest record for each observable claim state."""
+    deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for entry in entries:
+        deduped[_entry_key(entry)] = entry
+    return list(deduped.values())
 
 
 def save_jsonl(path: Path, entries: list[dict]) -> None:
@@ -321,6 +352,7 @@ def evaluate_claims(
         eval_result = evaluate_single_entry(
             entry, current_state, current_caselab_score, days_since
         )
+        eval_result["entry_key"] = _entry_key(entry)
         evaluations.append(eval_result)
 
     # Aggregate mechanism scores
@@ -356,16 +388,17 @@ def update_forward_outcomes(
     ledger_entries: list[dict], evaluations: list[dict]
 ) -> list[dict]:
     """Update forward_outcome in ledger entries based on evaluations."""
-    # Match by date
-    eval_by_date = {}
-    for ev in evaluations:
-        eval_by_date[ev["entry_date"]] = ev
+    eval_by_key = {
+        ev.get("entry_key"): ev
+        for ev in evaluations
+        if ev.get("entry_key") is not None
+    }
 
     updated = []
     for entry in ledger_entries:
-        entry_date = entry.get("date")
-        if entry_date in eval_by_date:
-            ev = eval_by_date[entry_date]
+        key = _entry_key(entry)
+        if key in eval_by_key:
+            ev = eval_by_key[key]
             entry["forward_outcome"] = {
                 "evaluated_at": utc_now().isoformat(),
                 "days_since": ev["days_since"],
@@ -386,15 +419,16 @@ def main() -> None:
 
     # Load data
     ledger_entries = load_jsonl(TRADE_LEDGER_PATH)
+    evaluation_entries = dedupe_entries(ledger_entries)
     current_state = get_current_state()
     current_caselab_score = get_current_caselab_score()
 
-    if not ledger_entries:
-        print("No trade ledger entries to evaluate")
+    if not evaluation_entries:
+        logger.warning("No trade ledger entries to evaluate")
         return
 
     # Evaluate claims
-    result = evaluate_claims(ledger_entries, current_state, current_caselab_score)
+    result = evaluate_claims(evaluation_entries, current_state, current_caselab_score)
 
     # Update forward_outcomes in ledger
     updated_entries = update_forward_outcomes(ledger_entries, result["evaluations"])

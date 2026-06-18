@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from _runtime_io import load_json
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
@@ -248,7 +251,7 @@ def main() -> None:
     # Load trade decision
     decision = load_json(TRADE_DECISION_PATH)
     if not decision:
-        print("No trade decision found. Run trade_decision_layer.py first.")
+        logger.warning("No trade decision found. Run trade_decision_layer.py first.")
         return
 
     # Run risk check

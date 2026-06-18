@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
 from _runtime_io import load_json, load_yaml
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
@@ -251,11 +254,11 @@ def main() -> None:
     policy = load_yaml(POLICY_PATH)
 
     if not trade_decision:
-        print("No trade decision found.")
+        logger.warning("No trade decision found.")
         return
 
     if not policy:
-        print("Position sizing policy not found.")
+        logger.warning("Position sizing policy not found.")
         return
 
     # Build position intent
