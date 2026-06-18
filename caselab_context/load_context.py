@@ -7,7 +7,9 @@ from typing import Any
 
 import yaml
 
-PAPER_ROOT = Path("/Users/a1/Paper")
+from caselab_context.paper_paths import paper_root
+
+PAPER_ROOT = paper_root()
 ENTITY_DIR = PAPER_ROOT / "02_Entities"
 RULES_YAML_PATH = PAPER_ROOT / "90_Admin/Context Rules/resolver_rules.yml"
 RESOLVER_PATH = PAPER_ROOT / "09_Models/System/Contextual Meaning Resolver.md"

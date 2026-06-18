@@ -7,7 +7,9 @@ from pathlib import Path
 
 import yaml
 
-PAPER_ROOT = Path("/Users/a1/Paper")
+from caselab_context.paper_paths import paper_root
+
+PAPER_ROOT = paper_root()
 AGENT_RULES = PAPER_ROOT / "90_Admin/Agent Rules.md"
 REVIEW_TARGET = PAPER_ROOT / "90_Admin/Review-Target.md"
 OUTPUT = Path(__file__).resolve().parents[1] / "policies" / "agent_policy.yml"
