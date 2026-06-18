@@ -221,6 +221,10 @@ def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
                     "later": later_name,
                     "later_time": later_time.isoformat(),
                     "status": "VIOLATION",
+                    "hint": (
+                        f"Ordering violation: {later_name} is older than {earlier_name}. "
+                        f"Re-run: python3 scripts/run_work_cycle.py --mode standard"
+                    ),
                 })
 
     return issues

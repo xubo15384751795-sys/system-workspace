@@ -34,6 +34,7 @@ TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
 MARKET_FEEDBACK_PATH = ROOT / "Output" / "market_feedback" / "feedback_decision.json"
 CLAIM_EVALUATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "claim_evaluation.json"
+CLAIM_PROGRESSION_PATH = ROOT / "Output" / "claim_ladder" / "progression.json"
 HORIZON_EVENTS_PATH = ROOT / "Data" / "horizon_events" / "daily_digest.json"
 PROBABILISTIC_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest.json"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
@@ -123,6 +124,15 @@ def build_comprehensive_summary() -> dict[str, Any]:
         "module_contributions": claim_evaluation.get("module_contributions", {}) if claim_evaluation else {},
     }
 
+    # Claim Ladder Progression — cross-run tier tracking
+    progression = load_json(CLAIM_PROGRESSION_PATH)
+    progression_summary = {
+        "status": progression.get("status", "not_available") if progression else "not_available",
+        "previous_run": progression.get("previous_run") if progression else None,
+        "total_claims": len(progression.get("claims", [])) if progression else 0,
+        "claims": progression.get("claims", []) if progression else [],
+    }
+
     # Recurring Failed Assumptions
     failed_assumptions = []
     if calibration_report:
@@ -155,6 +165,7 @@ def build_comprehensive_summary() -> dict[str, Any]:
         "gluonts_forecast_reliability": gluonts_summary,
         "qlib_incremental_feedback": qlib_summary,
         "claim_evaluation": claim_summary,
+        "claim_ladder_progression": progression_summary,
         "recurring_failed_assumptions": failed_assumptions[:5],
         "next_evidence_needed": list(set(next_evidence)),
     }
@@ -259,6 +270,24 @@ def format_markdown(summary: dict[str, Any]) -> str:
         for mod, stats in mc.items():
             lines.append(f"- **{mod}**: {stats.get('usefulness', 'unknown')}")
         lines.append("")
+
+    lines.append("## Claim Ladder Progression")
+    lines.append("")
+
+    prog = summary.get("claim_ladder_progression", {})
+    lines.extend([
+        f"- Status: {prog.get('status', 'not_available')}",
+        f"- Total tracked claims: {prog.get('total_claims', 0)}",
+        "",
+    ])
+    for claim in prog.get("claims", []):
+        tier = claim.get("tier", "?")
+        label = claim.get("label", "?")
+        status = claim.get("progression_status", "?")
+        lines.append(f"- **Tier {tier}** ({label}): {status}")
+    if not prog.get("claims"):
+        lines.append("- No claims being tracked yet")
+    lines.append("")
 
     lines.append("## Recurring Failed Assumptions")
     lines.append("")

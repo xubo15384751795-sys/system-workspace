@@ -53,8 +53,9 @@ STANDARD_STEPS = [
 
 # Quick cycle scripts — read-only, no data refresh
 QUICK_SCRIPTS = [
-    "scripts/build_work_brief.py",
     "scripts/build_signal_card.py",
+    "scripts/signal_consensus.py",
+    "scripts/build_work_brief.py",
     "scripts/build_data_gaps.py",
 ]
 
