@@ -1,0 +1,58 @@
+schema_version: governance_tiers.v1
+updated_at: "2026-06-18"
+purpose: >
+  Classify governance files by execution tier.
+  hard_rules: machine-checked, cannot be violated, fail tests if broken
+  work_support: runtime tools that help the system work, not block it
+  knowledge_background: reference material, not on daily execution path
+
+hard_rules:
+  description: "Machine-checked contracts. Must fail if violated."
+  files:
+    - daily_pipeline_registry.yaml      # pipeline step I/O contracts
+    - entrypoint_registry.yaml          # every script must be registered
+    - redundancy_budget.yaml            # script/artifact count limits
+    - system_constitution.yaml          # module roles, authority ordering
+    - canonical_proxy_spec.yaml         # M/D/K/X red-line definitions
+    - semantic_registry.json            # channel semantic distance
+    - data_retention_policy.yaml        # data lifecycle rules
+    - output_routing_policy.yaml        # artifact routing rules
+    - framework_output.schema.json      # output schema validation
+    - capability_registry.schema.json   # registry schema validation
+
+work_support:
+  description: "Runtime tools. Help the system work, guide next steps."
+  files:
+    - operator_registry.yaml            # operator types and claim ceilings
+    - position_sizing_policy.yaml       # conservative sizing rules
+    - run_mode_registry.yaml            # work cycle mode definitions
+    - opencode_supervisor_policy.yaml   # supervisor audit checks
+    - incentive_policy.yaml             # priority credit system
+    - experimental_submission_registry.yaml  # non-compliant exploration queue
+    - module_authority_registry.yaml    # allowed/forbidden per module
+    - data_authority_registry.yaml      # non-Harvester data marking
+    - data_request_registry.yaml        # inter-module data requests
+    - module_contract_registry.yaml     # module accept/produce/forbid
+    - deferred_work_register.yaml       # deferred items with deadlines
+    - proxy_quality_rules.yaml          # proxy scoring rules
+    - config_authority_registry.yaml    # runtime config flags
+    - pipeline_test_baseline.yaml       # test suite acceptance gate
+
+knowledge_background:
+  description: "Reference material. Read when needed, not on daily path."
+  files:
+    - architecture_reality_decisions.md   # architecture constitution
+    - architecture_cleanup_decisions.md   # cleanup decisions D1-D8
+    - repo_layout_map.md                  # on-disk path layout
+    - git_workspace_policy.md             # source versioning policy
+    - submodule_commit_plan.md            # submodule cleanup plan
+
+archived:
+  description: "No consumers. Moved to governance/archive/ for retention."
+  files:
+    - trade_decision_policy.yaml
+    - artifact_policy.yaml
+    - repo_state_audit.md
+    - runtime_log_contract.md
+    - x_agg_v1_obs_procurement_plan.md
+    - hmm_source_policy.json
