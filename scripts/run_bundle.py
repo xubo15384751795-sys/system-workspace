@@ -86,9 +86,10 @@ def _fingerprint(path: Path, base: Path | None = None) -> dict[str, Any] | None:
 class RunBundle:
     """Atomic run record — one instance per pipeline execution."""
 
-    def __init__(self, run_id: str, mode: str, run_dir: Path, root: Path) -> None:
+    def __init__(self, run_id: str, mode: str, run_dir: Path, root: Path, tag: str | None = None) -> None:
         self.run_id = run_id
         self.mode = mode
+        self.tag = tag
         self.run_dir = run_dir
         self._root = root
         self.started_at = datetime.now(UTC)
@@ -101,7 +102,7 @@ class RunBundle:
     # ── lifecycle ──────────────────────────────────────────────
 
     @classmethod
-    def start(cls, mode: str = "unknown", root: Path | None = None) -> RunBundle:
+    def start(cls, mode: str = "unknown", root: Path | None = None, tag: str | None = None) -> RunBundle:
         """Create a new run bundle, write input snapshot, return handle."""
         resolved_root = root or ROOT
         base = root / "Output" / "runs" if root else RUNS_DIR
@@ -109,7 +110,7 @@ class RunBundle:
         run_dir = base / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        bundle = cls(run_id, mode, run_dir, root=resolved_root)
+        bundle = cls(run_id, mode, run_dir, root=resolved_root, tag=tag)
         bundle._step_file = run_dir / "steps.jsonl"
         bundle._write_input_snapshot()
         bundle._write_manifest()  # initial manifest
@@ -123,8 +124,20 @@ class RunBundle:
         duration_s: float = 0,
         returncode: int = 0,
         detail: str = "",
+        input_artifacts: list[str | Path] | None = None,
     ) -> None:
-        """Record one pipeline step result."""
+        """Record one pipeline step result.
+
+        Args:
+            name: Step identifier.
+            status: "success", "failed", "timeout", "error".
+            duration_s: Wall-clock seconds.
+            returncode: Process exit code.
+            detail: Optional human-readable note.
+            input_artifacts: Optional list of paths this step consumed.
+                Each is fingerprinted (sha256) and recorded for per-step
+                input provenance — enabling "what did this step see?" queries.
+        """
         entry = {
             "step": name,
             "status": status,
@@ -134,6 +147,21 @@ class RunBundle:
         }
         if detail:
             entry["detail"] = detail[:500]
+
+        # Per-step input fingerprinting
+        if input_artifacts:
+            hashes: dict[str, str] = {}
+            for art in input_artifacts:
+                p = Path(art)
+                if p.exists():
+                    try:
+                        h = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+                        hashes[_safe_relative(p, self._root)] = h
+                    except OSError:
+                        pass
+            if hashes:
+                entry["input_hashes"] = hashes
+
         self._steps.append(entry)
 
         # Append to steps.jsonl for incremental visibility
@@ -284,6 +312,7 @@ class RunBundle:
         manifest = {
             "run_id": self.run_id,
             "mode": self.mode,
+            "tag": self.tag,
             "started_at": self.started_at.isoformat(),
             "finished_at": finished_at,
             "duration_s": duration_s,

@@ -63,6 +63,15 @@ def main() -> None:
     paper_cases = paper.get("cases", {})
     if paper_cases.get("exists"):
         print(f"\n📚 PAPER WORLD MODEL")
+        manifest = paper.get("manifest") or {}
+        if manifest.get("synced_at"):
+            print(f"  Synced: {manifest['synced_at'][:19]}")
+        counts = manifest.get("record_counts") or {}
+        if counts:
+            print(
+                f"  Records: cases={counts.get('cases', '?')} "
+                f"mechanisms={counts.get('mechanisms', '?')}"
+            )
         print(f"  Cases: ✅")
         print(f"  Mechanisms: {'✅' if paper.get('mechanisms', {}).get('exists') else '❌'}")
         print(f"  Variables: {'✅' if paper.get('variables', {}).get('exists') else '❌'}")

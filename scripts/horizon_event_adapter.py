@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -24,20 +26,69 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
 
-HORIZON_OUTPUT_DIR = ROOT.parent / "Horizon" / "Output"
+HORIZON_ROOT = Path(os.environ.get("HORIZON_ROOT", str(ROOT.parent / "Horizon")))
+HORIZON_OUTPUT_DIR = HORIZON_ROOT / "Output"
 OUTPUT_DIR = ROOT / "Data" / "horizon_events"
+
+_SUMMARY_HEADING = re.compile(
+    r"^###\s+\[([^\]]+)\]\(([^)]+)\).*$",
+    re.MULTILINE,
+)
+
+
+def read_horizon_summary_events() -> list[dict[str, Any]]:
+    """Parse structured events from latest Horizon daily summary markdown."""
+    summaries_dir = HORIZON_ROOT / "data" / "summaries"
+    if not summaries_dir.exists():
+        return []
+
+    candidates = sorted(summaries_dir.glob("horizon-*-en.md"))
+    if not candidates:
+        return []
+
+    latest = candidates[-1]
+    text = latest.read_text(encoding="utf-8")
+    date_part = latest.stem.replace("horizon-", "").replace("-en", "")
+    events: list[dict[str, Any]] = []
+
+    for index, match in enumerate(_SUMMARY_HEADING.finditer(text), start=1):
+        title, url = match.group(1), match.group(2)
+        block = text[match.end() : match.end() + 800]
+        score_match = re.search(r"(\d+(?:\.\d+)?)/10", block)
+        ai_score = float(score_match.group(1)) / 10.0 if score_match else 0.5
+        summary_lines = [
+            line.strip()
+            for line in block.splitlines()
+            if line.strip() and not line.startswith("#") and not line.startswith("|")
+        ]
+        summary = summary_lines[0][:500] if summary_lines else title
+        events.append(
+            {
+                "event_id": f"horizon_summary_{date_part}_{index}",
+                "title": title,
+                "summary": summary,
+                "source_type": "horizon_summary",
+                "url": url,
+                "published_at": f"{date_part}T12:00:00Z",
+                "ai_score": ai_score,
+                "tags": ["horizon", "summary"],
+                "related_assets": [],
+                "related_entities": [],
+                "possible_mechanisms": [],
+                "source_run_id": latest.name,
+            }
+        )
+    return events
 
 
 def read_horizon_events() -> list[dict[str, Any]]:
-    """Read events from Horizon output."""
-    events = []
+    """Read events from Horizon output and summaries."""
+    events: list[dict[str, Any]] = []
 
-    # Check for Horizon's event output
     horizon_event_file = HORIZON_OUTPUT_DIR / "events.jsonl"
     if horizon_event_file.exists():
         events.extend(load_jsonl(horizon_event_file))
 
-    # Check for Horizon's news output
     horizon_news_file = HORIZON_OUTPUT_DIR / "news.jsonl"
     if horizon_news_file.exists():
         news_items = load_jsonl(horizon_news_file)
@@ -56,6 +107,9 @@ def read_horizon_events() -> list[dict[str, Any]]:
                 "possible_mechanisms": item.get("possible_mechanisms", []),
                 "source_run_id": item.get("source_run_id", ""),
             })
+
+    if not events:
+        events.extend(read_horizon_summary_events())
 
     return events
 
@@ -110,6 +164,48 @@ def generate_sample_events() -> list[dict[str, Any]]:
     ]
 
 
+_STOP_WORDS = frozenset(
+    "the a an is are was were be been being have has had do does did "
+    "will would shall should may might can could of in to for on with at by from "
+    "as into through during before after above below between out off over under "
+    "and or but if not no nor so yet both either neither each every any all "
+    "this that these those it its he she they we you i my our their his her".split()
+)
+
+
+def _extract_meaningful_tokens(text: str) -> set[str]:
+    """Extract meaningful tokens from text, filtering stop words and short words."""
+    return {w for w in text.lower().split() if len(w) > 2 and w not in _STOP_WORDS}
+
+
+def _derive_event_tags(event: dict[str, Any]) -> set[str]:
+    """Derive meaningful tags from event content when structured tags are generic."""
+    tags = set(t.lower() for t in event.get("tags", []))
+    # If tags are only generic ["horizon", "summary"], extract from content
+    generic = {"horizon", "summary", "news", "update"}
+    if tags <= generic:
+        title = event.get("title", "").lower()
+        summary = event.get("summary", "").lower()
+        text = title + " " + summary
+        # Extract domain-relevant tokens
+        domain_tokens = _extract_meaningful_tokens(text)
+        tags = tags | domain_tokens
+    return tags
+
+
+def _derive_event_entities(event: dict[str, Any]) -> set[str]:
+    """Derive entity names from event title when structured entities are empty."""
+    entities = set(e.lower() for e in event.get("related_entities", []))
+    if not entities:
+        title = event.get("title", "")
+        # Extract capitalized sequences as potential entity names
+        import re
+        caps = re.findall(r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*", title)
+        for cap in caps:
+            entities.add(cap.lower())
+    return entities
+
+
 def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Match events to Paper mechanisms using multiple criteria with noise reduction."""
     # Load Paper mechanisms, variables, and indicators
@@ -124,8 +220,8 @@ def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, A
     all_matches = []
     for event in events:
         event_mechanisms = set(event.get("possible_mechanisms", []))
-        event_tags = set(t.lower() for t in event.get("tags", []))
-        event_entities = set(e.lower() for e in event.get("related_entities", []))
+        event_tags = _derive_event_tags(event)
+        event_entities = _derive_event_entities(event)
         event_assets = set(a.lower() for a in event.get("related_assets", []))
         event_title = event.get("title", "").lower()
         event_summary = event.get("summary", "").lower()
@@ -134,8 +230,10 @@ def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, A
         event_matches = []
         for mechanism in mechanisms:
             mechanism_id = mechanism.get("mechanism_id", "")
-            mechanism_name = mechanism.get("name", "").lower()
+            mechanism_name = mechanism.get("name", "")
+            mechanism_name_lower = mechanism_name.lower()
             mechanism_claim = mechanism.get("causal_claim", "").lower()
+            mechanism_desc = mechanism.get("description", "").lower()
             mechanism_signals = set(s.lower() for s in mechanism.get("observable_signals", []))
 
             match_reasons = []
@@ -148,17 +246,36 @@ def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, A
                 source_fields.append("possible_mechanisms")
                 score += 0.5
 
+            # Name-in-text match: mechanism name appears in event text (high weight)
+            if mechanism_name_lower and len(mechanism_name_lower) > 3:
+                # Exact name match
+                if mechanism_name_lower in event_text:
+                    match_reasons.append(f"name_in_text: {mechanism_name}")
+                    source_fields.append("title/summary")
+                    score += 0.4
+                else:
+                    # Partial name match: all words of mechanism name present
+                    name_words = set(mechanism_name_lower.split())
+                    meaningful_name_words = {w for w in name_words if w not in _STOP_WORDS}
+                    if meaningful_name_words and meaningful_name_words.issubset(
+                        set(event_text.split())
+                    ):
+                        match_reasons.append(f"partial_name_match: {mechanism_name}")
+                        source_fields.append("title/summary")
+                        score += 0.3
+
             # Tag overlap (medium weight)
-            mechanism_tags = set(mechanism_claim.split())
+            mechanism_tags = _extract_meaningful_tokens(mechanism_claim or mechanism_desc)
             tag_overlap = event_tags.intersection(mechanism_tags)
             if tag_overlap:
-                match_reasons.append(f"tag_overlap: {', '.join(tag_overlap)}")
+                match_reasons.append(f"tag_overlap: {', '.join(sorted(tag_overlap)[:5])}")
                 source_fields.append("tags")
                 score += 0.2
 
-            # Entity overlap (medium weight)
-            if event_entities and mechanism_name:
-                entity_overlap = event_entities.intersection(set(mechanism_name.split()))
+            # Entity overlap (medium weight) — require meaningful words (>3 chars)
+            if event_entities and mechanism_name_lower:
+                name_words = {w for w in mechanism_name_lower.split() if len(w) > 3}
+                entity_overlap = event_entities.intersection(name_words)
                 if entity_overlap:
                     match_reasons.append(f"entity_overlap: {', '.join(entity_overlap)}")
                     source_fields.append("related_entities")
@@ -172,14 +289,14 @@ def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, A
                     source_fields.append("related_assets")
                     score += 0.2
 
-            # Text similarity (low weight, require more keywords)
-            text_keywords = set(event_text.split())
-            mechanism_keywords = set(mechanism_claim.split())
+            # Text similarity (low weight) — use claim OR description, lowered threshold
+            text_keywords = _extract_meaningful_tokens(event_text)
+            mechanism_keywords = _extract_meaningful_tokens(mechanism_claim or mechanism_desc)
             keyword_overlap = text_keywords.intersection(mechanism_keywords)
-            if len(keyword_overlap) >= 3:
+            if len(keyword_overlap) >= 2:
                 match_reasons.append(f"text_similarity: {len(keyword_overlap)} keywords")
                 source_fields.append("title/summary")
-                score += 0.1
+                score += 0.15
 
             # Variable/indicator name matching (low weight, require exact match)
             for var_name in variable_names:
@@ -197,7 +314,7 @@ def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, A
                     break
 
             # Only add match if score is above threshold
-            if score >= 0.2 and match_reasons:
+            if score >= 0.15 and match_reasons:
                 # Determine role based on score
                 if score >= 0.5:
                     role = "trigger"
@@ -299,8 +416,13 @@ def main() -> None:
         events = read_horizon_events()
 
     if not events:
-        print("No events found. Use --sample to generate sample events.")
-        return
+        allow_sample = os.environ.get("HORIZON_ALLOW_SAMPLE", "").lower() in {"1", "true", "yes"}
+        if allow_sample:
+            events = generate_sample_events()
+        else:
+            print("No Horizon events found (checked Output/*.jsonl and data/summaries).")
+            print("Run Horizon first, or pass --sample / set HORIZON_ALLOW_SAMPLE=1.")
+            return
 
     # Match to mechanisms
     matches = match_events_to_mechanisms(events)

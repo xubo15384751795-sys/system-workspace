@@ -45,8 +45,8 @@ def add_framework_src() -> None:
 
 
 def add_harvester_src() -> None:
-    """Add Harvester/src to sys.path."""
-    _add(ROOT / "Harvester" / "src")
+    """Add structural-risk-harvester/src to sys.path."""
+    _add(ROOT / "structural-risk-harvester" / "src")
 
 
 def add_root() -> None:

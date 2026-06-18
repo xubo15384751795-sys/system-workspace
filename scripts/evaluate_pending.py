@@ -154,8 +154,15 @@ def evaluate_record(
     record: dict[str, Any],
     market_series: dict[str, pd.Series],
     today: datetime,
+    windows: tuple[str, ...] = ("1d", "1w", "1m"),
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Evaluate a single pending record against market data.
+
+    Args:
+        record: Pending evaluation record.
+        market_series: SPY/HYG/TLT price series.
+        today: Current datetime (UTC).
+        windows: Which windows to evaluate. Default all; pass ("1d",) for daily-only.
 
     Returns: (updated_record, log_entries)
     """
@@ -163,7 +170,7 @@ def evaluate_record(
     evaluations = record.get("evaluations", {"1d": None, "1w": None, "1m": None})
     any_updated = False
 
-    for window in ("1d", "1w", "1m"):
+    for window in windows:
         # Skip if already evaluated
         if evaluations.get(window) is not None:
             continue
@@ -220,8 +227,14 @@ def evaluate_record(
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def run_evaluation(dry_run: bool = False) -> dict[str, Any]:
-    """Run evaluation on all pending records. Returns summary."""
+def run_evaluation(dry_run: bool = False, daily_only: bool = False) -> dict[str, Any]:
+    """Run evaluation on all pending records. Returns summary.
+
+    Args:
+        dry_run: Show changes without writing.
+        daily_only: Only evaluate 1d window (lightweight daily pass).
+                    1w/1m windows are evaluated on Monday or --force-weekly.
+    """
     records = load_pending_records()
     if not records:
         return {"total": 0, "evaluated": 0, "skipped": 0, "message": "No pending records"}
@@ -232,6 +245,7 @@ def run_evaluation(dry_run: bool = False) -> dict[str, Any]:
                 "message": "No market data available"}
 
     today = datetime.now(UTC)
+    windows = ("1d",) if daily_only else ("1d", "1w", "1m")
     evaluated_count = 0
     skipped_count = 0
     all_log_entries: list[dict[str, Any]] = []
@@ -243,7 +257,7 @@ def run_evaluation(dry_run: bool = False) -> dict[str, Any]:
             skipped_count += 1
             continue
 
-        updated, log_entries = evaluate_record(record, market_series, today)
+        updated, log_entries = evaluate_record(record, market_series, today, windows=windows)
         updated_records.append(updated)
         if log_entries:
             evaluated_count += len(log_entries)
@@ -261,6 +275,8 @@ def run_evaluation(dry_run: bool = False) -> dict[str, Any]:
         "skipped": skipped_count,
         "pending_remaining": sum(1 for r in updated_records if r.get("status") == "pending"),
         "evaluated_total": sum(1 for r in updated_records if r.get("status") == "evaluated"),
+        "daily_only": daily_only,
+        "windows_evaluated": list(windows),
         "log_entries": all_log_entries,
     }
 
@@ -269,9 +285,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate pending judgments/trades.")
     parser.add_argument("--dry-run", action="store_true", help="Show changes without writing.")
     parser.add_argument("--json", action="store_true", help="Print results as JSON.")
+    parser.add_argument(
+        "--daily-only", action="store_true",
+        help="Only evaluate 1d window (lightweight daily pass). "
+             "1w/1m windows are evaluated on Monday or --force-weekly.",
+    )
     args = parser.parse_args()
 
-    result = run_evaluation(dry_run=args.dry_run)
+    result = run_evaluation(dry_run=args.dry_run, daily_only=args.daily_only)
 
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))

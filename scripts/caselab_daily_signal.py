@@ -5,7 +5,6 @@ converts to S-A-L-V-P-tau, runs EnhancedSimilarityEngine,
 and outputs a structured case-match report.
 
 Usage:
-    cd /Users/a1/System
     python3 scripts/caselab_daily_signal.py
     python3 scripts/caselab_daily_signal.py --json   # JSON output only
     python3 scripts/caselab_daily_signal.py --top 5   # top N cases

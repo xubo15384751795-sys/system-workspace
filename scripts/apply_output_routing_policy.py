@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+ARCHIVE_ROOT = ROOT / "Output" / "archive" / "output_routing_cleanup"
+ACTIVE_SANDBOX_DEPENDENCIES = {"structural_replay_v2"}
 
 
 def _load_policy() -> dict[str, Any]:
@@ -65,6 +68,8 @@ def _check_sandbox_ttl(policy: dict) -> list[dict[str, str]]:
 
     cutoff = datetime.now(UTC) - timedelta(days=ttl_days)
     for item in sandbox_dir.iterdir():
+        if item.name in ACTIVE_SANDBOX_DEPENDENCIES:
+            continue
         if item.is_dir():
             mtime = datetime.fromtimestamp(item.stat().st_mtime, tz=UTC)
             if mtime < cutoff:
@@ -175,6 +180,62 @@ def run_routing_check() -> dict[str, Any]:
     }
 
 
+def _unique_target(base: Path) -> Path:
+    if not base.exists() and not base.is_symlink():
+        return base
+    for index in range(1, 1000):
+        candidate = base.with_name(f"{base.name}_{index}")
+        if not candidate.exists() and not candidate.is_symlink():
+            return candidate
+    raise RuntimeError(f"Could not find unique archive target for {base}")
+
+
+def apply_routing_cleanup(results: dict[str, Any]) -> dict[str, Any]:
+    """Archive expired routing artifacts without deleting payloads."""
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    archive_dir = ARCHIVE_ROOT / run_id
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    actions: list[dict[str, str]] = []
+    for finding in results["checks"]["sandbox_ttl"]["findings"]:
+        source = ROOT / finding["path"]
+        if not source.exists():
+            continue
+        target = _unique_target(archive_dir / "sandbox" / source.name)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(target))
+        actions.append({
+            "action": "archived_sandbox",
+            "source": str(source.relative_to(ROOT)),
+            "target": str(target.relative_to(ROOT)),
+        })
+
+    for finding in results["checks"]["deformation_runs"]["findings"]:
+        source = ROOT / finding["path"]
+        if not source.is_symlink():
+            continue
+        target = _unique_target(archive_dir / "deformation_runs" / f"{source.name}.symlink.txt")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f"{source} -> {source.readlink()}\n", encoding="utf-8")
+        source.unlink()
+        actions.append({
+            "action": "archived_symlink_record",
+            "source": str(source.relative_to(ROOT)),
+            "target": str(target.relative_to(ROOT)),
+        })
+
+    manifest = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "archive_dir": str(archive_dir.relative_to(ROOT)),
+        "actions": actions,
+    }
+    (archive_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
 def generate_report(results: dict[str, str]) -> str:
     """Generate markdown report."""
     lines = [
@@ -209,12 +270,13 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.apply:
-        raise SystemExit(
-            "ERROR: --apply is not yet implemented. "
-            "Use --json or default output for dry-run report."
-        )
-
-    results = run_routing_check()
+        initial = run_routing_check()
+        manifest = apply_routing_cleanup(initial)
+        results = run_routing_check()
+        results["mode"] = "apply"
+        results["applied"] = manifest
+    else:
+        results = run_routing_check()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     report_path = OUTPUT_DIR / "output_routing_report.md"

@@ -15,6 +15,7 @@ Output:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import UTC, datetime
@@ -102,19 +103,65 @@ def build_ledger_entry(
         "risk_gate_status": risk_gate.get("risk_check", {}).get("status", "UNKNOWN"),
         "risk_level": risk_gate.get("risk_check", {}).get("risk_level", "UNKNOWN"),
         "trade_thesis": decision.get("trade_thesis", {}),
+        "decision_fingerprint": decision_fingerprint(decision),
         "forward_outcome": None,  # To be filled by replay
     }
 
 
-def append_to_ledger(entry: dict[str, Any]) -> Path:
-    """Append entry to ledger JSONL file."""
+def decision_fingerprint(decision: dict[str, Any]) -> str:
+    """Stable fingerprint for one observable decision state."""
+    thesis = decision.get("trade_thesis", {})
+    payload = {
+        "date": decision.get("date", ""),
+        "decision": decision.get("decision", "NO_TRADE"),
+        "confidence": decision.get("confidence", "low"),
+        "evidence_grade": decision.get("evidence_grade", "D"),
+        "time_horizon": decision.get("time_horizon", "1d"),
+        "asset_scope": sorted(decision.get("asset_scope", [])),
+        "claim": thesis.get("claim_ladder", {}).get("claim_statement", thesis.get("hypothesis", "")),
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+def _load_ledger(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    entries = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+    return entries
+
+
+def _write_ledger(path: Path, entries: list[dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        for item in entries:
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+
+
+def upsert_to_ledger(entry: dict[str, Any]) -> tuple[Path, str]:
+    """Insert the entry, replacing the same dated decision fingerprint."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     ledger_path = OUTPUT_DIR / "decisions.jsonl"
 
-    with ledger_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    entries = _load_ledger(ledger_path)
+    fingerprint = entry.get("decision_fingerprint")
+    date = entry.get("date")
+    for idx, existing in enumerate(entries):
+        if existing.get("date") == date and existing.get("decision_fingerprint") == fingerprint:
+            prior_outcome = existing.get("forward_outcome")
+            if prior_outcome is not None:
+                entry["forward_outcome"] = prior_outcome
+            entries[idx] = entry
+            _write_ledger(ledger_path, entries)
+            return ledger_path, "updated"
 
-    return ledger_path
+    entries.append(entry)
+    _write_ledger(ledger_path, entries)
+    return ledger_path, "inserted"
 
 
 def write_latest(entry: dict[str, Any]) -> Path:
@@ -201,8 +248,8 @@ def main() -> None:
     # Build ledger entry
     entry = build_ledger_entry(decision, risk_gate)
 
-    # Append to ledger
-    ledger_path = append_to_ledger(entry)
+    # Upsert into ledger
+    ledger_path, write_mode = upsert_to_ledger(entry)
 
     # Write latest
     latest_path = write_latest(entry)
@@ -211,6 +258,7 @@ def main() -> None:
         print(json.dumps(entry, indent=2, ensure_ascii=False))
     else:
         print(f"Recorded to ledger: {ledger_path}")
+        print(f"Mode: {write_mode}")
         print(f"Latest: {latest_path}")
         print(f"Decision: {entry['decision']}")
         print(f"Confidence: {entry['confidence']}")

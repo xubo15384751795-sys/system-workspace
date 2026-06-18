@@ -49,6 +49,29 @@ def find_previous_run_dir() -> Path | None:
     return None
 
 
+def find_previous_claim_run_dir() -> Path | None:
+    """Find the most recent completed run with structured claim metadata."""
+    if not RUNS_DIR.exists():
+        return None
+    run_dirs = sorted(RUNS_DIR.iterdir(), reverse=True)
+    for run_dir in run_dirs:
+        if not run_dir.is_dir():
+            continue
+        manifest_path = run_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = load_json(manifest_path)
+        except Exception:
+            continue
+        if not manifest or manifest.get("status") not in ("success", "partial_failure", "PARTIAL"):
+            continue
+        pending = load_previous_pending(run_dir)
+        if _extract_claim_items(pending):
+            return run_dir
+    return None
+
+
 def load_previous_pending(run_dir: Path) -> list[dict[str, Any]]:
     """Load feedback_pending.json from a previous run."""
     pending_path = run_dir / "feedback_pending.json"
@@ -142,7 +165,7 @@ def check_hmm_conflict(
     if not hmm:
         return {"check": "hmm_conflict", "status": "no_data", "conflict": False}
 
-    regime = hmm.get("regime", "unknown")
+    regime = _hmm_regime_label(hmm)
     # stress_relief hypothesis conflicts with volatile/stress regime
     # stress_building hypothesis conflicts with calm/relief regime
     conflict = False
@@ -158,6 +181,14 @@ def check_hmm_conflict(
         "conflict": conflict,
         "status": "conflict" if conflict else "aligned",
     }
+
+
+def _hmm_regime_label(hmm: dict[str, Any]) -> str:
+    """Return the current HMM regime across old and new artifact shapes."""
+    regime = hmm.get("regime", "unknown")
+    if isinstance(regime, dict):
+        return str(regime.get("current") or regime.get("label") or regime.get("state") or "unknown")
+    return str(regime or "unknown")
 
 
 def check_invalidation(
@@ -244,8 +275,9 @@ def build_progression() -> dict[str, Any]:
     """Build the full claim ladder progression report."""
     now = utc_now()
 
-    # Find previous run
-    prev_run_dir = find_previous_run_dir()
+    # Find previous run with a claim ladder item. Some completed runs only
+    # contain generic calibration feedback, which should not erase progression.
+    prev_run_dir = find_previous_claim_run_dir() or find_previous_run_dir()
     if not prev_run_dir:
         return {
             "schema_version": "claim_ladder_progression.v1",

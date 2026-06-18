@@ -27,6 +27,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
 from pending_evaluation import write_pending_evaluation
+from paper_freshness import check_paper_world_model_freshness
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
@@ -166,6 +167,12 @@ def _determine_decision(
 ) -> tuple[str, str, str, list[str]]:
     """Determine trade decision from system state."""
     risk_notes: list[str] = []
+
+    freshness = judgment.get("paper_world_model_freshness") or check_paper_world_model_freshness()
+    if freshness.get("stale"):
+        risk_notes.append(
+            f"Paper world model stale ({freshness.get('reason')}, age={freshness.get('age_hours')}h)"
+        )
 
     pg_status = promotion_gate.get("overall_status", "UNKNOWN")
     conf_level = (judgment.get("confidence", {}).get("level") if isinstance(judgment.get("confidence"), dict) else "unknown")

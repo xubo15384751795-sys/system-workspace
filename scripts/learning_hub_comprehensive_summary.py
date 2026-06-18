@@ -29,6 +29,10 @@ ROOT = Path(__file__).resolve().parents[1]
 from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
 
 JUDGMENT_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "judgment_calibration_summary.json"
+JUDGMENT_CALIBRATION_REPORT = ROOT / "Output" / "judgment" / "calibration_report.json"
+TRADE_CALIBRATION_REPORT = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
+MECHANISM_GATE_PATH = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
+MIN_JUDGMENT_CALIBRATION_SAMPLES = 10
 TRADE_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "trade_decision_calibration_summary.json"
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
@@ -40,6 +44,33 @@ PROBABILISTIC_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
+def _entry_key(entry: dict[str, Any]) -> tuple[Any, ...]:
+    thesis = entry.get("trade_thesis") or {}
+    claim = ""
+    if isinstance(thesis, dict):
+        ladder = thesis.get("claim_ladder") or {}
+        if isinstance(ladder, dict):
+            claim = str(ladder.get("claim_statement", ""))
+        claim = claim or str(thesis.get("hypothesis", ""))
+    return (
+        entry.get("date"),
+        entry.get("decision"),
+        entry.get("confidence"),
+        entry.get("evidence_grade"),
+        entry.get("time_horizon"),
+        tuple(sorted(entry.get("asset_scope") or [])),
+        entry.get("decision_fingerprint") or claim,
+    )
+
+
+def dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the latest record for each observable decision state."""
+    deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for entry in entries:
+        deduped[_entry_key(entry)] = entry
+    return list(deduped.values())
+
+
 def build_comprehensive_summary() -> dict[str, Any]:
     """Build comprehensive Learning Hub summary."""
     now = utc_now()
@@ -47,26 +78,64 @@ def build_comprehensive_summary() -> dict[str, Any]:
     # Load all data sources
     judgment_calibration = load_json(JUDGMENT_CALIBRATION_PATH)
     trade_calibration = load_json(TRADE_CALIBRATION_PATH)
-    trade_ledger = load_jsonl(TRADE_LEDGER_PATH)
+    judgment_replay = load_json(JUDGMENT_CALIBRATION_REPORT)
+    trade_replay = load_json(TRADE_CALIBRATION_REPORT)
+    mechanism_gate = load_json(MECHANISM_GATE_PATH)
+    trade_ledger = dedupe_entries(load_jsonl(TRADE_LEDGER_PATH))
     calibration_report = load_json(CALIBRATION_REPORT_PATH)
     market_feedback = load_json(MARKET_FEEDBACK_PATH)
     horizon_digest = load_json(HORIZON_EVENTS_PATH)
     probabilistic_context = load_json(PROBABILISTIC_CONTEXT_PATH)
 
     # Judgment Calibration
+    judged_evaluated = 0
+    judged_total = 0
+    if judgment_replay:
+        judged_summary = judgment_replay.get("summary", {})
+        judged_evaluated = int(judged_summary.get("evaluated_cards", 0))
+        judged_total = int(judged_summary.get("total_cards", 0))
+
     judgment_summary = {
-        "total_cards": judgment_calibration.get("total_events", 0) if judgment_calibration else 0,
-        "evaluated_cards": judgment_calibration.get("evaluated_events", 0) if judgment_calibration else 0,
+        "total_cards": judgment_calibration.get("total_events", 0) if judgment_calibration else judged_total,
+        "evaluated_cards": judgment_calibration.get("evaluated_events", 0) if judgment_calibration else judged_evaluated,
         "by_confidence": judgment_calibration.get("by_confidence", {}) if judgment_calibration else {},
         "blocked_promotions": judgment_calibration.get("blocked_promotions", 0) if judgment_calibration else 0,
+        "sample_progress": {
+            "evaluated": judged_evaluated,
+            "required": MIN_JUDGMENT_CALIBRATION_SAMPLES,
+            "remaining": max(0, MIN_JUDGMENT_CALIBRATION_SAMPLES - judged_evaluated),
+            "promotion_gate_ready": judged_evaluated >= MIN_JUDGMENT_CALIBRATION_SAMPLES,
+        },
     }
+
+    trade_evaluated = 0
+    trade_total = 0
+    if trade_replay:
+        trade_summary_data = trade_replay.get("summary", {})
+        trade_evaluated = int(trade_summary_data.get("evaluated_decisions", 0))
+        trade_total = int(trade_summary_data.get("total_decisions", 0))
 
     # Trade Decision Calibration
     trade_summary = {
-        "total_decisions": trade_calibration.get("total_events", 0) if trade_calibration else 0,
-        "evaluated_decisions": trade_calibration.get("evaluated_events", 0) if trade_calibration else 0,
+        "total_decisions": trade_calibration.get("total_events", 0) if trade_calibration else trade_total,
+        "evaluated_decisions": trade_calibration.get("evaluated_events", 0) if trade_calibration else trade_evaluated,
         "by_decision": trade_calibration.get("by_decision", {}) if trade_calibration else {},
         "by_evidence_grade": trade_calibration.get("by_evidence_grade", {}) if trade_calibration else {},
+        "sample_progress": {
+            "evaluated": trade_evaluated,
+            "required": MIN_JUDGMENT_CALIBRATION_SAMPLES,
+            "remaining": max(0, MIN_JUDGMENT_CALIBRATION_SAMPLES - trade_evaluated),
+        },
+    }
+
+    mechanism_calibration_summary = {
+        "gate_level": mechanism_gate.get("achieved_level", "not_run") if mechanism_gate else "not_run",
+        "allow_paper_export": mechanism_gate.get("allow_paper_export", False) if mechanism_gate else False,
+        "holdout_direction_accuracy": (
+            (mechanism_gate.get("holdout_metrics") or {}).get("direction_accuracy")
+            if mechanism_gate else None
+        ),
+        "blocking_reasons": mechanism_gate.get("blocking_reasons", []) if mechanism_gate else [],
     }
 
     # Paper Mechanism Performance
@@ -166,6 +235,7 @@ def build_comprehensive_summary() -> dict[str, Any]:
         "qlib_incremental_feedback": qlib_summary,
         "claim_evaluation": claim_summary,
         "claim_ladder_progression": progression_summary,
+        "mechanism_calibration": mechanism_calibration_summary,
         "recurring_failed_assumptions": failed_assumptions[:5],
         "next_evidence_needed": list(set(next_evidence)),
     }
@@ -185,9 +255,12 @@ def format_markdown(summary: dict[str, Any]) -> str:
     ]
 
     jc = summary["judgment_calibration"]
+    progress = jc.get("sample_progress", {})
     lines.extend([
         f"- Total cards: {jc['total_cards']}",
         f"- Evaluated: {jc['evaluated_cards']}",
+        f"- Sample progress: {progress.get('evaluated', 0)}/{progress.get('required', 10)} "
+        f"(remaining {progress.get('remaining', 0)}, gate ready: {progress.get('promotion_gate_ready')})",
         f"- Blocked promotions: {jc['blocked_promotions']}",
         f"- By confidence: {jc['by_confidence']}",
         "",
@@ -197,13 +270,29 @@ def format_markdown(summary: dict[str, Any]) -> str:
     lines.append("")
 
     tc = summary["trade_decision_calibration"]
+    tprogress = tc.get("sample_progress", {})
     lines.extend([
         f"- Total decisions: {tc['total_decisions']}",
         f"- Evaluated: {tc['evaluated_decisions']}",
+        f"- Sample progress: {tprogress.get('evaluated', 0)}/{tprogress.get('required', 10)}",
         f"- By decision: {tc['by_decision']}",
         f"- By evidence grade: {tc['by_evidence_grade']}",
         "",
     ])
+
+    lines.append("## Mechanism Causal Calibration")
+    lines.append("")
+    mc = summary.get("mechanism_calibration", {})
+    lines.extend([
+        f"- Gate level: {mc.get('gate_level')}",
+        f"- Paper export allowed: {mc.get('allow_paper_export')}",
+        f"- Hold-out direction accuracy: {mc.get('holdout_direction_accuracy')}",
+    ])
+    if mc.get("blocking_reasons"):
+        lines.append("- Blocking reasons:")
+        for reason in mc["blocking_reasons"]:
+            lines.append(f"  - {reason}")
+    lines.append("")
 
     lines.append("## Paper Mechanism Performance")
     lines.append("")

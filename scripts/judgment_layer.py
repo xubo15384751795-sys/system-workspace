@@ -20,6 +20,7 @@ from workbench.judgment.layer import (
     _date_from_framework, FW_PATH,
 )
 from pending_evaluation import write_pending_evaluation
+from paper_freshness import check_paper_world_model_freshness, lower_claim_ceiling_for_stale
 
 
 def main() -> None:
@@ -40,6 +41,17 @@ def main() -> None:
     validation = load_validation()
 
     card = build_judgment(fw, caselab, hmm, k_gate, x_gate, validation)
+
+    freshness = check_paper_world_model_freshness()
+    if freshness.get("stale"):
+        original = card.get("claim_ceiling", "unknown")
+        card["claim_ceiling"] = lower_claim_ceiling_for_stale(str(original))
+        card.setdefault("confidence", {}).setdefault("reasons", []).append(
+            f"Paper world model stale ({freshness.get('reason')}, "
+            f"age={freshness.get('age_hours')}h) — claim ceiling lowered"
+        )
+        card["paper_world_model_freshness"] = freshness
+
     paths = write_outputs(card)
     eval_path = write_pending_evaluation("judgment_layer", card)
     if args.json:

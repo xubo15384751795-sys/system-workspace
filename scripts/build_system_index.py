@@ -167,6 +167,15 @@ def build_index() -> dict:
     paper_variables = check_path(DATA_DIR / "paper_world_model" / "variables.jsonl")
     paper_indicators = check_path(DATA_DIR / "paper_world_model" / "indicators.jsonl")
     paper_trade_ideas = check_path(DATA_DIR / "paper_world_model" / "trade_ideas.jsonl")
+    paper_manifest = load_json(DATA_DIR / "paper_world_model" / "manifest.json")
+    paper_manifest_summary = None
+    if paper_manifest:
+        paper_manifest_summary = {
+            "synced_at": paper_manifest.get("synced_at"),
+            "paper_root": paper_manifest.get("paper_root"),
+            "record_counts": paper_manifest.get("record_counts"),
+            "paper_mtime_hash": paper_manifest.get("paper_mtime_hash"),
+        }
 
     # Horizon events
     horizon_events = check_path(DATA_DIR / "horizon_events" / "events.jsonl")
@@ -222,6 +231,7 @@ def build_index() -> dict:
             "variables": paper_variables,
             "indicators": paper_indicators,
             "trade_ideas": paper_trade_ideas,
+            "manifest": paper_manifest_summary,
         },
         "horizon_events": {
             "events": horizon_events,

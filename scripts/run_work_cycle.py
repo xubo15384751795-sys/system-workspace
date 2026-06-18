@@ -173,83 +173,150 @@ def _run_governance_status(bundle: RunBundle, step_results: list[dict[str, Any]]
     result = _run_script(GOVERNANCE_STATUS_SCRIPT)
     step = {"step": "governance_status", **result}
     step_results.append(step)
-    _record_step(bundle, result)
+    _record_step(bundle, step)
     _write_learning_hub_event("governance_status_completed", {
         "status": result["status"],
     })
     return step
 
 
+def _data_freshness() -> dict[str, Any]:
+    """Check if framework_output has changed since last work cycle."""
+    import os
+    fw_path = CURRENT / "framework_output.json"
+    if not fw_path.exists():
+        return {"fresh": False, "reason": "missing"}
+
+    fw_mtime = os.path.getmtime(fw_path)
+
+    # Check last work cycle run
+    latest_pointer = RUNS / "latest_work_cycle.txt"
+    if latest_pointer.exists():
+        try:
+            last_run_dir = Path(latest_pointer.read_text().strip())
+            manifest_path = last_run_dir / "manifest.json" if last_run_dir.is_dir() else None
+            if manifest_path and manifest_path.exists():
+                manifest = json.loads(manifest_path.read_text())
+                last_finished = manifest.get("finished_at", "")
+                if last_finished:
+                    from datetime import datetime as _dt
+                    last_ts = _dt.fromisoformat(last_finished).timestamp()
+                    if fw_mtime <= last_ts:
+                        return {"fresh": False, "reason": "no_change_since_last_run"}
+        except Exception:
+            pass
+
+    return {"fresh": True, "reason": "data_updated"}
+
+
+def _update_latest_work_cycle_pointer(bundle: RunBundle) -> None:
+    """Update pointer to latest work cycle run."""
+    pointer = RUNS / "latest_work_cycle.txt"
+    pointer.write_text(str(bundle.run_dir), encoding="utf-8")
+
+
 def run_quick_cycle(bundle: RunBundle) -> dict[str, Any]:
-    """Quick reaction mode — read artifacts, build brief + signal card +
-    data gaps, supervisor check.  No external data refresh."""
+    """Quick reaction mode — check freshness, run change analysis,
+    supervisor check.  Skip re-rendering if data hasn't changed."""
     _write_learning_hub_event("work_cycle_started", {"mode": "quick_reaction"})
 
     step_results = []
-    for script in QUICK_SCRIPTS:
-        result = _run_script(script)
-        step_results.append({"step": Path(script).stem, **result})
-        _record_step(bundle, result)
-        _write_learning_hub_event("artifact_generated", {
-            "step": Path(script).stem,
-            "status": result["status"],
+    freshness = _data_freshness()
+
+    if freshness["fresh"]:
+        # Data changed — re-render all quick artifacts
+        for script in QUICK_SCRIPTS:
+            result = _run_script(script)
+            step_results.append({"step": Path(script).stem, **result})
+            _record_step(bundle, {"step": Path(script).stem, **result})
+            _write_learning_hub_event("artifact_generated", {
+                "step": Path(script).stem,
+                "status": result["status"],
+            })
+    else:
+        # Data unchanged — skip re-rendering, only run analysis
+        _write_learning_hub_event("work_cycle_skipped_rerender", {
+            "reason": freshness["reason"],
         })
+
+    # Always run change analysis (produces new content from historical trends)
+    change_result = _run_script("scripts/build_change_analysis.py")
+    step_results.append({"step": "change_analysis", **change_result})
+    _record_step(bundle, {"step": "change_analysis", **change_result})
 
     # Supervisor check
     supervisor_result = _run_script("scripts/run_supervisor_check.py")
     step_results.append({"step": "supervisor_check", **supervisor_result})
-    _record_step(bundle, supervisor_result)
+    _record_step(bundle, {"step": "supervisor_check", **supervisor_result})
     _write_learning_hub_event("supervisor_check_completed", {
         "status": supervisor_result["status"],
     })
 
     _capture_bundle_traces(bundle)
     _run_governance_status(bundle, step_results)
+    _update_latest_work_cycle_pointer(bundle)
 
     return {
         "mode": "quick_reaction",
+        "data_freshness": freshness,
         "steps": step_results,
     }
 
 
 def run_standard_cycle(bundle: RunBundle) -> dict[str, Any]:
-    """Standard run mode — run judgment chain, then all quick artifacts."""
+    """Standard run mode — run judgment chain if data changed, then analysis."""
     _write_learning_hub_event("work_cycle_started", {"mode": "standard_run"})
 
     step_results = []
-    for script in STANDARD_STEPS:
-        result = _run_script(script)
-        step_results.append({"step": Path(script).stem, **result})
-        _record_step(bundle, result)
-        if result["status"] not in ("OK",):
-            _write_learning_hub_event("module_activity_recorded", {
-                "module": Path(script).stem,
+    freshness = _data_freshness()
+
+    if freshness["fresh"]:
+        # Data changed — run full judgment chain
+        for script in STANDARD_STEPS:
+            result = _run_script(script)
+            step_results.append({"step": Path(script).stem, **result})
+            _record_step(bundle, {"step": Path(script).stem, **result})
+            if result["status"] not in ("OK",):
+                _write_learning_hub_event("module_activity_recorded", {
+                    "module": Path(script).stem,
+                    "status": result["status"],
+                })
+
+        # Quick artifacts after judgment chain
+        for script in QUICK_SCRIPTS:
+            result = _run_script(script)
+            step_results.append({"step": Path(script).stem, **result})
+            _record_step(bundle, {"step": Path(script).stem, **result})
+            _write_learning_hub_event("artifact_generated", {
+                "step": Path(script).stem,
                 "status": result["status"],
             })
-
-    # Quick artifacts after judgment chain
-    for script in QUICK_SCRIPTS:
-        result = _run_script(script)
-        step_results.append({"step": Path(script).stem, **result})
-        _record_step(bundle, result)
-        _write_learning_hub_event("artifact_generated", {
-            "step": Path(script).stem,
-            "status": result["status"],
+    else:
+        # Data unchanged — skip judgment chain, only run analysis
+        _write_learning_hub_event("standard_cycle_skipped_judgment", {
+            "reason": freshness["reason"],
         })
+
+    # Always run change analysis (produces new content from historical trends)
+    change_result = _run_script("scripts/build_change_analysis.py")
+    step_results.append({"step": "change_analysis", **change_result})
+    _record_step(bundle, {"step": "change_analysis", **change_result})
 
     # Supervisor check
     supervisor_result = _run_script("scripts/run_supervisor_check.py")
     step_results.append({"step": "supervisor_check", **supervisor_result})
-    _record_step(bundle, supervisor_result)
+    _record_step(bundle, {"step": "supervisor_check", **supervisor_result})
     _write_learning_hub_event("supervisor_check_completed", {
         "status": supervisor_result["status"],
     })
 
     _capture_bundle_traces(bundle)
     _run_governance_status(bundle, step_results)
+    _update_latest_work_cycle_pointer(bundle)
 
     return {
         "mode": "standard_run",
+        "data_freshness": freshness,
         "steps": step_results,
     }
 
@@ -262,7 +329,7 @@ def run_full_cycle(bundle: RunBundle) -> dict[str, Any]:
     pipeline_result = _run_script("scripts/daily_run.py", timeout=600)
 
     step_results = [{"step": "daily_pipeline", **pipeline_result}]
-    _record_step(bundle, pipeline_result)
+    _record_step(bundle, {"step": "daily_pipeline", **pipeline_result})
 
     # Quick artifacts after pipeline
     for script in QUICK_SCRIPTS:
@@ -277,7 +344,7 @@ def run_full_cycle(bundle: RunBundle) -> dict[str, Any]:
     # Supervisor check
     supervisor_result = _run_script("scripts/run_supervisor_check.py")
     step_results.append({"step": "supervisor_check", **supervisor_result})
-    _record_step(bundle, supervisor_result)
+    _record_step(bundle, {"step": "supervisor_check", **supervisor_result})
     _write_learning_hub_event("supervisor_check_completed", {
         "status": supervisor_result["status"],
     })

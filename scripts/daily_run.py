@@ -38,9 +38,11 @@ ALERT_DIR = ROOT / "Output" / "alerts"
 from _workspace_imports import add_scripts
 add_scripts()
 from run_bundle import RunBundle
+from _daily_run_sequence import dry_run_labels, load_daily_run_sequence
+from _notify import notify_daily_run_result
 
-# Total steps in the pipeline
-TOTAL_STEPS = 28
+# Numbered user-facing stages in the pipeline
+TOTAL_STEPS = len(load_daily_run_sequence()) or 33
 
 
 def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
@@ -182,6 +184,18 @@ def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None
     (alert_dir / "latest_alert.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _detect_schedule_slot(hour: int) -> str:
+    """Auto-detect schedule slot from current UTC hour."""
+    if hour < 10:
+        return "overnight"
+    elif hour < 17:
+        return "mid_session"
+    elif hour < 22:
+        return "post_close"
+    else:
+        return "daily_summary"
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Scheduled Batch Monitor")
@@ -192,6 +206,21 @@ def main() -> None:
         "--output-root", type=str, default=None,
         help="Redirect Output/ under this root (for test isolation). "
              "Sets DAILY_OUTPUT_ROOT env for child scripts.",
+    )
+    parser.add_argument(
+        "--tag", type=str, default=None,
+        help="Run tag for this execution (e.g. overnight, mid_session, post_close, daily_summary). "
+             "Auto-detected from UTC hour if not given.",
+    )
+    parser.add_argument(
+        "--use-horizon-sample",
+        action="store_true",
+        help="Use sample Horizon events when real Horizon output is missing.",
+    )
+    parser.add_argument(
+        "--force-weekly",
+        action="store_true",
+        help="Run weekly steps (mechanism_calibration, suggest_paper_updates) even when not Monday UTC.",
     )
     args = parser.parse_args()
 
@@ -209,59 +238,37 @@ def main() -> None:
         os.environ["DAILY_OUTPUT_ROOT"] = str(output_root)
 
     start_time = datetime.now(UTC)
-    logger.info("Daily Run — %s", start_time.strftime('%Y-%m-%d %H:%M'))
+    schedule_tag = args.tag or _detect_schedule_slot(start_time.hour)
+    logger.info("Daily Run [%s] — %s", schedule_tag, start_time.strftime('%Y-%m-%d %H:%M'))
 
     if args.dry_run:
         print("DRY RUN — would execute:")
-        steps = [
-            "1. Harvester",
-            "2. ETF refresh",
-            "3. Paper world model sync",
-            "4. Horizon event adapter",
-            "5. Structural replay",
-            "6. Bridge",
-            "7. Quality validation",
-            "8. HMM / HMM stability",
-            "9. K/X gates",
-            "10. CaseLab",
-            "11. Judgment",
-            "12. Promotion gate",
-            "13. Probabilistic context",
-            "14. Trade decision",
-            "15. Risk gate",
-            "16. Record trade decision",
-            "17. Market feedback",
-            "18. Learning comprehensive summary",
-            "19. Operator registry audit",
-            "20. Position sizing layer",
-            "21. Build system index",
-            "22. Build current README / NEXT_ACTIONS",
-            "23. Build signal card",
-            "24. Build signal consensus",
-            "25. Build work brief",
-            "26. Freshness validator",
-            "27. Architecture reality audit",
-            "28. Governance status",
-        ]
-        for step in steps:
+        for step in dry_run_labels():
             print(f"  {step}")
         return
 
     # Start run bundle — atomic record of this execution.
     # Always use ROOT for bundle location (bundles live in Output/runs/, not test output root).
-    bundle = RunBundle.start(mode="daily_pipeline")
+    bundle = RunBundle.start(mode="daily_pipeline", tag=schedule_tag)
     logger.info("Run bundle: %s", bundle.run_id)
 
     steps = []
 
-    def _record(step_result: dict) -> None:
-        """Record step into both local list and run bundle."""
+    def _record(step_result: dict, input_artifacts: list[str] | None = None) -> None:
+        """Record step into both local list and run bundle.
+
+        Args:
+            step_result: Output from run_step().
+            input_artifacts: Optional list of paths this step consumed.
+                Fingerprinted (sha256) for per-step input provenance.
+        """
         steps.append(step_result)
         bundle.record_step(
             name=step_result["step"],
             status=step_result.get("status", "unknown"),
             duration_s=step_result.get("duration_s", 0),
             returncode=step_result.get("returncode", 0),
+            input_artifacts=input_artifacts,
         )
 
     # Step 1: Harvester
@@ -286,14 +293,28 @@ def main() -> None:
     if paper_sync_script.exists():
         _record(run_step("paper_sync", [sys.executable, str(paper_sync_script)]))
 
-    # Step 4: Horizon event adapter
-    logger.info("[%d/%d] Running Horizon event adapter...", 4, TOTAL_STEPS)
+    # Step 4: CaseLab index (when Paper hash changes)
+    logger.info("[%d/%d] Syncing CaseLab Paper index...", 4, TOTAL_STEPS)
+    caselab_index_script = ROOT / "scripts" / "sync_caselab_index.py"
+    if caselab_index_script.exists():
+        _record(run_step("caselab_index", [sys.executable, str(caselab_index_script)]))
+
+    # Step 4.5: Build agent policy from Paper rules
+    build_policy_script = ROOT / "caselab_runtime" / "policies" / "build_policy_from_paper.py"
+    if build_policy_script.exists():
+        _record(run_step("build_policy_from_paper", [sys.executable, str(build_policy_script)]))
+
+    # Step 5: Horizon event adapter
+    logger.info("[%d/%d] Running Horizon event adapter...", 5, TOTAL_STEPS)
     horizon_script = ROOT / "scripts" / "horizon_event_adapter.py"
     if horizon_script.exists():
-        _record(run_step("horizon_events", [sys.executable, str(horizon_script), "--sample"]))
+        horizon_cmd = [sys.executable, str(horizon_script)]
+        if args.use_horizon_sample:
+            horizon_cmd.append("--sample")
+        _record(run_step("horizon_events", horizon_cmd))
 
-    # Step 5: Structural Replay
-    logger.info("[%d/%d] Running Structural Replay...", 5, TOTAL_STEPS)
+    # Step 6: Structural Replay
+    logger.info("[%d/%d] Running Structural Replay...", 6, TOTAL_STEPS)
     latest = ROOT / "Data" / "harvester" / "exports" / "latest"
     catalog_path = latest / "catalog.json"
     release_id = "latest"
@@ -311,11 +332,14 @@ def main() -> None:
         f"panel.path={bp_path}",
         f"run.tag=daily_{datetime.now(UTC).strftime('%Y%m%d')}",
     ]
-    _record(run_step("structural_replay", replay_cmd))
+    _record(run_step("structural_replay", replay_cmd), input_artifacts=[str(bp_path)])
 
     # Step 6: Bridge
     logger.info("[%d/%d] Running Bridge...", 6, TOTAL_STEPS)
-    _record(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
+    _record(
+        run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]),
+        input_artifacts=[str(ROOT / "Output" / "sandbox" / "structural_replay_v2" / "framework_output.json")],
+    )
 
     # Step 7: Quality validation
     logger.info("[%d/%d] Validating quality fields...", 7, TOTAL_STEPS)
@@ -355,11 +379,28 @@ def main() -> None:
     if caselab_script.exists():
         _record(run_step("caselab_signal", [sys.executable, str(caselab_script), "--json"]))
 
+    # Archive daily snapshots for backfill
+    archive_script = ROOT / "scripts" / "archive_daily_snapshots.py"
+    if archive_script.exists():
+        _record(run_step("archive_daily_snapshots", [sys.executable, str(archive_script)]))
+
+    backfill_script = ROOT / "scripts" / "backfill_judgment_calibration.py"
+    if backfill_script.exists():
+        _record(run_step("backfill_judgment_calibration", [sys.executable, str(backfill_script)]))
+
     # Step 11: Judgment
     logger.info("[%d/%d] Generating judgment card...", 11, TOTAL_STEPS)
     judgment_script = ROOT / "scripts" / "judgment_layer.py"
     if judgment_script.exists():
-        _record(run_step("judgment_layer", [sys.executable, str(judgment_script)]))
+        _record(
+            run_step("judgment_layer", [sys.executable, str(judgment_script)]),
+            input_artifacts=[
+                str(ROOT / "Output" / "current" / "framework_output.json"),
+                str(ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"),
+                str(ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"),
+                str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
+            ],
+        )
     judgment_audit_script = ROOT / "scripts" / "judgment_replay_audit.py"
     if judgment_audit_script.exists():
         _record(run_step("judgment_replay_audit", [sys.executable, str(judgment_audit_script)]))
@@ -380,7 +421,16 @@ def main() -> None:
     logger.info("[%d/%d] Generating trade decision...", 14, TOTAL_STEPS)
     trade_script = ROOT / "scripts" / "trade_decision_layer.py"
     if trade_script.exists():
-        _record(run_step("trade_decision", [sys.executable, str(trade_script)]))
+        _record(
+            run_step("trade_decision", [sys.executable, str(trade_script)]),
+            input_artifacts=[
+                str(ROOT / "Output" / "judgment" / "latest.json"),
+                str(ROOT / "Output" / "judgment" / "promotion_gate.json"),
+                str(ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"),
+                str(ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"),
+                str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
+            ],
+        )
 
     # Step 15: Risk gate
     logger.info("[%d/%d] Running risk gate...", 15, TOTAL_STEPS)
@@ -393,6 +443,11 @@ def main() -> None:
     record_script = ROOT / "scripts" / "record_trade_decision.py"
     if record_script.exists():
         _record(run_step("record_trade_decision", [sys.executable, str(record_script)]))
+
+    # Step 16.5: Trade decision replay — update calibration report before Learning Hub ingestion
+    replay_script = ROOT / "scripts" / "trade_decision_replay.py"
+    if replay_script.exists():
+        _record(run_step("trade_decision_replay", [sys.executable, str(replay_script)]))
 
     # Step 17: Market feedback
     logger.info("[%d/%d] Generating market feedback...", 17, TOTAL_STEPS)
@@ -410,6 +465,15 @@ def main() -> None:
     if claim_tracker_script.exists():
         _record(run_step("claim_ladder_tracker", [sys.executable, str(claim_tracker_script)]))
 
+    # Weekly mechanism causal calibration (Monday UTC, or --force-weekly)
+    if start_time.weekday() == 0 or args.force_weekly:
+        mechanism_cal_script = ROOT / "scripts" / "run_mechanism_calibration.py"
+        if mechanism_cal_script.exists():
+            _record(run_step("mechanism_calibration", [sys.executable, str(mechanism_cal_script)]))
+        suggest_script = ROOT / "scripts" / "suggest_paper_updates.py"
+        if suggest_script.exists():
+            _record(run_step("suggest_paper_updates", [sys.executable, str(suggest_script)]))
+
     # Step 18: Learning comprehensive summary
     logger.info("[%d/%d] Generating Learning Hub comprehensive summary...", 18, TOTAL_STEPS)
     learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
@@ -421,6 +485,31 @@ def main() -> None:
     trade_calibration_script = ROOT / "scripts" / "learning_hub_trade_calibration.py"
     if trade_calibration_script.exists():
         _record(run_step("trade_calibration_event", [sys.executable, str(trade_calibration_script)]))
+
+    # Export feedback drafts to Paper inbox
+    export_feedback_script = ROOT / "scripts" / "export_feedback_to_paper.py"
+    if export_feedback_script.exists():
+        _record(run_step("export_feedback", [sys.executable, str(export_feedback_script)]))
+
+    promote_script = ROOT / "scripts" / "promote_paper_inbox.py"
+    if promote_script.exists():
+        _record(run_step("promote_paper_inbox", [sys.executable, str(promote_script)]))
+
+    collect_reviews_script = ROOT / "caselab_runtime" / "feedback" / "collect_reviews.py"
+    if collect_reviews_script.exists():
+        _record(run_step(
+            "collect_reviews",
+            [sys.executable, "-m", "caselab_runtime.feedback.collect_reviews", "--json"],
+        ))
+
+    # Daily pending evaluation (forward-outcome checks for judgment/trade claims)
+    evaluate_script = ROOT / "scripts" / "evaluate_pending.py"
+    if evaluate_script.exists():
+        eval_cmd = [sys.executable, str(evaluate_script)]
+        # Lightweight daily: only 1d window; full evaluation on Monday or --force-weekly
+        if start_time.weekday() != 0 and not args.force_weekly:
+            eval_cmd.append("--daily-only")
+        _record(run_step("evaluate_pending", eval_cmd))
 
     # Step 19: Operator registry audit
     logger.info("[%d/%d] Running operator registry audit...", 19, TOTAL_STEPS)
@@ -485,6 +574,12 @@ def main() -> None:
     if governance_status_script.exists():
         _record(run_step("governance_status", [sys.executable, str(governance_status_script)]))
 
+    # Step 29: Change analysis (delta, trend, anomaly layer)
+    logger.info("[%d/%d] Building change analysis...", 29, TOTAL_STEPS)
+    change_analysis_script = ROOT / "scripts" / "build_change_analysis.py"
+    if change_analysis_script.exists():
+        _record(run_step("change_analysis", [sys.executable, str(change_analysis_script)]))
+
     # Capture decision + signal traces into bundle
     _capture_traces(bundle)
 
@@ -498,6 +593,7 @@ def main() -> None:
         "Output/current/signal_card.json",
         "Output/current/signal_consensus.json",
         "Output/current/data_gaps.json",
+        "Output/current/change_analysis.json",
     ]:
         artifact = ROOT / artifact_rel
         if artifact.exists():
@@ -511,6 +607,7 @@ def main() -> None:
     event = {
         "run_id": f"daily_{start_time.strftime('%Y%m%d_%H%M')}",
         "bundle_run_id": bundle.run_id,
+        "schedule_tag": schedule_tag,
         "started_at": start_time.isoformat(),
         "finished_at": end_time.isoformat(),
         "duration_s": round((end_time - start_time).total_seconds(), 1),
@@ -521,6 +618,13 @@ def main() -> None:
     }
     write_runtime_event(event, output_root=output_root if args.output_root else None)
     write_alert(warnings, steps, output_root=output_root if args.output_root else None)
+
+    failed_steps = [s["step"] for s in steps if s.get("status") != "success"]
+    notify_daily_run_result(
+        status=run_status,
+        failed_steps=failed_steps,
+        warnings=warnings,
+    )
 
     # Finish run bundle
     bundle_dir = bundle.finish(status=run_status)

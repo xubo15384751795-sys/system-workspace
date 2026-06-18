@@ -28,6 +28,33 @@ RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
 EVENTS_DIR = ROOT / "Output" / "system_learning" / "events"
 
 
+def _entry_key(entry: dict[str, Any]) -> tuple[Any, ...]:
+    thesis = entry.get("trade_thesis") or {}
+    claim = ""
+    if isinstance(thesis, dict):
+        ladder = thesis.get("claim_ladder") or {}
+        if isinstance(ladder, dict):
+            claim = str(ladder.get("claim_statement", ""))
+        claim = claim or str(thesis.get("hypothesis", ""))
+    return (
+        entry.get("date"),
+        entry.get("decision"),
+        entry.get("confidence"),
+        entry.get("evidence_grade"),
+        entry.get("time_horizon"),
+        tuple(sorted(entry.get("asset_scope") or [])),
+        entry.get("decision_fingerprint") or claim,
+    )
+
+
+def dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the latest record for each observable decision state."""
+    deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for entry in entries:
+        deduped[_entry_key(entry)] = entry
+    return list(deduped.values())
+
+
 def build_calibration_event(
     entry: dict[str, Any],
     calibration: dict[str, Any] | None,
@@ -42,7 +69,12 @@ def build_calibration_event(
     if calibration:
         evaluations = calibration.get("evaluations", [])
         for eval_item in evaluations:
-            if eval_item.get("date") == date:
+            if (
+                eval_item.get("date") == date
+                and eval_item.get("decision") == entry.get("decision")
+                and eval_item.get("confidence") == entry.get("confidence")
+                and eval_item.get("evidence_grade") == entry.get("evidence_grade")
+            ):
                 outcomes = eval_item.get("outcomes", {})
                 evaluated_horizons = eval_item.get("evaluated_horizons", [])
                 break
@@ -137,7 +169,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Load data
-    entries = load_jsonl(TRADE_LEDGER_PATH)
+    entries = dedupe_entries(load_jsonl(TRADE_LEDGER_PATH))
     calibration = load_json(CALIBRATION_REPORT_PATH)
     risk_gate = load_json(RISK_GATE_PATH)
 

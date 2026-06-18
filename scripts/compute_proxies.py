@@ -7,6 +7,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from pathlib import Path
 
 # 代理系列映射
 PROXY_MAP = {
@@ -121,7 +122,7 @@ def compute_proxy_history(pivot_df, proxy_name, config, window=260):
 def main():
     # 读取数据
     print("读取 Harvester 数据...")
-    df = pd.read_parquet('/Users/a1/System/Data/merged_data/benchmark_panel_with_etfs.parquet')
+    df = pd.read_parquet(Path(__file__).resolve().parents[1] / 'Data' / 'merged_data' / 'benchmark_panel_with_etfs.parquet')
     
     # 去重
     df = df.drop_duplicates(subset=['date', 'series_id'], keep='last')
@@ -176,7 +177,7 @@ def main():
     print(proxy_df.tail(10).to_string())
     
     # 保存结果
-    output_path = '/Users/a1/System/Data/merged_data/proxy_values_rolling.parquet'
+    output_path = Path(__file__).resolve().parents[1] / 'Data' / 'merged_data' / 'proxy_values_rolling.parquet'
     proxy_df.to_parquet(output_path)
     print(f"\n保存到: {output_path}")
     print(f"行数: {len(proxy_df)}")
