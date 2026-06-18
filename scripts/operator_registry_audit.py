@@ -18,29 +18,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_yaml, utc_now, write_json
+
 REGISTRY_PATH = ROOT / "governance" / "operator_registry.yaml"
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
 DAILY_RUN_PATH = ROOT / "scripts" / "daily_run.py"
 OUTPUT_DIR = ROOT / "Output" / "quality"
-
-
-def load_yaml(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def extract_daily_run_steps() -> list[str]:
@@ -165,7 +152,7 @@ def build_audit_report(registry: dict[str, Any], constitution: dict[str, Any]) -
 
     return {
         "schema_version": "operator_registry_audit.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "total_operators": len(registry.get("operators", {})),
         "total_daily_steps": len(daily_steps),
         "issues": all_issues,
@@ -212,12 +199,12 @@ def format_markdown(report: dict[str, Any]) -> str:
 
 
 def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "operator_registry_audit.json"
     md_path = OUTPUT_DIR / "operator_registry_audit.md"
 
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, report)
     md_path.write_text(format_markdown(report), encoding="utf-8")
 
     return {"json": json_path, "markdown": md_path}

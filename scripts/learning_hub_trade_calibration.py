@@ -16,33 +16,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
 RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
 EVENTS_DIR = ROOT / "Output" / "system_learning" / "events"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
 
 
 def build_calibration_event(
@@ -51,7 +34,7 @@ def build_calibration_event(
     risk_gate: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Build a single trade decision calibration event."""
-    date = entry.get("date", datetime.now(UTC).strftime("%Y-%m-%d"))
+    date = entry.get("date", utc_now().strftime("%Y-%m-%d"))
 
     # Find matching calibration evaluation
     outcomes = {}
@@ -72,7 +55,7 @@ def build_calibration_event(
     return {
         "event_type": "trade_decision_calibration",
         "schema_version": "trade_decision_calibration_event.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "decision_date": date,
         "decision": entry.get("decision", "NO_TRADE"),
         "confidence": entry.get("confidence", "low"),
@@ -166,7 +149,7 @@ def main() -> None:
     events = [build_calibration_event(entry, calibration, risk_gate) for entry in entries]
 
     # Write events
-    date_str = args.date or datetime.now(UTC).strftime("%Y-%m-%d")
+    date_str = args.date or utc_now().strftime("%Y-%m-%d")
     EVENTS_DIR.mkdir(parents=True, exist_ok=True)
     output_path = EVENTS_DIR / f"trade_decision_calibration_{date_str}.jsonl"
 
@@ -182,10 +165,8 @@ def main() -> None:
 
     # Write Learning Hub summary
     hub_latest_dir = ROOT / "Output" / "system_learning" / "latest"
-    hub_latest_dir.mkdir(parents=True, exist_ok=True)
-    (hub_latest_dir / "trade_decision_calibration_summary.json").write_text(
-        json.dumps(hub_summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    ensure_dir(hub_latest_dir)
+    write_json(hub_latest_dir / "trade_decision_calibration_summary.json", hub_summary)
 
     if args.json:
         print(json.dumps({"events": events, "summary": summary, "hub_summary": hub_summary}, indent=2, ensure_ascii=False))

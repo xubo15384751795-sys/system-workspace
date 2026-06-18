@@ -10,13 +10,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 BENCHMARK_PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
@@ -26,12 +27,6 @@ REPORT_MD = JUDGMENT_DIR / "calibration_report.md"
 HORIZONS = {"1d": 1, "1w": 5, "1m": 21}
 ETF_SYMBOLS = ("SPY", "HYG", "TLT")
 BENCHMARK_SERIES = {"VIX": "FRED:VIXCLS", "MOVE": "CBOE:MOVE"}
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_judgment_cards(path: Path = JUDGMENT_DIR) -> list[dict[str, Any]]:
@@ -263,7 +258,7 @@ def build_report(cards: list[dict[str, Any]], market_series: dict[str, pd.Series
     evaluations = [evaluate_card(card, market_series) for card in cards]
     return {
         "schema_version": "system.judgment_calibration.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "horizons": HORIZONS,
         "market_series": sorted(market_series.keys()),
         "summary": summarize_evaluations(evaluations),
@@ -371,8 +366,8 @@ def format_markdown(report: dict[str, Any]) -> str:
 
 
 def write_report(report: dict[str, Any]) -> dict[str, Path]:
-    JUDGMENT_DIR.mkdir(parents=True, exist_ok=True)
-    REPORT_JSON.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    ensure_dir(JUDGMENT_DIR)
+    write_json(REPORT_JSON, report)
     REPORT_MD.write_text(format_markdown(report), encoding="utf-8")
     return {"json": REPORT_JSON, "markdown": REPORT_MD}
 

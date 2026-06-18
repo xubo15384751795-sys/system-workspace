@@ -20,20 +20,15 @@ from __future__ import annotations
 import argparse
 import json
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 RUNS_DIR = ROOT / "Output" / "runs"
 PROGRESSION_PATH = ROOT / "Output" / "claim_ladder" / "progression.json"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def scan_all_run_claims() -> list[dict[str, Any]]:
@@ -118,7 +113,7 @@ def classify_claims(
 
 def build_summary() -> dict[str, Any]:
     """Build the full claim ladder summary."""
-    now = datetime.now(UTC)
+    now = utc_now()
     all_claims = scan_all_run_claims()
     progression = load_json(PROGRESSION_PATH)
     classified = classify_claims(all_claims, progression)
@@ -202,12 +197,12 @@ def format_markdown(summary: dict[str, Any]) -> str:
 
 def write_outputs(summary: dict[str, Any]) -> dict[str, Path]:
     """Write claim ladder summary."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "claim_ladder_summary.json"
     md_path = OUTPUT_DIR / "claim_ladder_summary.md"
 
-    json_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, summary)
     md_path.write_text(format_markdown(summary), encoding="utf-8")
 
     return {"json": json_path, "markdown": md_path}

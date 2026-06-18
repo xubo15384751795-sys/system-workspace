@@ -18,11 +18,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
@@ -33,12 +34,6 @@ OUTPUT_DIR = ROOT / "Output" / "promotion"
 
 # Minimum calibration samples required
 MIN_CALIBRATION_SAMPLES = 10
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -168,7 +163,7 @@ def check_text_for_blocked_terms(text: str, gates: dict[str, Any]) -> list[dict[
 def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
     """Run complete promotion gate check."""
     if not date_str:
-        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        date_str = utc_now().strftime("%Y-%m-%d")
 
     judgment = load_json(JUDGMENT_PATH)
 
@@ -196,7 +191,7 @@ def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
 
     return {
         "schema_version": "system.promotion_gate.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "as_of": date_str,
         "overall_status": overall_status,
         "gates": gates,
@@ -263,11 +258,11 @@ def main() -> None:
 
     report = run_promotion_gate(args.date)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     json_path = OUTPUT_DIR / "promotion_gate.json"
     md_path = OUTPUT_DIR / "promotion_gate.md"
 
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, report)
     md_path.write_text(format_markdown(report), encoding="utf-8")
 
     # Check report if provided

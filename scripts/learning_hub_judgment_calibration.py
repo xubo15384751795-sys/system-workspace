@@ -16,21 +16,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 CALIBRATION_PATH = JUDGMENT_DIR / "calibration_report.json"
 PROMOTION_GATE_PATH = JUDGMENT_DIR / "promotion_gate.json"
 EVENTS_DIR = ROOT / "Output" / "system_learning" / "events"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_judgment_cards() -> list[dict[str, Any]]:
@@ -100,7 +95,7 @@ def build_calibration_event(
     return {
         "event_type": "judgment_calibration",
         "schema_version": "system.judgment_calibration_event.v2",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "judgment_date": as_of,
         "decision": decision,
         "confidence": confidence,
@@ -119,7 +114,7 @@ def build_calibration_event(
 
 def write_events(events: list[dict[str, Any]], date_str: str) -> Path:
     """Write events to JSONL file."""
-    EVENTS_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(EVENTS_DIR)
     output_path = EVENTS_DIR / f"judgment_calibration_{date_str}.jsonl"
 
     with output_path.open("w", encoding="utf-8") as f:
@@ -230,7 +225,7 @@ def main() -> None:
     events = [build_calibration_event(card, calibration, promotion_gate) for card in cards]
 
     # Write events
-    date_str = args.date or datetime.now(UTC).strftime("%Y-%m-%d")
+    date_str = args.date or utc_now().strftime("%Y-%m-%d")
     output_path = write_events(events, date_str)
 
     # Build summary
@@ -241,14 +236,12 @@ def main() -> None:
 
     # Write Learning Hub summary
     hub_summary_path = EVENTS_DIR / f"judgment_calibration_summary_{date_str}.json"
-    hub_summary_path.write_text(json.dumps(hub_summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(hub_summary_path, hub_summary)
 
     # Also write to Learning Hub latest
     hub_latest_dir = ROOT / "Output" / "system_learning" / "latest"
-    hub_latest_dir.mkdir(parents=True, exist_ok=True)
-    (hub_latest_dir / "judgment_calibration_summary.json").write_text(
-        json.dumps(hub_summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    ensure_dir(hub_latest_dir)
+    write_json(hub_latest_dir / "judgment_calibration_summary.json", hub_summary)
 
     if args.json:
         print(json.dumps({"events": events, "summary": summary, "hub_summary": hub_summary}, indent=2, ensure_ascii=False))
