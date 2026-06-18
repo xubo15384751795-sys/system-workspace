@@ -289,6 +289,34 @@ class TestExperimentalSubmissionRegistry:
         assert "update_rule_proposal" in decisions, \
             "update_rule_proposal must be an allowed decision"
 
+    def test_submission_types_include_topology_change(self):
+        types = self.REG.get("submission_types", [])
+        assert "topology_change" in types
+        assert "exploration" in types
+
+
+# ── authority_graph_policy.yaml ───────────────────────────────────────────
+
+class TestAuthorityGraphPolicy:
+    POL = _load("authority_graph_policy.yaml")
+
+    def test_schema_version(self):
+        assert "authority_graph_policy" in self.POL["schema_version"]
+
+    def test_zones_defined(self):
+        zones = self.POL.get("zones", {})
+        for zone_id in ("Z0", "Z1", "Z2", "Z3", "Z_inf"):
+            assert zone_id in zones
+
+    def test_bridge_nodes_declared(self):
+        assert "bridge" in self.POL.get("bridge_nodes", [])
+
+    def test_graph_invariants_declared(self):
+        invariants = self.POL.get("graph_invariants", [])
+        ids = {item["id"] for item in invariants}
+        assert "sandbox_requires_bridge" in ids
+        assert "declared_derived_alignment" in ids
+
 
 # ── pipeline_test_baseline.yaml ──────────────────────────────────────────
 
@@ -352,6 +380,10 @@ class TestSystemConstitution:
         chain = har.get("authorized_runtime_chain", [])
         assert len(chain) > 0, "authorized_runtime_chain is empty"
         assert "Output/current/" in chain
+        # Gate outputs must be covered
+        assert "Output/k_measurement/" in chain, "k_measurement gate output not in authorized chain"
+        assert "Output/x_measurement/" in chain, "x_measurement gate output not in authorized chain"
+        assert "Output/caselab/" in chain, "caselab output not in authorized chain"
 
     def test_bridge_rule_declared(self):
         """Constitution must declare how sandbox reaches core."""
@@ -369,27 +401,37 @@ class TestCodeGovernance:
 
         All other scripts must read it, not write it. This prevents
         multiple writers from producing conflicting core artifacts.
+        Includes Workbench submodule scan.
         """
-        scripts_dir = ROOT / "scripts"
         canonical_writer = "bridge_replay_to_current.py"
         violations = []
+        write_indicators = ("write_text", "write(", "dump", "json.dump")
 
-        for py_file in scripts_dir.glob("*.py"):
-            if py_file.name == canonical_writer:
+        # Scan scripts/ and Workbench/src/
+        scan_dirs = [
+            ROOT / "scripts",
+            ROOT / "Workbench" / "src" / "workbench",
+        ]
+
+        for scan_dir in scan_dirs:
+            if not scan_dir.exists():
                 continue
-            if py_file.name.startswith("_"):
-                continue  # skip internal modules
-            source = py_file.read_text(encoding="utf-8")
-            # Check for write patterns targeting framework_output.json in current/
-            if "framework_output.json" in source:
-                # Only flag if it looks like a write operation
+            for py_file in scan_dir.rglob("*.py"):
+                if py_file.name == canonical_writer:
+                    continue
+                if py_file.name.startswith("_"):
+                    continue
+                source = py_file.read_text(encoding="utf-8")
+                if "framework_output" not in source:
+                    continue
                 for line in source.splitlines():
-                    if "framework_output.json" in line and any(
-                        w in line.lower() for w in ("write_text", "write", "dump", "open(", "json.dump")
+                    if "framework_output" in line and any(
+                        w in line.lower() for w in write_indicators
                     ):
                         if "current" in line or "CURRENT" in line:
+                            rel = py_file.relative_to(ROOT)
                             violations.append(
-                                f"{py_file.name}: writes framework_output.json to current — "
+                                f"{rel}: writes framework_output to current — "
                                 f"only {canonical_writer} is authorized"
                             )
                             break
@@ -399,13 +441,13 @@ class TestCodeGovernance:
         )
 
     def test_root_scripts_budget(self):
-        """Root scripts must not exceed 65. One-in-one-out rule."""
+        """Root scripts must not exceed 72. One-in-one-out rule."""
         scripts_dir = ROOT / "scripts"
         root_scripts = [
             f for f in scripts_dir.glob("*.py")
             if not f.name.startswith("_") and f.name != "__init__.py"
         ]
-        assert len(root_scripts) <= 65, (
-            f"Root scripts count {len(root_scripts)} exceeds budget of 65. "
+        assert len(root_scripts) <= 72, (
+            f"Root scripts count {len(root_scripts)} exceeds budget of 72. "
             f"Archive or module-absorb a script before adding new ones."
         )

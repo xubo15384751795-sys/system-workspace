@@ -20,6 +20,7 @@ from claim_ladder_tracker import (
     check_invalidation,
     check_md_persistence,
     evaluate_progression,
+    find_previous_claim_run_dir,
     find_previous_run_dir,
     load_previous_pending,
 )
@@ -98,6 +99,25 @@ def test_find_previous_run_dir_none(_isolated_dirs):
     assert find_previous_run_dir() is None
 
 
+def test_find_previous_claim_run_dir_skips_generic_feedback(_isolated_dirs):
+    runs_dir = _isolated_dirs[0]
+    _make_run(
+        runs_dir,
+        "run_1",
+        "success",
+        pending_items=[_make_claim_item("stress_relief hypothesis")],
+    )
+    _make_run(
+        runs_dir,
+        "run_2",
+        "success",
+        pending_items=[{"source": "judgment_layer", "item": "Low confidence"}],
+    )
+    found = find_previous_claim_run_dir()
+    assert found is not None
+    assert found.name == "run_1"
+
+
 # ── check_md_persistence ────────────────────────────────────────────────────
 
 def test_md_persistence_confirmed(_isolated_dirs):
@@ -166,6 +186,16 @@ def test_hmm_aligned(_isolated_dirs):
     result = check_hmm_conflict(item)
     assert result["conflict"] is False
     assert result["status"] == "aligned"
+
+
+def test_hmm_dict_regime_supported(_isolated_dirs):
+    hmm_dir = _isolated_dirs[3]
+    (hmm_dir / "regime_hmm.json").write_text(json.dumps({"regime": {"current": "volatile"}}))
+
+    item = _make_claim_item("stress_relief hypothesis")
+    result = check_hmm_conflict(item)
+    assert result["current_regime"] == "volatile"
+    assert result["status"] == "conflict"
 
 
 # ── check_invalidation ──────────────────────────────────────────────────────
