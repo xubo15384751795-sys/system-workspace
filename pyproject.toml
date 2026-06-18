@@ -1,0 +1,49 @@
+[project]
+name = "structural-deformation-system"
+version = "0.1.0"
+description = "Structural Deformation Research System — engineering workspace"
+requires-python = ">=3.12"
+
+# Core runtime dependencies (shared across all submodules)
+dependencies = [
+    "pyyaml>=6.0",
+    "jsonschema>=4.0",
+    "pandas>=2.0",
+    "numpy>=2.0",
+    "scikit-learn>=1.4",
+]
+
+[project.optional-dependencies]
+ml = [
+    "hmmlearn>=0.3",
+]
+dev = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.0",
+    "pandas>=2.0",
+    "numpy>=2.0",
+    "scikit-learn>=1.4",
+    "hmmlearn>=0.3",
+]
+full = [
+    "structural-deformation-system[ml,dev]",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+    ".git", ".pytest_cache", "__pycache__", "Data", "Output",
+    "Workbench", "Structural Deformation Research System",
+    "Structural Risk Harvester", "Structural Research Harness",
+    "System Learning Hub", "contracts",
+]
+markers = [
+    "critical_gate: tests that must pass before promotion",
+    "semantic: concept registry, proxy semantics",
+    "data_boundary: data boundary compliance, freshness",
+    "benchmark: benchmark correctness",
+    "report: report verdict gate, export validation",
+    "governance_loop: ledger, escalation, incident lifecycle",
+    "slow: tests that take >10s",
+]

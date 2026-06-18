@@ -1,0 +1,83 @@
+# CI Minimal Gate — lightweight checks that run on every PR/push.
+#
+# This does NOT run the full daily pipeline, Harvester, or external data
+# fetching. It only validates that the codebase is structurally sound:
+#   1. Python syntax / import check
+#   2. Root tests (534+ tests)
+#   3. Architecture boundary audit
+#   4. Daily pipeline dry-run (no data fetching)
+#
+# Heavier checks (daily run, data freshness, full pipeline) are run
+# manually or via scheduled workflows.
+
+name: CI Minimal Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  root-contract:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Core dependencies (matching current runtime)
+          pip install pyyaml jsonschema pandas numpy scikit-learn hmmlearn pytest
+          # Ensure scripts/ is importable
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Python syntax check
+        run: |
+          python -m py_compile scripts/daily_run.py
+          python -m py_compile scripts/freshness_validator.py
+          python -m py_compile scripts/build_system_index.py
+          python -m py_compile scripts/judgment_layer.py
+          python -m py_compile scripts/trade_decision_layer.py
+          python -m py_compile scripts/record_trade_decision.py
+          python -m py_compile scripts/hmm_stability_audit.py
+          python -m py_compile scripts/build_signal_card.py
+          python -m py_compile scripts/build_work_brief.py
+          python -m py_compile scripts/caselab_daily_signal.py
+          python -m py_compile Workbench/src/workbench/judgment/claim_ladder.py
+          python -m py_compile Workbench/src/workbench/judgment/layer.py
+          python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
+          python -m py_compile Workbench/src/ml/confidence_calibration.py
+
+      - name: Run tests
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python -m pytest tests -q --tb=short
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Architecture boundary audit
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/architecture_reality_audit.py --json
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+
+      - name: Daily pipeline dry-run
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/daily_run.py --dry-run
+        env:
+          PYTHONPATH: "${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"

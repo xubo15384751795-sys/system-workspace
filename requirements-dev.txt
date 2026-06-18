@@ -1,0 +1,17 @@
+# Development dependencies for the Structural Deformation System.
+#
+# Install: pip install -r requirements-dev.txt
+# Or:      make install-dev
+
+# Core
+pyyaml>=6.0
+jsonschema>=4.0
+pandas>=2.0
+numpy>=2.0
+scikit-learn>=1.4
+
+# ML
+hmmlearn>=0.3
+
+# Testing
+pytest>=8.0
