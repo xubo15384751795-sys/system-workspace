@@ -77,7 +77,7 @@ def check_output_without_registry():
     output_dir = ROOT / "Output"
     reg = load_artifact_registry()
     registered = {a["path"].rstrip("/") for a in reg.get("artifacts", [])}
-    
+
     unregistered = []
     for item in output_dir.iterdir():
         if item.is_dir() and item.name not in ("current", "system_learning", "archive", "sandbox"):
@@ -118,13 +118,13 @@ def check_modules_md_vs_registry():
     """Compare MODULES.md status with capability registry."""
     modules_path = ROOT / "MODULES.md"
     cap_reg = load_capability_registry()
-    
+
     if not modules_path.exists():
         return []
-    
+
     with open(modules_path) as f:
         content = f.read()
-    
+
     inconsistencies = []
     # Map MODULES.md thread names to registry keys
     thread_map = {
@@ -142,7 +142,7 @@ def check_modules_md_vs_registry():
         "Qlib Benchmark": "qlib_benchmark",
         "Research Terminal": "research_terminal",
     }
-    
+
     for thread_name, reg_key in thread_map.items():
         if reg_key in cap_reg and isinstance(cap_reg[reg_key], dict):
             reg_status = cap_reg[reg_key].get("status", "UNKNOWN")
@@ -185,13 +185,13 @@ def check_deprecated_in_pipeline():
     daily_run = ROOT / "scripts" / "daily_run.py"
     if not daily_run.exists():
         return []
-    
+
     with open(daily_run) as f:
         content = f.read()
-    
+
     deprecated_refs = []
     # Check for imports/calls to known deprecated scripts
-    deprecated = ["solution_phase1", "solution_phase2", "hmm_generate_history", 
+    deprecated = ["solution_phase1", "solution_phase2", "hmm_generate_history",
                   "hmm_stability_audit", "prepare_dl_training_data"]
     for dep in deprecated:
         if dep in content:
@@ -202,12 +202,12 @@ def check_deprecated_in_pipeline():
 def generate_report():
     """Generate the abandoned work report."""
     cap_reg = load_capability_registry()
-    
+
     report = []
     report.append("# Abandoned Work Report")
     report.append(f"\nGenerated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     report.append("")
-    
+
     # 1. Untracked source files
     old_untracked = git_untracked_older_than(days=3)
     report.append("## 1. Untracked Source Files (>3 days old)")
@@ -220,7 +220,7 @@ def generate_report():
     else:
         report.append("\nNone found.")
     report.append("")
-    
+
     # 2. Output without registry
     unregistered = check_output_without_registry()
     report.append("## 2. Output Directories Without Registry Entry")
@@ -231,7 +231,7 @@ def generate_report():
     else:
         report.append("\nNone found.")
     report.append("")
-    
+
     # 3. PAPER modules with data
     paper_with_data = check_paper_modules_with_data(cap_reg)
     report.append("## 3. PAPER Modules That Actually Have Data")
@@ -244,7 +244,7 @@ def generate_report():
     else:
         report.append("\nNone found.")
     report.append("")
-    
+
     # 4. CANONICAL without tests
     no_tests = check_canonical_without_tests(cap_reg)
     report.append("## 4. CANONICAL Capabilities Without Tests")
@@ -255,7 +255,7 @@ def generate_report():
     else:
         report.append("\nNone found.")
     report.append("")
-    
+
     # 5. Old 'latest' symlinks
     old_links = check_latest_symlinks()
     report.append("## 5. 'latest' Symlinks Pointing to Old Artifacts (>7 days)")
@@ -268,7 +268,7 @@ def generate_report():
     else:
         report.append("\nNone found.")
     report.append("")
-    
+
     # 6. Deprecated scripts in pipeline
     deprecated_refs = check_deprecated_in_pipeline()
     report.append("## 6. Deprecated Scripts Still Referenced in Daily Pipeline")
@@ -279,7 +279,7 @@ def generate_report():
     else:
         report.append("\nNone found.")
     report.append("")
-    
+
     # 7. Summary counts
     report.append("## Summary")
     report.append("")
@@ -289,23 +289,23 @@ def generate_report():
     report.append(f"- CANONICAL without tests: {len(no_tests)}")
     report.append(f"- Old 'latest' symlinks: {len(old_links)}")
     report.append(f"- Deprecated in pipeline: {len(deprecated_refs)}")
-    
+
     return "\n".join(report)
 
 
 def main():
     report = generate_report()
-    
+
     # Write to Output/system_learning/latest/
     out_dir = ROOT / "Output" / "system_learning" / "latest"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "abandoned_work_report.md"
-    
+
     with open(out_path, "w") as f:
         f.write(report)
-    
+
     print(f"Report written to: {out_path}")
-    
+
     # Also print summary
     print("\n" + "=" * 60)
     print(report.split("## Summary")[-1] if "## Summary" in report else report)
