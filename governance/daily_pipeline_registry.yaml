@@ -11,6 +11,7 @@ external_inputs:
   - governance/
   - scripts/
   - "Structural Deformation Research System/src/"
+  - Output/runs/
 steps:
   harvester:
     order: 1
@@ -537,6 +538,7 @@ steps:
     - Output/trade_decisions/latest.json
     produces: &id034
     - Output/system_learning/decision_trace/
+    - Output/trade_ledger/decisions.jsonl
     artifact_path: Output/system_learning/decision_trace/
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
@@ -579,6 +581,65 @@ steps:
     contracts:
       inputs: *id035
       outputs: *id036
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  claim_evaluator:
+    order: 17.5
+    status: active
+    owner: Learning Hub
+    command: python scripts/claim_evaluator.py
+    input: &id_claim_eval_in
+    - Output/trade_ledger/decisions.jsonl
+    - Output/current/framework_output.json
+    produces: &id_claim_eval_out
+    - Output/system_learning/latest/claim_evaluation.json
+    artifact_path: Output/system_learning/latest/claim_evaluation.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/claim_evaluator.py
+      future_callable: scripts.claim_evaluator:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_claim_eval_in
+      outputs: *id_claim_eval_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+  claim_ladder_tracker:
+    order: 17.6
+    status: active
+    owner: Learning Hub
+    command: python scripts/claim_ladder_tracker.py
+    input: &id_claim_ladder_in
+    - Output/judgment/latest.json
+    - Output/caselab/
+    - Output/ml_signals/latest/regime_hmm.json
+    produces: &id_claim_ladder_out
+    - Output/claim_ladder/progression.json
+    artifact_path: Output/claim_ladder/progression.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/claim_ladder_tracker.py
+      future_callable: scripts.claim_ladder_tracker:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_claim_ladder_in
+      outputs: *id_claim_ladder_out
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -864,12 +925,72 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
+  signal_card:
+    order: 25
+    status: active
+    owner: Workbench
+    command: python scripts/build_signal_card.py
+    input: &id054
+    - Output/current/
+    - Output/judgment/
+    produces: &id055
+    - Output/current/signal_card.md
+    - Output/current/signal_card.json
+    artifact_path: Output/current/signal_card.md
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_signal_card.py
+      future_callable: scripts.build_signal_card:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id054
+      outputs: *id055
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+  work_brief:
+    order: 26
+    status: active
+    owner: Workbench
+    command: python scripts/build_work_brief.py
+    input: &id056
+    - Output/current/
+    - Output/judgment/
+    produces: &id057
+    - Output/current/work_brief.md
+    - Output/current/work_brief.json
+    artifact_path: Output/current/work_brief.md
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_work_brief.py
+      future_callable: scripts.build_work_brief:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id056
+      outputs: *id057
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
   routing_decision:
     order: null
     status: shadow_active
     owner: Agent Routing
     command: python scripts/daily_routing_decision.py
-    produces: &id054
+    produces: &id058
     - Output/system_learning/routing_decisions/
     artifact_path: Output/system_learning/routing_decisions/
     ttl_hours: 168
@@ -885,7 +1006,7 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs: []
-      outputs: *id054
+      outputs: *id058
       emits_run_event: true
     authority:
       affects_core_judgment: false

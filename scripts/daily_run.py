@@ -403,6 +403,11 @@ def main() -> None:
     if claim_eval_script.exists():
         _record(run_step("claim_evaluator", [sys.executable, str(claim_eval_script)]))
 
+    # Step 17.6: Claim ladder tracker — cross-run progression evaluation
+    claim_tracker_script = ROOT / "scripts" / "claim_ladder_tracker.py"
+    if claim_tracker_script.exists():
+        _record(run_step("claim_ladder_tracker", [sys.executable, str(claim_tracker_script)]))
+
     # Step 18: Learning comprehensive summary
     logger.info("[%d/%d] Generating Learning Hub comprehensive summary...", 18, TOTAL_STEPS)
     learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
@@ -578,7 +583,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
         except Exception:
             pass
 
-    # Claim ladder verification targets
+    # Claim ladder verification targets (structured)
     if judgment:
         try:
             ladder = judgment.get("claim_ladder", {})
@@ -586,37 +591,51 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                 tier = ladder.get("tier", 0)
                 label = ladder.get("label", "unknown")
                 claim = ladder.get("claim_statement", "")
+                watch_conditions = ladder.get("watch_conditions", [])
+                invalidation_conditions = ladder.get("invalidation_conditions", [])
+                promo = ladder.get("promotion_conditions", {})
+                demotion_risk = ladder.get("demotion_risk", "")
+
+                # Compute CaseLab score gap from caselab output
+                caselab_gap = 0.0
+                import datetime as _cl_dt
+                _today_str = _cl_dt.date.today().isoformat()
+                caselab_path_today = ROOT / "Output" / "caselab" / f"{_today_str}.json"
+                if caselab_path_today.exists():
+                    try:
+                        _cl = json.loads(caselab_path_today.read_text(encoding="utf-8"))
+                        _mq = _cl.get("match_quality", {})
+                        _ts = _mq.get("top_score", 0)
+                        _ut = _mq.get("thresholds", {}).get("usable", 0.55)
+                        caselab_gap = round(max(0, _ut - _ts), 3)
+                    except Exception:
+                        pass
+
+                # M/D persistence requirement from promotion conditions
+                md_persist_req = promo.get("to_tier_2", "")
+
+                # Structured claim ladder item with all 6 required fields
                 bundle.add_feedback_pending(
                     f"Claim ladder: tier={tier} ({label}) — {claim[:150]}",
                     source="claim_ladder",
                     validation_type="claim_verification",
                     priority="high",
+                    metadata={
+                        "claim_tier": tier,
+                        "claim_label": label,
+                        "mechanism_hypothesis": claim,
+                        "watch_conditions": watch_conditions,
+                        "invalidation_conditions": invalidation_conditions,
+                        "caselab_score_gap": caselab_gap,
+                        "md_persistence_requirement": md_persist_req,
+                        "demotion_risk": demotion_risk,
+                        # Acceptance criteria: 4 questions answered
+                        "what_to_verify": claim,
+                        "what_to_watch_next": watch_conditions,
+                        "upgrade_conditions": list(promo.values()),
+                        "downgrade_conditions": invalidation_conditions + ([demotion_risk] if demotion_risk else []),
+                    },
                 )
-                # Watch conditions — what to verify next run
-                for wc in ladder.get("watch_conditions", []):
-                    bundle.add_feedback_pending(
-                        f"Watch: {wc}",
-                        source="claim_ladder",
-                        validation_type="claim_verification",
-                        priority="medium",
-                    )
-                # Invalidation conditions — what would disprove
-                for ic in ladder.get("invalidation_conditions", []):
-                    bundle.add_feedback_pending(
-                        f"Invalidation: {ic}",
-                        source="claim_ladder",
-                        validation_type="invalidation_check",
-                        priority="high",
-                    )
-                # Promotion conditions
-                promo = ladder.get("promotion_conditions", {})
-                for k, v in promo.items():
-                    bundle.add_feedback_pending(
-                        f"Promotion {k}: {v}",
-                        source="claim_ladder",
-                        validation_type="claim_verification",
-                        priority="low",
-                    )
         except Exception:
             pass
 

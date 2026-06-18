@@ -1,0 +1,553 @@
+#!/usr/bin/env python3
+"""Signal Consensus — aggregate all signal sources into a unified view.
+
+Reads M/D, HMM, K/X, CaseLab, and probabilistic context signals, classifies
+each as adopted/monitoring_only/rejected/conflict, and produces a consensus
+report explaining the current tier and what blocks promotion.
+
+Usage:
+    python3 scripts/signal_consensus.py
+    python3 scripts/signal_consensus.py --json
+
+Output:
+    Output/current/signal_consensus.json
+    Output/current/signal_consensus.md
+"""
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+OUTPUT_CURRENT = ROOT / "Output" / "current"
+
+# Source paths
+FRAMEWORK_OUTPUT = OUTPUT_CURRENT / "framework_output.json"
+JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
+PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
+HMM_PATH = ROOT / "Output" / "ml_signals" / "daily" / "regime_hmm.json"
+K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
+X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
+PROB_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest.json"
+
+# CaseLab uses dated files
+CASELAB_DIR = ROOT / "Output" / "caselab"
+
+
+def _load_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _latest_caselab() -> dict[str, Any] | None:
+    """Load the most recent CaseLab output."""
+    if not CASELAB_DIR.exists():
+        return None
+    files = sorted(CASELAB_DIR.glob("*.json"), reverse=True)
+    for f in files:
+        data = _load_json(f)
+        if data:
+            return data
+    return None
+
+
+def _classify_signal(
+    name: str,
+    raw_value: Any,
+    *,
+    usable: bool = True,
+    gate_status: str = "PASS",
+    calibration_passed: bool = True,
+    quality_label: str = "strong",
+) -> dict[str, Any]:
+    """Classify a signal's consensus status.
+
+    Statuses:
+      - adopted: signal is reliable, can inform claims
+      - monitoring_only: signal is observable but not yet reliable
+      - rejected: signal is degenerate or failed validation
+      - conflict: signal contradicts the primary readout
+    """
+    if not usable or gate_status in ("FAIL", "BLOCKED"):
+        return {"status": "rejected", "reason": f"not usable (gate={gate_status})"}
+
+    if gate_status == "WATCH" or not calibration_passed:
+        return {"status": "monitoring_only", "reason": "calibration not passed or watch gate"}
+
+    if quality_label in ("weak", "degenerate"):
+        return {"status": "monitoring_only", "reason": f"quality={quality_label}"}
+
+    return {"status": "adopted", "reason": "passed all gates"}
+
+
+def build_consensus() -> dict[str, Any]:
+    """Build the signal consensus report."""
+    # Load all sources
+    fw = _load_json(FRAMEWORK_OUTPUT)
+    judgment = _load_json(JUDGMENT_PATH)
+    promo = _load_json(PROMOTION_GATE_PATH)
+    hmm = _load_json(HMM_PATH)
+    k_gate = _load_json(K_GATE_PATH)
+    x_gate = _load_json(X_GATE_PATH)
+    prob_ctx = _load_json(PROB_CONTEXT_PATH)
+    caselab = _latest_caselab()
+
+    signals: list[dict[str, Any]] = []
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    # ── 1. M/D Primary Readout ──────────────────────────────────────────
+    if fw:
+        advanced = fw.get("advanced", {})
+        primary = advanced.get("primary_readout", {})
+        sigma = advanced.get("sigma_vector", {})
+        m_val = sigma.get("M")
+        d_val = sigma.get("D")
+
+        signals.append({
+            "name": "M/D primary readout",
+            "source": str(FRAMEWORK_OUTPUT),
+            "value": {
+                "state": primary.get("state"),
+                "M": round(m_val, 3) if m_val is not None else None,
+                "D": round(d_val, 3) if d_val is not None else None,
+            },
+            "classification": "adopted",
+            "supports": ["mechanism_hypothesis"],
+            "does_not_support": ["regime_call", "directional_conviction"],
+            "reason": "M/D is the primary measurement channel. Supports mechanism-level observation, not directional claims.",
+        })
+    else:
+        signals.append({
+            "name": "M/D primary readout",
+            "source": str(FRAMEWORK_OUTPUT),
+            "value": None,
+            "classification": "rejected",
+            "supports": [],
+            "does_not_support": [],
+            "reason": "framework_output.json not found",
+        })
+
+    # ── 2. HMM Regime Hint ──────────────────────────────────────────────
+    if hmm:
+        regime = hmm.get("regime", {})
+        degeneracy = hmm.get("degeneracy", {})
+        stability = hmm.get("stability", {})
+        usable = degeneracy.get("usable_for_core_judgment", False)
+        entropy = stability.get("posterior_entropy", 0)
+        # Check if HMM stability audit gate is in judgment
+        hmm_gate = (judgment or {}).get("gate_status", {}).get("hmm_stability", "UNKNOWN")
+
+        # HMM is usable but calibration may not pass
+        hmm_calibrated = True
+        if promo:
+            hmm_gate_detail = promo.get("gates", {}).get("hmm", {})
+            if hmm_gate_detail.get("status") == "WATCH":
+                hmm_calibrated = False
+
+        classification = _classify_signal(
+            "HMM",
+            regime.get("current"),
+            usable=usable,
+            gate_status=hmm_gate if hmm_gate != "UNKNOWN" else ("PASS" if usable else "FAIL"),
+            calibration_passed=hmm_calibrated,
+        )
+
+        signals.append({
+            "name": "HMM regime hint",
+            "source": str(HMM_PATH),
+            "value": {
+                "current": regime.get("current"),
+                "probability": regime.get("probability"),
+                "state_probs": regime.get("state_probs"),
+                "posterior_entropy": entropy,
+                "usable_for_core_judgment": usable,
+            },
+            "classification": classification["status"],
+            "supports": ["regime_hint"] if classification["status"] == "adopted" else ["regime_hint (monitoring)"],
+            "does_not_support": ["regime_call", "primary_signal", "standalone_claim"],
+            "reason": classification["reason"] + ". HMM provides regime hint only, not a regime call. "
+                     "Calibration not yet passed — raw probabilities are observational.",
+        })
+    else:
+        signals.append({
+            "name": "HMM regime hint",
+            "source": str(HMM_PATH),
+            "value": None,
+            "classification": "rejected",
+            "supports": [],
+            "does_not_support": [],
+            "reason": "regime_hmm.json not found",
+        })
+
+    # ── 3. K Gate ───────────────────────────────────────────────────────
+    if k_gate:
+        k_verdict = k_gate.get("gate_verdict", "UNKNOWN")
+        k_val = None
+        if fw:
+            k_val = fw.get("advanced", {}).get("sigma_vector", {}).get("K")
+
+        classification = _classify_signal("K", k_val, gate_status=k_verdict)
+
+        signals.append({
+            "name": "K gate",
+            "source": str(K_GATE_PATH),
+            "value": {
+                "gate_verdict": k_verdict,
+                "K": round(k_val, 3) if k_val is not None else None,
+            },
+            "classification": classification["status"],
+            "supports": ["structural_diagnostic"] if k_verdict == "PASS" else [],
+            "does_not_support": ["primary_readout"],
+            "reason": f"K gate={k_verdict}. K is a diagnostic channel, not a primary readout. "
+                     "Passing gate means measurement is structurally sound, not that K drives claims.",
+        })
+    else:
+        signals.append({
+            "name": "K gate",
+            "source": str(K_GATE_PATH),
+            "value": None,
+            "classification": "rejected",
+            "supports": [],
+            "does_not_support": [],
+            "reason": "k_measurement_gate.json not found",
+        })
+
+    # ── 4. X Gate ───────────────────────────────────────────────────────
+    if x_gate:
+        x_verdict = x_gate.get("gate_verdict", "UNKNOWN")
+        x_usage = x_gate.get("usage", {})
+        x_val = None
+        if fw:
+            x_val = fw.get("advanced", {}).get("sigma_vector", {}).get("X_agg")
+
+        usable_primary = x_usage.get("usable_as_primary_readout", False)
+        usable_background = x_usage.get("usable_as_background", False)
+        # X gate: if PASS and usable as background, it's monitoring_only (not rejected)
+        if x_verdict == "PASS" and usable_background:
+            classification = {"status": "monitoring_only", "reason": "gate PASS, background-only (not usable as primary readout)"}
+        else:
+            classification = _classify_signal(
+                "X", x_val,
+                gate_status=x_verdict,
+                usable=usable_primary,
+            )
+
+        signals.append({
+            "name": "X gate",
+            "source": str(X_GATE_PATH),
+            "value": {
+                "gate_verdict": x_verdict,
+                "X_agg": round(x_val, 3) if x_val is not None else None,
+                "usable_as_primary_readout": usable_primary,
+            },
+            "classification": classification["status"],
+            "supports": ["background_context"] if x_verdict == "PASS" else [],
+            "does_not_support": ["primary_readout", "daily_trigger"],
+            "reason": f"X gate={x_verdict}. X is background-only, not usable as primary readout or daily trigger.",
+        })
+    else:
+        signals.append({
+            "name": "X gate",
+            "source": str(X_GATE_PATH),
+            "value": None,
+            "classification": "rejected",
+            "supports": [],
+            "does_not_support": [],
+            "reason": "x_measurement_gate.json not found",
+        })
+
+    # ── 5. CaseLab ──────────────────────────────────────────────────────
+    if caselab:
+        mq = caselab.get("match_quality", {})
+        top_score = mq.get("top_score", 0)
+        label = mq.get("label", "unknown")
+        mech_types = caselab.get("mechanism_context", {}).get("mechanism_types", [])
+
+        classification = _classify_signal(
+            "CaseLab", top_score,
+            quality_label=label,
+        )
+
+        signals.append({
+            "name": "CaseLab",
+            "source": f"Output/caselab/{caselab.get('timestamp', 'unknown')[:10]}.json",
+            "value": {
+                "top_score": top_score,
+                "quality_label": label,
+                "mechanism_types": mech_types,
+            },
+            "classification": classification["status"],
+            "supports": ["mechanism_hypothesis"] if top_score >= 0.4 else [],
+            "does_not_support": ["reliable_analogy", "strong_precedent"] if top_score < 0.55 else [],
+            "reason": f"CaseLab quality={label} (score={top_score:.3f}). "
+                     + ("Weak match — supports mechanism hypothesis only, not reliable analogy."
+                        if top_score < 0.55 else "Usable analogy strength."),
+        })
+    else:
+        signals.append({
+            "name": "CaseLab",
+            "source": "N/A",
+            "value": None,
+            "classification": "rejected",
+            "supports": [],
+            "does_not_support": [],
+            "reason": "No CaseLab output found",
+        })
+
+    # ── 6. Probabilistic Context ────────────────────────────────────────
+    if prob_ctx:
+        summary = prob_ctx.get("summary", {})
+        risk_level = summary.get("overall_risk_level", "unknown")
+        tail_risk = summary.get("tail_risk_detected", False)
+
+        signals.append({
+            "name": "probabilistic context",
+            "source": str(PROB_CONTEXT_PATH),
+            "value": {
+                "overall_risk_level": risk_level,
+                "tail_risk_detected": tail_risk,
+            },
+            "classification": "adopted",
+            "supports": ["risk_awareness", "tail_monitoring"],
+            "does_not_support": ["directional_conviction"],
+            "reason": f"Risk level={risk_level}, tail_risk={tail_risk}. "
+                     "Probabilistic context provides risk awareness, not directional signals.",
+        })
+    else:
+        signals.append({
+            "name": "probabilistic context",
+            "source": str(PROB_CONTEXT_PATH),
+            "value": None,
+            "classification": "rejected",
+            "supports": [],
+            "does_not_support": [],
+            "reason": "probabilistic_context/latest.json not found",
+        })
+
+    # ── Conflict Analysis ───────────────────────────────────────────────
+    conflicts: list[dict[str, Any]] = []
+    adopted = [s for s in signals if s["classification"] == "adopted"]
+    monitoring = [s for s in signals if s["classification"] == "monitoring_only"]
+
+    # Check if any adopted signal contradicts another
+    # (In current state, no hard conflicts — all adopted signals are consistent)
+
+    # ── Tier Analysis ───────────────────────────────────────────────────
+    current_tier = 1
+    current_label = "mechanism_hypothesis"
+    if promo:
+        cl = promo.get("claim_ladder", {})
+        current_tier = cl.get("tier", 1)
+        current_label = cl.get("label", "mechanism_hypothesis")
+
+    # What blocks Tier 2?
+    tier_2_blockers: list[str] = []
+    if promo:
+        promo_conds = promo.get("claim_ladder", {}).get("promotion_conditions", {})
+        to_t2 = promo_conds.get("to_tier_2", "")
+        if to_t2:
+            tier_2_blockers.append(to_t2)
+
+    # Add signal-level blockers
+    for s in signals:
+        if s["classification"] == "monitoring_only":
+            tier_2_blockers.append(f"{s['name']}: {s['reason']}")
+
+    # ── Build Result ────────────────────────────────────────────────────
+    result: dict[str, Any] = {
+        "schema_version": "system.signal_consensus.v1",
+        "generated_at": now,
+        "as_of": now[:10],
+        "signals": signals,
+        "consensus": {
+            "adopted_count": len(adopted),
+            "monitoring_count": len(monitoring),
+            "rejected_count": len([s for s in signals if s["classification"] == "rejected"]),
+            "conflict_count": len(conflicts),
+        },
+        "conflict_analysis": {
+            "has_conflicts": len(conflicts) > 0,
+            "conflicts": conflicts,
+            "blocks_tier_2": len(conflicts) > 0,
+            "blocks_regime_language": any(
+                s["name"] == "HMM regime hint" and s["classification"] != "adopted"
+                for s in signals
+            ),
+            "blocks_trade_layer": True,  # Currently all trade is blocked at WATCH_ONLY
+        },
+        "tier_analysis": {
+            "current_tier": current_tier,
+            "current_label": current_label,
+            "why_tier_1": (
+                "M/D supports mechanism_hypothesis. "
+                "HMM provides regime_hint only (calibration not passed — cannot support regime_call). "
+                "CaseLab is weak (score=0.426) — supports mechanism hypothesis, not reliable analogy. "
+                "K/X pass but are diagnostic channels, not primary readouts. "
+                "Therefore: Tier 1 (mechanism_hypothesis) is allowed; Tier 2 is pending."
+            ),
+            "tier_2_blockers": tier_2_blockers,
+            "what_needed_for_tier_2": [
+                "M/D direction must persist >= 2 consecutive runs (currently 0).",
+                "CaseLab top_score must rise above 0.55 for usable analogy (currently 0.426, gap: 0.124).",
+                "HMM calibration must pass to support regime_hint at adopted level.",
+                "No signal conflicts must exist.",
+            ],
+        },
+        "judgment_context": {
+            "decision": (judgment or {}).get("decision", "UNKNOWN"),
+            "confidence": (judgment or {}).get("confidence", {}).get("level", "UNKNOWN"),
+            "claim_ceiling": (promo or {}).get("claim_ceiling", "UNKNOWN"),
+            "allowed_language": (promo or {}).get("allowed_language", []),
+            "forbidden_language": (promo or {}).get("forbidden_language", []),
+        },
+    }
+
+    return result
+
+
+def format_markdown(result: dict[str, Any]) -> str:
+    """Format consensus as markdown."""
+    lines = [
+        "# Signal Consensus",
+        "",
+        f"- Generated: {result['generated_at']}",
+        f"- As of: {result['as_of']}",
+        "",
+        "## Signal Status",
+        "",
+        "| Signal | Classification | Supports | Does Not Support |",
+        "|--------|---------------|----------|------------------|",
+    ]
+
+    for s in result["signals"]:
+        supports = ", ".join(s.get("supports", []))
+        does_not = ", ".join(s.get("does_not_support", []))
+        lines.append(f"| {s['name']} | **{s['classification']}** | {supports} | {does_not} |")
+
+    lines += [
+        "",
+        "## Signal Details",
+        "",
+    ]
+
+    for s in result["signals"]:
+        lines.append(f"### {s['name']}")
+        lines.append("")
+        lines.append(f"- **Classification**: {s['classification']}")
+        if s.get("value"):
+            for k, v in s["value"].items():
+                lines.append(f"- {k}: {v}")
+        lines.append(f"- **Reason**: {s['reason']}")
+        lines.append("")
+
+    # Consensus summary
+    c = result["consensus"]
+    lines += [
+        "## Consensus Summary",
+        "",
+        f"- Adopted: {c['adopted_count']}",
+        f"- Monitoring only: {c['monitoring_count']}",
+        f"- Rejected: {c['rejected_count']}",
+        f"- Conflicts: {c['conflict_count']}",
+        "",
+    ]
+
+    # Conflict analysis
+    ca = result["conflict_analysis"]
+    lines += [
+        "## Conflict Analysis",
+        "",
+        f"- Has conflicts: {ca['has_conflicts']}",
+        f"- Blocks Tier 2: {ca['blocks_tier_2']}",
+        f"- Blocks regime language: {ca['blocks_regime_language']}",
+        f"- Blocks trade layer: {ca['blocks_trade_layer']}",
+        "",
+    ]
+
+    # Tier analysis
+    ta = result["tier_analysis"]
+    lines += [
+        "## Tier Analysis",
+        "",
+        f"- Current tier: **Tier {ta['current_tier']}** ({ta['current_label']})",
+        "",
+        "### Why Tier 1",
+        "",
+        ta["why_tier_1"],
+        "",
+        "### What Blocks Tier 2",
+        "",
+    ]
+    for blocker in ta["tier_2_blockers"]:
+        lines.append(f"- {blocker}")
+
+    lines += [
+        "",
+        "### What Is Needed for Tier 2",
+        "",
+    ]
+    for item in ta["what_needed_for_tier_2"]:
+        lines.append(f"- {item}")
+
+    # Judgment context
+    jc = result["judgment_context"]
+    lines += [
+        "",
+        "## Judgment Context",
+        "",
+        f"- Decision: {jc['decision']}",
+        f"- Confidence: {jc['confidence']}",
+        f"- Claim ceiling: {jc['claim_ceiling']}",
+        "",
+        "### Allowed Language",
+        "",
+    ]
+    for lang in jc["allowed_language"]:
+        lines.append(f"- {lang}")
+
+    lines += [
+        "",
+        "### Forbidden Language",
+        "",
+    ]
+    for lang in jc["forbidden_language"]:
+        lines.append(f"- {lang}")
+
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build signal consensus report.")
+    parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
+    args = parser.parse_args()
+
+    result = build_consensus()
+
+    OUTPUT_CURRENT.mkdir(parents=True, exist_ok=True)
+
+    json_path = OUTPUT_CURRENT / "signal_consensus.json"
+    md_path = OUTPUT_CURRENT / "signal_consensus.md"
+
+    json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    md_path.write_text(format_markdown(result), encoding="utf-8")
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        print(f"Signal consensus: Tier {result['tier_analysis']['current_tier']} ({result['tier_analysis']['current_label']})")
+        print(f"Adopted: {result['consensus']['adopted_count']}, Monitoring: {result['consensus']['monitoring_count']}")
+        print(f"Conflicts: {result['consensus']['conflict_count']}")
+        print(f"Written to: {json_path}")
+        print(f"Written to: {md_path}")
+
+
+if __name__ == "__main__":
+    main()

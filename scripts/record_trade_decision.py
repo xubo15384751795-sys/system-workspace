@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -76,7 +77,7 @@ def _normalize_system_sources(raw: Any) -> list[dict[str, str]]:
         return []
     return [
         {
-            "source_type": s.get("source_type", s.get("type", s.get("source", ""))),
+            "source_type": s.get("source_type", s.get("source", s.get("type", ""))),
             "status": s.get("status", ""),
         }
         for s in raw
@@ -219,6 +220,20 @@ def main() -> None:
         print(f"Decision: {entry['decision']}")
         print(f"Confidence: {entry['confidence']}")
         print(f"Risk Gate: {entry['risk_gate_status']}")
+
+    # Evaluate past claims and update forward_outcomes
+    import subprocess
+    claim_eval_script = ROOT / "scripts" / "claim_evaluator.py"
+    if claim_eval_script.exists():
+        try:
+            subprocess.run(
+                [sys.executable, str(claim_eval_script)],
+                capture_output=True,
+                text=True,
+                cwd=str(ROOT),
+            )
+        except Exception:
+            pass  # Non-critical, don't fail the recording
 
 
 if __name__ == "__main__":

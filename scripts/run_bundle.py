@@ -162,19 +162,31 @@ class RunBundle:
         source: str = "",
         validation_type: str = "manual_review",
         priority: str = "medium",
+        metadata: dict | None = None,
     ) -> None:
         """Record an item that needs future validation or feedback.
 
         Used to track: HMM signal quality, regime label accuracy,
-        prediction calibration, experimental submissions, etc.
+        prediction calibration, claim ladder progression, etc.
+
+        Args:
+            item: Human-readable description
+            source: Origin module/script
+            validation_type: Category of validation needed
+            priority: "high", "medium", "low"
+            metadata: Optional structured data (claim_tier, mechanism_hypothesis,
+                      watch_conditions, invalidation_conditions, etc.)
         """
-        self._feedback_items.append({
+        entry = {
             "item": item,
             "source": source,
             "validation_type": validation_type,
             "priority": priority,
             "added_at": datetime.now(UTC).isoformat(),
-        })
+        }
+        if metadata:
+            entry["metadata"] = metadata
+        self._feedback_items.append(entry)
 
     def record_artifact(self, path: str | Path) -> None:
         """Record an artifact produced during this run.

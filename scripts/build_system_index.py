@@ -114,14 +114,16 @@ def build_index() -> dict:
             "forbidden_language": gate_data.get("forbidden_language", []),
         }
 
-    # Build HMM summary
+    # Build HMM summary (includes stability from audit)
     hmm_data = load_json(OUTPUT_DIR / "ml_signals" / "latest" / "regime_hmm.json")
+    hmm_audit_data = load_json(OUTPUT_DIR / "hmm_stability" / "hmm_stability_audit.json")
     hmm_summary = None
     if hmm_data:
         regime = hmm_data.get("regime", {})
         hmm_summary = {
             "current_regime": regime.get("current"),
             "probability": regime.get("current_probability"),
+            "stability_grade": hmm_audit_data.get("stability_grade") if hmm_audit_data else None,
             "source": "latest",
         }
 

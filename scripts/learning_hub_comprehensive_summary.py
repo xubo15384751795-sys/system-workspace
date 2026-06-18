@@ -32,6 +32,7 @@ TRADE_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "trade
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
 MARKET_FEEDBACK_PATH = ROOT / "Output" / "market_feedback" / "feedback_decision.json"
+CLAIM_EVALUATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "claim_evaluation.json"
 HORIZON_EVENTS_PATH = ROOT / "Data" / "horizon_events" / "daily_digest.json"
 PROBABILISTIC_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest.json"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
@@ -127,6 +128,18 @@ def build_comprehensive_summary() -> dict[str, Any]:
         "feature_promotion_candidates": market_feedback.get("summary", {}).get("feature_promotion_candidates", []) if market_feedback else [],
     }
 
+    # Claim Evaluation — forward-looking claim verification
+    claim_evaluation = load_json(CLAIM_EVALUATION_PATH)
+    claim_summary = {
+        "total_evaluations": claim_evaluation.get("summary", {}).get("total_evaluations", 0) if claim_evaluation else 0,
+        "confirmed": claim_evaluation.get("summary", {}).get("confirmed", 0) if claim_evaluation else 0,
+        "contradicted": claim_evaluation.get("summary", {}).get("contradicted", 0) if claim_evaluation else 0,
+        "invalidated": claim_evaluation.get("summary", {}).get("invalidated", 0) if claim_evaluation else 0,
+        "tracking": claim_evaluation.get("summary", {}).get("tracking", 0) if claim_evaluation else 0,
+        "mechanism_scores": claim_evaluation.get("mechanism_scores", {}) if claim_evaluation else {},
+        "module_contributions": claim_evaluation.get("module_contributions", {}) if claim_evaluation else {},
+    }
+
     # Recurring Failed Assumptions
     failed_assumptions = []
     if calibration_report:
@@ -158,6 +171,7 @@ def build_comprehensive_summary() -> dict[str, Any]:
         "horizon_event_usefulness": horizon_summary,
         "gluonts_forecast_reliability": gluonts_summary,
         "qlib_incremental_feedback": qlib_summary,
+        "claim_evaluation": claim_summary,
         "recurring_failed_assumptions": failed_assumptions[:5],
         "next_evidence_needed": list(set(next_evidence)),
     }
@@ -241,6 +255,27 @@ def format_markdown(summary: dict[str, Any]) -> str:
         f"- Feature promotion candidates: {', '.join(ql['feature_promotion_candidates']) if ql['feature_promotion_candidates'] else 'N/A'}",
         "",
     ])
+
+    lines.append("## Claim Evaluation")
+    lines.append("")
+
+    ce = summary.get("claim_evaluation", {})
+    lines.extend([
+        f"- Total evaluations: {ce.get('total_evaluations', 0)}",
+        f"- Confirmed: {ce.get('confirmed', 0)}",
+        f"- Contradicted: {ce.get('contradicted', 0)}",
+        f"- Invalidated: {ce.get('invalidated', 0)}",
+        f"- Tracking: {ce.get('tracking', 0)}",
+        "",
+    ])
+
+    mc = ce.get("module_contributions", {})
+    if mc:
+        lines.append("### Module Contributions")
+        lines.append("")
+        for mod, stats in mc.items():
+            lines.append(f"- **{mod}**: {stats.get('usefulness', 'unknown')}")
+        lines.append("")
 
     lines.append("## Recurring Failed Assumptions")
     lines.append("")

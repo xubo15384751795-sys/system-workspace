@@ -131,13 +131,14 @@ def _build_system_sources(
     if judgment:
         sources.append({"source": "judgment_layer", "type": "system", "status": judgment.get("decision", "UNKNOWN")})
     if k_gate:
-        sources.append({"source": "k_gate", "type": "gate", "status": k_gate.get("verdict", "UNKNOWN")})
+        sources.append({"source": "k_gate", "type": "gate", "status": k_gate.get("gate_verdict", k_gate.get("verdict", "UNKNOWN"))})
     if x_gate:
-        sources.append({"source": "x_gate", "type": "gate", "status": x_gate.get("verdict", "UNKNOWN")})
+        sources.append({"source": "x_gate", "type": "gate", "status": x_gate.get("gate_verdict", x_gate.get("verdict", "UNKNOWN"))})
     if hmm_audit:
         sources.append({"source": "hmm_stability", "type": "audit", "status": hmm_audit.get("stability_grade", "UNKNOWN")})
     if caselab:
-        sources.append({"source": "caselab", "type": "analogy", "status": caselab.get("label", "UNKNOWN")})
+        caselab_label = caselab.get("label") or caselab.get("match_quality", {}).get("label", "UNKNOWN")
+        sources.append({"source": "caselab", "type": "analogy", "status": caselab_label})
     return sources
 
 
@@ -220,9 +221,9 @@ def _determine_decision(
             return "NO_TRADE", "low", "D", risk_notes
 
     # Check gates
-    if k_gate and k_gate.get("verdict") == "FAIL":
+    if k_gate and k_gate.get("gate_verdict", k_gate.get("verdict")) == "FAIL":
         risk_notes.append("K gate FAIL")
-    if x_gate and x_gate.get("verdict") == "FAIL":
+    if x_gate and x_gate.get("gate_verdict", x_gate.get("verdict")) == "FAIL":
         risk_notes.append("X gate FAIL")
 
     # If we have approved paper sources and gates pass, consider watch

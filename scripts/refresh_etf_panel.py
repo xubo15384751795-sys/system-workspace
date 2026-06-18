@@ -42,7 +42,9 @@ def update_k_features():
 
     script_path = ROOT / "scripts" / "k_features_from_etf.py"
     if not script_path.exists():
-        raise FileNotFoundError(f"K features script not found: {script_path}")
+        print(f"WARNING: K features script not found: {script_path}")
+        print("Skipping K feature recomputation — script must be added before this step works.")
+        return
 
     spec = importlib.util.spec_from_file_location("k_features", str(script_path))
     mod = importlib.util.module_from_spec(spec)
@@ -67,4 +69,9 @@ if __name__ == "__main__":
     if K_FEATURES_PATH.exists():
         df = pd.read_csv(K_FEATURES_PATH)
         filled = df[df["rv_SPY_20d"].notna()]
-        print(f"K features: {len(df)} rows, last filled={filled['date'].iloc[-1]}")
+        if len(filled) > 0:
+            print(f"K features: {len(df)} rows, last filled={filled['date'].iloc[-1]}")
+        else:
+            print(f"K features: {len(df)} rows, no filled data yet")
+    else:
+        print("K features file not yet available.")

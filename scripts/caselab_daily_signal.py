@@ -596,6 +596,189 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
     }
 
 
+def _load_claim_ladder_mechanisms() -> list[str]:
+    """Load mechanism types from the current judgment's claim_ladder."""
+    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    if not judgment_path.exists():
+        return []
+    try:
+        judgment = json.loads(judgment_path.read_text(encoding="utf-8"))
+        ladder = judgment.get("claim_ladder", {})
+        claim = ladder.get("claim_statement", "")
+        # Extract mechanism names from claim statement
+        # e.g. "Current structure resembles anchor_drift, funding_path_stress, ..."
+        mechanisms = []
+        if "resembles" in claim:
+            after_resembles = claim.split("resembles")[1].split(".")[0]
+            for part in after_resembles.split(","):
+                m = part.strip().rstrip(".")
+                if m and "_" in m:  # mechanism names have underscores
+                    mechanisms.append(m)
+        return mechanisms
+    except Exception:
+        return []
+
+
+def _analyze_gap(results: list, mechanism_ctx: dict, top_score: float, usable_th: float) -> dict:
+    """Analyze why the score didn't reach the usable threshold."""
+    gap = round(max(0, usable_th - top_score), 4)
+    if gap == 0:
+        return {"status": "met", "gap": 0}
+
+    # Check which component is weakest
+    if not results:
+        return {"status": "no_matches", "gap": gap, "reason": "No historical cases found"}
+
+    top = results[0]
+    components = {
+        "var_score": top.var_score,
+        "tag_score": top.tag_score,
+        "text_score": top.text_score,
+        "mechanism_score": top.mechanism_score,
+    }
+    weakest = min(components, key=components.get)
+
+    # Check mechanism coverage
+    query_mechs = set(mechanism_ctx.get("mechanism_types", []))
+    matched_mechs = set(top.matched_mechanisms or [])
+    missing_mechs = query_mechs - matched_mechs
+
+    reason_parts = []
+    if weakest == "mechanism_score":
+        reason_parts.append(f"mechanism matching weak ({top.mechanism_score:.3f})")
+        if missing_mechs:
+            reason_parts.append(f"missing: {', '.join(missing_mechs)}")
+    elif weakest == "text_score":
+        reason_parts.append(f"text/keyword similarity weak ({top.text_score:.3f})")
+    elif weakest == "var_score":
+        reason_parts.append(f"structural vector distance large ({top.var_score:.3f})")
+    elif weakest == "tag_score":
+        reason_parts.append(f"tag overlap low ({top.tag_score:.3f})")
+
+    return {
+        "status": "below_threshold",
+        "gap": gap,
+        "weakest_component": weakest,
+        "weakest_value": components[weakest],
+        "reason": "; ".join(reason_parts) if reason_parts else "multiple components weak",
+        "missing_mechanisms": list(missing_mechs) if missing_mechs else [],
+    }
+
+
+def _classify_review_priority(result, match_quality: str) -> str:
+    """Classify a match for human review priority."""
+    if match_quality == "strong":
+        return "high"
+    if match_quality == "usable" and result.mechanism_score > 0.5:
+        return "high"
+    if match_quality == "usable":
+        return "medium"
+    if result.mechanism_score > 0.5 and result.score > 0.45:
+        return "medium"
+    return "low"
+
+
+def _build_why_not_usable(
+    result,
+    query_mechanisms: set[str],
+    usable_threshold: float,
+) -> str:
+    """Explain per-case why the score didn't reach usable threshold.
+
+    Returns a human-readable string explaining the specific reasons.
+    """
+    if result.score >= usable_threshold:
+        return ""
+
+    parts = []
+    gap = round(usable_threshold - result.score, 4)
+
+    # Check mechanism coverage
+    matched = set(result.matched_mechanisms or [])
+    missing = query_mechanisms - matched
+    if missing:
+        parts.append(f"missing mechanisms: {', '.join(sorted(missing))}")
+    if not matched and query_mechanisms:
+        parts.append("no mechanism overlap at all")
+
+    # Identify weakest scoring component
+    components = {
+        "mechanism": result.mechanism_score,
+        "keyword": result.text_score,
+        "vector": result.var_score,
+        "tag": result.tag_score,
+    }
+    weakest_name = min(components, key=components.get)
+    weakest_val = components[weakest_name]
+    if weakest_val < 0.2:
+        parts.append(f"{weakest_name} score very low ({weakest_val:.3f})")
+
+    parts.append(f"gap to usable: {gap:.3f}")
+    return "; ".join(parts)
+
+
+def _build_review_candidates(
+    matches_output: list[dict],
+    query_mechanisms: set[str],
+) -> list[dict]:
+    """Build the review candidates list from match output.
+
+    Selects cases that are close to usable or have high mechanism overlap
+    but low overall score — the most informative cases for human review.
+    """
+    candidates = []
+    for m in matches_output:
+        score = m.get("score", 0)
+        mech_score = m.get("mechanism_score", 0)
+        matched = set(m.get("matched_mechanisms", []))
+        review_priority = m.get("review_priority", "low")
+
+        # Include if: review priority is high/medium, OR mechanism overlap
+        # is good but overall score is low (informative mismatch)
+        is_worth_review = (
+            review_priority in ("high", "medium")
+            or (mech_score > 0.4 and score < USABLE_THRESHOLD)
+            or (len(matched) >= 2 and score < USABLE_THRESHOLD)
+        )
+        if not is_worth_review:
+            continue
+
+        missing = query_mechanisms - matched
+        candidates.append({
+            "case_id": m.get("case_id"),
+            "case_name": m.get("case_name"),
+            "score": score,
+            "mechanism_score": mech_score,
+            "matched_mechanisms": sorted(matched),
+            "missing_mechanisms": sorted(missing),
+            "why_not_usable": m.get("why_not_usable", ""),
+            "review_priority": review_priority,
+            "review_reason": _review_reason(m, query_mechanisms),
+        })
+
+    # Sort by review_priority then by score
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    candidates.sort(key=lambda c: (priority_order.get(c["review_priority"], 9), -c["score"]))
+    return candidates
+
+
+def _review_reason(m: dict, query_mechanisms: set[str]) -> str:
+    """Generate a short reason why this case is a review candidate."""
+    matched = set(m.get("matched_mechanisms", []))
+    score = m.get("score", 0)
+    mech_score = m.get("mechanism_score", 0)
+
+    if score >= USABLE_THRESHOLD:
+        return "meets usable threshold"
+    if mech_score > 0.5:
+        return f"strong mechanism match ({mech_score:.3f}) but overall score low"
+    if len(matched) >= 2:
+        return f"multiple mechanisms matched ({len(matched)}) but score still below threshold"
+    if score > USABLE_THRESHOLD - 0.1:
+        return f"close to usable threshold (gap={USABLE_THRESHOLD - score:.3f})"
+    return "has partial mechanism overlap"
+
+
 def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     """Run the daily CaseLab signal and return results."""
     from _workspace_imports import add_workbench_src
@@ -619,6 +802,15 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     # 3.6. Detect mechanism types and build context packet
     mechanism_ctx = detect_mechanism_types(state)
     context_packet = build_context_packet(state, vec, reconciliation)
+
+    # 3.7. Enrich with claim_ladder mechanisms from judgment
+    claim_ladder_mechanisms = _load_claim_ladder_mechanisms()
+    if claim_ladder_mechanisms:
+        existing = set(mechanism_ctx.get("mechanism_types", []))
+        for m in claim_ladder_mechanisms:
+            if m not in existing:
+                mechanism_ctx.setdefault("mechanism_types", []).append(m)
+        mechanism_ctx["claim_ladder_enriched"] = True
 
     # 4. Run similarity (with mechanism context)
     engine = EnhancedSimilarityEngine(ROOT)
@@ -675,37 +867,54 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
                 "usable": USABLE_THRESHOLD,
                 "weak": WEAK_THRESHOLD,
             },
+            "gap_to_usable": round(max(0, USABLE_THRESHOLD - top_score), 4),
             "interpretation": interpretation,
             "score_breakdown": {
                 "var_weight": 0.25,
                 "tag_weight": 0.05,
-                "keyword_weight": 0.35,
-                "mechanism_weight": 0.35,
+                "keyword_weight": 0.15,
+                "mechanism_weight": 0.55,
             },
+            "gap_analysis": _analyze_gap(results, mechanism_ctx, top_score, USABLE_THRESHOLD),
         },
-        "matches": [
-            {
-                "rank": i + 1,
-                "case_id": r.case_id,
-                "case_name": r.case_name,
-                "score": r.score,
-                "var_score": r.var_score,
-                "tag_score": r.tag_score,
-                "text_score": r.text_score,
-                "mechanism_score": r.mechanism_score,
-                "matched_mechanisms": r.matched_mechanisms,
-                "shared_tags": r.shared_tags,
-                "shared_concepts": [{"concept": c, "freq": s} for c, s in r.shared_concepts],
-                # Suppress narratives for weak/no-reliable matches
-                "narrative": (
-                    r.narrative_summary[:200]
-                    if match_quality in ("strong", "usable")
-                    else "[suppressed: weak/no reliable analogy]"
-                ),
-            }
-            for i, r in enumerate(results)
-        ],
+        "matches": [],
     }
+
+    # Build per-match entries with mechanism analysis
+    query_mechs = set(mechanism_ctx.get("mechanism_types", []))
+    matches_raw = []
+    for i, r in enumerate(results):
+        matched_mechs = set(r.matched_mechanisms or [])
+        missing_mechs = query_mechs - matched_mechs
+        review_priority = _classify_review_priority(r, match_quality)
+
+        entry = {
+            "rank": i + 1,
+            "case_id": r.case_id,
+            "case_name": r.case_name,
+            "score": r.score,
+            "var_score": r.var_score,
+            "tag_score": r.tag_score,
+            "text_score": r.text_score,
+            "mechanism_score": r.mechanism_score,
+            "matched_mechanisms": sorted(matched_mechs),
+            "missing_mechanisms": sorted(missing_mechs),
+            "why_not_usable": _build_why_not_usable(r, query_mechs, USABLE_THRESHOLD),
+            "shared_tags": r.shared_tags,
+            "shared_concepts": [{"concept": c, "freq": s} for c, s in r.shared_concepts],
+            "review_priority": review_priority,
+            # Suppress narratives for weak/no-reliable matches
+            "narrative": (
+                r.narrative_summary[:200]
+                if match_quality in ("strong", "usable")
+                else "[suppressed: weak/no reliable analogy]"
+            ),
+        }
+        output["matches"].append(entry)
+        matches_raw.append(entry)
+
+    # Review candidates — cases worth human review
+    output["review_candidates"] = _build_review_candidates(matches_raw, query_mechs)
 
     # 6. Write output
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -728,6 +937,7 @@ def _format_markdown(output: dict) -> str:
     vec = output["derived_vector"]
     def _fv(v):
         return f"{v:.3f}" if v is not None else "N/A"
+    mq = output["match_quality"]
     lines = [
         f"# CaseLab Daily Signal — {output['timestamp'][:10]}",
         "",
@@ -752,18 +962,48 @@ def _format_markdown(output: dict) -> str:
         f"> {output['event_text'][:300]}",
         "",
         "## Match Quality",
-        f"- **Label:** {output['match_quality']['label']}",
-        f"- **Top score:** {output['match_quality']['top_score']:.3f}",
-        f"- **Thresholds:** strong ≥ {output['match_quality']['thresholds']['strong']:.2f}, usable ≥ {output['match_quality']['thresholds']['usable']:.2f}, weak ≥ {output['match_quality']['thresholds']['weak']:.2f}",
-        f"- **Interpretation:** {output['match_quality']['interpretation']}",
+        f"- **Label:** {mq['label']}",
+        f"- **Top score:** {mq['top_score']:.3f}",
+        f"- **Gap to usable:** {mq.get('gap_to_usable', 0):.3f}",
+        f"- **Thresholds:** strong ≥ {mq['thresholds']['strong']:.2f}, usable ≥ {mq['thresholds']['usable']:.2f}, weak ≥ {mq['thresholds']['weak']:.2f}",
+        f"- **Interpretation:** {mq['interpretation']}",
         "",
         f"## Top Matches",
         "",
     ]
 
+    # Gap analysis
+    gap = output["match_quality"].get("gap_analysis", {})
+    if gap.get("status") == "below_threshold":
+        lines += [
+            "## Gap Analysis",
+            f"- **Gap to usable:** {gap['gap']:.3f}",
+            f"- **Weakest component:** {gap.get('weakest_component', 'unknown')} ({gap.get('weakest_value', 0):.3f})",
+            f"- **Reason:** {gap.get('reason', 'unknown')}",
+        ]
+        if gap.get("missing_mechanisms"):
+            lines.append(f"- **Missing mechanisms:** {', '.join(gap['missing_mechanisms'])}")
+        lines.append("")
+
+    # Mechanism enrichment
+    mc = output.get("mechanism_context", {})
+    if mc.get("claim_ladder_enriched"):
+        lines += [
+            "## Mechanism Context (enriched from claim_ladder)",
+            f"- **Types:** {', '.join(mc.get('mechanism_types', []))}",
+            "",
+        ]
+
     for m in output["matches"]:
-        lines.append(f"### {m['rank']}. {m['case_name']} (score={m['score']:.3f})")
-        lines.append(f"- var={m['var_score']:.3f}  tag={m['tag_score']:.3f}  text={m['text_score']:.3f}")
+        priority_icon = {"high": "🔴", "medium": "🟡", "low": "⚪"}.get(m.get("review_priority", "low"), "⚪")
+        lines.append(f"### {priority_icon} {m['rank']}. {m['case_name']} (score={m['score']:.3f}, review={m.get('review_priority', 'low')})")
+        lines.append(f"- var={m['var_score']:.3f}  tag={m['tag_score']:.3f}  text={m['text_score']:.3f}  mech={m['mechanism_score']:.3f}")
+        if m.get("matched_mechanisms"):
+            lines.append(f"- **matched_mechanisms:** {', '.join(m['matched_mechanisms'])}")
+        if m.get("missing_mechanisms"):
+            lines.append(f"- **missing_mechanisms:** {', '.join(m['missing_mechanisms'])}")
+        if m.get("why_not_usable"):
+            lines.append(f"- **why_not_usable:** {m['why_not_usable']}")
         if m["shared_tags"]:
             lines.append(f"- tags: {', '.join(m['shared_tags'])}")
         if m["shared_concepts"]:
@@ -771,6 +1011,33 @@ def _format_markdown(output: dict) -> str:
             lines.append(f"- concepts: {concepts}")
         if m["narrative"] and not m["narrative"].startswith("[suppressed"):
             lines.append(f"- narrative: {m['narrative'][:150]}")
+        lines.append("")
+
+    # Review candidates section
+    review = output.get("review_candidates", [])
+    if review:
+        lines += [
+            "---",
+            "",
+            "## Review Candidates",
+            "",
+            f"Cases worth human review: **{len(review)}**",
+            "",
+        ]
+        for rc in review:
+            lines.append(
+                f"- `{rc['case_id']}` — {rc['case_name']} "
+                f"(score={rc['score']:.3f}, mech={rc['mechanism_score']:.3f}, "
+                f"priority={rc['review_priority']})"
+            )
+            if rc.get("matched_mechanisms"):
+                lines.append(f"  - matched: {', '.join(rc['matched_mechanisms'])}")
+            if rc.get("missing_mechanisms"):
+                lines.append(f"  - missing: {', '.join(rc['missing_mechanisms'])}")
+            if rc.get("why_not_usable"):
+                lines.append(f"  - why: {rc['why_not_usable']}")
+            if rc.get("review_reason"):
+                lines.append(f"  - reason: {rc['review_reason']}")
         lines.append("")
 
     return "\n".join(lines) + "\n"

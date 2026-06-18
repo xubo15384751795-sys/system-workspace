@@ -76,6 +76,15 @@ learning_hub_trade_calibration:
   target_location: system-learning-hub/scripts/
   allowed_use:
   - trade_calibration
+claim_evaluator:
+  script: scripts/claim_evaluator.py
+  status: active
+  owner: Learning Hub
+  description: Evaluate past claims against current market data
+  target_location: system-learning-hub/scripts/
+  allowed_use:
+  - claim_evaluation
+  - forward_outcome_tracking
 blind_replay_test:
   script: scripts/archive/blind_replay_test.py
   status: archived
@@ -730,3 +739,24 @@ build_module_contribution_report:
   description: Module contribution effectiveness — aggregates eval outcomes by contributing module with hit rates and grades
   allowed_use:
   - module_contribution_report
+claim_ladder_tracker:
+  script: scripts/claim_ladder_tracker.py
+  status: active
+  owner: Learning Hub
+  description: Cross-run claim ladder progression — evaluates M/D persistence, CaseLab improvement, HMM conflict, invalidation
+  allowed_use:
+  - claim_ladder_tracking
+build_claim_ladder_summary:
+  script: scripts/build_claim_ladder_summary.py
+  status: active
+  owner: Learning Hub
+  description: Learning Hub claim ladder summary — persisted, invalidated, and stuck-at-weak hypothesis report
+  allowed_use:
+  - claim_ladder_summary
+signal_consensus:
+  script: scripts/signal_consensus.py
+  status: active
+  owner: Workbench
+  description: Aggregate all signal sources into a unified consensus view
+  allowed_use:
+  - signal_consensus_generation
