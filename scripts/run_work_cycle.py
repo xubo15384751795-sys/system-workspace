@@ -266,7 +266,7 @@ def run_full_cycle(bundle: RunBundle) -> dict[str, Any]:
 
 
 def summarize_result(result: dict[str, Any]) -> str:
-    """Generate human-readable summary."""
+    """Generate human-readable summary with work brief highlights."""
     lines = [
         f"# Work Cycle Result — {result['mode']}",
         "",
@@ -285,6 +285,76 @@ def summarize_result(result: dict[str, Any]) -> str:
 
     lines.append("")
     lines.append(f"**Overall:** {'✅ ALL STEPS OK' if all_ok else '⚠️ SOME STEPS FAILED'}")
+
+    # Load work brief for key sections
+    brief_path = CURRENT / "work_brief.json"
+    if brief_path.exists():
+        try:
+            brief = json.loads(brief_path.read_text(encoding="utf-8"))
+
+            # Current reaction
+            r = brief.get("reaction", {})
+            lines += [
+                "",
+                "## Current Reaction",
+                "",
+                f"- Judgment: **{r.get('judgment_decision', 'N/A')}**",
+                f"- Confidence: **{r.get('confidence', 'N/A')}**",
+                f"- Trade: **{r.get('trade_decision', 'N/A')}**",
+                f"- Promotion gate: **{r.get('promotion_gate', 'N/A')}**",
+            ]
+
+            # Blocker
+            blocker = brief.get("most_important_blocker", "")
+            if blocker:
+                lines += ["", f"**Blocker:** {blocker}"]
+
+            # Can say / Cannot say
+            can_say = brief.get("can_say", [])
+            if can_say:
+                lines += ["", "### Can Say", ""]
+                for item in can_say:
+                    lines.append(f"- {item}")
+
+            cannot_say = brief.get("cannot_say", [])
+            if cannot_say:
+                lines += ["", "### Cannot Say", ""]
+                for item in cannot_say:
+                    lines.append(f"- {item}")
+
+            # Mechanism hypothesis
+            mh = brief.get("mechanism_hypothesis", {})
+            if mh.get("mechanisms"):
+                lines += [
+                    "",
+                    "### Mechanism Hypothesis",
+                    "",
+                    f"- Mechanisms: {', '.join(mh.get('mechanisms', []))}",
+                    f"- Match quality: {mh.get('match_quality', 'N/A')} (score={mh.get('top_score', 0):.3f})",
+                ]
+
+            # Most important limiter
+            limiters = brief.get("limiters", [])
+            if limiters:
+                lines += ["", f"**Most important limiter:** {limiters[0]}"]
+
+            # Next verification
+            next_work = brief.get("next_work", [])
+            if next_work:
+                lines += ["", "### Next Verification", ""]
+                for i, action in enumerate(next_work, 1):
+                    lines.append(f"{i}. {action}")
+
+            # Needs full refresh
+            refresh = brief.get("needs_full_refresh", {})
+            if refresh:
+                needed = refresh.get("needed", False)
+                rec = refresh.get("recommendation", "unknown")
+                icon = "🔴" if needed else "🟢"
+                lines += ["", f"{icon} **Needs full refresh:** {'YES' if needed else 'No'} ({rec})"]
+
+        except Exception:
+            pass
 
     if result.get("artifacts_written"):
         lines += ["", "## Artifacts Written", ""]

@@ -1,9 +1,13 @@
-"""Build work brief — answer 4 questions from existing artifacts.
+"""Build work brief — answer key questions from existing artifacts.
 
 1. What is the system's current reaction?
 2. Why is it reacting this way?
 3. What is the most important blocker?
 4. What is the most useful next work?
+5. What can be said? (allowed language)
+6. What cannot be said? (forbidden language)
+7. What is the mechanism hypothesis?
+8. Does the system need a full refresh?
 
 Reads only existing output files. No governance YAML, no new registries.
 """
@@ -185,6 +189,152 @@ def _hmm_signal() -> dict[str, Any] | None:
     }
 
 
+def _can_say(judgment: dict | None) -> list[str]:
+    """What the system can say right now — from claim ladder allowed language."""
+    if not judgment:
+        return ["No judgment artifact — cannot make claims"]
+    ladder = judgment.get("claim_ladder", {})
+    allowed = ladder.get("allowed_language", [])
+    if not allowed:
+        return ["No explicit allowed language defined"]
+    # Add context-specific items
+    items = [f"Can use: {', '.join(allowed)}"]
+    claim = ladder.get("claim_statement", "")
+    if claim:
+        items.append(f"Current claim: {claim[:200]}")
+    return items
+
+
+def _cannot_say(judgment: dict | None) -> list[str]:
+    """What the system cannot say — from claim ladder forbidden language."""
+    if not judgment:
+        return ["No judgment artifact — no restrictions defined"]
+    ladder = judgment.get("claim_ladder", {})
+    forbidden = ladder.get("forbidden_language", [])
+    if not forbidden:
+        return ["No explicit forbidden language defined"]
+    items = [f"Cannot use: {', '.join(forbidden)}"]
+    # Add ceiling-specific restrictions
+    ceiling = judgment.get("claim_ceiling", "")
+    if ceiling:
+        items.append(f"Claim ceiling: {ceiling}")
+    tier = ladder.get("tier", 0)
+    if tier <= 1:
+        items.append("Cannot make directional forecasts (tier ≤ 1)")
+        items.append("Cannot recommend positions (tier ≤ 1)")
+    return items
+
+
+def _mechanism_hypothesis(judgment: dict | None, caselab: dict | None) -> dict[str, Any]:
+    """Extract mechanism hypothesis from CaseLab and judgment."""
+    result: dict[str, Any] = {
+        "status": "no_data",
+        "mechanisms": [],
+        "confidence": "unknown",
+        "match_quality": "unknown",
+    }
+
+    # From CaseLab
+    if caselab:
+        mc = caselab.get("mechanism_context", {})
+        result["mechanisms"] = mc.get("mechanism_types", [])
+        mq = caselab.get("match_quality", {})
+        result["match_quality"] = mq.get("label", "unknown")
+        result["top_score"] = mq.get("top_score", 0)
+        result["gap_to_usable"] = mq.get("gap_to_usable", 0)
+        # Top match info
+        matches = caselab.get("matches", [])
+        if matches:
+            top = matches[0]
+            result["top_case"] = top.get("case_name", "unknown")
+            result["matched_mechanisms"] = top.get("matched_mechanisms", [])
+            result["missing_mechanisms"] = top.get("missing_mechanisms", [])
+        result["status"] = "available"
+
+    # From judgment claim ladder
+    if judgment:
+        ladder = judgment.get("claim_ladder", {})
+        claim = ladder.get("claim_statement", "")
+        if "resembles" in claim:
+            # Extract mechanism names from claim
+            after = claim.split("resembles")[1].split(".")[0]
+            mechs = [m.strip() for m in after.split(",") if "_" in m.strip()]
+            if mechs and not result["mechanisms"]:
+                result["mechanisms"] = mechs
+        result["tier"] = ladder.get("tier", 0)
+        result["label"] = ladder.get("label", "unknown")
+
+    return result
+
+
+def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any]:
+    """Check if a full refresh is needed based on artifact freshness."""
+    result: dict[str, Any] = {
+        "needed": False,
+        "reasons": [],
+        "recommendation": "quick_reaction_sufficient",
+    }
+
+    now = datetime.now(UTC).timestamp()
+
+    # Check framework_output freshness
+    fw_path = CURRENT / "framework_output.json"
+    if fw_path.exists():
+        age_hours = (now - fw_path.stat().st_mtime) / 3600
+        if age_hours > 48:
+            result["needed"] = True
+            result["reasons"].append(f"framework_output is {age_hours:.0f}h old (>48h)")
+        elif age_hours > 24:
+            result["reasons"].append(f"framework_output is {age_hours:.0f}h old (consider refresh)")
+    else:
+        result["needed"] = True
+        result["reasons"].append("No framework_output found")
+
+    # Check judgment freshness
+    judgment_path = JUDGMENT / "latest.json"
+    if judgment_path.exists():
+        age_hours = (now - judgment_path.stat().st_mtime) / 3600
+        if age_hours > 48:
+            result["needed"] = True
+            result["reasons"].append(f"judgment is {age_hours:.0f}h old (>48h)")
+    else:
+        result["needed"] = True
+        result["reasons"].append("No judgment artifact found")
+
+    # Check Harvester freshness
+    harvester_catalog = ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
+    if harvester_catalog.exists():
+        age_hours = (now - harvester_catalog.stat().st_mtime) / 3600
+        if age_hours > 72:
+            result["needed"] = True
+            result["reasons"].append(f"Harvester release is {age_hours:.0f}h old (>72h)")
+    else:
+        result["reasons"].append("No Harvester release found (may be OK for quick mode)")
+
+    # Check data gaps freshness
+    gaps_path = CURRENT / "data_gaps.json"
+    if gaps_path.exists():
+        age_hours = (now - gaps_path.stat().st_mtime) / 3600
+        if age_hours > 24:
+            result["reasons"].append(f"data_gaps is {age_hours:.0f}h old (stale)")
+
+    if result["needed"]:
+        result["recommendation"] = "run_full_refresh"
+    elif result["reasons"]:
+        result["recommendation"] = "standard_run_sufficient"
+    else:
+        result["recommendation"] = "quick_reaction_sufficient"
+
+    return result
+
+
+def _load_caselab() -> dict[str, Any] | None:
+    """Load today's CaseLab signal if available."""
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    path = ROOT / "Output" / "caselab" / f"{today}.json"
+    return _load(path)
+
+
 def build_work_brief() -> dict[str, Any]:
     status = _load(CURRENT / "status.json")
     fw = _load(CURRENT / "framework_output.json")
@@ -192,6 +342,7 @@ def build_work_brief() -> dict[str, Any]:
     trade = _load(TRADE / "latest.json")
     quality = _load(CURRENT / "quality_validation.json")
     hmm = _hmm_signal()
+    caselab = _load_caselab()
 
     reaction = _current_reaction(status, fw, judgment, trade)
     reasons = _why(status, judgment, quality)
@@ -199,6 +350,10 @@ def build_work_brief() -> dict[str, Any]:
     limiters = _limiters(status, judgment)
     next_work = _next_work(judgment, quality)
     sigma = _sigma_snapshot(fw)
+    can_say = _can_say(judgment)
+    cannot_say = _cannot_say(judgment)
+    mechanism_hypothesis = _mechanism_hypothesis(judgment, caselab)
+    refresh_check = _needs_full_refresh(fw, judgment)
 
     result: dict[str, Any] = {
         "generated_at": datetime.now(UTC).isoformat(),
@@ -207,6 +362,10 @@ def build_work_brief() -> dict[str, Any]:
         "most_important_blocker": blocker,
         "limiters": limiters,
         "next_work": next_work,
+        "can_say": can_say,
+        "cannot_say": cannot_say,
+        "mechanism_hypothesis": mechanism_hypothesis,
+        "needs_full_refresh": refresh_check,
         "sigma": sigma,
     }
     if hmm:
@@ -263,6 +422,57 @@ def to_markdown(b: dict) -> str:
     ]
     for i, action in enumerate(b["next_work"], 1):
         lines.append(f"{i}. {action}")
+
+    # Can say / Cannot say
+    can_say = b.get("can_say", [])
+    if can_say:
+        lines += ["", "## What Can Be Said", ""]
+        for item in can_say:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    cannot_say = b.get("cannot_say", [])
+    if cannot_say:
+        lines += ["## What Cannot Be Said", ""]
+        for item in cannot_say:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    # Mechanism hypothesis
+    mh = b.get("mechanism_hypothesis", {})
+    if mh.get("mechanisms"):
+        lines += ["## Mechanism Hypothesis", ""]
+        lines.append(f"- **Status:** {mh.get('status', 'unknown')}")
+        lines.append(f"- **Mechanisms:** {', '.join(mh.get('mechanisms', []))}")
+        if mh.get("match_quality"):
+            lines.append(f"- **Match quality:** {mh.get('match_quality')} (score={mh.get('top_score', 0):.3f})")
+        if mh.get("top_case"):
+            lines.append(f"- **Top case:** {mh.get('top_case')}")
+        if mh.get("matched_mechanisms"):
+            lines.append(f"- **Matched:** {', '.join(mh.get('matched_mechanisms', []))}")
+        if mh.get("missing_mechanisms"):
+            lines.append(f"- **Missing:** {', '.join(mh.get('missing_mechanisms', []))}")
+        if mh.get("tier") is not None:
+            lines.append(f"- **Claim tier:** {mh.get('tier')} ({mh.get('label', '')})")
+        lines.append("")
+
+    # Needs full refresh
+    refresh = b.get("needs_full_refresh", {})
+    if refresh:
+        needed = refresh.get("needed", False)
+        icon = "🔴" if needed else "🟢"
+        rec = refresh.get("recommendation", "unknown")
+        lines += [
+            "## Full Refresh Check",
+            "",
+            f"- {icon} **Needs full refresh:** {'YES' if needed else 'No'}",
+            f"- **Recommendation:** {rec}",
+        ]
+        if refresh.get("reasons"):
+            lines.append("- Reasons:")
+            for reason in refresh["reasons"]:
+                lines.append(f"  - {reason}")
+        lines.append("")
 
     hmm = b.get("hmm_signal")
     if hmm:

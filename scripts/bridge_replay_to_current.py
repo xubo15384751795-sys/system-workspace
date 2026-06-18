@@ -112,11 +112,80 @@ def _channel_coverage(sv: dict) -> dict:
     }
 
 
+def _build_channel_contributors() -> dict[str, list[dict]]:
+    """Extract per-channel proxy contributors with actual z-scores.
+
+    Reads proxy_registry.json for metadata and proxy_components.parquet
+    for the latest z-score values. Returns a dict mapping each channel
+    to a sorted list of contributor dicts.
+    """
+    registry_path = REPLAY_DIR / "proxy_registry.json"
+    components_path = REPLAY_DIR / "proxy_components.parquet"
+    if not registry_path.exists() or not components_path.exists():
+        return {}
+
+    try:
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        import pandas as pd
+        components = pd.read_parquet(components_path)
+    except Exception:
+        return {}
+
+    # Get latest row of z-scores
+    if components.empty:
+        return {}
+    latest = components.iloc[-1]
+
+    # Build per-channel contributor lists
+    channels: dict[str, list[dict]] = {}
+    HARVESTER_PREFIXES = ("FRED:", "SEC:", "OFR:", "TREASURY:", "CBOE:", "DERIVED:")
+
+    for proxy in registry:
+        ch = proxy.get("channel") or proxy.get("target_variable", "")
+        name = proxy.get("name", "")
+        if not ch or not name:
+            continue
+
+        z_score = latest.get(name)
+        if pd.isna(z_score):
+            z_score = None
+        else:
+            z_score = round(float(z_score), 4)
+
+        raw_series = proxy.get("raw_series", [])
+        harvester_sourced = any(
+            s.startswith(HARVESTER_PREFIXES) for s in raw_series
+        ) if raw_series else False
+
+        contributor = {
+            "proxy_name": name,
+            "raw_series": raw_series,
+            "z_score": z_score,
+            "direction": ("positive" if z_score and z_score > 0 else "negative" if z_score and z_score < 0 else "neutral"),
+            "tier": proxy.get("tier", "unknown"),
+            "canonical_status": proxy.get("canonical_status", "unknown"),
+            "proxy_status": proxy.get("proxy_status", "unknown"),
+            "harvester_sourced": harvester_sourced,
+            "mechanism": proxy.get("mechanism", ""),
+        }
+        channels.setdefault(ch, []).append(contributor)
+
+    # Sort each channel by absolute z-score descending (None last)
+    for ch in channels:
+        channels[ch].sort(
+            key=lambda c: abs(c["z_score"]) if c["z_score"] is not None else 0,
+            reverse=True,
+        )
+
+    return channels
+
+
 def _build_channel_confidence(sv: dict, results: list) -> dict:
     """Per-channel confidence assessment."""
     vector = sv.get("sigma_vector", {})
     warnings = vector.get("semantic_warning", [])
     semantic = _load_semantic_registry()
+    all_contributors = _build_channel_contributors()
 
     confidence = {}
     for ch in ["M", "D", "K", "X_agg"]:
@@ -165,6 +234,7 @@ def _build_channel_confidence(sv: dict, results: list) -> dict:
             "valid_for": semantic_meta.get("valid_for", []),
             "not_valid_for": semantic_meta.get("not_valid_for", []),
             "allowed_in_canonical_voting": is_live and readout_role == "primary_readout",
+            "contributors": all_contributors.get(ch, []),
         }
 
     return confidence

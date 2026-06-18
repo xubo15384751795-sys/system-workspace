@@ -48,6 +48,9 @@ def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
     sv = adv.get("sigma_vector", {})
     eligibility = sv.get("measurement_eligibility", {})
 
+    # Read per-channel contributors from channel_confidence
+    channel_conf = adv.get("channel_confidence", {})
+
     for ch in ["M", "D", "K", "X_agg"]:
         raw = sv.get(ch)
         elig = eligibility.get(ch, {})
@@ -55,6 +58,7 @@ def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
         status = elig.get("current_status", "UNKNOWN")
         reason = elig.get("reason", "")
         is_primary = role == "primary_readout"
+        contributors = channel_conf.get(ch, {}).get("contributors", [])
 
         # Direction
         if raw is None:
@@ -114,6 +118,7 @@ def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
             "framework_role": elig.get("framework_role", ""),
             "status_detail": status,
             "reason": reason,
+            "contributors": contributors,
         })
 
     return channels
@@ -646,6 +651,42 @@ def generate_markdown(card: dict[str, Any]) -> str:
             f"{ch['size']} | {ch['confidence']} | {ch['readout_class']} {eligible} |"
         )
     lines.append("")
+
+    # Channel contributors — per-proxy breakdown
+    has_contributors = any(ch.get("contributors") for ch in card.get("channel_decomposition", []))
+    if has_contributors:
+        lines += ["### Channel Contributors — top drivers", ""]
+        for ch in card.get("channel_decomposition", []):
+            ch_name = ch["channel"]
+            ch_val = ch["value"]
+            contributors = ch.get("contributors", [])
+            readout = ch["readout_class"]
+            proxy_quality = ch.get("status_detail", "")
+
+            if not contributors:
+                lines.append(f"**{ch_name}={ch_val}** — no contributor data")
+                lines.append("")
+                continue
+
+            # Top voting contributors (canonical_voting only)
+            voting = [c for c in contributors if c.get("canonical_status") == "canonical_voting"]
+            non_voting = [c for c in contributors if c.get("canonical_status") != "canonical_voting"]
+
+            if voting:
+                top_names = [f"{c['proxy_name']} ({', '.join(c['raw_series'])})" for c in voting[:3]]
+                lines.append(f"**{ch_name}={ch_val}** — 主要由 {', '.join(top_names)} 推动; 当前 {proxy_quality}")
+                lines.append("")
+                for c in voting[:3]:
+                    z = c.get("z_score", "N/A")
+                    lines.append(f"- `{c['proxy_name']}` ({', '.join(c['raw_series'])}): z={z} [{c['tier']}, {c['canonical_status']}]")
+            elif non_voting:
+                lines.append(f"**{ch_name}={ch_val}** — 无 canonical_voting proxy ({readout})")
+                lines.append("")
+                lines.append(f"- 当前 {ch_name} 代理均为 quarantined_drift，不满足 canonical 门控")
+                for c in non_voting[:3]:
+                    z = c.get("z_score", "N/A")
+                    lines.append(f"- `{c['proxy_name']}` ({', '.join(c['raw_series'])}): z={z} [{c['canonical_status']}]")
+            lines.append("")
 
     # Gate classification — new section
     lines += [
