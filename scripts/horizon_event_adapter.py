@@ -17,31 +17,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+
 HORIZON_OUTPUT_DIR = ROOT.parent / "Horizon" / "Output"
 OUTPUT_DIR = ROOT / "Data" / "horizon_events"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
 
 
 def read_horizon_events() -> list[dict[str, Any]]:
@@ -64,7 +48,7 @@ def read_horizon_events() -> list[dict[str, Any]]:
                 "summary": item.get("summary", item.get("description", "")),
                 "source_type": "news",
                 "url": item.get("url", ""),
-                "published_at": item.get("published_at", datetime.now(UTC).isoformat()),
+                "published_at": item.get("published_at", utc_now().isoformat()),
                 "ai_score": item.get("ai_score", 0.5),
                 "tags": item.get("tags", []),
                 "related_assets": item.get("related_assets", []),
@@ -78,7 +62,7 @@ def read_horizon_events() -> list[dict[str, Any]]:
 
 def generate_sample_events() -> list[dict[str, Any]]:
     """Generate sample events for testing."""
-    now = datetime.now(UTC)
+    now = utc_now()
 
     return [
         {
@@ -244,7 +228,7 @@ def match_events_to_mechanisms(events: list[dict[str, Any]]) -> list[dict[str, A
 
 def build_daily_digest(events: list[dict[str, Any]], matches: list[dict[str, Any]]) -> dict[str, Any]:
     """Build daily digest of events."""
-    now = datetime.now(UTC)
+    now = utc_now()
     date_str = now.strftime("%Y-%m-%d")
 
     # Group by source type
@@ -283,7 +267,7 @@ def build_daily_digest(events: list[dict[str, Any]], matches: list[dict[str, Any
 
 def write_outputs(events: list[dict[str, Any]], matches: list[dict[str, Any]], digest: dict[str, Any]) -> None:
     """Write outputs to disk."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     # Write events
     events_path = OUTPUT_DIR / "events.jsonl"
@@ -299,7 +283,7 @@ def write_outputs(events: list[dict[str, Any]], matches: list[dict[str, Any]], d
 
     # Write daily digest
     digest_path = OUTPUT_DIR / "daily_digest.json"
-    digest_path.write_text(json.dumps(digest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(digest_path, digest)
 
 
 def main() -> None:

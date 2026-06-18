@@ -16,36 +16,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 FRAMEWORK_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
 
 
 def save_jsonl(path: Path, entries: list[dict]) -> None:
@@ -72,7 +52,7 @@ def get_current_state() -> dict[str, Any]:
 
 def get_current_caselab_score() -> float | None:
     """Read current CaseLab top score."""
-    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    today = utc_now().strftime("%Y-%m-%d")
     caselab_path = CASELAB_DIR / f"{today}.json"
     caselab = load_json(caselab_path)
     if caselab:
@@ -325,7 +305,7 @@ def evaluate_claims(
 ) -> dict[str, Any]:
     """Evaluate all claims in the trade ledger."""
     evaluations = []
-    today = datetime.now(UTC).date()
+    today = utc_now().date()
 
     for entry in ledger_entries:
         entry_date = entry.get("date")
@@ -358,7 +338,7 @@ def evaluate_claims(
 
     return {
         "schema_version": "claim_evaluation.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": utc_now().isoformat(),
         "summary": {
             "total_evaluations": total,
             "confirmed": confirmed,
@@ -387,7 +367,7 @@ def update_forward_outcomes(
         if entry_date in eval_by_date:
             ev = eval_by_date[entry_date]
             entry["forward_outcome"] = {
-                "evaluated_at": datetime.now(UTC).isoformat(),
+                "evaluated_at": utc_now().isoformat(),
                 "days_since": ev["days_since"],
                 "status": ev["status"],
                 "md_continuity": ev["md_continuity"],
@@ -421,7 +401,7 @@ def main() -> None:
     save_jsonl(TRADE_LEDGER_PATH, updated_entries)
 
     # Write output
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     output_path = OUTPUT_DIR / "claim_evaluation.json"
     output_path.write_text(
         json.dumps(result, indent=2, ensure_ascii=False) + "\n",

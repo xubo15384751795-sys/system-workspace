@@ -13,5 +13,8 @@ scikit-learn>=1.4
 # ML
 hmmlearn>=0.3
 
+# Linting
+ruff>=0.11
+
 # Testing
 pytest>=8.0

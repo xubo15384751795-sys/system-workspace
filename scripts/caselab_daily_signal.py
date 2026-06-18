@@ -19,13 +19,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ensure_dir, load_json, utc_now, write_json
+
 OUTPUT_DIR = ROOT / "Output" / "caselab"
 
 # Scoring policy thresholds
@@ -60,7 +61,7 @@ def get_latest_state() -> dict:
     # Primary source: framework_output.json (always fresh after daily run)
     if framework_path.exists():
         try:
-            fw = json.loads(framework_path.read_text(encoding="utf-8"))
+            fw = load_json(framework_path) or {}
             sv = fw.get("advanced", {}).get("sigma_vector", {})
             state["date"] = str(fw.get("as_of", ""))[:10]
             state["M"] = float(sv.get("M", 0)) if sv.get("M") is not None else None
@@ -602,7 +603,7 @@ def _load_claim_ladder_mechanisms() -> list[str]:
     if not judgment_path.exists():
         return []
     try:
-        judgment = json.loads(judgment_path.read_text(encoding="utf-8"))
+        judgment = load_json(judgment_path) or {}
         ladder = judgment.get("claim_ladder", {})
         claim = ladder.get("claim_statement", "")
         # Extract mechanism names from claim statement
@@ -839,7 +840,7 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
 
     # 5. Build output
     output = {
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": utc_now().isoformat(),
         "system_state": {
             "date": state.get("date"),
             "M": state.get("M"),
@@ -917,11 +918,11 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     output["review_candidates"] = _build_review_candidates(matches_raw, query_mechs)
 
     # 6. Write output
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    ensure_dir(OUTPUT_DIR)
+    today = utc_now().strftime("%Y-%m-%d")
 
     json_path = OUTPUT_DIR / f"{today}.json"
-    json_path.write_text(json.dumps(output, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(json_path, output)
 
     if not json_only:
         md_path = OUTPUT_DIR / f"{today}.md"

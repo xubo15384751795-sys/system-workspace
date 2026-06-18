@@ -1,9 +1,8 @@
-# Pre-commit hooks — minimal gate, no heavy formatters.
+# Pre-commit hooks — minimal gate + lint-only ruff.
 # Install:  pre-commit install
 # Run all:  pre-commit run --all-files
 #
-# This is intentionally lightweight: trailing whitespace, EOF fixers,
-# and YAML/JSON syntax checks only.  No black/ruff yet — add those
+# Ruff is lint-only here (no auto-format).  Add ruff-format or black
 # separately when the codebase is ready for a formatting pass.
 
 repos:
@@ -15,3 +14,9 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff
+        args: [--select, E,F,W,I, --ignore, E501,E402]
