@@ -1,19 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Workbench Framework Output",
-  "type": "object",
-  "required": ["schema_version", "framework_id", "run_id", "as_of", "status", "basic", "advanced", "artifacts"],
-  "properties": {
-    "schema_version": {"const": "workbench.framework_output.v1"},
-    "framework_id": {"type": "string"},
-    "framework_version": {"type": "string"},
-    "run_id": {"type": "string"},
-    "as_of": {"type": "string"},
-    "status": {"type": "string"},
-    "basic": {"type": "object"},
-    "advanced": {"type": "object"},
-    "evidence_links": {"type": "array", "items": {"type": "string"}},
-    "next_actions": {"type": "array", "items": {"type": "string"}},
-    "artifacts": {"type": "object"}
-  }
+  "$id": "framework_output.redirect",
+  "title": "Framework Output (redirect)",
+  "description": "DEPRECATED — canonical schema is governance/framework_output.schema.json (v3). This file exists only for backward compatibility.",
+  "$ref": "../governance/framework_output.schema.json"
 }

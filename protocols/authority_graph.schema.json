@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Authority Graph",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "sources",
+    "zones",
+    "nodes",
+    "edges",
+    "bridge_nodes",
+    "invariants"
+  ],
+  "properties": {
+    "schema_version": {"const": "authority_graph.v1"},
+    "generated_at": {"type": "string"},
+    "sources": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "zones": {"type": "object"},
+    "bridge_nodes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "surface_path_prefixes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "zone"],
+        "properties": {
+          "id": {"type": "string"},
+          "kind": {"type": "string", "enum": ["pipeline_step", "artifact"]},
+          "zone": {"type": "string"},
+          "node_type": {"type": "string"},
+          "owner": {"type": "string"},
+          "order": {"type": "integer"},
+          "declared_affects_core": {"type": "boolean"},
+          "graph_derived_affects_core": {"type": "boolean"},
+          "bridge_node": {"type": "boolean"},
+          "path_depth_to_surface": {"type": ["integer", "null"]},
+          "in_degree": {"type": "integer"},
+          "out_degree": {"type": "integer"}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "kind"],
+        "properties": {
+          "from": {"type": "string"},
+          "to": {"type": "string"},
+          "kind": {"type": "string"},
+          "bridge": {"type": "boolean"}
+        }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "required": ["valid", "violations"],
+      "properties": {
+        "valid": {"type": "boolean"},
+        "violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "severity", "message"],
+            "properties": {
+              "id": {"type": "string"},
+              "severity": {"type": "string"},
+              "message": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "drift": {
+      "type": "object",
+      "properties": {
+        "declared_derived_mismatches": {
+          "type": "array",
+          "items": {"type": "object"}
+        }
+      }
+    },
+    "metrics": {"type": "object"}
+  }
+}
