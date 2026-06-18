@@ -185,7 +185,7 @@ def test_judgment_has_required_keys(judgment: dict) -> None:
 def test_judgment_decision_is_known(judgment: dict) -> None:
     valid = {
         "STRONG_BUY", "BUY", "HOLD", "WATCH_ONLY", "NO_TRADE",
-        "RESEARCH_ONLY", "STRONG_SELL", "SELL",
+        "RESEARCH_ONLY", "STRONG_SELL", "SELL", "RESEARCH_REVIEW",
     }
     decision = judgment.get("decision", "")
     assert decision in valid, f"Unknown judgment decision: {decision!r}"
