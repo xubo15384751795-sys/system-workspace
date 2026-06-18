@@ -21,18 +21,13 @@ import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from _runtime_io import load_json
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "Output"
 DATA_DIR = ROOT / "Data"
 INDEX_DIR = DATA_DIR / "system_index"
 INDEX_PATH = INDEX_DIR / "latest.json"
-
-
-def load_json(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def check_path(path: Path) -> dict:

@@ -17,6 +17,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from _runtime_io import load_json
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
@@ -26,19 +27,10 @@ CASELAB = ROOT / "Output" / "caselab"
 HMM = ROOT / "Output" / "ml_signals" / "latest"
 
 
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
 def _load_caselab_today() -> dict[str, Any] | None:
     """Load today's CaseLab artifact."""
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    return _load_json(CASELAB / f"{today}.json")
+    return load_json(CASELAB / f"{today}.json")
 
 
 def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
@@ -465,7 +457,7 @@ def _identify_evidence_list(judgment: dict, fw: dict) -> list[dict[str, str]]:
 
     # HMM signal with degeneracy status
     hmm_path = HMM / "regime_hmm.json"
-    hmm_sig = _load_json(hmm_path) if HMM.exists() else None
+    hmm_sig = load_json(hmm_path) if HMM.exists() else None
     if hmm_sig:
         regime = hmm_sig.get("regime", {})
         degeneracy = hmm_sig.get("degeneracy", {})
@@ -530,10 +522,10 @@ def _identify_evidence_list(judgment: dict, fw: dict) -> list[dict[str, str]]:
 
 def build_signal_card() -> dict[str, Any]:
     """Build the complete signal card with channel decomposition and gate classification."""
-    judgment = _load_json(JUDGMENT / "latest.json")
-    fw = _load_json(CURRENT / "framework_output.json")
-    trade = _load_json(TRADE_DECISION / "latest.json")
-    hmm_data = _load_json(HMM / "regime_hmm.json")
+    judgment = load_json(JUDGMENT / "latest.json")
+    fw = load_json(CURRENT / "framework_output.json")
+    trade = load_json(TRADE_DECISION / "latest.json")
+    hmm_data = load_json(HMM / "regime_hmm.json")
     caselab_data = _load_caselab_today()
 
     if not judgment:

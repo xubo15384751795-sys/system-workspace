@@ -19,6 +19,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from _runtime_io import load_json
 
 ROOT = Path(__file__).resolve().parents[1]
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
@@ -29,12 +30,6 @@ X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 OUTPUT_DIR = ROOT / "Output" / "current"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:

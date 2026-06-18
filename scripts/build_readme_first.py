@@ -18,17 +18,12 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from _runtime_io import load_json
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 FRAMEWORK_OUTPUT_PATH = ROOT / "Output" / "current" / "framework_output.json"
 OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, Any] | None = None) -> str:

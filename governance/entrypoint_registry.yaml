@@ -760,3 +760,11 @@ signal_consensus:
   description: Aggregate all signal sources into a unified consensus view
   allowed_use:
   - signal_consensus_generation
+_runtime_io:
+  script: scripts/_runtime_io.py
+  status: active
+  owner: Engineering
+  description: Shared runtime I/O utilities for main chain scripts (load_json, load_yaml, write_json)
+  allowed_use:
+  - shared_utility
+  - main_chain_import

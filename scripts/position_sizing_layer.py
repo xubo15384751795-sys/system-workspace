@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from _runtime_io import load_json, load_yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
@@ -31,18 +32,6 @@ POLICY_PATH = ROOT / "governance" / "position_sizing_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "position"
 
 DEFAULT_ASSETS = ["SPY", "HYG", "TLT"]
-
-
-def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_yaml(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def check_hard_blocks(
