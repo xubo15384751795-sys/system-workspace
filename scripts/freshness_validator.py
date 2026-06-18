@@ -36,7 +36,17 @@ MAX_AGE_HOURS = {
     "learning_summary": 72,
     "system_index": 24,
     "readme_first": 24,
+    "signal_card": 24,
+    "work_brief": 24,
 }
+
+# The "current outputs" chain — these must all be from the same run
+CURRENT_OUTPUT_CHAIN = [
+    "readme_first",
+    "signal_card",
+    "work_brief",
+    "system_index",
+]
 
 # Evidence release TTL — see governance/architecture_reality_decisions.md §4
 # See: configs/freshness_policy.yaml evidence_release section
@@ -80,21 +90,85 @@ def check_artifact_freshness(
     }
 
 
+def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
+    """Check that all current outputs are from the same run (closure chain).
+
+    If any current output is significantly older than the others, it means
+    a partial refresh happened — the chain is not closed.
+
+    The "current output chain" consists of: readme_first, signal_card,
+    work_brief, system_index. These should all be generated within a
+    short window (< 5 minutes) of each other during a full pipeline run.
+    """
+    issues = []
+    chain_paths = {
+        "readme_first": OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md",
+        "signal_card": OUTPUT_DIR / "current" / "signal_card.json",
+        "work_brief": OUTPUT_DIR / "current" / "work_brief.json",
+        "system_index": ROOT / "Data" / "system_index" / "latest.json",
+    }
+
+    # Collect mtimes for all chain members that exist
+    mtimes: dict[str, datetime] = {}
+    for name, path in chain_paths.items():
+        mtime = get_file_mtime(path)
+        if mtime is not None:
+            mtimes[name] = mtime
+
+    if len(mtimes) < 2:
+        return issues  # Can't check chain with < 2 artifacts
+
+    # Check if any artifact is more than 5 minutes older than the newest
+    # This indicates a partial refresh (the chain is not closed)
+    newest_name = max(mtimes, key=lambda k: mtimes[k])
+    newest_time = mtimes[newest_name]
+    max_gap_minutes = 5
+
+    for name, mtime in mtimes.items():
+        gap_minutes = (newest_time - mtime).total_seconds() / 60
+        if gap_minutes > max_gap_minutes:
+            issues.append({
+                "rule": f"closure chain: {name} is {gap_minutes:.0f}min older than {newest_name}",
+                "earlier": name,
+                "earlier_time": mtime.isoformat(),
+                "later": newest_name,
+                "later_time": newest_time.isoformat(),
+                "status": "CLOSURE_VIOLATION",
+                "hint": (
+                    f"Partial refresh detected: {name} was not updated in the same run "
+                    f"as {newest_name}. Re-run the full pipeline to close the chain, "
+                    f"or run: python3 scripts/build_{name}.py"
+                ),
+            })
+
+    return issues
+
+
 def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
     """Check that artifacts are in correct temporal order."""
     issues = []
 
-    # Define expected ordering
+    # Define expected ordering — the full pipeline chain
     ordering_rules = [
         {
             "earlier": ("judgment", OUTPUT_DIR / "judgment" / "latest.json"),
+            "later": ("promotion_gate", OUTPUT_DIR / "judgment" / "promotion_gate.json"),
+            "rule": "promotion_gate must be after judgment",
+        },
+        {
+            "earlier": ("promotion_gate", OUTPUT_DIR / "judgment" / "promotion_gate.json"),
             "later": ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json"),
-            "rule": "trade_decision must be after judgment",
+            "rule": "trade_decision must be after promotion_gate",
         },
         {
             "earlier": ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json"),
             "later": ("risk_gate", OUTPUT_DIR / "trade_decision" / "risk_gate.json"),
             "rule": "risk_gate must be after trade_decision",
+        },
+        {
+            "earlier": ("risk_gate", OUTPUT_DIR / "trade_decision" / "risk_gate.json"),
+            "later": ("record_trade_decision", OUTPUT_DIR / "trade_ledger" / "latest.md"),
+            "rule": "record_trade_decision must be after risk_gate",
         },
         {
             "earlier": ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json"),
@@ -110,6 +184,16 @@ def check_temporal_ordering(now: datetime) -> list[dict[str, Any]]:
             "earlier": ("system_index", ROOT / "Data" / "system_index" / "latest.json"),
             "later": ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md"),
             "rule": "readme_first must be after system_index",
+        },
+        {
+            "earlier": ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md"),
+            "later": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
+            "rule": "signal_card must be after readme_first",
+        },
+        {
+            "earlier": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
+            "later": ("work_brief", OUTPUT_DIR / "current" / "work_brief.json"),
+            "rule": "work_brief must be after signal_card",
         },
     ]
 
@@ -147,6 +231,8 @@ def build_freshness_report(now: datetime) -> dict[str, Any]:
         ("learning_summary", OUTPUT_DIR / "system_learning" / "latest" / "comprehensive_summary.json", MAX_AGE_HOURS["learning_summary"]),
         ("system_index", ROOT / "Data" / "system_index" / "latest.json", MAX_AGE_HOURS["system_index"]),
         ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md", MAX_AGE_HOURS["readme_first"]),
+        ("signal_card", OUTPUT_DIR / "current" / "signal_card.json", MAX_AGE_HOURS["signal_card"]),
+        ("work_brief", OUTPUT_DIR / "current" / "work_brief.json", MAX_AGE_HOURS["work_brief"]),
     ]
 
     freshness_checks = [check_artifact_freshness(name, path, max_age, now) for name, path, max_age in artifacts]
@@ -163,11 +249,14 @@ def build_freshness_report(now: datetime) -> dict[str, Any]:
     # Check temporal ordering
     ordering_issues = check_temporal_ordering(now)
 
+    # Check closure chain — all current outputs must be from the same run
+    closure_issues = check_closure_chain(now)
+
     # Determine overall verdict
     stale_artifacts = [a for a in freshness_checks if a["status"] == "STALE"]
     missing_artifacts = [a for a in freshness_checks if a["status"] == "MISSING"]
 
-    if ordering_issues:
+    if ordering_issues or closure_issues:
         verdict = "FAIL"
     elif stale_artifacts:
         verdict = "WARN"
@@ -177,12 +266,13 @@ def build_freshness_report(now: datetime) -> dict[str, Any]:
         verdict = "PASS"
 
     return {
-        "schema_version": "freshness_validator.v1",
+        "schema_version": "freshness_validator.v2",
         "generated_at": now.isoformat(),
         "verdict": verdict,
         "stale_artifacts": [a["name"] for a in stale_artifacts],
         "missing_artifacts": [a["name"] for a in missing_artifacts],
         "ordering_issues": ordering_issues,
+        "closure_chain_issues": closure_issues,
         "artifacts": freshness_checks,
     }
 
@@ -208,7 +298,7 @@ def format_markdown(report: dict[str, Any]) -> str:
         age = f"{artifact['age_hours']:.1f}" if artifact["age_hours"] is not None else "N/A"
         lines.append(f"| {artifact['name']} | {status_icon} {artifact['status']} | {age} | {artifact['max_age_hours']} |")
 
-    if report["ordering_issues"]:
+    if report.get("ordering_issues"):
         lines += [
             "",
             "## Ordering Issues",
@@ -216,6 +306,19 @@ def format_markdown(report: dict[str, Any]) -> str:
         ]
         for issue in report["ordering_issues"]:
             lines.append(f"- ❌ {issue['rule']}")
+
+    if report.get("closure_chain_issues"):
+        lines += [
+            "",
+            "## Closure Chain Violations",
+            "",
+            "Current outputs are not from the same run. Re-run the full pipeline to close the chain.",
+            "",
+        ]
+        for issue in report["closure_chain_issues"]:
+            lines.append(f"- ❌ {issue['rule']}")
+            if issue.get("hint"):
+                lines.append(f"  - Fix: {issue['hint']}")
 
     if report["stale_artifacts"]:
         lines += [

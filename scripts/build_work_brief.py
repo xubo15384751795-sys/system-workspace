@@ -84,7 +84,29 @@ def _most_important_blocker(status: dict, judgment: dict) -> str:
     if reasons:
         return reasons[0]
 
-    return "No blockers identified"
+    return "No hard blockers"
+
+
+def _limiters(status: dict, judgment: dict) -> list[str]:
+    """Identify limiting factors that constrain the system but don't block it."""
+    limiters = []
+    pg = status.get("promotion_gate", {}) if status else {}
+
+    # Watch reasons from promotion gate
+    for r in pg.get("watch_reasons", []):
+        if r not in limiters:
+            limiters.append(r)
+
+    # Confidence reasons that aren't already covered
+    conf = (judgment or {}).get("confidence", {})
+    reasons = conf.get("reasons", []) if isinstance(conf, dict) else []
+    for r in reasons:
+        r_lower = r.lower()
+        if "proxy" in r_lower or "measurement" in r_lower or "caselab" in r_lower:
+            if r not in limiters:
+                limiters.append(r)
+
+    return limiters[:5]
 
 
 def _next_work(judgment: dict, quality: dict | None) -> list[str]:
@@ -174,6 +196,7 @@ def build_work_brief() -> dict[str, Any]:
     reaction = _current_reaction(status, fw, judgment, trade)
     reasons = _why(status, judgment, quality)
     blocker = _most_important_blocker(status, judgment)
+    limiters = _limiters(status, judgment)
     next_work = _next_work(judgment, quality)
     sigma = _sigma_snapshot(fw)
 
@@ -182,6 +205,7 @@ def build_work_brief() -> dict[str, Any]:
         "reaction": reaction,
         "why": reasons,
         "most_important_blocker": blocker,
+        "limiters": limiters,
         "next_work": next_work,
         "sigma": sigma,
     }
@@ -221,6 +245,19 @@ def to_markdown(b: dict) -> str:
         "",
         f"**{b['most_important_blocker']}**",
         "",
+    ]
+
+    limiters = b.get("limiters", [])
+    if limiters:
+        lines += [
+            "## Limiters",
+            "",
+        ]
+        for limiter in limiters:
+            lines.append(f"- {limiter}")
+        lines.append("")
+
+    lines += [
         "## Next Useful Work",
         "",
     ]
@@ -286,8 +323,30 @@ def to_markdown(b: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _check_closure_chain() -> None:
+    """Warn if running standalone and upstream artifacts are newer."""
+    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    current_brief = CURRENT / "work_brief.json"
+
+    if not judgment_path.exists():
+        print("WARNING: No judgment card found. Run the full pipeline first.")
+        return
+
+    judgment_mtime = judgment_path.stat().st_mtime
+    if current_brief.exists():
+        brief_mtime = current_brief.stat().st_mtime
+        if judgment_mtime > brief_mtime:
+            print(
+                "WARNING: Closure chain broken — judgment card is newer than work brief. "
+                "This work brief may be stale. Re-run the full pipeline to close the chain."
+            )
+
+
 def main() -> None:
     json_mode = "--json" in sys.argv
+
+    # Check closure chain when running standalone
+    _check_closure_chain()
 
     brief = build_work_brief()
 

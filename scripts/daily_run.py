@@ -40,7 +40,7 @@ add_scripts()
 from run_bundle import RunBundle
 
 # Total steps in the pipeline
-TOTAL_STEPS = 24
+TOTAL_STEPS = 26
 
 
 def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
@@ -241,8 +241,10 @@ def main() -> None:
             "20. Position sizing layer",
             "21. Build system index",
             "22. Build current README / NEXT_ACTIONS",
-            "23. Freshness validator",
-            "24. Architecture reality audit",
+            "23. Build signal card",
+            "24. Build work brief",
+            "25. Freshness validator",
+            "26. Architecture reality audit",
         ]
         for step in steps:
             print(f"  {step}")
@@ -396,6 +398,11 @@ def main() -> None:
     if feedback_script.exists():
         _record(run_step("market_feedback", [sys.executable, str(feedback_script)]))
 
+    # Step 17.5: Claim evaluation — verify past claims against current data
+    claim_eval_script = ROOT / "scripts" / "claim_evaluator.py"
+    if claim_eval_script.exists():
+        _record(run_step("claim_evaluator", [sys.executable, str(claim_eval_script)]))
+
     # Step 18: Learning comprehensive summary
     logger.info("[%d/%d] Generating Learning Hub comprehensive summary...", 18, TOTAL_STEPS)
     learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
@@ -435,14 +442,26 @@ def main() -> None:
     if next_actions_script.exists():
         _record(run_step("next_actions", [sys.executable, str(next_actions_script)]))
 
-    # Step 23: Freshness validator (after index/README to check their timestamps)
-    logger.info("[%d/%d] Running freshness validator...", 23, TOTAL_STEPS)
+    # Step 23: Build signal card (BEFORE freshness — freshness must validate it)
+    logger.info("[%d/%d] Building signal card...", 23, TOTAL_STEPS)
+    signal_card_script = ROOT / "scripts" / "build_signal_card.py"
+    if signal_card_script.exists():
+        _record(run_step("signal_card", [sys.executable, str(signal_card_script)]))
+
+    # Step 24: Build work brief (BEFORE freshness — freshness must validate it)
+    logger.info("[%d/%d] Building work brief...", 24, TOTAL_STEPS)
+    work_brief_script = ROOT / "scripts" / "build_work_brief.py"
+    if work_brief_script.exists():
+        _record(run_step("work_brief", [sys.executable, str(work_brief_script)]))
+
+    # Step 25: Freshness validator (AFTER all current outputs are built)
+    logger.info("[%d/%d] Running freshness validator...", 25, TOTAL_STEPS)
     freshness_script = ROOT / "scripts" / "freshness_validator.py"
     if freshness_script.exists():
         _record(run_step("freshness_validator", [sys.executable, str(freshness_script)]))
 
-    # Step 24: Architecture reality audit (non-strict daily sensor)
-    logger.info("[%d/%d] Running architecture reality audit...", 24, TOTAL_STEPS)
+    # Step 26: Architecture reality audit (non-strict daily sensor)
+    logger.info("[%d/%d] Running architecture reality audit...", 26, TOTAL_STEPS)
     architecture_audit_script = ROOT / "scripts" / "architecture_reality_audit.py"
     if architecture_audit_script.exists():
         _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
@@ -542,6 +561,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
 
     # Judgment confidence low
     judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    judgment = None
     if judgment_path.exists():
         try:
             judgment = json.loads(judgment_path.read_text(encoding="utf-8"))
@@ -554,6 +574,107 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                         source="judgment_layer",
                         validation_type="judgment_calibration",
                         priority="medium",
+                    )
+        except Exception:
+            pass
+
+    # Claim ladder verification targets
+    if judgment:
+        try:
+            ladder = judgment.get("claim_ladder", {})
+            if ladder:
+                tier = ladder.get("tier", 0)
+                label = ladder.get("label", "unknown")
+                claim = ladder.get("claim_statement", "")
+                bundle.add_feedback_pending(
+                    f"Claim ladder: tier={tier} ({label}) — {claim[:150]}",
+                    source="claim_ladder",
+                    validation_type="claim_verification",
+                    priority="high",
+                )
+                # Watch conditions — what to verify next run
+                for wc in ladder.get("watch_conditions", []):
+                    bundle.add_feedback_pending(
+                        f"Watch: {wc}",
+                        source="claim_ladder",
+                        validation_type="claim_verification",
+                        priority="medium",
+                    )
+                # Invalidation conditions — what would disprove
+                for ic in ladder.get("invalidation_conditions", []):
+                    bundle.add_feedback_pending(
+                        f"Invalidation: {ic}",
+                        source="claim_ladder",
+                        validation_type="invalidation_check",
+                        priority="high",
+                    )
+                # Promotion conditions
+                promo = ladder.get("promotion_conditions", {})
+                for k, v in promo.items():
+                    bundle.add_feedback_pending(
+                        f"Promotion {k}: {v}",
+                        source="claim_ladder",
+                        validation_type="claim_verification",
+                        priority="low",
+                    )
+        except Exception:
+            pass
+
+    # CaseLab match quality
+    caselab_dir = ROOT / "Output" / "caselab"
+    if caselab_dir.exists():
+        try:
+            import datetime as _dt
+            today = _dt.date.today().isoformat()
+            caselab_path = caselab_dir / f"{today}.json"
+            if caselab_path.exists():
+                caselab = json.loads(caselab_path.read_text(encoding="utf-8"))
+                mq = caselab.get("match_quality", {})
+                top_score = mq.get("top_score", 0)
+                thresholds = mq.get("thresholds", {})
+                usable_th = thresholds.get("usable", 0.55)
+                gap = round(usable_th - top_score, 3) if top_score < usable_th else 0
+                if gap > 0:
+                    bundle.add_feedback_pending(
+                        f"CaseLab gap: score={top_score}, usable≥{usable_th}, gap={gap}",
+                        source="caselab",
+                        validation_type="case_matching",
+                        priority="medium",
+                    )
+                # Mechanism context — what's missing
+                mc = caselab.get("mechanism_context", {})
+                for mtype in mc.get("mechanism_types", []):
+                    bundle.add_feedback_pending(
+                        f"Mechanism to verify: {mtype}",
+                        source="caselab",
+                        validation_type="mechanism_verification",
+                        priority="medium",
+                    )
+        except Exception:
+            pass
+
+    # HMM calibration status
+    hmm_audit_path = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
+    if hmm_audit_path.exists():
+        try:
+            audit = json.loads(hmm_audit_path.read_text(encoding="utf-8"))
+            cal = audit.get("calibration", {})
+            if not cal.get("calibration_passed", True):
+                hist = cal.get("degradation_reasons", [])
+                for reason in hist:
+                    bundle.add_feedback_pending(
+                        f"HMM calibration: {reason}",
+                        source="hmm_calibration",
+                        validation_type="ml_signal_calibration",
+                        priority="medium",
+                    )
+                cap = cal.get("cap_applied", "")
+                if cap:
+                    bundle.add_feedback_pending(
+                        f"HMM cap applied: {cap} — regime claims limited",
+                        source="hmm_calibration",
+                        validation_type="ml_signal_calibration",
+                        priority="low",
                     )
         except Exception:
             pass

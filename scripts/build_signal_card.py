@@ -131,7 +131,7 @@ def _classify_gates(judgment: dict, fw: dict, hmm_data: dict | None,
     hmm_val = gate_status.get("hmm_stability", "UNKNOWN")
     if hmm_val == "PASS":
         hmm_class = "adopted"
-    elif hmm_val == "WEAK":
+    elif hmm_val in ("WEAK", "ADEQUATE"):
         hmm_class = "monitoring_only"
     elif hmm_val == "BLOCKED":
         hmm_class = "rejected"
@@ -273,10 +273,14 @@ def _rank_contributing_factors(judgment: dict, fw: dict, hmm_data: dict | None =
     gate_status = judgment.get("gate_status", {})
     for gate, value in gate_status.items():
         if value not in ("PASS",):
+            if value == "ADEQUATE":
+                detail = f"{gate} = {value} (model health passed; calibration still limited)"
+            else:
+                detail = f"{gate} = {value}"
             factors.append({
                 "factor": f"gate_{gate}",
                 "impact": "blocking" if value == "BLOCKED" else "limiting",
-                "detail": f"{gate} = {value}",
+                "detail": detail,
                 "weight": "high" if value in ("BLOCKED", "WEAK") else "medium",
             })
 
@@ -483,11 +487,17 @@ def _identify_evidence_list(judgment: dict, fw: dict) -> list[dict[str, str]]:
 
     # Gate statuses
     for gate, value in judgment.get("gate_status", {}).items():
+        if value == "ADEQUATE":
+            reliability = "model health passed; calibration still limited"
+        elif value == "PASS":
+            reliability = "high"
+        else:
+            reliability = "limiting"
         evidence.append({
             "source": f"gate_{gate}",
             "type": "gate_verdict",
             "value": str(value),
-            "reliability": "high" if value == "PASS" else "limiting",
+            "reliability": reliability,
         })
 
     # Framework status
@@ -657,7 +667,7 @@ def generate_markdown(card: dict[str, Any]) -> str:
         "",
     ]
     for ev in card["evidence"][:12]:
-        icon = "✅" if ev["reliability"] in ("primary", "high") else "⚠️" if ev["reliability"] == "limiting" else "📊"
+        icon = "✅" if ev["reliability"] in ("primary", "high") else "⚠️" if "limiting" in ev["reliability"] else "📊"
         lines.append(f"- {icon} **{ev['source']}**: {ev['value']} ({ev['reliability']})")
     lines.append("")
 
@@ -722,10 +732,36 @@ def generate_markdown(card: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _check_closure_chain() -> None:
+    """Warn if running standalone and upstream artifacts are newer than current outputs.
+
+    This helps detect partial refreshes where the signal card is rebuilt
+    but the judgment/trade_decision haven't been updated.
+    """
+    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    current_card = CURRENT / "signal_card.json"
+
+    if not judgment_path.exists():
+        print("WARNING: No judgment card found. Run the full pipeline first.")
+        return
+
+    judgment_mtime = judgment_path.stat().st_mtime
+    if current_card.exists():
+        card_mtime = current_card.stat().st_mtime
+        if judgment_mtime > card_mtime:
+            print(
+                "WARNING: Closure chain broken — judgment card is newer than signal card. "
+                "This signal card may be stale. Re-run the full pipeline to close the chain."
+            )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build signal card")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
+
+    # Check closure chain when running standalone
+    _check_closure_chain()
 
     card = build_signal_card()
 
