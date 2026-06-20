@@ -200,6 +200,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements-dev.txt
+          pip install pydantic
+          pip install -e "Workbench[dev]"
+          pip install -e "system-learning-hub[dev]"
       - name: Root contract tests
         run: python -m pytest tests/ -q --tb=short
         env:
