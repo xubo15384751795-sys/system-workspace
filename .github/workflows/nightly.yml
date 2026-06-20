@@ -1,23 +1,21 @@
-# CI Minimal Gate — multi-layer pipeline for fast feedback + full coverage.
+# Nightly Full Pipeline — comprehensive validation including all module tests.
 #
-# Architecture:
-#   pre-commit ─┐
-#   lint        ─┤
-#   semgrep     ─┼─> workbench    ─┐
-#               │   deformation  ─┤
-#               │   harvester    ─┼─> integration (root tests + pipeline)
-#               │   hub          ─┘
+# Runs daily at 05:00 UTC. Covers everything:
+#   - All 4 submodule test suites (independent)
+#   - Root contract tests
+#   - Full daily pipeline dry-run (33+ steps)
+#   - Architecture boundary audit
+#   - Operator registry audit
+#   - Schema validation
 #
-# Each module is tested independently. Integration gates on all modules.
-# See also: nightly.yml (full daily pipeline), weekly-governance.yml (governance deep check).
+# This is the safety net that catches drift between modules.
 
-name: CI Minimal Gate
+name: Nightly Full Pipeline
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  schedule:
+    - cron: "0 5 * * *"  # 05:00 UTC daily
+  workflow_dispatch:
 
 env:
   # Rewrite SSH URLs to HTTPS for private submodule checkout in CI.
@@ -25,61 +23,9 @@ env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
-  # ── Layer 0: Fast gates (run immediately, no dependencies) ──────────────
-
-  pre-commit:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: pre-commit/action@v3.0.1
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-          cache-dependency-path: "**/pyproject.toml"
-      - name: Install ruff
-        run: pip install ruff
-      - name: Python syntax check
-        run: |
-          python -m py_compile scripts/daily_run.py
-          python -m py_compile scripts/freshness_validator.py
-          python -m py_compile scripts/build_system_index.py
-          python -m py_compile scripts/judgment_layer.py
-          python -m py_compile scripts/trade_decision_layer.py
-          python -m py_compile scripts/record_trade_decision.py
-          python -m py_compile scripts/hmm_stability_audit.py
-          python -m py_compile scripts/build_signal_card.py
-          python -m py_compile scripts/build_work_brief.py
-          python -m py_compile scripts/caselab_daily_signal.py
-          python -m py_compile Workbench/src/workbench/judgment/claim_ladder.py
-          python -m py_compile Workbench/src/workbench/judgment/layer.py
-          python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
-          python -m py_compile Workbench/src/workbench/ml/confidence_calibration.py
-      - name: Ruff lint
-        run: ruff check scripts/ tests/
-
-  # ── Layer 1: Per-module tests (parallel, gated on lint) ─────────────────
+  # ── Per-module tests (parallel) ─────────────────────────────────────────
 
   workbench:
-    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Rewrite SSH to HTTPS
@@ -93,8 +39,7 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
-      - name: Install Workbench
-        run: |
+      - run: |
           pip install --upgrade pip
           pip install -e "Workbench[dev]"
       - name: Run Workbench tests
@@ -102,7 +47,6 @@ jobs:
         run: pytest tests/ -q --tb=short
 
   deformation:
-    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Rewrite SSH to HTTPS
@@ -116,8 +60,7 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
-      - name: Install deformation-framework
-        run: |
+      - run: |
           pip install --upgrade pip
           pip install -e "deformation-framework[dev]"
       - name: Run deformation-framework tests
@@ -125,7 +68,6 @@ jobs:
         run: pytest tests/ -q --tb=short
 
   harvester:
-    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Rewrite SSH to HTTPS
@@ -139,8 +81,7 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
-      - name: Install harvester
-        run: |
+      - run: |
           pip install --upgrade pip
           pip install -e "structural-risk-harvester[dev]"
       - name: Run harvester tests
@@ -148,7 +89,6 @@ jobs:
         run: pytest tests/ -q --tb=short
 
   hub:
-    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Rewrite SSH to HTTPS
@@ -162,17 +102,16 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
-      - name: Install learning-hub
-        run: |
+      - run: |
           pip install --upgrade pip
           pip install -e "system-learning-hub[dev]"
       - name: Run learning-hub tests
         working-directory: system-learning-hub
         run: pytest tests/ -q --tb=short
 
-  # ── Layer 2: Integration (root contract tests + pipeline) ───────────────
+  # ── Full integration (gates on all module tests) ────────────────────────
 
-  integration:
+  full-integration:
     needs: [workbench, deformation, harvester, hub]
     runs-on: ubuntu-latest
     strategy:
@@ -196,16 +135,24 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[dev]"
+          pip install -e "Workbench[dev]"
+          pip install -e "deformation-framework[dev]"
+          pip install -e "structural-risk-harvester[dev]"
+          pip install -e "system-learning-hub[dev]"
       - name: Root contract tests
         run: python -m pytest tests/ -q --tb=short
+        env:
+          PYTHONPATH: "Workbench/src:scripts"
+      - name: Daily pipeline dry-run
+        run: python scripts/daily_run.py --dry-run
         env:
           PYTHONPATH: "Workbench/src:scripts"
       - name: Architecture boundary audit
         run: python scripts/architecture_reality_audit.py --json
         env:
           PYTHONPATH: "Workbench/src:scripts"
-      - name: Daily pipeline dry-run
-        run: python scripts/daily_run.py --dry-run
+      - name: Operator registry audit (offline)
+        run: python scripts/operator_registry_audit.py --json
         env:
           PYTHONPATH: "Workbench/src:scripts"
       - name: Schema validation
@@ -251,10 +198,6 @@ jobs:
               exit(1)
           print('All schema validations passed.')
           "
-        env:
-          PYTHONPATH: "Workbench/src:scripts"
-      - name: Entrypoint registry completeness
-        run: python -m pytest tests/test_entrypoint_registry_completeness.py::test_registry_paths_exist -q --tb=short
         env:
           PYTHONPATH: "Workbench/src:scripts"
       - name: Experiment → core judgment check

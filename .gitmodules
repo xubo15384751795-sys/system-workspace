@@ -5,7 +5,7 @@
 	path = Workbench
 	url = git@github.com:xubo15384751795-sys/structural-workbench.git
 [submodule "Structural Deformation Research System"]
-	path = Structural Deformation Research System
+	path = deformation-framework
 	url = git@github.com:xubo15384751795-sys/Structural-Deformation-Research-System.git
 [submodule "structural-risk-harvester"]
 	path = structural-risk-harvester
