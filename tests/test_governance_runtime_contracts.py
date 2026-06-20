@@ -5,7 +5,6 @@ structural and authority-boundary invariants.
 
 Files tested:
 - operator_registry.yaml (loaded by daily_run.py, operator_registry_audit.py)
-- position_sizing_policy.yaml (loaded by position_sizing_layer.py)
 - run_mode_registry.yaml (loaded by run_work_cycle.py)
 - opencode_supervisor_policy.yaml (loaded by run_supervisor_check.py)
 - incentive_policy.yaml (loaded by build_incentive_review.py)
@@ -55,33 +54,6 @@ class TestOperatorRegistry:
         }
         for name, op in self.REG["operators"].items():
             assert op["type"] in valid_types, f"Operator '{name}' has invalid type: {op['type']}"
-
-
-# ── position_sizing_policy.yaml ─────────────────────────────────────────────
-
-class TestPositionSizingPolicy:
-    POL = _load("position_sizing_policy.yaml")
-
-    def test_schema_version(self):
-        assert "position_sizing" in self.POL["schema_version"]
-
-    def test_hard_blocks_all_zero(self):
-        for key, val in self.POL["hard_blocks"].items():
-            assert val == "zero_position", f"hard_blocks.{key} should be zero_position"
-
-    def test_decision_mapping_complete(self):
-        expected = {"NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"}
-        actual = set(self.POL["decision_mapping"].keys())
-        assert expected == actual, f"Missing: {expected - actual}, Extra: {actual - expected}"
-
-    def test_decision_mapping_fields(self):
-        for name, dm in self.POL["decision_mapping"].items():
-            assert len(dm) > 0, f"Decision '{name}' is empty"
-
-    def test_risk_unit_defined(self):
-        ru = self.POL["risk_unit"]
-        assert "max_risk_per_trade" in ru
-        assert "max_portfolio_risk" in ru
 
 
 # ── run_mode_registry.yaml ──────────────────────────────────────────────────

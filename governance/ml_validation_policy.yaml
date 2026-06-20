@@ -1,0 +1,51 @@
+schema_version: ml_validation_policy.v1
+updated_at: "2026-06-20"
+purpose: >
+  Govern the allowed use of ML validation outputs. These are review-only
+  diagnostics and must NEVER be consumed as primary input to core judgment,
+  trade decisions, or signal generation.
+
+validation_outputs:
+  - path: "Output/validation/walk_forward_report.json"
+    producer: scripts/weekly_walk_forward_validation.py
+    schedule: weekly
+    allowed_use: validation_only
+    can_affect_core_judgment: false
+    can_affect_trade_decision: false
+    can_affect_signals: false
+    notes: "Rolling-origin OOS diagnostics. Review-only. Never feeds judgment."
+
+  - path: "Output/validation/baseline_comparison.json"
+    producer: scripts/baseline_comparison.py
+    schedule: weekly
+    allowed_use: validation_only
+    can_affect_core_judgment: false
+    can_affect_trade_decision: false
+    can_affect_signals: false
+    notes: "System vs naive baselines. Review-only."
+
+  - path: "Output/system_learning/latest/threshold_review_candidates.json"
+    producer: scripts/threshold_review_bridge.py
+    schedule: weekly
+    allowed_use: human_review_only
+    can_affect_core_judgment: false
+    can_affect_trade_decision: false
+    notes: "Never auto-applies threshold changes. Surfaces candidates for human review."
+
+  - path: "Output/quality/asof_integrity_report.json"
+    producer: scripts/asof_integrity_checker.py
+    schedule: weekly
+    allowed_use: validation_only
+    can_affect_core_judgment: false
+    can_affect_trade_decision: false
+    notes: "Future-data leakage detection. Warning-only."
+
+enforcement:
+  forbidden_consumers:
+    - scripts/judgment_layer.py
+    - scripts/trade_decision_layer.py
+    - Workbench/src/workbench/judgment/layer.py
+  rule: >
+    No script in scripts/ or Workbench/ may read files from Output/validation/
+    as input to build_judgment(), build_decision(), or signal generation.
+    These outputs are review-only diagnostics.

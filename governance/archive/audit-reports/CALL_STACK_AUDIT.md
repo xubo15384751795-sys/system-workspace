@@ -30,7 +30,7 @@ refresh_output_current.py → Output/current symlinks
 | Field | Value |
 |-------|-------|
 | **Input** | FRED API, CBOE API, OpenBB, SEC EDGAR |
-| **Output** | Parquet files in `Structural Deformation Research System/data/` |
+| **Output** | Parquet files in `deformation-framework/data/` |
 | **Downstream** | `harvester/derived.py` → benchmark panel |
 | **empty_risk** | LOW — harvester has retry logic, 8+ providers in `structural-risk-harvester/src/harvester/providers/` |
 | **schema_risk** | LOW — contracts in `harvester/providers/base.py` |
@@ -47,7 +47,7 @@ refresh_output_current.py → Output/current symlinks
 | **empty_risk** | LOW — 256K rows confirmed |
 | **schema_risk** | LOW — tested in `tests/test_benchmark_panel.py` |
 | **real_status** | **REAL** — 256K rows, 42 series |
-| **Key files** | `Structural Deformation Research System/src/benchmarks/benchmark_panel.py`, `Structural Deformation Research System/scripts/fetch_full_benchmark_panel.py` |
+| **Key files** | `deformation-framework/src/benchmarks/benchmark_panel.py`, `deformation-framework/scripts/fetch_full_benchmark_panel.py` |
 
 ### Layer 3: Proxy Computation (ProxyBuilder)
 
@@ -59,7 +59,7 @@ refresh_output_current.py → Output/current symlinks
 | **empty_risk** | MEDIUM — `X_PRE`/`X_REALIZED` return `None` (deprecated) |
 | **schema_risk** | MEDIUM — `MEASUREMENT_CHANNELS` includes deprecated channels |
 | **real_status** | **PARTIAL** — M/D/K/X work, X_PRE/X_REALIZED don't |
-| **Key files** | `Structural Deformation Research System/src/derivation/proxy_builder.py` (`ProxyBuilder.build_proxies()`) |
+| **Key files** | `deformation-framework/src/derivation/proxy_builder.py` (`ProxyBuilder.build_proxies()`) |
 | **Deprecation** | `X_PRE`, `X_REALIZED` in `proxy_builder.py` lines referencing `singular_detector.py` |
 
 ### Layer 4: SigmaVector Construction
@@ -72,7 +72,7 @@ refresh_output_current.py → Output/current symlinks
 | **empty_risk** | HIGH — old Deformation run produced `{}` (empty dict) |
 | **schema_risk** | HIGH — two competing implementations (see REDUNDANCY_AUDIT.md) |
 | **real_status** | **REAL** in `structural_replay_v2.py` (16 events, 4-channel); **BROKEN** in old Deformation run path |
-| **Key files** | `Structural Deformation Research System/src/derivation/singular_detector.py` (class `SigmaVector`), `Workbench/src/workbench/governance/semantic.py` (dict-based SigmaVector) |
+| **Key files** | `deformation-framework/src/derivation/singular_detector.py` (class `SigmaVector`), `Workbench/src/workbench/governance/semantic.py` (dict-based SigmaVector) |
 
 ### Layer 5: Structural Replay v2
 
@@ -191,14 +191,14 @@ refresh_output_current.py → Output/current symlinks
 
 ### BROKEN: Deformation Run SigmaVector Persistence
 
-- **File**: `Structural Deformation Research System/src/derivation/singular_detector.py`
+- **File**: `deformation-framework/src/derivation/singular_detector.py`
 - **Function**: `SigmaVector` class persistence
 - **Issue**: Old Deformation run writes `{}` to `sigma_vector.json`
 - **Fix**: Bridge (`scripts/bridge_replay_to_current.py`) overwrites with real data
 
 ### PARTIAL: ProxyBuilder X_PRE/X_REALIZED
 
-- **File**: `Structural Deformation Research System/src/derivation/proxy_builder.py`
+- **File**: `deformation-framework/src/derivation/proxy_builder.py`
 - **Function**: `ProxyBuilder.build_proxies()`
 - **Issue**: `X_PRE` and `X_REALIZED` return `None` (deprecated)
 - **Impact**: All channels show `PROXY_REDUCED distance=3`

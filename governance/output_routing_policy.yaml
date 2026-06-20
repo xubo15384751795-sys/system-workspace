@@ -52,6 +52,14 @@ groups:
     description: "Audit, learning, feedback"
     can_affect_core_judgment: false
 
+  ml_validation:
+    path: Output/validation/
+    description: "Walk-forward, baseline comparison, as-of integrity — review-only diagnostics"
+    can_affect_core_judgment: false
+    allowed_use: validation_only
+    lifecycle: active
+    owner: ML Signals
+
   sandbox:
     path: Output/sandbox/
     description: "Temporary experiments"

@@ -1,7 +1,7 @@
 # Execution Reality Audit Report
 
 **Generated:** 2026-06-02
-**Scope:** Full Structural Deformation Research System
+**Scope:** Full deformation-framework
 
 ---
 

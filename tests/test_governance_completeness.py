@@ -16,7 +16,6 @@ REQUIRED_FILES = [
     "data_request_registry.yaml",
     "data_authority_registry.yaml",
     "output_routing_policy.yaml",
-    "module_contract_registry.yaml",
     "daily_pipeline_registry.yaml",
     "entrypoint_registry.yaml",
     "capability_registry.yaml",
@@ -57,15 +56,6 @@ def test_deferred_register_has_deadlines() -> None:
         if not item.get("hard_deadline"):
             missing.append(item.get("id", "unknown"))
     assert not missing, f"Deferred items missing hard_deadline: {missing}"
-
-
-def test_module_contracts_cover_all_modules() -> None:
-    """All 4 core modules must have contracts."""
-    reg = yaml.safe_load((GOV / "module_contract_registry.yaml").read_text(encoding="utf-8"))
-    modules = set(reg.get("modules", {}).keys())
-    required = {"harvester", "framework", "workbench", "learning_hub"}
-    missing = required - modules
-    assert not missing, f"Modules missing contracts: {missing}"
 
 
 def test_data_authority_entries_have_forbidden_use() -> None:

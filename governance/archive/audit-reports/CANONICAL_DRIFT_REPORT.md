@@ -16,7 +16,7 @@ The canonical spec defines **4 voting channels: M, D, K, X_agg**. The codebase h
 
 ### DRIFT-001: SigmaVector uses X_PRE / X_REALIZED instead of X_agg
 
-**File:** `Structural Deformation Research System/src/derivation/singular_detector.py`
+**File:** `deformation-framework/src/derivation/singular_detector.py`
 **Lines:** L14-37 (class definition), L154-195 (_sigma_vector method)
 **Status:** ✅ FIXED (Phase 1 + Phase 2, 2026-06-02)
 
@@ -75,7 +75,7 @@ Also references X_PRE in sigma_formula strings at L348 and L440.
 
 ### DRIFT-004: ProxyReading has X_PRE / X_REALIZED as first-class fields
 
-**File:** `Structural Deformation Research System/src/core/models.py` L49-60
+**File:** `deformation-framework/src/core/models.py` L49-60
 
 ```python
 @dataclass(frozen=True)
@@ -90,7 +90,7 @@ class ProxyReading:
 
 ### DRIFT-005: MEASUREMENT_CHANNELS includes X_PRE / X_REALIZED
 
-**File:** `Structural Deformation Research System/src/derivation/proxy_builder.py` L15-16
+**File:** `deformation-framework/src/derivation/proxy_builder.py` L15-16
 
 ```python
 MEASUREMENT_CHANNELS = ("M", "D", "K", "X_PRE", "X_REALIZED")  # ← should be (M, D, K, X_agg)
@@ -110,7 +110,7 @@ DEFAULT_DIRECT_CHANNEL_MAP = {
 
 ### DRIFT-007: output_exporter iterates X_PRE / X_REALIZED as channels
 
-**File:** `Structural Deformation Research System/src/output/output_exporter.py` L219
+**File:** `deformation-framework/src/output/output_exporter.py` L219
 
 ```python
 for channel in ("M", "D", "K", "X_PRE", "X_REALIZED", "Sigma")  # ← should be canonical + Sigma

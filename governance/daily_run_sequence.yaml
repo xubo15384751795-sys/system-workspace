@@ -1,9 +1,10 @@
 schema_version: daily_run_sequence.v1
-updated_at: "2026-06-19"
+updated_at: "2026-06-20"
 purpose: >
   Authoritative ordered step list for scripts/daily_run.py.
   daily_run loads this file for dry-run output, step counts, and schedule hints.
   Rebalanced 2026-06-19: signal chain first, governance/reporting deferred.
+  Slimmed 2026-06-20: moved 13 validation/reporting steps daily→weekly (25 daily, 30 weekly).
 
 steps:
   # ── DATA ACQUISITION ──────────────────────────────────────────────
@@ -17,6 +18,7 @@ steps:
 
   # ── CORE SIGNAL CHAIN ─────────────────────────────────────────────
   - id: structural_replay
+    description: Current M/D/K/X measurement from Harvester panel (name is historical artifact)
   - id: bridge
   - id: quality_validation
   - id: regime_detection
@@ -27,18 +29,28 @@ steps:
   - id: judgment_promotion_gate
   - id: trade_decision
   - id: risk_gate
-  - id: record_trade_decision
+    description: Risk gate + record to ledger (merged 2026-06-20, was separate record_trade_decision step)
   - id: signal_card
   - id: signal_consensus
 
-  # ── VALIDATION (the whole point) ──────────────────────────────────
+  # ── VALIDATION ────────────────────────────────────────────────────
   - id: signal_monitor
-  - id: judgment_replay_audit
-  - id: trade_decision_replay
-  - id: claim_evaluator
-  - id: claim_ladder_tracker
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — output not consumed downstream, review-only
   - id: market_feedback
   - id: evaluate_pending
+  - id: judgment_replay_audit
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — replay audit is validation, not signal-blocking
+  - id: trade_decision_replay
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — calibration report, not signal-blocking
+  - id: claim_evaluator
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — claim verification is batch validation
+  - id: claim_ladder_tracker
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — cross-run progression is batch review
 
   # ── GOVERNANCE (weekly or on-demand, not daily signal-blocking) ───
   - id: hmm_stability_audit
@@ -53,18 +65,22 @@ steps:
   - id: governance_status
     schedule: weekly
 
-  # ── LEARNING (weekly) ─────────────────────────────────────────────
+  # ── LEARNING (all weekly — batch calibration, not daily signal) ───
   - id: learning_hub_feedback
-  - id: proxy_quality_report
     schedule: weekly
-  - id: proxy_lifecycle
+    description: Moved from daily 2026-06-20 — aggregates claim ladder + CaseLab, batch only
+  - id: proxy_quality_report
     schedule: weekly
   - id: mechanism_calibration
     schedule: weekly
   - id: learning_summary
     schedule: weekly
   - id: judgment_calibration_event
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — calibration event is review, not signal
   - id: trade_calibration_event
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — calibration event is review, not signal
   - id: export_feedback
     schedule: weekly
   - id: suggest_paper_updates
@@ -74,12 +90,38 @@ steps:
   - id: collect_reviews
     schedule: weekly
 
-  # ── REPORTING (daily, lightweight) ────────────────────────────────
+  # ── ML VALIDATION HARDENING (weekly, review-only) ───────────────
+  - id: asof_integrity_check
+    schedule: weekly
+    description: As-of integrity checker for calibration outputs
+  - id: baseline_comparison
+    schedule: weekly
+    description: Compare system judgment against naive baselines
+  - id: walk_forward_validation
+    schedule: weekly
+    description: Rolling-origin OOS validation of channel signals
+  - id: threshold_review_bridge
+    schedule: weekly
+    description: Generate threshold review candidates from missed_stress
+
+  # ── REPORTING ─────────────────────────────────────────────────────
   - id: system_index
-  - id: readme_first
-  - id: next_actions
-  - id: strategy_lab_shadow
   - id: work_brief
+  - id: readme_first
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — documentation, not signal
+  - id: next_actions
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — action planning is batch review
   - id: change_analysis
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — trend/anomaly analysis is batch
+  - id: strategy_lab_shadow
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — shadow backtest is research-only
   - id: archive_daily_snapshots
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — archival is maintenance, not signal
   - id: backfill_judgment_calibration
+    schedule: weekly
+    description: Moved from daily 2026-06-20 — backfill is batch, not daily signal

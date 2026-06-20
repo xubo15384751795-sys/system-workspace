@@ -1,15 +1,4 @@
 schema_version: capability_registry.v1
-
-# Canonical module names — all governance files MUST use these exact names.
-# Cross-reference:
-#   capability_registry (this file):    snake_case   e.g. workbench, harvester
-#   module_authority_registry:          PascalCase   e.g. Workbench, Harvester
-#   module_contract_registry:           snake_case   e.g. workbench, harvester
-#   daily_pipeline_registry:            display_name e.g. Workbench, Harvester
-#
-# If adding a new module, add an entry here FIRST, then reference it
-# in the other registries using the appropriate casing convention.
-
 workbench:
   status: CANONICAL
   owner: system
@@ -39,13 +28,9 @@ workbench:
   - direct_http_acquire
   - promote_without_gate
   blockers: []
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements: []
-  test_count: 14
-  test_location: Workbench/tests/
-  next_audit_due: '2026-07-17'
 deformation_framework:
   status: ACTIVE_PARTIAL
   owner: system
@@ -71,16 +56,12 @@ deformation_framework:
   blockers:
   - legacy_data_acquisition_layer_still_exposed
   - data_sources.py_has_direct_http_calls
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
   - isolate_legacy_acquisition_in_src_data_init
   - add_boundary_tests_forbidden_imports
   - harvester_becomes_only_provider_owner
-  test_count: 15
-  test_location: deformation-framework/tests/
-  next_audit_due: '2026-07-01'
 harvester:
   status: CANONICAL
   owner: system
@@ -105,13 +86,9 @@ harvester:
   - direct_structural_claim
   - leak_openbb_import_outside_providers
   blockers: []
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements: []
-  test_count: 12
-  test_location: structural-risk-harvester/tests/
-  next_audit_due: '2026-07-17'
 protocols:
   status: CANONICAL
   owner: system
@@ -129,11 +106,9 @@ protocols:
   - cross_module_exchange
   forbidden_claims: []
   blockers: []
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements: []
-  next_audit_due: '2026-07-17'
 data_output:
   status: ACTIVE_PARTIAL
   owner: system
@@ -154,13 +129,11 @@ data_output:
   blockers:
   - output_artifact_registry_missing
   - abandoned_artifacts_not_tracked
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
   - create_artifact_registry_json
   - classify_all_output_subdirectories
-  next_audit_due: '2026-07-01'
 learning_hub:
   status: ACTIVE_PARTIAL
   owner: system-learning-hub
@@ -190,16 +163,12 @@ learning_hub:
   blockers:
   - low_test_coverage_for_ledger_ops
   - dirty_submodule_state
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
   - tests_for_ledger_append_query
   - stable_daily_runtime_event_path
   - modules_md_status_sync
-  test_count: 7
-  test_location: system-learning-hub/tests/
-  next_audit_due: '2026-07-01'
 caselab_context:
   status: ACTIVE_PARTIAL
   owner: system
@@ -219,13 +188,11 @@ caselab_context:
   forbidden_claims: []
   blockers:
   - needs_test_coverage
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
   - add_unit_tests
   - document_data_flow
-  next_audit_due: '2026-07-01'
 nlp_pipeline:
   status: ACTIVE_PARTIAL
   owner: system
@@ -250,15 +217,11 @@ nlp_pipeline:
   forbidden_claims: []
   blockers:
   - general_nlp_lacks_end_to_end_validation
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
   - end_to_end_nlp_pipeline_test
   - golden_set_validation
-  test_count: 3
-  test_location: tests/test_nlp_*.py
-  next_audit_due: '2026-07-01'
 ml_signals:
   status: REAL_EXPERIMENTAL
   owner: system
@@ -281,16 +244,12 @@ ml_signals:
   blockers:
   - no_production_validation
   - no_live_data_feed
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - walk_forward_validation
   - live_data_integration
   - performance_benchmark
-  test_count: 3
-  test_location: Workbench/tests/test_ml_*.py
-  next_audit_due: '2026-07-17'
 backtest_lens:
   status: REAL_EXPERIMENTAL
   owner: system
@@ -317,14 +276,12 @@ backtest_lens:
   blockers:
   - no_live_trading_validation
   - prototype_artifacts_scattered
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - consolidate_backtest_outputs
   - add_live_paper_trading_comparison
   - define_success_criteria
-  next_audit_due: '2026-07-17'
 strategy_lab:
   status: REAL_EXPERIMENTAL
   owner: system
@@ -349,14 +306,12 @@ strategy_lab:
   - live_trading_signal
   - production_performance_claim
   blockers: []
-  last_verified: '2026-06-19'
   last_audit_method: automated_backtest
   audit_cadence: monthly
   promotion_requirements:
   - accumulate_90_days_shadow_outcomes
   - validate_drawdown_reduction_across_multiple_periods
   - tune_risk_gate_thresholds_for_better_return_preservation
-  next_audit_due: '2026-07-19'
 qlib_benchmark:
   status: REAL_EXPERIMENTAL
   owner: system
@@ -378,13 +333,11 @@ qlib_benchmark:
   blockers:
   - sandbox_isolation_only
   - no_promotion_path
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - define_qlib_to_structural_bridge
   - add_anti_gaming_tests
-  next_audit_due: '2026-07-17'
 agent_routing:
   status: SHADOW_ACTIVE
   owner: system
@@ -410,13 +363,11 @@ agent_routing:
   blockers:
   - no_authority_to_execute_routes
   - needs_routing_decision_tests
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - add_routing_decision_tests
   - explicit_authority_model_for_route_execution
-  next_audit_due: '2026-07-17'
 research_terminal:
   status: PAPER_RETAIN
   owner: system
@@ -429,14 +380,12 @@ research_terminal:
   blockers:
   - no_real_data_flow
   - no_active_consumers
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - demonstrate_real_data_flow
   - add_test_coverage
   decision: '2026-06-16: Reclassified from UNKNOWN to PAPER_RETAIN — no artifacts, no consumers, no data flow'
-  next_audit_due: '2026-07-17'
 etf_data_path:
   status: BLOCKED
   owner: Harvester
@@ -452,11 +401,9 @@ etf_data_path:
   - core_judgment_input
   blockers:
   - no_harvester_etf_evidence_release
-  last_verified: '2026-06-17'
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - implement_harvester_etf_provider
   - publish_etf_evidence_release
   - etf_panel_from_harvester_not_standalone
-  next_audit_due: '2026-07-17'

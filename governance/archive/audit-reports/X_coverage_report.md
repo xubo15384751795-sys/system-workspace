@@ -2,8 +2,8 @@
 
 **Generated:** 2026-06-02
 **Panel:** Harvester 2026-06-02-r8 `benchmark_panel.parquet`
-**Proxy definitions:** `Structural Deformation Research System/src/proxies/x_shadow_accumulation.py`
-**Proxy builder:** `Structural Deformation Research System/src/derivation/proxy_builder.py`
+**Proxy definitions:** `deformation-framework/src/proxies/x_shadow_accumulation.py`
+**Proxy builder:** `deformation-framework/src/derivation/proxy_builder.py`
 
 ---
 

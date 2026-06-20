@@ -65,7 +65,7 @@
 
 ### P2 — Framework 完整子项目 → **已明确**
 
-`Structural Deformation Research System/` 是 git submodule；外层 `scripts/`/`tests/`/`Output/` 分工见 `repo_layout_map.md` §6。
+`deformation-framework/` 是 git submodule；外层 `scripts/`/`tests/`/`Output/` 分工见 `repo_layout_map.md` §6。
 
 ### P2 — 顶层 scripts 名实不符 → **就地标记完成**
 

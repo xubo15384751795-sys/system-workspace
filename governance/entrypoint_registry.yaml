@@ -575,12 +575,14 @@ primitive_readiness_matrix:
   allowed_use:
   - readiness_assessment
 walk_forward_validation:
-  script: scripts/archive/walk_forward_validation.py
-  status: archived
+  script: scripts/weekly_walk_forward_validation.py
+  status: active
+  schedule: weekly
   owner: ML Signals
-  description: Walk-forward validation — experimental
+  description: Rolling-origin OOS validation — review-only, never feeds core judgment
   allowed_use:
-  - validation
+  - validation_only
+  can_affect_core_judgment: false
 reconstruction_data_availability:
   script: scripts/archive/reconstruction_data_availability.py
   status: archived

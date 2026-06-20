@@ -94,8 +94,8 @@ The core replay script has ~11 `return None` instances in its data lookup functi
 ## Paper Module Stubs (42 instances)
 
 Research/exploratory modules with placeholder implementations. These are in:
-- `Structural Deformation Research System/src/research/` — scenario generators, experimental analyzers
-- `Structural Deformation Research System/src/dynamic/` — dynamic risk models under development
+- `deformation-framework/src/research/` — scenario generators, experimental analyzers
+- `deformation-framework/src/dynamic/` — dynamic risk models under development
 - `system-learning-hub/` — learning/analytics infrastructure
 
 None are in active data paths. Acceptable for research code.

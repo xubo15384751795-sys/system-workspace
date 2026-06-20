@@ -55,15 +55,15 @@ The 14 `awaiting_data` in `structural_replay_v2.py` correspond to 14 historical 
 | File | Count | Context |
 |------|-------|---------|
 | `scripts/structural_replay_v2.py` | 18 | Diagnostic-only event windows |
-| `Structural Deformation Research System/src/dynamic/provider_integrity_panel.py` | 2 | Provider integrity diagnostics |
-| `Structural Deformation Research System/src/dynamic/observation_integrity.py` | 4 | Observation integrity diagnostics |
+| `deformation-framework/src/dynamic/provider_integrity_panel.py` | 2 | Provider integrity diagnostics |
+| `deformation-framework/src/dynamic/observation_integrity.py` | 4 | Observation integrity diagnostics |
 
 ### Test Files (4)
 
 | File | Count | Context |
 |------|-------|---------|
-| `Structural Deformation Research System/tests/test_provider_integrity_panel.py` | 3 | Tests for provider integrity |
-| `Structural Deformation Research System/tests/test_observation_integrity.py` | 3 | Tests for observation integrity |
+| `deformation-framework/tests/test_provider_integrity_panel.py` | 3 | Tests for provider integrity |
+| `deformation-framework/tests/test_observation_integrity.py` | 3 | Tests for observation integrity |
 
 ### Risk Assessment
 
@@ -79,24 +79,24 @@ The 18 `diagnostic_only` in `structural_replay_v2.py` are event windows that pro
 
 | File | Count | Context |
 |------|-------|---------|
-| `Structural Deformation Research System/src/data/data_sources.py` | 61 | Data source fallbacks (largest) |
-| `Structural Deformation Research System/src/data/quality/manifest.py` | 16 | Quality manifest fallbacks |
-| `Structural Deformation Research System/src/data/adapters/public_adapters.py` | 14 | Public adapter fallbacks |
+| `deformation-framework/src/data/data_sources.py` | 61 | Data source fallbacks (largest) |
+| `deformation-framework/src/data/quality/manifest.py` | 16 | Quality manifest fallbacks |
+| `deformation-framework/src/data/adapters/public_adapters.py` | 14 | Public adapter fallbacks |
 | `scripts/structural_replay_v2.py` | 10 | Replay fallbacks |
 | `Workbench/src/ml/gluonts_regime_forecaster.py` | 10 | ML forecaster fallbacks |
 | `structural-risk-harvester/src/harvester/official.py` | 8 | Harvester official fallbacks |
 | `structural-risk-harvester/src/harvester/providers/h41.py` | 8 | H41 provider fallbacks |
-| `Structural Deformation Research System/src/data/gateway/data_hub.py` | 7 | Data hub fallbacks |
-| `Structural Deformation Research System/src/data/gateway/bridge.py` | 11 | Bridge fallbacks |
+| `deformation-framework/src/data/gateway/data_hub.py` | 7 | Data hub fallbacks |
+| `deformation-framework/src/data/gateway/bridge.py` | 11 | Bridge fallbacks |
 | `Workbench/src/workbench/governance/report_gate.py` | 4 | Report gate fallbacks |
 | `Workbench/src/nlp/embeddings/embedder.py` | 3 | NLP embedder fallbacks |
 | `Workbench/src/ml/tft_regime_detector.py` | 3 | TFT detector fallbacks |
-| `Structural Deformation Research System/src/diagnostics/morphology_classifier.py` | 2 | Morphology classifier fallbacks |
+| `deformation-framework/src/diagnostics/morphology_classifier.py` | 2 | Morphology classifier fallbacks |
 | `Workbench/src/ml/regime_detector.py` | 2 | Regime detector fallbacks |
-| `Structural Deformation Research System/src/dynamic/temporal.py` | 1 | Temporal fallback |
+| `deformation-framework/src/dynamic/temporal.py` | 1 | Temporal fallback |
 | `Workbench/src/ml/governance_signal.py` | 1 | Governance signal fallback |
-| `Structural Deformation Research System/config.yaml` | 4 | Config fallbacks |
-| `Structural Deformation Research System/README.md` | 4 | Documentation references |
+| `deformation-framework/config.yaml` | 4 | Config fallbacks |
+| `deformation-framework/README.md` | 4 | Documentation references |
 
 ### Risk Assessment
 
@@ -115,32 +115,32 @@ The 18 `diagnostic_only` in `structural_replay_v2.py` are event windows that pro
 
 | File | Count | Context |
 |------|-------|---------|
-| `Structural Deformation Research System/src/data/data_sources.py` | 10 | Data source methods not implemented |
+| `deformation-framework/src/data/data_sources.py` | 10 | Data source methods not implemented |
 | `scripts/structural_replay_v2.py` | 10 | Replay methods not implemented |
-| `Structural Deformation Research System/src/core/pipeline.py` | 10 | Pipeline methods not implemented |
+| `deformation-framework/src/core/pipeline.py` | 10 | Pipeline methods not implemented |
 | `Workbench/src/nlp/extraction/llm_extractor.py` | 8 | LLM extractor methods not implemented |
-| `Structural Deformation Research System/src/operators/operator_algebra.py` | 1 | Operator algebra not implemented |
-| `Structural Deformation Research System/src/operators/operator_registry.py` | 4 | Operator registry not implemented |
-| `Structural Deformation Research System/src/operators/event_to_operator.py` | 5 | Event-to-operator not implemented |
-| `Structural Deformation Research System/src/operators/operator_diagnostics.py` | 4 | Operator diagnostics not implemented |
+| `deformation-framework/src/operators/operator_algebra.py` | 1 | Operator algebra not implemented |
+| `deformation-framework/src/operators/operator_registry.py` | 4 | Operator registry not implemented |
+| `deformation-framework/src/operators/event_to_operator.py` | 5 | Event-to-operator not implemented |
+| `deformation-framework/src/operators/operator_diagnostics.py` | 4 | Operator diagnostics not implemented |
 | `Workbench/src/workbench/evidence_dashboard.py` | 3 | Evidence dashboard not implemented |
 | `Workbench/src/workbench/openbb_secondary_audit.py` | 3 | OpenBB audit not implemented |
-| `Structural Deformation Research System/src/data/gateway/bridge.py` | 4 | Gateway bridge not implemented |
-| `Structural Deformation Research System/src/data/gateway/data_hub_lite.py` | 2 | Data hub lite not implemented |
-| `Structural Deformation Research System/src/data/gateway/evidence_router.py` | 1 | Evidence router not implemented |
-| `Structural Deformation Research System/src/data/contracts.py` | 3 | Data contracts not implemented |
-| `Structural Deformation Research System/src/data/snapshot_store.py` | 7 | Snapshot store not implemented |
-| `Structural Deformation Research System/src/validation/unconditional_evaluator.py` | 1 | Unconditional evaluator not implemented |
-| `Structural Deformation Research System/src/validation/forward_targets.py` | 1 | Forward targets not implemented |
+| `deformation-framework/src/data/gateway/bridge.py` | 4 | Gateway bridge not implemented |
+| `deformation-framework/src/data/gateway/data_hub_lite.py` | 2 | Data hub lite not implemented |
+| `deformation-framework/src/data/gateway/evidence_router.py` | 1 | Evidence router not implemented |
+| `deformation-framework/src/data/contracts.py` | 3 | Data contracts not implemented |
+| `deformation-framework/src/data/snapshot_store.py` | 7 | Snapshot store not implemented |
+| `deformation-framework/src/validation/unconditional_evaluator.py` | 1 | Unconditional evaluator not implemented |
+| `deformation-framework/src/validation/forward_targets.py` | 1 | Forward targets not implemented |
 | `Workbench/src/workbench/nlp.py` | 2 | NLP not implemented |
 | `Workbench/src/workbench/governance/routing_gate.py` | 2 | Routing gate not implemented |
 | `Workbench/src/ml/graph_embed.py` | 1 | Graph embedding not implemented |
-| `Structural Deformation Research System/src/output/output_exporter.py` | 2 | Output exporter not implemented |
+| `deformation-framework/src/output/output_exporter.py` | 2 | Output exporter not implemented |
 | `scripts/wiki_system_bridge_audit.py` | 2 | Wiki bridge audit not implemented |
-| `Structural Deformation Research System/src/core/calibration.py` | 1 | Calibration not implemented |
-| `Structural Deformation Research System/src/ml/dl_anomaly_detector.py` | 2 | DL anomaly detector not implemented |
-| `Structural Deformation Research System/src/core/representation/graph_repr.py` | 1 | Graph representation not implemented |
-| `Structural Deformation Research System/src/dynamic/provider_integrity_panel.py` | 6 | Provider integrity not implemented |
+| `deformation-framework/src/core/calibration.py` | 1 | Calibration not implemented |
+| `deformation-framework/src/ml/dl_anomaly_detector.py` | 2 | DL anomaly detector not implemented |
+| `deformation-framework/src/core/representation/graph_repr.py` | 1 | Graph representation not implemented |
+| `deformation-framework/src/dynamic/provider_integrity_panel.py` | 6 | Provider integrity not implemented |
 | `Workbench/src/workbench/workspace/build_system_index.py` | 5 | System index not implemented |
 | `Workbench/src/workbench/workspace/promote_snapshot.py` | 2 | Snapshot promotion not implemented |
 | `Workbench/src/workbench/workspace/system_status.py` | 2 | System status not implemented |
@@ -166,32 +166,32 @@ The 18 `diagnostic_only` in `structural_replay_v2.py` are event windows that pro
 
 | File | Count | Context |
 |------|-------|---------|
-| `Structural Deformation Research System/src/core/pipeline.py` | 10 | Pipeline returns None |
-| `Structural Deformation Research System/src/data/data_sources.py` | 10 | Data sources return None |
+| `deformation-framework/src/core/pipeline.py` | 10 | Pipeline returns None |
+| `deformation-framework/src/data/data_sources.py` | 10 | Data sources return None |
 | `structural-risk-harvester/src/harvester/derived.py` | 8 | Harvester derived returns None |
-| `Structural Deformation Research System/src/data/snapshot_store.py` | 7 | Snapshot store returns None |
+| `deformation-framework/src/data/snapshot_store.py` | 7 | Snapshot store returns None |
 | `system-learning-hub/src/system_learning/ml_integrity/pollution_monitor.py` | 6 | Pollution monitor returns None |
-| `Structural Deformation Research System/src/dynamic/provider_integrity_panel.py` | 6 | Provider integrity returns None |
+| `deformation-framework/src/dynamic/provider_integrity_panel.py` | 6 | Provider integrity returns None |
 | `research_terminal/data/router.py` | 5 | Research terminal returns None |
 | `Workbench/src/workbench/workspace/build_system_index.py` | 5 | System index returns None |
 | `paper-empirical-interface/src/paper_interface/attribution_engine.py` | 4 | Attribution engine returns None |
-| `Structural Deformation Research System/src/operators/operator_registry.py` | 4 | Operator registry returns None |
-| `Structural Deformation Research System/src/operators/operator_diagnostics.py` | 4 | Operator diagnostics returns None |
+| `deformation-framework/src/operators/operator_registry.py` | 4 | Operator registry returns None |
+| `deformation-framework/src/operators/operator_diagnostics.py` | 4 | Operator diagnostics returns None |
 | `Workbench/src/workbench/freshness.py` | 4 | Freshness returns None |
-| `Structural Deformation Research System/src/operators/event_to_operator.py` | 5 | Event-to-operator returns None |
-| `Structural Deformation Research System/src/data/gateway/bridge.py` | 4 | Gateway bridge returns None |
+| `deformation-framework/src/operators/event_to_operator.py` | 5 | Event-to-operator returns None |
+| `deformation-framework/src/data/gateway/bridge.py` | 4 | Gateway bridge returns None |
 | `structural-risk-harvester/src/harvester/providers/sec.py` | 3 | SEC provider returns None |
 | `Workbench/src/workbench/evidence_dashboard.py` | 3 | Evidence dashboard returns None |
 | `Workbench/src/workbench/openbb_secondary_audit.py` | 3 | OpenBB audit returns None |
-| `Structural Deformation Research System/src/data/contracts.py` | 3 | Data contracts return None |
+| `deformation-framework/src/data/contracts.py` | 3 | Data contracts return None |
 | `system-learning-hub/src/system_learning/runtime/manifest.py` | 2 | Manifest returns None |
 | `Workbench/src/nlp/extraction/llm_extractor.py` | 8 | LLM extractor returns None |
-| `Structural Deformation Research System/src/output/output_exporter.py` | 2 | Output exporter returns None |
+| `deformation-framework/src/output/output_exporter.py` | 2 | Output exporter returns None |
 | `Workbench/src/workbench/governance/routing_gate.py` | 2 | Routing gate returns None |
 | `Workbench/src/workbench/workspace/promote_snapshot.py` | 2 | Snapshot promotion returns None |
 | `Workbench/src/workbench/workspace/system_status.py` | 2 | System status returns None |
 | `Workbench/src/workbench/workspace/list_latest.py` | 2 | List latest returns None |
-| `Structural Deformation Research System/src/ml/dl_anomaly_detector.py` | 2 | DL anomaly detector returns None |
+| `deformation-framework/src/ml/dl_anomaly_detector.py` | 2 | DL anomaly detector returns None |
 | `Workbench/src/nlp/embeddings/embedder.py` | 2 | NLP embedder returns None |
 
 ### Risk Assessment
@@ -211,14 +211,14 @@ The 18 `diagnostic_only` in `structural_replay_v2.py` are event windows that pro
 
 | File | Count | Context |
 |------|-------|---------|
-| `Structural Deformation Research System/src/data/gateway/bridge.py` | 2 | Gateway bridge returns {} |
-| `Structural Deformation Research System/src/data/gateway/data_hub_lite.py` | 1 | Data hub lite returns {} |
-| `Structural Deformation Research System/src/core/models.py` | 2 | Core models return {} |
-| `Structural Deformation Research System/src/simulation/case_studies.py` | 1 | Case studies return {} |
-| `Structural Deformation Research System/src/ui/run_viewer.py` | 2 | Run viewer returns {} |
-| `Structural Deformation Research System/src/runtime/assembly.py` | 1 | Assembly returns {} |
-| `Structural Deformation Research System/src/ml/detector_factory.py` | 1 | Detector factory returns {} |
-| `Structural Deformation Research System/src/diagnostics/structural_diagnostic.py` | 1 | Structural diagnostic returns {} |
+| `deformation-framework/src/data/gateway/bridge.py` | 2 | Gateway bridge returns {} |
+| `deformation-framework/src/data/gateway/data_hub_lite.py` | 1 | Data hub lite returns {} |
+| `deformation-framework/src/core/models.py` | 2 | Core models return {} |
+| `deformation-framework/src/simulation/case_studies.py` | 1 | Case studies return {} |
+| `deformation-framework/src/ui/run_viewer.py` | 2 | Run viewer returns {} |
+| `deformation-framework/src/runtime/assembly.py` | 1 | Assembly returns {} |
+| `deformation-framework/src/ml/detector_factory.py` | 1 | Detector factory returns {} |
+| `deformation-framework/src/diagnostics/structural_diagnostic.py` | 1 | Structural diagnostic returns {} |
 | `Workbench/src/workbench/current.py` | 1 | Current returns {} |
 | `Workbench/src/workbench/artifact_navigator.py` | 2 | Artifact navigator returns {} |
 | `Workbench/src/workbench/c005_morphology_report.py` | 3 | C005 report returns {} |
@@ -252,7 +252,7 @@ The 18 `diagnostic_only` in `structural_replay_v2.py` are event windows that pro
 | File | Count | Context |
 |------|-------|---------|
 | `ExternalTools/qlib_benchmark_runner/run_qlib_benchmark.py` | 12 | Qlib benchmark placeholders |
-| `Structural Deformation Research System/config.yaml` | 3 | Config placeholders |
+| `deformation-framework/config.yaml` | 3 | Config placeholders |
 | `Workbench/src/workbench/governance/report_gate.py` | 4 | Report gate placeholders |
 | `Workbench/contracts/workbench/framework_contract.schema.json` | 1 | Schema placeholder |
 | `Workbench/src/benchmarks/market_feedback/sandbox_exporter.py` | 2 | Sandbox exporter placeholders |
@@ -275,15 +275,15 @@ The 18 `diagnostic_only` in `structural_replay_v2.py` are event windows that pro
 | File | Count | Context |
 |------|-------|---------|
 | `scripts/audit_boundaries.py` | 7 | Audit boundaries has hardcoded paths |
-| `Structural Deformation Research System/src/core/runtime_context.py` | 1 | Runtime context has hardcoded value |
-| `Structural Deformation Research System/src/data/paths.py` | 1 | Data paths has hardcoded path |
+| `deformation-framework/src/core/runtime_context.py` | 1 | Runtime context has hardcoded value |
+| `deformation-framework/src/data/paths.py` | 1 | Data paths has hardcoded path |
 
 ### Test Files (10)
 
 | File | Count | Context |
 |------|-------|---------|
-| `Structural Deformation Research System/tests/test_architecture_invariants.py` | 6 | Architecture invariant tests |
-| `Structural Deformation Research System/tests/test_data_hub_lite.py` | 1 | Data hub lite tests |
+| `deformation-framework/tests/test_architecture_invariants.py` | 6 | Architecture invariant tests |
+| `deformation-framework/tests/test_data_hub_lite.py` | 1 | Data hub lite tests |
 
 ### Risk Assessment
 

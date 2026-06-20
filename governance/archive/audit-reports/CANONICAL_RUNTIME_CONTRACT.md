@@ -30,7 +30,7 @@ The canonical voting channel set is **M, D, K, X_agg** (4 channels).
 - **Status:** ✅ Active, tested
 
 ### Path B: Legacy adapter
-- **Class:** `Structural Deformation Research System/src/derivation/singular_detector.py::SigmaVector` (line 14)
+- **Class:** `deformation-framework/src/derivation/singular_detector.py::SigmaVector` (line 14)
 - **Uses:** `X_PRE`, `X_REALIZED` instead of `X_agg`
 - **Status:** ⚠️ Legacy/adapter — kept for backward compatibility but NOT used in canonical output path
 

@@ -118,6 +118,6 @@ The current 4-submodule structure is **transitional, not strategic**.
 
 Current submodules:
 1. `Workbench/` → `packages/workbench/`
-2. `Structural Deformation Research System/` → `packages/framework/`
+2. `deformation-framework/` → `packages/framework/`
 3. `structural-risk-harvester/` → `packages/harvester/`
 4. `system-learning-hub/` → `packages/learning_hub/`

@@ -59,7 +59,7 @@ When a user runs `./sys check` (which reads `Output/current/00_READ_ME_FIRST.md`
 ```markdown
 # Current Risk Check
 
-## Structural Deformation Research System
+## deformation-framework
 
 ### Basic Check
 - Overall: **{overall}**

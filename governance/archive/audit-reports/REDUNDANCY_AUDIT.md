@@ -11,10 +11,10 @@ Scope: All redundancy areas in `/Users/a1/System`
 
 | Field | Value |
 |-------|-------|
-| **File** | `Structural Deformation Research System/src/derivation/singular_detector.py` |
+| **File** | `deformation-framework/src/derivation/singular_detector.py` |
 | **Class** | `SigmaVector` |
 | **Type** | Python class with methods |
-| **Used by** | `Structural Deformation Research System/src/output/output_exporter.py`, `Structural Deformation Research System/tests/test_singular_detector.py` |
+| **Used by** | `deformation-framework/src/output/output_exporter.py`, `deformation-framework/tests/test_singular_detector.py` |
 | **Status** | Old path — persistence writes `{}` (empty) |
 
 ### Implementation B: Dict-based (Workbench)
@@ -33,7 +33,7 @@ Scope: All redundancy areas in `/Users/a1/System`
 - `singular_detector.py` `SigmaVector` class has `.to_dict()` but old Deformation run writes `{}`.
 - `semantic.py` `build_sigma_vector()` is the canonical active implementation.
 - Tests in `Workbench/tests/test_sigma_vector.py` validate the dict-based implementation.
-- Tests in `Structural Deformation Research System/tests/test_singular_detector.py` validate the class-based implementation.
+- Tests in `deformation-framework/tests/test_singular_detector.py` validate the class-based implementation.
 
 ### Recommendation
 
@@ -47,23 +47,23 @@ All files defining z-score computation functions:
 
 | # | File | Function/Class | Notes |
 |---|------|---------------|-------|
-| 1 | `Structural Deformation Research System/src/data/data_sources.py` | `compute_z_score()` | Data sources module |
-| 2 | `Structural Deformation Research System/src/derivation/proxy_builder.py` | `ProxyBuilder._z_score()` | Proxy builder internal |
-| 3 | `Structural Deformation Research System/src/data/gateway/bridge.py` | `z_score_normalize()` | Gateway bridge |
-| 4 | `Structural Deformation Research System/src/diagnostics/structural_diagnostic.py` | `StructuralDiagnostic._z_score()` | Diagnostic |
-| 5 | `Structural Deformation Research System/src/diagnostics/residualization.py` | `residualize_z_score()` | Residualization |
-| 6 | `Structural Deformation Research System/src/benchmarks/public_baselines.py` | `baseline_z_score()` | Public baselines |
-| 7 | `Structural Deformation Research System/src/benchmarks/portfolio_baselines.py` | `portfolio_z_score()` | Portfolio baselines |
-| 8 | `Structural Deformation Research System/src/benchmarks/institutional_risk.py` | `institutional_z_score()` | Institutional risk |
-| 9 | `Structural Deformation Research System/src/core/models.py` | `ZScoreModel` | Core model |
+| 1 | `deformation-framework/src/data/data_sources.py` | `compute_z_score()` | Data sources module |
+| 2 | `deformation-framework/src/derivation/proxy_builder.py` | `ProxyBuilder._z_score()` | Proxy builder internal |
+| 3 | `deformation-framework/src/data/gateway/bridge.py` | `z_score_normalize()` | Gateway bridge |
+| 4 | `deformation-framework/src/diagnostics/structural_diagnostic.py` | `StructuralDiagnostic._z_score()` | Diagnostic |
+| 5 | `deformation-framework/src/diagnostics/residualization.py` | `residualize_z_score()` | Residualization |
+| 6 | `deformation-framework/src/benchmarks/public_baselines.py` | `baseline_z_score()` | Public baselines |
+| 7 | `deformation-framework/src/benchmarks/portfolio_baselines.py` | `portfolio_z_score()` | Portfolio baselines |
+| 8 | `deformation-framework/src/benchmarks/institutional_risk.py` | `institutional_z_score()` | Institutional risk |
+| 9 | `deformation-framework/src/core/models.py` | `ZScoreModel` | Core model |
 | 10 | `scripts/archive/compute_proxies.py` | `compute_z_scores()` | ARCHIVED — script-level |
 
 ### Additional References (not definitions)
 
 | File | Usage |
 |------|-------|
-| `Structural Deformation Research System/src/signals/fast_signal.py` | Imports z-score from models |
-| `Structural Deformation Research System/src/data/snapshot_store.py` | Uses z-score for snapshot validation |
+| `deformation-framework/src/signals/fast_signal.py` | Imports z-score from models |
+| `deformation-framework/src/data/snapshot_store.py` | Uses z-score for snapshot validation |
 | `scripts/structural_replay_v2.py` | Uses z-score for replay computation |
 | `scripts/structural_replay_evaluation.py` | Uses z-score for evaluation |
 | `scripts/bridge_replay_to_current.py` | Uses z-score for bridge output |
@@ -71,7 +71,7 @@ All files defining z-score computation functions:
 | `paper-empirical-interface/src/paper_interface/attribution_engine.py` | Uses z-score for attribution |
 | `Workbench/src/workbench/c005_morphology_replay.py` | Uses z-score for morphology |
 | `tests/governance/test_c005_morphology_replay.py` | Tests z-score usage |
-| `Structural Deformation Research System/src/data/quality/tier.py` | Quality tier z-score |
+| `deformation-framework/src/data/quality/tier.py` | Quality tier z-score |
 
 ### Risk
 
@@ -81,7 +81,7 @@ All files defining z-score computation functions:
 
 ### Recommendation
 
-Extract a single canonical `z_score()` function in `Structural Deformation Research System/src/core/models.py` and have all other files import from it.
+Extract a single canonical `z_score()` function in `deformation-framework/src/core/models.py` and have all other files import from it.
 
 ---
 
@@ -93,22 +93,22 @@ These channels were deprecated but are still referenced across 22 files.
 
 | File | Role |
 |------|------|
-| `Structural Deformation Research System/src/derivation/singular_detector.py` | Defines X_PRE, X_REALIZED in SigmaVector |
-| `Structural Deformation Research System/src/derivation/proxy_builder.py` | ProxyBuilder includes X_PRE/X_REALIZED in `MEASUREMENT_CHANNELS` |
-| `Structural Deformation Research System/src/derivation/structural_layers.py` | References X_PRE/X_REALIZED in layer definitions |
-| `Structural Deformation Research System/src/core/models.py` | Model references |
-| `Structural Deformation Research System/src/output/output_exporter.py` | Exports X_PRE/X_REALIZED |
-| `Structural Deformation Research System/src/proxies/__init__.py` | Proxy module init |
-| `Structural Deformation Research System/src/proxies/x_shadow_accumulation.py` | Shadow accumulation proxy |
+| `deformation-framework/src/derivation/singular_detector.py` | Defines X_PRE, X_REALIZED in SigmaVector |
+| `deformation-framework/src/derivation/proxy_builder.py` | ProxyBuilder includes X_PRE/X_REALIZED in `MEASUREMENT_CHANNELS` |
+| `deformation-framework/src/derivation/structural_layers.py` | References X_PRE/X_REALIZED in layer definitions |
+| `deformation-framework/src/core/models.py` | Model references |
+| `deformation-framework/src/output/output_exporter.py` | Exports X_PRE/X_REALIZED |
+| `deformation-framework/src/proxies/__init__.py` | Proxy module init |
+| `deformation-framework/src/proxies/x_shadow_accumulation.py` | Shadow accumulation proxy |
 
 ### Test Files
 
 | File | Role |
 |------|------|
-| `Structural Deformation Research System/tests/test_proxy_builder.py` | Tests X_PRE/X_REALIZED |
-| `Structural Deformation Research System/tests/test_singular_detector.py` | Tests SigmaVector with X_PRE/X_REALIZED |
-| `Structural Deformation Research System/tests/test_output_exporter.py` | Tests export with X_PRE/X_REALIZED |
-| `Structural Deformation Research System/tests/test_structural_layers.py` | Tests structural layers |
+| `deformation-framework/tests/test_proxy_builder.py` | Tests X_PRE/X_REALIZED |
+| `deformation-framework/tests/test_singular_detector.py` | Tests SigmaVector with X_PRE/X_REALIZED |
+| `deformation-framework/tests/test_output_exporter.py` | Tests export with X_PRE/X_REALIZED |
+| `deformation-framework/tests/test_structural_layers.py` | Tests structural layers |
 | `Workbench/tests/test_sigma_vector.py` | Tests SigmaVector (may reference) |
 | `Workbench/tests/test_ml_governance_signal.py` | Tests ML governance signal |
 
@@ -176,23 +176,23 @@ Two files implement proxy direction computation with different approaches.
 
 | # | File | Function | Approach |
 |---|------|----------|----------|
-| 1 | `Structural Deformation Research System/src/signals/fast_signal.py` | `compute_direction()` | Signal-based direction |
-| 2 | `Structural Deformation Research System/src/output/output_exporter.py` | `export_direction()` | Export-time direction |
+| 1 | `deformation-framework/src/signals/fast_signal.py` | `compute_direction()` | Signal-based direction |
+| 2 | `deformation-framework/src/output/output_exporter.py` | `export_direction()` | Export-time direction |
 
 ### Additional References
 
 | File | Usage |
 |------|-------|
-| `Structural Deformation Research System/src/data/snapshot_store.py` | Direction in snapshots |
-| `Structural Deformation Research System/src/core/pipeline.py` | Pipeline direction computation |
-| `Structural Deformation Research System/src/mechanisms/base.py` | Mechanism direction |
-| `Structural Deformation Research System/src/operators/operator_algebra.py` | Operator direction |
-| `Structural Deformation Research System/src/ui/components/state_cards.py` | UI direction display |
-| `Structural Deformation Research System/src/ui/components/research_log_panel.py` | Research log direction |
-| `Structural Deformation Research System/src/ui/components/paper_dashboard.py` | Paper dashboard direction |
-| `Structural Deformation Research System/src/runtime/system_api.py` | System API direction |
-| `Structural Deformation Research System/src/output/run_package.py` | Run package direction |
-| `Structural Deformation Research System/src/interpretation/market_state.py` | Market state direction |
+| `deformation-framework/src/data/snapshot_store.py` | Direction in snapshots |
+| `deformation-framework/src/core/pipeline.py` | Pipeline direction computation |
+| `deformation-framework/src/mechanisms/base.py` | Mechanism direction |
+| `deformation-framework/src/operators/operator_algebra.py` | Operator direction |
+| `deformation-framework/src/ui/components/state_cards.py` | UI direction display |
+| `deformation-framework/src/ui/components/research_log_panel.py` | Research log direction |
+| `deformation-framework/src/ui/components/paper_dashboard.py` | Paper dashboard direction |
+| `deformation-framework/src/runtime/system_api.py` | System API direction |
+| `deformation-framework/src/output/run_package.py` | Run package direction |
+| `deformation-framework/src/interpretation/market_state.py` | Market state direction |
 | `Workbench/agents/harness/entrypoints/deformation_cli.py` | CLI direction |
 | `Workbench/agents/harness/skills/deformation-snapshot-audit/SKILL.md` | Audit skill direction |
 | `Workbench/agents/harness/agents/math-auditor.md` | Math auditor direction |

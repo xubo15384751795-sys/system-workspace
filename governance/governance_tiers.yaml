@@ -24,18 +24,15 @@ work_support:
   description: "Runtime tools. Help the system work, guide next steps."
   files:
     - operator_registry.yaml            # operator types and claim ceilings
-    - position_sizing_policy.yaml       # conservative sizing rules
     - run_mode_registry.yaml            # work cycle mode definitions
     - opencode_supervisor_policy.yaml   # supervisor audit checks
     - incentive_policy.yaml             # priority credit system
     - authority_graph_policy.yaml       # topology zones, bridge nodes, invariants
-    - decay_policy.yaml                 # structural forgetting triggers
     - governance_freeze_manifest.yaml     # machine-checkable freeze baseline
     - experimental_submission_registry.yaml  # non-compliant exploration queue
     - module_authority_registry.yaml    # allowed/forbidden per module
     - data_authority_registry.yaml      # non-Harvester data marking
     - data_request_registry.yaml        # inter-module data requests
-    - module_contract_registry.yaml     # module accept/produce/forbid
     - deferred_work_register.yaml       # deferred items with deadlines
     - proxy_quality_rules.yaml          # proxy scoring rules
     - config_authority_registry.yaml    # runtime config flags

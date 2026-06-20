@@ -39,7 +39,7 @@ All routed through `/Users/a1/System/sys` (bash).
 
 ## 2. Scripts with `if __name__ == "__main__"` (~50)
 
-### Structural Deformation Research System
+### deformation-framework
 
 | Script | Status | Notes |
 |--------|--------|-------|
