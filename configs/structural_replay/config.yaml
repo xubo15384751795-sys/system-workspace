@@ -25,3 +25,4 @@ output:
 run:
   tag: dev
   pre_event_warmup_days: 365
+  as_of_date: ""  # empty = use panel max date; set to YYYY-MM-DD to enforce cutoff

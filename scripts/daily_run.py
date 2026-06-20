@@ -19,30 +19,38 @@ Environment:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_DIR = ROOT / "Output" / "runtime_events"
-ALERT_DIR = ROOT / "Output" / "alerts"
-
 # RunBundle integration — use auditable path management
 from _workspace_imports import add_scripts
 add_scripts()
+from _runtime_io import ROOT, ensure_dir
+
+RUNTIME_DIR = ROOT / "Output" / "runtime_events"
+ALERT_DIR = ROOT / "Output" / "alerts"
+from _constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_LONG, TIMEOUT_STANDARD
 from run_bundle import RunBundle
-from _daily_run_sequence import dry_run_labels, load_daily_run_sequence
+from _daily_run_sequence import dry_run_labels, load_daily_run_sequence, weekly_step_ids
 from _notify import notify_daily_run_result
 
 # Numbered user-facing stages in the pipeline
 TOTAL_STEPS = len(load_daily_run_sequence()) or 33
+WEEKLY_STEPS = weekly_step_ids()
+
+
+def _is_weekly(name: str) -> bool:
+    """Check if a step is scheduled weekly."""
+    return name in WEEKLY_STEPS
 
 
 def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
@@ -55,7 +63,7 @@ def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
 
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=600,
+            cmd, capture_output=True, text=True, timeout=TIMEOUT_LONG,
             cwd=str(ROOT), env=merged_env,
         )
         duration = time.time() - start
@@ -122,7 +130,7 @@ def check_warnings() -> list[str]:
                     if age > 2:
                         warnings.append(f"HARVESTER_STALE: release is {age} days old ({release_date})")
             except Exception:
-                pass
+                logger.debug("Failed to parse Harvester catalog for freshness check", exc_info=True)
     else:
         warnings.append("HARVESTER_MISSING: no latest release")
 
@@ -132,7 +140,7 @@ def check_warnings() -> list[str]:
 def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
     """Append event to daily JSONL log."""
     runtime_dir = output_root / "runtime_events" if output_root else RUNTIME_DIR
-    runtime_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(runtime_dir)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     path = runtime_dir / f"{today}.jsonl"
     with path.open("a", encoding="utf-8") as f:
@@ -142,7 +150,7 @@ def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
 def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None = None) -> None:
     """Write alert files."""
     alert_dir = output_root / "alerts" if output_root else ALERT_DIR
-    alert_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(alert_dir)
     now = datetime.now(UTC).isoformat()
     failed_steps = [s for s in steps if s.get("status") != "success"]
 
@@ -197,7 +205,6 @@ def _detect_schedule_slot(hour: int) -> str:
 
 
 def main() -> None:
-    import argparse
     parser = argparse.ArgumentParser(description="Scheduled Batch Monitor")
     parser.add_argument("--skip-harvester", action="store_true")
     parser.add_argument("--skip-etf", action="store_true", help="Skip ETF panel refresh step")
@@ -234,7 +241,7 @@ def main() -> None:
     # Resolve output root — default is ROOT/Output, override for test isolation
     output_root = Path(args.output_root) if args.output_root else ROOT / "Output"
     if args.output_root:
-        output_root.mkdir(parents=True, exist_ok=True)
+        ensure_dir(output_root)
         os.environ["DAILY_OUTPUT_ROOT"] = str(output_root)
 
     start_time = datetime.now(UTC)
@@ -304,17 +311,13 @@ def main() -> None:
     if build_policy_script.exists():
         _record(run_step("build_policy_from_paper", [sys.executable, str(build_policy_script)]))
 
-    # Step 5: Horizon event adapter
-    logger.info("[%d/%d] Running Horizon event adapter...", 5, TOTAL_STEPS)
-    horizon_script = ROOT / "scripts" / "horizon_event_adapter.py"
-    if horizon_script.exists():
-        horizon_cmd = [sys.executable, str(horizon_script)]
-        if args.use_horizon_sample:
-            horizon_cmd.append("--sample")
-        _record(run_step("horizon_events", horizon_cmd))
+    # Step 5: Horizon event adapter — ARCHIVED (no data source, Horizon dormant since 2026-06-02)
+    # horizon_event_adapter.py moved to scripts/archive/governance_cut_2026_06_19/
 
-    # Step 6: Structural Replay
-    logger.info("[%d/%d] Running Structural Replay...", 6, TOTAL_STEPS)
+    # Step 6: Structural Replay — builds current M/D/K/X from Harvester panel.
+    # Despite the name "replay", this runs on TODAY's data to produce current
+    # measurement.  Historical crisis replay is a separate on-demand use case.
+    logger.info("[%d/%d] Running Structural Replay (current M/D/K/X measurement)...", 6, TOTAL_STEPS)
     latest = ROOT / "Data" / "harvester" / "exports" / "latest"
     catalog_path = latest / "catalog.json"
     release_id = "latest"
@@ -323,7 +326,7 @@ def main() -> None:
             cat = json.loads(catalog_path.read_text(encoding="utf-8"))
             release_id = cat.get("release_id", "latest")
         except Exception:
-            pass
+            logger.debug("Failed to read catalog release_id, using 'latest'", exc_info=True)
 
     bp_path = latest / "data" / "benchmark_panel.parquet"
     replay_cmd = [
@@ -331,6 +334,7 @@ def main() -> None:
         f"panel.release_id={release_id}",
         f"panel.path={bp_path}",
         f"run.tag=daily_{datetime.now(UTC).strftime('%Y%m%d')}",
+        f"run.as_of_date={datetime.now(UTC).strftime('%Y-%m-%d')}",
     ]
     _record(run_step("structural_replay", replay_cmd), input_artifacts=[str(bp_path)])
 
@@ -361,7 +365,7 @@ def main() -> None:
         "'warnings': result['degeneracy']['warnings']}, indent=2))",
     ], env={"PYTHONPATH": str(ROOT / "Workbench" / "src")}))
     hmm_audit_script = ROOT / "scripts" / "hmm_stability_audit.py"
-    if hmm_audit_script.exists():
+    if hmm_audit_script.exists() and (not _is_weekly("hmm_stability_audit") or args.force_weekly or start_time.weekday() == 0):
         _record(run_step("hmm_stability_audit", [sys.executable, str(hmm_audit_script)]))
 
     # Step 9: K/X gates
@@ -379,14 +383,15 @@ def main() -> None:
     if caselab_script.exists():
         _record(run_step("caselab_signal", [sys.executable, str(caselab_script), "--json"]))
 
-    # Archive daily snapshots for backfill
-    archive_script = ROOT / "scripts" / "archive_daily_snapshots.py"
-    if archive_script.exists():
-        _record(run_step("archive_daily_snapshots", [sys.executable, str(archive_script)]))
+    # Archive daily snapshots for backfill (weekly — maintenance, not signal)
+    if start_time.weekday() == 0 or args.force_weekly:
+        archive_script = ROOT / "scripts" / "archive_daily_snapshots.py"
+        if archive_script.exists():
+            _record(run_step("archive_daily_snapshots", [sys.executable, str(archive_script)]))
 
-    backfill_script = ROOT / "scripts" / "backfill_judgment_calibration.py"
-    if backfill_script.exists():
-        _record(run_step("backfill_judgment_calibration", [sys.executable, str(backfill_script)]))
+        backfill_script = ROOT / "scripts" / "backfill_judgment_calibration.py"
+        if backfill_script.exists():
+            _record(run_step("backfill_judgment_calibration", [sys.executable, str(backfill_script)]))
 
     # Step 11: Judgment
     logger.info("[%d/%d] Generating judgment card...", 11, TOTAL_STEPS)
@@ -401,9 +406,11 @@ def main() -> None:
                 str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
             ],
         )
-    judgment_audit_script = ROOT / "scripts" / "judgment_replay_audit.py"
-    if judgment_audit_script.exists():
-        _record(run_step("judgment_replay_audit", [sys.executable, str(judgment_audit_script)]))
+    # Judgment replay audit (weekly — validation, not signal-blocking)
+    if start_time.weekday() == 0 or args.force_weekly:
+        judgment_audit_script = ROOT / "scripts" / "judgment_replay_audit.py"
+        if judgment_audit_script.exists():
+            _record(run_step("judgment_replay_audit", [sys.executable, str(judgment_audit_script)]))
 
     # Step 12: Promotion gate
     logger.info("[%d/%d] Running judgment promotion gate...", 12, TOTAL_STEPS)
@@ -411,11 +418,14 @@ def main() -> None:
     if promotion_script.exists():
         _record(run_step("judgment_promotion_gate", [sys.executable, str(promotion_script)]))
 
-    # Step 13: Probabilistic context
-    logger.info("[%d/%d] Generating probabilistic context...", 13, TOTAL_STEPS)
-    prob_script = ROOT / "scripts" / "gluonts_probabilistic_context.py"
-    if prob_script.exists():
-        _record(run_step("probabilistic_context", [sys.executable, str(prob_script)]))
+    # Step 13: Probabilistic context — ARCHIVED (misnamed, was historical quantile calculator, not GluonTS)
+    # gluonts_probabilistic_context.py moved to scripts/archive/governance_cut_2026_06_19/
+
+    # Step 13.5: Signal monitor — weekly tracking of M+K prediction accuracy (moved from daily 2026-06-20)
+    if start_time.weekday() == 0 or args.force_weekly:
+        signal_monitor_script = ROOT / "scripts" / "signal_monitor.py"
+        if signal_monitor_script.exists():
+            _record(run_step("signal_monitor", [sys.executable, str(signal_monitor_script), "--json"]))
 
     # Step 14: Trade decision
     logger.info("[%d/%d] Generating trade decision...", 14, TOTAL_STEPS)
@@ -432,22 +442,20 @@ def main() -> None:
             ],
         )
 
-    # Step 15: Risk gate
-    logger.info("[%d/%d] Running risk gate...", 15, TOTAL_STEPS)
+    # Step 15: Risk gate + record to ledger (merged — record is lightweight)
+    logger.info("[%d/%d] Running risk gate + recording decision...", 15, TOTAL_STEPS)
     risk_script = ROOT / "scripts" / "trade_risk_gate.py"
     if risk_script.exists():
         _record(run_step("risk_gate", [sys.executable, str(risk_script)]))
-
-    # Step 16: Record trade decision
-    logger.info("[%d/%d] Recording trade decision...", 16, TOTAL_STEPS)
     record_script = ROOT / "scripts" / "record_trade_decision.py"
     if record_script.exists():
         _record(run_step("record_trade_decision", [sys.executable, str(record_script)]))
 
-    # Step 16.5: Trade decision replay — update calibration report before Learning Hub ingestion
-    replay_script = ROOT / "scripts" / "trade_decision_replay.py"
-    if replay_script.exists():
-        _record(run_step("trade_decision_replay", [sys.executable, str(replay_script)]))
+    # Step 16.5: Trade decision replay (weekly — calibration, not signal-blocking)
+    if start_time.weekday() == 0 or args.force_weekly:
+        replay_script = ROOT / "scripts" / "trade_decision_replay.py"
+        if replay_script.exists():
+            _record(run_step("trade_decision_replay", [sys.executable, str(replay_script)]))
 
     # Step 17: Market feedback
     logger.info("[%d/%d] Generating market feedback...", 17, TOTAL_STEPS)
@@ -455,28 +463,25 @@ def main() -> None:
     if feedback_script.exists():
         _record(run_step("market_feedback", [sys.executable, str(feedback_script)]))
 
-    # Step 17.5: Claim evaluation — verify past claims against current data
-    claim_eval_script = ROOT / "scripts" / "claim_evaluator.py"
-    if claim_eval_script.exists():
-        _record(run_step("claim_evaluator", [sys.executable, str(claim_eval_script)]))
+    # Claim evaluation + ladder + Learning Hub feedback (weekly — batch validation)
+    if start_time.weekday() == 0 or args.force_weekly:
+        claim_eval_script = ROOT / "scripts" / "claim_evaluator.py"
+        if claim_eval_script.exists():
+            _record(run_step("claim_evaluator", [sys.executable, str(claim_eval_script)]))
 
-    # Step 17.6: Claim ladder tracker — cross-run progression evaluation
-    claim_tracker_script = ROOT / "scripts" / "claim_ladder_tracker.py"
-    if claim_tracker_script.exists():
-        _record(run_step("claim_ladder_tracker", [sys.executable, str(claim_tracker_script)]))
+        claim_tracker_script = ROOT / "scripts" / "claim_ladder_tracker.py"
+        if claim_tracker_script.exists():
+            _record(run_step("claim_ladder_tracker", [sys.executable, str(claim_tracker_script)]))
 
-    # Step 17.7: Learning Hub feedback — aggregate claim ladder + CaseLab for Hub
-    lh_feedback_script = ROOT / "scripts" / "build_learning_hub_feedback.py"
-    if lh_feedback_script.exists():
-        _record(run_step("learning_hub_feedback", [sys.executable, str(lh_feedback_script)]))
+        lh_feedback_script = ROOT / "scripts" / "build_learning_hub_feedback.py"
+        if lh_feedback_script.exists():
+            _record(run_step("learning_hub_feedback", [sys.executable, str(lh_feedback_script)]))
 
-    # Step 17.8: Proxy quality report + lifecycle evaluation
-    proxy_quality_script = ROOT / "scripts" / "build_proxy_quality_report.py"
-    if proxy_quality_script.exists():
-        _record(run_step("proxy_quality_report", [sys.executable, str(proxy_quality_script)]))
-    proxy_lifecycle_script = ROOT / "scripts" / "evaluate_proxy_lifecycle.py"
-    if proxy_lifecycle_script.exists():
-        _record(run_step("proxy_lifecycle", [sys.executable, str(proxy_lifecycle_script)]))
+    # Step 17.8: Proxy quality report (weekly) — proxy_lifecycle archived 2026-06-20 (dead output)
+    if not _is_weekly("proxy_quality_report") or args.force_weekly or start_time.weekday() == 0:
+        proxy_quality_script = ROOT / "scripts" / "build_proxy_quality_report.py"
+        if proxy_quality_script.exists():
+            _record(run_step("proxy_quality_report", [sys.executable, str(proxy_quality_script)]))
 
     # Weekly mechanism causal calibration (Monday UTC, or --force-weekly)
     if start_time.weekday() == 0 or args.force_weekly:
@@ -487,33 +492,35 @@ def main() -> None:
         if suggest_script.exists():
             _record(run_step("suggest_paper_updates", [sys.executable, str(suggest_script)]))
 
-    # Step 18: Learning comprehensive summary
-    logger.info("[%d/%d] Generating Learning Hub comprehensive summary...", 18, TOTAL_STEPS)
-    learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
-    if learning_summary_script.exists():
-        _record(run_step("learning_summary", [sys.executable, str(learning_summary_script)]))
-    calibration_event_script = ROOT / "scripts" / "learning_hub_judgment_calibration.py"
-    if calibration_event_script.exists():
-        _record(run_step("judgment_calibration_event", [sys.executable, str(calibration_event_script)]))
-    trade_calibration_script = ROOT / "scripts" / "learning_hub_trade_calibration.py"
-    if trade_calibration_script.exists():
-        _record(run_step("trade_calibration_event", [sys.executable, str(trade_calibration_script)]))
+    # Step 18: Learning comprehensive summary (weekly)
+    if not _is_weekly("learning_summary") or args.force_weekly or start_time.weekday() == 0:
+        logger.info("[%d/%d] Generating Learning Hub comprehensive summary...", 18, TOTAL_STEPS)
+        learning_summary_script = ROOT / "scripts" / "learning_hub_comprehensive_summary.py"
+        if learning_summary_script.exists():
+            _record(run_step("learning_summary", [sys.executable, str(learning_summary_script)]))
+    # Calibration events (weekly — review, not signal)
+    if start_time.weekday() == 0 or args.force_weekly:
+        calibration_event_script = ROOT / "scripts" / "learning_hub_judgment_calibration.py"
+        if calibration_event_script.exists():
+            _record(run_step("judgment_calibration_event", [sys.executable, str(calibration_event_script)]))
+        trade_calibration_script = ROOT / "scripts" / "learning_hub_trade_calibration.py"
+        if trade_calibration_script.exists():
+            _record(run_step("trade_calibration_event", [sys.executable, str(trade_calibration_script)]))
 
-    # Export feedback drafts to Paper inbox
-    export_feedback_script = ROOT / "scripts" / "export_feedback_to_paper.py"
-    if export_feedback_script.exists():
-        _record(run_step("export_feedback", [sys.executable, str(export_feedback_script)]))
-
-    promote_script = ROOT / "scripts" / "promote_paper_inbox.py"
-    if promote_script.exists():
-        _record(run_step("promote_paper_inbox", [sys.executable, str(promote_script)]))
-
-    collect_reviews_script = ROOT / "caselab_runtime" / "feedback" / "collect_reviews.py"
-    if collect_reviews_script.exists():
-        _record(run_step(
-            "collect_reviews",
-            [sys.executable, "-m", "caselab_runtime.feedback.collect_reviews", "--json"],
-        ))
+    # Export feedback + promote paper inbox (weekly)
+    if not _is_weekly("export_feedback") or args.force_weekly or start_time.weekday() == 0:
+        export_feedback_script = ROOT / "scripts" / "export_feedback_to_paper.py"
+        if export_feedback_script.exists():
+            _record(run_step("export_feedback", [sys.executable, str(export_feedback_script)]))
+        promote_script = ROOT / "scripts" / "promote_paper_inbox.py"
+        if promote_script.exists():
+            _record(run_step("promote_paper_inbox", [sys.executable, str(promote_script)]))
+        collect_reviews_script = ROOT / "caselab_runtime" / "feedback" / "collect_reviews.py"
+        if collect_reviews_script.exists():
+            _record(run_step(
+                "collect_reviews",
+                [sys.executable, "-m", "caselab_runtime.feedback.collect_reviews", "--json"],
+            ))
 
     # Daily pending evaluation (forward-outcome checks for judgment/trade claims)
     evaluate_script = ROOT / "scripts" / "evaluate_pending.py"
@@ -524,17 +531,12 @@ def main() -> None:
             eval_cmd.append("--daily-only")
         _record(run_step("evaluate_pending", eval_cmd))
 
-    # Step 19: Operator registry audit
-    logger.info("[%d/%d] Running operator registry audit...", 19, TOTAL_STEPS)
-    operator_audit_script = ROOT / "scripts" / "operator_registry_audit.py"
-    if operator_audit_script.exists():
-        _record(run_step("operator_registry_audit", [sys.executable, str(operator_audit_script)]))
-
-    # Step 20: Position sizing layer
-    logger.info("[%d/%d] Running position sizing layer...", 20, TOTAL_STEPS)
-    position_script = ROOT / "scripts" / "position_sizing_layer.py"
-    if position_script.exists():
-        _record(run_step("position_sizing", [sys.executable, str(position_script)]))
+    # Step 19: Operator registry audit (weekly)
+    if not _is_weekly("operator_registry_audit") or args.force_weekly or start_time.weekday() == 0:
+        logger.info("[%d/%d] Running operator registry audit...", 19, TOTAL_STEPS)
+        operator_audit_script = ROOT / "scripts" / "operator_registry_audit.py"
+        if operator_audit_script.exists():
+            _record(run_step("operator_registry_audit", [sys.executable, str(operator_audit_script)]))
 
     # Step 21: Build system index
     logger.info("[%d/%d] Building system index...", 21, TOTAL_STEPS)
@@ -542,14 +544,15 @@ def main() -> None:
     if index_script.exists():
         _record(run_step("system_index", [sys.executable, str(index_script)]))
 
-    # Step 22: Build current README / NEXT_ACTIONS
-    logger.info("[%d/%d] Generating README and next actions...", 22, TOTAL_STEPS)
-    readme_script = ROOT / "scripts" / "build_readme_first.py"
-    if readme_script.exists():
-        _record(run_step("readme_first", [sys.executable, str(readme_script)]))
-    next_actions_script = ROOT / "scripts" / "build_next_actions.py"
-    if next_actions_script.exists():
-        _record(run_step("next_actions", [sys.executable, str(next_actions_script)]))
+    # Step 22: Build current README / NEXT_ACTIONS (weekly — documentation, not signal)
+    if start_time.weekday() == 0 or args.force_weekly:
+        logger.info("[%d/%d] Generating README and next actions...", 22, TOTAL_STEPS)
+        readme_script = ROOT / "scripts" / "build_readme_first.py"
+        if readme_script.exists():
+            _record(run_step("readme_first", [sys.executable, str(readme_script)]))
+        next_actions_script = ROOT / "scripts" / "build_next_actions.py"
+        if next_actions_script.exists():
+            _record(run_step("next_actions", [sys.executable, str(next_actions_script)]))
 
     # Step 23: Build signal card (BEFORE freshness — freshness must validate it)
     logger.info("[%d/%d] Building signal card...", 23, TOTAL_STEPS)
@@ -563,35 +566,60 @@ def main() -> None:
     if consensus_script.exists():
         _record(run_step("signal_consensus", [sys.executable, str(consensus_script)]))
 
-    # Step 25: Build work brief (BEFORE freshness — freshness must validate it)
-    logger.info("[%d/%d] Building work brief...", 25, TOTAL_STEPS)
+    # Step 25: Strategy Lab shadow card (weekly — research-only, not signal)
+    if start_time.weekday() == 0 or args.force_weekly:
+        logger.info("[%d/%d] Generating Strategy Lab shadow card...", 25, TOTAL_STEPS)
+        shadow_card_script = ROOT / "scripts" / "strategy_lab" / "run_backtest.py"
+        if shadow_card_script.exists():
+            _record(run_step("strategy_lab_shadow", [sys.executable, str(shadow_card_script), "--shadow-card"]))
+
+    # Step 26: Build work brief (BEFORE freshness — freshness must validate it)
+    logger.info("[%d/%d] Building work brief...", 26, TOTAL_STEPS)
     work_brief_script = ROOT / "scripts" / "build_work_brief.py"
     if work_brief_script.exists():
         _record(run_step("work_brief", [sys.executable, str(work_brief_script)]))
 
     # Step 26: Freshness validator (AFTER all current outputs are built)
-    logger.info("[%d/%d] Running freshness validator...", 26, TOTAL_STEPS)
+    logger.info("[%d/%d] Running freshness validator...", 27, TOTAL_STEPS)
     freshness_script = ROOT / "scripts" / "freshness_validator.py"
     if freshness_script.exists():
         _record(run_step("freshness_validator", [sys.executable, str(freshness_script)]))
 
-    # Step 27: Architecture reality audit (non-strict daily sensor)
-    logger.info("[%d/%d] Running architecture reality audit...", 27, TOTAL_STEPS)
-    architecture_audit_script = ROOT / "scripts" / "architecture_reality_audit.py"
-    if architecture_audit_script.exists():
-        _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
+    # Step 27: Architecture reality audit (weekly)
+    if not _is_weekly("architecture_reality_audit") or args.force_weekly or start_time.weekday() == 0:
+        logger.info("[%d/%d] Running architecture reality audit...", 28, TOTAL_STEPS)
+        architecture_audit_script = ROOT / "scripts" / "architecture_reality_audit.py"
+        if architecture_audit_script.exists():
+            _record(run_step("architecture_reality_audit", [sys.executable, str(architecture_audit_script)]))
 
-    # Step 28: Governance status (visible summary of gates, trace, exceptions)
-    logger.info("[%d/%d] Building governance status...", 28, TOTAL_STEPS)
-    governance_status_script = ROOT / "scripts" / "governance_status.py"
-    if governance_status_script.exists():
-        _record(run_step("governance_status", [sys.executable, str(governance_status_script)]))
+    # Step 28: Governance status (weekly)
+    if not _is_weekly("governance_status") or args.force_weekly or start_time.weekday() == 0:
+        logger.info("[%d/%d] Building governance status...", 29, TOTAL_STEPS)
+        governance_status_script = ROOT / "scripts" / "governance_status.py"
+        if governance_status_script.exists():
+            _record(run_step("governance_status", [sys.executable, str(governance_status_script)]))
 
-    # Step 29: Change analysis (delta, trend, anomaly layer)
-    logger.info("[%d/%d] Building change analysis...", 29, TOTAL_STEPS)
-    change_analysis_script = ROOT / "scripts" / "build_change_analysis.py"
-    if change_analysis_script.exists():
-        _record(run_step("change_analysis", [sys.executable, str(change_analysis_script)]))
+    # ML validation hardening (weekly, review-only)
+    if start_time.weekday() == 0 or args.force_weekly:
+        asof_script = ROOT / "scripts" / "asof_integrity_checker.py"
+        if asof_script.exists():
+            _record(run_step("asof_integrity_check", [sys.executable, str(asof_script)]))
+        baseline_script = ROOT / "scripts" / "baseline_comparison.py"
+        if baseline_script.exists():
+            _record(run_step("baseline_comparison", [sys.executable, str(baseline_script)]))
+        walkforward_script = ROOT / "scripts" / "weekly_walk_forward_validation.py"
+        if walkforward_script.exists():
+            _record(run_step("walk_forward_validation", [sys.executable, str(walkforward_script)]))
+        threshold_bridge_script = ROOT / "scripts" / "threshold_review_bridge.py"
+        if threshold_bridge_script.exists():
+            _record(run_step("threshold_review_bridge", [sys.executable, str(threshold_bridge_script)]))
+
+    # Step 29: Change analysis (weekly — trend/anomaly, not signal-blocking)
+    if start_time.weekday() == 0 or args.force_weekly:
+        logger.info("[%d/%d] Building change analysis...", 30, TOTAL_STEPS)
+        change_analysis_script = ROOT / "scripts" / "build_change_analysis.py"
+        if change_analysis_script.exists():
+            _record(run_step("change_analysis", [sys.executable, str(change_analysis_script)]))
 
     # Capture decision + signal traces into bundle
     _capture_traces(bundle)
@@ -603,6 +631,7 @@ def main() -> None:
     for artifact_rel in [
         "Output/current/framework_output.json",
         "Output/current/work_brief.json",
+        "Output/strategy_lab/shadow_cards/latest.json",
         "Output/current/signal_card.json",
         "Output/current/signal_consensus.json",
         "Output/current/data_gaps.json",
@@ -650,7 +679,7 @@ def main() -> None:
             [sys.executable, str(governance_status_script)],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=TIMEOUT_STANDARD,
             cwd=str(ROOT),
         )
         for artifact_rel in [
@@ -712,7 +741,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                         priority="medium",
                     )
         except Exception:
-            pass
+            logger.debug("Failed to build HMM regime feedback item", exc_info=True)
 
     # Judgment confidence low
     judgment_path = ROOT / "Output" / "judgment" / "latest.json"
@@ -731,7 +760,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                         priority="medium",
                     )
         except Exception:
-            pass
+            logger.debug("Failed to build judgment confidence feedback item", exc_info=True)
 
     # Claim ladder verification targets (structured)
     if judgment:
@@ -748,18 +777,17 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
 
                 # Compute CaseLab score gap from caselab output
                 caselab_gap = 0.0
-                import datetime as _cl_dt
-                _today_str = _cl_dt.date.today().isoformat()
+                _today_str = date.today().isoformat()
                 caselab_path_today = ROOT / "Output" / "caselab" / f"{_today_str}.json"
                 if caselab_path_today.exists():
                     try:
                         _cl = json.loads(caselab_path_today.read_text(encoding="utf-8"))
                         _mq = _cl.get("match_quality", {})
                         _ts = _mq.get("top_score", 0)
-                        _ut = _mq.get("thresholds", {}).get("usable", 0.55)
+                        _ut = _mq.get("thresholds", {}).get("usable", CASELAB_USABLE_THRESHOLD)
                         caselab_gap = round(max(0, _ut - _ts), 3)
                     except Exception:
-                        pass
+                        logger.debug("Failed to read caselab match quality for feedback", exc_info=True)
 
                 # M/D persistence requirement from promotion conditions
                 md_persist_req = promo.get("to_tier_2", "")
@@ -787,21 +815,20 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                     },
                 )
         except Exception:
-            pass
+            logger.debug("Failed to build claim ladder feedback item", exc_info=True)
 
     # CaseLab match quality
     caselab_dir = ROOT / "Output" / "caselab"
     if caselab_dir.exists():
         try:
-            import datetime as _dt
-            today = _dt.date.today().isoformat()
+            today = date.today().isoformat()
             caselab_path = caselab_dir / f"{today}.json"
             if caselab_path.exists():
                 caselab = json.loads(caselab_path.read_text(encoding="utf-8"))
                 mq = caselab.get("match_quality", {})
                 top_score = mq.get("top_score", 0)
                 thresholds = mq.get("thresholds", {})
-                usable_th = thresholds.get("usable", 0.55)
+                usable_th = thresholds.get("usable", CASELAB_USABLE_THRESHOLD)
                 gap = round(usable_th - top_score, 3) if top_score < usable_th else 0
                 if gap > 0:
                     bundle.add_feedback_pending(
@@ -820,7 +847,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                         priority="medium",
                     )
         except Exception:
-            pass
+            logger.debug("Failed to build CaseLab match quality feedback item", exc_info=True)
 
     # HMM calibration status
     hmm_audit_path = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
@@ -846,7 +873,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
                         priority="low",
                     )
         except Exception:
-            pass
+            logger.debug("Failed to build HMM calibration feedback item", exc_info=True)
 
 
 def _capture_traces(bundle: RunBundle) -> None:
@@ -863,7 +890,7 @@ def _capture_traces(bundle: RunBundle) -> None:
                 data = json.loads(p.read_text(encoding="utf-8"))
                 bundle.capture_decision_trace({rel: data})
             except Exception:
-                pass
+                logger.debug("Failed to capture decision trace for %s", rel, exc_info=True)
 
     # Signal trace: framework output (sigma vector summary only)
     fw_path = ROOT / "Output" / "current" / "framework_output.json"
@@ -880,7 +907,7 @@ def _capture_traces(bundle: RunBundle) -> None:
                 "primary_readout": fw.get("advanced", {}).get("primary_readout"),
             })
         except Exception:
-            pass
+            logger.debug("Failed to capture framework output trace", exc_info=True)
 
     # Signal trace: HMM regime signal with degeneracy info
     hmm_path = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
@@ -894,7 +921,7 @@ def _capture_traces(bundle: RunBundle) -> None:
                 "degeneracy": hmm.get("degeneracy", {}),
             })
         except Exception:
-            pass
+            logger.debug("Failed to capture HMM regime trace", exc_info=True)
 
 
 if __name__ == "__main__":

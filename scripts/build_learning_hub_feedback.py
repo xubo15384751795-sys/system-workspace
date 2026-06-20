@@ -18,12 +18,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
 
 CLAIM_LADDER_STATE = ROOT / "Output" / "claim_ladder" / "state.json"
 FEEDBACK_LOG = ROOT / "caselab_context" / "feedback_log.jsonl"
 CALIBRATION_GATE = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
+ALERT_PATH = ROOT / "Output" / "alerts" / "latest_alert.json"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
@@ -130,6 +130,37 @@ def build_caselab_review_feedback() -> dict[str, Any]:
     }
 
 
+def build_pipeline_alert_feedback() -> dict[str, Any]:
+    """Read daily pipeline alerts and format for Learning Hub consumption."""
+    alert = load_json(ALERT_PATH)
+    if not alert:
+        return {
+            "schema_version": "pipeline_alert_feedback.v1",
+            "generated_at": utc_now().isoformat(),
+            "status": "no_alerts",
+            "failed_steps": [],
+            "warnings": [],
+        }
+
+    failed = []
+    for step_name in alert.get("failed_steps", []):
+        failed.append({
+            "step": step_name if isinstance(step_name, str) else step_name.get("step", ""),
+            "error": step_name.get("stdout_tail", "")[-200:] if isinstance(step_name, dict) and step_name.get("stdout_tail") else "",
+        })
+
+    return {
+        "schema_version": "pipeline_alert_feedback.v1",
+        "generated_at": utc_now().isoformat(),
+        "status": "ok",
+        "severity": alert.get("severity", "UNKNOWN"),
+        "run_date": alert.get("date", ""),
+        "failed_steps": failed,
+        "warnings": alert.get("warnings", []),
+        "total_failed": len(failed),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
@@ -139,17 +170,21 @@ def main() -> None:
 
     claim_feedback = build_claim_ladder_feedback()
     caselab_feedback = build_caselab_review_feedback()
+    alert_feedback = build_pipeline_alert_feedback()
 
     claim_path = OUTPUT_DIR / "claim_ladder_feedback.json"
     caselab_path = OUTPUT_DIR / "caselab_review_feedback.json"
+    alert_path = OUTPUT_DIR / "pipeline_alert_feedback.json"
 
     write_json(claim_path, claim_feedback)
     write_json(caselab_path, caselab_feedback)
+    write_json(alert_path, alert_feedback)
 
     if args.json:
         print(json.dumps({
             "claim_ladder": claim_feedback,
             "caselab_review": caselab_feedback,
+            "pipeline_alerts": alert_feedback,
         }, indent=2))
     else:
         print(f"Claim ladder feedback: {claim_path}")
@@ -165,6 +200,15 @@ def main() -> None:
         calib = caselab_feedback.get("calibration_gate", {})
         if calib:
             print(f"  Calibration: {calib.get('achieved_level', 'none')} (accuracy: {calib.get('holdout_accuracy', 'N/A')})")
+
+        print(f"Pipeline alert feedback: {alert_path}")
+        if alert_feedback.get("status") == "ok":
+            print(f"  Severity: {alert_feedback.get('severity', 'N/A')}")
+            print(f"  Failed steps: {alert_feedback.get('total_failed', 0)}")
+            for fs in alert_feedback.get("failed_steps", []):
+                print(f"    - {fs['step']}: {fs['error'][:80]}")
+        else:
+            print(f"  No alerts")
 
 
 if __name__ == "__main__":

@@ -4,11 +4,18 @@
 # This script contains the full replay logic (not a thin wrapper).
 # Registered in governance/daily_pipeline_registry.yaml as step 5.
 # ─────────────────────────────────────────────────────────────────────────────
-"""Structural Deformation System — Historical Case Replay v2.
+"""Structural Deformation System — M/D/K/X Measurement Engine v2.
 
-Uses the official Harvester panel (2026-05-05-r1) with 27 series across
-FRED, H41, SEC, Treasury, and yfinance sources.  Builds M/D/K/X proxies
-from real structural preset components rather than yfinance approximations.
+PRIMARY USE (daily): Builds current M/D/K/X sigma vectors from today's
+Harvester panel data.  Despite the historical name "replay", the daily
+pipeline uses this script for CURRENT measurement, not historical replay.
+
+SECONDARY USE (on-demand): Can also replay historical crisis windows
+for validation, but this is not part of the daily pipeline.
+
+Uses the official Harvester panel with 27 series across FRED, H41, SEC,
+Treasury, and yfinance sources.  Builds M/D/K/X proxies from real
+structural preset components rather than yfinance approximations.
 
 Output:
   Output/sandbox/structural_replay_v2/
@@ -30,6 +37,8 @@ import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+from _constants import HALF_YEAR_TRADING_DAYS, TRADING_DAYS_PER_YEAR
+from _runtime_io import ensure_dir
 from _workspace_imports import add_framework_src, add_workbench_src
 add_workbench_src()
 add_framework_src()
@@ -648,7 +657,7 @@ def _butterfly(panel: pd.DataFrame, short: str, mid: str, long: str, limit: int 
 
 
 FREQ_WINDOWS: dict[Freq, tuple[int, int]] = {
-    "daily":   (252, 126),  # 1y rolling, 6m warmup
+    "daily":   (TRADING_DAYS_PER_YEAR, HALF_YEAR_TRADING_DAYS),  # 1y rolling, 6m warmup
     "weekly":  (52, 26),    # 1y rolling in weekly observations
     "monthly": (12, 6),     # 1y rolling in monthly observations
     "quarterly": (20, 8),   # 5y rolling in quarterly observations (1y is too few obs)
@@ -669,7 +678,7 @@ PANDAS_RESAMPLE_RULE: dict[Freq, str] = {
 }
 
 
-def _rolling_zscore(series: pd.Series, window: int = 252, min_periods: int = 126) -> pd.Series:
+def _rolling_zscore(series: pd.Series, window: int = TRADING_DAYS_PER_YEAR, min_periods: int = HALF_YEAR_TRADING_DAYS) -> pd.Series:
     """Causal rolling z-score with no look-ahead and explicit missing values."""
     mu = series.rolling(window=window, min_periods=min_periods).mean()
     sigma = series.rolling(window=window, min_periods=min_periods).std().replace(0, np.nan)
@@ -740,7 +749,7 @@ def _jump_activation_score(
 def _sparse_activation_score(
     series: pd.Series,
     smooth: int = 5,
-    lookback: int = 252,
+    lookback: int = TRADING_DAYS_PER_YEAR,
 ) -> pd.Series:
     """Baseline-deviation score for sparse / event-driven series (H4.1 facilities).
 
@@ -1983,7 +1992,7 @@ def audit_measurement_layers(
             })
 
     # ── 5) Cross-channel statistics (unchanged from v1) ─────────────────────
-    channel_corr = channels[CHANNELS].corr(min_periods=252).round(3).fillna(0.0)
+    channel_corr = channels[CHANNELS].corr(min_periods=TRADING_DAYS_PER_YEAR).round(3).fillna(0.0)
     max_corr = 0.0
     if len(channel_corr) > 1:
         vals = channel_corr.where(~np.eye(len(channel_corr), dtype=bool)).abs().stack()
@@ -2128,50 +2137,50 @@ def build_benchmark_signals(panel: pd.DataFrame) -> pd.DataFrame:
     # VIX
     if "FRED:VIXCLS" in panel.columns:
         vix = panel["FRED:VIXCLS"].interpolate(limit=5)
-        mu = vix.expanding(252).mean()
-        sigma = vix.expanding(252).std().replace(0, 1)
+        mu = vix.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = vix.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["VIX_zscore"] = ((vix - mu) / sigma).clip(-3, 5)
 
     # NFCI
     if "FRED:NFCI" in panel.columns:
         nfci = panel["FRED:NFCI"].interpolate(limit=7)
-        mu = nfci.expanding(252).mean()
-        sigma = nfci.expanding(252).std().replace(0, 1)
+        mu = nfci.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = nfci.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["NFCI_zscore"] = ((nfci - mu) / sigma).clip(-3, 5)
 
     # STLFSI4
     if "FRED:STLFSI4" in panel.columns:
         stlfsi = panel["FRED:STLFSI4"].interpolate(limit=7)
-        mu = stlfsi.expanding(252).mean()
-        sigma = stlfsi.expanding(252).std().replace(0, 1)
+        mu = stlfsi.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = stlfsi.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["STLFSI4_zscore"] = ((stlfsi - mu) / sigma).clip(-3, 5)
 
     # BAA10YM (credit spread)
     if "FRED:BAA10YM" in panel.columns:
         baa10 = panel["FRED:BAA10YM"].interpolate(limit=5)
-        mu = baa10.expanding(252).mean()
-        sigma = baa10.expanding(252).std().replace(0, 1)
+        mu = baa10.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = baa10.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["BAA10YM_zscore"] = ((baa10 - mu) / sigma).clip(-3, 5)
 
     # HY OAS (where available)
     if "FRED:BAMLH0A0HYM2" in panel.columns:
         hy = panel["FRED:BAMLH0A0HYM2"].interpolate(limit=5)
-        mu = hy.expanding(252).mean()
-        sigma = hy.expanding(252).std().replace(0, 1)
+        mu = hy.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = hy.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["HYOAS_zscore"] = ((hy - mu) / sigma).clip(-3, 5)
 
     # TEDRATE (retired, but available pre-2022)
     if "FRED:TEDRATE" in panel.columns:
         ted = panel["FRED:TEDRATE"].interpolate(limit=5)
-        mu = ted.expanding(252).mean()
-        sigma = ted.expanding(252).std().replace(0, 1)
+        mu = ted.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = ted.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["TEDRATE_zscore"] = ((ted - mu) / sigma).clip(-3, 5)
 
     # CP-Bill spread
     if "FRED:DCPF3M" in panel.columns and "FRED:DGS3MO" in panel.columns:
         cp_bill = panel["FRED:DCPF3M"] - panel["FRED:DGS3MO"]
-        mu = cp_bill.expanding(252).mean()
-        sigma = cp_bill.expanding(252).std().replace(0, 1)
+        mu = cp_bill.expanding(TRADING_DAYS_PER_YEAR).mean()
+        sigma = cp_bill.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
         signals["CPBill_zscore"] = ((cp_bill - mu) / sigma).clip(-3, 5)
 
     # NFCI sub-indices
@@ -2179,8 +2188,8 @@ def build_benchmark_signals(panel: pd.DataFrame) -> pd.DataFrame:
         col = f"FRED:{sub}"
         if col in panel.columns:
             s = panel[col].interpolate(limit=7)
-            mu = s.expanding(252).mean()
-            sigma = s.expanding(252).std().replace(0, 1)
+            mu = s.expanding(TRADING_DAYS_PER_YEAR).mean()
+            sigma = s.expanding(TRADING_DAYS_PER_YEAR).std().replace(0, 1)
             signals[f"{sub}_zscore"] = ((s - mu) / sigma).clip(-3, 5)
 
     return signals
@@ -2209,7 +2218,7 @@ class EventResult:
 
 def calibrate_path_thresholds(channels: pd.DataFrame) -> dict[str, dict[str, float]]:
     train = channels[(channels.index >= "2007-01-01") & (channels.index <= "2016-12-31")]
-    if len(train.dropna(how="all")) < 252:
+    if len(train.dropna(how="all")) < TRADING_DAYS_PER_YEAR:
         train = channels
     thresholds: dict[str, dict[str, float]] = {}
     for ch in CHANNELS:
@@ -2578,8 +2587,8 @@ def main(cfg: DictConfig) -> None:
     output_dir = Path(cfg.output.dir)
     event_dir = output_dir / cfg.output.event_subdir
     panel_path = Path(cfg.panel.path)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    event_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_dir)
+    ensure_dir(event_dir)
     snapshot = OmegaConf.to_container(cfg, resolve=True)
     (output_dir / "config_snapshot.json").write_text(
         json.dumps(snapshot, indent=2, default=str)
@@ -2594,6 +2603,22 @@ def main(cfg: DictConfig) -> None:
     # 1. Load data
     print("\n[1/4] Loading official Harvester panel...")
     panel = load_official_panel(panel_path)
+
+    # ── as-of date enforcement ───────────────────────────────────────────
+    # Prevent future data leakage: truncate panel to as_of_date if specified.
+    as_of = cfg.run.get("as_of_date", "")
+    if as_of:
+        as_of_ts = pd.Timestamp(as_of)
+        panel = panel.loc[:as_of_ts]
+        assert panel.index.max() <= as_of_ts, (
+            f"as-of violation: panel has data beyond as_of_date={as_of} "
+            f"(max={panel.index.max().date()})"
+        )
+        print(f"  as-of cutoff: {as_of} (panel truncated)")
+    else:
+        print(f"  as-of cutoff: NONE (using full panel range)")
+    # ── end as-of enforcement ────────────────────────────────────────────
+
     print(f"  Panel: {panel.shape[1]} series, {len(panel)} days")
     print(f"  Range: {panel.index.min().date()} -> {panel.index.max().date()}")
     present = [c.replace('FRED:', '').replace('H41:', '').replace('TREASURY:', '').replace('YFINANCE:', '') for c in panel.columns]
