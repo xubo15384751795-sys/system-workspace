@@ -24,8 +24,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import as_float as _as_float, ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _runtime_io import ROOT, as_float as _as_float, ensure_dir, load_json, load_jsonl, utc_now, write_json
 from pending_evaluation import write_pending_evaluation
 from paper_freshness import check_paper_world_model_freshness
 
@@ -171,10 +170,20 @@ def _determine_decision(
     ladder = judgment.get("claim_ladder", {})
     ladder_tier = ladder.get("tier", 0) if ladder else 0
 
-    # If promotion gate is blocked, no trade
+    # If promotion gate is blocked, check if it's a soft block (calibration only)
     if pg_status == "BLOCKED":
         blocked = promotion_gate.get("blocked_gates", [])
         risk_notes.append(f"Promotion gate BLOCKED: {', '.join(blocked)}")
+
+        # Soft block: only calibration_samples blocking → allow WATCH with caution
+        # Hard block: other gates blocking → NO_TRADE
+        soft_block = set(blocked) <= {"calibration_samples"}
+        if soft_block and conf_level in ("medium", "high"):
+            risk_notes.append(
+                "Calibration-only block: allowing WATCH with reduced confidence"
+            )
+            return "WATCH", "medium", "D", risk_notes
+
         # Include claim ladder context even when blocked
         if ladder_tier >= 1:
             risk_notes.append(
@@ -272,6 +281,8 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
         allowed_size = "small"
     elif decision in ("TACTICAL_LONG", "TACTICAL_SHORT"):
         allowed_size = "medium"
+    elif decision == "WATCH" and confidence in ("medium", "high"):
+        allowed_size = "small"  # cautious participation when signal exists
 
     # Determine time horizon
     time_horizon = "1d"
