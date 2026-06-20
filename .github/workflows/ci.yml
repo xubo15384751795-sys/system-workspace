@@ -199,7 +199,7 @@ jobs:
       - name: Install all dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -r requirements-dev.txt
       - name: Root contract tests
         run: python -m pytest tests/ -q --tb=short
         env:
