@@ -15,7 +15,16 @@ PAPER_ROOT="${PAPER_ROOT:-/Users/a1/Paper}"
 HORIZON_ROOT="${HORIZON_ROOT:-$(dirname "${SYSTEM_ROOT}")/Horizon}"
 export SYSTEM_ROOT PAPER_ROOT HORIZON_ROOT
 
-PY="${PYTHON:-python3}"
+# Auto-detect Python: prefer Framework 3.14, then PYTHON env, then python3
+if [[ -z "${PYTHON:-}" ]]; then
+  if [[ -x "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3" ]]; then
+    PY="/Library/Frameworks/Python.framework/Versions/3.14/bin/python3"
+  else
+    PY="python3"
+  fi
+else
+  PY="${PYTHON}"
+fi
 
 run_horizon() {
   if [[ ! -d "${HORIZON_ROOT}" ]]; then

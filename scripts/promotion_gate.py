@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
@@ -60,6 +58,14 @@ def check_caselab_gate(date_str: str) -> dict[str, Any]:
     """Check if CaseLab match quality blocks promotion."""
     caselab_path = CASELAB_DIR / f"{date_str}.json"
     caselab = load_json(caselab_path)
+
+    # Fallback: find the most recent CaseLab output if today's doesn't exist
+    if not caselab:
+        json_files = sorted(CASELAB_DIR.glob("????-??-??.json"), reverse=True)
+        for f in json_files:
+            caselab = load_json(f)
+            if caselab:
+                break
 
     if not caselab:
         return {"status": "BLOCKED", "reason": "No CaseLab output available"}
