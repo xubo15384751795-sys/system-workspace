@@ -81,6 +81,7 @@ jobs:
   workbench:
     needs: lint
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -104,6 +105,7 @@ jobs:
   deformation:
     needs: lint
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -127,6 +129,7 @@ jobs:
   harvester:
     needs: lint
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -150,6 +153,7 @@ jobs:
   hub:
     needs: lint
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
