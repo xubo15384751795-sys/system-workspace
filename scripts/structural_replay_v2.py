@@ -2280,13 +2280,48 @@ def calibrate_path_thresholds(channels: pd.DataFrame) -> dict[str, dict[str, flo
 
 
 def classify_regime(row: pd.Series, thresholds: dict[str, dict[str, float]], confidence: dict[str, str]) -> str:
+    # Level-based activation
     active = {ch: bool(row.get(ch, np.nan) >= thresholds[ch]["warning"]) for ch in CHANNELS}
-    # Only flag "Measurement Blind Spot" if a channel that HAS data is INVALID.
-    # Channels with zero coverage (K, X_PRE, X_REALIZED, Pi_t) are simply
-    # not implemented — they should not block regime classification.
-    # Previously, K was in implemented_channels despite having zero canonical_voting
-    # proxies, causing ALL events to classify as "Measurement Blind Spot".
+
+    # Velocity-aware activation: rapid deterioration lowers threshold to 60%
+    for ch in CHANNELS:
+        vel_key = f"velocity_{ch}"
+        vel = row.get(vel_key, np.nan)
+        level = row.get(ch, np.nan)
+        if vel is not None and not np.isnan(vel) and level is not None and not np.isnan(level):
+            threshold = thresholds[ch]["warning"]
+            if abs(vel) > 0.3 and abs(level) > threshold * 0.6:
+                active[ch] = True
+
+    return _classify_from_active(active, confidence, row)
+
+
+def classify_regime_with_velocity(
+    channels: pd.DataFrame, idx: int,
+    thresholds: dict[str, dict[str, float]], confidence: dict[str, str],
+) -> str:
+    """Classify regime using both level and velocity at a specific index."""
+    row = channels.iloc[idx]
+    active = {ch: bool(row.get(ch, np.nan) >= thresholds[ch]["warning"]) for ch in CHANNELS}
+
+    velocity_window = 5
+    for ch in CHANNELS:
+        if ch not in channels.columns or idx < velocity_window:
+            continue
+        vel = float(channels[ch].iloc[idx] - channels[ch].iloc[idx - velocity_window])
+        level = float(row.get(ch, np.nan))
+        threshold = thresholds[ch]["warning"]
+        if not np.isnan(vel) and not np.isnan(level):
+            if abs(vel) > 0.3 and abs(level) > threshold * 0.6:
+                active[ch] = True
+
+    return _classify_from_active(active, confidence, row)
+
+
+def _classify_from_active(active: dict[str, bool], confidence: dict[str, str], row: pd.Series) -> str:
+    """Classify regime from active channel map and row data."""
     implemented_channels = {"M", "D_contraction", "K", "X_agg"}
+    # Only blind if an implemented channel has INVALID confidence AND has actual data
     blind = any(
         confidence.get(ch) == "INVALID"
         and row.get(ch) is not None
@@ -2294,6 +2329,19 @@ def classify_regime(row: pd.Series, thresholds: dict[str, dict[str, float]], con
         for ch in implemented_channels
         if ch in confidence
     )
+    if blind:
+        return "Measurement Blind Spot"
+    if active.get("X_REALIZED"):
+        return "Forced Realization"
+    if active.get("K") and active.get("D_contraction"):
+        return "Curvature Break"
+    if active.get("D_contraction"):
+        return "Path Compression"
+    if active.get("M"):
+        return "Anchor Drift"
+    if active.get("X_PRE"):
+        return "Shadow Accumulation Trace"
+    return "Normal / Untriggered"
     if blind:
         return "Measurement Blind Spot"
     if active.get("X_REALIZED"):
@@ -2342,7 +2390,9 @@ def analyze_event(
         r.channel_confidence_at_peak = {
             ch: str(conf_row[ch]) for ch in CHANNELS if ch in conf_row.index
         }
-        r.peak_regime = classify_regime(row, thresholds, r.channel_confidence_at_peak)
+        r.peak_regime = classify_regime_with_velocity(
+            channels, idx, thresholds, r.channel_confidence_at_peak
+        )
 
         for ch in CHANNELS:
             if ch not in channels.columns:
@@ -2737,9 +2787,24 @@ def main(cfg: DictConfig) -> None:
     # 3. Save channel paths and benchmark controls. No scalar success target is emitted.
     print("\n[3/4] Saving channel paths + benchmark controls...")
     benchmarks = build_benchmark_signals(panel)
+    # ── Compute channel velocity and acceleration ────────────────────────
+    # Velocity = 5-day change in channel value (how fast is it moving?)
+    # Acceleration = 5-day change in velocity (is the movement speeding up?)
+    # These capture signal dynamics that absolute levels miss.
+    velocity_window = 5
+    channel_velocity = pd.DataFrame(index=channels.index)
+    channel_acceleration = pd.DataFrame(index=channels.index)
+    for ch in channels.columns:
+        v = channels[ch].diff(velocity_window)
+        channel_velocity[ch] = v
+        channel_acceleration[ch] = v.diff(velocity_window)
+
+    # Include velocity/acceleration in the signals output
     all_signals = pd.concat(
         [
             channels.add_prefix("channel_"),
+            channel_velocity.add_prefix("velocity_"),
+            channel_acceleration.add_prefix("acceleration_"),
             bundle.coverage.add_prefix("coverage_"),
             benchmarks,
         ],
@@ -2759,11 +2824,24 @@ def main(cfg: DictConfig) -> None:
         if internal in bundle.channels and not bundle.channels[internal].dropna().empty
     }
     latest_scores["operator_penalty"] = float(bundle.audit.get("pc1_variance_share", 0.0))
+
+    # Include velocity and acceleration in sigma_vector
+    latest_velocity = {}
+    latest_acceleration = {}
+    for internal, canonical in _SIGMA_CHANNEL_NAMES.items():
+        if internal in channel_velocity and not channel_velocity[internal].dropna().empty:
+            latest_velocity[canonical] = round(float(channel_velocity[internal].dropna().iloc[-1]), 4)
+        if internal in channel_acceleration and not channel_acceleration[internal].dropna().empty:
+            latest_acceleration[canonical] = round(float(channel_acceleration[internal].dropna().iloc[-1]), 4)
+
     semantic = SemanticRegistry(SEMANTIC_REGISTRY_PATH)
     sigma_vector = build_sigma_vector(latest_scores, semantic)
     sigma_output = {
         "sigma_scalar": None,
         "sigma_vector": sigma_vector,
+        "channel_velocity": latest_velocity,
+        "channel_acceleration": latest_acceleration,
+        "velocity_window": velocity_window,
         "interpretation_scope": "scalar summary only; structural interpretation requires sigma_vector",
     }
     (output_dir / "proxy_registry.json").write_text(json.dumps(bundle.registry, indent=2))
