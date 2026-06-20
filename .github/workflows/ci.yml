@@ -72,7 +72,6 @@ jobs:
           python -m py_compile Workbench/src/workbench/judgment/claim_ladder.py
           python -m py_compile Workbench/src/workbench/judgment/layer.py
           python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
-          python -m py_compile Workbench/src/workbench/ml/confidence_calibration.py
       - name: Ruff lint
         run: ruff check scripts/ tests/
 
