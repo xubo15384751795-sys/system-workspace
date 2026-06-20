@@ -73,7 +73,7 @@ jobs:
           python -m py_compile Workbench/src/workbench/judgment/layer.py
           python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
       - name: Ruff lint
-        run: ruff check scripts/ tests/
+        run: ruff check scripts/ tests/ --select E,F,W,I --ignore E501,E402
 
   # ── Layer 1: Per-module tests (parallel, gated on lint) ─────────────────
 
