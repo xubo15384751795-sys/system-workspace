@@ -24,6 +24,7 @@ CLAIM_LADDER_STATE = ROOT / "Output" / "claim_ladder" / "state.json"
 FEEDBACK_LOG = ROOT / "caselab_context" / "feedback_log.jsonl"
 CALIBRATION_GATE = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 ALERT_PATH = ROOT / "Output" / "alerts" / "latest_alert.json"
+ACCURACY_REPORT_PATH = ROOT / "Output" / "system_learning" / "latest" / "judgment_accuracy_report.json"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
@@ -176,6 +177,17 @@ def main() -> None:
     caselab_feedback = build_caselab_review_feedback()
     alert_feedback = build_pipeline_alert_feedback()
 
+    # Read accuracy report summary (produced by judgment_accuracy_report.py)
+    accuracy_report = load_json(ACCURACY_REPORT_PATH)
+    accuracy_summary = {}
+    if accuracy_report and accuracy_report.get("status") == "ok":
+        accuracy_summary = {
+            "total_evaluated": accuracy_report.get("summary", {}).get("total_evaluated", 0),
+            "accuracy": accuracy_report.get("summary", {}).get("accuracy"),
+            "avg_spy_return_pct": accuracy_report.get("summary", {}).get("avg_spy_return_pct"),
+            "by_confidence": accuracy_report.get("by_confidence", {}),
+        }
+
     claim_path = OUTPUT_DIR / "claim_ladder_feedback.json"
     caselab_path = OUTPUT_DIR / "caselab_review_feedback.json"
     alert_path = OUTPUT_DIR / "pipeline_alert_feedback.json"
@@ -189,6 +201,7 @@ def main() -> None:
             "claim_ladder": claim_feedback,
             "caselab_review": caselab_feedback,
             "pipeline_alerts": alert_feedback,
+            "judgment_accuracy": accuracy_summary,
         }, indent=2))
     else:
         print(f"Claim ladder feedback: {claim_path}")
@@ -213,6 +226,11 @@ def main() -> None:
                 print(f"    - {fs['step']}: {fs['error'][:80]}")
         else:
             print(f"  No alerts")
+
+        if accuracy_summary:
+            print(f"Judgment accuracy: {accuracy_summary.get('total_evaluated', 0)} evaluated")
+            print(f"  Accuracy: {accuracy_summary.get('accuracy', 'N/A')}")
+            print(f"  Avg SPY return: {accuracy_summary.get('avg_spy_return_pct', 'N/A')}%")
 
 
 if __name__ == "__main__":

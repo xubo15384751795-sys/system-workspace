@@ -529,6 +529,11 @@ def main() -> None:
                 [sys.executable, "-m", "caselab_runtime.feedback.collect_reviews", "--json"],
             ))
 
+    # Refresh cross-asset panel before evaluation (ensures latest market data)
+    panel_refresh_script = ROOT / "scripts" / "refresh_cross_asset_panel.py"
+    if panel_refresh_script.exists():
+        _record(run_step("refresh_cross_asset_panel", [sys.executable, str(panel_refresh_script)]))
+
     # Daily pending evaluation (forward-outcome checks for judgment/trade claims)
     evaluate_script = ROOT / "scripts" / "evaluate_pending.py"
     if evaluate_script.exists():
@@ -537,6 +542,11 @@ def main() -> None:
         if start_time.weekday() != 0 and not args.force_weekly:
             eval_cmd.append("--daily-only")
         _record(run_step("evaluate_pending", eval_cmd))
+
+    # Judgment accuracy report (aggregate calibration data)
+    accuracy_script = ROOT / "scripts" / "judgment_accuracy_report.py"
+    if accuracy_script.exists():
+        _record(run_step("judgment_accuracy_report", [sys.executable, str(accuracy_script)]))
 
     # Step 19: Operator registry audit (weekly)
     if not _is_weekly("operator_registry_audit") or args.force_weekly or start_time.weekday() == 0:
