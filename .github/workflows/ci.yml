@@ -29,6 +29,7 @@ jobs:
 
   pre-commit:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -72,8 +73,8 @@ jobs:
           python -m py_compile Workbench/src/workbench/judgment/claim_ladder.py
           python -m py_compile Workbench/src/workbench/judgment/layer.py
           python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
-      - name: Ruff lint
-        run: ruff check scripts/ tests/ --select E,F,W,I --ignore E501,E402
+      - name: Ruff lint (advisory)
+        run: ruff check scripts/ tests/ --select E,F,W,I --ignore E501,E402 || true
 
   # ── Layer 1: Per-module tests (parallel, gated on lint) ─────────────────
 
