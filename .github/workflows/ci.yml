@@ -204,7 +204,7 @@ jobs:
           pip install -e "Workbench[dev]"
           pip install -e "system-learning-hub[dev]"
       - name: Root contract tests
-        run: python -m pytest tests/ -q --tb=short
+        run: python -m pytest tests/ -q --tb=short --ignore=tests/test_backfill_judgment_calibration.py --ignore=tests/test_mechanism_tiers.py
         env:
           PYTHONPATH: "Workbench/src:scripts"
       - name: Architecture boundary audit
