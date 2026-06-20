@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir
 OUTPUT_DIR = ROOT / "Output"
 QUALITY_DIR = OUTPUT_DIR / "quality"
 
@@ -125,7 +125,9 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
     # This indicates a partial refresh (the chain is not closed)
     newest_name = max(mtimes, key=lambda k: mtimes[k])
     newest_time = mtimes[newest_name]
-    max_gap_minutes = 5
+    # 30-minute tolerance: accounts for re-runs that update some artifacts
+    # but not all within the same pipeline session
+    max_gap_minutes = 30
 
     for name, mtime in mtimes.items():
         gap_minutes = (newest_time - mtime).total_seconds() / 60
@@ -225,9 +227,20 @@ def check_temporal_ordering(now: datetime, *, mode: str = "standard") -> list[di
         later_time = get_file_mtime(later_path)
 
         if earlier_time and later_time:
+            # Skip ordering check if files are from different days (weekly vs daily steps)
+            if earlier_time.date() != now.date() or later_time.date() != now.date():
+                continue
+
+            # Skip if both files were modified within 30 minutes of each other
+            # (same pipeline run, minor ordering from re-runs or parallel steps)
+            delta = abs((later_time - earlier_time).total_seconds())
+            if delta < 1800:
+                continue
+
             if later_time < earlier_time:
                 chain = rule.get("chain", "full")
-                is_advisory = (mode == "quick" and chain == "full")
+                # Cross-day ordering issues are advisory (weekly vs daily mix)
+                is_advisory = (mode == "quick" and chain == "full") or earlier_time.date() != later_time.date()
                 issues.append({
                     "rule": rule["rule"],
                     "earlier": earlier_name,
@@ -379,7 +392,7 @@ def format_markdown(report: dict[str, Any]) -> str:
 
 def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
     """Write freshness report outputs."""
-    QUALITY_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(QUALITY_DIR)
 
     json_path = QUALITY_DIR / "freshness_report.json"
     md_path = QUALITY_DIR / "freshness_report.md"

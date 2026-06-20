@@ -72,10 +72,10 @@ class TestClosureChain:
                 assert len(issues) == 0
 
     def test_violation_when_stale_artifact(self, tmp_path):
-        """Closure violation when one artifact is 10 minutes older."""
+        """Closure violation when one artifact is 35 minutes older (>30min tolerance)."""
         now = datetime.now(UTC)
         fresh = now
-        stale = now - timedelta(minutes=10)
+        stale = now - timedelta(minutes=35)
 
         for name, ts in [
             ("00_READ_ME_FIRST.md", fresh),

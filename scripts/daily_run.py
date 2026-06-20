@@ -316,7 +316,8 @@ def main() -> None:
     # Step 4.5: Build agent policy from Paper rules
     build_policy_script = ROOT / "caselab_runtime" / "policies" / "build_policy_from_paper.py"
     if build_policy_script.exists():
-        _record(run_step("build_policy_from_paper", [sys.executable, str(build_policy_script)]))
+        _record(run_step("build_policy_from_paper", [sys.executable, str(build_policy_script)],
+                         env={"PYTHONPATH": f"{ROOT}:{ROOT / 'Workbench' / 'src'}:{ROOT / 'scripts'}"}))
 
     # Step 5: Horizon event adapter — ARCHIVED (no data source, Horizon dormant since 2026-06-02)
     # horizon_event_adapter.py moved to scripts/archive/governance_cut_2026_06_19/
