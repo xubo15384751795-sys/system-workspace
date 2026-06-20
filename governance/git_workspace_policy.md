@@ -31,7 +31,7 @@ Retired options (do not reopen without an explicit migration plan):
 | Submodule path | Remote repo | Role |
 |---|---|---|
 | `Workbench/` | `structural-workbench` | Product, NLP, contracts, agent harness |
-| `Structural Deformation Research System/` | `Structural-Deformation-Research-System` | Deformation framework core |
+| `deformation-framework/` | `Structural-Deformation-Research-System` | Deformation framework core |
 | `structural-risk-harvester/` | `structural-risk-harvester` | Data provider / harvester |
 | `system-learning-hub/` | `system-learning-hub` | Governance memory tool |
 
@@ -56,7 +56,7 @@ Parent repo (`system-workspace`) owns:
 
 **Do not list:**
 
-- Submodule directories (`Workbench/`, `structural-risk-harvester/`, `system-learning-hub/`, `Structural Deformation Research System/`) — Git tracks these as gitlinks via `.gitmodules`
+- Submodule directories (`Workbench/`, `structural-risk-harvester/`, `system-learning-hub/`, `deformation-framework/`) — Git tracks these as gitlinks via `.gitmodules`
 - Compatibility symlinks — bootstrap recreates them; they may appear untracked locally and that is fine
 
 ### Sister repo `.gitignore` files
@@ -68,7 +68,7 @@ Each submodule keeps its **own** `.gitignore` for repo-local generated content:
 | `Workbench/` | `Data/` (Workbench-local scratch) |
 | `structural-risk-harvester/` | `data/` symlink target volume |
 | `system-learning-hub/` | `/data/`, `/reports/` at repo root |
-| `Structural Deformation Research System/` | framework-local outputs (see that repo's `.gitignore`) |
+| `deformation-framework/` | framework-local outputs (see that repo's `.gitignore`) |
 
 Workspace truth for cross-module artifacts remains **`Data/` and `Output/` at workspace root**, never committed.
 

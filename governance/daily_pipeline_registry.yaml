@@ -10,7 +10,7 @@ external_inputs:
   - governance/operator_registry.yaml
   - governance/
   - scripts/
-  - "Structural Deformation Research System/src/"
+  - "deformation-framework/src/"
   - Output/runs/
   - Output/system_learning/latest/supervisor_check.json
   - Output/system_learning/latest/output_routing_report.json
@@ -126,9 +126,10 @@ steps:
       owner: Harvester
   horizon_events:
     order: 4
-    status: active
+    status: archived
     owner: Harvester
-    command: python scripts/horizon_event_adapter.py
+    archive_reason: "No data source — Horizon dormant since 2026-06-02"
+    # command: python scripts/horizon_event_adapter.py
     input: &id007
     - Data/harvester/exports/latest/
     produces: &id008
@@ -472,9 +473,10 @@ steps:
       owner: Workbench
   probabilistic_context:
     order: 13
-    status: experimental
+    status: archived
     owner: ML Signals
-    command: python scripts/gluonts_probabilistic_context.py
+    archive_reason: "Misnamed — was historical quantile calculator, not GluonTS. No probabilistic model."
+    # command: python scripts/gluonts_probabilistic_context.py
     input: &id028
     - Data/harvester/exports/latest/
     produces: &id029
@@ -645,6 +647,33 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
+  signal_monitor:
+    order: 17.4
+    status: active
+    owner: Deformation Framework
+    command: python scripts/signal_monitor.py --json
+    input:
+    - Output/sandbox/structural_replay_v2/all_signals.parquet
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/signal_monitor/latest.json
+    artifact_path: Output/signal_monitor/latest.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/signal_monitor.py --json
+      future_callable: scripts.signal_monitor:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      outputs:
+      - Output/signal_monitor/latest.json
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Deformation Framework
   claim_evaluator:
     order: 17.5
     status: active
@@ -907,9 +936,10 @@ steps:
       owner: Learning Hub
   position_sizing:
     order: 20
-    status: active
+    status: archived
     owner: Workbench
-    command: python scripts/position_sizing_layer.py
+    archive_reason: "Premature — zero live-mode capability, gated by 5+ blockers"
+    # command: python scripts/position_sizing_layer.py
     input: &id044
     - Output/trade_decision/latest.json
     - Output/judgment/latest.json
@@ -1054,7 +1084,7 @@ steps:
     input: &id052
     - governance/
     - scripts/
-    - Structural Deformation Research System/src/
+    - deformation-framework/src/
     produces: &id053
     - Output/system_learning/latest/architecture_reality_audit.md
     - Output/system_learning/latest/architecture_reality_audit.json
@@ -1142,8 +1172,43 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
-  work_brief:
+  strategy_lab_shadow:
     order: 27
+    status: active
+    owner: Strategy Lab
+    command: python scripts/strategy_lab/run_backtest.py --shadow-card
+    input:
+    - Output/current/framework_output.json
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Output/sandbox/structural_replay_v2/all_signals.parquet
+    produces:
+    - Output/strategy_lab/shadow_cards/latest.json
+    - Output/strategy_lab/shadow_cards/
+    artifact_path: Output/strategy_lab/shadow_cards/latest.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/strategy_lab/run_backtest.py --shadow-card
+      future_callable: scripts.strategy_lab.run_backtest:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/current/framework_output.json
+      - Data/panels/cross_asset_daily_panel.parquet
+      - Output/sandbox/structural_replay_v2/all_signals.parquet
+      outputs:
+      - Output/strategy_lab/shadow_cards/latest.json
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+  work_brief:
+    order: 28
     status: active
     owner: Workbench
     command: python scripts/build_work_brief.py

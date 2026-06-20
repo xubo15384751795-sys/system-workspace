@@ -14,7 +14,7 @@ sections, or bootstrap history disagree with the tree on disk.
 |---|---|---|
 | `system-workspace` | `/` (this repo) | — |
 | `structural-workbench` | `Workbench/` | yes |
-| `Structural-Deformation-Research-System` | `Structural Deformation Research System/` | yes |
+| `Structural-Deformation-Research-System` | `deformation-framework/` | yes |
 | `structural-risk-harvester` | `structural-risk-harvester/` | yes |
 | `system-learning-hub` | `system-learning-hub/` | yes |
 
@@ -65,7 +65,7 @@ should exist on a fresh bootstrap checkout.
 | Agent harness | `Workbench/agents/harness/` | hooks, tools, routing helpers |
 | Harvester | `structural-risk-harvester/` | `Data/harvester/exports/` |
 | Learning Hub | `system-learning-hub/` | see §4 |
-| Deformation Framework | `Structural Deformation Research System/` | `Output/deformation_runs/`, promoted `Data/deformation/` |
+| Deformation Framework | `deformation-framework/` | `Output/deformation_runs/`, promoted `Data/deformation/` |
 | Workspace protocols | `protocols/` + `Workbench/contracts/workbench/` | JSON schemas |
 | Workspace constitution | `governance/` | authority registries, proxy spec |
 
@@ -125,7 +125,7 @@ working. Physical migration happens after the submodule pin cleanup
 
 | Script | Should live in | Banner present? |
 |---|---|---|
-| `structural_replay_v2.py`, `structural_replay_evaluation.py`, `run_c005_morphology_replay.py`, `build_c005_morphology_report.py` | `Structural Deformation Research System/scripts/` | ✓ |
+| `structural_replay_v2.py`, `structural_replay_evaluation.py`, `run_c005_morphology_replay.py`, `build_c005_morphology_report.py` | `deformation-framework/scripts/` | ✓ |
 | `nlp_ingest.py`, `nlp_extract.py`, `ask_evidence.py` | `Workbench/` CLI entry | ✓ |
 | `openbb_secondary_audit.py`, `repair_openbb_entrypoints.py` | `structural-risk-harvester/scripts/` | ✓ |
 | `framework_cli.py` | `Workbench/` or Framework CLI (TBD) | ✓ |

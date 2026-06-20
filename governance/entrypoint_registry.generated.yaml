@@ -142,10 +142,10 @@ entries:
     source: daily_pipeline_registry
     pipeline_step: work_brief
   calibration:
-    script: scripts/calibration.py
-    status: discovered
+    script: scripts/archive/calibration.py
+    status: archived
     owner: System
-    description: Auto-discovered root script
+    description: Auto-discovered root script (archived — deleted from scripts/)
     allowed_use:
     - discovered_entrypoint
     source: script_scan
@@ -177,10 +177,10 @@ entries:
     source: daily_pipeline_registry
     pipeline_step: claim_ladder_tracker
   compute_proxies:
-    script: scripts/compute_proxies.py
-    status: discovered
+    script: scripts/archive/compute_proxies.py
+    status: archived
     owner: System
-    description: Auto-discovered root script
+    description: Auto-discovered root script (archived — deleted from scripts/)
     allowed_use:
     - discovered_entrypoint
     source: script_scan
@@ -577,7 +577,7 @@ hand_maintained_only:
     allowed_use:
     - benchmark_comparison
   legacy_data_sources:
-    script: Structural Deformation Research System/src/data/data_sources.py
+    script: deformation-framework/src/data/data_sources.py
     status: deprecated
     owner: Deformation Framework
     allowed_use:
@@ -587,7 +587,7 @@ hand_maintained_only:
     retire_after: '2026-07-15'
     note: LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline
   legacy_data_hub:
-    script: Structural Deformation Research System/src/_legacy/data_hub.py
+    script: deformation-framework/src/_legacy/data_hub.py
     status: archived
     owner: Deformation Framework
     allowed_use:

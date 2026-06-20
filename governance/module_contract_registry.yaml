@@ -37,7 +37,7 @@ modules:
       - direct_http_acquisition
       - data_curation
     data_authority: consumer_only
-    contract_path: "Structural Deformation Research System/"
+    contract_path: "deformation-framework/"
 
   workbench:
     standalone_usable: true

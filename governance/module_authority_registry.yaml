@@ -1,3 +1,5 @@
+schema_version: module_authority_registry.v1
+
 Harvester:
   allowed:
     - ACQUIRE
@@ -49,4 +51,3 @@ QlibBenchmark:
     - DEFINE_STRUCTURAL_TRUTH
     - WRITE_CORE_PROXY
     - MODIFY_DEFORMATION_OUTPUT
-

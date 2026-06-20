@@ -1,3 +1,5 @@
+schema_version: capability_registry.v1
+
 # Canonical module names — all governance files MUST use these exact names.
 # Cross-reference:
 #   capability_registry (this file):    snake_case   e.g. workbench, harvester
@@ -77,7 +79,7 @@ deformation_framework:
   - add_boundary_tests_forbidden_imports
   - harvester_becomes_only_provider_owner
   test_count: 15
-  test_location: Structural Deformation Research System/tests/
+  test_location: deformation-framework/tests/
   next_audit_due: '2026-07-01'
 harvester:
   status: CANONICAL
@@ -293,7 +295,7 @@ backtest_lens:
   status: REAL_EXPERIMENTAL
   owner: system
   producer:
-  - Structural Deformation Research System/scripts/run_historical_replay.py
+  - deformation-framework/scripts/run_historical_replay.py
   - scripts/archive/structural_replay_evaluation.py
   - scripts/archive/walk_forward_validation.py
   artifacts:
@@ -323,6 +325,38 @@ backtest_lens:
   - add_live_paper_trading_comparison
   - define_success_criteria
   next_audit_due: '2026-07-17'
+strategy_lab:
+  status: REAL_EXPERIMENTAL
+  owner: system
+  producer:
+  - scripts/strategy_lab/run_backtest.py
+  - scripts/strategy_lab/test_runner.py
+  artifacts:
+  - Output/strategy_lab/backtest_report.md
+  - Output/strategy_lab/backtest_result.json
+  - Output/strategy_lab/shadow_cards/
+  - Output/strategy_lab/test_results.json
+  consumers:
+  - daily_pipeline
+  - research_only
+  allowed_claims:
+  - risk_gate_sizing
+  - drawdown_reduction_measurement
+  - shadow_trading_card
+  - four_layer_data_signal_strategy_shadow_validation
+  forbidden_claims:
+  - directional_alpha_prediction
+  - live_trading_signal
+  - production_performance_claim
+  blockers: []
+  last_verified: '2026-06-19'
+  last_audit_method: automated_backtest
+  audit_cadence: monthly
+  promotion_requirements:
+  - accumulate_90_days_shadow_outcomes
+  - validate_drawdown_reduction_across_multiple_periods
+  - tune_risk_gate_thresholds_for_better_return_preservation
+  next_audit_due: '2026-07-19'
 qlib_benchmark:
   status: REAL_EXPERIMENTAL
   owner: system
@@ -369,8 +403,7 @@ agent_routing:
   - expert_routing
   - workflow_guard
   - routing_diagnostics
-  forbidden_claims: []
-  forbidden_actions:
+  forbidden_claims:
   - execute_routed_task
   - bypass_module_ownership
   - affect_core_judgment

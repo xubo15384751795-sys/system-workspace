@@ -91,7 +91,7 @@ clean pass.
 
 ---
 
-## 4. `Structural Deformation Research System/`
+## 4. `deformation-framework/`
 
 **Primary theme:** DataHub bridge + proxy series map + GluonTS anomaly detector.
 
@@ -116,7 +116,7 @@ cd /Users/a1/System
 git add Workbench
 git add structural-risk-harvester
 git add system-learning-hub
-git add "Structural Deformation Research System"
+git add "deformation-framework"
 
 git status   # confirm only submodule pin entries are staged
 git commit -m "Update submodule pins after sister-repo work-in-flight commits"

@@ -1,10 +1,12 @@
 schema_version: daily_run_sequence.v1
-updated_at: "2026-06-18"
+updated_at: "2026-06-19"
 purpose: >
   Authoritative ordered step list for scripts/daily_run.py.
   daily_run loads this file for dry-run output, step counts, and schedule hints.
+  Rebalanced 2026-06-19: signal chain first, governance/reporting deferred.
 
 steps:
+  # ── DATA ACQUISITION ──────────────────────────────────────────────
   - id: harvester
     skip_flag: skip_harvester
   - id: etf_refresh
@@ -12,52 +14,72 @@ steps:
   - id: paper_sync
   - id: caselab_index
   - id: build_policy_from_paper
-  - id: horizon_events
+
+  # ── CORE SIGNAL CHAIN ─────────────────────────────────────────────
   - id: structural_replay
   - id: bridge
   - id: quality_validation
   - id: regime_detection
-  - id: hmm_stability_audit
   - id: k_measurement_gate
   - id: x_measurement_gate
   - id: caselab_signal
-  - id: archive_daily_snapshots
-  - id: backfill_judgment_calibration
   - id: judgment_layer
-  - id: judgment_replay_audit
   - id: judgment_promotion_gate
-  - id: probabilistic_context
   - id: trade_decision
   - id: risk_gate
   - id: record_trade_decision
+  - id: signal_card
+  - id: signal_consensus
+
+  # ── VALIDATION (the whole point) ──────────────────────────────────
+  - id: signal_monitor
+  - id: judgment_replay_audit
   - id: trade_decision_replay
-  - id: market_feedback
   - id: claim_evaluator
   - id: claim_ladder_tracker
+  - id: market_feedback
+  - id: evaluate_pending
+
+  # ── GOVERNANCE (weekly or on-demand, not daily signal-blocking) ───
+  - id: hmm_stability_audit
+    schedule: weekly
+  - id: freshness_validator
+  - id: architecture_reality_audit
+    schedule: weekly
+  - id: operator_registry_audit
+    schedule: weekly
+  - id: build_authority_graph
+    schedule: weekly
+  - id: governance_status
+    schedule: weekly
+
+  # ── LEARNING (weekly) ─────────────────────────────────────────────
   - id: learning_hub_feedback
   - id: proxy_quality_report
+    schedule: weekly
   - id: proxy_lifecycle
+    schedule: weekly
   - id: mechanism_calibration
     schedule: weekly
   - id: learning_summary
+    schedule: weekly
   - id: judgment_calibration_event
   - id: trade_calibration_event
   - id: export_feedback
+    schedule: weekly
   - id: suggest_paper_updates
     schedule: weekly
   - id: promote_paper_inbox
+    schedule: weekly
   - id: collect_reviews
-  - id: evaluate_pending
-  - id: operator_registry_audit
-  - id: position_sizing
+    schedule: weekly
+
+  # ── REPORTING (daily, lightweight) ────────────────────────────────
   - id: system_index
   - id: readme_first
   - id: next_actions
-  - id: signal_card
-  - id: signal_consensus
+  - id: strategy_lab_shadow
   - id: work_brief
-  - id: freshness_validator
-  - id: architecture_reality_audit
-  - id: build_authority_graph
-  - id: governance_status
   - id: change_analysis
+  - id: archive_daily_snapshots
+  - id: backfill_judgment_calibration

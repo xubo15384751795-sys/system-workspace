@@ -1,3 +1,5 @@
+schema_version: entrypoint_registry.v1
+
 daily_run:
   script: scripts/daily_run.py
   status: active
@@ -38,7 +40,7 @@ structural_replay_v2:
   script: scripts/structural_replay_v2.py
   status: compatibility_wrapper
   owner: Deformation Framework
-  target_location: Structural Deformation Research System/scripts/
+  target_location: deformation-framework/scripts/
   allowed_use:
   - legacy_replay
   - current_bridge_until_replacement
@@ -76,6 +78,31 @@ learning_hub_trade_calibration:
   target_location: system-learning-hub/scripts/
   allowed_use:
   - trade_calibration
+historical_validation_suite:
+  script: scripts/historical_validation_suite.py
+  status: experimental
+  owner: Deformation Framework
+  description: Historical backtest suite for M/D/K/X channel signals
+  allowed_use:
+  - backtesting
+  - signal_validation
+regime_router:
+  script: scripts/regime_router.py
+  status: active
+  owner: Deformation Framework
+  description: Structural state interpretation and action gating (replaces 4-channel average)
+  allowed_use:
+  - regime_classification
+  - action_gating
+  - risk_routing
+signal_monitor:
+  script: scripts/signal_monitor.py
+  status: active
+  owner: Deformation Framework
+  description: Daily tracking of M+K prediction accuracy vs SPX
+  allowed_use:
+  - signal_validation
+  - prediction_monitoring
 claim_evaluator:
   script: scripts/claim_evaluator.py
   status: active
@@ -105,7 +132,7 @@ calibration:
   allowed_use:
   - calibration_analysis
 legacy_data_sources:
-  script: Structural Deformation Research System/src/data/data_sources.py
+  script: deformation-framework/src/data/data_sources.py
   status: deprecated
   owner: Deformation Framework
   allowed_use:
@@ -114,16 +141,6 @@ legacy_data_sources:
   - dual_path_compare
   retire_after: '2026-07-15'
   note: LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline
-legacy_data_hub:
-  script: Structural Deformation Research System/src/_legacy/data_hub.py
-  status: archived
-  owner: Deformation Framework
-  allowed_use:
-  - legacy_replay
-  - migration_validation
-  - dual_path_compare
-  retire_after: '2026-07-15'
-  note: LEGACY_COMPATIBILITY_ONLY — production must use Harvester-backed DataHubLite
 structural_replay_evaluation:
   script: scripts/archive/structural_replay_evaluation.py
   status: archived
@@ -141,12 +158,12 @@ refresh_etf_panel:
 solution_phase1:
   script: scripts/archive/solution_phase1.py
   status: archived
-  owner: unknown
+  owner: System
   reason: One-off solution script, no active consumers
 solution_phase2:
   script: scripts/archive/solution_phase2.py
   status: archived
-  owner: unknown
+  owner: System
   reason: One-off solution script, no active consumers
 hmm_generate_history:
   script: scripts/archive/hmm_generate_history.py
@@ -267,12 +284,6 @@ trade_risk_gate:
   owner: Workbench
   allowed_use:
   - risk_gate_validation
-position_sizing_layer:
-  script: scripts/position_sizing_layer.py
-  status: active
-  owner: Workbench
-  allowed_use:
-  - position_sizing
 judgment_layer:
   script: scripts/judgment_layer.py
   status: active
@@ -321,20 +332,6 @@ market_feedback:
   description: Market feedback loop — experimental
   allowed_use:
   - market_feedback_diagnostics
-gluonts_probabilistic_context:
-  script: scripts/gluonts_probabilistic_context.py
-  status: experimental
-  owner: ML Signals
-  description: GluonTS probabilistic context — experimental
-  allowed_use:
-  - probabilistic_context_diagnostics
-horizon_event_adapter:
-  script: scripts/horizon_event_adapter.py
-  status: active
-  owner: Workbench
-  description: Adapt horizon events for pipeline consumption
-  allowed_use:
-  - horizon_event_adaptation
 operator_registry_audit:
   script: scripts/operator_registry_audit.py
   status: active
@@ -833,6 +830,22 @@ _runtime_io:
   allowed_use:
   - shared_utility
   - main_chain_import
+_market_data:
+  script: scripts/_market_data.py
+  status: active
+  owner: Engineering
+  description: Shared market data loading utilities — panel loading, close-matrix construction, FRED CSV parsing
+  allowed_use:
+  - shared_utility
+  - feedback_replay_import
+_constants:
+  script: scripts/_constants.py
+  status: active
+  owner: Engineering
+  description: Centralized named constants for thresholds and magic numbers
+  allowed_use:
+  - shared_utility
+  - threshold_import
 check_retire_after:
   script: scripts/check_retire_after.py
   status: active
@@ -1093,3 +1106,10 @@ verify_experiment_core_judgment:
   description: Verify experimental outputs do not leak unclassified into core judgment
   allowed_use:
   - experiment_core_boundary_check
+verify_agent_work_protocol:
+  script: scripts/verify_agent_work_protocol.py
+  status: active
+  owner: Governance
+  description: Machine check for agent work protocol compliance per system constitution
+  allowed_use:
+  - agent_protocol_verification

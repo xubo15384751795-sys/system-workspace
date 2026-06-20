@@ -72,7 +72,7 @@ entries:
     forbidden_use: [core_judgment_primary_input]
     note: "ETF prices for benchmark comparison"
 
-  - path: "Structural Deformation Research System/src/benchmarks/historical_replay.py"
+  - path: "deformation-framework/src/benchmarks/historical_replay.py"
     authority: research_only_non_harvester
     owner: Deformation Framework
     allowed_use: [research, benchmark, historical_replay]
@@ -81,7 +81,7 @@ entries:
       Fetches FRED macro data directly via urllib for historical replay.
       Active macro data must come through Harvester.
 
-  - path: "Structural Deformation Research System/src/research_corpus/providers/brevan_howard.py"
+  - path: "deformation-framework/src/research_corpus/providers/brevan_howard.py"
     authority: research_only_non_harvester
     owner: Deformation Framework
     allowed_use: [research, corpus_archival]
@@ -89,3 +89,38 @@ entries:
     note: >
       Scrapes public Brevan Howard pages for research corpus archival.
       Not an active data acquisition path.
+
+  - path: Data/feedback_samples/
+    authority: governance_artifact
+    owner: Learning Hub
+    allowed_use: [feedback, calibration, governance]
+    forbidden_use: [core_judgment_primary_input]
+    note: "Feedback sample pool for sparse replay validation"
+
+  - path: Data/horizon_events/
+    authority: non_harvester_transitional
+    owner: Workbench
+    allowed_use: [event_detection, research]
+    forbidden_use: [core_judgment_primary_input]
+    note: "External event detection data; must go through horizon_event_adapter"
+
+  - path: Data/features/
+    authority: non_harvester_transitional
+    owner: Workbench
+    allowed_use: [research, training]
+    forbidden_use: [core_judgment_primary_input]
+    note: "Derived features (k_features_daily.csv); experimental"
+
+  - path: Data/archive/
+    authority: archive
+    owner: System
+    allowed_use: [archive]
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: "Archived data artifacts"
+
+  - path: Data/shared/
+    authority: retired
+    owner: System
+    allowed_use: []
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: "Empty directory, last modified 2026-04-28. Retired."

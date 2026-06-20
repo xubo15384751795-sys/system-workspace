@@ -255,21 +255,33 @@ items:
         title: "terminal/service.py — mark PAPER_RETAIN or delete"
         owner: Workbench
         status: deferred
+        reason: "Unclear if terminal service has active consumers"
+        execution_window: "0.5 days (audit consumers, decide)"
+        evidence_window: "7 days (verify no breakage after change)"
         review_date: "2026-07-15"
       - id: tda_stub_proof_period
         title: "TDA/topology_stub — set proof period"
         owner: ML Signals
         status: deferred
+        reason: "TDA integration requires empirical validation period"
+        execution_window: "1 day (set proof period config)"
+        evidence_window: "30 days (observe TDA stub behavior)"
         review_date: "2026-08-01"
       - id: ui_smoke_tests
         title: "UI tests — add smoke test"
         owner: Workbench
         status: deferred
+        reason: "No UI test infrastructure exists yet"
+        execution_window: "2-3 days (write smoke tests)"
+        evidence_window: "14 days (verify tests pass in CI)"
         review_date: "2026-08-01"
       - id: research_coverage
         title: "research/ — import/contract tests"
         owner: Deformation Framework
         status: deferred
+        reason: "Research module has no test coverage"
+        execution_window: "2-3 days (write import/contract tests)"
+        evidence_window: "14 days (verify tests pass in CI)"
         review_date: "2026-08-01"
     hard_deadline: "2026-09-01"
     risk_if_ignored: >
