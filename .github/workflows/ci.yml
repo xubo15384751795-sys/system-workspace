@@ -177,7 +177,7 @@ jobs:
   # ── Layer 2: Integration (root contract tests + pipeline) ───────────────
 
   integration:
-    needs: [workbench, deformation, harvester, hub]
+    needs: lint
     runs-on: ubuntu-latest
     strategy:
       matrix:
