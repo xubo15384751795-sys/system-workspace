@@ -29,6 +29,7 @@ steps:
   - id: judgment_promotion_gate
   - id: trade_decision
   - id: risk_gate
+  - id: record_trade_decision
     description: Risk gate + record to ledger (merged 2026-06-20, was separate record_trade_decision step)
   - id: signal_card
   - id: signal_consensus
@@ -38,7 +39,11 @@ steps:
     schedule: weekly
     description: Moved from daily 2026-06-20 — output not consumed downstream, review-only
   - id: market_feedback
+  - id: refresh_cross_asset_panel
+    description: Refresh ETF panel with latest market data before evaluation
   - id: evaluate_pending
+  - id: judgment_accuracy_report
+    description: Aggregate judgment calibration data from eval_log
   - id: judgment_replay_audit
     schedule: weekly
     description: Moved from daily 2026-06-20 — replay audit is validation, not signal-blocking

@@ -27,49 +27,30 @@ PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 
 
 def _fetch_yfinance(symbols: list[str], period: str = "5d") -> pd.DataFrame:
-    """Fetch latest OHLCV from yfinance for given symbols."""
-    try:
-        import yfinance as yf
-    except ImportError:
-        print("  yfinance not installed, skipping fetch")
-        return pd.DataFrame()
+    """Fetch latest OHLCV via Harvester's yfinance provider."""
+    import sys
+    sys.path.insert(0, str(ROOT / "structural-risk-harvester" / "src"))
+    from harvester.providers.etf_yfinance import EtfYfinanceProvider
 
-    data = yf.download(symbols, period=period, progress=False, auto_adjust=True)
-    if data.empty:
-        return pd.DataFrame()
+    # Map symbols to tickers dict expected by provider
+    tickers = {s: s for s in symbols}
+    provider = EtfYfinanceProvider(tickers=tickers, period=period)
+    results = provider.fetch_series(symbols)
 
-    # Handle MultiIndex columns from multi-ticker download
-    if isinstance(data.columns, pd.MultiIndex):
-        rows = []
-        for symbol in symbols:
-            if symbol not in data.columns.get_level_values(1):
-                continue
-            sym_data = data.xs(symbol, level=1, axis=1)
-            for date, row in sym_data.iterrows():
+    rows = []
+    for r in results:
+        if r.frame is not None and not r.frame.empty:
+            for _, row in r.frame.iterrows():
                 rows.append({
-                    "date": date.strftime("%Y-%m-%d"),
-                    "symbol": symbol,
-                    "close": float(row.get("Close", np.nan)),
-                    "open": float(row.get("Open", np.nan)),
-                    "high": float(row.get("High", np.nan)),
-                    "low": float(row.get("Low", np.nan)),
-                    "volume": float(row.get("Volume", np.nan)),
+                    "date": str(row.get("date", ""))[:10],
+                    "symbol": r.series_id,
+                    "close": float(row.get("close", 0)),
+                    "open": float(row.get("open", 0)),
+                    "high": float(row.get("high", 0)),
+                    "low": float(row.get("low", 0)),
+                    "volume": float(row.get("volume", 0)),
                 })
-        return pd.DataFrame(rows)
-    else:
-        # Single symbol
-        rows = []
-        for date, row in data.iterrows():
-            rows.append({
-                "date": date.strftime("%Y-%m-%d"),
-                "symbol": symbols[0],
-                "close": float(row.get("Close", np.nan)),
-                "open": float(row.get("Open", np.nan)),
-                "high": float(row.get("High", np.nan)),
-                "low": float(row.get("Low", np.nan)),
-                "volume": float(row.get("Volume", np.nan)),
-            })
-        return pd.DataFrame(rows)
+    return pd.DataFrame(rows)
 
 
 def _compute_derived(df: pd.DataFrame) -> pd.DataFrame:

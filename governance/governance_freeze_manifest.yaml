@@ -27,9 +27,7 @@ baseline_root_files:
   - canonical_proxy_spec.yaml
   - capability_registry.schema.json
   - capability_registry.yaml
-  - config_authority_registry.yaml
   - daily_pipeline_registry.yaml
-  - data_authority_registry.yaml
   - data_request_registry.yaml
   - data_retention_policy.yaml
   - deferred_work_register.yaml
@@ -38,7 +36,6 @@ baseline_root_files:
   - framework_output.schema.json
   - git_workspace_policy.md
   - incentive_policy.yaml
-  - module_authority_registry.yaml
   - opencode_supervisor_policy.yaml
   - operator_registry.yaml
   - output_routing_policy.yaml
@@ -56,12 +53,11 @@ baseline_root_files:
 baseline_hashes:
   architecture_cleanup_decisions.md: "446262635117bdf3"
   architecture_reality_decisions.md: "349c61656d98e0ac"
+  authority_registry.yaml: "d73bff276d99f078"
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
-  capability_registry.yaml: "d1e6d6466c139306"
-  config_authority_registry.yaml: "0467b7d9faa99c9f"
-  daily_pipeline_registry.yaml: "b823b8c40dab982b"
-  data_authority_registry.yaml: "aeb6d7b6ff23ee8c"
+  capability_registry.yaml: "3273727862cfb0f5"
+  daily_pipeline_registry.yaml: "45243c9d94856897"
   data_request_registry.yaml: "0931a083d1de99ca"
   data_retention_policy.yaml: "e6efe4330eef54b8"
   deferred_work_register.yaml: "fc26ef8b5a6d28cb"
@@ -70,7 +66,6 @@ baseline_hashes:
   framework_output.schema.json: "7378891650ab5040"
   git_workspace_policy.md: "d812b4ed4f0371bd"
   incentive_policy.yaml: "eae916244754e015"
-  module_authority_registry.yaml: "ca9c13a7fa9c4657"
   opencode_supervisor_policy.yaml: "822ecdea6cb684da"
   operator_registry.yaml: "cf43e31b5b235e1e"
   output_routing_policy.yaml: "5f71d2c6de937d63"
@@ -126,6 +121,10 @@ approved_additions:
     approved_at: "2026-06-20"
     commit: "pipeline-slim-cut"
     reason: "Daily/weekly/on-demand boundary documentation"
+  - file: authority_registry.yaml
+    approved_at: "2026-06-20"
+    commit: "governance-consolidation"
+    reason: "Consolidates module_authority_registry + config_authority_registry + data_authority_registry into one file"
 
 # Baseline hash updates — approved modifications to existing frozen files
 baseline_updates:
