@@ -4,6 +4,7 @@
 [submodule "Workbench"]
 	path = Workbench
 	url = git@github.com:xubo15384751795-sys/structural-workbench.git
+	branch = codex-governance-platform-hardening
 [submodule "Structural Deformation Research System"]
 	path = deformation-framework
 	url = git@github.com:xubo15384751795-sys/Structural-Deformation-Research-System.git
