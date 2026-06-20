@@ -158,7 +158,14 @@ def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None
         "timestamp": now,
         "severity": "HIGH" if failed_steps else ("MEDIUM" if warnings else "LOW"),
         "warnings": warnings,
-        "failed_steps": [s["step"] for s in failed_steps],
+        "failed_steps": [
+            {
+                "step": s["step"],
+                "error": (s.get("stdout_tail") or "")[-300:],
+                "duration_s": s.get("duration_s", 0),
+            }
+            for s in failed_steps
+        ],
         "summary": (
             f"{len(failed_steps)} steps failed, {len(warnings)} warnings"
             if failed_steps or warnings

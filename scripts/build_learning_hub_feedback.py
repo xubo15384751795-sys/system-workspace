@@ -143,11 +143,15 @@ def build_pipeline_alert_feedback() -> dict[str, Any]:
         }
 
     failed = []
-    for step_name in alert.get("failed_steps", []):
-        failed.append({
-            "step": step_name if isinstance(step_name, str) else step_name.get("step", ""),
-            "error": step_name.get("stdout_tail", "")[-200:] if isinstance(step_name, dict) and step_name.get("stdout_tail") else "",
-        })
+    for entry in alert.get("failed_steps", []):
+        if isinstance(entry, str):
+            failed.append({"step": entry, "error": "", "duration_s": 0})
+        else:
+            failed.append({
+                "step": entry.get("step", ""),
+                "error": entry.get("error", "")[-300:],
+                "duration_s": entry.get("duration_s", 0),
+            })
 
     return {
         "schema_version": "pipeline_alert_feedback.v1",

@@ -1142,6 +1142,52 @@ PROXY_REGISTRY: list[ProxySpec] = [
             "Quarantined 2026-05-18."
         ),
     ),
+    # SKEW and VVIX: options-derived tail risk measures.
+    # Finance-2.tex §4.4 specifies K as "options-derived IV/jump/tail".
+    # SKEW = CBOE skew index (tail risk pricing), VVIX = vol of vol.
+    # Both are canonical K proxies per the theoretical specification.
+    ProxySpec(
+        name="K_skew_index",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("YFINANCE:^SKEW",),
+        raw_family="OPTIONS_TAIL",
+        independence_group="skew_surface",
+        mechanism="tail_risk_pricing",
+        transform="CBOE SKEW index, daily 21d mean, daily 252d rolling z-score",
+        builder=lambda p: _component(_series(p, "YFINANCE:^SKEW"), freq="daily"),
+        note="CBOE SKEW index — measures tail risk pricing in S&P 500 options. "
+             "Available 2010+. Canonical K proxy per Finance-2.tex §4.4.",
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.tail_risk_skew",
+        canonical_alignment_note=(
+            "SKEW measures out-of-the-money put pricing relative to ATM — "
+            "the canonical tail-risk/curvature signal for K. "
+            "Finance-2.tex §4.4: K is options-derived."
+        ),
+    ),
+    ProxySpec(
+        name="K_vvix",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("YFINANCE:^VVIX",),
+        raw_family="OPTIONS_VOL_OF_VOL",
+        independence_group="vol_of_vol",
+        mechanism="vol_of_vol_stress",
+        transform="CBOE VVIX, daily 21d mean, daily 252d rolling z-score",
+        builder=lambda p: _component(_series(p, "YFINANCE:^VVIX"), freq="daily"),
+        note="CBOE VVIX — volatility of VIX (vol-of-vol). Measures second-order "
+             "stress in options market. Available 2012+.",
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.vol_of_vol",
+        canonical_alignment_note=(
+            "VVIX captures the rate of change of fear — when VIX itself becomes "
+            "volatile, options market is under structural stress. "
+            "Complementary to SKEW (tail shape) vs VVIX (fear velocity)."
+        ),
+    ),
 
     # ── X_PRE (Shadow Accumulation) ──────────────────────────────────────────
     #
