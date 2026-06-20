@@ -2235,12 +2235,16 @@ def calibrate_path_thresholds(channels: pd.DataFrame) -> dict[str, dict[str, flo
 
 def classify_regime(row: pd.Series, thresholds: dict[str, dict[str, float]], confidence: dict[str, str]) -> str:
     active = {ch: bool(row.get(ch, np.nan) >= thresholds[ch]["warning"]) for ch in CHANNELS}
-    # Only flag "Measurement Blind Spot" if a channel that SHOULD have data
-    # is INVALID.  Channels that are never implemented (X_PRE, X_REALIZED, Pi_t)
-    # are expected to be INVALID and should not block classification.
+    # Only flag "Measurement Blind Spot" if a channel that HAS data is INVALID.
+    # Channels with zero coverage (K, X_PRE, X_REALIZED, Pi_t) are simply
+    # not implemented — they should not block regime classification.
+    # Previously, K was in implemented_channels despite having zero canonical_voting
+    # proxies, causing ALL events to classify as "Measurement Blind Spot".
     implemented_channels = {"M", "D_contraction", "K", "X_agg"}
     blind = any(
         confidence.get(ch) == "INVALID"
+        and row.get(ch) is not None
+        and not np.isnan(row.get(ch, np.nan))
         for ch in implemented_channels
         if ch in confidence
     )
