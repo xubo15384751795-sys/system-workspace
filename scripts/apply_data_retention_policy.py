@@ -18,20 +18,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir, load_yaml
 POLICY_PATH = ROOT / "governance" / "data_retention_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
 def _load_policy() -> dict[str, Any]:
-    return yaml.safe_load(POLICY_PATH.read_text(encoding="utf-8"))
+    return load_yaml(POLICY_PATH)
 
 
 def _dir_size_mb(path: Path) -> float:
@@ -252,7 +249,7 @@ def main() -> None:
 
     results = run_retention_check()
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     report_path = OUTPUT_DIR / "data_retention_report.md"
     report_path.write_text(generate_report(results), encoding="utf-8")
 

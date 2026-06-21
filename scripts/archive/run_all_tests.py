@@ -30,7 +30,7 @@ MODULES = {
         "description": "Workbench user-facing tests",
     },
     "deformation": {
-        "path": ROOT / "Structural Deformation Research System",
+        "path": ROOT / "deformation-framework",
         "pattern": "tests/",
         "description": "Deformation Framework tests",
     },

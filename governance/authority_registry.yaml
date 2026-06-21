@@ -1,0 +1,230 @@
+schema_version: authority_registry.v1
+updated_at: "2026-06-20"
+purpose: >
+  Consolidated authority registry. Merges module_authority_registry (allowed/forbidden
+  actions), config_authority_registry (runtime config flags), and data_authority_registry
+  (non-Harvester data sources) into a single file organized by entity.
+
+# ── Module authority ───────────────────────────────────────────────────
+# Replaces module_authority_registry.yaml. Each module's allowed/forbidden actions.
+modules:
+  Harvester:
+    allowed:
+      - ACQUIRE
+      - ACQUIRE_VIA_OPENBB
+      - NORMALIZE
+      - PROVENANCE
+      - RELEASE_EVIDENCE
+    forbidden:
+      - PROMOTE
+      - WRITE_DEFORMATION_OUTPUT
+      - DIRECT_STRUCTURAL_CLAIM
+      - LEAK_OPENBB_IMPORT_OUTSIDE_PROVIDERS
+  Deformation:
+    allowed:
+      - CONSUME_ADMITTED_EVIDENCE
+      - TRANSFORM
+      - COMPUTE_DIAGNOSTICS
+      - WRITE_RUN_OUTPUT
+    forbidden:
+      - DIRECT_HTTP_ACQUIRE
+      - RAW_PUBLIC_DATA_FETCH
+      - SILENT_LEGACY_FALLBACK
+      - PROMOTE
+  LearningHub:
+    allowed:
+      - READ_EVENTS
+      - WRITE_LEDGER
+      - DETECT_RECURRENCE
+      - EMIT_ROUTING_DECISION
+    forbidden:
+      - DIRECT_HTTP_ACQUIRE
+      - MUTATE_DEFORMATION_CORE
+      - SILENT_PROMOTION
+  Workbench:
+    allowed:
+      - DISPLAY
+      - VALIDATE_CONTRACT
+      - NAVIGATE_ARTIFACT
+      - READ_SUMMARY
+    forbidden:
+      - MUTATE_CANONICAL_DATA
+      - DIRECT_HTTP_ACQUIRE
+      - PROMOTE_WITHOUT_GATE
+  QlibBenchmark:
+    allowed:
+      - RUN_ISOLATED_BENCHMARK
+      - EMIT_ALPHA_METRICS
+    forbidden:
+      - DEFINE_STRUCTURAL_TRUTH
+      - WRITE_CORE_PROXY
+      - MODIFY_DEFORMATION_OUTPUT
+
+# ── Config authority ───────────────────────────────────────────────────
+# Replaces config_authority_registry.yaml. Runtime config flags and constraints.
+config_flags:
+  allow_legacy_fallback:
+    type: AUTHORITY_CONFIG
+    default_allowed: false
+    severity: HIGH
+    audit_event_required: true
+    report_visibility_required: true
+    reason: "Allows bypassing admitted evidence path."
+  force_promoted:
+    type: AUTHORITY_CONFIG
+    default_allowed: false
+    severity: CRITICAL
+    audit_event_required: true
+    report_visibility_required: true
+    reason: "Allows promotion despite blockers."
+  skip_validation:
+    type: AUTHORITY_CONFIG
+    default_allowed: false
+    severity: CRITICAL
+    audit_event_required: true
+    report_visibility_required: true
+    reason: "Allows validation to be skipped."
+  policy_enforcement_enabled:
+    type: AUTHORITY_CONFIG
+    default_allowed: true
+    severity: HIGH
+    audit_event_required: true
+    report_visibility_required: true
+    reason: "Controls whether governance policy is enforced."
+  sigma_threshold:
+    type: PARAMETER_CONFIG
+    default_allowed: true
+    severity: LOW
+    audit_event_required: false
+    report_visibility_required: false
+    reason: "Sigma threshold for structural compression detection."
+  rolling_window:
+    type: PARAMETER_CONFIG
+    default_allowed: true
+    severity: LOW
+    audit_event_required: false
+    report_visibility_required: false
+    reason: "Rolling window size for proxy computation."
+
+# ── Data authority ─────────────────────────────────────────────────────
+# Replaces data_authority_registry.yaml. Non-Harvester data sources.
+# Harvester is the canonical data authority. Non-Harvester data is allowed
+# only as marked transitional/research evidence.
+data_sources:
+  - path: Data/paper_world_model/
+    authority: world_model_sync
+    owner: CaseLab Context
+    allowed_use: [hypothesis, mechanism, background, analogy]
+    forbidden_use: [direct_trade_without_review_gate]
+    note: "Derived from Paper via sync_paper_world_model; review_status gates claim ceiling"
+
+  - path: Data/panels/cross_asset_daily_panel.parquet
+    authority: non_harvester_transitional
+    owner: Workbench Signals
+    allowed_use: [research, training, feedback]
+    forbidden_use: [core_judgment_primary_input]
+    data_request_id: etf_cross_asset_panel
+    note: "ETF panel; Harvester openbb_yfinance series pending integration"
+
+  - path: Data/panels/cross_asset_daily_panel.csv.gz
+    authority: export_only
+    owner: Workbench Signals
+    allowed_use: [export]
+    forbidden_use: [core_judgment_primary_input, research]
+    note: "CSV is export-only; parquet is canonical"
+
+  - path: Data/merged_data/benchmark_panel_with_etfs.parquet
+    authority: migration_artifact
+    owner: Deformation Framework
+    allowed_use: [research]
+    forbidden_use: [core_judgment_primary_input]
+    data_request_id: merged_data_proxy_inputs
+    note: "Migration artifact; must be consolidated into Harvester release"
+
+  - path: Data/merged_data/benchmark_panel_backup.parquet
+    authority: migration_artifact
+    owner: Deformation Framework
+    allowed_use: [archive]
+    forbidden_use: [core_judgment_primary_input, research]
+
+  - path: Data/merged_data/benchmark_panel_merged.parquet
+    authority: migration_artifact
+    owner: Deformation Framework
+    allowed_use: [archive]
+    forbidden_use: [core_judgment_primary_input, research]
+
+  - path: Data/structural_lab/runtime/system.duckdb
+    authority: legacy_runtime_store
+    owner: Deformation Framework
+    allowed_use: [runtime_snapshot]
+    forbidden_use: []
+    note: "46MB DuckDB; actively used by DuckDBSnapshotStore"
+    deferred_work_id: duckdb_snapshot_store_migration
+
+  - path: Data/structural_lab/runtime/fred_cache/
+    authority: legacy_runtime_cache
+    owner: Deformation Framework
+    allowed_use: [runtime_cache]
+    forbidden_use: [core_judgment_primary_input]
+    data_request_id: fred_cached_data
+    note: "FRED data available through Harvester official release"
+
+  - path: Data/benchmarks/us_etf_prices.csv
+    authority: non_harvester_transitional
+    owner: ML Signals
+    allowed_use: [research, benchmark]
+    forbidden_use: [core_judgment_primary_input]
+    note: "ETF prices for benchmark comparison"
+
+  - path: "deformation-framework/src/benchmarks/historical_replay.py"
+    authority: research_only_non_harvester
+    owner: Deformation Framework
+    allowed_use: [research, benchmark, historical_replay]
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: >
+      Fetches FRED macro data directly via urllib for historical replay.
+      Active macro data must come through Harvester.
+
+  - path: "deformation-framework/src/research_corpus/providers/brevan_howard.py"
+    authority: research_only_non_harvester
+    owner: Deformation Framework
+    allowed_use: [research, corpus_archival]
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: >
+      Scrapes public Brevan Howard pages for research corpus archival.
+      Not an active data acquisition path.
+
+  - path: Data/feedback_samples/
+    authority: governance_artifact
+    owner: Learning Hub
+    allowed_use: [feedback, calibration, governance]
+    forbidden_use: [core_judgment_primary_input]
+    note: "Feedback sample pool for sparse replay validation"
+
+  - path: Data/horizon_events/
+    authority: non_harvester_transitional
+    owner: Workbench
+    allowed_use: [event_detection, research]
+    forbidden_use: [core_judgment_primary_input]
+    note: "External event detection data; must go through horizon_event_adapter"
+
+  - path: Data/features/
+    authority: non_harvester_transitional
+    owner: Workbench
+    allowed_use: [research, training]
+    forbidden_use: [core_judgment_primary_input]
+    note: "Derived features (k_features_daily.csv); experimental"
+
+  - path: Data/archive/
+    authority: archive
+    owner: System
+    allowed_use: [archive]
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: "Archived data artifacts"
+
+  - path: Data/shared/
+    authority: retired
+    owner: System
+    allowed_use: []
+    forbidden_use: [core_judgment_primary_input, active_pipeline]
+    note: "Empty directory, last modified 2026-04-28. Retired."

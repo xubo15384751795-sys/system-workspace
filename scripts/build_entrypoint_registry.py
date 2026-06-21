@@ -1,32 +1,28 @@
 #!/usr/bin/env python3
-"""Generate entrypoint registry from scripts/ and pipeline commands.
+"""Check entrypoint registry drift from scripts/ and pipeline commands.
 
-Hand-maintained fields in governance/entrypoint_registry.yaml are preserved.
-Generated overlay adds discovered scripts and pipeline wiring.
+By default, runs a drift check: compares hand-maintained registry against
+discovered scripts and pipeline wiring. Reports mismatches without writing.
+
+Use --write to generate the overlay file (on-demand only).
 
 Outputs:
-    governance/entrypoint_registry.generated.yaml
+    governance/entrypoint_registry.generated.yaml (only with --write)
 """
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from _runtime_io import ROOT, load_yaml as _load_yaml  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
 HAND_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
 GENERATED_PATH = ROOT / "governance" / "entrypoint_registry.generated.yaml"
-PIPELINE_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
-
-
-def _load_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+PIPELINE_PATH = ROOT / "docs" / "daily_pipeline_registry.yaml"
 
 
 def _discover_scripts(scripts_dir: Path) -> dict[str, dict[str, Any]]:
@@ -114,19 +110,35 @@ def write_generated_registry(root: Path = ROOT) -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate entrypoint registry overlay.")
+    parser = argparse.ArgumentParser(description="Check entrypoint registry drift.")
     parser.add_argument("--json", action="store_true", help="Print JSON summary to stdout.")
+    parser.add_argument("--write", action="store_true", help="Write generated overlay file (on-demand only).")
+    parser.add_argument("--check-drift", action="store_true", help="Exit 1 if drift detected.")
     args = parser.parse_args()
 
-    output = write_generated_registry(ROOT)
     payload = build_generated_registry(ROOT)
-    if args.json:
-        print(json.dumps(payload.get("counts", {}), indent=2))
-    else:
-        counts = payload.get("counts", {})
+
+    if args.write:
+        output = write_generated_registry(ROOT)
         print(f"Generated: {output.relative_to(ROOT)}")
+
+    counts = payload.get("counts", {})
+    missing = payload.get("missing_from_hand_registry", [])
+
+    if args.json:
+        print(json.dumps(counts, indent=2))
+    else:
         print(f"Merged entries: {counts.get('merged_entries')}")
         print(f"Missing from hand registry: {counts.get('missing_from_hand_registry')}")
+        if missing:
+            print(f"\nDrift detected: {len(missing)} scripts not in hand-maintained registry:")
+            for m in missing[:10]:
+                print(f"  - {m}")
+            if len(missing) > 10:
+                print(f"  ... and {len(missing) - 10} more")
+
+    if args.check_drift and missing:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

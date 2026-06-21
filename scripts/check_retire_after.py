@@ -20,11 +20,10 @@ import sys
 from datetime import date
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts  # noqa: E402
 add_scripts()
 
-from _runtime_io import load_yaml  # noqa: E402
+from _runtime_io import ROOT, load_yaml  # noqa: E402
 
 REGISTRY_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
 

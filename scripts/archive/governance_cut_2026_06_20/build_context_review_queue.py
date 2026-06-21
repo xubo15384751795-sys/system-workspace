@@ -31,8 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_jsonl, utc_now
+from _runtime_io import ROOT, ensure_dir, load_jsonl, utc_now
 
 FEEDBACK_LOG = ROOT / "caselab_context" / "feedback_log.jsonl"
 OUTPUT_DIR = ROOT / "Output" / "caselab_runtime"

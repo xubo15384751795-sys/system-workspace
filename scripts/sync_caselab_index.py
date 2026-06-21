@@ -3,24 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-from _workspace_imports import add_root
-add_root()
-import sys
+from _constants import TIMEOUT_LONG  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_json as _load_json  # noqa: E402
+
 
 PAPER_MANIFEST = ROOT / "Data" / "paper_world_model" / "manifest.json"
 INDEX_MANIFEST = ROOT / "Data" / "caselab_context" / "index_manifest.json"
-
-
-def _load_json(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def needs_reindex() -> tuple[bool, str]:
@@ -40,7 +32,7 @@ def run_reindex() -> dict:
         cwd=str(ROOT),
         capture_output=True,
         text=True,
-        timeout=600,
+        timeout=TIMEOUT_LONG,
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr[-500:] or "index_paper failed")
@@ -50,7 +42,7 @@ def run_reindex() -> dict:
         cwd=str(ROOT),
         capture_output=True,
         text=True,
-        timeout=600,
+        timeout=TIMEOUT_LONG,
     )
     if emb.returncode != 0:
         raise RuntimeError(emb.stderr[-500:] or "build_embeddings failed")
@@ -62,7 +54,7 @@ def run_reindex() -> dict:
         "paper_synced_at": paper.get("synced_at"),
         "embeddings_built": True,
     }
-    INDEX_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(INDEX_MANIFEST.parent)
     INDEX_MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return manifest
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -28,17 +29,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-ROOT = Path(__file__).resolve().parents[1]
-CURRENT = ROOT / "Output" / "current"
-RUNS = ROOT / "Output" / "runs"
-LEARNING = ROOT / "Output" / "system_learning" / "latest"
-RUN_MODE_PATH = ROOT / "governance" / "run_mode_registry.yaml"
+from _constants import TIMEOUT_LONG  # noqa: E402
 
 # RunBundle integration — use auditable path management
 from _workspace_imports import add_scripts
 add_scripts()
+from _runtime_io import ROOT, ensure_dir, load_yaml
+
+CURRENT = ROOT / "Output" / "current"
+RUNS = ROOT / "Output" / "runs"
+LEARNING = ROOT / "Output" / "system_learning" / "latest"
+RUN_MODE_PATH = ROOT / "governance" / "run_mode_registry.yaml"
 from run_bundle import RunBundle
 
 # Scripts for standard/full modes
@@ -55,7 +56,6 @@ STANDARD_STEPS = [
     "scripts/claim_ladder_tracker.py",
     "scripts/build_learning_hub_feedback.py",
     "scripts/build_proxy_quality_report.py",
-    "scripts/evaluate_proxy_lifecycle.py",
     "scripts/learning_hub_comprehensive_summary.py",
     "scripts/build_system_index.py",
     "scripts/build_readme_first.py",
@@ -76,7 +76,7 @@ GOVERNANCE_STATUS_SCRIPT = "scripts/governance_status.py"
 
 
 def _load_mode_registry() -> dict[str, Any]:
-    return yaml.safe_load(RUN_MODE_PATH.read_text(encoding="utf-8"))
+    return load_yaml(RUN_MODE_PATH)
 
 
 def _run_script(script: str, timeout: int = 120) -> dict[str, Any]:
@@ -104,7 +104,7 @@ def _run_script(script: str, timeout: int = 120) -> dict[str, Any]:
 
 def _write_learning_hub_event(event_type: str, data: dict[str, Any]) -> None:
     """Append event to Learning Hub runtime log."""
-    LEARNING.mkdir(parents=True, exist_ok=True)
+    ensure_dir(LEARNING)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     event_log = LEARNING / f"work_cycle_events_{today}.jsonl"
 
@@ -185,7 +185,6 @@ def _run_governance_status(bundle: RunBundle, step_results: list[dict[str, Any]]
 
 def _data_freshness() -> dict[str, Any]:
     """Check if framework_output has changed since last work cycle."""
-    import os
     fw_path = CURRENT / "framework_output.json"
     if not fw_path.exists():
         return {"fresh": False, "reason": "missing"}
@@ -202,8 +201,7 @@ def _data_freshness() -> dict[str, Any]:
                 manifest = json.loads(manifest_path.read_text())
                 last_finished = manifest.get("finished_at", "")
                 if last_finished:
-                    from datetime import datetime as _dt
-                    last_ts = _dt.fromisoformat(last_finished).timestamp()
+                    last_ts = datetime.fromisoformat(last_finished).timestamp()
                     if fw_mtime <= last_ts:
                         return {"fresh": False, "reason": "no_change_since_last_run"}
         except (ValueError, OSError):
@@ -329,7 +327,7 @@ def run_full_cycle(bundle: RunBundle) -> dict[str, Any]:
     _write_learning_hub_event("work_cycle_started", {"mode": "full_refresh"})
 
     # Run daily pipeline
-    pipeline_result = _run_script("scripts/daily_run.py", timeout=600)
+    pipeline_result = _run_script("scripts/daily_run.py", timeout=TIMEOUT_LONG)
 
     step_results = [{"step": "daily_pipeline", **pipeline_result}]
     _record_step(bundle, {"step": "daily_pipeline", **pipeline_result})

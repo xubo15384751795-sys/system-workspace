@@ -40,8 +40,8 @@ def add_learning_hub_src() -> None:
 
 
 def add_framework_src() -> None:
-    """Add Structural Deformation Research System/src to sys.path."""
-    _add(ROOT / "Structural Deformation Research System" / "src")
+    """Add deformation-framework/src to sys.path."""
+    _add(ROOT / "deformation-framework" / "src")
 
 
 def add_harvester_src() -> None:

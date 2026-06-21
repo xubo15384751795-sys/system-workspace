@@ -8,10 +8,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_root, add_scripts
 add_root()
 add_scripts()
+from _runtime_io import ROOT
 
 from caselab_context.paper_paths import paper_root  # noqa: E402
 from sync_paper_world_model import (

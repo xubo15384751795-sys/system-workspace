@@ -22,12 +22,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-from _runtime_io import load_json, load_yaml
+from _runtime_io import ROOT, ensure_dir, load_json, load_yaml
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[1]
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
 RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
 FRESHNESS_PATH = ROOT / "Output" / "quality" / "freshness_report.json"
@@ -231,7 +229,7 @@ def format_markdown(intent: dict[str, Any]) -> str:
 
 
 def write_outputs(intent: dict[str, Any]) -> dict[str, Path]:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "latest.json"
     md_path = OUTPUT_DIR / "latest.md"

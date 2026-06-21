@@ -10,6 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts" / "archive" / "governance_cut_2026_06_20"))
 
 import export_feedback_to_paper as efp
 import sync_paper_world_model as spwm

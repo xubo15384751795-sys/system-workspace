@@ -17,15 +17,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import random
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
-from _runtime_io import ensure_dir, load_yaml, utc_now, write_json  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -109,7 +109,6 @@ def _sample_dates(dates: list[str], n: int, rng) -> list[str]:
 
 def build_pool(n: int, seed: int = 42, dry_run: bool = False) -> list[dict]:
     """Build a stratified sample pool of n entries."""
-    import random
 
     rng = random.Random(seed)
 
@@ -256,7 +255,7 @@ def build_pool(n: int, seed: int = 42, dry_run: bool = False) -> list[dict]:
     # Preserve existing real_judgment entries from any prior manifest
     preserved = []
     if MANIFEST_PATH.exists():
-        from _runtime_io import load_jsonl as _load_jsonl
+        from _runtime_io import ROOT, load_jsonl as _load_jsonl
         for entry in _load_jsonl(MANIFEST_PATH):
             if entry.get("sample_type") == "real_judgment":
                 preserved.append(entry)

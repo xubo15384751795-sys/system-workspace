@@ -19,8 +19,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, utc_now, write_json
+from _constants import CASELAB_USABLE_THRESHOLD
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
@@ -105,12 +105,12 @@ def check_caselab_gate(date_str: str) -> list[dict[str, Any]]:
     top_score = _as_float(match_quality.get("top_score", 0))
     label = match_quality.get("label", "unknown")
 
-    # Rule: top_score < 0.55 must be weak analogy
-    if top_score < 0.55 and label != "weak":
+    # Rule: top_score < CASELAB_USABLE_THRESHOLD must be weak analogy
+    if top_score < CASELAB_USABLE_THRESHOLD and label != "weak":
         issues.append({
             "rule": "CASELAB_WEAK_MISLABEL",
             "severity": "ERROR",
-            "message": f"CaseLab top_score={top_score:.3f} < 0.55 but label={label}, should be weak",
+            "message": f"CaseLab top_score={top_score:.3f} < {CASELAB_USABLE_THRESHOLD} but label={label}, should be weak",
             "fields": {"top_score": top_score, "label": label},
         })
 

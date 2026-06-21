@@ -15,8 +15,7 @@ from typing import Any
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"

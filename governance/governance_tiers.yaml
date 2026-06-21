@@ -9,7 +9,6 @@ purpose: >
 hard_rules:
   description: "Machine-checked contracts. Must fail if violated."
   files:
-    - daily_pipeline_registry.yaml      # pipeline step I/O contracts
     - entrypoint_registry.yaml          # every script must be registered
     - redundancy_budget.yaml            # script/artifact count limits
     - system_constitution.yaml          # module roles, authority ordering
@@ -30,12 +29,10 @@ work_support:
     - authority_graph_policy.yaml       # topology zones, bridge nodes, invariants
     - governance_freeze_manifest.yaml     # machine-checkable freeze baseline
     - experimental_submission_registry.yaml  # non-compliant exploration queue
-    - module_authority_registry.yaml    # allowed/forbidden per module
-    - data_authority_registry.yaml      # non-Harvester data marking
+    - authority_registry.yaml           # consolidated module/config/data authority
     - data_request_registry.yaml        # inter-module data requests
     - deferred_work_register.yaml       # deferred items with deadlines
     - proxy_quality_rules.yaml          # proxy scoring rules
-    - config_authority_registry.yaml    # runtime config flags
     - pipeline_test_baseline.yaml       # test suite acceptance gate
 
 knowledge_background:

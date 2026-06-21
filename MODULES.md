@@ -29,7 +29,7 @@ owner, paths, and allowed communication points.
 | Thread | Status | Owns | Primary location | Context file | Tests |
 |---|---|---|---|---|---|
 | Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
-| Deformation Framework | `ACTIVE_PARTIAL` | Structural theory, operators, diagnostics, dynamics, claims | `Structural Deformation Research System/` | `module_contexts/framework.md` | 15 |
+| Deformation Framework | `ACTIVE_PARTIAL` | Structural theory, operators, diagnostics, dynamics, claims | `deformation-framework/` | `module_contexts/framework.md` | 15 |
 | Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
 | Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
 | Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
@@ -94,8 +94,8 @@ For structural NLP (extraction, event cards, candidate ledger, promotion):
 
 Do not read first:
 
-- `Structural Deformation Research System/src/core/`
-- `Structural Deformation Research System/src/dynamics/`
+- `deformation-framework/src/core/`
+- `deformation-framework/src/dynamics/`
 - provider acquisition internals
 
 ## Deformation Framework
@@ -115,9 +115,9 @@ Read first:
 
 - `module_contexts/framework.md`
 - `protocols/framework_output.schema.json`
-- `Structural Deformation Research System/src/core/`
-- `Structural Deformation Research System/src/diagnostics/`
-- `Structural Deformation Research System/src/operators/`
+- `deformation-framework/src/core/`
+- `deformation-framework/src/diagnostics/`
+- `deformation-framework/src/operators/`
 
 Do not read first:
 

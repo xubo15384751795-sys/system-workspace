@@ -13,13 +13,14 @@ Safe to run multiple times — skips already-computed outcomes.
 """
 from __future__ import annotations
 
-import json
+import logging
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+logger = logging.getLogger(__name__)
+
 from _workspace_imports import add_scripts
 add_scripts()
-from _runtime_io import load_json, load_jsonl, utc_now, write_json  # noqa: E402
+from _runtime_io import ROOT, load_json, load_jsonl, utc_now, write_json  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -66,7 +67,7 @@ def _backfill_forward_outcomes() -> int:
             vix_series = pd.to_numeric(vix_df.iloc[:, 0], errors="coerce").dropna()
             vix_series.index = pd.to_datetime(vix_series.index)
         except Exception:
-            pass
+            logger.debug("Failed to load VIX data from %s", VIX_PATH, exc_info=True)
 
     # Import evaluation functions
     from evaluate_feedback_samples import compute_forward_outcome, auto_label

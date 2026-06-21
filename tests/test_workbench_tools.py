@@ -40,7 +40,7 @@ def test_folder_ownership_declares_tool_and_framework_roots() -> None:
     assert "system-learning-hub/" in text
     assert "Workbench/contracts/workbench/" in text
     assert "Workbench/src/workbench/" in text
-    assert "Structural Deformation Research System/" in text
+    assert "deformation-framework/" in text
     assert "Constitution-Level Red Line" in text
 
 

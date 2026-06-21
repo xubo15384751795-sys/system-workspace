@@ -16,17 +16,17 @@ diagnosis. It consumes admitted evidence and publishes protocol-shaped outputs.
 
 ## Primary Paths
 
-- `Structural Deformation Research System/src/core/`
-- `Structural Deformation Research System/src/derivation/`
-- `Structural Deformation Research System/src/dynamics/`
-- `Structural Deformation Research System/src/operators/`
-- `Structural Deformation Research System/src/diagnostics/`
-- `Structural Deformation Research System/src/interpretation/`
-- `Structural Deformation Research System/src/claims/`
-- `Structural Deformation Research System/src/data_access/`
-- `Structural Deformation Research System/tests/`
-- `Structural Deformation Research System/wiki/`
-- `Structural Deformation Research System/papers/`
+- `deformation-framework/src/core/`
+- `deformation-framework/src/derivation/`
+- `deformation-framework/src/dynamics/`
+- `deformation-framework/src/operators/`
+- `deformation-framework/src/diagnostics/`
+- `deformation-framework/src/interpretation/`
+- `deformation-framework/src/claims/`
+- `deformation-framework/src/data_access/`
+- `deformation-framework/tests/`
+- `deformation-framework/wiki/`
+- `deformation-framework/papers/`
 
 ## Reads
 

@@ -14,9 +14,8 @@ REQUIRED_FILES = [
     "architecture_cleanup_decisions.md",
     "deferred_work_register.yaml",
     "data_request_registry.yaml",
-    "data_authority_registry.yaml",
+    "authority_registry.yaml",
     "output_routing_policy.yaml",
-    "daily_pipeline_registry.yaml",
     "entrypoint_registry.yaml",
     "capability_registry.yaml",
     "redundancy_budget.yaml",
@@ -60,9 +59,9 @@ def test_deferred_register_has_deadlines() -> None:
 
 def test_data_authority_entries_have_forbidden_use() -> None:
     """Every data authority entry must declare forbidden_use."""
-    reg = yaml.safe_load((GOV / "data_authority_registry.yaml").read_text(encoding="utf-8"))
+    reg = yaml.safe_load((GOV / "authority_registry.yaml").read_text(encoding="utf-8"))
     missing = []
-    for entry in reg.get("entries", []):
+    for entry in reg.get("data_sources", []):
         if "forbidden_use" not in entry:
             missing.append(entry.get("path", "unknown"))
     assert not missing, f"Entries missing forbidden_use: {missing}"

@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir
 from _runtime_io import (
     dedupe_entries,
     ensure_dir,
@@ -163,7 +163,7 @@ def main() -> None:
 
     # Write events
     date_str = args.date or utc_now().strftime("%Y-%m-%d")
-    EVENTS_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(EVENTS_DIR)
     output_path = EVENTS_DIR / f"trade_decision_calibration_{date_str}.jsonl"
 
     with output_path.open("w", encoding="utf-8") as f:

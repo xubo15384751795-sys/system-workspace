@@ -20,8 +20,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
 
 QLIB_OUTPUT_DIR = ROOT / "ExternalTools" / "qlib_benchmark_runner" / "qlib_output"
 TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"

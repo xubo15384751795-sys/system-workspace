@@ -17,6 +17,7 @@ Usage:
 """
 from __future__ import annotations
 
+import importlib.util
 import logging
 from pathlib import Path
 
@@ -24,7 +25,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 K_FEATURES_PATH = ROOT / "Data" / "features" / "k_features_daily.csv"
 
@@ -59,8 +60,6 @@ def update_k_features() -> bool:
     Returns True if features were updated, False otherwise.
     Does NOT raise on missing script — logs warning and returns False.
     """
-    import importlib.util
-
     script_path = ROOT / "scripts" / "k_features_from_etf.py"
     if not script_path.exists():
         logger.warning(

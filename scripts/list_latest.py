@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+logger = logging.getLogger(__name__)
+
+from _runtime_io import ROOT
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 
 
@@ -156,7 +159,7 @@ def main() -> None:
             if feedback_path:
                 feedback_data = json.loads(Path(feedback_path).read_text())
         except Exception:
-            pass
+            logger.debug("Failed to read feedback at %s", feedback_path, exc_info=True)
 
         source = feedback_data.get("source", "unknown") if feedback_data else "unknown"
         print(f"\n📉 MARKET FEEDBACK")

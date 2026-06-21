@@ -31,6 +31,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
@@ -38,11 +39,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
 
-from _runtime_io import ensure_dir, load_yaml, write_json  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_yaml, write_json  # noqa: E402
 
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 AUDIT_MD_PATH = ROOT / "Output" / "system_learning" / "latest" / "experiment_core_judgment_audit.md"
@@ -153,8 +153,10 @@ def _classify_field(field_path: str) -> str:
 
 def _match_approved_marker(filepath: Path, indicator: str, field_path: str) -> dict | None:
     """Check if a reference matches an approved diagnostic marker."""
-    import fnmatch
-    rel = str(filepath.relative_to(ROOT))
+    try:
+        rel = str(filepath.resolve().relative_to(ROOT.resolve()))
+    except ValueError:
+        return None
     for pattern, marker in APPROVED_DIAGNOSTIC_MARKERS.items():
         if marker.get("indicator") != indicator:
             continue

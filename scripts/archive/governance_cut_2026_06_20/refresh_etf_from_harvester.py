@@ -19,12 +19,13 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
-K_FEATURES_PATH = ROOT / "Data" / "features" / "k_features_daily.csv"
-
+from _constants import TRADING_DAYS_PER_YEAR
+from _runtime_io import ROOT, ensure_dir
 from _workspace_imports import add_harvester_src
 add_harvester_src()
+
+PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+K_FEATURES_PATH = ROOT / "Data" / "features" / "k_features_daily.csv"
 
 
 def _compute_k_features(panel: pd.DataFrame) -> pd.DataFrame:
@@ -48,7 +49,7 @@ def _compute_k_features(panel: pd.DataFrame) -> pd.DataFrame:
     # Realized volatility (20-day rolling)
     returns = pivot.pct_change()
     for col in pivot.columns:
-        features[f"rv_{col}_20d"] = returns[col].rolling(20).std() * (252 ** 0.5)
+        features[f"rv_{col}_20d"] = returns[col].rolling(20).std() * (TRADING_DAYS_PER_YEAR ** 0.5)
         features[f"ret_5d_{col}"] = pivot[col].pct_change(5)
         features[f"drawdown_60d_{col}"] = pivot[col] / pivot[col].rolling(60).max() - 1
 
@@ -142,18 +143,18 @@ def main() -> None:
         merged.loc[mask, "return_5d"] = sym_data["close"].pct_change(5)
         merged.loc[mask, "return_20d"] = sym_data["close"].pct_change(20)
         merged.loc[mask, "return_60d"] = sym_data["close"].pct_change(60)
-        merged.loc[mask, "volatility_20d"] = sym_data["close"].pct_change().rolling(20).std() * (252 ** 0.5)
+        merged.loc[mask, "volatility_20d"] = sym_data["close"].pct_change().rolling(20).std() * (TRADING_DAYS_PER_YEAR ** 0.5)
         merged.loc[mask, "drawdown_60d"] = sym_data["close"] / sym_data["close"].rolling(60).max() - 1
 
     # Save
-    PANEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(PANEL_PATH.parent)
     merged.to_parquet(PANEL_PATH, index=False)
     print(f"Saved: {PANEL_PATH} ({len(merged)} rows, last date: {merged['date'].max().date()})")
 
     # Recompute K features
     print("Recomputing K features...")
     k_features = _compute_k_features(merged)
-    K_FEATURES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(K_FEATURES_PATH.parent)
     k_features.to_csv(K_FEATURES_PATH, index=False)
     print(f"Saved: {K_FEATURES_PATH} ({len(k_features)} rows)")
 

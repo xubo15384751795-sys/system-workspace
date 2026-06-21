@@ -23,36 +23,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from _workspace_imports import add_scripts
+add_scripts()
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir, load_json, load_yaml  # noqa: E402
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
 LEARNING = ROOT / "Output" / "system_learning" / "latest"
 DEFERRED_PATH = ROOT / "governance" / "deferred_work_register.yaml"
-DATA_AUTHORITY_PATH = ROOT / "governance" / "data_authority_registry.yaml"
+DATA_AUTHORITY_PATH = ROOT / "governance" / "authority_registry.yaml"
 SUPERVISOR_POLICY_PATH = ROOT / "governance" / "opencode_supervisor_policy.yaml"
 INCENTIVE_POLICY_PATH = ROOT / "governance" / "incentive_policy.yaml"
 SUBMISSIONS_PATH = ROOT / "governance" / "experimental_submission_registry.yaml"
 ROUTING_POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def _load_yaml(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 def _check_work_cycle_completeness() -> dict[str, Any]:
@@ -85,7 +68,7 @@ def _check_artifact_consistency() -> dict[str, Any]:
         ("status", CURRENT / "status.json", "date"),
         ("judgment", JUDGMENT / "latest.json", "as_of"),
     ]:
-        data = _load_json(path)
+        data = load_json(path)
         if data and data.get(field):
             dates[name] = str(data[field])[:10]
 
@@ -102,11 +85,11 @@ def _check_artifact_consistency() -> dict[str, Any]:
 
 def _check_unmarked_data() -> dict[str, Any]:
     """Check for non-Harvester data not marked research_only."""
-    reg = _load_yaml(DATA_AUTHORITY_PATH)
+    reg = load_yaml(DATA_AUTHORITY_PATH)
     if not reg:
         return {"status": "NO_REGISTRY", "entries": 0}
 
-    entries = reg.get("entries", [])
+    entries = reg.get("data_sources", [])
     unmarked = []
     for entry in entries:
         auth = entry.get("authority", "")
@@ -124,11 +107,11 @@ def _check_unmarked_data() -> dict[str, Any]:
 
 def _check_deferred_work_overdue() -> dict[str, Any]:
     """Check for deferred work past hard_deadline."""
-    reg = _load_yaml(DEFERRED_PATH)
+    reg = load_yaml(DEFERRED_PATH)
     if not reg:
         return {"status": "NO_REGISTRY"}
 
-    today = datetime.now()
+    today = datetime.now(UTC)
     overdue = []
     approaching = []
     for item in reg.get("items", []):
@@ -188,7 +171,7 @@ def _check_current_authority_contamination() -> dict[str, Any]:
     Only artifacts listed in output_routing_policy.yaml groups.current.allowed_artifacts
     should exist in Output/current/. Research/sandbox output must not enter authority readout.
     """
-    routing = _load_yaml(ROUTING_POLICY_PATH)
+    routing = load_yaml(ROUTING_POLICY_PATH)
     if not routing or not CURRENT.exists():
         return {"status": "NO_ROUTING_POLICY"}
 
@@ -213,7 +196,7 @@ def _check_incentive_overreach() -> dict[str, Any]:
     Governance can veto but cannot grant core authority.
     Credit must never grant authority.
     """
-    policy = _load_yaml(INCENTIVE_POLICY_PATH)
+    policy = load_yaml(INCENTIVE_POLICY_PATH)
     if not policy:
         return {"status": "NO_POLICY"}
 
@@ -253,7 +236,7 @@ def _check_priority_drift() -> dict[str, Any]:
     An artifact at 'preferred' level should not be used in authority paths
     that require 'canonical' level.
     """
-    policy = _load_yaml(INCENTIVE_POLICY_PATH)
+    policy = load_yaml(INCENTIVE_POLICY_PATH)
     if not policy:
         return {"status": "NO_POLICY"}
 
@@ -280,7 +263,7 @@ def _check_unreviewed_exceptions() -> dict[str, Any]:
     Exceptions need: retire_after, owner, rollback_plan, reviewer, decision_reason.
     Only enforced for non-reject decisions.
     """
-    reg = _load_yaml(SUBMISSIONS_PATH)
+    reg = load_yaml(SUBMISSIONS_PATH)
     if not reg:
         return {"status": "NO_REGISTRY"}
 
@@ -289,7 +272,7 @@ def _check_unreviewed_exceptions() -> dict[str, Any]:
         return {"status": "NO_SUBMISSIONS"}
 
     issues = []
-    today = datetime.now()
+    today = datetime.now(UTC)
     for sub in submissions:
         sid = sub.get("submission_id", "unknown")
         decision = sub.get("decision")
@@ -521,7 +504,7 @@ def main() -> None:
 
     results = run_supervisor_check()
 
-    LEARNING.mkdir(parents=True, exist_ok=True)
+    ensure_dir(LEARNING)
 
     json_path = LEARNING / "supervisor_check.json"
     json_path.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

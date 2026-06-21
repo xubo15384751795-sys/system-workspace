@@ -20,8 +20,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _workspace_imports import add_root
+from _runtime_io import ROOT, ensure_dir, load_jsonl as _read_jsonl  # noqa: E402
+
+from _workspace_imports import add_root  # noqa: E402
 add_root()
 
 from caselab_context.paper_paths import paper_root  # noqa: E402
@@ -32,17 +33,6 @@ OUTPUT_REPORT = ROOT / "Output" / "caselab_runtime" / "feedback_export_report.js
 STATE_PATH = ROOT / "Data" / "caselab_runtime" / "feedback_export_state.json"
 
 EXPORT_STATUSES = {"needs_review", "rejected", "unknown"}
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            rows.append(json.loads(line))
-    return rows
 
 
 def _slug(value: str) -> str:
@@ -64,7 +54,7 @@ def _load_state() -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> None:
-    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(STATE_PATH.parent)
     STATE_PATH.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
@@ -192,7 +182,7 @@ def export_feedback(
         filename = f"context-{_slug(feedback_id)}.md"
         target = inbox / filename
         if not dry_run:
-            inbox.mkdir(parents=True, exist_ok=True)
+            ensure_dir(inbox)
             target.write_text(_render_context_draft(row), encoding="utf-8")
             entries[key] = {
                 "content_hash": _content_hash(row),
@@ -211,7 +201,7 @@ def export_feedback(
         filename = f"preference-{_slug(pref_id)}.md"
         target = inbox / filename
         if not dry_run:
-            inbox.mkdir(parents=True, exist_ok=True)
+            ensure_dir(inbox)
             target.write_text(_render_preference_draft(row, index), encoding="utf-8")
             entries[key] = {
                 "content_hash": _content_hash(row),
@@ -236,7 +226,7 @@ def export_feedback(
     }
 
     if not dry_run:
-        OUTPUT_REPORT.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(OUTPUT_REPORT.parent)
         OUTPUT_REPORT.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 
     return report

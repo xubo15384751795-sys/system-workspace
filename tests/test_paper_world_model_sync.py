@@ -131,6 +131,6 @@ def test_paper_root_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 
 
 def test_data_authority_registry_lists_paper_world_model() -> None:
-    text = (ROOT / "governance" / "data_authority_registry.yaml").read_text(encoding="utf-8")
+    text = (ROOT / "governance" / "authority_registry.yaml").read_text(encoding="utf-8")
     assert "Data/paper_world_model/" in text
     assert "world_model_sync" in text

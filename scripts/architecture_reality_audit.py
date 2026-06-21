@@ -17,30 +17,24 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import re
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_root
 add_root()
 
-from _runtime_io import load_yaml as _load_yaml_raw  # noqa: E402
+from _constants import TIMEOUT_SHORT  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_yaml as _load_yaml  # noqa: E402
 
-FRAMEWORK_SRC = ROOT / "Structural Deformation Research System" / "src"
+FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
-DAILY_PIPELINE_REGISTRY = ROOT / "governance" / "daily_pipeline_registry.yaml"
+DAILY_PIPELINE_REGISTRY = ROOT / "docs" / "daily_pipeline_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
-
-
-def _load_yaml(path: Path) -> dict[str, Any]:
-    """Load a YAML file, returning an empty dict on failure."""
-    return _load_yaml_raw(path) or {}
 
 
 def _scan_for_http_imports(directory: Path) -> list[dict[str, str]]:
@@ -258,8 +252,8 @@ def _check_unmarked_http_in_framework() -> list[dict[str, str]]:
     """Scan Framework research/benchmark files for HTTP imports not marked research_only_non_harvester."""
     http_modules = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3", "urllib"}
     research_dirs = [
-        ROOT / "Structural Deformation Research System" / "src" / "benchmarks",
-        ROOT / "Structural Deformation Research System" / "src" / "research_corpus",
+        ROOT / "deformation-framework" / "src" / "benchmarks",
+        ROOT / "deformation-framework" / "src" / "research_corpus",
     ]
     findings = []
     for dir_path in research_dirs:
@@ -320,25 +314,19 @@ def _check_manual_sys_path_insert() -> list[dict[str, str]]:
 
 def _check_legacy_deadline_countdown() -> list[dict[str, str]]:
     """Check deferred_work_register.yaml for legacy items approaching deadline."""
-    import yaml as _yaml
-    from datetime import datetime as _dt
-
     reg_path = ROOT / "governance" / "deferred_work_register.yaml"
-    if not reg_path.exists():
-        return []
-    try:
-        reg = _yaml.safe_load(reg_path.read_text(encoding="utf-8"))
-    except Exception:
+    reg = _load_yaml(reg_path)
+    if not reg:
         return []
 
     findings = []
-    today = _dt.now()
+    today = datetime.now(UTC).date()
     for item in reg.get("items", []):
         hard_dl = item.get("hard_deadline")
         if not hard_dl:
             continue
         try:
-            deadline = _dt.strptime(str(hard_dl), "%Y-%m-%d")
+            deadline = datetime.strptime(str(hard_dl), "%Y-%m-%d").date()
         except ValueError:
             continue
         days_left = (deadline - today).days
@@ -384,7 +372,6 @@ def _check_data_retention_policy_unapplied() -> list[dict[str, str]]:
 
 def _check_symlinks_fresh(output_dir: Path, max_age_days: int = 7) -> list[dict[str, str]]:
     """Check that symlinks in Output/current point to recent artifacts."""
-    from datetime import timedelta
     findings = []
     current = output_dir / "Output" / "current"
     if not current.exists():
@@ -482,7 +469,7 @@ def _check_active_partial_lifecycle() -> list[dict[str, str]]:
                     "git", "log", "--format=%aI", "--follow", "-1",
                     "--", str(CAPABILITY_REGISTRY.relative_to(ROOT)),
                 ],
-                capture_output=True, text=True, cwd=str(ROOT), timeout=10,
+                capture_output=True, text=True, cwd=str(ROOT), timeout=TIMEOUT_SHORT,
             )
             if result.returncode == 0 and result.stdout.strip():
                 last_modified = datetime.fromisoformat(
@@ -577,9 +564,9 @@ def run_audit() -> dict[str, Any]:
     # Check 5: Required governance files exist
     required_files = [
         "governance/capability_registry.yaml",
-        "governance/daily_pipeline_registry.yaml",
+        "governance/daily_run_sequence.yaml",
         "governance/system_constitution.yaml",
-        "governance/module_authority_registry.yaml",
+        "governance/authority_registry.yaml",
         "governance/architecture_reality_decisions.md",
         "protocols/evidence_release.schema.json",
     ]
@@ -749,7 +736,7 @@ def main() -> None:
     results = run_audit()
 
     # Write markdown report
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     report_path = OUTPUT_DIR / "architecture_reality_audit.md"
     report_path.write_text(generate_markdown_report(results), encoding="utf-8")
 

@@ -173,7 +173,7 @@ def test_openbb_secondary_audit_boundaries_are_static() -> None:
     assert "from openbb" not in audit_source
     assert "Data/harvester/exports" not in audit_source
 
-    deformation_src = ROOT / "Structural Deformation Research System" / "src"
+    deformation_src = ROOT / "deformation-framework" / "src"
     offenders: list[str] = []
     for path in deformation_src.rglob("*.py"):
         text = path.read_text(encoding="utf-8")

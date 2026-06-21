@@ -18,16 +18,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
 
-from _runtime_io import load_yaml  # noqa: E402
+from _runtime_io import ROOT, load_yaml  # noqa: E402
 
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
 OUTPUT_CURRENT = ROOT / "Output" / "current"

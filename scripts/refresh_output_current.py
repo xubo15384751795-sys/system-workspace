@@ -27,14 +27,15 @@ Output:
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT
+from _constants import TIMEOUT_STANDARD  # noqa: E402
+
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
 
@@ -44,7 +45,7 @@ def run_step(name: str, cmd: list[str]) -> dict:
     start = time.time()
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120,
+            cmd, capture_output=True, text=True, timeout=TIMEOUT_STANDARD,
             cwd=str(ROOT),
         )
         duration = time.time() - start

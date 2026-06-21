@@ -22,13 +22,14 @@ def test_daily_run_sequence_has_core_steps() -> None:
     for required in (
         "harvester",
         "paper_sync",
-        "horizon_events",
+        "structural_replay",
         "judgment_layer",
+        "trade_decision",
+        "claim_evaluator",
+        "freshness_validator",
         "archive_daily_snapshots",
         "backfill_judgment_calibration",
         "mechanism_calibration",
-        "export_feedback",
-        "promote_paper_inbox",
         "evaluate_pending",
         "system_index",
     ):

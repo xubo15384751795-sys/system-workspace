@@ -507,7 +507,8 @@ class TestApplyTransitions:
         assert claim["status"] == "invalidated"
         assert result["summary"]["demotions_this_run"] == 1
 
-    def test_existing_claim_accumulates(self, policy):
+    def test_existing_claim_accumulates_and_promotes(self, policy):
+        """Existing claim at tier 1 with strong evidence should get promoted to tier 2."""
         state = {
             "schema_version": "claim_ladder_state.v1",
             "claims": [{
@@ -534,9 +535,13 @@ class TestApplyTransitions:
         }]
         result = apply_transitions(state, progression, policy)
         claim = result["claims"][0]
-        assert claim["runs_at_current_tier"] == 4
-        # md_direction_consecutive_runs should accumulate from previous state
+        # md_direction_consecutive_runs accumulates from 2 → 3
         assert claim["evidence"]["md_direction_consecutive_runs"] == 3
+        # Strong evidence triggers promotion to tier 2
+        assert claim["current_tier"] == 2
+        assert claim["status"] == "promoted"
+        # Promotion resets runs_at_current_tier
+        assert claim["runs_at_current_tier"] == 0
 
     def test_summary_computed(self, policy):
         state = {"schema_version": "claim_ladder_state.v1", "claims": []}
@@ -575,6 +580,7 @@ class TestStateIO:
 
     def test_load_state_wrong_schema(self, _isolated_dirs, monkeypatch):
         output_dir = _isolated_dirs[1]
+        output_dir.mkdir(parents=True, exist_ok=True)
         state_path = output_dir / "state.json"
         state_path.write_text('{"schema_version": "wrong.v1", "claims": []}')
         monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", state_path)

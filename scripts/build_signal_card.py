@@ -17,9 +17,14 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from _runtime_io import load_json, write_json
+from _constants import (
+    CASELAB_STRONG_THRESHOLD, CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD,
+    SIGNAL_DIRECTION_BEARISH, SIGNAL_DIRECTION_BULLISH,
+    SIGNAL_SIZE_LARGE, SIGNAL_SIZE_MODERATE, SIGNAL_SIZE_SMALL,
+    TRADING_DAYS_PER_YEAR,
+)
+from _runtime_io import ROOT, ensure_dir, load_json, write_json
 
-ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
 TRADE_DECISION = ROOT / "Output" / "trade_decision"
@@ -56,9 +61,9 @@ def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
         if raw is None:
             direction = "N/A"
         elif isinstance(raw, (int, float)):
-            if raw > 0.4:
+            if raw > SIGNAL_DIRECTION_BULLISH:
                 direction = "bullish"
-            elif raw < -0.4:
+            elif raw < SIGNAL_DIRECTION_BEARISH:
                 direction = "bearish"
             else:
                 direction = "neutral"
@@ -70,11 +75,11 @@ def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
             size = "N/A"
         else:
             abs_val = abs(raw)
-            if abs_val > 1.5:
+            if abs_val > SIGNAL_SIZE_LARGE:
                 size = "large"
-            elif abs_val > 0.7:
+            elif abs_val > SIGNAL_SIZE_MODERATE:
                 size = "moderate"
-            elif abs_val > 0.3:
+            elif abs_val > SIGNAL_SIZE_SMALL:
                 size = "small"
             else:
                 size = "negligible"
@@ -202,9 +207,9 @@ def _classify_gates(judgment: dict, fw: dict, hmm_data: dict | None,
     top_score = mq.get("top_score", 0)
     mq_label = mq.get("label", "unknown")
     thresholds = mq.get("thresholds", {})
-    strong_th = thresholds.get("strong", 0.7)
-    usable_th = thresholds.get("usable", 0.55)
-    weak_th = thresholds.get("weak", 0.4)
+    strong_th = thresholds.get("strong", CASELAB_STRONG_THRESHOLD)
+    usable_th = thresholds.get("usable", CASELAB_USABLE_THRESHOLD)
+    weak_th = thresholds.get("weak", CASELAB_WEAK_THRESHOLD)
 
     if top_score >= strong_th:
         cl_class = "adopted"
@@ -344,7 +349,7 @@ def _analyze_counterfactuals(judgment: dict, fw: dict, hmm_data: dict | None,
                 f"PROXY_REDUCED. HMM regime={hmm_regime} would gain interpretive weight "
                 f"but cannot alone lift the ceiling."
             ),
-            "what_needed": "Sample days ≥ 252, rolling refit agreement ≥ 0.7, label stability ≥ 0.6",
+            "what_needed": f"Sample days ≥ {TRADING_DAYS_PER_YEAR}, rolling refit agreement ≥ 0.7, label stability ≥ 0.6",
             "current_state": f"HMM = {gate_status.get('hmm_stability', '?')}; regime={hmm_regime}",
             "removes_blocker": True,
             "lifts_ceiling": False,
@@ -413,8 +418,8 @@ def _analyze_counterfactuals(judgment: dict, fw: dict, hmm_data: dict | None,
     mq = caselab_data.get("match_quality", {}) if caselab_data else {}
     top_score = mq.get("top_score", 0)
     thresholds = mq.get("thresholds", {})
-    usable_th = thresholds.get("usable", 0.55)
-    strong_th = thresholds.get("strong", 0.7)
+    usable_th = thresholds.get("usable", CASELAB_USABLE_THRESHOLD)
+    strong_th = thresholds.get("strong", CASELAB_STRONG_THRESHOLD)
 
     if top_score < usable_th:
         gap_to_usable = usable_th - top_score
@@ -426,7 +431,7 @@ def _analyze_counterfactuals(judgment: dict, fw: dict, hmm_data: dict | None,
                 f"At usable, CaseLab could contribute historical analogy as background context. "
                 f"At strong (gap={gap_to_strong:.3f}), it could support claim ceiling upgrade."
             ),
-            "what_needed": "CaseLab match score > 0.55 with approved source",
+            "what_needed": f"CaseLab match score > {CASELAB_USABLE_THRESHOLD} with approved source",
             "current_state": f"top_score={top_score:.3f}, label={mq.get('label', '?')}",
             "removes_blocker": False,
             "lifts_ceiling": False,
@@ -798,7 +803,7 @@ def main() -> None:
 
     card = build_signal_card()
 
-    CURRENT.mkdir(parents=True, exist_ok=True)
+    ensure_dir(CURRENT)
 
     json_path = CURRENT / "signal_card.json"
     write_json(json_path, card)

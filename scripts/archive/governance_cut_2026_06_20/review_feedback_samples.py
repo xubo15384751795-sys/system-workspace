@@ -15,13 +15,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths

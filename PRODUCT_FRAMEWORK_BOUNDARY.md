@@ -132,14 +132,14 @@ Protocol / Contracts:
   dashboard_snapshot.json
 
 Framework Core:
-  Structural Deformation Research System/src/proxies/
-  Structural Deformation Research System/src/derivation/
-  Structural Deformation Research System/src/operators/
-  Structural Deformation Research System/src/diagnostics/
-  Structural Deformation Research System/src/dynamics/
-  Structural Deformation Research System/src/interpretation/
-  Structural Deformation Research System/wiki/
-  Structural Deformation Research System/papers/
+  deformation-framework/src/proxies/
+  deformation-framework/src/derivation/
+  deformation-framework/src/operators/
+  deformation-framework/src/diagnostics/
+  deformation-framework/src/dynamics/
+  deformation-framework/src/interpretation/
+  deformation-framework/wiki/
+  deformation-framework/papers/
 
 Data Provider:
   structural-risk-harvester/

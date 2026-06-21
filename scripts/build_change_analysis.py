@@ -17,22 +17,17 @@ from __future__ import annotations
 
 import json
 import statistics
-import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from _workspace_imports import add_scripts
+add_scripts()
+
+from _runtime_io import ROOT, load_json  # noqa: E402
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 CURRENT_DIR = ROOT / "Output" / "current"
 LOOKBACK_DAYS = 7
-
-
-def _load_json(path: Path) -> dict | None:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 def _collect_daily_files(directory: Path, prefix: str = "", suffix: str = ".json") -> list[tuple[str, dict]]:
@@ -43,7 +38,7 @@ def _collect_daily_files(directory: Path, prefix: str = "", suffix: str = ".json
         name = f.stem
         if len(name) >= 10 and name[:4].isdigit() and name[4] == "-":
             date_str = name[:10]
-            data = _load_json(f)
+            data = load_json(f)
             if data is not None:
                 files.append((date_str, data))
     return files[-LOOKBACK_DAYS:]
@@ -257,7 +252,7 @@ def build_change_analysis() -> dict:
 
     # Current framework output
     fw_path = CURRENT_DIR / "framework_output.json"
-    fw = _load_json(fw_path)
+    fw = load_json(fw_path)
     current_sigma = _extract_sigma_vector(fw) if fw else {}
 
     # Build sigma vector history from judgment claim statements

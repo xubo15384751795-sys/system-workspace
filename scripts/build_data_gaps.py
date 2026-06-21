@@ -22,36 +22,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from _runtime_io import ROOT, ensure_dir, load_json as _load_json, load_yaml as _load_yaml  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
-DATA_AUTHORITY_PATH = ROOT / "governance" / "data_authority_registry.yaml"
+DATA_AUTHORITY_PATH = ROOT / "governance" / "authority_registry.yaml"
 DATA_REQUEST_PATH = ROOT / "governance" / "data_request_registry.yaml"
-
-try:
-    import yaml
-except ImportError:
-    yaml = None
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def _load_yaml(path: Path) -> dict[str, Any] | None:
-    if not path.exists() or yaml is None:
-        return None
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -294,13 +272,13 @@ def _match_gaps_to_requests(
 # ---------------------------------------------------------------------------
 
 def _check_data_authority_gaps() -> list[dict[str, str]]:
-    """Check data_authority_registry for entries needing Harvester migration."""
+    """Check authority_registry for data sources needing Harvester migration."""
     reg = _load_yaml(DATA_AUTHORITY_PATH)
     if not reg:
         return []
 
     gaps = []
-    for entry in reg.get("entries", []):
+    for entry in reg.get("data_sources", []):
         auth = entry.get("authority", "")
         if auth == "non_harvester_transitional":
             gaps.append({
@@ -628,7 +606,7 @@ def main() -> None:
 
     report = build_data_gaps()
 
-    CURRENT.mkdir(parents=True, exist_ok=True)
+    ensure_dir(CURRENT)
 
     json_path = CURRENT / "data_gaps.json"
     json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

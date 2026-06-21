@@ -23,8 +23,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
 
 HORIZON_ROOT = Path(os.environ.get("HORIZON_ROOT", str(ROOT.parent / "Horizon")))
 HORIZON_OUTPUT_DIR = HORIZON_ROOT / "Output"
@@ -199,7 +198,6 @@ def _derive_event_entities(event: dict[str, Any]) -> set[str]:
     if not entities:
         title = event.get("title", "")
         # Extract capitalized sequences as potential entity names
-        import re
         caps = re.findall(r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*", title)
         for cap in caps:
             entities.add(cap.lower())

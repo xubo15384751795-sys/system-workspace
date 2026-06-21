@@ -18,16 +18,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+logger = logging.getLogger(__name__)
+
 from _workspace_imports import add_scripts
 add_scripts()
+from _constants import (
+    FEEDBACK_MDD_SAFE, FEEDBACK_MDD_WARNING,
+    FEEDBACK_SPY_1M_DROP, FEEDBACK_SPY_1M_GAIN, FEEDBACK_SPY_1W_DROP,
+    FEEDBACK_VIX_SPIKE,
+)
+from _runtime_io import ROOT, ensure_dir
 from _runtime_io import (
     ensure_dir,
     load_json,
@@ -36,6 +43,7 @@ from _runtime_io import (
     utc_now,
     write_json,
 )
+from _market_data import build_close_matrix, load_fred_csv, load_panel  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -55,25 +63,9 @@ REVIEW_QUEUE_PATH = ROOT / "Output" / "feedback_samples" / "review_queue.jsonl"
 
 def _load_market_data() -> tuple[pd.DataFrame, pd.Series | None]:
     """Load close price matrix and VIX series."""
-    panel = pd.read_parquet(PANEL_PATH)
-    panel["date"] = pd.to_datetime(panel["date"])
-    # Build per-symbol Series to avoid groupby/unstack index corruption
-    symbols = sorted(panel["symbol"].unique())
-    series_map = {}
-    for sym in symbols:
-        sub = panel[panel["symbol"] == sym][["date", "close"]].set_index("date")["close"]
-        series_map[sym] = sub
-    close_matrix = pd.DataFrame(series_map).sort_index()
-
-    vix_series = None
-    if VIX_PATH.exists():
-        try:
-            vix_df = pd.read_csv(VIX_PATH, parse_dates=["DATE"], index_col="DATE")
-            vix_series = pd.to_numeric(vix_df.iloc[:, 0], errors="coerce").dropna()
-            vix_series.index = pd.to_datetime(vix_series.index)
-        except Exception:
-            pass
-
+    panel = load_panel(PANEL_PATH)
+    close_matrix = build_close_matrix(panel)
+    vix_series = load_fred_csv(VIX_PATH)
     return close_matrix, vix_series
 
 
@@ -180,13 +172,13 @@ def compute_forward_outcome(
     mdd = outcome.get("max_drawdown_1m")
 
     stress = False
-    if spy_1w is not None and spy_1w < -0.03:
+    if spy_1w is not None and spy_1w < FEEDBACK_SPY_1W_DROP:
         stress = True
-    if spy_1m is not None and spy_1m < -0.05:
+    if spy_1m is not None and spy_1m < FEEDBACK_SPY_1M_DROP:
         stress = True
-    if vix_change_1w is not None and vix_change_1w > 5:
+    if vix_change_1w is not None and vix_change_1w > FEEDBACK_VIX_SPIKE:
         stress = True
-    if mdd is not None and mdd < -0.05:
+    if mdd is not None and mdd < FEEDBACK_MDD_WARNING:
         stress = True
     outcome["stress_event_happened"] = stress
 
@@ -219,15 +211,15 @@ def auto_label(sample: dict, outcome: dict) -> tuple[str, str]:
 
     # Decision was WATCH/RESEARCH_REVIEW but no stress
     if decision in ("WATCH", "RESEARCH_REVIEW") and not stress:
-        if mdd is not None and mdd > -0.02:
+        if mdd is not None and mdd > FEEDBACK_MDD_SAFE:
             return "false_positive", f"System flagged ({decision}) but no significant drawdown (MDD={mdd})"
         return "correct_but_low_value", f"System flagged ({decision}) but market was calm"
 
     # Decision was NO_TRADE and stress happened
     if decision == "NO_TRADE" and stress:
-        if mdd is not None and mdd < -0.05:
+        if mdd is not None and mdd < FEEDBACK_MDD_WARNING:
             return "missed_stress", f"System said NO_TRADE ({confidence}) but stress hit (MDD={mdd})"
-        if spy_1w is not None and spy_1w < -0.03:
+        if spy_1w is not None and spy_1w < FEEDBACK_SPY_1W_DROP:
             return "missed_stress", f"System said NO_TRADE but SPY dropped {spy_1w:.1%} in 1w"
 
     # Decision was NO_TRADE and no stress — correct
@@ -236,9 +228,9 @@ def auto_label(sample: dict, outcome: dict) -> tuple[str, str]:
 
     # Mechanism hypothesis direction check
     mech = judgment.get("mechanism_hypothesis", "").lower()
-    if "stress" in mech and spy_1m is not None and spy_1m > 0.03:
+    if "stress" in mech and spy_1m is not None and spy_1m > FEEDBACK_SPY_1M_GAIN:
         return "misleading", f"Mechanism suggested stress but SPY rallied {spy_1m:.1%} in 1m"
-    if "relief" in mech and spy_1m is not None and spy_1m < -0.03:
+    if "relief" in mech and spy_1m is not None and spy_1m < FEEDBACK_SPY_1W_DROP:  # -0.03 threshold for monthly
         return "misleading", f"Mechanism suggested relief but SPY dropped {spy_1m:.1%} in 1m"
 
     return "needs_review", "Auto-labeler could not determine — needs human review"

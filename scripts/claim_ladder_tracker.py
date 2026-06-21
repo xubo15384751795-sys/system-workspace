@@ -17,12 +17,17 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
+import logging
+import math
+import operator
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_yaml, utc_now, write_json
+from _constants import CASELAB_USABLE_THRESHOLD
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, load_yaml, utc_now, write_json
+
+logger = logging.getLogger(__name__)
 
 RUNS_DIR = ROOT / "Output" / "runs"
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
@@ -55,6 +60,7 @@ def find_previous_run_dir() -> Path | None:
                 if manifest and manifest.get("status") in ("success", "partial_failure"):
                     return run_dir
             except Exception:
+                logger.debug("Failed to read manifest at %s", manifest_path, exc_info=True)
                 continue
     return None
 
@@ -73,6 +79,7 @@ def find_previous_claim_run_dir() -> Path | None:
         try:
             manifest = load_json(manifest_path)
         except Exception:
+            logger.debug("Failed to read manifest for claim run at %s", manifest_path, exc_info=True)
             continue
         if not manifest or manifest.get("status") not in ("success", "partial_failure", "PARTIAL"):
             continue
@@ -141,8 +148,7 @@ def check_caselab_improvement(
     prev_gap = prev_claim.get("metadata", {}).get("caselab_score_gap", 0)
 
     # Read current CaseLab
-    import datetime as _dt
-    today = _dt.date.today().isoformat()
+    today = date.today().isoformat()
     caselab_path = CASELAB_DIR / f"{today}.json"
     current_gap = prev_gap  # default: no change
     if caselab_path.exists():
@@ -150,10 +156,10 @@ def check_caselab_improvement(
             caselab = load_json(caselab_path) or {}
             mq = caselab.get("match_quality", {})
             top_score = mq.get("top_score", 0)
-            usable_th = mq.get("thresholds", {}).get("usable", 0.55)
+            usable_th = mq.get("thresholds", {}).get("usable", CASELAB_USABLE_THRESHOLD)
             current_gap = round(max(0, usable_th - top_score), 3)
         except Exception:
-            pass
+            logger.debug("Failed to read CaseLab match quality", exc_info=True)
 
     improved = current_gap < prev_gap
     return {
@@ -260,7 +266,6 @@ def _load_replay_evidence() -> dict[str, Any]:
         return defaults
 
     try:
-        import math
         data = load_json(REPLAY_EVALUATION_PATH) or {}
         summary = data.get("summary", [])
         if not summary:
@@ -303,6 +308,7 @@ def _load_replay_evidence() -> dict[str, Any]:
             "mechanism_misleading_rate": round(misleading_rate, 3),
         }
     except Exception:
+        logger.debug("Failed to load replay evidence from %s", REPLAY_EVALUATION_PATH, exc_info=True)
         return defaults
 
 
@@ -321,6 +327,7 @@ def _load_learning_hub_severity() -> int:
         )
         return int(mask.sum())
     except Exception:
+        logger.debug("Failed to load Learning Hub improvement queue from %s", IMPROVEMENT_QUEUE_PATH, exc_info=True)
         return 0
 
 
@@ -344,6 +351,7 @@ def _load_data_quality_grade() -> str:
         else:
             return "D"
     except Exception:
+        logger.debug("Failed to load data quality grade", exc_info=True)
         return "D"
 
 
@@ -365,6 +373,7 @@ def _load_invalidation_sample_evidence() -> dict[str, Any]:
     try:
         entries = load_jsonl(review_queue)
     except Exception:
+        logger.debug("Failed to load invalidation samples from %s", review_queue, exc_info=True)
         return defaults
 
     if not entries:
@@ -464,8 +473,6 @@ def _check_rule(rule: str, evidence: dict[str, Any]) -> bool:
     Rules are simple comparisons like "caselab_top_score >= 0.30" or
     "hmm_conflict == false".  Supports OR for compound rules.
     """
-    import operator
-
     ops = {
         ">=": operator.ge,
         "<=": operator.le,
@@ -557,7 +564,7 @@ def apply_transitions(
         prev_hmm_consecutive = existing_claims.get(hypothesis, {}).get("evidence", {}).get("hmm_conflict_consecutive_runs", 0)
 
         evidence = {
-            "caselab_top_score": max(0, 0.55 - caselab_gap),
+            "caselab_top_score": max(0, CASELAB_USABLE_THRESHOLD - caselab_gap),
             "md_direction": checks.get("md_persistence", {}).get("current_direction", "unknown"),
             "md_direction_reversed": checks.get("md_persistence", {}).get("status") == "reversed",
             "md_direction_consecutive_runs": (prev_md_consecutive + 1) if md_persisted else 0,

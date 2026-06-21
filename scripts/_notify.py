@@ -21,7 +21,8 @@ import subprocess
 import sys
 import urllib.request
 from datetime import UTC, datetime
-from typing import Any
+
+from _constants import TIMEOUT_SHORT
 
 
 def _notify_webhook(title: str, message: str) -> bool:
@@ -49,7 +50,7 @@ def _notify_webhook(title: str, message: str) -> bool:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_SHORT) as resp:
             return resp.status < 400
     except Exception:
         return False
@@ -79,7 +80,7 @@ def _notify_desktop(title: str, message: str) -> bool:
             ["osascript", "-e", script],
             check=False,
             capture_output=True,
-            timeout=10,
+            timeout=TIMEOUT_SHORT,
         )
         return True
     except (OSError, subprocess.TimeoutExpired):

@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, load_yaml, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, load_yaml, utc_now, write_json
 
 REGISTRY_PATH = ROOT / "governance" / "operator_registry.yaml"
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
@@ -35,7 +35,6 @@ def extract_daily_run_steps() -> list[str]:
     steps = []
     content = DAILY_RUN_PATH.read_text(encoding="utf-8")
     # Look for run_step calls
-    import re
     matches = re.findall(r'run_step\("([^"]+)"', content)
     return list(set(matches))
 

@@ -27,11 +27,22 @@ from typing import Any
 
 import numpy as np
 
-from _runtime_io import as_float as _as_float, ensure_dir, load_json, utc_now, write_json
+from _constants import (
+    HMM_CALIBRATION_ENTROPY_THRESHOLD,
+    HMM_DEGENERATE_ENTROPY_THRESHOLD,
+    HMM_MIN_COMPATIBLE_HISTORY_CALIBRATION,
+    HMM_MIN_COMPATIBLE_HISTORY_FULL,
+    HMM_MIN_FEATURE_COUNT,
+    HMM_MIN_LABEL_STABILITY,
+    HMM_MIN_ROLLING_REFIT,
+    HMM_STATE_BALANCE_MAX_PROP,
+    HMM_MEANINGFUL_PROB_THRESHOLD,
+    TRADING_DAYS_PER_YEAR,
+)
+from _runtime_io import ROOT, as_float as _as_float, ensure_dir, load_json, utc_now, write_json
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[1]
 HMM_DIR = ROOT / "Output" / "ml_signals"
 HMM_LATEST = HMM_DIR / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "hmm_stability"
@@ -87,7 +98,7 @@ def compute_label_stability(history: list[dict[str, Any]], window: int = 10) -> 
 def check_state_distribution(hmm: dict[str, Any]) -> dict[str, Any]:
     """Check if state distribution is balanced."""
     regime = hmm.get("regime", {})
-    
+
     # Try state_distribution first, then state_probs
     states = regime.get("state_distribution", {})
     if not states:
@@ -107,8 +118,8 @@ def check_state_distribution(hmm: dict[str, Any]) -> dict[str, Any]:
     # Balanced if:
     # 1. No state dominates too much (< 0.95), OR
     # 2. At least 2 states have meaningful probability (> 0.01)
-    states_with_prob = sum(1 for v in proportions.values() if v > 0.01)
-    balanced = max_prop < 0.95 or states_with_prob >= 2
+    states_with_prob = sum(1 for v in proportions.values() if v > HMM_MEANINGFUL_PROB_THRESHOLD)
+    balanced = max_prop < HMM_STATE_BALANCE_MAX_PROP or states_with_prob >= 2
 
     return {
         "balanced": balanced,
@@ -188,19 +199,19 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
     model_health_issues = []
     model_health = "PASS"
 
-    if sample_days < 252:
-        model_health_issues.append(f"Sample days={sample_days} < 252 — limited training data")
+    if sample_days < TRADING_DAYS_PER_YEAR:
+        model_health_issues.append(f"Sample days={sample_days} < {TRADING_DAYS_PER_YEAR} — limited training data")
         model_health = "FAIL"
 
-    if feature_count < 3:
-        model_health_issues.append(f"Feature count={feature_count} < 3 — may be underfitting")
+    if feature_count < HMM_MIN_FEATURE_COUNT:
+        model_health_issues.append(f"Feature count={feature_count} < {HMM_MIN_FEATURE_COUNT} — may be underfitting")
         model_health = "FAIL"
 
     if not dist_check["balanced"]:
         model_health_issues.append(f"State distribution imbalanced: max={dist_check.get('max_proportion', '?')}")
         model_health = "WATCH"
 
-    if posterior_entropy < 0.01:
+    if posterior_entropy < HMM_DEGENERATE_ENTROPY_THRESHOLD:
         # Extremely low entropy is a model health issue (degenerate posterior)
         model_health_issues.append(f"Posterior entropy={posterior_entropy:.4f} near zero — degenerate posterior")
         model_health = "FAIL"
@@ -212,22 +223,22 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
     # Do we have enough history to trust the model's outputs?
     calibration_issues = []
 
-    if len(compatible_history) < 2:
+    if len(compatible_history) < HMM_MIN_COMPATIBLE_HISTORY_CALIBRATION:
         calibration_status = "INSUFFICIENT_HISTORY"
         calibration_issues.append(
             f"Only {len(compatible_history)} compatible runs — "
-            f"need >= 2 for rolling refit, >= 10 for calibration"
+            f"need >= {HMM_MIN_COMPATIBLE_HISTORY_CALIBRATION} for rolling refit, >= {HMM_MIN_COMPATIBLE_HISTORY_FULL} for calibration"
         )
-    elif len(compatible_history) < 10:
+    elif len(compatible_history) < HMM_MIN_COMPATIBLE_HISTORY_FULL:
         calibration_status = "CALIBRATING"
-        if rolling_refit < 0.7:
+        if rolling_refit < HMM_MIN_ROLLING_REFIT:
             calibration_issues.append(
-                f"Rolling refit agreement={rolling_refit:.3f} < 0.7 — "
+                f"Rolling refit agreement={rolling_refit:.3f} < {HMM_MIN_ROLLING_REFIT} — "
                 f"needs more consistent runs"
             )
-        if label_stability < 0.6:
+        if label_stability < HMM_MIN_LABEL_STABILITY:
             calibration_issues.append(
-                f"Label stability={label_stability:.3f} < 0.6 — "
+                f"Label stability={label_stability:.3f} < {HMM_MIN_LABEL_STABILITY} — "
                 f"regime labels still stabilizing"
             )
         if not calibration_issues:
@@ -237,17 +248,17 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
             )
     else:
         # 10+ compatible runs — check if calibration passes
-        if rolling_refit >= 0.7 and label_stability >= 0.6 and posterior_entropy >= 0.1:
+        if rolling_refit >= HMM_MIN_ROLLING_REFIT and label_stability >= HMM_MIN_LABEL_STABILITY and posterior_entropy >= HMM_CALIBRATION_ENTROPY_THRESHOLD:
             calibration_status = "PASSED"
             calibration_issues.append("Calibration checks passed")
         else:
             calibration_status = "CALIBRATING"
-            if rolling_refit < 0.7:
-                calibration_issues.append(f"Rolling refit={rolling_refit:.3f} < 0.7")
-            if label_stability < 0.6:
-                calibration_issues.append(f"Label stability={label_stability:.3f} < 0.6")
-            if posterior_entropy < 0.1:
-                calibration_issues.append(f"Entropy={posterior_entropy:.3f} < 0.1")
+            if rolling_refit < HMM_MIN_ROLLING_REFIT:
+                calibration_issues.append(f"Rolling refit={rolling_refit:.3f} < {HMM_MIN_ROLLING_REFIT}")
+            if label_stability < HMM_MIN_LABEL_STABILITY:
+                calibration_issues.append(f"Label stability={label_stability:.3f} < {HMM_MIN_LABEL_STABILITY}")
+            if posterior_entropy < HMM_CALIBRATION_ENTROPY_THRESHOLD:
+                calibration_issues.append(f"Entropy={posterior_entropy:.3f} < {HMM_CALIBRATION_ENTROPY_THRESHOLD}")
 
     # ── Combined Grade (backward compat) ─────────────────────────────
     if model_health == "FAIL" or calibration_status == "INSUFFICIENT_HISTORY":

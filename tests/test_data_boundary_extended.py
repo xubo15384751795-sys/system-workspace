@@ -10,22 +10,23 @@ import ast
 from pathlib import Path
 import sys
 
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-FRAMEWORK_SRC = ROOT / "Structural Deformation Research System" / "src"
+FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
 
 
 def test_create_data_hub_not_in_public_all() -> None:
     """create_data_hub must not be in src/data/__all__ (legacy, not public API)."""
     init_path = FRAMEWORK_SRC / "data" / "__init__.py"
     if not init_path.exists():
-        return
+        pytest.skip("Framework data __init__.py not found")
     source = init_path.read_text(encoding="utf-8")
     # Parse the __all__ list
     try:
         tree = ast.parse(source)
     except SyntaxError:
-        return
+        pytest.skip("Framework data __init__.py has syntax errors")
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -53,7 +54,7 @@ def test_create_data_hub_still_importable() -> None:
     """create_data_hub must remain importable for legacy replay/compare."""
     init_path = FRAMEWORK_SRC / "data" / "__init__.py"
     if not init_path.exists():
-        return
+        pytest.skip("Framework data __init__.py not found")
     source = init_path.read_text(encoding="utf-8")
     assert "create_data_hub" in source, (
         "create_data_hub removed from import — must remain importable for legacy use"
@@ -64,7 +65,7 @@ def test_data_access_has_no_http_imports() -> None:
     """src/data_access/ must not import HTTP client libraries."""
     data_access = FRAMEWORK_SRC / "data_access"
     if not data_access.exists():
-        return
+        pytest.skip("Framework data_access directory not found")
     forbidden = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3"}
     violations = []
     for py_file in data_access.rglob("*.py"):
@@ -93,7 +94,7 @@ def test_build_system_default_is_harvester() -> None:
     """build_system() must default to harvester backend."""
     assembly = FRAMEWORK_SRC / "runtime" / "assembly.py"
     if not assembly.exists():
-        return
+        pytest.skip("Framework assembly.py not found")
     source = assembly.read_text(encoding="utf-8")
     # The _resolve_data_backend function should default to "harvester"
     assert '"harvester"' in source
@@ -103,7 +104,7 @@ def test_build_system_legacy_has_deprecation_warning() -> None:
     """Legacy backend path must emit DeprecationWarning."""
     assembly = FRAMEWORK_SRC / "runtime" / "assembly.py"
     if not assembly.exists():
-        return
+        pytest.skip("Framework assembly.py not found")
     source = assembly.read_text(encoding="utf-8")
     assert "DeprecationWarning" in source or "ALLOW_LEGACY_DATAHUB" in source, (
         "Legacy backend path missing DeprecationWarning or ALLOW_LEGACY_DATAHUB guard"

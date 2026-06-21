@@ -41,7 +41,7 @@ def _registered_scripts(registry: dict) -> set[str]:
 
 
 def _root_scripts() -> set[str]:
-    return {f"scripts/{p.name}" for p in SCRIPTS_DIR.iterdir() if p.suffix == ".py" and p.is_file()}
+    return {f"scripts/{p.name}" for p in SCRIPTS_DIR.iterdir() if p.suffix == ".py" and p.is_file() and p.name != "__init__.py"}
 
 
 def test_all_root_scripts_registered() -> None:

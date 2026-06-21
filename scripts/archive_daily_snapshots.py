@@ -19,8 +19,7 @@ import json
 import shutil
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 FRAMEWORK_SRC = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"

@@ -22,10 +22,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir
+from _constants import TRADING_DAYS_PER_YEAR  # noqa: E402
+
 ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 OUTPUT_DIR = ROOT / "Output" / "probabilistic_context"
 
@@ -88,8 +89,8 @@ def compute_forecast_for_series(
         if returns.empty:
             continue
 
-        # Use last 252 days for estimation
-        recent_returns = returns.tail(252)
+        # Use last TRADING_DAYS_PER_YEAR days for estimation
+        recent_returns = returns.tail(TRADING_DAYS_PER_YEAR)
 
         intervals = estimate_forecast_intervals(recent_returns)
         tail_prob = estimate_tail_probability(recent_returns)
@@ -262,7 +263,7 @@ def format_markdown(context: dict[str, Any]) -> str:
 
 def write_outputs(context: dict[str, Any]) -> dict[str, Path]:
     """Write probabilistic context outputs."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "latest.json"
     md_path = OUTPUT_DIR / "latest.md"

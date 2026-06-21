@@ -21,14 +21,13 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_root, add_scripts
 add_root()
 add_scripts()
 
 from caselab_context.paper_paths import paper_root  # noqa: E402
 
-from _runtime_io import load_json, utc_now, write_json  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json  # noqa: E402
 
 GATE_PATH = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 WEIGHTS_PATH = ROOT / "Data" / "nlp" / "caselab_calibration" / "weight_adjustments.json"
@@ -138,7 +137,7 @@ def suggest_paper_updates(
     content = _render_suggestion_draft(date_str, gate, recommendations, calibration)
 
     if not dry_run:
-        inbox.mkdir(parents=True, exist_ok=True)
+        ensure_dir(inbox)
         target.write_text(content, encoding="utf-8")
         write_json(REPORT_PATH, report)
 

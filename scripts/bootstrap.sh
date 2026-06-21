@@ -77,7 +77,7 @@ if [ -f "$ROOT/.gitmodules" ]; then
   git submodule update --init --recursive
 else
   echo "[warn]   .gitmodules not found — falling back to direct clone (legacy checkout)"
-  clone_or_update "Structural-Deformation-Research-System" "Structural Deformation Research System"
+  clone_or_update "Structural-Deformation-Research-System" "deformation-framework"
   clone_or_update "structural-workbench"                    "Workbench"
   clone_or_update "structural-risk-harvester"               "structural-risk-harvester"
   clone_or_update "system-learning-hub"                     "system-learning-hub"
@@ -117,10 +117,10 @@ Next steps (venvs are deliberately not created automatically):
   pip install -e "Workbench[dev]"
   deactivate
 
-  # Structural Deformation Research System
-  python3 -m venv "Structural Deformation Research System/.venv"
-  source "Structural Deformation Research System/.venv/bin/activate"
-  pip install -e "Structural Deformation Research System"
+  # deformation-framework
+  python3 -m venv "deformation-framework/.venv"
+  source "deformation-framework/.venv/bin/activate"
+  pip install -e "deformation-framework"
   deactivate
 
   # Structural Risk Harvester

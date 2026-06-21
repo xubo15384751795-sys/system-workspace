@@ -18,9 +18,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from _runtime_io import load_json
+from _runtime_io import ROOT, ensure_dir, load_json
 
-ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 FRAMEWORK_OUTPUT_PATH = ROOT / "Output" / "current" / "framework_output.json"
 OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
@@ -215,7 +214,7 @@ def main() -> None:
         print(json.dumps(index, indent=2, ensure_ascii=False))
     else:
         md = build_readme_from_index(index, framework_output)
-        OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(OUTPUT_PATH.parent)
         OUTPUT_PATH.write_text(md, encoding="utf-8")
         print(f"Wrote: {OUTPUT_PATH}")
 

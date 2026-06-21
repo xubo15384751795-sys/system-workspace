@@ -21,9 +21,8 @@ import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from _runtime_io import load_json
+from _runtime_io import ROOT, ensure_dir, load_json
 
-ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "Output"
 DATA_DIR = ROOT / "Data"
 INDEX_DIR = DATA_DIR / "system_index"
@@ -343,7 +342,7 @@ def write_readme() -> None:
         "- Do NOT cache this file across sessions",
         "- Always read fresh from disk",
     ]
-    INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(INDEX_DIR)
     (INDEX_DIR / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -354,7 +353,7 @@ def main() -> None:
 
     index = build_index()
 
-    INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(INDEX_DIR)
     INDEX_PATH.write_text(json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     write_readme()
 

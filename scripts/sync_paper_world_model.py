@@ -36,9 +36,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _workspace_imports import add_root
+from _workspace_imports import add_root, add_scripts
 add_root()
+add_scripts()
+
+from _runtime_io import ROOT, ensure_dir
 
 from caselab_context.paper_paths import paper_root  # noqa: E402
 
@@ -340,7 +342,7 @@ def scan_directory(dir_path: Path, extractor_name: str, paper_dir: Path) -> tupl
 
 
 def write_jsonl(data: list[dict], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_path.parent)
     with output_path.open("w", encoding="utf-8") as handle:
         for item in data:
             handle.write(json.dumps(item, ensure_ascii=False) + "\n")
@@ -527,7 +529,7 @@ def run_sync(
 
     validation_errors = validate_records(categories)
     if validation_errors:
-        report_dir.mkdir(parents=True, exist_ok=True)
+        ensure_dir(report_dir)
         error_path = report_dir / "validation_errors.json"
         error_path.write_text(
             json.dumps(
@@ -552,7 +554,7 @@ def run_sync(
         "record_counts": {key: len(val) for key, val in categories.items()},
         "jsonl_files": [f"{key}.jsonl" for key in categories],
     }
-    output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_dir)
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -567,7 +569,7 @@ def run_sync(
         categories["indicators"],
         categories["trade_ideas"],
     )
-    report_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(report_dir)
     (report_dir / "sync_report.md").write_text(report, encoding="utf-8")
 
     result = {

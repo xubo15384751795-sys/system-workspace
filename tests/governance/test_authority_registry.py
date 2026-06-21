@@ -14,7 +14,7 @@ from workbench.governance.authority import AuthorityRegistry, write_authority_ev
 
 
 def test_authority_registry_blocks_forbidden_operation() -> None:
-    registry = AuthorityRegistry(ROOT / "governance" / "module_authority_registry.yaml")
+    registry = AuthorityRegistry(ROOT / "governance" / "authority_registry.yaml")
 
     check = registry.check("Deformation", "DIRECT_HTTP_ACQUIRE")
 
@@ -39,4 +39,3 @@ def test_authority_event_classifies_violation(tmp_path) -> None:
     event = json.loads(path.read_text(encoding="utf-8"))
     assert event["event_type"] == "AUTHORITY_VIOLATION"
     assert event["severity"] == "HIGH"
-

@@ -17,21 +17,34 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
+import logging
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_json, utc_now, write_json
+logger = logging.getLogger(__name__)
+
+from _constants import (
+    CASELAB_STRONG_THRESHOLD, CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD,
+    DEFAULT_SIGMA_T,
+    D_DETERIORATION_THRESHOLD, D_IMPROVEMENT_THRESHOLD,
+    K_CURVATURE_COMPRESSED, K_CURVATURE_ELEVATED, K_CURVATURE_MODERATE, K_CURVATURE_STRONG_COMPRESS,
+    M_MACRO_RELIEF, M_MACRO_SIGNIFICANT, M_MACRO_STRESS,
+    SIGMA_COMPRESSION_LOW, SIGMA_ELEVATED,
+    STRESS_DIRECTION_DEPRESSED, STRESS_DIRECTION_ELEVATED,
+    STRESS_DIRECTION_MILD_BUILD, STRESS_DIRECTION_MILD_RELIEF,
+    STRESS_DIRECTION_STRONG_BUILD, STRESS_DIRECTION_STRONG_RELIEF,
+    X_CROSS_MARKET_DECLINE, X_CROSS_MARKET_ELEVATED, X_CROSS_MARKET_UNWIND,
+)
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 OUTPUT_DIR = ROOT / "Output" / "caselab"
 
-# Scoring policy thresholds
-STRONG_THRESHOLD = 0.70
-USABLE_THRESHOLD = 0.55
-WEAK_THRESHOLD = 0.40
+# Scoring policy thresholds — canonical values in _constants.py
+STRONG_THRESHOLD = CASELAB_STRONG_THRESHOLD
+USABLE_THRESHOLD = CASELAB_USABLE_THRESHOLD
+WEAK_THRESHOLD = CASELAB_WEAK_THRESHOLD
 
 
 def get_latest_state() -> dict:
@@ -73,7 +86,7 @@ def get_latest_state() -> dict:
             state["direction"] = str(basic.get("main_pressure", ""))
             state["pattern"] = str(basic.get("primary_market_space", ""))
         except Exception:
-            pass
+            logger.debug("Failed to read framework_output for state", exc_info=True)
 
     # Fallback: proxy_readings.parquet
     if state["M"] is None and proxy_path.exists():
@@ -143,7 +156,7 @@ def mdx_to_salvptau(state: dict) -> dict[str, float]:
     K = state.get("K") or 0.0
     D = state.get("D") or 0.0
     X = state.get("X") or 0.0
-    sigma = state.get("sigma_t") or 0.5
+    sigma = state.get("sigma_t") or DEFAULT_SIGMA_T
 
     # Directional indicators
     # stress_level: how much stress is present (use max of M,K,X, clamped to [0,1])
@@ -169,7 +182,7 @@ def mdx_to_salvptau(state: dict) -> dict[str, float]:
     }
 
     # Directional adjustment: if overall stress is DECREASING, reduce all vectors
-    if stress_direction < -0.3:
+    if stress_direction < STRESS_DIRECTION_DEPRESSED:
         reduction = min(0.4, abs(stress_direction) * 0.3)
         for k in vec:
             vec[k] = max(0.0, vec[k] - reduction)
@@ -215,7 +228,7 @@ def derive_tags(state: dict) -> list[str]:
     stress_direction = (M + K + X) / 3.0
 
     # Regime-aware tags based on M/D/K/X signs
-    if stress_direction > 0.3:
+    if stress_direction > STRESS_DIRECTION_ELEVATED:
         # Stress building — add stress tags from operators
         operators = " ".join(state.get("active_operators", [])).upper()
         op_tag_map = {
@@ -236,10 +249,10 @@ def derive_tags(state: dict) -> list[str]:
             if op_name in operators:
                 tags.extend(op_tags)
         tags.append("stress_building")
-    elif stress_direction < -0.3:
+    elif stress_direction < STRESS_DIRECTION_DEPRESSED:
         # Stress relieving — add relief tags
         tags.extend(["stress_relief", "deleveraging", "volatility_compression"])
-        if K < -0.5:
+        if K < K_CURVATURE_STRONG_COMPRESS:
             tags.append("structural_improvement")
         if M < -1.0:
             tags.append("macro_easing")
@@ -295,17 +308,17 @@ def derive_event_text(state: dict) -> str:
     pattern = state.get("pattern", "")
     stress_direction = (M + K + X) / 3.0
 
-    if stress_direction > 0.3:
+    if stress_direction > STRESS_DIRECTION_ELEVATED:
         # STRESS BUILDING — use stress keywords
-        if K > 0.6:
+        if K > K_CURVATURE_ELEVATED:
             parts.append("High structural stress in the system.")
-        elif K > 0.3:
+        elif K > K_CURVATURE_MODERATE:
             parts.append("Moderate structural stress with elevated vigilance.")
-        if D < -0.3:
+        if D < D_DETERIORATION_THRESHOLD:
             parts.append("Deteriorating conditions with negative D signal.")
-        if M > 0.5:
+        if M > M_MACRO_STRESS:
             parts.append("Macro stress elevated with policy pressure.")
-        if X > 0.4:
+        if X > X_CROSS_MARKET_ELEVATED:
             parts.append("Cross-market stress and shadow leverage building.")
         parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
 
@@ -323,17 +336,17 @@ def derive_event_text(state: dict) -> str:
                 if key in op.upper():
                     parts.append(desc)
 
-    elif stress_direction < -0.3:
+    elif stress_direction < STRESS_DIRECTION_DEPRESSED:
         # STRESS RELIEVING — use relief keywords for mechanism matching
         parts.append("M/D/K/X composite direction is negative, indicating pressure relief and deleveraging.")
         parts.append("Volatility compression with stabilizing conditions.")
-        if M < -0.5:
+        if M < M_MACRO_RELIEF:
             parts.append("M anchor relief — macro easing environment.")
-        if D < -0.5:
+        if D < D_IMPROVEMENT_THRESHOLD:
             parts.append("D path improvement — structural recovery.")
-        if K < -0.5:
+        if K < K_CURVATURE_STRONG_COMPRESS:
             parts.append("K curvature compressed — low structural stress.")
-        if X < -0.3:
+        if X < X_CROSS_MARKET_DECLINE:
             parts.append("X shadow-load unwinding — cross-market normalization.")
         parts.append(f"Pattern: {pattern}. Leading channel: {state.get('leading_channel', 'N/A')}.")
 
@@ -358,7 +371,7 @@ def detect_mechanism_types(state: dict) -> dict[str, Any]:
     K = state.get("K") or 0.0
     D = state.get("D") or 0.0
     X = state.get("X") or 0.0
-    sigma = state.get("sigma_t") or 0.5
+    sigma = state.get("sigma_t") or DEFAULT_SIGMA_T
     stress_direction = (M + K + X) / 3.0
     operators = " ".join(state.get("active_operators", [])).upper()
 
@@ -366,32 +379,32 @@ def detect_mechanism_types(state: dict) -> dict[str, Any]:
     missing_case_types: list[str] = []
 
     # Anchor drift: M is significant and moving
-    if abs(M) > 0.3:
+    if abs(M) > M_MACRO_SIGNIFICANT:
         mechanism_types.append("anchor_drift")
 
     # Funding path stress: funding-related operators active or high L
-    if "FUNDING" in operators or "LIQUIDITY" in operators or (abs(K) > 0.4 and abs(X) > 0.3):
+    if "FUNDING" in operators or "LIQUIDITY" in operators or (abs(K) > K_CURVATURE_MODERATE and abs(X) > X_CROSS_MARKET_DECLINE):
         mechanism_types.append("funding_path_stress")
 
     # Liquidity compression: low vol, low stress, compression-like
-    if stress_direction < -0.2 and sigma < 0.4:
+    if stress_direction < STRESS_DIRECTION_MILD_RELIEF and sigma < SIGMA_COMPRESSION_LOW:
         mechanism_types.append("liquidity_compression")
 
     # Leverage unwind: X declining, K declining, deleveraging
-    if stress_direction < -0.3 and X < -0.2:
+    if stress_direction < STRESS_DIRECTION_DEPRESSED and X < X_CROSS_MARKET_UNWIND:
         mechanism_types.append("leverage_unwind")
 
     # Volatility regime mismatch: HMM and M/D/K/X might diverge
     # (we detect this but let reconcile_regime confirm)
-    if abs(stress_direction) < 0.3 and sigma > 0.6:
+    if abs(stress_direction) < STRESS_DIRECTION_ELEVATED and sigma > SIGMA_ELEVATED:
         mechanism_types.append("volatility_regime_mismatch")
 
     # Relief decompression: overall stress declining
-    if stress_direction < -0.3:
+    if stress_direction < STRESS_DIRECTION_DEPRESSED:
         mechanism_types.append("relief_decompression")
 
     # Cross-market contagion: X elevated
-    if abs(X) > 0.4:
+    if abs(X) > X_CROSS_MARKET_ELEVATED:
         mechanism_types.append("cross_market_contagion")
 
     # Policy delay: policy operators active
@@ -400,7 +413,7 @@ def detect_mechanism_types(state: dict) -> dict[str, Any]:
 
     # If no mechanisms detected, note what we're missing
     if not mechanism_types:
-        if stress_direction < -0.2:
+        if stress_direction < STRESS_DIRECTION_MILD_RELIEF:
             missing_case_types.append("relief_decompression")
             missing_case_types.append("leverage_unwind")
         else:
@@ -472,10 +485,10 @@ def build_context_packet(state: dict, vec: dict, reconciliation: dict) -> dict[s
     stress_direction = (M + K + X) / 3.0
 
     # Direction and strength
-    if abs(stress_direction) < 0.2:
+    if abs(stress_direction) < STRESS_DIRECTION_MILD_BUILD:
         direction_label = "neutral"
         strength = "weak"
-    elif abs(stress_direction) < 0.5:
+    elif abs(stress_direction) < STRESS_DIRECTION_STRONG_BUILD:
         direction_label = "stress_relief" if stress_direction < 0 else "stress_building"
         strength = "moderate"
     else:
@@ -484,11 +497,11 @@ def build_context_packet(state: dict, vec: dict, reconciliation: dict) -> dict[s
 
     # K/X degradation reasons
     kx_notes = []
-    if K < -0.3:
+    if K < K_CURVATURE_COMPRESSED:
         kx_notes.append(f"K={K:.2f}: curvature proxy compressed — low structural stress signal")
-    if X < -0.2:
+    if X < X_CROSS_MARKET_UNWIND:
         kx_notes.append(f"X={X:.2f}: shadow-load declining — cross-market stress easing")
-    if abs(K) < 0.2 and abs(X) < 0.2:
+    if abs(K) < K_CURVATURE_MODERATE and abs(X) < X_CROSS_MARKET_DECLINE:
         kx_notes.append("K and X near neutral — no strong directional signal")
 
     return {
@@ -527,9 +540,6 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
     When they diverge, M/D/K/X should take precedence for structural analysis,
     because they measure the RATE OF CHANGE, not the LEVEL.
     """
-    import json as _json
-    from pathlib import Path as _Path
-
     M = state.get("M") or 0.0
     K = state.get("K") or 0.0
     D = state.get("D") or 0.0
@@ -537,20 +547,20 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
     stress_direction = (M + K + X) / 3.0
 
     # M/D/K/X regime
-    if stress_direction > 0.5:
+    if stress_direction > STRESS_DIRECTION_STRONG_BUILD:
         mdx_regime = "stress_building"
-    elif stress_direction > 0.2:
+    elif stress_direction > STRESS_DIRECTION_MILD_BUILD:
         mdx_regime = "elevated"
-    elif stress_direction > -0.2:
+    elif stress_direction > STRESS_DIRECTION_MILD_RELIEF:
         mdx_regime = "neutral"
-    elif stress_direction > -0.5:
+    elif stress_direction > STRESS_DIRECTION_STRONG_RELIEF:
         mdx_regime = "relieving"
     else:
         mdx_regime = "stress_relief"
 
     # HMM regime
     hmm_regime = "unknown"
-    hmm_path = _Path(str(ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"))
+    hmm_path = Path(str(ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"))
     state_date = str(state.get("date") or "")
     dated_path = None
     if state_date:
@@ -560,10 +570,10 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
     if hmm_path.exists():
         try:
             with open(hmm_path) as f:
-                hmm = _json.load(f)
+                hmm = json.load(f)
             hmm_regime = hmm.get("regime", {}).get("current", "unknown")
         except Exception:
-            pass
+            logger.debug("Failed to read HMM regime from %s", hmm_path, exc_info=True)
 
     # Reconciliation
     divergence = False
@@ -616,6 +626,7 @@ def _load_claim_ladder_mechanisms() -> list[str]:
                     mechanisms.append(m)
         return mechanisms
     except Exception:
+        logger.debug("Failed to parse mechanisms from resembles text", exc_info=True)
         return []
 
 
@@ -669,11 +680,11 @@ def _classify_review_priority(result, match_quality: str) -> str:
     """Classify a match for human review priority."""
     if match_quality == "strong":
         return "high"
-    if match_quality == "usable" and result.mechanism_score > 0.5:
+    if match_quality == "usable" and result.mechanism_score > CASELAB_USABLE_THRESHOLD:
         return "high"
     if match_quality == "usable":
         return "medium"
-    if result.mechanism_score > 0.5 and result.score > 0.45:
+    if result.mechanism_score > CASELAB_USABLE_THRESHOLD and result.score > CASELAB_WEAK_THRESHOLD:
         return "medium"
     return "low"
 
@@ -770,7 +781,7 @@ def _review_reason(m: dict, query_mechanisms: set[str]) -> str:
 
     if score >= USABLE_THRESHOLD:
         return "meets usable threshold"
-    if mech_score > 0.5:
+    if mech_score > CASELAB_USABLE_THRESHOLD:
         return f"strong mechanism match ({mech_score:.3f}) but overall score low"
     if len(matched) >= 2:
         return f"multiple mechanisms matched ({len(matched)}) but score still below threshold"

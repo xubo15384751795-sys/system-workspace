@@ -23,8 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import ensure_dir, load_yaml, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
 
 RULES_PATH = ROOT / "governance" / "proxy_quality_rules.yaml"
 REGISTRY_PATH = ROOT / "scripts" / "structural_replay_v2.py"

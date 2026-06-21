@@ -125,20 +125,22 @@ def test_verify_returns_empty_when_no_core_dirs():
 
 def test_approved_marker_allows_diagnostic():
     """Approved diagnostic marker with valid expiry → PASS."""
-    import tempfile
     import json as json_mod
+    import tempfile
 
-    # Create a mock judgment file with inputs.hmm referencing ml_signals
+    # Create a mock judgment file under Output/judgment/ so relative_to(ROOT) works
+    judgment_dir = ROOT / "Output" / "judgment"
+    judgment_dir.mkdir(parents=True, exist_ok=True)
     data = {"inputs": {"hmm": "/path/to/ml_signals/latest/regime_hmm.json"}, "decision": "WATCH"}
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, dir=ROOT / "Output" / "judgment") as f:
-        json_mod.dump(data, f)
-        f.flush()
-        filepath = Path(f.name)
+    filepath = judgment_dir / "_test_fixture.json"
+    filepath.write_text(json_mod.dumps(data))
 
-    # The approved marker for Output/judgment/*.json + inputs.hmm should match
-    result = classify_reference(filepath, "ml_signals", "inputs.hmm")
-    filepath.unlink()
+    try:
+        # The approved marker for Output/judgment/*.json + inputs.hmm should match
+        result = classify_reference(filepath, "ml_signals", "inputs.hmm")
 
-    assert result["classification"] == "allow_diagnostic"
-    assert result["decision"] == "PASS"
-    assert result["affects_core_judgment"] is False
+        assert result["classification"] == "allow_diagnostic"
+        assert result["decision"] == "PASS"
+        assert result["affects_core_judgment"] is False
+    finally:
+        filepath.unlink(missing_ok=True)

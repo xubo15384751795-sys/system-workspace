@@ -24,10 +24,13 @@ import json
 import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
-from _runtime_io import ensure_dir, load_json, utc_now, write_json  # noqa: E402
+from _constants import (
+    FEEDBACK_MISSED_RATE_HIGH, FEEDBACK_MISSED_RATE_MEDIUM,
+    FEEDBACK_STRESS_WINDOW_MISSED_HIGH, FEEDBACK_USEFUL_RATE_LOW,
+)  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -60,9 +63,9 @@ def _make_event(subsystem: str, event_type: str, severity: str,
 
 def _severity_from_rate(useful_rate: float, missed_rate: float) -> str:
     """Map useful/missed rates to severity level."""
-    if missed_rate > 0.4:
+    if missed_rate > FEEDBACK_MISSED_RATE_HIGH:
         return "high"
-    if missed_rate > 0.25 or useful_rate < 0.6:
+    if missed_rate > FEEDBACK_MISSED_RATE_MEDIUM or useful_rate < FEEDBACK_USEFUL_RATE_LOW:
         return "medium"
     return "info"
 
@@ -115,7 +118,7 @@ def generate_findings(summary: dict) -> tuple[list[dict], list[dict]]:
         sw_useful = stress_stats.get("useful_rate", 0)
         sw_missed = 1 - sw_useful
         sw_n = stress_stats.get("count", 0)
-        if sw_missed > 0.3:
+        if sw_missed > FEEDBACK_STRESS_WINDOW_MISSED_HIGH:
             queue_items.append({
                 "module": "workbench",
                 "issue_type": "stress_detection_gap",

@@ -39,7 +39,7 @@ RISKY_DIR_NAMES = [
 GENERATED_DIR_PATHS = {
     "Data",
     "Output",
-    "Structural Deformation Research System/output",
+    "deformation-framework/output",
     "Workbench/Data",
 }
 

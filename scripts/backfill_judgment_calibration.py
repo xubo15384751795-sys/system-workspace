@@ -22,8 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-from _runtime_io import load_json, utc_now, write_json
+from _runtime_io import ROOT, load_json, utc_now, write_json
 from _workspace_imports import add_scripts, add_workbench_src
 
 add_workbench_src()

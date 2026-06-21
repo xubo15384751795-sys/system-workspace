@@ -21,11 +21,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
 
-from _runtime_io import load_yaml  # noqa: E402
+from _runtime_io import ROOT, load_yaml  # noqa: E402
 
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
 CAPABILITY_REGISTRY_PATH = ROOT / "governance" / "capability_registry.yaml"

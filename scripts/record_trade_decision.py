@@ -23,9 +23,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from _runtime_io import load_json
+from _runtime_io import ROOT, ensure_dir, load_json
 
-ROOT = Path(__file__).resolve().parents[1]
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
 RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
 OUTPUT_DIR = ROOT / "Output" / "trade_ledger"
@@ -146,7 +145,7 @@ def _write_ledger(path: Path, entries: list[dict[str, Any]]) -> None:
 
 def upsert_to_ledger(entry: dict[str, Any]) -> tuple[Path, str]:
     """Insert the entry, replacing the same dated decision fingerprint."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     ledger_path = OUTPUT_DIR / "decisions.jsonl"
 
     entries = _load_ledger(ledger_path)
@@ -168,7 +167,7 @@ def upsert_to_ledger(entry: dict[str, Any]) -> tuple[Path, str]:
 
 def write_latest(entry: dict[str, Any]) -> Path:
     """Write latest entry as markdown."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     latest_path = OUTPUT_DIR / "latest.md"
 
     lines = [

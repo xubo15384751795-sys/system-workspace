@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir
 EVAL_DIR = ROOT / "Output" / "evaluations"
 PENDING_PATH = EVAL_DIR / "pending.jsonl"
 
@@ -99,7 +99,7 @@ def write_pending_evaluation(
     Returns:
         Path to the pending.jsonl file
     """
-    EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(EVAL_DIR)
 
     date_str = card.get("date") or card.get("as_of") or datetime.now(UTC).strftime("%Y-%m-%d")
     timestamp = card.get("generated_at", datetime.now(UTC).isoformat())

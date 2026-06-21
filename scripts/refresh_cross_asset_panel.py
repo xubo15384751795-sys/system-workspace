@@ -22,14 +22,14 @@ import numpy as np
 import pandas as pd
 
 from _runtime_io import ROOT
+from _workspace_imports import add_harvester_src
 
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 
 
 def _fetch_yfinance(symbols: list[str], period: str = "5d") -> pd.DataFrame:
     """Fetch latest OHLCV via Harvester's yfinance provider."""
-    import sys
-    sys.path.insert(0, str(ROOT / "structural-risk-harvester" / "src"))
+    add_harvester_src()
     from harvester.providers.etf_yfinance import EtfYfinanceProvider
 
     # Map symbols to tickers dict expected by provider

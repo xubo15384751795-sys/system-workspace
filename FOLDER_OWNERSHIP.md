@@ -21,7 +21,7 @@ System/                                    # system-workspace (this git repo)
 ├── Workbench/                             # structural-workbench (git submodule)
 ├── structural-risk-harvester/             # harvester repo (git submodule)
 ├── system-learning-hub/                   # learning hub repo (git submodule)
-├── Structural Deformation Research System/  # framework repo (git submodule)
+├── deformation-framework/  # framework repo (git submodule)
 ├── contracts -> Workbench/contracts       # compatibility symlink
 ├── Structural Risk Harvester -> structural-risk-harvester/
 ├── System Learning Hub -> system-learning-hub/
@@ -118,7 +118,7 @@ Workbench/contracts/workbench/           # Workbench contract catalog
 ## Framework Core
 
 ```text
-Structural Deformation Research System/  # git submodule — canonical source
+deformation-framework/  # git submodule — canonical source
 ```
 
 Framework-owned areas include `src/proxies/`, `src/derivation/`, `src/operators/`,

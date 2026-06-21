@@ -29,13 +29,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+logger = logging.getLogger(__name__)
+
+from _runtime_io import ROOT, ensure_dir
 RUNS_DIR = ROOT / "Output" / "runs"
 LATEST_POINTER = ROOT / "Output" / "current" / "latest_run_id.txt"
 
@@ -108,7 +110,7 @@ class RunBundle:
         base = root / "Output" / "runs" if root else RUNS_DIR
         run_id = _generate_run_id(mode)
         run_dir = base / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
+        ensure_dir(run_dir)
 
         bundle = cls(run_id, mode, run_dir, root=resolved_root, tag=tag)
         bundle._step_file = run_dir / "steps.jsonl"
@@ -232,6 +234,7 @@ class RunBundle:
             try:
                 existing = json.loads(index_path.read_text(encoding="utf-8"))
             except Exception:
+                logger.warning("Failed to load artifact index from %s, resetting", index_path, exc_info=True)
                 existing = []
         existing.append(entry)
         index_path.write_text(
@@ -332,7 +335,7 @@ class RunBundle:
     def _update_latest_pointer(self, root: Path | None = None) -> None:
         """Update the latest_run_id.txt pointer in Output/current/."""
         pointer = root / "Output" / "current" / "latest_run_id.txt" if root else LATEST_POINTER
-        pointer.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(pointer.parent)
         pointer.write_text(self.run_id + "\n", encoding="utf-8")
 
 

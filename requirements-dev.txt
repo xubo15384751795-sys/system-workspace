@@ -18,3 +18,6 @@ ruff>=0.11
 
 # Testing
 pytest>=8.0
+
+# Type checking
+mypy>=1.10

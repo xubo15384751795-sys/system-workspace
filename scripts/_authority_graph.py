@@ -8,21 +8,18 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import logging
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from _runtime_io import ROOT, ensure_dir, load_yaml as _load_yaml  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "authority_graph.v1"
 DEFAULT_OUTPUT = "Output/system_learning/latest/authority_graph.json"
-
-
-def _load_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
 def _normalize_path(path: str) -> str:
@@ -146,7 +143,7 @@ def _drift_exempt(step_id: str, node: dict[str, Any], declared: bool, derived: b
 
 
 def build_step_id_index(root: Path) -> dict[str, str]:
-    pipeline = _load_yaml(root / "governance" / "daily_pipeline_registry.yaml")
+    pipeline = _load_yaml(root / "docs" / "daily_pipeline_registry.yaml")
     index: dict[str, str] = {}
     for step_id, step in (pipeline.get("steps", {}) or {}).items():
         index[step_id] = step_id
@@ -185,7 +182,7 @@ def normalize_step_name(raw: str, index: dict[str, str]) -> str:
 
 
 def build_authority_graph(root: Path) -> dict[str, Any]:
-    pipeline = _load_yaml(root / "governance" / "daily_pipeline_registry.yaml")
+    pipeline = _load_yaml(root / "docs" / "daily_pipeline_registry.yaml")
     policy = _load_yaml(root / "governance" / "authority_graph_policy.yaml")
     routing = _load_yaml(root / "governance" / "output_routing_policy.yaml")
 
@@ -349,7 +346,7 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
         "sources": [
-            "governance/daily_pipeline_registry.yaml",
+            "docs/daily_pipeline_registry.yaml",
             "governance/authority_graph_policy.yaml",
             "governance/output_routing_policy.yaml",
             "governance/system_constitution.yaml",
@@ -386,7 +383,7 @@ def load_authority_graph(root: Path, *, build_if_missing: bool = True) -> dict[s
         try:
             return json.loads(path.read_text(encoding="utf-8"))
         except Exception:
-            pass
+            logger.debug("Failed to load authority graph from %s", path, exc_info=True)
     if not build_if_missing:
         return None
     graph = build_authority_graph(root)
@@ -396,7 +393,7 @@ def load_authority_graph(root: Path, *, build_if_missing: bool = True) -> dict[s
 
 def write_authority_graph(graph: dict[str, Any], root: Path) -> Path:
     output_path = root / DEFAULT_OUTPUT
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_path.parent)
     output_path.write_text(json.dumps(graph, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return output_path
 

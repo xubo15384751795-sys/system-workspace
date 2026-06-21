@@ -24,7 +24,7 @@ def test_root_scripts_within_budget() -> None:
     """Root scripts count must not exceed max_visible."""
     budget = _load_budget()
     max_visible = budget["root_scripts"]["max_visible"]
-    actual = len(list((ROOT / "scripts").glob("*.py")))
+    actual = len([p for p in (ROOT / "scripts").glob("*.py") if p.name != "__init__.py"])
     assert actual <= max_visible, (
         f"Root scripts ({actual}) exceeds budget ({max_visible}). "
         "Archive scripts or update governance/redundancy_budget.yaml"

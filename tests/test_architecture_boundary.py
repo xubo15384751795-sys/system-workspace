@@ -10,12 +10,14 @@ import re
 from pathlib import Path
 import sys
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-FRAMEWORK_SRC = ROOT / "Structural Deformation Research System" / "src"
+FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
 HARVESTER_SRC = ROOT / "structural-risk-harvester" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
@@ -59,7 +61,7 @@ def test_research_terminal_is_paper_retain() -> None:
 def test_framework_not_imported_by_harvester() -> None:
     """Harvester must not import Framework source code."""
     if not HARVESTER_SRC.exists():
-        return
+        pytest.skip("Harvester source directory not found")
     framework_import_pattern = re.compile(
         r"from\s+Structural_Deformation|import\s+Structural_Deformation|"
         r"from\s+src\.core|import\s+src\.core|"
@@ -180,3 +182,40 @@ def test_etf_data_path_registered() -> None:
     data = yaml.safe_load(CAPABILITY_REGISTRY.read_text(encoding="utf-8"))
     assert "etf_data_path" in data, "etf_data_path missing from capability_registry.yaml"
     assert data["etf_data_path"]["status"] == "BLOCKED"
+
+
+def test_scripts_constants_module_exists() -> None:
+    """scripts/_constants.py must exist (centralized magic number constants)."""
+    path = ROOT / "scripts" / "_constants.py"
+    assert path.exists(), "_constants.py missing from scripts/"
+
+
+def test_constants_module_has_core_groups() -> None:
+    """_constants.py must define the core constant groups."""
+    path = ROOT / "scripts" / "_constants.py"
+    raw = path.read_text(encoding="utf-8")
+    required_groups = [
+        "CASELAB_STRONG_THRESHOLD",
+        "CASELAB_USABLE_THRESHOLD",
+        "TRADING_DAYS_PER_YEAR",
+        "HMM_MIN_ROLLING_REFIT",
+        "TIMEOUT_SHORT",
+        "STRESS_DIRECTION_ELEVATED",
+        "FEEDBACK_SPY_1W_DROP",
+    ]
+    for name in required_groups:
+        assert name in raw, f"{name} missing from _constants.py"
+
+
+def test_no_standalone_yfinance_in_root_scripts() -> None:
+    """Root scripts must use Harvester, not yfinance directly."""
+    scripts_dir = ROOT / "scripts"
+    for py_file in scripts_dir.glob("*.py"):
+        if py_file.name.startswith("_"):
+            continue
+        raw = py_file.read_text(encoding="utf-8")[:2000]
+        if "ARCHIVE_CANDIDATE" in raw:
+            continue
+        assert "import yfinance" not in raw, (
+            f"{py_file.name} imports yfinance directly — use Harvester instead"
+        )

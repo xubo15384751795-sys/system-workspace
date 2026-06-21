@@ -22,9 +22,9 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts  # noqa: E402
 add_scripts()
+from _runtime_io import ROOT
 
 from _notify import notify_failure  # noqa: E402
 

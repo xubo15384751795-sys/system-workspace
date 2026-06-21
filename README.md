@@ -56,7 +56,7 @@ System/
 │   └── contracts/workbench/               # Workbench JSON schemas
 ├── structural-risk-harvester/             # Data Provider repo (nested git)
 ├── system-learning-hub/                   # Governance memory repo (nested git)
-├── Structural Deformation Research System/  # Framework repo (nested git)
+├── deformation-framework/  # Framework repo (nested git)
 ├── scripts/                               # workspace-level scripts (see FOLDER_OWNERSHIP.md)
 ├── protocols/                             # cross-module JSON schemas
 ├── governance/                            # constitution + authority registries
@@ -83,7 +83,7 @@ with submodules, or run bootstrap after a plain clone:
 | Repo | Local path | Owns |
 |---|---|---|
 | `system-workspace` | `/` (this repo) | root docs, protocols, scripts, configs, governance |
-| `Structural-Deformation-Research-System` | `Structural Deformation Research System/` | framework core (`src/core`, `src/derivation`, `src/dynamics`, …) |
+| `Structural-Deformation-Research-System` | `deformation-framework/` | framework core (`src/core`, `src/derivation`, `src/dynamics`, …) |
 | `structural-workbench` | `Workbench/` | NLP pipeline, ML signals, contracts, agent harness, tests |
 | `structural-risk-harvester` | `structural-risk-harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
 | `system-learning-hub` | `system-learning-hub/` | cross-system reliability and governance memory |
@@ -192,6 +192,6 @@ Recorded in `Output/system_learning/events/events_2026-05-03.jsonl` and surfaced
 
 | Gap                                                              | Owner                                  | Action                                                    |
 |------------------------------------------------------------------|----------------------------------------|-----------------------------------------------------------|
-| `operator_trace.jsonl` missing in `2026-04-22_WEEKLY`            | Structural Deformation Research System | Runner must emit one JSON object per applied operator.    |
-| `config_snapshot.json` was backfilled, not captured at run time  | Structural Deformation Research System | Runner must serialise resolved config before completing.  |
+| `operator_trace.jsonl` missing in `2026-04-22_WEEKLY`            | deformation-framework | Runner must emit one JSON object per applied operator.    |
+| `config_snapshot.json` was backfilled, not captured at run time  | deformation-framework | Runner must serialise resolved config before completing.  |
 | `latest` symlink misuse risk                                     | Workspace / agents                     | Always inspect via `find -L` / `realpath`.                |

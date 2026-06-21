@@ -24,7 +24,7 @@ from typing import Any
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir
 EVAL_DIR = ROOT / "Output" / "evaluations"
 PENDING_PATH = EVAL_DIR / "pending.jsonl"
 EVAL_LOG_PATH = EVAL_DIR / "eval_log.jsonl"
@@ -125,7 +125,7 @@ def load_pending_records() -> list[dict[str, Any]]:
 
 def save_pending_records(records: list[dict[str, Any]]) -> None:
     """Overwrite pending.jsonl with updated records."""
-    EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(EVAL_DIR)
     with PENDING_PATH.open("w", encoding="utf-8") as f:
         for r in records:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -135,7 +135,7 @@ def append_eval_log(entries: list[dict[str, Any]]) -> None:
     """Append evaluation results to the audit log."""
     if not entries:
         return
-    EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(EVAL_DIR)
     with EVAL_LOG_PATH.open("a", encoding="utf-8") as f:
         for entry in entries:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")

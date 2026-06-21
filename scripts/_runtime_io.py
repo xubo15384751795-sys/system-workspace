@@ -5,7 +5,8 @@ Only serves active pipeline scripts — not archive, experiments, or
 Framework internals.
 
 Public API:
-    load_json, load_jsonl, load_yaml, write_json,
+    ROOT,
+    load_json, load_jsonl, load_yaml, write_json, write_jsonl,
     entry_key, dedupe_entries, as_float,
     utc_now, ensure_dir
 """
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -51,14 +54,22 @@ def write_json(path: Path, data: Any, *, indent: int = 2) -> None:
     path.write_text(json.dumps(data, indent=indent, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def load_yaml(path: Path) -> dict[str, Any] | None:
-    """Load a YAML file, returning None if missing or invalid."""
+def write_jsonl(path: Path, entries: list[dict[str, Any]]) -> None:
+    """Write a list of dicts as JSONL, creating parent directories."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+
+
+def load_yaml(path: Path) -> dict[str, Any]:
+    """Load a YAML file, returning empty dict if missing or invalid."""
     if not path.exists():
-        return None
+        return {}
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (yaml.YAMLError, OSError):
-        return None
+        return {}
 
 
 def utc_now() -> datetime:

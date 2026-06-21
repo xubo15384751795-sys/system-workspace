@@ -12,16 +12,13 @@ from __future__ import annotations
 
 # ─── CaseLab match quality thresholds ───────────────────────────────
 # Used by: caselab_daily_signal, build_signal_card, daily_run,
-# quality_field_validator, claim_ladder_tracker, signal_consensus,
-# run_feedback_replay_v2
+# quality_field_validator, claim_ladder_tracker, signal_consensus
 CASELAB_STRONG_THRESHOLD = 0.70
 CASELAB_USABLE_THRESHOLD = 0.55
 CASELAB_WEAK_THRESHOLD = 0.40
 
 # ─── Trading calendar ───────────────────────────────────────────────
-# Used by: structural_replay_v2, x_measurement_gate,
-# gluonts_probabilistic_context, hmm_stability_audit,
-# run_feedback_replay_batch, refresh_etf_from_harvester,
+# Used by: structural_replay_v2, x_measurement_gate, hmm_stability_audit,
 # build_signal_card, build_data_gaps
 TRADING_DAYS_PER_YEAR = 252
 HALF_YEAR_TRADING_DAYS = 126
@@ -56,8 +53,7 @@ TIMEOUT_STANDARD = 120
 TIMEOUT_LONG = 600
 
 # ─── M/D/K/X stress direction thresholds ────────────────────────────
-# Used by: caselab_daily_signal, run_feedback_replay_batch,
-# run_feedback_replay_v2, evaluate_proxy_lifecycle
+# Used by: caselab_daily_signal, evaluate_proxy_lifecycle
 STRESS_DIRECTION_ELEVATED = 0.3
 STRESS_DIRECTION_DEPRESSED = -0.3
 STRESS_DIRECTION_STRONG_BUILD = 0.5
@@ -84,7 +80,7 @@ SIGMA_ELEVATED = 0.6
 DEFAULT_SIGMA_T = 0.5
 
 # ─── Feedback / calibration thresholds ───────────────────────────────
-# Used by: evaluate_feedback_samples, ingest_feedback_to_learning_hub
+# Used by: threshold_review_bridge, claim_evaluator, market_feedback
 FEEDBACK_SPY_1W_DROP = -0.03
 FEEDBACK_SPY_1M_DROP = -0.05
 FEEDBACK_SPY_1M_GAIN = 0.03

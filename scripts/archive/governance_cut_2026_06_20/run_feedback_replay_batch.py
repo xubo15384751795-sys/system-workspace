@@ -18,17 +18,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
-from _runtime_io import ensure_dir, load_jsonl, utc_now, write_json  # noqa: E402
+from _constants import TRADING_DAYS_PER_YEAR, TWO_YEAR_TRADING_DAYS  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_jsonl, utc_now, write_json  # noqa: E402
+from _market_data import build_close_matrix, load_fred_csv, load_panel  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -41,44 +40,6 @@ DFF_PATH = ROOT / "Data" / "structural_lab" / "runtime" / "fred_cache" / "DFF.cs
 HY_OAS_PATH = ROOT / "Data" / "structural_lab" / "runtime" / "fred_cache" / "BAMLH0A0HYM2.csv"
 REPLAY_DIR = ROOT / "Output" / "feedback_samples" / "replay_runs"
 
-# ---------------------------------------------------------------------------
-# Data loading
-# ---------------------------------------------------------------------------
-
-def _load_panel() -> pd.DataFrame:
-    """Load cross-asset panel, indexed by date with symbol columns."""
-    df = pd.read_parquet(PANEL_PATH)
-    df["date"] = pd.to_datetime(df["date"])
-    return df
-
-
-def _load_fred_csv(path: Path) -> pd.Series | None:
-    """Load a FRED CSV as a date-indexed Series of float values."""
-    if not path.exists():
-        return None
-    try:
-        df = pd.read_csv(path, parse_dates=["DATE"], index_col="DATE")
-        col = df.columns[0]
-        s = pd.to_numeric(df[col], errors="coerce").dropna()
-        s.index = pd.to_datetime(s.index)
-        return s
-    except Exception:
-        return None
-
-
-def _build_close_matrix(panel: pd.DataFrame) -> pd.DataFrame:
-    """Build date x symbol close price matrix.
-
-    Uses per-symbol Series construction to avoid pandas groupby/unstack
-    index corruption on large panels.
-    """
-    symbols = sorted(panel["symbol"].unique())
-    series_map = {}
-    for sym in symbols:
-        sub = panel[panel["symbol"] == sym][["date", "close"]].set_index("date")["close"]
-        series_map[sym] = sub
-    mat = pd.DataFrame(series_map).sort_index()
-    return mat
 
 
 def _build_return_matrix(panel: pd.DataFrame) -> pd.DataFrame:
@@ -168,9 +129,9 @@ def _compute_m_proxy(
     if components.get("vix_level") is not None:
         # VIX z-score over 2-year window
         vix_full = vix_series.loc[:as_of].dropna()
-        if len(vix_full) > 252:
-            vix_mean = vix_full.iloc[-504:].mean() if len(vix_full) >= 504 else vix_full.mean()
-            vix_std = vix_full.iloc[-504:].std() if len(vix_full) >= 504 else vix_full.std()
+        if len(vix_full) > TRADING_DAYS_PER_YEAR:
+            vix_mean = vix_full.iloc[-TWO_YEAR_TRADING_DAYS:].mean() if len(vix_full) >= TWO_YEAR_TRADING_DAYS else vix_full.mean()
+            vix_std = vix_full.iloc[-TWO_YEAR_TRADING_DAYS:].std() if len(vix_full) >= TWO_YEAR_TRADING_DAYS else vix_full.std()
             vix_z = (components["vix_level"] - vix_mean) / max(vix_std, 1e-8)
             vals.append(vix_z * 0.5)
 
@@ -262,8 +223,8 @@ def _compute_k_proxy(
             current_spread = float(spread_window.iloc[-1])
             components["t10y2y"] = round(current_spread, 4)
             # Historical percentile
-            if len(spread_window) >= 252:
-                pct = (spread_window.iloc[-252:] < current_spread).mean()
+            if len(spread_window) >= TRADING_DAYS_PER_YEAR:
+                pct = (spread_window.iloc[-TRADING_DAYS_PER_YEAR:] < current_spread).mean()
                 components["t10y2y_percentile_1y"] = round(float(pct), 4)
         else:
             components["t10y2y"] = None
@@ -566,13 +527,13 @@ def run_batch(
 
     # Load data
     print("[INFO] Loading market data...")
-    panel = _load_panel()
-    close_matrix = _build_close_matrix(panel)
+    panel = load_panel(PANEL_PATH)
+    close_matrix = build_close_matrix(panel)
     return_matrix = _build_return_matrix(panel)
-    vix_series = _load_fred_csv(VIX_PATH)
-    t10y2y = _load_fred_csv(T10Y2Y_PATH)
-    hy_oas = _load_fred_csv(HY_OAS_PATH)
-    dff = _load_fred_csv(DFF_PATH)
+    vix_series = load_fred_csv(VIX_PATH)
+    t10y2y = load_fred_csv(T10Y2Y_PATH)
+    hy_oas = load_fred_csv(HY_OAS_PATH)
+    dff = load_fred_csv(DFF_PATH)
     print("[INFO] Data loaded")
 
     # Ensure output directory

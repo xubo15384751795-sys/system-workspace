@@ -8,7 +8,7 @@ Tests that verify the Batch 1 hardening rules:
 4. Architecture reality audit includes the new checks
 
 See: governance/architecture_cleanup_decisions.md
-     governance/data_authority_registry.yaml
+     governance/authority_registry.yaml
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-FRAMEWORK_SRC = ROOT / "Structural Deformation Research System" / "src"
-REGISTRY_PATH = ROOT / "governance" / "data_authority_registry.yaml"
+FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
+REGISTRY_PATH = ROOT / "governance" / "authority_registry.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -122,12 +122,12 @@ def test_data_authority_registry_has_research_entries() -> None:
     if not REGISTRY_PATH.exists():
         pytest.skip("data_authority_registry.yaml not found")
     reg = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
-    entries = reg.get("entries", [])
+    entries = reg.get("data_sources", [])
     paths = {e.get("path", "") for e in entries}
 
     research_files = [
-        "Structural Deformation Research System/src/benchmarks/historical_replay.py",
-        "Structural Deformation Research System/src/research_corpus/providers/brevan_howard.py",
+        "deformation-framework/src/benchmarks/historical_replay.py",
+        "deformation-framework/src/research_corpus/providers/brevan_howard.py",
     ]
     missing = [f for f in research_files if not any(f in p for p in paths)]
     assert not missing, (
@@ -141,7 +141,7 @@ def test_research_entries_have_correct_authority() -> None:
     if not REGISTRY_PATH.exists():
         pytest.skip("data_authority_registry.yaml not found")
     reg = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
-    entries = reg.get("entries", [])
+    entries = reg.get("data_sources", [])
 
     research_files = [
         "historical_replay.py",

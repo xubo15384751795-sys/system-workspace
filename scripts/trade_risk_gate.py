@@ -20,11 +20,10 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from _runtime_io import load_json
+from _runtime_io import ROOT, ensure_dir, load_json
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parents[1]
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
 POLICY_PATH = ROOT / "governance" / "risk_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "trade_decision"
@@ -232,7 +231,7 @@ def format_markdown(report: dict[str, Any]) -> str:
 
 def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
     """Write risk gate outputs."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     json_path = OUTPUT_DIR / "risk_gate.json"
     md_path = OUTPUT_DIR / "risk_gate.md"

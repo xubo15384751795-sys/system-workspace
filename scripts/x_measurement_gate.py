@@ -26,7 +26,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir
+from _constants import TRADING_DAYS_PER_YEAR  # noqa: E402
+
 BP_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
 ETF_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 OUTPUT_DIR = ROOT / "Output" / "x_measurement"
@@ -34,7 +36,7 @@ OUTPUT_DIR = ROOT / "Output" / "x_measurement"
 # Gate thresholds
 MAX_VIX_CORRELATION = 0.80
 MAX_OFR_CORRELATION = 0.70
-MIN_SAMPLE_DAYS = 252
+MIN_SAMPLE_DAYS = TRADING_DAYS_PER_YEAR
 
 # Component definitions
 DAILY_SERIES = {
@@ -71,7 +73,7 @@ def get_series(panel: pd.DataFrame, series_id: str) -> pd.Series:
     return subset.set_index("date")["value"]
 
 
-def rolling_z(series: pd.Series, window: int = 252) -> pd.Series:
+def rolling_z(series: pd.Series, window: int = TRADING_DAYS_PER_YEAR) -> pd.Series:
     mu = series.rolling(window, min_periods=60).mean()
     sigma = series.rolling(window, min_periods=60).std().replace(0, np.nan)
     return ((series - mu) / sigma).clip(-5, 5)
@@ -137,7 +139,7 @@ def test_vix_correlation(x: pd.Series, panel: pd.DataFrame) -> dict[str, Any]:
         vix = rolling_z(get_series(panel, "CBOE:MOVE"))
         if vix.empty:
             return {"status": "NOT_AVAILABLE", "correlation": None, "reason": "No VIX or MOVE data"}
-    
+
     aligned = pd.DataFrame({"X": x, "VIX": vix}).dropna()
     if len(aligned) < 100:
         return {"status": "INSUFFICIENT_DATA", "correlation": None, "rows": len(aligned)}
@@ -229,10 +231,10 @@ def test_frequency_split(components: dict[str, pd.Series]) -> dict[str, Any]:
     # Daily series should have ~252 observations per year
     # Weekly series should have ~52 observations per year
     # Slow series should have ~4 observations per year
-    
+
     # All components should have some data
     all_have_data = has_daily and has_weekly and has_slow
-    
+
     return {
         "status": "PASS" if all_have_data else "WATCH",
         "daily_observations": daily_count,
@@ -376,7 +378,7 @@ def main() -> None:
 
     report = run_gate()
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     json_path = OUTPUT_DIR / "x_measurement_gate.json"
     md_path = OUTPUT_DIR / "X_MEASUREMENT_GATE.md"
 

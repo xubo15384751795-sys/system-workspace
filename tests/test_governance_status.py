@@ -109,6 +109,38 @@ review_schedule:
   max_open_age_days: 14
 """,
     )
+    # Authority graph dependencies
+    _write_text(
+        tmp_path / "governance/authority_graph_policy.yaml",
+        """
+bridge_nodes:
+  - bridge
+surface_path_prefixes:
+  - Output/current/
+core_judgment_prefixes:
+  - Output/judgment/
+  - Output/trade_decision/
+""",
+    )
+    _write_text(
+        tmp_path / "governance/output_routing_policy.yaml",
+        "routes: []\n",
+    )
+    _write_text(
+        tmp_path / "governance/daily_pipeline_registry.yaml",
+        "schema_version: daily_pipeline_registry.v2\nsteps: {}\n",
+    )
+    _write_text(
+        tmp_path / "governance/system_constitution.yaml",
+        """
+schema_version: system_constitution.v1
+hard_authority_rule:
+  only_current_or_formal_runs_can_affect_core_judgment: true
+  authorized_runtime_chain:
+    - Output/current/
+    - Output/judgment/
+""",
+    )
     return tmp_path
 
 

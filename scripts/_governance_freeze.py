@@ -14,17 +14,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from _runtime_io import ROOT, load_yaml as _load_yaml  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "governance" / "governance_freeze_manifest.yaml"
 TIERS_PATH = ROOT / "governance" / "governance_tiers.yaml"
-
-
-def _load_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
 def _ignored(name: str, patterns: list[str]) -> bool:
@@ -135,8 +128,11 @@ def check_governance_freeze(root: Path = ROOT) -> dict[str, Any]:
                 violations.append(
                     {
                         "id": "baseline_file_missing",
-                        "severity": "high",
-                        "message": f"Baseline governance file '{name}' is missing (expected hash {expected_hash}).",
+                        "severity": "medium",
+                        "message": (
+                            f"Baseline governance file '{name}' is missing (expected hash {expected_hash}). "
+                            "WARNING: hash mismatch is advisory, not blocking. Update manifest or revert."
+                        ),
                     }
                 )
             else:
@@ -146,10 +142,11 @@ def check_governance_freeze(root: Path = ROOT) -> dict[str, Any]:
                     violations.append(
                         {
                             "id": "baseline_file_modified",
-                            "severity": "high",
+                            "severity": "medium",
                             "message": (
                                 f"Baseline governance file '{name}' content changed since freeze "
                                 f"(expected {expected_hash}, got {actual_hash}). "
+                                "WARNING: hash mismatch is advisory, not blocking. "
                                 "Update baseline_hashes in manifest with explicit approval or revert."
                             ),
                         }

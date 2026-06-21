@@ -20,9 +20,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir, load_yaml
 POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 ARCHIVE_ROOT = ROOT / "Output" / "archive" / "output_routing_cleanup"
@@ -30,7 +28,7 @@ ACTIVE_SANDBOX_DEPENDENCIES = {"structural_replay_v2"}
 
 
 def _load_policy() -> dict[str, Any]:
-    return yaml.safe_load(POLICY_PATH.read_text(encoding="utf-8"))
+    return load_yaml(POLICY_PATH)
 
 
 def _check_current_artifacts(policy: dict) -> list[dict[str, str]]:
@@ -194,7 +192,7 @@ def apply_routing_cleanup(results: dict[str, Any]) -> dict[str, Any]:
     """Archive expired routing artifacts without deleting payloads."""
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     archive_dir = ARCHIVE_ROOT / run_id
-    archive_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(archive_dir)
 
     actions: list[dict[str, str]] = []
     for finding in results["checks"]["sandbox_ttl"]["findings"]:
@@ -202,7 +200,7 @@ def apply_routing_cleanup(results: dict[str, Any]) -> dict[str, Any]:
         if not source.exists():
             continue
         target = _unique_target(archive_dir / "sandbox" / source.name)
-        target.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(target.parent)
         shutil.move(str(source), str(target))
         actions.append({
             "action": "archived_sandbox",
@@ -215,7 +213,7 @@ def apply_routing_cleanup(results: dict[str, Any]) -> dict[str, Any]:
         if not source.is_symlink():
             continue
         target = _unique_target(archive_dir / "deformation_runs" / f"{source.name}.symlink.txt")
-        target.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(target.parent)
         target.write_text(f"{source} -> {source.readlink()}\n", encoding="utf-8")
         source.unlink()
         actions.append({
@@ -278,7 +276,7 @@ def main() -> None:
     else:
         results = run_routing_check()
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
     report_path = OUTPUT_DIR / "output_routing_report.md"
     report_path.write_text(generate_report(results), encoding="utf-8")
 

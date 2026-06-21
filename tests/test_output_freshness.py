@@ -1,10 +1,12 @@
 """Verify check_output_freshness detects stale artifacts."""
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -36,59 +38,77 @@ def test_get_freshness_rules_empty():
     assert get_freshness_rules({}) == {}
 
 
-def test_artifact_fresh():
+def test_artifact_fresh(tmp_path):
     """No finding when artifact is within freshness window."""
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-        f.write(b'{"status": "ok"}')
-        f.flush()
-        now = time.time()
-        result = check_artifact_freshness(Path(f.name), 48, now)
-    Path(f.name).unlink()
+    p = tmp_path / "artifact.json"
+    p.write_text('{"status": "ok"}')
+    now = time.time()
+    result = check_artifact_freshness(p, 48, now)
     assert result is None
 
 
-def test_artifact_stale():
+def test_artifact_stale(tmp_path):
     """Finding reported when artifact exceeds freshness window."""
-    import os
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-        f.write(b'{"status": "ok"}')
-        f.flush()
-        filepath = Path(f.name)
-        # Set mtime to 100 hours ago
-        old_time = time.time() - (100 * 3600)
-        os.utime(filepath, (old_time, old_time))
-        result = check_artifact_freshness(filepath, 48, time.time())
-    filepath.unlink()
+    p = tmp_path / "artifact.json"
+    p.write_text('{"status": "ok"}')
+    # Set mtime to 100 hours ago
+    old_time = time.time() - (100 * 3600)
+    os.utime(p, (old_time, old_time))
+    result = check_artifact_freshness(p, 48, time.time())
     assert result is not None
     assert result["status"] == "STALE"
     assert result["age_hours"] > 99
 
 
-def test_symlink_fresh():
+def test_symlink_fresh(tmp_path):
     """No finding when symlink target is fresh."""
-    import tempfile
-    import os
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as target_f:
-        target_f.write(b'{"status": "ok"}')
-        target_f.flush()
-        target_path = Path(target_f.name)
-        link_path = target_path.with_suffix(".link")
-        os.symlink(target_path, link_path)
-        result = check_symlink_freshness(link_path, 48, time.time())
-    link_path.unlink()
-    target_path.unlink()
+    target = tmp_path / "target.json"
+    target.write_text('{"status": "ok"}')
+    link = tmp_path / "link.json"
+    os.symlink(target, link)
+    result = check_symlink_freshness(link, 48, time.time())
     assert result is None
 
 
-def test_symlink_broken():
+def test_symlink_broken(tmp_path):
     """Finding reported for broken symlink."""
-    import tempfile
-    import os
-    link_path = Path(tempfile.mktemp(suffix=".link"))
-    os.symlink("/nonexistent/path", link_path)
-    result = check_symlink_freshness(link_path, 48, time.time())
-    link_path.unlink(missing_ok=True)
+    link = tmp_path / "broken.link"
+    os.symlink("/nonexistent/path", link)
+    result = check_symlink_freshness(link, 48, time.time())
     assert result is not None
     assert result["status"] == "BROKEN_SYMLINK"
+
+
+def test_artifact_exactly_at_boundary(tmp_path):
+    """Artifact exactly at max_age boundary should be considered fresh."""
+    p = tmp_path / "artifact.json"
+    p.write_text('{"status": "ok"}')
+    # Set mtime to exactly 48 hours ago
+    boundary_time = time.time() - (48 * 3600)
+    os.utime(p, (boundary_time, boundary_time))
+    # Check with now = time.time() — age will be slightly > 48 due to execution time
+    # So we pass a "now" that's 1 second after the mtime + 48h
+    now = boundary_time + (48 * 3600) + 1
+    result = check_artifact_freshness(p, 48, now)
+    # At exactly 48h + 1s, it should be stale
+    assert result is not None
+    assert result["status"] == "STALE"
+
+
+def test_artifact_just_within_window(tmp_path):
+    """Artifact just within freshness window should be fresh."""
+    p = tmp_path / "artifact.json"
+    p.write_text('{"status": "ok"}')
+    # Set mtime to 47 hours ago
+    recent_time = time.time() - (47 * 3600)
+    os.utime(p, (recent_time, recent_time))
+    result = check_artifact_freshness(p, 48, time.time())
+    assert result is None
+
+
+def test_missing_artifact(tmp_path):
+    """Non-existent artifact returns finding."""
+    p = tmp_path / "nonexistent.json"
+    result = check_artifact_freshness(p, 48, time.time())
+    assert result is not None
+    assert result["status"] == "MISSING"

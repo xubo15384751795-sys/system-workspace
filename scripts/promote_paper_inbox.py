@@ -22,14 +22,13 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_root, add_scripts
 add_root()
 add_scripts()
 
 from caselab_context.paper_paths import paper_root  # noqa: E402
 
-from _runtime_io import utc_now, write_json  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, utc_now, write_json  # noqa: E402
 
 REPORT_PATH = ROOT / "Output" / "caselab_runtime" / "paper_promote_report.json"
 APPROVED_STATUSES = {"approved", "reviewed", "accepted"}
@@ -111,14 +110,14 @@ def promote_inbox(
             continue
 
         if not dry_run:
-            target.parent.mkdir(parents=True, exist_ok=True)
+            ensure_dir(target.parent)
             if target.exists() and draft_type == "weight_suggestion":
                 existing = target.read_text(encoding="utf-8")
                 merged = existing.rstrip() + "\n\n---\n\n" + body
                 target.write_text(merged, encoding="utf-8")
             else:
                 shutil.copy2(path, target)
-            archive_dir.mkdir(parents=True, exist_ok=True)
+            ensure_dir(archive_dir)
             shutil.move(str(path), str(archive_dir / path.name))
 
         promoted.append({

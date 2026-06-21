@@ -2,13 +2,12 @@
 """Check governance freeze — fail if unapproved governance files exist."""
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
+from _runtime_io import ROOT
 
 from _governance_freeze import check_governance_freeze  # noqa: E402
 

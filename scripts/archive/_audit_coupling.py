@@ -2,7 +2,7 @@
 """Engineering audit script."""
 import os, ast, collections
 
-src = "Structural Deformation Research System/src"
+src = "deformation-framework/src"
 
 internal_imports = collections.Counter()
 external_imports = collections.Counter()

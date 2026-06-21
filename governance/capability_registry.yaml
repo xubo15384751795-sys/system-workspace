@@ -1,23 +1,13 @@
 schema_version: capability_registry.v1
+updated_at: "2026-06-20"
+purpose: >
+  Module capability registry. Tracks status, allowed/forbidden claims, blockers,
+  and promotion requirements. Producer/consumer details removed — see
+  entrypoint_registry.yaml (scripts) and output_routing_policy.yaml (outputs).
+
 workbench:
   status: CANONICAL
   owner: system
-  producer:
-  - ./sys check
-  - ./sys refresh
-  - ./sys next
-  - scripts/refresh_output_current.py
-  artifacts:
-  - Output/current/status.json
-  - Output/current/latest_summary.md
-  - Output/current/next_actions.md
-  - Output/current/framework_output.json
-  - Output/current/freshness_manifest.json
-  - Output/current/learning_summary.md
-  consumers:
-  - ./sys check
-  - ./sys next
-  - Output/current/00_READ_ME_FIRST.md
   allowed_claims:
   - user_facing_display
   - contract_validation
@@ -34,15 +24,6 @@ workbench:
 deformation_framework:
   status: ACTIVE_PARTIAL
   owner: system
-  producer:
-  - scripts/daily_run.py
-  - scripts/structural_replay_v2.py
-  artifacts:
-  - Output/deformation_runs/
-  - Output/current/framework_output.json
-  consumers:
-  - ./sys check
-  - Output/current/
   allowed_claims:
   - consume_admitted_evidence
   - transform
@@ -65,15 +46,6 @@ deformation_framework:
 harvester:
   status: CANONICAL
   owner: system
-  producer:
-  - structural-risk-harvester/src/
-  artifacts:
-  - Data/harvester/exports/
-  - structural-risk-harvester/data/
-  consumers:
-  - Data/
-  - Deformation Framework
-  - Workbench
   allowed_claims:
   - acquire
   - acquire_via_openbb
@@ -92,14 +64,6 @@ harvester:
 protocols:
   status: CANONICAL
   owner: system
-  producer:
-  - protocols/
-  - Workbench/contracts/workbench/
-  artifacts:
-  - protocols/*.schema.json
-  - Workbench/contracts/workbench/
-  consumers:
-  - all_modules
   allowed_claims:
   - schema_definition
   - contract_validation
@@ -112,15 +76,6 @@ protocols:
 data_output:
   status: ACTIVE_PARTIAL
   owner: system
-  producer:
-  - scripts/promote_snapshot.py
-  - scripts/list_latest.py
-  artifacts:
-  - Data/system_index/
-  - Output/current/
-  - Output/archive/
-  consumers:
-  - all_modules
   allowed_claims:
   - canonical_truth
   - snapshot_management
@@ -137,19 +92,6 @@ data_output:
 learning_hub:
   status: ACTIVE_PARTIAL
   owner: system-learning-hub
-  producer:
-  - python -m system_learning governance-audit
-  - system-learning-hub/run_hub.py
-  - scripts/learning_hub_comprehensive_summary.py
-  artifacts:
-  - Output/system_learning/latest/system_health_report.md
-  - Output/system_learning/latest/learning_summary.md
-  - Output/system_learning/latest/improvement_queue.md
-  - Output/system_learning/latest/comprehensive_summary.md
-  - Data/system_learning/ledgers/system_event_ledger.parquet
-  consumers:
-  - ./sys next
-  - Output/current/learning_summary.md
   allowed_claims:
   - governance_memory
   - improvement_queue
@@ -172,14 +114,6 @@ learning_hub:
 caselab_context:
   status: ACTIVE_PARTIAL
   owner: system
-  producer:
-  - caselab_context/
-  - caselab_runtime/
-  artifacts:
-  - caselab_context/feedback_log.jsonl
-  - caselab_runtime/
-  consumers:
-  - Workbench/src/nlp/caselab/
   allowed_claims:
   - entity_dna
   - regime_context
@@ -199,16 +133,6 @@ nlp_pipeline:
   substatus:
     caselab_integration: ACTIVE
     general_nlp: EXPERIMENTAL
-  producer:
-  - Workbench/src/nlp/
-  - scripts/archive/nlp_extract.py
-  - scripts/archive/nlp_ingest.py
-  artifacts:
-  - Output/nlp/
-  - Workbench/src/nlp/candidate_ledger.py
-  consumers:
-  - Workbench
-  - CaseLab
   allowed_claims:
   - event_extraction
   - case_similarity
@@ -225,14 +149,6 @@ nlp_pipeline:
 ml_signals:
   status: REAL_EXPERIMENTAL
   owner: system
-  producer:
-  - Workbench/src/ml/
-  - scripts/archive/market_state_classifier.py
-  artifacts:
-  - Output/ml_signals/
-  - Output/ml/
-  consumers:
-  - research_only
   allowed_claims:
   - regime_detection
   - factor_model
@@ -253,20 +169,6 @@ ml_signals:
 backtest_lens:
   status: REAL_EXPERIMENTAL
   owner: system
-  producer:
-  - deformation-framework/scripts/run_historical_replay.py
-  - scripts/archive/structural_replay_evaluation.py
-  - scripts/archive/walk_forward_validation.py
-  artifacts:
-  - Output/backtest_lens/
-  - Output/backtest_pipeline_v0/
-  - Output/backtest_pipeline_v1/
-  - Output/backtest_lens_combined/
-  - Output/backtest_lens_phase2/
-  - Output/backtest_lens_phase4/
-  - Output/walk_forward_validation/
-  consumers:
-  - research_only
   allowed_claims:
   - market_feedback
   - historical_replay
@@ -285,17 +187,6 @@ backtest_lens:
 strategy_lab:
   status: REAL_EXPERIMENTAL
   owner: system
-  producer:
-  - scripts/strategy_lab/run_backtest.py
-  - scripts/strategy_lab/test_runner.py
-  artifacts:
-  - Output/strategy_lab/backtest_report.md
-  - Output/strategy_lab/backtest_result.json
-  - Output/strategy_lab/shadow_cards/
-  - Output/strategy_lab/test_results.json
-  consumers:
-  - daily_pipeline
-  - research_only
   allowed_claims:
   - risk_gate_sizing
   - drawdown_reduction_measurement
@@ -315,14 +206,6 @@ strategy_lab:
 qlib_benchmark:
   status: REAL_EXPERIMENTAL
   owner: system
-  producer:
-  - ExternalTools/qlib_benchmark_runner/
-  - scripts/archive/benchmark_comparison.py
-  artifacts:
-  - Output/benchmarks/
-  - Output/benchmark_comparison/
-  consumers:
-  - research_only
   allowed_claims:
   - run_isolated_benchmark
   - emit_alpha_metrics
@@ -341,16 +224,6 @@ qlib_benchmark:
 agent_routing:
   status: SHADOW_ACTIVE
   owner: system
-  producer:
-  - Workbench/agents/harness/
-  - ROUTING_CONSTITUTION.md
-  - scripts/archive/daily_routing_decision.py
-  - Workbench/agents/harness/entrypoints/routing_cli.py
-  artifacts:
-  - ROUTING_CONSTITUTION.md
-  - Output/system_learning/routing_decisions/
-  consumers:
-  - module_contexts
   allowed_claims:
   - sparse_activation
   - expert_routing
@@ -371,10 +244,6 @@ agent_routing:
 research_terminal:
   status: PAPER_RETAIN
   owner: system
-  producer:
-  - research_terminal/
-  artifacts: []
-  consumers: []
   allowed_claims: []
   forbidden_claims: []
   blockers:
@@ -390,12 +259,6 @@ etf_data_path:
   status: BLOCKED
   owner: Harvester
   description: ETF/cross-asset panel data path — no Harvester evidence release yet
-  producer: []
-  artifacts:
-  - Data/panels/cross_asset_daily_panel.parquet
-  consumers:
-  - scripts/refresh_etf_panel.py
-  - scripts/archive/k_features_from_etf.py
   allowed_claims: []
   forbidden_claims:
   - core_judgment_input

@@ -15,14 +15,15 @@ Output:
 """
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import load_json as _load_json, write_json
+from _constants import CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD
+from _runtime_io import ROOT, ensure_dir, load_json as _load_json, write_json
 
-ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_CURRENT = ROOT / "Output" / "current"
 
 # Source paths
@@ -276,11 +277,11 @@ def build_consensus() -> dict[str, Any]:
                 "mechanism_types": mech_types,
             },
             "classification": classification["status"],
-            "supports": ["mechanism_hypothesis"] if top_score >= 0.4 else [],
-            "does_not_support": ["reliable_analogy", "strong_precedent"] if top_score < 0.55 else [],
+            "supports": ["mechanism_hypothesis"] if top_score >= CASELAB_WEAK_THRESHOLD else [],
+            "does_not_support": ["reliable_analogy", "strong_precedent"] if top_score < CASELAB_USABLE_THRESHOLD else [],
             "reason": f"CaseLab quality={label} (score={top_score:.3f}). "
                      + ("Weak match — supports mechanism hypothesis only, not reliable analogy."
-                        if top_score < 0.55 else "Usable analogy strength."),
+                        if top_score < CASELAB_USABLE_THRESHOLD else "Usable analogy strength."),
         })
     else:
         signals.append({
@@ -387,7 +388,7 @@ def build_consensus() -> dict[str, Any]:
             "tier_2_blockers": tier_2_blockers,
             "what_needed_for_tier_2": [
                 "M/D direction must persist >= 2 consecutive runs (currently 0).",
-                "CaseLab top_score must rise above 0.55 for usable analogy (currently 0.426, gap: 0.124).",
+                f"CaseLab top_score must rise above {CASELAB_USABLE_THRESHOLD} for usable analogy (currently 0.426, gap: 0.124).",
                 "HMM calibration must pass to support regime_hint at adopted level.",
                 "No signal conflicts must exist.",
             ],
@@ -516,15 +517,13 @@ def format_markdown(result: dict[str, Any]) -> str:
 
 
 def main() -> None:
-    import argparse
-
     parser = argparse.ArgumentParser(description="Build signal consensus report.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
     args = parser.parse_args()
 
     result = build_consensus()
 
-    OUTPUT_CURRENT.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_CURRENT)
 
     json_path = OUTPUT_CURRENT / "signal_consensus.json"
     md_path = OUTPUT_CURRENT / "signal_consensus.md"

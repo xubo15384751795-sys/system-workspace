@@ -4,9 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, load_yaml
 GATE_PATH = ROOT / "governance" / "mechanism_calibration_gate.yaml"
 
 _LEVEL_ORDER = ("research", "paper_draft", "judgment_support")
@@ -15,7 +13,7 @@ _LEVEL_ORDER = ("research", "paper_draft", "judgment_support")
 def load_gate_policy(path: Path = GATE_PATH) -> dict[str, Any]:
     if not path.exists():
         return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return load_yaml(path)
 
 
 def _holdout_metrics(

@@ -20,17 +20,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import math
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
 from _workspace_imports import add_scripts
 add_scripts()
-from _runtime_io import ensure_dir, load_json, load_jsonl, utc_now, write_json  # noqa: E402
+from _constants import CASELAB_USABLE_THRESHOLD  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -311,9 +309,9 @@ def _evaluate_claim_ladder(
     watch_conditions = []
     if tier >= 1:
         if cl_score > 0.45:
-            gap = 0.55 - cl_score
+            gap = CASELAB_USABLE_THRESHOLD - cl_score
             watch_conditions.append(
-                f"If CaseLab top_score rises above 0.55 (currently {cl_score:.3f}, gap: {gap:.3f}), "
+                f"If CaseLab top_score rises above {CASELAB_USABLE_THRESHOLD} (currently {cl_score:.3f}, gap: {gap:.3f}), "
                 f"the mechanism analogy becomes usable."
             )
         if m_val is not None and m_val < -0.5:

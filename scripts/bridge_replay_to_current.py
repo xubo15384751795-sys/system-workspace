@@ -11,13 +11,18 @@ K interpretation hardening, X_agg validation.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-from _workspace_imports import add_workbench_src
+logger = logging.getLogger(__name__)
+
+from _workspace_imports import add_scripts, add_workbench_src
+add_scripts()
 add_workbench_src()
+
+from _runtime_io import ROOT, ensure_dir
 
 from workbench.governance.semantic import MEASUREMENT_ELIGIBILITY, SemanticRegistry, build_primary_readout
 from workbench.current_bridge.reports import (
@@ -129,6 +134,7 @@ def _build_channel_contributors() -> dict[str, list[dict]]:
         import pandas as pd
         components = pd.read_parquet(components_path)
     except Exception:
+        logger.warning("Failed to load sigma components from %s", components_path, exc_info=True)
         return {}
 
     # Get latest row of z-scores
@@ -587,7 +593,7 @@ def write_readme(fw_output: dict) -> str:
     lines = [
         "# Current Risk Check",
         "",
-        "## Structural Deformation Research System",
+        "## deformation-framework",
         "",
         "### Status (3-Layer)",
         f"- **Operational Status:** {basic.get('operational_status', 'UNKNOWN')}",
@@ -705,8 +711,8 @@ def write_readme(fw_output: dict) -> str:
 
 
 def write_rebase_outputs(fw_output: dict) -> dict[str, Path]:
-    REBASE_DIR.mkdir(parents=True, exist_ok=True)
-    DAILY_MARKET_SPACE_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(REBASE_DIR)
+    ensure_dir(DAILY_MARKET_SPACE_DIR)
 
     paths = {
         "measurement_eligibility": REBASE_DIR / "measurement_eligibility.json",
@@ -736,7 +742,7 @@ def write_rebase_outputs(fw_output: dict) -> dict[str, Path]:
 
 
 def main() -> None:
-    CURRENT.mkdir(parents=True, exist_ok=True)
+    ensure_dir(CURRENT)
 
     sv = _load_sigma_vector()
     if not sv:

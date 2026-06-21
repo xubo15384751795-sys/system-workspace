@@ -17,13 +17,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, ensure_dir, dedupe_entries
 from _runtime_io import (
-    dedupe_entries,
     entry_key as _entry_key,
     ensure_dir,
     load_json,
@@ -38,6 +38,7 @@ TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 FRAMEWORK_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+FEEDBACK_PENDING_PATH = ROOT / "Output" / "system_learning" / "latest" / "claim_failures_pending.json"
 
 
 
@@ -91,7 +92,6 @@ def check_md_continuity(
     # Format: "... M=-2.092, D=-0.763; ..."
     entry_M = None
     entry_D = None
-    import re
     m_match = re.search(r"M=\s*([-\d.]+)", claim)
     d_match = re.search(r"D=\s*([-\d.]+)", claim)
     if m_match:
@@ -154,13 +154,15 @@ def check_invalidation(
 
         # Funding spreads normalize
         if "funding spreads normalize" in cond_lower:
-            # No direct data available
-            pass
+            # TODO: wire to real funding spread data when available
+            triggered = False
+            reason = "no_funding_spread_data_available"
 
         # Volatility re-emerges
         if "volatility re-emerges" in cond_lower:
-            # No direct data available
-            pass
+            # TODO: wire to real volatility regime data when available
+            triggered = False
+            reason = "no_volatility_regime_data_available"
 
         results[cond[:80]] = {"triggered": triggered, "reason": reason}
 
@@ -394,6 +396,67 @@ def update_forward_outcomes(
     return updated
 
 
+def write_failures_to_feedback_pending(
+    evaluations: list[dict], module_contributions: dict[str, dict]
+) -> list[dict]:
+    """Write contradicted/invalidated claims as feedback pending items.
+
+    These items are consumed by threshold_review_bridge.py to generate
+    review candidates with gate/threshold attribution.
+    """
+    failures = []
+    for ev in evaluations:
+        status = ev.get("status", "")
+        if status not in ("contradicted", "invalidated"):
+            continue
+
+        # Determine which gate/module was the binding constraint
+        blocking_gates = []
+        if status == "invalidated":
+            for cond_name, cond_data in ev.get("invalidation_status", {}).get("conditions", {}).items():
+                if cond_data.get("triggered"):
+                    blocking_gates.append(f"invalidation:{cond_name[:60]}")
+
+        # Check module contributions for gate failures
+        for mod, stats in module_contributions.items():
+            usefulness = stats.get("usefulness", "")
+            if usefulness in ("limiting", "weak"):
+                blocking_gates.append(f"module:{mod}")
+
+        failures.append({
+            "item": f"Claim {status}: {ev.get('claim_label', 'unknown')} on {ev.get('entry_date', '?')}",
+            "source": "claim_evaluator",
+            "validation_type": "claim_failure",
+            "priority": "high" if status == "invalidated" else "medium",
+            "added_at": utc_now().isoformat(),
+            "metadata": {
+                "entry_date": ev.get("entry_date"),
+                "days_since": ev.get("days_since"),
+                "claim_tier": ev.get("claim_tier"),
+                "claim_label": ev.get("claim_label"),
+                "failure_status": status,
+                "md_continuity": ev.get("md_continuity"),
+                "invalidation_status": ev.get("invalidation_status"),
+                "outcome": ev.get("outcome"),
+                "blocking_gates": blocking_gates,
+                "module_contributions": {
+                    mod: stats.get("usefulness") for mod, stats in module_contributions.items()
+                },
+            },
+        })
+
+    # Write to file
+    if failures:
+        ensure_dir(FEEDBACK_PENDING_PATH.parent)
+        FEEDBACK_PENDING_PATH.write_text(
+            json.dumps(failures, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        logger.info("Wrote %d claim failure items to %s", len(failures), FEEDBACK_PENDING_PATH)
+
+    return failures
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate past claims")
     parser.add_argument("--json", action="store_true", help="JSON output only")
@@ -422,6 +485,11 @@ def main() -> None:
     output_path.write_text(
         json.dumps(result, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
+    )
+
+    # Bridge: write failures to feedback_pending for threshold_review_bridge
+    failures = write_failures_to_feedback_pending(
+        result["evaluations"], result.get("module_contributions", {})
     )
 
     if args.json:

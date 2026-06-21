@@ -4,30 +4,16 @@ Credit improves review priority only. It never grants authority.
 """
 from __future__ import annotations
 
-import json
+import os
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from _constants import TIMEOUT_MEDIUM, TIMEOUT_STANDARD  # noqa: E402
+from _runtime_io import ROOT, load_json as _load_json, load_yaml as _load_yaml  # noqa: E402
 
 PRIORITY_ORDER = ["low", "registered", "preferred", "canonical"]
-
-
-def _load_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 def _tier_index(tier: str) -> int:
@@ -84,7 +70,7 @@ def run_pipeline_baseline_check(root: Path) -> dict[str, bool]:
         try:
             proc = subprocess.run(
                 ["python3", "-m", "pytest", str(path), "-x", "-q", "--tb=no"],
-                capture_output=True, text=True, timeout=60, cwd=str(root),
+                capture_output=True, text=True, timeout=TIMEOUT_MEDIUM, cwd=str(root),
             )
             results[name] = proc.returncode == 0
         except (subprocess.TimeoutExpired, Exception):
@@ -95,7 +81,7 @@ def run_pipeline_baseline_check(root: Path) -> dict[str, bool]:
         try:
             proc = subprocess.run(
                 ["python3", "-m", "pytest", *all_paths, "-x", "-q", "--tb=no"],
-                capture_output=True, text=True, timeout=120, cwd=str(root),
+                capture_output=True, text=True, timeout=TIMEOUT_STANDARD, cwd=str(root),
             )
             results["full_baseline"] = proc.returncode == 0
         except (subprocess.TimeoutExpired, Exception):
@@ -104,6 +90,38 @@ def run_pipeline_baseline_check(root: Path) -> dict[str, bool]:
         results["full_baseline"] = all(results.values())
 
     return results
+
+
+def _load_drag_penalty(root: Path | None) -> dict[str, Any]:
+    """Load governance drag report and compute complexity penalty.
+
+    Returns penalty info. Never blocks — if report missing, penalty is 0.
+    """
+    if not root:
+        return {"penalty": 0, "drag_score": 0, "severity": "UNKNOWN", "source": "no_root"}
+
+    drag_path = root / "Output" / "system_learning" / "latest" / "governance_drag_report.json"
+    if not drag_path.exists():
+        return {"penalty": 0, "drag_score": 0, "severity": "UNKNOWN", "source": "report_missing"}
+
+    try:
+        report = _load_json(drag_path)
+        drag = report.get("drag_assessment", {})
+        total_drag = float(drag.get("total_drag_score", 0))
+        severity = drag.get("severity", "UNKNOWN")
+
+        # Penalty formula: 1 point per 10 drag points, rounded down, max 5
+        penalty = min(5, int(total_drag / 10))
+
+        return {
+            "penalty": penalty,
+            "drag_score": total_drag,
+            "severity": severity,
+            "source": "governance_drag_report",
+            "components": drag.get("component_scores", {}),
+        }
+    except Exception:
+        return {"penalty": 0, "drag_score": 0, "severity": "ERROR", "source": "parse_error"}
 
 
 def compute_credit_score(signals: dict[str, Any], policy: dict[str, Any], root: Path | None = None) -> dict[str, Any]:
@@ -133,6 +151,11 @@ def compute_credit_score(signals: dict[str, Any], policy: dict[str, Any], root: 
             active.append(source_id)
             total += int(cfg.get("review_weight", 0))
 
+    # Complexity penalty — deduct credit for system complexity drag
+    drag_info = _load_drag_penalty(root)
+    complexity_penalty = drag_info["penalty"]
+    net_score = max(0, total - complexity_penalty)
+
     suggested = "low"
     for source_id in active:
         cfg = sources.get(source_id, {})
@@ -142,6 +165,9 @@ def compute_credit_score(signals: dict[str, Any], policy: dict[str, Any], root: 
 
     return {
         "total_score": total,
+        "complexity_penalty": complexity_penalty,
+        "net_score": net_score,
+        "drag_info": drag_info,
         "active_sources": active,
         "suggested_tier": suggested,
     }
@@ -304,7 +330,6 @@ def run_anti_gaming_checks(root: Path, policy: dict[str, Any]) -> dict[str, Any]
     fw_path = root / "Output" / "current" / "framework_output.json"
     harvester_manifest = root / "Data" / "harvester" / "exports" / "latest" / "manifest.json"
     if fw_path.exists() and harvester_manifest.exists():
-        import os
         fw_age_hours = (datetime.now(UTC).timestamp() - os.path.getmtime(fw_path)) / 3600
         harvest_age_hours = (datetime.now(UTC).timestamp() - os.path.getmtime(harvester_manifest)) / 3600
         # If framework is recent but harvester is stale (>26h), data may be fabricated
@@ -390,14 +415,15 @@ def build_incentive_review(root: Path) -> dict[str, Any]:
     ]
 
     return {
-        "schema_version": "incentive_review.v2",
+        "schema_version": "incentive_review.v3",
         "generated_at": datetime.now(UTC).isoformat(),
         "authority_boundary": policy.get("authority_boundary", {}),
         "runtime_signals": signals,
         "credit_score": priority,
+        "complexity_penalty": priority.get("drag_info", {}),
         "pipeline_baseline": baseline_results,
         "anti_gaming": anti_gaming,
         "submissions": submission_scores,
         "submission_count": len(submissions),
-        "note": "Credit improves review priority only. It never grants authority.",
+        "note": "Credit improves review priority only. It never grants authority. Complexity drag reduces credit.",
     }

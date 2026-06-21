@@ -19,9 +19,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from _runtime_io import load_json
+from _runtime_io import ROOT, ensure_dir, load_json
 
-ROOT = Path(__file__).resolve().parents[1]
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
@@ -106,7 +105,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "action": "Improve measurement quality",
             "reason": "Confidence is low due to proxy-reduced channels",
             "command": "Check framework_output.json quality_status",
-            "module": "Structural Deformation Research System",
+            "module": "deformation-framework",
         })
 
     if "caselab" in blocked:
@@ -254,7 +253,7 @@ def main() -> None:
     status = gather_status()
     actions = determine_next_actions(status)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_dir(OUTPUT_DIR)
 
     # Write status.json
     status_path = OUTPUT_DIR / "status.json"

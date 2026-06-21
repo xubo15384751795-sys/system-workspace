@@ -14,12 +14,15 @@ Reads only existing output files. No governance YAML, no new registries.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+logger = logging.getLogger(__name__)
+
+from _runtime_io import ROOT, ensure_dir
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
 TRADE = ROOT / "Output" / "trade_decision"
@@ -32,6 +35,7 @@ def _load(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
+        logger.warning("Failed to load %s", path, exc_info=True)
         return None
 
 
@@ -560,7 +564,7 @@ def main() -> None:
 
     brief = build_work_brief()
 
-    CURRENT.mkdir(parents=True, exist_ok=True)
+    ensure_dir(CURRENT)
     (CURRENT / "work_brief.json").write_text(
         json.dumps(brief, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )

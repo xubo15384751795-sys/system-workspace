@@ -20,13 +20,13 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+from _runtime_io import ROOT, load_yaml
 REGISTRY_PATH = ROOT / "governance" / "experimental_submission_registry.yaml"
 
 
 def _load_registry() -> dict:
     if REGISTRY_PATH.exists():
-        return yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8")) or {}
+        return load_yaml(REGISTRY_PATH) or {}
     return {"schema_version": "experimental_submission.v1", "submissions": []}
 
 
