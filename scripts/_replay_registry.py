@@ -181,6 +181,7 @@ from _replay_transforms import (  # noqa: E402
     _series,
     _spread,
 )
+from replay.scoring import CHANNELS  # noqa: E402, F401
 
 # Known data gaps that limit the proxy registry. These are not measurement-
 # layer problems (the math here is fine); they are Harvester / data-acquisition-

@@ -47,6 +47,13 @@ from _replay_registry import (  # noqa: E402
     MeasurementBundle,
     load_official_panel,
 )
+from _replay_transforms import (  # noqa: E402
+    _component,  # noqa: F401
+    _diff_abs,  # noqa: F401
+    _jump_activation_score,  # noqa: F401
+    _pct_component,  # noqa: F401
+    _rolling_zscore,  # noqa: F401
+)
 from _runtime_io import ensure_dir  # noqa: E402
 from _workspace_imports import add_framework_src, add_workbench_src  # noqa: E402
 from replay.scoring import (  # noqa: E402
