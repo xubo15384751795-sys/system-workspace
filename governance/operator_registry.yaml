@@ -1,3 +1,4 @@
+# classification: documentation-only
 # Operator Registry — all operators must be registered here
 # Each operator declares its type, inputs, outputs, and constraints.
 

@@ -4,7 +4,10 @@ import importlib.util
 import shutil
 from pathlib import Path
 
+import pytest
 import yaml
+
+pytestmark = pytest.mark.critical_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -2,10 +2,18 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.critical_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
 
 def _load_module(name: str, path: Path):
@@ -79,7 +87,6 @@ def test_runtime_can_affect_core_requires_graph_and_gate() -> None:
 
 
 def test_build_authority_graph_cli_writes_output(tmp_path: Path) -> None:
-    module = _load_module("build_authority_graph", ROOT / "scripts" / "build_authority_graph.py")
     # Copy minimal policy + one pipeline step into temp root
     (tmp_path / "governance").mkdir()
     (tmp_path / "governance" / "authority_graph_policy.yaml").write_text(

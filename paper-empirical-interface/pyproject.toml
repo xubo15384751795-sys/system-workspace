@@ -7,7 +7,7 @@ name = "paper-empirical-interface"
 version = "0.1.0"
 description = "Empirical interface for Anchor-Mismatch Dynamics paper"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "System Research"},
@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "ruff>=0.1.0",
+    "ruff>=0.15",
 ]
 
 [tool.setuptools.packages.find]
@@ -31,7 +31,7 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -29,7 +29,6 @@ jobs:
 
   pre-commit:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -57,7 +56,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: "**/pyproject.toml"
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.15.12
       - name: Python syntax check
         run: |
           python -m py_compile scripts/daily_run.py
@@ -73,15 +72,14 @@ jobs:
           python -m py_compile Workbench/src/workbench/judgment/claim_ladder.py
           python -m py_compile Workbench/src/workbench/judgment/layer.py
           python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
-      - name: Ruff lint (advisory)
-        run: ruff check scripts/ tests/ --select E,F,W,I --ignore E501,E402 || true
+      - name: Ruff lint
+        run: ruff check scripts/ tests/ --select E,F,W,I --ignore E501,E402
 
   # ── Layer 1: Per-module tests (parallel, gated on lint) ─────────────────
 
   workbench:
     needs: lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -105,7 +103,6 @@ jobs:
   deformation:
     needs: lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -129,7 +126,6 @@ jobs:
   harvester:
     needs: lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -153,7 +149,6 @@ jobs:
   hub:
     needs: lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Rewrite SSH to HTTPS
         run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
@@ -274,7 +269,7 @@ jobs:
         run: python scripts/check_output_freshness.py || true
         env:
           PYTHONPATH: "Workbench/src:scripts"
-      - name: Type check (advisory)
-        run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary || true
+      - name: Type check
+        run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary
         env:
           PYTHONPATH: "Workbench/src:scripts"

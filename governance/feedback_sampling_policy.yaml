@@ -1,3 +1,4 @@
+# classification: documentation-only
 # Feedback Sampling Policy
 # Governs the Feedback Sample Factory — batch generation of judgment-closed-loop
 # samples for calibration, rule evaluation, and governance learning.
