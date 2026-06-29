@@ -1,5 +1,5 @@
 schema_version: capability_registry.v1
-updated_at: "2026-06-20"
+updated_at: "2026-06-29"
 purpose: >
   Module capability registry. Tracks status, allowed/forbidden claims, blockers,
   and promotion requirements. Producer/consumer details removed — see
@@ -35,14 +35,19 @@ deformation_framework:
   - silent_legacy_fallback
   - promote
   blockers:
-  - legacy_data_acquisition_layer_still_exposed
-  - data_sources.py_has_direct_http_calls
-  last_audit_method: manual_review
+  - legacy_data_hub_and_bridge_still_in_gateway  # gateway/data_hub.py, bridge.py still in public path
+  last_audit_method: automated_test_run
   audit_cadence: biweekly
   promotion_requirements:
-  - isolate_legacy_acquisition_in_src_data_init
-  - add_boundary_tests_forbidden_imports
-  - harvester_becomes_only_provider_owner
+  - isolate_legacy_acquisition_in_src_data_init  # COMPLETED 2026-06-29 — files moved to src/_legacy/data/
+  - add_boundary_tests_forbidden_imports  # PARTIAL — boundary tests exist, need full audit
+  - harvester_becomes_only_provider_owner  # blocked until Harvester ETF/cross-asset release
+  notes: >
+    data_sources.py, external_downloads.py, public_adapters.py moved to
+    src/_legacy/data/ on 2026-06-29. src/data/__init__.py no longer exports
+    DataHub/SourceRegistry/create_data_hub. Legacy gateway (data_hub.py,
+    bridge.py) still in src/data/gateway/ as transitional shim — pending
+    retire_or_seal decision by 2026-07-15.
 harvester:
   status: CANONICAL
   owner: system

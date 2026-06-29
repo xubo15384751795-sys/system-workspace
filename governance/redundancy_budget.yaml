@@ -18,6 +18,9 @@ root_scripts:
     - experimental        # research experiment, cannot affect core judgment
     - archive_candidate   # ready to move to scripts/archive/
     - archived            # moved to scripts/archive/
+    - deprecated          # still on disk, must not be called
+    - blocked             # cannot run due to missing dependency
+    - legacy_sealed       # moved to _legacy, access via ALLOW_LEGACY_DATAHUB=1 opt-in
 
   # Scripts NOT in daily_run or ./sys must have a retire_after or ttl_days.
   experimental_ttl_days: 30

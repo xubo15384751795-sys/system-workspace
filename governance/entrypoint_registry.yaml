@@ -131,15 +131,15 @@ calibration:
   allowed_use:
   - calibration_analysis
 legacy_data_sources:
-  script: deformation-framework/src/data/data_sources.py
-  status: deprecated
+  script: deformation-framework/src/_legacy/data/data_sources.py
+  status: legacy_sealed
   owner: Deformation Framework
   allowed_use:
   - legacy_replay
   - migration_validation
   - dual_path_compare
   retire_after: '2026-07-15'
-  note: LEGACY_COMPATIBILITY_ONLY — must not be used by production pipeline
+  note: LEGACY_COMPATIBILITY_ONLY — moved to _legacy 2026-06-29, must not be used by production pipeline
 structural_replay_evaluation:
   script: scripts/archive/structural_replay_evaluation.py
   status: archived

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-import sys
 
 import pytest
 
@@ -106,6 +105,6 @@ def test_build_system_legacy_has_deprecation_warning() -> None:
     if not assembly.exists():
         pytest.skip("Framework assembly.py not found")
     source = assembly.read_text(encoding="utf-8")
-    assert "DeprecationWarning" in source or "ALLOW_LEGACY_DATAHUB" in source, (
-        "Legacy backend path missing DeprecationWarning or ALLOW_LEGACY_DATAHUB guard"
+    assert "DeprecationWarning" in source or "ALLOW_LEGACY_DATAHUB" in source or "check_legacy_allowed" in source, (
+        "Legacy backend path missing DeprecationWarning, ALLOW_LEGACY_DATAHUB, or check_legacy_allowed guard"
     )

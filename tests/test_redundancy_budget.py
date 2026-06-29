@@ -4,8 +4,9 @@ See: governance/redundancy_budget.yaml
 """
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 BUDGET_PATH = ROOT / "governance" / "redundancy_budget.yaml"
@@ -36,7 +37,7 @@ def test_all_scripts_have_valid_status() -> None:
     budget = _load_budget()
     allowed = set(budget["root_scripts"]["allowed_statuses"])
     # Also allow statuses from other categories
-    allowed |= {"active", "deprecated", "blocked", "shadow_active"}
+    allowed |= {"active", "deprecated", "blocked", "shadow_active", "legacy_sealed"}
 
     registry = _load_registry()
     for name, entry in registry.items():

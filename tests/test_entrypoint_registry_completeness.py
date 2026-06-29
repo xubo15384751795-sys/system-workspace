@@ -5,8 +5,9 @@ See: governance/entrypoint_registry.yaml
 """
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
@@ -25,6 +26,7 @@ VALID_STATUSES = {
     "archived",
     "deprecated",
     "blocked",
+    "legacy_sealed",
 }
 
 

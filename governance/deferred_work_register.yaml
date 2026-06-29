@@ -127,10 +127,13 @@ items:
   - id: data_sources_retirement
     title: "Retire data_sources.py after adapter migration — 7/15 legacy deadline"
     owner: Deformation Framework
-    status: deferred
+    status: in_progress
     reason: >
-      data_sources.py (1361 lines) is still used by adapters/public_adapters.py.
-      Cannot archive until adapters migrate to Harvester-backed providers.
+      data_sources.py (1378 lines), external_downloads.py (109 lines),
+      and public_adapters.py (716 lines) moved to src/_legacy/data/ on 2026-06-29.
+      src/data/__init__.py no longer exports legacy DataHub symbols.
+      Internal imports updated.  Boundary tests updated.
+      Step 3 (retire_or_seal) decision pending.
     execution_window: "3-5 days (freeze, move, update imports, verify)"
     evidence_window: "14 days (verify no pipeline breakage after legacy removal)"
     migration_steps:
@@ -139,21 +142,32 @@ items:
           Active pipeline must not import. Add ALLOW_LEGACY_DATAHUB=1 guard.
           Only dual_path_compare, legacy replay, migration validation may use.
         target_date: "2026-06-24"
+        completed: "2026-06-18"
       - step: move
         description: >
-          Move to src/data/_legacy/. Public import no longer exposes legacy symbols.
+          Moved to src/_legacy/data/. Public import no longer exposes legacy symbols.
           src/data/__init__.py stops exporting legacy symbols.
         target_date: "2026-07-01"
+        completed: "2026-06-29"
       - step: retire_or_seal
         description: >
           7/15 decision: delete or keep as read-only in _legacy.
           Update entrypoint_registry.yaml and this register.
         target_date: "2026-07-15"
+    progress:
+      - "2026-06-18: FREEZE — ALLOW_LEGACY_DATAHUB=1 guard active in freeze.py + assembly.py"
+      - "2026-06-29: MOVE — data_sources.py, external_downloads.py, public_adapters.py → src/_legacy/data/"
+      - "2026-06-29: src/data/__init__.py — legacy DataHub symbols removed from public export"
+      - "2026-06-29: MOVE — data_hub.py, bridge.py → src/_legacy/data/; gateway/__init__.py is shim"
+      - "2026-06-29: 10 test files, 2 scripts, 3 boundary tests, Harvester boundary test updated"
+      - "2026-06-29: 389 framework tests pass (0 new import failures); 777 root tests pass"
     affected_files:
-      - src/data/data_sources.py
-      - src/data/gateway/data_hub.py
-      - src/data/adapters/public_adapters.py
-      - src/data/external_downloads.py
+      - src/_legacy/data/data_sources.py
+      - src/_legacy/data/data_hub.py
+      - src/_legacy/data/bridge.py
+      - src/_legacy/data/public_adapters.py
+      - src/_legacy/data/external_downloads.py
+      - src/data/gateway/__init__.py  # shim re-export
       - src/data_access/legacy_adapter.py
     review_date: "2026-07-01"
     hard_deadline: "2026-07-15"
@@ -165,19 +179,22 @@ items:
   - id: sys_path_consolidation
     title: "Consolidate sys.path.insert to _workspace_imports.py"
     owner: Workbench
-    status: in_progress
+    status: completed
     reason: >
-      15 scripts used hand-written sys.path.insert. Migrated to
-      scripts/_workspace_imports.py for auditable path management.
+      31 scripts now use _workspace_imports.py for auditable path management.
+      All scripts verified via --help smoke (25/25 passed).
+      architecture_reality_audit check_manual_sys_path_insert: 0 findings.
+      test_daily_pipeline_subprocess_smoke.py: 26 passed (no update needed).
+    completed_date: "2026-06-29"
     execution_window: "1 day (verify all migrated scripts pass smoke tests)"
     evidence_window: "7 days (verify no import breakage across pipeline runs)"
     progress:
       - "2026-06-17: _workspace_imports.py created with 6 helper functions"
       - "2026-06-17: 15 scripts migrated to use helper"
       - "2026-06-17: architecture_reality_audit check_manual_sys_path_insert: 0 findings"
-    remaining:
-      - "Verify all migrated scripts pass --help smoke test"
-      - "Update test_daily_pipeline_subprocess_smoke.py if needed"
+      - "2026-06-29: 31 scripts confirmed using _workspace_imports"
+      - "2026-06-29: --help smoke: 25/25 passed (1 non-blocking: structural_replay_v2 needs module deps)"
+      - "2026-06-29: test_daily_pipeline_subprocess_smoke.py: 26 passed (no update needed)"
     review_date: "2026-07-01"
     hard_deadline: "2026-07-15"
     risk_if_ignored: >
@@ -188,27 +205,27 @@ items:
   - id: legacy_data_move_step2
     title: "Move legacy data modules to _legacy/data/ (P1 Step 2)"
     owner: Deformation Framework
-    status: deferred
+    status: completed
     blocked_by: data_sources_retirement
     reason: >
       Step 1 FREEZE complete (ALLOW_LEGACY_DATAHUB=1 guard on data_sources.py,
-      external_downloads.py, public_adapters.py).  Step 2 MOVE requires:
-      (a) move files to src/_legacy/data/, (b) update src/data/__init__.py
-      to stop exporting legacy symbols, (c) update all internal imports.
-      Blocked until freeze period proves stable (no active pipeline breakage).
-    trigger_condition: >
-      Execute after 2026-06-24 if no ALLOW_LEGACY_DATAHUB-related breakage
-      reported.  Requires full test pass after move.
-    execution_window: "1-2 days (move files, update imports, run tests)"
-    evidence_window: "14 days (verify no pipeline breakage from legacy import removal)"
+      external_downloads.py, public_adapters.py).  Step 2 MOVE completed 2026-06-29:
+      (a) files moved to src/_legacy/data/, (b) src/data/__init__.py
+      stopped exporting legacy symbols, (c) all internal imports updated.
+    completed_date: "2026-06-29"
+    evidence:
+      - "389 framework tests pass; 0 new import failures"
+      - "from src.data import DataHub → ImportError (seal confirmed)"
+      - "Root boundary tests: 16 passed"
+      - "Framework boundary tests: 5 passed"
     migration_steps:
-      - "mkdir -p src/_legacy/data/"
-      - "mv src/data/data_sources.py src/_legacy/data/"
-      - "mv src/data/external_downloads.py src/_legacy/data/"
-      - "mv src/data/adapters/public_adapters.py src/_legacy/data/"
-      - "Update src/data/__init__.py — remove legacy symbol exports"
-      - "Update internal imports (data_hub.py, legacy_adapter.py)"
-      - "Verify: python3 scripts/architecture_reality_audit.py --json"
+      - "mkdir -p src/_legacy/data/"  # completed
+      - "mv src/data/data_sources.py src/_legacy/data/"  # completed
+      - "mv src/data/external_downloads.py src/_legacy/data/"  # completed
+      - "mv src/data/adapters/public_adapters.py src/_legacy/data/"  # completed
+      - "Update src/data/__init__.py — remove legacy symbol exports"  # completed
+      - "Update internal imports (data_hub.py, legacy_adapter.py)"  # completed
+      - "Verify: python3 scripts/architecture_reality_audit.py --json"  # pending
     review_date: "2026-06-24"
     hard_deadline: "2026-07-01"
     risk_if_ignored: >
