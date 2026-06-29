@@ -19,7 +19,9 @@ repos:
     rev: v0.11.13
     hooks:
       - id: ruff
-        args: [--select, E,F,W,I, --ignore, E501,E402]
+        args:
+          - "--select=E,F,W,I"
+          - "--ignore=E501,E402"
         types_or: [python, pyi]
 
   # Governance freeze — block commits that add unapproved governance files

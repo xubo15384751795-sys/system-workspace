@@ -14,7 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_yaml as _load_yaml  # noqa: E402
+from _runtime_io import ensure_dir  # noqa: E402
+from _runtime_io import load_yaml as _load_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,30 @@ def _collect_paths(step: dict[str, Any], key: str) -> list[str]:
     return [_normalize_path(v) for v in values if v]
 
 
+def _collect_input_paths(step: dict[str, Any]) -> list[str]:
+    """Collect ALL input paths for a step — input, consumes, contracts.inputs.
+
+    Unlike _collect_paths(step, "consumes") which only reads the ``consumes``
+    field, this covers every declared input source so the graph can build
+    complete data_flow edges between steps.
+    """
+    values: list[str] = []
+    for field in ("input", "inputs", "consumes"):
+        raw = step.get(field)
+        if isinstance(raw, str):
+            values.append(raw)
+        elif isinstance(raw, list):
+            values.extend(str(item) for item in raw)
+    contracts = step.get("contracts", {}) or {}
+    for contract_key in ("input", "inputs", "consumes"):
+        contract_raw = contracts.get(contract_key)
+        if isinstance(contract_raw, str):
+            values.append(contract_raw)
+        elif isinstance(contract_raw, list):
+            values.extend(str(item) for item in contract_raw)
+    return list(dict.fromkeys(_normalize_path(v) for v in values if v))
+
+
 def _drift_exempt(step_id: str, node: dict[str, Any], declared: bool, derived: bool, policy: dict[str, Any]) -> bool:
     if declared == derived:
         return True
@@ -196,13 +221,16 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
 
     step_produces: dict[str, list[str]] = {}
     step_consumes: dict[str, list[str]] = {}
+    step_input_paths: dict[str, list[str]] = {}
 
     for step_id, step in steps.items():
         zone, node_type = _zone_for_step(step_id, policy)
         produces = _collect_paths(step, "produces")
         consumes = _collect_paths(step, "consumes")
+        input_paths = _collect_input_paths(step)
         step_produces[step_id] = produces
         step_consumes[step_id] = consumes
+        step_input_paths[step_id] = input_paths
 
         nodes[step_id] = {
             "id": step_id,
@@ -215,6 +243,7 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
             "bridge_node": step_id in bridge_nodes,
             "produces": produces,
             "consumes": consumes,
+            "input_paths": input_paths,
         }
 
         for path in produces:
@@ -232,8 +261,8 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
             if step_id in bridge_nodes and nodes[artifact]["zone"] == "Z3":
                 edges[-1]["bridge"] = True
 
-    for step_id, consumes in step_consumes.items():
-        for consumed in consumes:
+    for step_id, all_inputs in step_input_paths.items():
+        for consumed in all_inputs:
             artifact = _artifact_id(consumed)
             if artifact not in nodes:
                 nodes[artifact] = {
@@ -246,15 +275,24 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
                 }
             edges.append({"from": artifact, "to": step_id, "kind": "consumes"})
 
+    # Build data_flow edges using ALL input paths (input + consumes + contracts.inputs)
     for producer_id, produces in step_produces.items():
-        for consumer_id, consumes in step_consumes.items():
+        for consumer_id, all_inputs in step_input_paths.items():
             if producer_id == consumer_id:
                 continue
-            if any(_path_matches(p, c) for p in produces for c in consumes):
-                edges.append({"from": producer_id, "to": consumer_id, "kind": "data_flow"})
+            if any(_path_matches(p, c) for p in produces for c in all_inputs):
+                edge: dict[str, Any] = {"from": producer_id, "to": consumer_id, "kind": "data_flow"}
+                # Detect feedback: consumer has lower order than producer
+                p_order = int(nodes.get(producer_id, {}).get("order") or 0)
+                c_order = int(nodes.get(consumer_id, {}).get("order") or 0)
+                if c_order and p_order and c_order < p_order:
+                    edge["feedback"] = True
+                    edge["kind"] = "feedback"
+                edges.append(edge)
 
     in_degree: dict[str, int] = defaultdict(int)
     out_degree: dict[str, int] = defaultdict(int)
+    feedback_edges = [e for e in edges if e.get("kind") == "feedback"]
     for edge in edges:
         out_degree[edge["from"]] += 1
         in_degree[edge["to"]] += 1
@@ -369,6 +407,8 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
             "pipeline_step_count": sum(1 for n in nodes.values() if n.get("kind") == "pipeline_step"),
             "artifact_node_count": sum(1 for n in nodes.values() if n.get("kind") == "artifact"),
             "edge_count": len(edges),
+            "data_flow_edge_count": sum(1 for e in edges if e.get("kind") == "data_flow"),
+            "feedback_edge_count": len(feedback_edges),
             "core_capable_step_count": len(core_capable_steps),
             "core_capable_steps": sorted(core_capable_steps),
             "drift_count": len(drift),

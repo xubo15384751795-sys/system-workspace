@@ -62,4 +62,4 @@ python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
-exclude = ["archive/", "deformation-framework/", "Workbench/", "structural-risk-harvester/", "system-learning-hub/"]
+exclude = ["deformation-framework/", "Workbench/", "structural-risk-harvester/", "system-learning-hub/"]

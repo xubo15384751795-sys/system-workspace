@@ -9,6 +9,7 @@ Enforces:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,28 +17,26 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORK_OUTPUT_PATH = ROOT / "Output" / "current" / "framework_output.json"
 README_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
-REPLAY_SCRIPT = ROOT / "scripts" / "structural_replay_v2.py"
+
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    import structural_replay_v2 as srv  # noqa: E402
+except (ImportError, ModuleNotFoundError):
+    srv = None  # type: ignore[assignment]
 
 
 def _get_voting_proxies() -> list[dict]:
-    """Extract voting proxies from replay script by parsing canonical_status."""
-    content = REPLAY_SCRIPT.read_text(encoding="utf-8")
-    import re
-    # Find all ProxySpec blocks with canonical_voting
-    proxies = []
-    pattern = re.compile(
-        r'name="([^"]+)".*?target_variable="([^"]+)".*?tier="([^"]+)".*?'
-        r'canonical_status="([^"]+)"',
-        re.DOTALL
-    )
-    for m in pattern.finditer(content):
-        proxies.append({
-            "name": m.group(1),
-            "target_variable": m.group(2),
-            "tier": m.group(3),
-            "canonical_status": m.group(4),
-        })
-    return proxies
+    """ProxySpec registry entries (PROXY_REGISTRY lives in _replay_registry.py)."""
+    assert srv is not None, "structural_replay_v2 import failed — check PYTHONPATH / replay deps"
+    return [
+        {
+            "name": s.name,
+            "target_variable": s.target_variable,
+            "tier": s.tier,
+            "canonical_status": s.canonical_status,
+        }
+        for s in srv.PROXY_REGISTRY
+    ]
 
 
 @pytest.mark.governance_loop

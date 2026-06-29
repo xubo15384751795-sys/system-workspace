@@ -1011,12 +1011,35 @@ _notify:
   - runtime_notification
 _paper_paths:
   script: scripts/_paper_paths.py
-  status: active
+  status: archived
   owner: CaseLab
-  description: Compatibility re-export of Paper path helper
+  description: Deleted 2026-06-20 — dead file, no importers
   allowed_use:
   - shared_utility
-  - paper_path_resolution
+_replay_registry:
+  script: scripts/_replay_registry.py
+  status: active
+  owner: system
+  description: Data definitions for structural replay — type aliases, stress events, state variables, proxy registry
+  allowed_use:
+  - shared_utility
+  - data_definition
+_replay_transforms:
+  script: scripts/_replay_transforms.py
+  status: active
+  owner: system
+  description: Pure transform functions for proxy computation — z-score, spread, butterfly, activation scores
+  allowed_use:
+  - shared_utility
+  - transform_computation
+_proxy_aggregation:
+  script: scripts/_proxy_aggregation.py
+  status: active
+  owner: system
+  description: Coupled iterative proxy aggregation for M/D/K/X channels — ODE drift coupling
+  allowed_use:
+  - shared_utility
+  - proxy_aggregation
 build_feedback_sample_pool:
   script: scripts/build_feedback_sample_pool.py
   status: archived
