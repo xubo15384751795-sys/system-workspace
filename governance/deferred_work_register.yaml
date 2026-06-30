@@ -26,6 +26,7 @@ items:
       - "2026-06-30 Wave 1: _data_paths.py, governance cross_asset/claim_ceiling closure, harvester exports-root, callable batch 1"
       - "2026-06-30 Wave 2: main-chain callable (14 steps), measurement_quality sidecar, callable e2e tests"
       - "2026-06-30 Wave 3: shadow_outcomes_90d, qlib_structural_bridge, experimental_validation in signal_card"
+      - "2026-06-30 Wave 4: system run STEP_ID, evidence contributor drill-down, agent routing authority"
     risk_if_ignored: >
       Capability gaps remain scattered; evidence grade and experimental modules stay disconnected.
     fallback_if_expired: >

@@ -33,6 +33,15 @@ HARVESTER_CATALOG_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "c
 DATA_REQUEST_PATH = ROOT / "governance" / "data_request_registry.yaml"
 OUTPUT_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
 
+CONTRIBUTOR_ARTIFACTS: dict[str, list[str]] = {
+    "paper_world_model": [str(PAPER_MANIFEST_PATH.relative_to(ROOT))],
+    "hmm_stability": [str(HMM_AUDIT_PATH.relative_to(ROOT))],
+    "k_measurement_gate": [str(K_GATE_PATH.relative_to(ROOT))],
+    "x_measurement_gate": [str(X_GATE_PATH.relative_to(ROOT))],
+    "data_freshness": [str(FRESHNESS_PATH.relative_to(ROOT))],
+    "harvester_evidence": [str(HARVESTER_CATALOG_PATH.relative_to(ROOT))],
+}
+
 
 def _load_yaml_safe(path: Path) -> dict[str, Any]:
     """Load YAML safely, return empty dict on failure."""
@@ -144,6 +153,45 @@ def _build_contributors(
     contributors.append(harv_entry)
 
     return contributors
+
+
+def _build_contributor_drill_down(
+    contributors: list[dict[str, Any]],
+    blockers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Per-contributor drill-down for evidence grade transparency."""
+    drill_down: list[dict[str, Any]] = []
+    for contributor in contributors:
+        source = contributor["source"]
+        related = [b for b in blockers if source in b.get("source", "") or source in b.get("code", "")]
+        simulated = []
+        for item in contributors:
+            if item["source"] == source:
+                simulated.append({**item, "admitted": True, "status": "available"})
+            else:
+                simulated.append(item)
+        grade_if_admitted = _compute_grade(simulated, blockers)
+
+        actions: list[str] = []
+        if not contributor["admitted"]:
+            actions.append(f"Restore artifact for {source}")
+        if contributor["status"] in ("WEAK", "FAIL", "UNKNOWN", "missing"):
+            actions.append(f"Improve {source} status from {contributor['status']}")
+
+        drill_down.append(
+            {
+                "source": source,
+                "weight": contributor["weight"],
+                "admitted": contributor["admitted"],
+                "status": contributor["status"],
+                "artifact_paths": CONTRIBUTOR_ARTIFACTS.get(source, []),
+                "details": contributor.get("details", {}),
+                "related_blockers": related,
+                "grade_if_admitted": grade_if_admitted,
+                "upgrade_actions": actions,
+            }
+        )
+    return drill_down
 
 
 def _build_blockers(
@@ -320,6 +368,7 @@ def build_evidence_grade_report() -> dict[str, Any]:
         "admitted_weight": round(sum(c["weight"] for c in contributors if c["admitted"]), 2),
         "total_weight": round(sum(c["weight"] for c in contributors), 2),
         "contributors": contributors,
+        "contributor_drill_down": _build_contributor_drill_down(contributors, blockers),
         "blockers": blockers,
         "paper_support_status": paper_support,
         "what_would_upgrade": _build_upgrade_path(contributors, blockers, computed_grade),

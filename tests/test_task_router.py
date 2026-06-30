@@ -5,7 +5,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_ROOT = ROOT / "Workbench" / "agents" / "harness"
 
@@ -23,9 +22,68 @@ def test_route_task_selects_harvester_for_fuzzy_data_source_request() -> None:
     assert decision["primary_module"] == "Harvester"
     assert decision["context_file"] == "module_contexts/harvester.md"
     assert decision["recommended_mode"] == "verify"
+    assert decision["execution_authority"]["authority_tier"] == "diagnostic"
+    assert decision["execution_authority"]["may_dry_run_pipeline_step"] is True
     assert decision["requires_routing_decision_record"] is True
     assert "module_contexts/harvester.md" in decision["read_first"]
     assert any(expert["id"] == "datahub_implementation" for expert in decision["activated_experts"])
+
+
+def test_resolve_execution_authority_denies_judgment_layer_in_run_mode() -> None:
+    from tools.task_router import resolve_execution_authority
+
+    authority = resolve_execution_authority("run", step_id="judgment_layer")
+    assert authority["may_execute_pipeline_step"] is False
+    assert authority["reasons"]
+
+
+def test_routing_execute_pipeline_step_dry_run_allowed() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(HARNESS_ROOT / "entrypoints" / "system.py"),
+            "tools",
+            "run",
+            "routing.execute_pipeline_step",
+            "step_id=evidence_grade_report",
+            "pipeline_dry_run=true",
+            "--mode",
+            "run",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(proc.stdout)
+    assert payload["ok"] is True
+    assert payload["tool_id"] == "routing.execute_pipeline_step"
+    assert payload["evidence"]["execution_authority"]["may_dry_run_pipeline_step"] is True
+
+
+def test_routing_execute_pipeline_step_blocks_judgment_layer() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(HARNESS_ROOT / "entrypoints" / "system.py"),
+            "tools",
+            "run",
+            "routing.execute_pipeline_step",
+            "step_id=judgment_layer",
+            "--mode",
+            "run",
+            "--json",
+        ],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(proc.stdout)
+    assert proc.returncode == 1
+    assert payload["ok"] is False
+    assert "judgment_layer" in payload["errors"][0]
 
 
 def test_route_task_escalates_claim_and_paper_work() -> None:

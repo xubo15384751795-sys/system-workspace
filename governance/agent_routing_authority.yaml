@@ -1,0 +1,63 @@
+schema_version: agent_routing_authority.v1
+updated_at: "2026-06-30"
+purpose: >
+  Explicit authority model for routed task execution. Agent Routing may
+  execute governed pipeline steps only through workbench.run_pipeline_step
+  when the recommended mode and step policy allow it.
+
+default_tier: shadow
+
+mode_to_tier:
+  explore: shadow
+  plan: shadow
+  verify: diagnostic
+  implement: diagnostic
+  fetch: execute
+  run: execute
+  edit: execute
+  release: manual_review
+
+tiers:
+  shadow:
+    may_execute_pipeline_step: false
+    may_dry_run_pipeline_step: true
+    description: Route and plan only; no step execution.
+
+  diagnostic:
+    may_execute_pipeline_step: true
+    may_dry_run_pipeline_step: true
+    dry_run_required_unless_mode: verify
+    denied_step_ids:
+      - harvester
+      - promote_snapshot
+    description: >
+      Non-core-judgment steps only; core-judgment steps require dry-run
+      unless mode is verify (read-only validation steps).
+
+  execute:
+    may_execute_pipeline_step: true
+    may_dry_run_pipeline_step: true
+    denied_step_ids:
+      - harvester
+      - promote_snapshot
+      - judgment_layer
+      - trade_decision
+      - judgment_promotion_gate
+    description: >
+      Governed pipeline steps that do not directly write judgment/trade
+      decisions. Promotion and harvester remain manual.
+
+  manual_review:
+    may_execute_pipeline_step: false
+    may_dry_run_pipeline_step: true
+    description: Release surfaces require human review before execution.
+
+core_judgment_policy:
+  block_direct_execution: true
+  allow_dry_run: true
+  affected_step_ids:
+    - judgment_layer
+    - judgment_promotion_gate
+    - trade_decision
+    - structural_replay
+    - bridge

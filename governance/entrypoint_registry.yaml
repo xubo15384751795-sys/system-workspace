@@ -909,6 +909,14 @@ _pipeline_runner:
   allowed_use:
   - pipeline_execution
   - callable_runner
+run_pipeline_step:
+  script: scripts/run_pipeline_step.py
+  status: active
+  owner: Workbench
+  description: CLI to list, describe, and run one daily pipeline registry step
+  allowed_use:
+  - pipeline_execution
+  - single_step_run
 check_retire_after:
   script: scripts/check_retire_after.py
   status: active

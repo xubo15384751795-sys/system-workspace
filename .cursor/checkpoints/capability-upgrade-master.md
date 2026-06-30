@@ -6,14 +6,14 @@
   - Wave 3 (2026-06-30): shadow_outcomes_90d, qlib bridge, experimental_validation in signal_card
   - claim_ceiling_lift fulfilled via existing `claim_ladder_policy.yaml` + `layer.py` tier wiring (no new governance file)
   - K/X quality: gate-validated against Harvester releases; enrich harvester quality_reports in Wave 2
+  - Wave 4 (2026-06-30): system run STEP_ID, contributor_drill_down, agent_routing_authority.yaml
 - open_threads:
-  - P4: Workbench `sys run <step>`; evidence_grade contributor drill-down; agent routing authority
   - CaseLab unit tests; NLP golden set E2E
 - do_not_touch:
   - `deformation-framework/src/_legacy/data/` (sealed)
   - Sigma core proxy rules without claim_registry change
 - next_agent_action:
-  - Wave 4: Workbench step runner CLI; evidence_grade contributor drill-down
+  - Optional: CaseLab/NLP E2E; stage measurement_quality into Harvester release bundle
 
 ## Phase map
 

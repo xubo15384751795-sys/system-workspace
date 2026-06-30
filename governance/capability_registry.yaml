@@ -227,25 +227,27 @@ qlib_benchmark:
   - define_qlib_to_structural_bridge
   - add_anti_gaming_tests
 agent_routing:
-  status: SHADOW_ACTIVE
+  status: ACTIVE_PARTIAL
   owner: system
   allowed_claims:
   - sparse_activation
   - expert_routing
   - workflow_guard
   - routing_diagnostics
-  forbidden_claims:
   - execute_routed_task
+  forbidden_claims:
   - bypass_module_ownership
   - affect_core_judgment
   blockers:
-  - no_authority_to_execute_routes
+  - core_judgment_steps_require_manual_run
   - needs_routing_decision_tests
   last_audit_method: manual_review
   audit_cadence: monthly
   promotion_requirements:
   - add_routing_decision_tests
   - explicit_authority_model_for_route_execution
+  authority_policy: governance/agent_routing_authority.yaml
+  governed_execution_tool: routing.execute_pipeline_step
 research_terminal:
   status: PAPER_RETAIN
   owner: system

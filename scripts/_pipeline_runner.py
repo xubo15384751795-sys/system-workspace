@@ -157,12 +157,67 @@ def run_subprocess_step(
         return {"step": name, "status": "error", "mode": "subprocess", "error": str(exc), "duration_s": 0}
 
 
-def load_step_execution(step_id: str) -> dict[str, Any]:
+def load_registry() -> dict[str, Any]:
     import yaml
 
-    registry = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+    return yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+
+
+def load_step_execution(step_id: str) -> dict[str, Any]:
+    registry = load_registry()
     step = registry.get("steps", {}).get(step_id, {})
     return step.get("execution", {})
+
+
+def list_registry_steps(*, include_inactive: bool = False) -> list[dict[str, Any]]:
+    """Return pipeline steps from daily_pipeline_registry.yaml."""
+    registry = load_registry()
+    steps: list[dict[str, Any]] = []
+    for step_id, step in registry.get("steps", {}).items():
+        if not isinstance(step, dict):
+            continue
+        if step.get("status") == "inactive" and not include_inactive:
+            continue
+        steps.append(
+            {
+                "step_id": step_id,
+                "order": step.get("order", 9999),
+                "status": step.get("status", "unknown"),
+                "owner": step.get("owner", ""),
+                "schedule": step.get("schedule", "daily"),
+                "command": step.get("command", ""),
+                "affects_core_judgment": bool(
+                    step.get("allowed_to_affect_core_judgment")
+                    or (step.get("authority") or {}).get("affects_core_judgment")
+                ),
+                "execution_mode": (step.get("execution") or {}).get("mode", "subprocess"),
+            }
+        )
+    steps.sort(key=lambda item: (item["order"] if item["order"] is not None else 9999, item["step_id"]))
+    return steps
+
+
+def describe_registry_step(step_id: str) -> dict[str, Any] | None:
+    registry = load_registry()
+    step = registry.get("steps", {}).get(step_id)
+    if not isinstance(step, dict):
+        return None
+    execution = step.get("execution", {})
+    return {
+        "step_id": step_id,
+        "order": step.get("order"),
+        "status": step.get("status"),
+        "owner": step.get("owner"),
+        "schedule": step.get("schedule", "daily"),
+        "command": step.get("command"),
+        "produces": step.get("produces", []),
+        "input": step.get("input", []),
+        "affects_core_judgment": bool(
+            step.get("allowed_to_affect_core_judgment")
+            or (step.get("authority") or {}).get("affects_core_judgment")
+        ),
+        "execution": execution,
+    }
 
 
 def run_registry_step(
