@@ -23,12 +23,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-
+from _data_paths import resolve_cross_asset_panel_path
 from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 # ---------------------------------------------------------------------------
@@ -37,7 +36,7 @@ from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 FEEDBACK_DIR = ROOT / "Output" / "feedback_samples" / "replay_runs"
 VALIDATION_DIR = ROOT / "Output" / "validation"
 REPORT_PATH = VALIDATION_DIR / "baseline_comparison.json"
-PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+PANEL_PATH = resolve_cross_asset_panel_path()
 
 # ---------------------------------------------------------------------------
 # Baseline strategies

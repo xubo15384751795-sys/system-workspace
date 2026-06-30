@@ -11,6 +11,25 @@ purpose: >
 # evidence_window: how long validation needs real data/time (not compressible)
 
 items:
+  - id: capability_upgrade_master
+    title: "Full functional capability upgrade (P1–P4)"
+    owner: System
+    status: in_progress
+    reason: >
+      Master upgrade track: judgment inputs, callable pipeline, experimental promotion,
+      Workbench UX. Checkpoint at .cursor/checkpoints/capability-upgrade-master.md.
+    execution_window: "Multi-wave through 2026-08-15"
+    evidence_window: "30 days per wave (pipeline stability + gate metrics)"
+    review_date: "2026-07-15"
+    hard_deadline: "2026-09-01"
+    progress:
+      - "2026-06-30 Wave 1: _data_paths.py, governance cross_asset/claim_ceiling closure, harvester exports-root, callable batch 1"
+      - "2026-06-30 Wave 2: main-chain callable (14 steps), measurement_quality sidecar, callable e2e tests"
+    risk_if_ignored: >
+      Capability gaps remain scattered; evidence grade and experimental modules stay disconnected.
+    fallback_if_expired: >
+      Accept partial upgrades per deferred_work_register individual items.
+
   - id: pipeline_runner_import_migration
     title: "daily_run subprocess → module callable runner"
     owner: Workbench
@@ -85,8 +104,8 @@ items:
     status: in_progress
     blocked_by: pipeline_runner_import_migration
     reason: >
-      Callable runner exists; tests/test_pipeline_runner.py covers pilot callable steps.
-      Broader E2E expansion continues as steps flip execution.mode to callable.
+      tests/test_daily_pipeline_callable_e2e.py covers 14 main-chain callable steps
+      plus measurement_quality_report smoke. Expand to full run with fixture outputs.
     execution_window: "3-5 days (write callable tests for 11 pipeline steps)"
     evidence_window: "14 days (verify callable tests pass across CI runs)"
     trigger_condition: >

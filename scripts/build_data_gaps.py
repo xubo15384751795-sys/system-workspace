@@ -19,10 +19,16 @@ import argparse
 import json
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json as _load_json, load_yaml as _load_yaml  # noqa: E402
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment,misc]
+
+from _runtime_io import ROOT, ensure_dir  # noqa: E402
+from _runtime_io import load_json as _load_json
+from _runtime_io import load_yaml as _load_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +91,9 @@ _GAP_REQUEST_MAP: dict[str, dict[str, Any]] = {
         "requested_by": "Workbench Signals",
         "needed_for": "K channel — cross-asset curvature family",
         "data_needed": "SPY/TLT/HYG/GLD daily panel via Harvester",
-        "current_source": "Data/panels/cross_asset_daily_panel.parquet",
-        "current_authority": "non_harvester_transitional",
-        "non_harvester_flag": True,
+        "current_source": "Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet",
+        "current_authority": "harvester",
+        "non_harvester_flag": False,
         "priority": "medium",
     },
 }

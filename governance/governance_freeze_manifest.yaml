@@ -321,6 +321,46 @@ baseline_updates:
     old_hash: "45243c9d94856897"
     new_hash: "9d2b1a2520225077"
     reason: "Pilot reporting steps migrated to execution.mode callable"
+  - file: data_request_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "26e83a83ff3e38c0"
+    new_hash: "da2346f09453072d"
+    reason: "cross_asset_confirmation fulfilled; claim_ceiling_lift via governance; K/X in_progress"
+  - file: capability_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "3273727862cfb0f5"
+    new_hash: "fb99980299126f8e"
+    reason: "etf_data_path CANONICAL after Harvester cross_asset release"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "9d2b1a2520225077"
+    new_hash: "899f63c13c9d0166"
+    reason: "Callable mode for build_readme_first, build_next_actions, freshness_validator"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-06-30"
+    old_hash: "db71d25881eceda3"
+    new_hash: "9d4a456c41d111da"
+    reason: "Register capability_upgrade_master in_progress track"
+  - file: data_request_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "da2346f09453072d"
+    new_hash: "500729e504511860"
+    reason: "K/X measurement_quality fulfilled via measurement_quality.json sidecar"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "899f63c13c9d0166"
+    new_hash: "b1af2446974129fe"
+    reason: "Main-chain callable + measurement_quality_report step; fix future_callable specs"
+  - file: daily_run_sequence.yaml
+    approved_at: "2026-06-30"
+    old_hash: "_unknown_"
+    new_hash: "049dccae8ccfa31c"
+    reason: "Add measurement_quality_report after x_measurement_gate"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-06-30"
+    old_hash: "9d4a456c41d111da"
+    new_hash: "33eaf12af810c842"
+    reason: "Wave 2 progress on capability_upgrade_master"
 
 work_support_budget:
   max_files: 17

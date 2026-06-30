@@ -41,7 +41,7 @@ deformation_framework:
   promotion_requirements:
   - isolate_legacy_acquisition_in_src_data_init  # COMPLETED 2026-06-29 — files moved to src/_legacy/data/
   - add_boundary_tests_forbidden_imports  # COMPLETED 2026-06-30 — test_production_paths_do_not_import_legacy in test_data_boundary_extended.py
-  - harvester_becomes_only_provider_owner  # PARTIAL — ETF panel still sourced outside Harvester; merged_data transitional
+  - harvester_becomes_only_provider_owner  # PARTIAL — merged_data transitional; cross_asset panel CANONICAL 2026-06-30
   notes: >
     data_sources.py, external_downloads.py, public_adapters.py moved to
     src/_legacy/data/ on 2026-06-29. src/data/__init__.py no longer exports
@@ -261,17 +261,17 @@ research_terminal:
   - add_test_coverage
   decision: '2026-06-16: Reclassified from UNKNOWN to PAPER_RETAIN — no artifacts, no consumers, no data flow'
 etf_data_path:
-  status: BLOCKED
+  status: CANONICAL
   owner: Harvester
-  description: ETF/cross-asset panel data path — no Harvester evidence release yet
-  allowed_claims: []
-  forbidden_claims:
+  description: ETF/cross-asset panel via Harvester evidence release (cross_asset_daily_panel)
+  allowed_claims:
   - core_judgment_input
-  blockers:
-  - no_harvester_etf_evidence_release
+  - k_channel_cross_asset_curvature
+  forbidden_claims: []
+  blockers: []
   last_audit_method: manual_review
   audit_cadence: monthly
-  promotion_requirements:
-  - implement_harvester_etf_provider
-  - publish_etf_evidence_release
-  - etf_panel_from_harvester_not_standalone
+  promotion_requirements: []
+  fulfilled_at: '2026-06-30'
+  canonical_path: Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+  mirror_path: Data/panels/cross_asset_daily_panel.parquet

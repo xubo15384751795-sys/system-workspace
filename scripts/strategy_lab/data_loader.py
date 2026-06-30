@@ -10,12 +10,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import _runtime_io as rio
 import pandas as pd
 
-import _runtime_io as rio
 
 # ── Paths ────────────────────────────────────────────────────────────
-PANEL_PATH = rio.ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+def _cross_asset_panel_path() -> Path:
+    harvester = (
+        rio.ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"
+    )
+    mirror = rio.ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+    return harvester if harvester.exists() else mirror
+
+
+PANEL_PATH = _cross_asset_panel_path()
 SIGNAL_PATH = rio.ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"
 
 # ── Column mapping from all_signals.parquet ──────────────────────────

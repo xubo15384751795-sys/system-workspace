@@ -14,12 +14,12 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
+from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
 from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
-ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
-BENCHMARK_PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
+ETF_PANEL = resolve_cross_asset_panel_path()
+BENCHMARK_PANEL = resolve_benchmark_panel_path()
 REPORT_JSON = JUDGMENT_DIR / "calibration_report.json"
 REPORT_MD = JUDGMENT_DIR / "calibration_report.md"
 

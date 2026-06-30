@@ -296,7 +296,23 @@ def main() -> None:
     # Step 1: Harvester
     if not args.skip_harvester:
         logger.info("[%d/%d] Running Harvester...", 1, TOTAL_STEPS)
-        _record(run_step("harvester", [sys.executable, "-m", "harvester", "daily-release"]))
+        harvester_env = {
+            "PYTHONPATH": str(ROOT / "structural-risk-harvester" / "src"),
+        }
+        _record(
+            run_step(
+                "harvester",
+                [
+                    sys.executable,
+                    "-m",
+                    "harvester",
+                    "--exports-root",
+                    str(ROOT / "Data" / "harvester" / "exports"),
+                    "daily-release",
+                ],
+                env=harvester_env,
+            )
+        )
     else:
         logger.info("[%d/%d] Skipping Harvester (--skip-harvester)", 1, TOTAL_STEPS)
 
@@ -392,6 +408,9 @@ def main() -> None:
     x_gate_script = ROOT / "scripts" / "x_measurement_gate.py"
     if x_gate_script.exists():
         _record(run_step("x_measurement_gate", [sys.executable, str(x_gate_script)]))
+    mq_script = ROOT / "scripts" / "build_measurement_quality_report.py"
+    if mq_script.exists():
+        _record(run_step("measurement_quality_report", [sys.executable, str(mq_script)]))
 
     # Step 10: CaseLab
     logger.info("[%d/%d] Running CaseLab daily signal...", 10, TOTAL_STEPS)

@@ -24,6 +24,8 @@ steps:
   - id: regime_detection
   - id: k_measurement_gate
   - id: x_measurement_gate
+  - id: measurement_quality_report
+    description: K/X gate summary sidecar for Harvester data-request quality tracking
   - id: caselab_signal
   - id: judgment_layer
   - id: judgment_promotion_gate

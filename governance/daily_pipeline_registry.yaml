@@ -82,7 +82,7 @@ steps:
     failure_behavior: research_only
     blocker: ETF acquisition is not yet published as a Harvester evidence release; root script may recompute features only.
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/refresh_etf_panel.py
       future_callable: scripts.refresh_etf_panel:main
       cwd_policy: workspace_root
@@ -175,7 +175,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: block_current_readout
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/structural_replay_v2.py
       future_callable: scripts.structural_replay_v2:main
       cwd_policy: workspace_root
@@ -317,7 +317,7 @@ steps:
     core_judgment_dependency: true
     failure_behavior: lower_claim_ceiling
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/k_measurement_gate.py
       future_callable: scripts.k_measurement_gate:main
       cwd_policy: workspace_root
@@ -349,7 +349,7 @@ steps:
     - Output/x_measurement/x_measurement_gate.json
     - Output/x_measurement/X_MEASUREMENT_GATE.md
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/x_measurement_gate.py
       future_callable: scripts.x_measurement_gate:main
       cwd_policy: workspace_root
@@ -361,6 +361,36 @@ steps:
     authority:
       affects_core_judgment: true
       failure_behavior: lower_claim_ceiling
+      owner: Workbench
+  measurement_quality_report:
+    order: 9.5
+    status: active
+    owner: Workbench
+    command: python scripts/build_measurement_quality_report.py
+    input: &id020mq
+    - Output/k_measurement/k_measurement_gate.json
+    - Output/x_measurement/x_measurement_gate.json
+    - Data/harvester/exports/latest/catalog.json
+    produces: &id020mqp
+    - Output/current/measurement_quality.json
+    artifact_path: Output/current/measurement_quality.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: callable
+      current_command: python scripts/build_measurement_quality_report.py
+      future_callable: scripts.build_measurement_quality_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id020mq
+      outputs: *id020mqp
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
       owner: Workbench
   caselab_signal:
     order: 10
@@ -407,9 +437,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: block_current_readout
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/judgment_layer.py
-      future_callable: workbench.judgment.layer:run
+      future_callable: scripts.judgment_layer:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -459,9 +489,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: block_promotion
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/judgment_promotion_gate.py
-      future_callable: scripts.promotion_gate:main
+      future_callable: scripts.judgment_promotion_gate:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -518,9 +548,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: hold_flat
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/trade_decision_layer.py
-      future_callable: workbench.judgment.trade_decision:run
+      future_callable: scripts.trade_decision_layer:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1008,7 +1038,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_readme_first.py
       future_callable: scripts.build_readme_first:main
       cwd_policy: workspace_root
@@ -1130,7 +1160,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_next_actions.py
       future_callable: scripts.build_next_actions:main
       cwd_policy: workspace_root
@@ -1157,7 +1187,7 @@ steps:
     core_judgment_dependency: true
     failure_behavior: block_core_judgment
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/freshness_validator.py
       future_callable: scripts.freshness_validator:main
       cwd_policy: workspace_root

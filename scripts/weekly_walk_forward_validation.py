@@ -18,19 +18,18 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-
+from _data_paths import resolve_cross_asset_panel_path
 from _runtime_io import ROOT, ensure_dir, utc_now, write_json
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 SIGNALS_PATH = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"
-ETF_PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+ETF_PANEL_PATH = resolve_cross_asset_panel_path()
 VALIDATION_DIR = ROOT / "Output" / "validation"
 REPORT_PATH = VALIDATION_DIR / "walk_forward_report.json"
 
@@ -168,7 +167,7 @@ def rolling_walk_forward(
         tp = int((binary_pred & binary_target).sum())
         fp = int((binary_pred & ~binary_target).sum())
         fn = int((~binary_pred & binary_target).sum())
-        tn = int((~binary_pred & ~binary_target).sum())
+        _tn = int((~binary_pred & ~binary_target).sum())
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 

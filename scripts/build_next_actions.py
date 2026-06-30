@@ -17,8 +17,8 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
+
 from _runtime_io import ROOT, ensure_dir, load_json
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
@@ -29,6 +29,7 @@ X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 OUTPUT_DIR = ROOT / "Output" / "current"
+IMPROVEMENT_QUEUE_MD = ROOT / "Output" / "system_learning" / "latest" / "improvement_queue.md"
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -47,7 +48,7 @@ def gather_status() -> dict[str, Any]:
 
     judgment = load_json(JUDGMENT_PATH)
     promotion_gate = load_json(PROMOTION_GATE_PATH)
-    index = load_json(INDEX_PATH)
+    _ = load_json(INDEX_PATH)
     k_gate = load_json(K_GATE_PATH)
     x_gate = load_json(X_GATE_PATH)
     hmm_audit = load_json(HMM_AUDIT_PATH)
@@ -97,7 +98,6 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
 
     # Check promotion gate blockers
     blocked = status["promotion_gate"].get("blocked_gates", [])
-    reasons = status["promotion_gate"].get("blocking_reasons", [])
 
     if "confidence" in blocked:
         actions.append({
@@ -143,6 +143,18 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "command": "Review X_agg frequency split and VIX correlation",
             "module": "Workbench/src/workbench/signals/",
         })
+
+    # Learning Hub improvement queue — surface open recurrence items
+    if IMPROVEMENT_QUEUE_MD.exists():
+        text = IMPROVEMENT_QUEUE_MD.read_text(encoding="utf-8", errors="replace")
+        if "proposed" in text.lower() or "open" in text.lower():
+            actions.append({
+                "priority": "MEDIUM",
+                "action": "Review Learning Hub improvement queue",
+                "reason": "Open recurrence or proposed improvements in system_learning/latest",
+                "command": f"cat {IMPROVEMENT_QUEUE_MD.relative_to(ROOT)}",
+                "module": "system-learning-hub",
+            })
 
     # If no blockers, suggest monitoring
     if not actions:
@@ -269,11 +281,11 @@ def main() -> None:
     else:
         print(f"Status: {status_path}")
         print(f"Next actions: {next_actions_path}")
-        print(f"\nCurrent state:")
+        print("\nCurrent state:")
         print(f"  Decision: {status['judgment'].get('decision')}")
         print(f"  Confidence: {status['judgment'].get('confidence')}")
         print(f"  Promotion gate: {status['promotion_gate'].get('status')}")
-        print(f"\nTop actions:")
+        print("\nTop actions:")
         for a in actions[:3]:
             print(f"  [{a['priority']}] {a['action']}")
 

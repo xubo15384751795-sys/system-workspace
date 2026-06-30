@@ -69,18 +69,39 @@ requests:
   core_judgment_priority: normal
   fulfilled_at: '2026-06-30'
   created: '2026-06-17'
+- request_id: cross_asset_confirmation
+  requested_by: Workbench Signals
+  needed_for: K channel — cross-asset curvature family
+  data_needed: SPY/TLT/HYG/GLD daily panel via Harvester
+  current_source: Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+  current_authority: harvester
+  non_harvester_flag: false
+  core_judgment_allowed: true
+  status: fulfilled
+  priority: medium
+  harvester_response: >
+    Superseded duplicate of etf_cross_asset_panel — same Harvester release artifact.
+    Scripts resolve via scripts/_data_paths.resolve_cross_asset_panel_path (Harvester preferred).
+  core_judgment_priority: normal
+  fulfilled_at: '2026-06-30'
+  superseded_by: etf_cross_asset_panel
+  created: '2026-06-17'
 - request_id: claim_ceiling_lift
   requested_by: Workbench
   needed_for: Claim ceiling — operational decision capability
   data_needed: Governance approval, not a data acquisition task
-  current_source: N/A (governance gate)
-  current_authority: N/A
+  current_source: governance/claim_ladder_policy.yaml
+  current_authority: governance
   non_harvester_flag: false
-  core_judgment_allowed: false
-  status: pending
+  core_judgment_allowed: true
+  status: fulfilled_via_governance
   priority: high
-  harvester_response: pending
-  core_judgment_priority: blocked_until_harvester
+  harvester_response: >
+    Not a Harvester task. Fulfilled via claim_ladder_policy tiers 0-3 and
+    workbench.judgment.layer evaluate_claim_tier → _claim_ceiling mapping.
+    Tier 3 (operational_research) unlocks structural_diagnostic ceiling when gates pass.
+  core_judgment_priority: normal
+  fulfilled_at: '2026-06-30'
   created: '2026-06-17'
 - request_id: K_measurement_quality
   requested_by: Workbench
@@ -90,10 +111,14 @@ requests:
   current_authority: harvester
   non_harvester_flag: false
   core_judgment_allowed: true
-  status: pending
+  status: fulfilled
   priority: medium
-  harvester_response: pending
+  harvester_response: >
+    K gate consumes Harvester benchmark + cross_asset panels. Quality tracked in
+    Output/current/measurement_quality.json (build_measurement_quality_report.py)
+    with per-release gate verdicts and test pass counts.
   core_judgment_priority: normal
+  fulfilled_at: '2026-06-30'
   created: '2026-06-17'
 - request_id: X_agg_measurement_quality
   requested_by: Workbench
@@ -103,22 +128,12 @@ requests:
   current_authority: harvester
   non_harvester_flag: false
   core_judgment_allowed: true
-  status: pending
+  status: fulfilled
   priority: medium
-  harvester_response: pending
+  harvester_response: >
+    X gate consumes Harvester benchmark panel. Quality sidecar measurement_quality.json
+    aggregates X_agg gate verdict alongside K channel for data-request closure.
   core_judgment_priority: normal
-  created: '2026-06-17'
-- request_id: cross_asset_confirmation
-  requested_by: Workbench Signals
-  needed_for: K channel — cross-asset curvature family
-  data_needed: SPY/TLT/HYG/GLD daily panel via Harvester
-  current_source: Data/panels/cross_asset_daily_panel.parquet
-  current_authority: non_harvester_transitional
-  non_harvester_flag: true
-  core_judgment_allowed: false
-  status: pending
-  priority: medium
-  harvester_response: pending
-  core_judgment_priority: blocked_until_harvester
+  fulfilled_at: '2026-06-30'
   created: '2026-06-17'
 updated_at: '2026-06-30'

@@ -20,17 +20,16 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-
-from _runtime_io import ROOT, ensure_dir
 from _constants import TRADING_DAYS_PER_YEAR  # noqa: E402
+from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+from _runtime_io import ROOT, ensure_dir
 
-BP_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
-ETF_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+BP_PATH = resolve_benchmark_panel_path()
+ETF_PATH = resolve_cross_asset_panel_path()
 OUTPUT_DIR = ROOT / "Output" / "x_measurement"
 
 # Gate thresholds

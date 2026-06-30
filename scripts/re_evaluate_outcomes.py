@@ -15,16 +15,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
-from pathlib import Path
 
 import pandas as pd
-
+from _data_paths import resolve_cross_asset_panel_path
 from _runtime_io import ROOT, ensure_dir
 
 EVAL_DIR = ROOT / "Output" / "evaluations"
 EVAL_LOG_PATH = EVAL_DIR / "eval_log.jsonl"
-ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+ETF_PANEL = resolve_cross_asset_panel_path()
 
 HORIZONS = {"1d": 1, "1w": 5, "1m": 21}
 ETF_SYMBOLS = ("SPY", "HYG", "TLT")
@@ -97,7 +95,7 @@ def main() -> None:
 
     # Load eval_log
     lines = EVAL_LOG_PATH.read_text(encoding="utf-8").strip().split("\n")
-    records = [json.loads(l) for l in lines if l.strip()]
+    records = [json.loads(line) for line in lines if line.strip()]
     print(f"Loaded {len(records)} eval_log records")
 
     # Load market data

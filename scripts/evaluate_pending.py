@@ -19,16 +19,16 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
+from _data_paths import resolve_cross_asset_panel_path
 from _runtime_io import ROOT, ensure_dir
+
 EVAL_DIR = ROOT / "Output" / "evaluations"
 PENDING_PATH = EVAL_DIR / "pending.jsonl"
 EVAL_LOG_PATH = EVAL_DIR / "eval_log.jsonl"
-ETF_PANEL = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+ETF_PANEL = resolve_cross_asset_panel_path()
 
 HORIZONS = {"1d": 1, "1w": 5, "1m": 21}  # trading days
 ETF_SYMBOLS = ("SPY", "HYG", "TLT")
