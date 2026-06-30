@@ -16,16 +16,21 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
+
 from _runtime_io import ROOT, ensure_dir, load_json
 
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 FRAMEWORK_OUTPUT_PATH = ROOT / "Output" / "current" / "framework_output.json"
+EVIDENCE_REPORT_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
 OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
 
 
-def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, Any] | None = None) -> str:
+def build_readme_from_index(
+    index: dict[str, Any],
+    framework_output: dict[str, Any] | None = None,
+    evidence_report: dict[str, Any] | None = None,
+) -> str:
     """Build README from System Index."""
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     date = index.get("generated_at", now)[:10]
@@ -57,7 +62,6 @@ def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, A
     horizon = index.get("horizon_events", {})
     prob_context = measurement.get("probabilistic_context", {})
     market_feedback = index.get("market_feedback", {}).get("latest", {})
-    learning = index.get("learning_hub", {})
 
     # Determine availability
     paper_available = paper.get("cases", {}).get("exists", False)
@@ -68,6 +72,14 @@ def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, A
     # Freshness
     freshness = index.get("freshness", {})
     freshness_verdict = freshness.get("verdict", "UNKNOWN")
+
+    report = evidence_report or {}
+    structural_grade = report.get("grade", trade_decision.get("evidence_grade", "N/A") if trade_decision else "N/A")
+    trade_grade = report.get("trade_decision_grade", trade_decision.get("evidence_grade", "N/A") if trade_decision else "N/A")
+    grade_match = report.get("grade_match")
+    grade_note = ""
+    if grade_match is False:
+        grade_note = " (structural vs trade differ — see evidence_grade_report.json)"
 
     # Check if HMM regime is forbidden
     forbidden = promotion_gate.get("forbidden_language", [])
@@ -100,13 +112,15 @@ def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, A
         f"- **Risk Gate:** {risk_gate.get('status', 'N/A')}",
         f"- **Promotion Gate:** {promotion_gate.get('overall_status', 'N/A')}",
         f"- **Freshness:** {freshness_verdict}",
+        f"- **Structural evidence grade:** {structural_grade}",
+        f"- **Trade evidence grade:** {trade_grade}{grade_note}",
         "",
         "## Position Translation",
         "",
         f"- **Decision:** {position_decision}",
         f"- **Portfolio Action:** {position_action}",
         f"- **Allowed Mode:** {position_mode}",
-        f"- **Target Weight:** 0%",
+        "- **Target Weight:** 0%",
         f"- **Blockers:** {', '.join(position_blockers) if position_blockers else 'none'}",
         "",
         "## Data Sources",
@@ -145,13 +159,15 @@ def build_readme_from_index(index: dict[str, Any], framework_output: dict[str, A
 
     if trade_decision:
         can_say.append(f"Trade decision: {trade_decision.get('decision', 'N/A')}")
-        can_say.append(f"Evidence grade: {trade_decision.get('evidence_grade', 'N/A')}")
+        can_say.append(f"Trade evidence grade: {trade_grade}")
+        if structural_grade != trade_grade:
+            can_say.append(f"Structural evidence grade: {structural_grade}")
 
     if k_gate:
         cannot_say.append(f"K is {k_gate.get('current_role', 'diagnostic_rebuild')} — not a primary readout")
 
     if x_gate:
-        cannot_say.append(f"X_agg is background-only — not a daily trigger")
+        cannot_say.append("X_agg is background-only — not a daily trigger")
 
     if promotion_gate.get("overall_status") == "BLOCKED":
         cannot_say.append("Strong claims blocked by promotion gate")
@@ -209,11 +225,12 @@ def main() -> None:
         return
 
     framework_output = load_json(FRAMEWORK_OUTPUT_PATH)
+    evidence_report = load_json(EVIDENCE_REPORT_PATH)
 
     if args.json:
         print(json.dumps(index, indent=2, ensure_ascii=False))
     else:
-        md = build_readme_from_index(index, framework_output)
+        md = build_readme_from_index(index, framework_output, evidence_report)
         ensure_dir(OUTPUT_PATH.parent)
         OUTPUT_PATH.write_text(md, encoding="utf-8")
         print(f"Wrote: {OUTPUT_PATH}")

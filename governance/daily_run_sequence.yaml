@@ -112,6 +112,12 @@ steps:
   # ── REPORTING ─────────────────────────────────────────────────────
   - id: system_index
   - id: work_brief
+  - id: evidence_grade_report
+    description: Build structured evidence grade report with contributors, blockers, and upgrade path
+  - id: build_artifact_registry
+    description: Build Output/current artifact registry from governance routing policy
+  - id: record_daily_run_event
+    description: Record run event to Learning Hub with evidence grade, blockers, git SHA, submodule pins
   - id: readme_first
     schedule: weekly
     description: Moved from daily 2026-06-20 — documentation, not signal

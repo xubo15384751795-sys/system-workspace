@@ -434,6 +434,32 @@ build_next_actions:
   description: Build next actions from system learning
   allowed_use:
   - next_actions_generation
+build_evidence_grade_report:
+  script: scripts/build_evidence_grade_report.py
+  status: active
+  owner: Workbench
+  description: Build structured evidence grade report with contributor details, blockers, and upgrade path
+  allowed_use:
+  - evidence_grade_reporting
+  - freshness_reporting
+  - paper_support_status
+build_artifact_registry:
+  script: scripts/build_artifact_registry.py
+  status: active
+  owner: Workbench
+  description: Build Output/current artifact registry from governance routing policy
+  allowed_use:
+  - artifact_navigation
+  - output_governance
+record_daily_run_event:
+  script: scripts/record_daily_run_event.py
+  status: active
+  owner: Learning Hub
+  description: Record daily pipeline run event to Learning Hub with evidence grade, blockers, git SHA, submodule pins
+  allowed_use:
+  - learning_hub_ingestion
+  - run_event_recording
+  - recurrence_detection
 enrich_agent_context:
   script: scripts/archive/enrich_agent_context.py
   status: archived

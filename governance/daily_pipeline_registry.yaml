@@ -1021,6 +1021,100 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
+  evidence_grade_report:
+    order: 22.5
+    status: active
+    owner: Workbench
+    command: python scripts/build_evidence_grade_report.py
+    input: &id050_5
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    - Output/trade_decision/latest.json
+    - Output/quality/freshness_report.json
+    - Data/harvester/exports/latest/catalog.json
+    - Data/paper_world_model/manifest.json
+    produces: &id050_6
+    - Output/current/evidence_grade_report.json
+    artifact_path: Output/current/evidence_grade_report.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_evidence_grade_report.py
+      future_callable: scripts.build_evidence_grade_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id050_5
+      outputs: *id050_6
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+  build_artifact_registry:
+    order: 22.55
+    status: active
+    owner: Workbench
+    command: python scripts/build_artifact_registry.py
+    input: &id050_55
+    - governance/output_routing_policy.yaml
+    - governance/daily_pipeline_registry.yaml
+    produces: &id050_56
+    - Output/current/artifact_registry.json
+    artifact_path: Output/current/artifact_registry.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_artifact_registry.py
+      future_callable: scripts.build_artifact_registry:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id050_55
+      outputs: *id050_56
+      emits_run_event: false
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+  record_daily_run_event:
+    order: 22.6
+    status: active
+    owner: Learning Hub
+    command: python scripts/record_daily_run_event.py
+    input: &id050_7
+    - Output/trade_decision/latest.json
+    - Output/current/evidence_grade_report.json
+    - Output/current/status.json
+    - Output/judgment/promotion_gate.json
+    produces: &id050_8
+    - Output/system_learning/events/run_events_*.jsonl
+    - Output/runtime_events/run_events_*.jsonl
+    artifact_path: Output/system_learning/events/
+    ttl_hours: 8760
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/record_daily_run_event.py --skip-if-unchanged
+      future_callable: scripts.record_daily_run_event:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id050_7
+      outputs: *id050_8
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
   next_actions:
     order: 22
     status: active

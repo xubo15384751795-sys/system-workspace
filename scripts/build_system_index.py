@@ -21,6 +21,7 @@ import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+
 from _runtime_io import ROOT, ensure_dir, load_json
 
 OUTPUT_DIR = ROOT / "Output"
@@ -187,7 +188,7 @@ def build_index() -> dict:
     probabilistic_context = check_path(OUTPUT_DIR / "probabilistic_context" / "latest.json")
 
     # Trade ledger
-    trade_ledger = check_path(OUTPUT_DIR / "trade_ledger" / "decisions.jsonl")
+    check_path(OUTPUT_DIR / "trade_ledger" / "decisions.jsonl")
     trade_calibration = check_path(OUTPUT_DIR / "trade_ledger" / "calibration_report.json")
 
     # Position intent
@@ -211,6 +212,17 @@ def build_index() -> dict:
             "status": operator_audit_data.get("status"),
             "total_operators": operator_audit_data.get("total_operators"),
             "issues": len(operator_audit_data.get("issues", [])),
+        }
+
+    evidence_report_data = load_json(OUTPUT_DIR / "current" / "evidence_grade_report.json")
+    evidence_grade_summary = None
+    if evidence_report_data:
+        evidence_grade_summary = {
+            "structural_grade": evidence_report_data.get("grade"),
+            "trade_decision_grade": evidence_report_data.get("trade_decision_grade"),
+            "grade_match": evidence_report_data.get("grade_match"),
+            "blocker_count": len(evidence_report_data.get("blockers", [])),
+            "paper_support_status": (evidence_report_data.get("paper_support_status") or {}).get("status"),
         }
 
     return {
@@ -292,6 +304,10 @@ def build_index() -> dict:
         "freshness": {
             "verdict": freshness_verdict,
             "stale_artifacts": stale_artifacts,
+        },
+        "evidence_grade": {
+            "report": check_path(OUTPUT_DIR / "current" / "evidence_grade_report.json"),
+            "summary": evidence_grade_summary,
         },
         "calibration_report": calibration_report,
     }

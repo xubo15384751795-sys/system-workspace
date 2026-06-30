@@ -8,8 +8,13 @@ Chain:
     1. bridge_replay_to_current.py
     2. judgment_layer.py
     3. judgment_promotion_gate.py
-    4. build_system_index.py
-    5. build_readme_first.py
+    4. trade_decision_layer.py
+    5. build_system_index.py
+    6. build_next_actions.py
+    7. build_evidence_grade_report.py
+    8. build_artifact_registry.py
+    9. record_daily_run_event.py
+    10. build_readme_first.py
 
 Usage:
     python3 scripts/refresh_output_current.py
@@ -31,10 +36,9 @@ import subprocess
 import sys
 import time
 from datetime import UTC, datetime
-from pathlib import Path
 
-from _runtime_io import ROOT
 from _constants import TIMEOUT_STANDARD  # noqa: E402
+from _runtime_io import ROOT
 
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
@@ -77,34 +81,48 @@ def main() -> int:
             print("  1. bridge_replay_to_current.py")
         print("  2. judgment_layer.py")
         print("  3. judgment_promotion_gate.py")
-        print("  4. build_system_index.py")
-        print("  5. build_readme_first.py")
+        print("  4. trade_decision_layer.py")
+        print("  5. build_system_index.py")
+        print("  6. build_next_actions.py")
+        print("  7. build_evidence_grade_report.py")
+        print("  8. build_artifact_registry.py")
+        print("  9. record_daily_run_event.py")
+        print("  10. build_readme_first.py")
         return 0
 
     steps = []
+    total = 10 if not args.skip_bridge else 9
+    step_no = 1
+
+    def _run(label: str, script: str) -> None:
+        nonlocal step_no
+        print(f"[{step_no}/{total}] {label}...")
+        steps.append(run_step(label, [sys.executable, str(ROOT / "scripts" / script)]))
+        step_no += 1
 
     # Step 1: Bridge (unless skipped)
     if not args.skip_bridge:
-        print("[1/5] Running bridge...")
-        steps.append(run_step("bridge", [sys.executable, str(ROOT / "scripts" / "bridge_replay_to_current.py")]))
+        _run("bridge", "bridge_replay_to_current.py")
     else:
-        print("[1/5] Skipping bridge (--skip-bridge)")
+        print(f"[{step_no}/{total}] Skipping bridge (--skip-bridge)")
+        step_no += 1
 
-    # Step 2: Judgment Layer
-    print("[2/5] Generating judgment card...")
-    steps.append(run_step("judgment_layer", [sys.executable, str(ROOT / "scripts" / "judgment_layer.py")]))
-
-    # Step 3: Promotion Gate
-    print("[3/5] Running promotion gate...")
-    steps.append(run_step("promotion_gate", [sys.executable, str(ROOT / "scripts" / "judgment_promotion_gate.py")]))
-
-    # Step 4: System Index (must run before readme_first)
-    print("[4/5] Building system index...")
-    steps.append(run_step("system_index", [sys.executable, str(ROOT / "scripts" / "build_system_index.py")]))
-
-    # Step 5: Build README
-    print("[5/5] Building 00_READ_ME_FIRST.md...")
-    steps.append(run_step("readme_first", [sys.executable, str(ROOT / "scripts" / "build_readme_first.py")]))
+    _run("judgment_layer", "judgment_layer.py")
+    _run("promotion_gate", "judgment_promotion_gate.py")
+    _run("trade_decision", "trade_decision_layer.py")
+    _run("system_index", "build_system_index.py")
+    _run("next_actions", "build_next_actions.py")
+    _run("evidence_grade", "build_evidence_grade_report.py")
+    _run("artifact_registry", "build_artifact_registry.py")
+    print(f"[{step_no}/{total}] Recording run event...")
+    steps.append(
+        run_step(
+            "run_event",
+            [sys.executable, str(ROOT / "scripts" / "record_daily_run_event.py"), "--skip-if-unchanged"],
+        )
+    )
+    step_no += 1
+    _run("readme_first", "build_readme_first.py")
 
     # Summary
     end_time = datetime.now(UTC)
@@ -124,6 +142,10 @@ def main() -> int:
     required = [
         CURRENT / "framework_output.json",
         CURRENT / "00_READ_ME_FIRST.md",
+        CURRENT / "status.json",
+        CURRENT / "NEXT_ACTIONS.md",
+        CURRENT / "evidence_grade_report.json",
+        CURRENT / "artifact_registry.json",
         JUDGMENT / "latest.json",
         JUDGMENT / "latest.md",
         JUDGMENT / "promotion_gate.json",

@@ -40,14 +40,16 @@ deformation_framework:
   audit_cadence: biweekly
   promotion_requirements:
   - isolate_legacy_acquisition_in_src_data_init  # COMPLETED 2026-06-29 — files moved to src/_legacy/data/
-  - add_boundary_tests_forbidden_imports  # PARTIAL — boundary tests exist, need full audit
-  - harvester_becomes_only_provider_owner  # blocked until Harvester ETF/cross-asset release
+  - add_boundary_tests_forbidden_imports  # COMPLETED 2026-06-30 — test_production_paths_do_not_import_legacy in test_data_boundary_extended.py
+  - harvester_becomes_only_provider_owner  # PARTIAL — ETF panel still sourced outside Harvester; merged_data transitional
   notes: >
     data_sources.py, external_downloads.py, public_adapters.py moved to
     src/_legacy/data/ on 2026-06-29. src/data/__init__.py no longer exports
     DataHub/SourceRegistry/create_data_hub. Legacy gateway (data_hub.py,
-    bridge.py) still in src/data/gateway/ as transitional shim — pending
-    retire_or_seal decision by 2026-07-15.
+    bridge.py) still in src/data/gateway/ as transitional shim — SEALED
+    2026-06-30 (read-only, deprecation warnings active, retire_after: 2026-07-15).
+    Boundary test test_production_paths_do_not_import_legacy added 2026-06-30
+    with explicit exemptions for transitional shims (gateway, adapters).
 harvester:
   status: CANONICAL
   owner: system
@@ -87,12 +89,11 @@ data_output:
   - promotion_boundary
   forbidden_claims: []
   blockers:
-  - output_artifact_registry_missing
   - abandoned_artifacts_not_tracked
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-  - create_artifact_registry_json
+  - create_artifact_registry_json  # COMPLETED 2026-06-30 — scripts/build_artifact_registry.py
   - classify_all_output_subdirectories
 learning_hub:
   status: ACTIVE_PARTIAL
@@ -108,14 +109,13 @@ learning_hub:
   - mutate_deformation_core
   - silent_promotion
   blockers:
-  - low_test_coverage_for_ledger_ops
-  - dirty_submodule_state
+  - low_test_coverage_for_ledger_ops  # partial — ledger ops exist, tests need expansion
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-  - tests_for_ledger_append_query
-  - stable_daily_runtime_event_path
-  - modules_md_status_sync
+  - tests_for_ledger_append_query  # PARTIAL — append.py/query.py exist with tests, recurrence detection pending
+  - stable_daily_runtime_event_path  # COMPLETED 2026-06-30 — record_daily_run_event.py writes to events/ and runtime_events/
+  - modules_md_status_sync  # PENDING — Agent Routing status still SHADOW_ACTIVE
 caselab_context:
   status: ACTIVE_PARTIAL
   owner: system

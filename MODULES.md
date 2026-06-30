@@ -34,7 +34,7 @@ owner, paths, and allowed communication points.
 | Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
 | Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
 | Learning Hub | `ACTIVE_PARTIAL` | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` | 7 |
-| Agent Routing | `SHADOW_ACTIVE` | Sparse activation, expert routing, workflow guards; diagnostics only | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
+| Agent Routing | `ACTIVE_PARTIAL` | Sparse activation, expert routing, workflow guards; diagnostics only | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
 | CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval | `caselab_context/`, `caselab_runtime/`, Paper `90_Admin/Context/` | `module_contexts/caselab-context.md` | — |
 | NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift | `Workbench/src/nlp/` | — | 3 |
 | ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `Workbench/src/ml/` | — | 3 |

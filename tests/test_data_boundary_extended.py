@@ -108,3 +108,75 @@ def test_build_system_legacy_has_deprecation_warning() -> None:
     assert "DeprecationWarning" in source or "ALLOW_LEGACY_DATAHUB" in source or "check_legacy_allowed" in source, (
         "Legacy backend path missing DeprecationWarning, ALLOW_LEGACY_DATAHUB, or check_legacy_allowed guard"
     )
+
+
+def test_production_paths_do_not_import_legacy() -> None:
+    """Production paths (src/data_access/, src/data/) must not import from src/_legacy/,
+    except for the gateway shim which is explicitly transitional.
+    """
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    framework_src = root / "deformation-framework" / "src"
+
+    # Production directories to check
+    production_dirs = [
+        framework_src / "data_access",
+        framework_src / "data" / "adapters",
+        framework_src / "data" / "cross_section",
+        framework_src / "data" / "distribution",
+        framework_src / "data" / "quality",
+        framework_src / "data" / "contracts.py",
+    ]
+
+    # Exemptions: files explicitly allowed to import from _legacy
+    exempt_files = {
+        framework_src / "data" / "gateway" / "__init__.py",  # transitional shim with retire_after
+        framework_src / "data" / "gateway" / "data_hub_lite.py",
+        framework_src / "data" / "gateway" / "evidence_router.py",
+        framework_src / "data" / "gateway" / "source_registry.py",
+        framework_src / "data" / "adapters" / "__init__.py",  # legacy acquisition shim with retire_after
+        framework_src / "data_access" / "legacy_adapter.py",  # explicitly named "legacy"
+        framework_src / "data" / "paths.py",  # resolves paths, not imports _legacy modules
+    }
+
+    violations = []
+
+    for prod_dir in production_dirs:
+        py_files: list[Path] = []
+        if prod_dir.is_file() and prod_dir.suffix == ".py":
+            py_files = [prod_dir]
+        elif prod_dir.is_dir():
+            py_files = list(prod_dir.rglob("*.py"))
+
+        for py_file in py_files:
+            if "__pycache__" in str(py_file):
+                continue
+            if py_file in exempt_files:
+                continue
+
+            try:
+                source = py_file.read_text(encoding="utf-8")
+                tree = ast.parse(source, filename=str(py_file))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+
+            for node in ast.walk(tree):
+                module = None
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if "_legacy" in alias.name:
+                            module = alias.name
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module and "_legacy" in (node.module or ""):
+                        module = node.module
+
+                if module:
+                    rel = py_file.relative_to(framework_src)
+                    violations.append(f"{rel}:{node.lineno}: imports _legacy module {module!r}")
+
+    assert not violations, (
+        "Production paths import from src/_legacy/ — must use data_access layer instead:\n"
+        + "\n".join(violations)
+    )

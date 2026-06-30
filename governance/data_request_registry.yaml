@@ -11,38 +11,45 @@ requests:
   requested_by: Workbench Signals
   needed_for: K cross-asset confirmation
   current_source: Data/panels/cross_asset_daily_panel.parquet
-  current_authority: non_harvester_transitional
-  status: sourcing
+  current_authority: harvester_provider_transitional
+  status: partial
   priority: medium
-  harvester_response: 'openbb_yfinance now has SPY/QQQ/IWM/DIA in OFFICIAL_SERIES_MAP.
-    ETF evidence release pending daily run integration.
-
-    '
+  harvester_response: >
+    etf_refresh and refresh_cross_asset_panel are wired in daily_run_sequence.
+    refresh_cross_asset_panel fetches via Harvester EtfYfinanceProvider; panel
+    still stored at Data/panels/ pending formal Harvester evidence release bundle.
   core_judgment_priority: low_until_harvester_release
+  next_action: publish_cross_asset_panel_in_harvester_export
   created: '2026-06-17'
 - request_id: merged_data_proxy_inputs
   requested_by: Deformation Framework
   needed_for: compute_proxies.py (archived) proxy signal computation
   current_source: Data/merged_data/benchmark_panel_with_etfs.parquet
   current_authority: migration_artifact
-  status: transitional_import_required
+  status: transitional
   priority: medium
-  harvester_response: pending
+  harvester_response: >
+    Marked as transitional. Consumers listed in authority_registry.yaml
+    (Data/merged_data/benchmark_panel_with_etfs.parquet and related files).
+    No active production consumer imports found outside of archived compute_proxies.py.
+    Full migration deferred to merged_data_harvester_consolidation (deferred_work_register).
   core_judgment_priority: low_until_harvester_release
+  next_action: register_merged_data_in_harvester_manifest
   created: '2026-06-17'
 - request_id: fred_cached_data
   requested_by: Deformation Framework
   needed_for: FRED series (TEDRATE, STLFSI4, etc.)
   current_source: Data/structural_lab/runtime/fred_cache/
   current_authority: legacy_runtime_cache
-  status: available_via_harvester
+  status: fulfilled_via_harvester
   priority: low
-  harvester_response: 'FRED data available through Harvester official release (openbb_fred
-    provider). fred_cache is legacy; consumers should migrate to Harvester evidence
-    bundle.
-
-    '
+  harvester_response: >
+    FRED data already available through Harvester benchmark_panel (60 series
+    including all FRED:* entries). fred_cache/ is legacy runtime storage used
+    by backfill_runtime_snapshots.py and UI helpers. Marked as legacy — consumers
+    should migrate to Harvester evidence bundle at their own pace.
   core_judgment_priority: low
+  next_action: mark_fred_cache_legacy_in_paths
   created: '2026-06-17'
 - request_id: hmm_training_data
   requested_by: ML Signals
@@ -52,10 +59,14 @@ requests:
   current_authority: harvester
   non_harvester_flag: false
   core_judgment_allowed: true
-  status: pending
+  status: fulfilled
   priority: high
-  harvester_response: pending
+  harvester_response: >
+    benchmark_panel.parquet provides 60 series with 26,390 unique dates
+    spanning 1945-2026 (29,492 calendar days) — well over the 252-day minimum.
+    regime_detection should read from this Harvester path.
   core_judgment_priority: normal
+  fulfilled_at: '2026-06-30'
   created: '2026-06-17'
 - request_id: claim_ceiling_lift
   requested_by: Workbench
@@ -109,4 +120,4 @@ requests:
   harvester_response: pending
   core_judgment_priority: blocked_until_harvester
   created: '2026-06-17'
-updated_at: '2026-06-17'
+updated_at: '2026-06-30'

@@ -63,6 +63,7 @@ venv/
 *.local.toml
 config/*local*
 .claude/
+.opencode/
 
 # Database / binary artifacts
 *.duckdb

@@ -18,8 +18,6 @@ groups:
       - artifact_navigator.json
       - benchmark_evidence_dashboard.md
       - benchmark_evidence_dashboard.html
-      - learning_summary.md
-      - system_health.md
       - latest_run_id.txt
       - latest_summary.md
       - quality_validation.json
@@ -35,6 +33,8 @@ groups:
       - data_gaps.json
       - change_analysis.md
       - change_analysis.json
+      - evidence_grade_report.json
+      - artifact_registry.json
 
   runs:
     path: Output/deformation_runs/

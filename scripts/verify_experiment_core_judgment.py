@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from _workspace_imports import add_scripts
+
 add_scripts()
 
 from _runtime_io import ROOT, ensure_dir, load_yaml, write_json  # noqa: E402
@@ -76,8 +77,9 @@ DIAGNOSTIC_FIELD_PREFIXES = (
 
 # Approved diagnostic markers — classified references with expiry dates.
 # No permanent exemptions.  All must have expires_at.
-APPROVED_DIAGNOSTIC_MARKERS: dict[str, dict[str, Any]] = {
-    "Output/current/signal_consensus.json": {
+# Each entry is (pattern, config) — multiple entries per pattern allowed.
+APPROVED_DIAGNOSTIC_MARKERS: list[tuple[str, dict[str, Any]]] = [
+    ("Output/current/signal_consensus.json", {
         "indicator": "ml_signals",
         "classification": "allow_diagnostic",
         "reason": (
@@ -87,8 +89,8 @@ APPROVED_DIAGNOSTIC_MARKERS: dict[str, dict[str, Any]] = {
         "affects_core_judgment": False,
         "expires_at": "2026-07-18",
         "review_required": True,
-    },
-    "Output/judgment/*.json": {
+    }),
+    ("Output/judgment/*.json", {
         "indicator": "ml_signals",
         "field_pattern": "inputs.hmm",
         "classification": "allow_diagnostic",
@@ -99,8 +101,41 @@ APPROVED_DIAGNOSTIC_MARKERS: dict[str, dict[str, Any]] = {
         "affects_core_judgment": False,
         "expires_at": "2026-07-18",
         "review_required": True,
-    },
-}
+    }),
+    ("Output/quality/*", {
+        "indicator": "strategy_lab",
+        "classification": "allow_diagnostic",
+        "reason": (
+            "Quality audit/triage documents are diagnostic refactoring artifacts; "
+            "do not affect decision, confidence, or position sizing"
+        ),
+        "affects_core_judgment": False,
+        "expires_at": "2026-12-31",
+        "review_required": False,
+    }),
+    ("Output/quality/*", {
+        "indicator": "regime_detection",
+        "classification": "allow_diagnostic",
+        "reason": (
+            "Quality audit/triage documents reference regime_detection as pipeline step; "
+            "does not inject experimental values into core judgment"
+        ),
+        "affects_core_judgment": False,
+        "expires_at": "2026-12-31",
+        "review_required": False,
+    }),
+    ("Output/quality/*", {
+        "indicator": "ml_signals",
+        "classification": "allow_diagnostic",
+        "reason": (
+            "Quality audit/triage documents reference ML Signals as module name; "
+            "does not inject experimental values into core judgment"
+        ),
+        "affects_core_judgment": False,
+        "expires_at": "2026-12-31",
+        "review_required": False,
+    }),
+]
 
 
 def get_experimental_modules(registry: dict) -> list[str]:
@@ -157,7 +192,7 @@ def _match_approved_marker(filepath: Path, indicator: str, field_path: str) -> d
         rel = str(filepath.resolve().relative_to(ROOT.resolve()))
     except ValueError:
         return None
-    for pattern, marker in APPROVED_DIAGNOSTIC_MARKERS.items():
+    for pattern, marker in APPROVED_DIAGNOSTIC_MARKERS:
         if marker.get("indicator") != indicator:
             continue
         if not fnmatch.fnmatch(rel, pattern):

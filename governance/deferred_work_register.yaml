@@ -127,13 +127,25 @@ items:
   - id: data_sources_retirement
     title: "Retire data_sources.py after adapter migration — 7/15 legacy deadline"
     owner: Deformation Framework
-    status: in_progress
+    status: completed_sealed
     reason: >
       data_sources.py (1378 lines), external_downloads.py (109 lines),
       and public_adapters.py (716 lines) moved to src/_legacy/data/ on 2026-06-29.
       src/data/__init__.py no longer exports legacy DataHub symbols.
       Internal imports updated.  Boundary tests updated.
-      Step 3 (retire_or_seal) decision pending.
+      Step 3 (retire_or_seal) decided 2026-06-30: SEAL.
+      _legacy/data/ retained as read-only with deprecation warnings.
+      Gateway shim and adapters shim retained with retire_after markers.
+      ALLOW_LEGACY_DATAHUB guards legacy access.
+    seal_decision:
+      date: "2026-06-30"
+      option: seal
+      rationale: >
+        Lower risk than full retire. _legacy/data/ kept read-only.
+        Gateway shim (src/data/gateway/__init__.py) and adapters shim
+        (src/data/adapters/__init__.py) retained with deprecation warnings
+        and retire_after: 2026-07-15. ALLOW_LEGACY_DATAHUB guards access.
+        Full retire can be reconsidered after Phase 7 pipeline stabilization.
     execution_window: "3-5 days (freeze, move, update imports, verify)"
     evidence_window: "14 days (verify no pipeline breakage after legacy removal)"
     migration_steps:
@@ -151,9 +163,11 @@ items:
         completed: "2026-06-29"
       - step: retire_or_seal
         description: >
-          7/15 decision: delete or keep as read-only in _legacy.
-          Update entrypoint_registry.yaml and this register.
+          7/15 decision made 2026-06-30: SEAL.
+          _legacy/data/ retained read-only. Gateway/adapters shims with deprecation.
+          ALLOW_LEGACY_DATAHUB guards legacy access.
         target_date: "2026-07-15"
+        completed: "2026-06-30"
     progress:
       - "2026-06-18: FREEZE — ALLOW_LEGACY_DATAHUB=1 guard active in freeze.py + assembly.py"
       - "2026-06-29: MOVE — data_sources.py, external_downloads.py, public_adapters.py → src/_legacy/data/"
@@ -161,6 +175,7 @@ items:
       - "2026-06-29: MOVE — data_hub.py, bridge.py → src/_legacy/data/; gateway/__init__.py is shim"
       - "2026-06-29: 10 test files, 2 scripts, 3 boundary tests, Harvester boundary test updated"
       - "2026-06-29: 389 framework tests pass (0 new import failures); 777 root tests pass"
+      - "2026-06-30: SEAL — _legacy/data/ read-only; gateway/adapters shims with deprecation; boundary test enforces"
     affected_files:
       - src/_legacy/data/data_sources.py
       - src/_legacy/data/data_hub.py

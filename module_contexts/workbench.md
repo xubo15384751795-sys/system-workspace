@@ -79,6 +79,20 @@ live under `Workbench/src/workbench/`.
 - relevant protocol schema files
 - only then inspect `Workbench/src/workbench/`
 
+## Demonstration Walkthrough (Phase 0 Baseline)
+
+Anyone can trace the system's diagnostic narrative in a fixed path:
+
+```
+./sys check
+→ Output/current/00_READ_ME_FIRST.md (main card: judgment, blockers, evidence grade)
+→ governance/data_request_registry.yaml  (which data requests correspond to each blocker)
+→ Missing data identified by request_id
+```
+
+This walkthrough makes no trading conclusion promises — it only guarantees that
+the diagnostic narrative is complete and traceable.
+
 ## Escalate When
 
 - a required protocol field is missing
