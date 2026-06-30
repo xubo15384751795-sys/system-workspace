@@ -1041,7 +1041,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_evidence_grade_report.py
       future_callable: scripts.build_evidence_grade_report:main
       cwd_policy: workspace_root
@@ -1070,7 +1070,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_artifact_registry.py
       future_callable: scripts.build_artifact_registry:main
       cwd_policy: workspace_root
@@ -1102,7 +1102,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/record_daily_run_event.py --skip-if-unchanged
       future_callable: scripts.record_daily_run_event:main
       cwd_policy: workspace_root

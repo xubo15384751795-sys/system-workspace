@@ -14,10 +14,10 @@ items:
   - id: pipeline_runner_import_migration
     title: "daily_run subprocess → module callable runner"
     owner: Workbench
-    status: deferred
+    status: in_progress
     reason: >
-      Requires preserving cwd, env, logging, exit-code, and failure semantics.
-      Each step already has module-runner-grade metadata in daily_pipeline_registry.
+      Callable runner landed in scripts/_pipeline_runner.py with --execution-mode callable.
+      Pilot steps can migrate individually; subprocess remains default until evidence window closes.
     target_window: "2026-07-01 to 2026-07-31"
     execution_window: "1-3 days per step (import, test, verify)"
     evidence_window: "14 days (verify no subprocess breakage across pipeline runs)"
@@ -82,15 +82,11 @@ items:
   - id: callable_e2e_pipeline_tests
     title: "Callable E2E pipeline tests — step.run(context) direct import"
     owner: Workbench
-    status: deferred
+    status: in_progress
     blocked_by: pipeline_runner_import_migration
     reason: >
-      Current tests cover IO contract, artifact chain, failure behavior, and
-      subprocess smoke.  True callable E2E requires each daily_run step to
-      support direct import via future_callable.  Until the pipeline runner
-      migrates from subprocess to module callable, this test layer cannot be
-      written without half-baked imports that would destabilize the current
-      subprocess pipeline.
+      Callable runner exists; tests/test_pipeline_runner.py covers pilot callable steps.
+      Broader E2E expansion continues as steps flip execution.mode to callable.
     execution_window: "3-5 days (write callable tests for 11 pipeline steps)"
     evidence_window: "14 days (verify callable tests pass across CI runs)"
     trigger_condition: >

@@ -1,0 +1,18 @@
+schema_version: paper_support_registry.v1
+updated_at: "2026-06-30"
+purpose: >
+  Governance-approved Paper cases that may enter trade_decision approved_support.
+  Cases must also have review_status=approved in Data/paper_world_model/cases.jsonl.
+  Background-only analogies may remain needs_review.
+
+approved_case_ids:
+  - "AI Infrastructure Buildout 2023-2025"
+  - "2020 COVID Liquidity Crisis"
+  - "2008 Lehman Collapse"
+  - "1997 Asian Financial Crisis"
+  - "Post-GFC Recovery 2012-2019"
+  - "Low Interest Rate Environment 2010-2021"
+
+approval_notes: >
+  Crisis cases approved for mechanism/background support when CaseLab matches them.
+  Expansion cases approved for structural analogy support. Human review recorded 2026-06-30.

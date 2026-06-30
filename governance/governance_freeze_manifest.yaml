@@ -53,14 +53,14 @@ baseline_root_files:
 baseline_hashes:
   architecture_cleanup_decisions.md: "446262635117bdf3"
   architecture_reality_decisions.md: "349c61656d98e0ac"
-  authority_registry.yaml: "d73bff276d99f078"
+  authority_registry.yaml: "d364708de5039033"
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
   capability_registry.yaml: "3273727862cfb0f5"
-  daily_pipeline_registry.yaml: "45243c9d94856897"
-  data_request_registry.yaml: "0931a083d1de99ca"
+  daily_pipeline_registry.yaml: "9d2b1a2520225077"
+  data_request_registry.yaml: "26e83a83ff3e38c0"
   data_retention_policy.yaml: "e6efe4330eef54b8"
-  deferred_work_register.yaml: "fc26ef8b5a6d28cb"
+  deferred_work_register.yaml: "db71d25881eceda3"
   entrypoint_registry.yaml: "3fafebcfbab2100a"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
@@ -125,6 +125,10 @@ approved_additions:
     approved_at: "2026-06-20"
     commit: "governance-consolidation"
     reason: "Consolidates module_authority_registry + config_authority_registry + data_authority_registry into one file"
+  - file: paper_support_registry.yaml
+    approved_at: "2026-06-30"
+    commit: "paper-support-trade-grade"
+    reason: "Governance-approved Paper cases for trade_decision approved_support"
 
 # Baseline hash updates — approved modifications to existing frozen files
 baseline_updates:
@@ -297,6 +301,26 @@ baseline_updates:
     old_hash: "_none_"
     new_hash: "_deleted_"
     reason: "Governance compression: deleted — zero Python readers, pure documentation, governance freeze already prevents unbounded growth"
+  - file: data_request_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "0931a083d1de99ca"
+    new_hash: "26e83a83ff3e38c0"
+    reason: "etf_cross_asset_panel fulfilled via Harvester cross_asset_daily_panel release"
+  - file: authority_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "d73bff276d99f078"
+    new_hash: "d364708de5039033"
+    reason: "Harvester canonical path for cross_asset_daily_panel + workspace mirror authority"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-06-30"
+    old_hash: "fc26ef8b5a6d28cb"
+    new_hash: "db71d25881eceda3"
+    reason: "Pipeline callable runner and callable E2E tests moved to in_progress"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-06-30"
+    old_hash: "45243c9d94856897"
+    new_hash: "9d2b1a2520225077"
+    reason: "Pilot reporting steps migrated to execution.mode callable"
 
 work_support_budget:
   max_files: 17

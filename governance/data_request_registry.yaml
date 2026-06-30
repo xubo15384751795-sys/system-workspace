@@ -10,16 +10,17 @@ requests:
 - request_id: etf_cross_asset_panel
   requested_by: Workbench Signals
   needed_for: K cross-asset confirmation
-  current_source: Data/panels/cross_asset_daily_panel.parquet
-  current_authority: harvester_provider_transitional
-  status: partial
+  current_source: Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+  current_authority: harvester
+  status: fulfilled
   priority: medium
   harvester_response: >
-    etf_refresh and refresh_cross_asset_panel are wired in daily_run_sequence.
-    refresh_cross_asset_panel fetches via Harvester EtfYfinanceProvider; panel
-    still stored at Data/panels/ pending formal Harvester evidence release bundle.
-  core_judgment_priority: low_until_harvester_release
-  next_action: publish_cross_asset_panel_in_harvester_export
+    cross_asset_daily_panel is built and staged in Harvester complete releases via
+    harvester.cross_asset_panel.stage_cross_asset_panel. Workspace mirror at
+    Data/panels/cross_asset_daily_panel.parquet is synced on each release.
+  core_judgment_priority: normal
+  fulfilled_at: '2026-06-30'
+  next_action: none
   created: '2026-06-17'
 - request_id: merged_data_proxy_inputs
   requested_by: Deformation Framework

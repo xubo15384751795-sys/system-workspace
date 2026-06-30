@@ -25,7 +25,6 @@ import logging
 import os
 import subprocess
 import sys
-import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -33,15 +32,18 @@ logger = logging.getLogger(__name__)
 
 # RunBundle integration — use auditable path management
 from _workspace_imports import add_scripts
+
 add_scripts()
 from _runtime_io import ROOT, ensure_dir
 
 RUNTIME_DIR = ROOT / "Output" / "runtime_events"
 ALERT_DIR = ROOT / "Output" / "alerts"
-from _constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_LONG, TIMEOUT_STANDARD
-from run_bundle import RunBundle
+from _constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
 from _daily_run_sequence import dry_run_labels, load_daily_run_sequence, weekly_step_ids
 from _notify import notify_daily_run_result
+from _pipeline_runner import run_registry_step
+from _pipeline_runner import run_subprocess_step as _run_subprocess_step
+from run_bundle import RunBundle
 
 # Numbered user-facing stages in the pipeline
 TOTAL_STEPS = len(load_daily_run_sequence()) or 33
@@ -53,32 +55,31 @@ def _is_weekly(name: str) -> bool:
     return name in WEEKLY_STEPS
 
 
-def run_step(name: str, cmd: list[str], env: dict | None = None) -> dict:
-    """Run a subprocess and capture result."""
-    start = time.time()
-    merged_env = {**os.environ, **(env or {})}
-    # Remove proxy vars for harvester
-    for key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"]:
-        merged_env.pop(key, None)
+_PIPELINE_MODE = os.environ.get("DAILY_RUN_EXECUTION_MODE", "subprocess")
 
-    try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIMEOUT_LONG,
-            cwd=str(ROOT), env=merged_env,
-        )
-        duration = time.time() - start
-        return {
-            "step": name,
-            "status": "success" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "duration_s": round(duration, 1),
-            "stdout_tail": result.stdout[-500:] if result.stdout else "",
-            "stderr_tail": result.stderr[-500:] if result.stderr else "",
-        }
-    except subprocess.TimeoutExpired:
-        return {"step": name, "status": "timeout", "duration_s": 600}
-    except Exception as e:
-        return {"step": name, "status": "error", "error": str(e), "duration_s": 0}
+
+def set_pipeline_execution_mode(mode: str) -> None:
+    global _PIPELINE_MODE
+    _PIPELINE_MODE = mode
+
+
+def _resolve_execution_mode(step_id: str) -> str:
+    if _PIPELINE_MODE == "callable":
+        return "callable"
+    if _PIPELINE_MODE == "auto":
+        from _pipeline_runner import load_step_execution
+
+        return load_step_execution(step_id).get("mode", "subprocess")
+    return "subprocess"
+
+
+def run_step(name: str, cmd: list[str], env: dict | None = None, *, registry_step: str | None = None) -> dict:
+    """Run a pipeline step via subprocess or registry callable mode."""
+    mode = _resolve_execution_mode(registry_step or name)
+    if mode == "callable":
+        argv = cmd[2:] if len(cmd) > 2 and str(cmd[1]).endswith(".py") else cmd[1:]
+        return run_registry_step(registry_step or name, mode="callable", argv=argv)
+    return _run_subprocess_step(name, cmd, env)
 
 
 def check_freshness() -> dict:
@@ -236,7 +237,14 @@ def main() -> None:
         action="store_true",
         help="Run weekly steps (mechanism_calibration, suggest_paper_updates) even when not Monday UTC.",
     )
+    parser.add_argument(
+        "--execution-mode",
+        choices=["subprocess", "callable", "auto"],
+        default=os.environ.get("DAILY_RUN_EXECUTION_MODE", "subprocess"),
+        help="Pipeline step execution mode (subprocess default; callable uses registry future_callable).",
+    )
     args = parser.parse_args()
+    set_pipeline_execution_mode(args.execution_mode)
 
     # Configure logging: process steps go to log, CLI summary stays as print
     logging.basicConfig(
@@ -720,7 +728,7 @@ def main() -> None:
             pass
 
     # Summary
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"Duration: {event['duration_s']}s")
     print(f"Status: {event['status']}")
     for s in steps:

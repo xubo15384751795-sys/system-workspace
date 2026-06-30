@@ -24,9 +24,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, as_float as _as_float, ensure_dir, load_json, load_jsonl, utc_now, write_json
-from pending_evaluation import write_pending_evaluation
+import yaml
+from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
 from paper_freshness import check_paper_world_model_freshness
+from pending_evaluation import write_pending_evaluation
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
@@ -36,6 +37,33 @@ HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 PAPER_WORLD_MODEL_DIR = ROOT / "Data" / "paper_world_model"
 OUTPUT_DIR = ROOT / "Output" / "trade_decision"
+PAPER_SUPPORT_REGISTRY = ROOT / "governance" / "paper_support_registry.yaml"
+
+
+def _load_approved_case_ids() -> set[str]:
+    if not PAPER_SUPPORT_REGISTRY.exists():
+        return set()
+    data = yaml.safe_load(PAPER_SUPPORT_REGISTRY.read_text(encoding="utf-8")) or {}
+    return {str(case_id) for case_id in data.get("approved_case_ids", [])}
+
+
+def _case_source(case: dict[str, Any], *, relevance: str) -> dict[str, Any]:
+    return {
+        "source_file": case.get("source_file", ""),
+        "content_type": "case",
+        "content_id": case.get("case_id", ""),
+        "relevance": relevance,
+        "review_status": case.get("review_status", "needs_review"),
+    }
+
+
+def _is_governance_approved(case: dict[str, Any], approved_ids: set[str]) -> bool:
+    case_id = str(case.get("case_id", ""))
+    if case.get("review_status") != "approved":
+        return False
+    if not approved_ids:
+        return True
+    return case_id in approved_ids
 
 
 def find_paper_sources(
@@ -48,49 +76,47 @@ def find_paper_sources(
     - approved_sources: can be used as mechanism support
     - background_sources: can only be used as background context
     """
-    approved_sources = []
-    background_sources = []
+    approved_sources: list[dict[str, Any]] = []
+    background_sources: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    approved_ids = _load_approved_case_ids()
 
-    # Load paper world model
     cases = load_jsonl(PAPER_WORLD_MODEL_DIR / "cases.jsonl")
-    mechanisms = load_jsonl(PAPER_WORLD_MODEL_DIR / "mechanisms.jsonl")
 
-    # Get caselab matches
+    def _append(case: dict[str, Any], *, relevance: str) -> None:
+        case_id = str(case.get("case_id", ""))
+        if not case_id or case_id in seen_ids:
+            return
+        seen_ids.add(case_id)
+        source = _case_source(case, relevance=relevance)
+        if _is_governance_approved(case, approved_ids):
+            approved_sources.append(source)
+        else:
+            background_sources.append(source)
+
     if caselab:
-        matches = caselab.get("matches", [])
-        for match in matches[:3]:  # Top 3 matches
+        for match in caselab.get("matches", [])[:3]:
             case_name = match.get("case_name", "")
-            # Find matching case in paper world model
+            relevance = "high" if match.get("score", 0) > 0.5 else "medium"
             for case in cases:
                 if case_name.lower() in case.get("case_id", "").lower():
-                    source = {
-                        "source_file": case.get("source_file", ""),
-                        "content_type": "case",
-                        "content_id": case.get("case_id", ""),
-                        "relevance": "high" if match.get("score", 0) > 0.5 else "medium",
-                        "review_status": case.get("review_status", "needs_review"),
-                    }
-                    if case.get("review_status") == "approved":
-                        approved_sources.append(source)
-                    else:
-                        background_sources.append(source)
+                    _append(case, relevance=relevance)
                     break
 
-    # If no caselab matches, use top cases by trade_relevance
+    if not approved_sources:
+        ranked = sorted(
+            [c for c in cases if _is_governance_approved(c, approved_ids)],
+            key=lambda c: (
+                0 if c.get("trade_relevance") == "high" else 1,
+                str(c.get("case_id", "")),
+            ),
+        )
+        for case in ranked[:2]:
+            _append(case, relevance="medium")
+
     if not approved_sources and not background_sources:
-        high_relevance = [c for c in cases if c.get("trade_relevance") == "high"]
-        for case in high_relevance[:2]:
-            source = {
-                "source_file": case.get("source_file", ""),
-                "content_type": "case",
-                "content_id": case.get("case_id", ""),
-                "relevance": "medium",
-                "review_status": case.get("review_status", "needs_review"),
-            }
-            if case.get("review_status") == "approved":
-                approved_sources.append(source)
-            else:
-                background_sources.append(source)
+        for case in [c for c in cases if c.get("trade_relevance") == "high"][:2]:
+            _append(case, relevance="medium")
 
     return approved_sources, background_sources
 
@@ -166,7 +192,6 @@ def _determine_decision(
 
     pg_status = promotion_gate.get("overall_status", "UNKNOWN")
     conf_level = (judgment.get("confidence", {}).get("level") if isinstance(judgment.get("confidence"), dict) else "unknown")
-    claim_ceiling = judgment.get("claim_ceiling", "unknown")
     ladder = judgment.get("claim_ladder", {})
     ladder_tier = ladder.get("tier", 0) if ladder else 0
 
@@ -271,9 +296,6 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
 
     # Build trade thesis (only approved sources can be mechanism support)
     trade_thesis = _build_trade_thesis(decision, judgment, approved_sources, system_sources)
-
-    # Combine all paper sources for output
-    all_paper_sources = approved_sources + background_sources
 
     # Determine allowed size
     allowed_size = "zero"
@@ -402,7 +424,7 @@ def main() -> None:
 
     decision = build_trade_decision(args.date)
     paths = write_outputs(decision)
-    eval_path = write_pending_evaluation("trade_decision_layer", decision)
+    write_pending_evaluation("trade_decision_layer", decision)
 
     if args.json:
         print(json.dumps(decision, indent=2, ensure_ascii=False))
