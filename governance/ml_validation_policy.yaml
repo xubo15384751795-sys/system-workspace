@@ -41,6 +41,24 @@ validation_outputs:
     can_affect_trade_decision: false
     notes: "Future-data leakage detection. Warning-only."
 
+  - path: "Output/validation/qlib_structural_bridge.json"
+    producer: scripts/build_qlib_structural_bridge.py
+    schedule: weekly
+    allowed_use: validation_only
+    can_affect_core_judgment: false
+    can_affect_trade_decision: false
+    can_affect_signals: false
+    notes: "Qlib experiment vs structural backtest bridge. Review-only."
+
+  - path: "Output/strategy_lab/shadow_outcomes_90d.json"
+    producer: scripts/build_shadow_outcomes_90d.py
+    schedule: weekly
+    allowed_use: validation_only
+    can_affect_core_judgment: false
+    can_affect_trade_decision: false
+    can_affect_signals: false
+    notes: "Shadow gate outcome aggregation. Review-only."
+
 enforcement:
   forbidden_consumers:
     - scripts/judgment_layer.py

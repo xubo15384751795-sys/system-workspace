@@ -107,6 +107,9 @@ steps:
   - id: walk_forward_validation
     schedule: weekly
     description: Rolling-origin OOS validation of channel signals
+  - id: qlib_structural_bridge
+    schedule: weekly
+    description: Qlib experiment vs structural backtest bridge (validation-only)
   - id: threshold_review_bridge
     schedule: weekly
     description: Generate threshold review candidates from missed_stress
@@ -132,6 +135,9 @@ steps:
   - id: strategy_lab_shadow
     schedule: weekly
     description: Moved from daily 2026-06-20 — shadow backtest is research-only
+  - id: shadow_outcomes_90d
+    schedule: weekly
+    description: Aggregate 90-day shadow card outcomes after backfill
   - id: archive_daily_snapshots
     schedule: weekly
     description: Moved from daily 2026-06-20 — archival is maintenance, not signal

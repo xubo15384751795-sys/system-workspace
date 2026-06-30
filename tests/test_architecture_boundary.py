@@ -5,13 +5,11 @@ See: governance/architecture_reality_decisions.md §10
 """
 from __future__ import annotations
 
-import ast
 import re
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -41,8 +39,6 @@ def test_architecture_reality_decisions_exists() -> None:
 
 def test_capability_registry_has_paper_retain_status() -> None:
     """Capability registry must define PAPER_RETAIN status."""
-    import yaml
-    data = yaml.safe_load(CAPABILITY_REGISTRY.read_text(encoding="utf-8"))
     # Check the comment block mentions PAPER_RETAIN
     raw = CAPABILITY_REGISTRY.read_text(encoding="utf-8")
     assert "PAPER_RETAIN" in raw, "capability_registry.yaml missing PAPER_RETAIN status"
@@ -181,7 +177,7 @@ def test_etf_data_path_registered() -> None:
     import yaml
     data = yaml.safe_load(CAPABILITY_REGISTRY.read_text(encoding="utf-8"))
     assert "etf_data_path" in data, "etf_data_path missing from capability_registry.yaml"
-    assert data["etf_data_path"]["status"] == "BLOCKED"
+    assert data["etf_data_path"]["status"] == "CANONICAL"
 
 
 def test_scripts_constants_module_exists() -> None:

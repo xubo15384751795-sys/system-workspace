@@ -617,6 +617,9 @@ def main() -> None:
         shadow_card_script = ROOT / "scripts" / "strategy_lab" / "run_backtest.py"
         if shadow_card_script.exists():
             _record(run_step("strategy_lab_shadow", [sys.executable, str(shadow_card_script), "--shadow-card"]))
+        outcomes_script = ROOT / "scripts" / "build_shadow_outcomes_90d.py"
+        if outcomes_script.exists():
+            _record(run_step("shadow_outcomes_90d", [sys.executable, str(outcomes_script)]))
 
     # Step 26: Build work brief (BEFORE freshness — freshness must validate it)
     logger.info("[%d/%d] Building work brief...", 26, TOTAL_STEPS)
@@ -655,6 +658,9 @@ def main() -> None:
         walkforward_script = ROOT / "scripts" / "weekly_walk_forward_validation.py"
         if walkforward_script.exists():
             _record(run_step("walk_forward_validation", [sys.executable, str(walkforward_script)]))
+        qlib_bridge_script = ROOT / "scripts" / "build_qlib_structural_bridge.py"
+        if qlib_bridge_script.exists():
+            _record(run_step("qlib_structural_bridge", [sys.executable, str(qlib_bridge_script)]))
         threshold_bridge_script = ROOT / "scripts" / "threshold_review_bridge.py"
         if threshold_bridge_script.exists():
             _record(run_step("threshold_review_bridge", [sys.executable, str(threshold_bridge_script)]))

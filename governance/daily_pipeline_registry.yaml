@@ -16,6 +16,8 @@ external_inputs:
   - Output/system_learning/latest/output_routing_report.json
   - Paper/90_Admin/
   - Output/system_learning/latest/threshold_review_candidates.json
+  - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
+  - Output/strategy_lab/backtest_result.json
 
 # Step defaults — individual steps override only when they differ.
 # NOTE: This block is documentation for human readers. The merge logic
@@ -1332,6 +1334,37 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Strategy Lab
+  shadow_outcomes_90d:
+    order: 28
+    status: active
+    owner: Strategy Lab
+    command: python scripts/build_shadow_outcomes_90d.py
+    input:
+    - Output/strategy_lab/shadow_cards/
+    produces:
+    - Output/strategy_lab/shadow_outcomes_90d.json
+    artifact_path: Output/strategy_lab/shadow_outcomes_90d.json
+    ttl_hours: 168
+    schedule: weekly
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_shadow_outcomes_90d.py
+      future_callable: scripts.build_shadow_outcomes_90d:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/strategy_lab/shadow_cards/
+      outputs:
+      - Output/strategy_lab/shadow_outcomes_90d.json
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
   work_brief:
     order: 28
     status: active
@@ -1957,8 +1990,42 @@ steps:
       failure_behavior: continue_with_warning
       owner: Strategy Lab
 
-  threshold_review_bridge:
+  qlib_structural_bridge:
     order: 43
+    status: active
+    owner: Strategy Lab
+    command: python scripts/build_qlib_structural_bridge.py
+    input:
+      - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
+      - Output/strategy_lab/backtest_result.json
+    produces:
+      - Output/validation/qlib_structural_bridge.json
+    artifact_path: Output/validation/qlib_structural_bridge.json
+    ttl_hours: 168
+    schedule: weekly
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_qlib_structural_bridge.py
+      future_callable: scripts.build_qlib_structural_bridge:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+        - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
+        - Output/strategy_lab/backtest_result.json
+      outputs:
+        - Output/validation/qlib_structural_bridge.json
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+
+  threshold_review_bridge:
+    order: 44
     status: active
     owner: Framework
     command: python scripts/threshold_review_bridge.py

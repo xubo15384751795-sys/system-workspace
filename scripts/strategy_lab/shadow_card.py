@@ -17,11 +17,10 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pandas as pd
-
 import _runtime_io as rio
+import pandas as pd
 from strategy_lab.data_loader import load_aligned, load_signals
-from strategy_lab.risk_gate import RiskState, compute_velocity_gate, evaluate_day
+from strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 FRAMEWORK_PATH = rio.ROOT / "Output" / "current" / "framework_output.json"
@@ -257,7 +256,6 @@ def _auto_evaluate(card: dict, outcome: dict) -> str:
     """
     rec = card.get("recommendation", {})
     allow_open = rec.get("allow_open", True)
-    fwd_5d = outcome.get("forward_5d_return")
     fwd_20d = outcome.get("forward_20d_return")
 
     if fwd_20d is None:
@@ -280,3 +278,74 @@ def _auto_evaluate(card: dict, outcome: dict) -> str:
             return "state_miss"  # gate missed a 5%+ drop
         else:
             return "correct"  # small loss is acceptable
+
+
+def build_90d_outcomes_summary(days: int = 90) -> dict:
+    """Aggregate shadow card outcomes over the last N calendar days.
+
+    Writes promotion metrics for strategy_lab capability_registry requirements.
+    """
+    card_dir = OUTPUT_DIR / "shadow_cards"
+    if not card_dir.exists():
+        return {
+            "schema_version": "strategy_lab.shadow_outcomes_90d.v1",
+            "generated_at": datetime.now(UTC).isoformat(),
+            "window_days": days,
+            "status": "no_cards",
+            "cards_total": 0,
+        }
+
+    cutoff = pd.Timestamp(datetime.now(UTC).date()) - pd.Timedelta(days=days)
+    evaluations: dict[str, int] = {}
+    with_20d = 0
+    correct = 0
+    cards_total = 0
+
+    for card_file in sorted(card_dir.glob("2*.json")):
+        if card_file.name == "latest.json":
+            continue
+        try:
+            card = json.loads(card_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        as_of = card.get("as_of_date")
+        if not as_of:
+            continue
+        as_of_dt = pd.Timestamp(as_of)
+        if as_of_dt < cutoff:
+            continue
+        cards_total += 1
+        outcome = card.get("outcome_backfill", {})
+        if outcome.get("forward_20d_return") is not None:
+            with_20d += 1
+        evaluation = outcome.get("evaluation") or "pending"
+        evaluations[evaluation] = evaluations.get(evaluation, 0) + 1
+        if evaluation in ("correct", "useful_no_trade"):
+            correct += 1
+
+    evaluated = sum(v for k, v in evaluations.items() if k != "pending")
+    correct_rate = round(correct / evaluated, 4) if evaluated else None
+
+    return {
+        "schema_version": "strategy_lab.shadow_outcomes_90d.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "window_days": days,
+        "status": "complete" if cards_total else "no_cards",
+        "cards_total": cards_total,
+        "cards_with_20d_outcome": with_20d,
+        "evaluation_counts": evaluations,
+        "correct_rate": correct_rate,
+        "promotion_indicators": {
+            "min_samples_met": with_20d >= 30,
+            "min_correct_rate_met": correct_rate is not None and correct_rate >= 0.55,
+        },
+        "allowed_use": "validation_only",
+        "notes": "Shadow outcomes do not affect core judgment or trade decisions.",
+    }
+
+
+def save_90d_outcomes_summary(summary: dict) -> Path:
+    """Persist aggregated shadow outcomes."""
+    out_path = OUTPUT_DIR / "shadow_outcomes_90d.json"
+    out_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return out_path

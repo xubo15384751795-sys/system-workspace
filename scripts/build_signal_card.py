@@ -15,12 +15,17 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
+
 from _constants import (
-    CASELAB_STRONG_THRESHOLD, CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD,
-    SIGNAL_DIRECTION_BEARISH, SIGNAL_DIRECTION_BULLISH,
-    SIGNAL_SIZE_LARGE, SIGNAL_SIZE_MODERATE, SIGNAL_SIZE_SMALL,
+    CASELAB_STRONG_THRESHOLD,
+    CASELAB_USABLE_THRESHOLD,
+    CASELAB_WEAK_THRESHOLD,
+    SIGNAL_DIRECTION_BEARISH,
+    SIGNAL_DIRECTION_BULLISH,
+    SIGNAL_SIZE_LARGE,
+    SIGNAL_SIZE_MODERATE,
+    SIGNAL_SIZE_SMALL,
     TRADING_DAYS_PER_YEAR,
 )
 from _runtime_io import ROOT, ensure_dir, load_json, write_json
@@ -30,6 +35,8 @@ JUDGMENT = ROOT / "Output" / "judgment"
 TRADE_DECISION = ROOT / "Output" / "trade_decision"
 CASELAB = ROOT / "Output" / "caselab"
 HMM = ROOT / "Output" / "ml_signals" / "latest"
+VALIDATION = ROOT / "Output" / "validation"
+SHADOW_OUTCOMES = ROOT / "Output" / "strategy_lab" / "shadow_outcomes_90d.json"
 
 
 def _load_caselab_today() -> dict[str, Any] | None:
@@ -205,7 +212,6 @@ def _classify_gates(judgment: dict, fw: dict, hmm_data: dict | None,
     # CaseLab
     mq = caselab_data.get("match_quality", {}) if caselab_data else {}
     top_score = mq.get("top_score", 0)
-    mq_label = mq.get("label", "unknown")
     thresholds = mq.get("thresholds", {})
     strong_th = thresholds.get("strong", CASELAB_STRONG_THRESHOLD)
     usable_th = thresholds.get("usable", CASELAB_USABLE_THRESHOLD)
@@ -525,6 +531,50 @@ def _identify_evidence_list(judgment: dict, fw: dict) -> list[dict[str, str]]:
     return evidence
 
 
+def _build_experimental_validation() -> dict[str, Any]:
+    """Attach review-only ML / shadow / bridge diagnostics (explanation layer only)."""
+    wf = load_json(VALIDATION / "walk_forward_report.json")
+    shadow = load_json(SHADOW_OUTCOMES)
+    bridge = load_json(VALIDATION / "qlib_structural_bridge.json")
+
+    wf_summary = None
+    if wf and wf.get("status") == "complete":
+        wf_summary = {
+            "status": wf.get("status"),
+            "best_channel": wf.get("best_channel"),
+            "best_direction_accuracy": wf.get("best_direction_accuracy"),
+            "channel_summaries": wf.get("channel_summaries"),
+        }
+
+    shadow_summary = None
+    if shadow and shadow.get("status") != "no_cards":
+        shadow_summary = {
+            "cards_total": shadow.get("cards_total"),
+            "cards_with_20d_outcome": shadow.get("cards_with_20d_outcome"),
+            "correct_rate": shadow.get("correct_rate"),
+            "promotion_indicators": shadow.get("promotion_indicators"),
+        }
+
+    bridge_summary = None
+    if bridge:
+        bridge_summary = {
+            "bridge_verdict": bridge.get("bridge_verdict"),
+            "deformation_features_add_value": (bridge.get("experiment_summary") or {}).get(
+                "deformation_features_add_value"
+            ),
+            "overlay_improves_sharpe": (bridge.get("backtest_summary") or {}).get("overlay_improves_sharpe"),
+            "anti_gaming_checks": bridge.get("anti_gaming_checks", []),
+        }
+
+    return {
+        "allowed_use": "explanation_only",
+        "can_affect_core_judgment": False,
+        "walk_forward": wf_summary,
+        "shadow_outcomes_90d": shadow_summary,
+        "qlib_structural_bridge": bridge_summary,
+    }
+
+
 def build_signal_card() -> dict[str, Any]:
     """Build the complete signal card with channel decomposition and gate classification."""
     judgment = load_json(JUDGMENT / "latest.json")
@@ -576,6 +626,7 @@ def build_signal_card() -> dict[str, Any]:
                 "HMM stability → ADEQUATE or HIGH",
             ],
         },
+        "experimental_validation": _build_experimental_validation(),
     }
 
     return card
@@ -759,6 +810,35 @@ def generate_markdown(card: dict[str, Any]) -> str:
     for improvement in ce["what_would_improve"]:
         lines.append(f"- {improvement}")
     lines.append("")
+
+    ev = card.get("experimental_validation") or {}
+    if any(ev.get(k) for k in ("walk_forward", "shadow_outcomes_90d", "qlib_structural_bridge")):
+        lines += [
+            "## Experimental Validation (review-only)",
+            "",
+            f"*Allowed use: {ev.get('allowed_use', 'explanation_only')} — does not affect judgment.*",
+            "",
+        ]
+        wf = ev.get("walk_forward")
+        if wf:
+            lines.append(
+                f"- **Walk-forward:** best={wf.get('best_channel')} "
+                f"dir_acc={wf.get('best_direction_accuracy')}"
+            )
+        shadow = ev.get("shadow_outcomes_90d")
+        if shadow:
+            lines.append(
+                f"- **Shadow 90d:** cards={shadow.get('cards_total')} "
+                f"20d={shadow.get('cards_with_20d_outcome')} "
+                f"correct_rate={shadow.get('correct_rate')}"
+            )
+        bridge = ev.get("qlib_structural_bridge")
+        if bridge:
+            lines.append(
+                f"- **Qlib bridge:** verdict={bridge.get('bridge_verdict')} "
+                f"deform_auc+={bridge.get('deformation_features_add_value')}"
+            )
+        lines.append("")
 
     lines += [
         "---",

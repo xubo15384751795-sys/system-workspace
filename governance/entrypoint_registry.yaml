@@ -606,6 +606,32 @@ walk_forward_validation:
   allowed_use:
   - validation_only
   can_affect_core_judgment: false
+build_shadow_outcomes_90d:
+  script: scripts/build_shadow_outcomes_90d.py
+  status: active
+  schedule: weekly
+  owner: Strategy Lab
+  description: Aggregate 90-day shadow card outcomes after backfill
+  allowed_use:
+  - validation_only
+  can_affect_core_judgment: false
+build_qlib_structural_bridge:
+  script: scripts/build_qlib_structural_bridge.py
+  status: active
+  schedule: weekly
+  owner: Strategy Lab
+  description: Qlib experiment vs structural backtest bridge report
+  allowed_use:
+  - validation_only
+  can_affect_core_judgment: false
+build_measurement_quality_report:
+  script: scripts/build_measurement_quality_report.py
+  status: active
+  owner: Harvester
+  description: K/X measurement quality sidecar from gate validation
+  allowed_use:
+  - measurement_quality
+  can_affect_core_judgment: false
 reconstruction_data_availability:
   script: scripts/archive/reconstruction_data_availability.py
   status: archived
@@ -867,6 +893,22 @@ _constants:
   allowed_use:
   - shared_utility
   - threshold_import
+_data_paths:
+  script: scripts/_data_paths.py
+  status: active
+  owner: Engineering
+  description: Canonical data path resolution (Harvester-first, workspace fallback)
+  allowed_use:
+  - shared_utility
+  - data_path_resolution
+_pipeline_runner:
+  script: scripts/_pipeline_runner.py
+  status: active
+  owner: Workbench
+  description: Callable pipeline step runner for daily_run migration
+  allowed_use:
+  - pipeline_execution
+  - callable_runner
 check_retire_after:
   script: scripts/check_retire_after.py
   status: active
