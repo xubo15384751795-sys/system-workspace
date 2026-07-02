@@ -286,8 +286,9 @@ steps:
     input: &id017
     - Output/ml_signals/
     produces: &id018
-    - Output/ml_signals/
-    artifact_path: Output/ml_signals/hmm_stability_audit.json
+    - Output/hmm_stability/hmm_stability_audit.json
+    - Output/hmm_stability/hmm_stability_audit.md
+    artifact_path: Output/hmm_stability/hmm_stability_audit.json
     ttl_hours: 48
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -680,6 +681,40 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
+  build_data_gaps:
+    order: 20
+    status: active
+    owner: Workbench
+    command: python scripts/build_data_gaps.py
+    input:
+    - Output/current/framework_output.json
+    - Output/judgment/latest.json
+    produces:
+    - Output/current/data_gaps.json
+    - Output/current/data_gaps.md
+    artifact_path: Output/current/data_gaps.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_data_gaps.py
+      future_callable: scripts.build_data_gaps:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs:
+      - Output/current/framework_output.json
+      - Output/judgment/latest.json
+      outputs:
+      - Output/current/data_gaps.json
+      - Output/current/data_gaps.md
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
   signal_monitor:
     order: 17.4
     status: active
@@ -1365,6 +1400,39 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Strategy Lab
+  current_status:
+    order: 27
+    status: active
+    owner: Workbench
+    command: python scripts/build_current_status.py
+    input: &id_current_status_in
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    - Output/k_measurement/k_measurement_gate.json
+    - Output/x_measurement/x_measurement_gate.json
+    - Output/hmm_stability/hmm_stability_audit.json
+    - Output/caselab/
+    produces: &id_current_status_out
+    - Output/current/status.json
+    artifact_path: Output/current/status.json
+    ttl_hours: 24
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: callable
+      current_command: python scripts/build_current_status.py
+      future_callable: scripts.build_current_status:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_current_status_in
+      outputs: *id_current_status_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
   work_brief:
     order: 28
     status: active

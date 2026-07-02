@@ -427,6 +427,22 @@ build_benchmark_evidence_dashboard:
   description: Build benchmark evidence dashboard
   allowed_use:
   - evidence_dashboard
+ingest_daily_run_to_hub:
+  script: scripts/ingest_daily_run_to_hub.py
+  status: active
+  owner: Learning Hub
+  description: Ingest run bundle manifest/steps/feedback into Learning Hub latest memory
+  allowed_use:
+  - learning_hub_ingest
+  - run_memory
+build_current_status:
+  script: scripts/build_current_status.py
+  status: active
+  owner: Workbench
+  description: Build daily Output/current/status.json from judgment and gate artifacts
+  allowed_use:
+  - current_readout
+  - status_snapshot
 build_next_actions:
   script: scripts/build_next_actions.py
   status: active
@@ -909,6 +925,22 @@ _pipeline_runner:
   allowed_use:
   - pipeline_execution
   - callable_runner
+_daily_run_executor:
+  script: scripts/_daily_run_executor.py
+  status: active
+  owner: Workbench
+  description: Execute governance/daily_run_sequence.yaml via daily_pipeline_registry
+  allowed_use:
+  - pipeline_execution
+  - daily_run_orchestration
+_current_publish:
+  script: scripts/_current_publish.py
+  status: active
+  owner: Workbench
+  description: Candidate Output/current staging and atomic publish gate
+  allowed_use:
+  - current_publish
+  - pipeline_execution
 run_pipeline_step:
   script: scripts/run_pipeline_step.py
   status: active

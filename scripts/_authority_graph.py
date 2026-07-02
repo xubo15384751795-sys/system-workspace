@@ -384,7 +384,7 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
         "sources": [
-            "docs/daily_pipeline_registry.yaml",
+            "governance/daily_pipeline_registry.yaml",
             "governance/authority_graph_policy.yaml",
             "governance/output_routing_policy.yaml",
             "governance/system_constitution.yaml",

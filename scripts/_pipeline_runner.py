@@ -95,7 +95,13 @@ def run_callable_step(
         elif argv:
             result = target(argv)
         else:
-            result = target()
+            old_argv = sys.argv[:]
+            module_name = callable_spec.split(":", 1)[0]
+            sys.argv = [module_name.rsplit(".", 1)[-1]]
+            try:
+                result = target()
+            finally:
+                sys.argv = old_argv
         duration = time.time() - start
         returncode = 0
         if isinstance(result, int):
@@ -226,6 +232,7 @@ def run_registry_step(
     argv: list[str] | None = None,
     mode: str | None = None,
     command: list[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run a registry step using subprocess or callable mode."""
     execution = load_step_execution(step_id)
@@ -244,4 +251,4 @@ def run_registry_step(
         cmd = current.split()
         if cmd and cmd[0] == "python":
             cmd[0] = sys.executable
-    return run_subprocess_step(step_id, cmd)
+    return run_subprocess_step(step_id, cmd, env=env)

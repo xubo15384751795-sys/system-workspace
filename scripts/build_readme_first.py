@@ -18,10 +18,10 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json
+from _runtime_io import ROOT, current_dir, ensure_dir, load_json
 
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
-FRAMEWORK_OUTPUT_PATH = ROOT / "Output" / "current" / "framework_output.json"
+FRAMEWORK_OUTPUT_PATH = current_dir() / "framework_output.json"
 EVIDENCE_REPORT_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
 OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
 

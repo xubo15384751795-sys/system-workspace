@@ -21,12 +21,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from _workspace_imports import add_scripts
+
 add_scripts()
 
-from _runtime_io import ROOT, load_json  # noqa: E402
+from _runtime_io import ROOT, current_dir, load_json  # noqa: E402
+
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 CASELAB_DIR = ROOT / "Output" / "caselab"
-CURRENT_DIR = ROOT / "Output" / "current"
+CURRENT_DIR = current_dir()
 LOOKBACK_DAYS = 7
 
 
@@ -477,13 +479,13 @@ def main() -> None:
     md_path = CURRENT_DIR / "change_analysis.md"
     md_path.write_text(_build_markdown(analysis), encoding="utf-8")
 
-    print(f"Change analysis written:")
+    print("Change analysis written:")
     print(f"  {json_path}")
     print(f"  {md_path}")
 
     # Summary
     s = analysis["summary"]
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  M trend: {s['sigma_trend_M']}, D trend: {s['sigma_trend_D']}")
     print(f"  Changes (7d): {s['total_field_changes_7d']} total, {s['high_significance_changes_7d']} high-sig")
     if s["anomaly_flags"]:

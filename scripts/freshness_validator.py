@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime, timedelta
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir
+from _runtime_io import ROOT, current_dir, ensure_dir
+
 OUTPUT_DIR = ROOT / "Output"
+CURRENT = current_dir()
 QUALITY_DIR = OUTPUT_DIR / "quality"
 
 # Maximum age before artifact is stale
@@ -49,6 +52,14 @@ CURRENT_OUTPUT_CHAIN = [
     "work_brief",
     "system_index",
 ]
+
+
+def _chain_current() -> Path:
+    """Current readout dir for closure/freshness checks (patchable via OUTPUT_DIR in tests)."""
+    override = os.environ.get("CURRENT_OUTPUT_DIR")
+    if override:
+        return Path(override)
+    return OUTPUT_DIR / "current"
 
 # Evidence release TTL — see governance/architecture_reality_decisions.md §4
 # See: configs/freshness_policy.yaml evidence_release section
@@ -104,10 +115,10 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
     """
     issues = []
     chain_paths = {
-        "readme_first": OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md",
-        "signal_card": OUTPUT_DIR / "current" / "signal_card.json",
-        "signal_consensus": OUTPUT_DIR / "current" / "signal_consensus.json",
-        "work_brief": OUTPUT_DIR / "current" / "work_brief.json",
+        "readme_first": _chain_current() / "00_READ_ME_FIRST.md",
+        "signal_card": _chain_current() / "signal_card.json",
+        "signal_consensus": _chain_current() / "signal_consensus.json",
+        "work_brief": _chain_current() / "work_brief.json",
         "system_index": ROOT / "Data" / "system_index" / "latest.json",
     }
 
@@ -194,26 +205,26 @@ def check_temporal_ordering(now: datetime, *, mode: str = "standard") -> list[di
         },
         {
             "earlier": ("system_index", ROOT / "Data" / "system_index" / "latest.json"),
-            "later": ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md"),
+            "later": ("readme_first", CURRENT / "00_READ_ME_FIRST.md"),
             "rule": "readme_first must be after system_index",
             "chain": "full",
         },
         # Current-output rules — always hard FAIL
         {
-            "earlier": ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md"),
-            "later": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
+            "earlier": ("readme_first", CURRENT / "00_READ_ME_FIRST.md"),
+            "later": ("signal_card", CURRENT / "signal_card.json"),
             "rule": "signal_card must be after readme_first",
             "chain": "current",
         },
         {
-            "earlier": ("signal_card", OUTPUT_DIR / "current" / "signal_card.json"),
-            "later": ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json"),
+            "earlier": ("signal_card", CURRENT / "signal_card.json"),
+            "later": ("signal_consensus", CURRENT / "signal_consensus.json"),
             "rule": "signal_consensus must be after signal_card",
             "chain": "current",
         },
         {
-            "earlier": ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json"),
-            "later": ("work_brief", OUTPUT_DIR / "current" / "work_brief.json"),
+            "earlier": ("signal_consensus", CURRENT / "signal_consensus.json"),
+            "later": ("work_brief", CURRENT / "work_brief.json"),
             "rule": "work_brief must be after signal_consensus",
             "chain": "current",
         },
@@ -262,17 +273,17 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
     # Check artifact freshness
     artifacts = [
         ("harvester", ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json", MAX_AGE_HOURS["harvester"]),
-        ("framework_output", OUTPUT_DIR / "current" / "framework_output.json", MAX_AGE_HOURS["framework_output"]),
+        ("framework_output", CURRENT / "framework_output.json", MAX_AGE_HOURS["framework_output"]),
         ("judgment", OUTPUT_DIR / "judgment" / "latest.json", MAX_AGE_HOURS["judgment"]),
         ("promotion_gate", OUTPUT_DIR / "judgment" / "promotion_gate.json", MAX_AGE_HOURS["promotion_gate"]),
         ("trade_decision", OUTPUT_DIR / "trade_decision" / "latest.json", MAX_AGE_HOURS["trade_decision"]),
         ("risk_gate", OUTPUT_DIR / "trade_decision" / "risk_gate.json", MAX_AGE_HOURS["risk_gate"]),
         ("learning_summary", OUTPUT_DIR / "system_learning" / "latest" / "comprehensive_summary.json", MAX_AGE_HOURS["learning_summary"]),
         ("system_index", ROOT / "Data" / "system_index" / "latest.json", MAX_AGE_HOURS["system_index"]),
-        ("readme_first", OUTPUT_DIR / "current" / "00_READ_ME_FIRST.md", MAX_AGE_HOURS["readme_first"]),
-        ("signal_card", OUTPUT_DIR / "current" / "signal_card.json", MAX_AGE_HOURS["signal_card"]),
-        ("signal_consensus", OUTPUT_DIR / "current" / "signal_consensus.json", MAX_AGE_HOURS["signal_consensus"]),
-        ("work_brief", OUTPUT_DIR / "current" / "work_brief.json", MAX_AGE_HOURS["work_brief"]),
+        ("readme_first", CURRENT / "00_READ_ME_FIRST.md", MAX_AGE_HOURS["readme_first"]),
+        ("signal_card", CURRENT / "signal_card.json", MAX_AGE_HOURS["signal_card"]),
+        ("signal_consensus", CURRENT / "signal_consensus.json", MAX_AGE_HOURS["signal_consensus"]),
+        ("work_brief", CURRENT / "work_brief.json", MAX_AGE_HOURS["work_brief"]),
     ]
 
     freshness_checks = [check_artifact_freshness(name, path, max_age, now) for name, path, max_age in artifacts]

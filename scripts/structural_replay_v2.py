@@ -36,6 +36,14 @@ import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Path setup MUST run before any import that resolves through Workbench or the
+# deformation framework (e.g. `_replay_registry` reaches into `replay.scoring`).
+from _workspace_imports import add_framework_src, add_workbench_src  # noqa: E402
+
+add_framework_src()
+add_workbench_src()
+
 from _constants import TRADING_DAYS_PER_YEAR  # noqa: E402
 from _proxy_aggregation import coupled_aggregate  # noqa: E402
 from _replay_registry import (  # noqa: E402
@@ -55,7 +63,6 @@ from _replay_transforms import (  # noqa: E402
     _rolling_zscore,  # noqa: F401
 )
 from _runtime_io import ensure_dir  # noqa: E402
-from _workspace_imports import add_framework_src, add_workbench_src  # noqa: E402
 from replay.scoring import (  # noqa: E402
     compute_contract_violations,
     compute_derivative_contamination,
@@ -67,9 +74,6 @@ from replay.scoring import (  # noqa: E402
     compute_sparsity_flags,
     compute_vif,
 )
-
-add_workbench_src()
-add_framework_src()
 
 from workbench.governance.report_gate import validate_report_verdict  # noqa: E402
 from workbench.governance.semantic import (  # noqa: E402

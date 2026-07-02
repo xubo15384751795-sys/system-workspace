@@ -25,11 +25,11 @@ from _data_paths import (
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
-from _runtime_io import ROOT, ensure_dir, load_json, write_json
+from _runtime_io import ROOT, current_dir, ensure_dir, load_json, write_json
 
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
-OUTPUT_PATH = ROOT / "Output" / "current" / "measurement_quality.json"
+OUTPUT_PATH = current_dir() / "measurement_quality.json"
 
 
 def _harvester_release() -> dict[str, Any]:

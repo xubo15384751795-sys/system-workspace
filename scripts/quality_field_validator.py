@@ -16,16 +16,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import Any
 
 from _constants import CASELAB_USABLE_THRESHOLD
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from _runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now, write_json
 
 FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
-OUTPUT_PATH = ROOT / "Output" / "current" / "quality_validation.json"
+OUTPUT_PATH = current_dir() / "quality_validation.json"
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -46,8 +45,8 @@ def check_quality_fields(fw: dict[str, Any]) -> list[dict[str, Any]]:
     channel_conf = advanced.get("channel_confidence", {})
 
     quality_status = basic.get("quality_status", "UNKNOWN")
-    measurement_quality = basic.get("measurement_quality", "UNKNOWN")
-    measurement_eligibility = basic.get("measurement_eligibility", "UNKNOWN")
+    basic.get("measurement_quality", "UNKNOWN")
+    basic.get("measurement_eligibility", "UNKNOWN")
     overall = basic.get("overall", "UNKNOWN")
 
     # Rule 1: ACTIVE_FULL cannot equal high confidence

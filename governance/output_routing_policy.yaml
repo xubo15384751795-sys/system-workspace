@@ -35,6 +35,7 @@ groups:
       - change_analysis.json
       - evidence_grade_report.json
       - artifact_registry.json
+      - measurement_quality.json
 
   runs:
     path: Output/deformation_runs/

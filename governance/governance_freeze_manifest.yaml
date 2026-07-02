@@ -2,7 +2,7 @@ schema_version: governance_freeze_manifest.v2
 updated_at: "2026-06-20"
 freeze_commit: "06e91e906d0f8ce6562240b27db556366edb3e2b"
 freeze_date: "2026-06-17"
-review_after: "2026-07-01"
+review_after: "2026-07-15"
 purpose: >
   Machine-checkable governance freeze baseline. Root-level governance files must
   appear in baseline_root_files or approved_additions. Generated overlays and
@@ -57,27 +57,27 @@ baseline_hashes:
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
   capability_registry.yaml: "9a5e0085e18f64a4"
-  daily_pipeline_registry.yaml: "01a645b1fb3bd55c"
+  daily_pipeline_registry.yaml: "7ca79516bae9598c"
   data_request_registry.yaml: "500729e504511860"
   data_retention_policy.yaml: "e6efe4330eef54b8"
-  deferred_work_register.yaml: "3687f0a8bb11a7f1"
-  entrypoint_registry.yaml: "1352fa71ff09bdea"
+  deferred_work_register.yaml: "3fa224585ac9cd34"
+  entrypoint_registry.yaml: "ca13178fff0cb377"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
   git_workspace_policy.md: "d812b4ed4f0371bd"
   incentive_policy.yaml: "eae916244754e015"
   opencode_supervisor_policy.yaml: "822ecdea6cb684da"
   operator_registry.yaml: "52406a8a279176c1"
-  output_routing_policy.yaml: "c238fee7d18882bf"
+  output_routing_policy.yaml: "c638aaef23af8716"
   pipeline_test_baseline.yaml: "d476abebd64035a6"
   proxy_quality_rules.yaml: "09bf85c19edc4c85"
-  redundancy_budget.yaml: "bf6b5286d95a5634"
+  redundancy_budget.yaml: "39f66966075a1241"
   repo_layout_map.md: "45c81234ae0a728f"
   run_mode_registry.yaml: "a0aa12f41ec3f33a"
   run_observability_summary.template.md: "69bb81c0d223cf9e"
   semantic_registry.json: "d72f277e4d56e813"
   submodule_commit_plan.md: "164a0f9110fba6d5"
-  system_constitution.yaml: "3def2eaaf5fcfca8"
+  system_constitution.yaml: "923166d5bd7e467e"
 
 # Post-freeze additions — each requires explicit approval record
 approved_additions:
@@ -381,10 +381,45 @@ baseline_updates:
     new_hash: "1352fa71ff09bdea"
     reason: "Wave 4 run_pipeline_step + measurement quality entrypoints"
   - file: daily_run_sequence.yaml
-    approved_at: "2026-06-30"
-    old_hash: "049dccae8ccfa31c"
-    new_hash: "2a6d8a92fa4f35d6"
-    reason: "Wave 3 qlib_structural_bridge + shadow_outcomes_90d weekly steps"
+    approved_at: "2026-07-02"
+    old_hash: "2a6d8a92fa4f35d6"
+    new_hash: "a77f6460250594e8"
+    reason: "Add daily current_status reporting step"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-07-02"
+    old_hash: "3687f0a8bb11a7f1"
+    new_hash: "3fa224585ac9cd34"
+    reason: "Wave 4 capability_upgrade_master progress; reconcile freeze baseline hash"
+  - file: output_routing_policy.yaml
+    approved_at: "2026-07-02"
+    old_hash: "c238fee7d18882bf"
+    new_hash: "c638aaef23af8716"
+    reason: "Register measurement_quality.json in groups.current.allowed_artifacts"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "01a645b1fb3bd55c"
+    new_hash: "ad82bff6da5971b5"
+    reason: "Register current_status daily reporting step"
+  - file: system_constitution.yaml
+    approved_at: "2026-07-02"
+    old_hash: "3def2eaaf5fcfca8"
+    new_hash: "923166d5bd7e467e"
+    reason: "Renew governance_freeze review_after to 2026-07-15"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "ad82bff6da5971b5"
+    new_hash: "7ca79516bae9598c"
+    reason: "Fix hmm_stability_audit produces path for IO contract traceability"
+  - file: entrypoint_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "1352fa71ff09bdea"
+    new_hash: "ca13178fff0cb377"
+    reason: "Register build_current_status.py entrypoint"
+  - file: redundancy_budget.yaml
+    approved_at: "2026-07-02"
+    old_hash: "bf6b5286d95a5634"
+    new_hash: "39f66966075a1241"
+    reason: "Bump root_scripts max_visible for build_current_status.py"
 
 work_support_budget:
   max_files: 17

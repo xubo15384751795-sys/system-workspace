@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from _runtime_io import ROOT, ensure_dir, utc_now, write_json
+from _runtime_io import ROOT, current_dir, ensure_dir, utc_now, write_json
 
 ROUTING_POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
 PIPELINE_REGISTRY_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
-OUTPUT_PATH = ROOT / "Output" / "current" / "artifact_registry.json"
+OUTPUT_PATH = current_dir() / "artifact_registry.json"
 
 # Artifacts produced outside the daily pipeline (manual / refresh chain).
 MANUAL_PRODUCERS: dict[str, dict[str, Any]] = {

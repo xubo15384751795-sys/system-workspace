@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from _runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now, write_json
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
@@ -31,7 +31,7 @@ FRESHNESS_PATH = ROOT / "Output" / "quality" / "freshness_report.json"
 PAPER_MANIFEST_PATH = ROOT / "Data" / "paper_world_model" / "manifest.json"
 HARVESTER_CATALOG_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
 DATA_REQUEST_PATH = ROOT / "governance" / "data_request_registry.yaml"
-OUTPUT_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
+OUTPUT_PATH = current_dir() / "evidence_grade_report.json"
 
 CONTRIBUTOR_ARTIFACTS: dict[str, list[str]] = {
     "paper_world_model": [str(PAPER_MANIFEST_PATH.relative_to(ROOT))],

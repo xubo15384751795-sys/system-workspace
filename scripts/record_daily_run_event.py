@@ -22,11 +22,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now
+from _runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now
 
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
-EVIDENCE_GRADE_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
-STATUS_PATH = ROOT / "Output" / "current" / "status.json"
+EVIDENCE_GRADE_PATH = current_dir() / "evidence_grade_report.json"
+STATUS_PATH = current_dir() / "status.json"
 EVENTS_DIR = ROOT / "Output" / "system_learning" / "events"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
 HUB_EVENTS_DIR = ROOT / "Output" / "runtime_events"

@@ -9,7 +9,8 @@ Bundle scripts:
   quality_field_validator.py       → quality_validation.json
   judgment_layer.py                → judgment/latest.json
   judgment_promotion_gate.py       → judgment/promotion_gate.json
-  build_next_actions.py            → status.json, NEXT_ACTIONS.md
+  build_next_actions.py            → NEXT_ACTIONS.md
+  build_current_status.py          → status.json
   build_readme_first.py            → 00_READ_ME_FIRST.md
 
 Invariant:
@@ -100,7 +101,7 @@ def test_bundle_dates_consistent() -> None:
             stale[label] = f"{dates[label]} ({delta} days behind)"
 
     assert not stale, (
-        f"Bundle artifacts are not date-consistent:\n"
+        "Bundle artifacts are not date-consistent:\n"
         + "\n".join(f"  {k}: {v}" for k, v in stale.items())
         + f"\n  newest: {newest.strftime('%Y-%m-%d')}"
     )

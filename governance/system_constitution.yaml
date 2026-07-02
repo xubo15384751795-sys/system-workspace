@@ -176,7 +176,7 @@ language_governance:
 governance_freeze:
   active: true
   effective_from: "2026-06-17"
-  review_after: "2026-07-01"
+  review_after: "2026-07-15"
   rules:
     - "No new governance files unless explicitly approved"
     - "New rules go into existing governance files, not new ones"

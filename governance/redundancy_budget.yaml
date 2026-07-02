@@ -7,7 +7,7 @@ purpose: >
 
 # ── Root Scripts ──────────────────────────────────────────────────────────────
 root_scripts:
-  max_visible: 98  # 2026-06-19: +regime_router.py, +historical_validation_suite.py
+  max_visible: 102  # 2026-07-02: +ingest_daily_run_to_hub.py
   # Target: 35 (requires module absorption: work_cycle→Workbench, supervisor→Governance, policies→Governance)
   require_registry_entry: true
   allowed_statuses:

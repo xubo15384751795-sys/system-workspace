@@ -38,6 +38,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from _runtime_io import ROOT, ensure_dir
+
 RUNS_DIR = ROOT / "Output" / "runs"
 LATEST_POINTER = ROOT / "Output" / "current" / "latest_run_id.txt"
 
@@ -104,7 +105,14 @@ class RunBundle:
     # ── lifecycle ──────────────────────────────────────────────
 
     @classmethod
-    def start(cls, mode: str = "unknown", root: Path | None = None, tag: str | None = None) -> RunBundle:
+    def start(
+        cls,
+        mode: str = "unknown",
+        root: Path | None = None,
+        tag: str | None = None,
+        *,
+        update_pointer: bool = True,
+    ) -> RunBundle:
         """Create a new run bundle, write input snapshot, return handle."""
         resolved_root = root or ROOT
         base = root / "Output" / "runs" if root else RUNS_DIR
@@ -116,7 +124,8 @@ class RunBundle:
         bundle._step_file = run_dir / "steps.jsonl"
         bundle._write_input_snapshot()
         bundle._write_manifest()  # initial manifest
-        bundle._update_latest_pointer(root)
+        if update_pointer:
+            bundle._update_latest_pointer(root)
         return bundle
 
     def record_step(
@@ -375,7 +384,7 @@ if __name__ == "__main__":
     if args.dry_run:
         print(f"Would create run bundle with mode={args.mode}")
         print(f"  run_id pattern: {args.mode}_YYYYMMDD_HHMMSS_xxxx")
-        print(f"  output: Output/runs/<run_id>/")
+        print("  output: Output/runs/<run_id>/")
     else:
         bundle = RunBundle.start(mode=args.mode)
         print(f"Created run bundle: {bundle.run_id}")

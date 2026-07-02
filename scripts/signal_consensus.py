@@ -18,13 +18,13 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from _constants import CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD
-from _runtime_io import ROOT, ensure_dir, load_json as _load_json, write_json
+from _runtime_io import ROOT, current_dir, ensure_dir, write_json
+from _runtime_io import load_json as _load_json
 
-OUTPUT_CURRENT = ROOT / "Output" / "current"
+OUTPUT_CURRENT = current_dir()
 
 # Source paths
 FRAMEWORK_OUTPUT = OUTPUT_CURRENT / "framework_output.json"

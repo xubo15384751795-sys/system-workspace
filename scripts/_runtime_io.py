@@ -13,6 +13,7 @@ Public API:
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,14 @@ from typing import Any
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def current_dir() -> Path:
+    """Authority readout directory — candidate during daily run, published after gate."""
+    override = os.environ.get("CURRENT_OUTPUT_DIR")
+    if override:
+        return Path(override)
+    return ROOT / "Output" / "current"
 
 
 def load_json(path: Path) -> dict[str, Any] | None:

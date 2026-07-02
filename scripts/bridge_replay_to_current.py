@@ -19,23 +19,27 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from _workspace_imports import add_scripts, add_workbench_src
+
 add_scripts()
 add_workbench_src()
 
-from _runtime_io import ROOT, ensure_dir
+from _runtime_io import ROOT, current_dir, ensure_dir
 
-from workbench.governance.semantic import MEASUREMENT_ELIGIBILITY, SemanticRegistry, build_primary_readout
 from workbench.current_bridge.reports import (
-    fmt_value,
-    generate_summary,
-    generate_rebase_report,
-    generate_md_classifier_report,
-    generate_k_rebuild_plan,
-    generate_x_rebuild_plan,
     generate_daily_market_space,
+    generate_k_rebuild_plan,
+    generate_md_classifier_report,
+    generate_rebase_report,
+    generate_summary,
+    generate_x_rebuild_plan,
+)
+from workbench.governance.semantic import (
+    MEASUREMENT_ELIGIBILITY,
+    SemanticRegistry,
+    build_primary_readout,
 )
 
-CURRENT = ROOT / "Output" / "current"
+CURRENT = current_dir()
 REPLAY_DIR = ROOT / "Output" / "sandbox" / "structural_replay_v2"
 HARVESTER_LATEST = ROOT / "Data" / "harvester" / "exports" / "latest"
 REBASE_DIR = ROOT / "Output" / "rebase"
@@ -309,7 +313,7 @@ def _measurement_quality_layer(channel_confidence: dict) -> str:
     if all(level == "low" for level in levels):
         return "LOW_CONFIDENCE_PROXY_REDUCED"
     # Mixed
-    low_count = sum(1 for l in levels if l == "low")
+    low_count = sum(1 for level in levels if level == "low")
     if low_count > len(levels) / 2:
         return "LOW_CONFIDENCE_PROXY_REDUCED"
     return "MIXED_CONFIDENCE"
@@ -409,8 +413,8 @@ def _x_agg_validation(vector: dict, results: list) -> dict:
             })
 
     # Correlation with other channels (simplified)
-    m_vals = [ev.get("channel_at_peak", {}).get("M", 0) or 0 for ev in results]
-    x_vals = [ev.get("channel_at_peak", {}).get("X_agg", 0) or 0 for ev in results]
+    [ev.get("channel_at_peak", {}).get("M", 0) or 0 for ev in results]
+    [ev.get("channel_at_peak", {}).get("X_agg", 0) or 0 for ev in results]
 
     # Check if X_agg fires in key crisis events
     crisis_events = {"gfc_2008", "covid_2020", "svb_2023"}
@@ -687,7 +691,7 @@ def write_readme(fw_output: dict) -> str:
 
     lines.extend([
         "### Data Recency",
-        f"- Output source: structural_replay_v2 bridge (canonical)",
+        "- Output source: structural_replay_v2 bridge (canonical)",
         f"- Harvester release: {advanced.get('harvester_release', 'unknown')}",
         f"- Generated at: {fw_output['as_of']}",
         "",
@@ -765,6 +769,52 @@ def main() -> None:
     summary_path = CURRENT / "latest_summary.md"
     summary_path.write_text(summary, encoding="utf-8")
     print(f"Wrote: {summary_path}")
+
+    model_run_path = CURRENT / "model_run.json"
+    replay_results = REPLAY_DIR / "results.json"
+    run_id = f"replay_{fw_output.get('as_of', datetime.now(UTC).strftime('%Y-%m-%d'))}"
+    if replay_results.exists():
+        try:
+            replay_meta = json.loads(replay_results.read_text(encoding="utf-8"))
+            run_id = str(replay_meta.get("run_id") or replay_meta.get("tag") or run_id)
+        except Exception:
+            logger.debug("Failed to read replay results.json for model_run", exc_info=True)
+    as_of = str(fw_output.get("as_of") or datetime.now(UTC).strftime("%Y-%m-%d"))
+    model_run_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "workbench.model_run.v1",
+                "model_id": "structural_replay_v2",
+                "producer": "scripts/bridge_replay_to_current.py",
+                "run_id": run_id,
+                "run_date": as_of[:10],
+                "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "status": "success",
+                "input_bundle": as_of[:10].replace("-", ""),
+                "artifacts": {
+                    "framework_output": {
+                        "path": "framework_output.json",
+                        "kind": "json",
+                        "description": "Bridged framework readout from structural replay.",
+                    },
+                    "latest_summary": {
+                        "path": "latest_summary.md",
+                        "kind": "markdown",
+                        "description": "Human-readable replay summary.",
+                    },
+                },
+                "framework_payload": {
+                    "source": "structural_replay_v2",
+                    "framework_status": fw_output.get("status"),
+                    "quality_status": fw_output.get("basic", {}).get("quality_status"),
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote: {model_run_path}")
 
     # Write readout-rebase artifacts
     rebase_paths = write_rebase_outputs(fw_output)

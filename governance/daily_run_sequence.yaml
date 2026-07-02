@@ -37,6 +37,8 @@ steps:
   - id: signal_consensus
 
   # ── VALIDATION ────────────────────────────────────────────────────
+  - id: build_data_gaps
+    description: Daily data gap scan for Harvester request candidates
   - id: signal_monitor
     schedule: weekly
     description: Moved from daily 2026-06-20 — output not consumed downstream, review-only
@@ -116,6 +118,8 @@ steps:
 
   # ── REPORTING ─────────────────────────────────────────────────────
   - id: system_index
+  - id: current_status
+    description: Build Output/current/status.json from latest daily artifacts
   - id: work_brief
   - id: evidence_grade_report
     description: Build structured evidence grade report with contributors, blockers, and upgrade path
