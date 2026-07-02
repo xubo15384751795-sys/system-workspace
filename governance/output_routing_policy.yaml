@@ -36,6 +36,7 @@ groups:
       - evidence_grade_report.json
       - artifact_registry.json
       - measurement_quality.json
+      - operator_activations.json  # mechanism operator readout; does not affect core judgment
 
   runs:
     path: Output/deformation_runs/

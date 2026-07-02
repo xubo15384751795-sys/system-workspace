@@ -13,16 +13,14 @@ Output:
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
 from _runtime_io import ROOT, current_dir, ensure_dir, write_json
+from _workspace_imports import add_framework_root  # noqa: E402
 
-FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
-if str(FRAMEWORK_SRC) not in sys.path:
-    sys.path.insert(0, str(FRAMEWORK_SRC.parent))
+add_framework_root()
 
 from src.operators.mechanism import (  # noqa: E402
     ActivationRecord,
@@ -85,4 +83,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

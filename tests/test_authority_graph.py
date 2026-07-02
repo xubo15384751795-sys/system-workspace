@@ -101,8 +101,8 @@ def test_build_authority_graph_cli_writes_output(tmp_path: Path) -> None:
         (ROOT / "governance" / "system_constitution.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "daily_pipeline_registry.yaml").write_text(
+    (tmp_path / "governance").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "governance" / "daily_pipeline_registry.yaml").write_text(
         """
 schema_version: daily_pipeline_registry.v2
 steps:

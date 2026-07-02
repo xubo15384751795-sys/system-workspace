@@ -44,6 +44,11 @@ def add_framework_src() -> None:
     _add(ROOT / "deformation-framework" / "src")
 
 
+def add_framework_root() -> None:
+    """Add deformation-framework/ for ``from src.*`` package imports."""
+    _add(ROOT / "deformation-framework")
+
+
 def add_harvester_src() -> None:
     """Add structural-risk-harvester/src to sys.path."""
     _add(ROOT / "structural-risk-harvester" / "src")

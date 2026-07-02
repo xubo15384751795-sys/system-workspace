@@ -57,7 +57,7 @@ baseline_hashes:
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
   capability_registry.yaml: "9a5e0085e18f64a4"
-  daily_pipeline_registry.yaml: "fc31db21cc529a63"
+  daily_pipeline_registry.yaml: "5ad408001919ea6b"
   data_request_registry.yaml: "5709fec9b9de56d7"
   data_retention_policy.yaml: "e6efe4330eef54b8"
   deferred_work_register.yaml: "3fa224585ac9cd34"
@@ -68,7 +68,7 @@ baseline_hashes:
   incentive_policy.yaml: "eae916244754e015"
   opencode_supervisor_policy.yaml: "822ecdea6cb684da"
   operator_registry.yaml: "52406a8a279176c1"
-  output_routing_policy.yaml: "c638aaef23af8716"
+  output_routing_policy.yaml: "24dfa5eb2762d163"
   pipeline_test_baseline.yaml: "d476abebd64035a6"
   proxy_quality_rules.yaml: "09bf85c19edc4c85"
   redundancy_budget.yaml: "75cbb968983d92d7"
@@ -453,6 +453,21 @@ baseline_updates:
     old_hash: "39f66966075a1241"
     new_hash: "75cbb968983d92d7"
     reason: "Bump root_scripts max_visible for capability pipeline scripts"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "fc31db21cc529a63"
+    new_hash: "5ad408001919ea6b"
+    reason: "Close contracts.outputs for capability pipeline steps"
+  - file: output_routing_policy.yaml
+    approved_at: "2026-07-02"
+    old_hash: "c638aaef23af8716"
+    new_hash: "24dfa5eb2762d163"
+    reason: "Register operator_activations.json in current (non-core readout)"
+  - file: authority_graph_policy.yaml
+    approved_at: "2026-07-02"
+    old_hash: "_unknown_"
+    new_hash: "b860e5a8dfca82ab"
+    reason: "Diagnostic readout drift exempt + run_operator_detections zone"
 
 work_support_budget:
   max_files: 17

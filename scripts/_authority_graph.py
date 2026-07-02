@@ -168,7 +168,7 @@ def _drift_exempt(step_id: str, node: dict[str, Any], declared: bool, derived: b
 
 
 def build_step_id_index(root: Path) -> dict[str, str]:
-    pipeline = _load_yaml(root / "docs" / "daily_pipeline_registry.yaml")
+    pipeline = _load_yaml(root / "governance" / "daily_pipeline_registry.yaml")
     index: dict[str, str] = {}
     for step_id, step in (pipeline.get("steps", {}) or {}).items():
         index[step_id] = step_id
@@ -207,7 +207,7 @@ def normalize_step_name(raw: str, index: dict[str, str]) -> str:
 
 
 def build_authority_graph(root: Path) -> dict[str, Any]:
-    pipeline = _load_yaml(root / "docs" / "daily_pipeline_registry.yaml")
+    pipeline = _load_yaml(root / "governance" / "daily_pipeline_registry.yaml")
     policy = _load_yaml(root / "governance" / "authority_graph_policy.yaml")
     routing = _load_yaml(root / "governance" / "output_routing_policy.yaml")
 

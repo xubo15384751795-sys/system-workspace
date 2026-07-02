@@ -18,11 +18,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, load_yaml as _load_yaml  # noqa: E402
+import yaml
+from _runtime_io import ROOT  # noqa: E402
+from _runtime_io import load_yaml as _load_yaml
 
 HAND_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
 GENERATED_PATH = ROOT / "governance" / "entrypoint_registry.generated.yaml"
-PIPELINE_PATH = ROOT / "docs" / "daily_pipeline_registry.yaml"
+PIPELINE_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
 
 
 def _discover_scripts(scripts_dir: Path) -> dict[str, dict[str, Any]]:

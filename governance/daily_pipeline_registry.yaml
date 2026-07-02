@@ -244,6 +244,11 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Deformation Framework
+    contracts:
+      inputs:
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      outputs:
+      - Output/current/operator_activations.json
   validate_proxy_observation_catalog:
     order: 6.6
     status: active
@@ -270,6 +275,12 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Harvester
+    contracts:
+      inputs:
+      - governance/proxy_observation_catalog.yaml
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      outputs:
+      - Output/quality/proxy_catalog_report.json
   quality_validation:
     order: 7
     status: active
@@ -1476,6 +1487,12 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Strategy Lab
+    contracts:
+      inputs:
+      - Output/strategy_lab/shadow_cards/
+      - Data/panels/cross_asset_daily_panel.parquet
+      outputs:
+      - Output/strategy_lab/overlay_shadow_report.json
   build_event_replay_factory:
     order: 28.6
     status: active
@@ -1502,6 +1519,12 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Deformation Framework
+    contracts:
+      inputs:
+      - governance/event_replay_windows.yaml
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      outputs:
+      - Output/sandbox/event_replay/summary.json
   build_feedback_sample_pool:
     order: 28.7
     status: active
@@ -1527,6 +1550,11 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
+    contracts:
+      inputs:
+      - Output/sandbox/event_replay/
+      outputs:
+      - Data/feedback_samples/sample_manifest.jsonl
   current_status:
     order: 27
     status: active
