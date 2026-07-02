@@ -1,0 +1,110 @@
+# Proxy observation catalog — capability layer 1 acceptance contract.
+# Each entry answers: observes / fails_when / independence / replay_case
+# Panel authority: Data/harvester/exports/latest/data/benchmark_panel.parquet
+# Cross-asset ETF proxies: cross_asset_daily_panel.parquet
+
+schema_version: proxy_observation_catalog.v1
+updated_at: "2026-07-02"
+
+proxies:
+  DERIVED:SOFR_IORB_SPREAD:
+    family: funding_liquidity
+    observes: Overnight secured funding trades rich vs. IORB policy floor.
+    fails_when: Pre-2021-07 (use DERIVED:CP_TBILL_SPREAD fallback); stale > 5bd.
+    independence: Independent from HY OAS — leads credit by days/weeks.
+    replay_case: "2019-09 repo spike (with CP-Tbill fallback)"
+
+  DERIVED:CP_TBILL_SPREAD:
+    family: funding_liquidity
+    observes: Corporate CP funding stress vs. T-bill front end.
+    fails_when: DCPF3M or DGS3MO missing; post-2020 regime shifts in CP composition.
+    independence: Correlated with SOFR_IORB post-2021 but not identical pre-SOFR era.
+    replay_case: "2019-09 repo spike (primary pre-SOFR)"
+
+  FRED:RRPONTSYD:
+    family: funding_liquidity
+    observes: Cash parked at Fed RRP — fast drain signals liquidity leaving safe harbor.
+    fails_when: Fiscal quarter-end TGA interaction without reserve context.
+    independence: Complements WRESBAL/WTREGEN; not a substitute for funding spread.
+    replay_case: "2023-03 SVB week (RRP + reserve path)"
+
+  FRED:WRESBAL:
+    family: funding_liquidity
+    observes: Reserve balances with Fed — weekly plumbing capacity.
+    fails_when: Weekly frequency — daily triggers must forward-hold with stale marker.
+    independence: Path signal paired with WTREGEN; not standalone stress trigger.
+    replay_case: "2023-03 SVB week"
+
+  FRED:WTREGEN:
+    family: funding_liquidity
+    observes: Treasury General Account — fiscal absorption of reserves.
+    fails_when: Debt-ceiling distortions; conflated with pure market stress.
+    independence: Fiscal plumbing; confirm with reserves not equity vol alone.
+    replay_case: "2023-03 SVB week"
+
+  FRED:BAMLH0A0HYM2:
+    family: credit_stress
+    observes: HY OAS — broad credit risk premium (2023+ in this cache).
+    fails_when: Pre-2023-05 in cache — use FRED:BAA10YM as historical fallback.
+    independence: Confirms funding stress; lags FUNDING_PATH_STRESS operator.
+    replay_case: "2020-03 credit seize"
+
+  FRED:BAA10YM:
+    family: credit_stress
+    observes: Baa corporate yield — long-history credit curve proxy.
+    fails_when: Not a spread — level shifts with rate regime.
+    independence: Same credit family as HY OAS; do not double-count in gates.
+    replay_case: "2008-09 GFC"
+
+  CBOE:VIX9D:
+    family: vol_structure
+    observes: Very short-dated implied vol — panic front-end.
+    fails_when: Missing sessions around holidays; thin vs. VIXCLS.
+    independence: Vol surface leg; not funding path evidence alone.
+    replay_case: "2020-03 vol shock"
+
+  DERIVED:VIX3M_VIX_SLOPE:
+    family: vol_structure
+    observes: VIX term-structure slope (3m minus spot).
+    fails_when: VIX3M gaps; inverted without credit confirmation = false calm risk.
+    independence: Orthogonal to funding spreads; pairs with MOVE for rates vol.
+    replay_case: "2022-09 rates vol"
+
+  CBOE:MOVE:
+    family: vol_structure
+    observes: Rates-implied vol — confirms funding stress is not equity-only noise.
+    fails_when: MOVE_PROXY synthetic must not pass as real MOVE in gates.
+    independence: Rates vol leg; used as reject filter in FUNDING_PATH_STRESS.
+    replay_case: "2022-09 UK gilt / rates vol"
+
+  cross_asset:HYG:
+    family: credit_stress
+    panel: cross_asset_daily_panel
+    observes: HY ETF price — market-implied credit risk appetite.
+    fails_when: ETF flow distortions; NAV premium not in close-only panel.
+    independence: Market price vs. FRED OAS — same family, different observation.
+    replay_case: "2020-03 HY collapse"
+
+  cross_asset:LQD:
+    family: credit_stress
+    panel: cross_asset_daily_panel
+    observes: IG ETF price — credit beta baseline for HY relative stress.
+    fails_when: Duration-heavy; rates moves confound pure credit read.
+    independence: Denominator for HY/IG relative; not independent of rates level.
+    replay_case: "2022 HYG/LQD divergence"
+
+  cross_asset:SPY:
+    family: cross_asset_confirmation
+    panel: cross_asset_daily_panel
+    observes: Equity risk appetite anchor for overlay base strategy.
+    fails_when: Single-name concentration episodes; not structural plumbing.
+    independence: Confirms risk-on/off; does not invalidate funding operators alone.
+    replay_case: "2020-03 equity crash"
+
+  cross_asset:TLT:
+    family: cross_asset_confirmation
+    panel: cross_asset_daily_panel
+    observes: Rates duration risk — flight-to-quality leg in stress matrices.
+    fails_when: Fed pivot days — duration ≠ credit.
+    independence: Pairs with HYG/SPY for sync/divergence tables.
+    replay_case: "2022 bond bear market"

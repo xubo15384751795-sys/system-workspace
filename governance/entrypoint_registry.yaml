@@ -1150,10 +1150,44 @@ _proxy_aggregation:
   - proxy_aggregation
 build_feedback_sample_pool:
   script: scripts/build_feedback_sample_pool.py
-  status: archived
+  status: active
   owner: Learning Hub
-  description: Moved to archive 2026-06-20
-  allowed_use: []
+  description: Build feedback sample pool from event replay windows
+  allowed_use:
+  - feedback_sampling
+  - calibration
+run_operator_detections:
+  script: scripts/run_operator_detections.py
+  status: active
+  owner: Deformation Framework
+  description: Run mechanism operator detectors (research-only)
+  allowed_use:
+  - operator_detection
+  - research_overlay
+validate_proxy_observation_catalog:
+  script: scripts/validate_proxy_observation_catalog.py
+  status: active
+  owner: Harvester
+  description: Validate proxy observation catalog against Harvester panels
+  allowed_use:
+  - proxy_validation
+  - data_quality
+build_event_replay_factory:
+  script: scripts/build_event_replay_factory.py
+  status: active
+  owner: Deformation Framework
+  description: Historical event-window operator replay factory
+  allowed_use:
+  - event_replay
+  - operator_calibration
+build_overlay_shadow_report:
+  script: scripts/build_overlay_shadow_report.py
+  status: active
+  owner: Strategy Lab
+  description: Base strategy vs System overlay shadow metrics
+  allowed_use:
+  - shadow_trading
+  - overlay_evaluation
 build_incentive_review:
   script: scripts/build_incentive_review.py
   status: archived

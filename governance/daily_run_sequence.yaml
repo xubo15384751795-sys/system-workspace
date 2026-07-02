@@ -20,6 +20,11 @@ steps:
   - id: structural_replay
     description: Current M/D/K/X measurement from Harvester panel (name is historical artifact)
   - id: bridge
+  - id: run_operator_detections
+    description: Mechanism operator activations (research-only, no core judgment)
+  - id: validate_proxy_observation_catalog
+    schedule: weekly
+    description: Verify proxy catalog series exist in Harvester panels
   - id: quality_validation
   - id: regime_detection
   - id: k_measurement_gate
@@ -142,6 +147,15 @@ steps:
   - id: shadow_outcomes_90d
     schedule: weekly
     description: Aggregate 90-day shadow card outcomes after backfill
+  - id: build_overlay_shadow_report
+    schedule: weekly
+    description: SPY momentum vs System overlay shadow metrics
+  - id: build_event_replay_factory
+    schedule: weekly
+    description: Historical event-window operator replay samples
+  - id: build_feedback_sample_pool
+    schedule: weekly
+    description: Append event-window samples to feedback pool
   - id: archive_daily_snapshots
     schedule: weekly
     description: Moved from daily 2026-06-20 — archival is maintenance, not signal

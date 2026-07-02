@@ -9,8 +9,8 @@ purpose: >
   historical snapshots are exempt.  v2: adds file hashes for content integrity.
 
 approved_additions_budget:
-  max_files: 13
-  reason: "Cap post-freeze additions; +1 for agent_routing_authority.yaml (Wave 4)."
+  max_files: 15
+  reason: "Cap post-freeze additions; +2 for capability proxy catalog and event replay windows (layers 1-5)."
 
 ignore_patterns:
   - "*.generated.yaml"
@@ -57,11 +57,11 @@ baseline_hashes:
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
   capability_registry.yaml: "9a5e0085e18f64a4"
-  daily_pipeline_registry.yaml: "7ca79516bae9598c"
-  data_request_registry.yaml: "500729e504511860"
+  daily_pipeline_registry.yaml: "fc31db21cc529a63"
+  data_request_registry.yaml: "5709fec9b9de56d7"
   data_retention_policy.yaml: "e6efe4330eef54b8"
   deferred_work_register.yaml: "3fa224585ac9cd34"
-  entrypoint_registry.yaml: "ca13178fff0cb377"
+  entrypoint_registry.yaml: "f2622705e25453fb"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
   git_workspace_policy.md: "d812b4ed4f0371bd"
@@ -71,7 +71,7 @@ baseline_hashes:
   output_routing_policy.yaml: "c638aaef23af8716"
   pipeline_test_baseline.yaml: "d476abebd64035a6"
   proxy_quality_rules.yaml: "09bf85c19edc4c85"
-  redundancy_budget.yaml: "39f66966075a1241"
+  redundancy_budget.yaml: "75cbb968983d92d7"
   repo_layout_map.md: "45c81234ae0a728f"
   run_mode_registry.yaml: "a0aa12f41ec3f33a"
   run_observability_summary.template.md: "69bb81c0d223cf9e"
@@ -133,6 +133,14 @@ approved_additions:
     approved_at: "2026-06-30"
     commit: "wave-4-workbench-ux"
     reason: "Tiered execution authority for routing.execute_pipeline_step"
+  - file: proxy_observation_catalog.yaml
+    approved_at: "2026-07-02"
+    commit: "capability-layers-1-5"
+    reason: "Layer-1 proxy acceptance catalog (observes/fails_when/independence/replay_case)"
+  - file: event_replay_windows.yaml
+    approved_at: "2026-07-02"
+    commit: "capability-layers-1-5"
+    reason: "Layer-3 historical event windows for operator replay factory"
 
 # Baseline hash updates — approved modifications to existing frozen files
 baseline_updates:
@@ -420,6 +428,31 @@ baseline_updates:
     old_hash: "bf6b5286d95a5634"
     new_hash: "39f66966075a1241"
     reason: "Bump root_scripts max_visible for build_current_status.py"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "7ca79516bae9598c"
+    new_hash: "fc31db21cc529a63"
+    reason: "Capability layers 1-5 research pipeline steps (operators, replay, overlay, feedback)"
+  - file: daily_run_sequence.yaml
+    approved_at: "2026-07-02"
+    old_hash: "a77f6460250594e8"
+    new_hash: "b5580e7df28c42cd"
+    reason: "Wire operator detections and weekly capability factory steps"
+  - file: data_request_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "500729e504511860"
+    new_hash: "5709fec9b9de56d7"
+    reason: "Register capability funding/vol/credit observation requests"
+  - file: entrypoint_registry.yaml
+    approved_at: "2026-07-02"
+    old_hash: "ca13178fff0cb377"
+    new_hash: "f2622705e25453fb"
+    reason: "Register capability scripts; reactivate build_feedback_sample_pool"
+  - file: redundancy_budget.yaml
+    approved_at: "2026-07-02"
+    old_hash: "39f66966075a1241"
+    new_hash: "75cbb968983d92d7"
+    reason: "Bump root_scripts max_visible for capability pipeline scripts"
 
 work_support_budget:
   max_files: 17

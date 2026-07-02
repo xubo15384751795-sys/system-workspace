@@ -215,6 +215,28 @@
         "event_source": {"type": "string"}
       },
       "additionalProperties": true
+    },
+    "operator_activations": {
+      "type": "object",
+      "description": "Mechanism operator activation snapshot at judgment time (research-only)"
+    },
+    "closure_loop": {
+      "type": "object",
+      "description": "Feedback closure fields for calibration and operator/proxy/gate fixes",
+      "properties": {
+        "failure_reason": {"type": ["string", "null"]},
+        "suggested_fix": {
+          "type": "object",
+          "properties": {
+            "operator": {"type": ["string", "null"]},
+            "proxy": {"type": ["string", "null"]},
+            "gate": {"type": ["string", "null"]}
+          },
+          "additionalProperties": true
+        },
+        "human_review_required": {"type": "boolean"}
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true

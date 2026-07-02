@@ -1,0 +1,48 @@
+# Historical event windows for capability layer 3 — replay factory.
+# Each window generates point-in-time operator + judgment snapshots.
+
+schema_version: event_replay_windows.v1
+updated_at: "2026-07-02"
+
+windows:
+  - id: repo_spike_2019
+    label: "2019-09 repo spike"
+    start: "2019-09-13"
+    end: "2019-10-10"
+    operators: [FUNDING_PATH_STRESS]
+    notes: "SOFR-IORB unavailable — CP-Tbill + reserve path fallback required."
+
+  - id: covid_liquidity_2020
+    label: "2020-03 COVID liquidity"
+    start: "2020-03-09"
+    end: "2020-03-27"
+    operators: [FUNDING_PATH_STRESS]
+    notes: "Expect early activation then LIQUIDITY_FACILITY invalidation."
+
+  - id: svb_2023
+    label: "2023-03 SVB week"
+    start: "2023-03-08"
+    end: "2023-03-15"
+    operators: [FUNDING_PATH_STRESS]
+    notes: "Funding-path leg should light on TGA/reserve motion."
+
+  - id: rates_selloff_2023
+    label: "2023-10 rates selloff false-positive"
+    start: "2023-10-19"
+    end: "2023-11-01"
+    operators: [FUNDING_PATH_STRESS]
+    notes: "Operator should stay quiet — over-fit detector check."
+
+  - id: gfc_2008
+    label: "2008 GFC peak"
+    start: "2008-09-15"
+    end: "2008-10-31"
+    operators: [FUNDING_PATH_STRESS]
+    sample_type: stress_window
+
+  - id: rate_hikes_2022
+    label: "2022 rate hike stress"
+    start: "2022-06-01"
+    end: "2022-10-31"
+    operators: [FUNDING_PATH_STRESS]
+    sample_type: stress_window

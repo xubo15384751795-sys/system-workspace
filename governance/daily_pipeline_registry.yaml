@@ -220,6 +220,56 @@ steps:
       affects_core_judgment: true
       failure_behavior: block_current_readout
       owner: Workbench
+  run_operator_detections:
+    order: 6.5
+    status: active
+    owner: Deformation Framework
+    command: python scripts/run_operator_detections.py
+    input:
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/current/operator_activations.json
+    artifact_path: Output/current/operator_activations.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/run_operator_detections.py
+      future_callable: scripts.run_operator_detections:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Deformation Framework
+  validate_proxy_observation_catalog:
+    order: 6.6
+    status: active
+    owner: Harvester
+    command: python scripts/validate_proxy_observation_catalog.py
+    schedule: weekly
+    input:
+    - governance/proxy_observation_catalog.yaml
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/quality/proxy_catalog_report.json
+    artifact_path: Output/quality/proxy_catalog_report.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/validate_proxy_observation_catalog.py
+      future_callable: scripts.validate_proxy_observation_catalog:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Harvester
   quality_validation:
     order: 7
     status: active
@@ -1400,6 +1450,83 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Strategy Lab
+  build_overlay_shadow_report:
+    order: 28.5
+    status: active
+    owner: Strategy Lab
+    command: python scripts/build_overlay_shadow_report.py
+    schedule: weekly
+    input:
+    - Output/strategy_lab/shadow_cards/
+    - Data/panels/cross_asset_daily_panel.parquet
+    produces:
+    - Output/strategy_lab/overlay_shadow_report.json
+    artifact_path: Output/strategy_lab/overlay_shadow_report.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_overlay_shadow_report.py
+      future_callable: scripts.build_overlay_shadow_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+  build_event_replay_factory:
+    order: 28.6
+    status: active
+    owner: Deformation Framework
+    command: python scripts/build_event_replay_factory.py
+    schedule: weekly
+    input:
+    - governance/event_replay_windows.yaml
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/sandbox/event_replay/summary.json
+    artifact_path: Output/sandbox/event_replay/summary.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_event_replay_factory.py
+      future_callable: scripts.build_event_replay_factory:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Deformation Framework
+  build_feedback_sample_pool:
+    order: 28.7
+    status: active
+    owner: Learning Hub
+    command: python scripts/build_feedback_sample_pool.py --append
+    schedule: weekly
+    input:
+    - Output/sandbox/event_replay/
+    produces:
+    - Data/feedback_samples/sample_manifest.jsonl
+    artifact_path: Data/feedback_samples/sample_manifest.jsonl
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/build_feedback_sample_pool.py --append
+      future_callable: scripts.build_feedback_sample_pool:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
   current_status:
     order: 27
     status: active

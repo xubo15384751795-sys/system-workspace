@@ -136,4 +136,33 @@ requests:
   core_judgment_priority: normal
   fulfilled_at: '2026-06-30'
   created: '2026-06-17'
-updated_at: '2026-06-30'
+- request_id: capability_funding_liquidity_proxies
+  requested_by: Deformation Framework
+  needed_for: FUNDING_PATH_STRESS operator + M/D funding gap observation
+  data_needed: SOFR/IORB spread, RRP, WRESBAL, WTREGEN, CP-Tbill in benchmark_panel
+  current_source: Data/harvester/exports/latest/data/benchmark_panel.parquet
+  current_authority: harvester
+  status: fulfilled
+  priority: high
+  observes: Funding rail compression before credit/equity confirm.
+  fails_when: Pre-2021 SOFR-IORB; weekly reserve/TGA staleness without hold-forward.
+  independence: Leads HY OAS and equity vol; not duplicate of VIX term structure.
+  replay_case: "2019-09 repo spike"
+  harvester_response: >
+    Series in series_registry.yaml; catalog in governance/proxy_observation_catalog.yaml.
+  created: '2026-07-02'
+- request_id: capability_vol_credit_cross_asset
+  requested_by: Workbench Signals
+  needed_for: Vol structure + credit stress + cross-asset confirmation
+  data_needed: VIX9D, VIX3M slope, HY OAS, HYG/LQD via cross_asset panel
+  current_source: benchmark_panel + cross_asset_daily_panel
+  current_authority: harvester
+  status: partial
+  priority: high
+  observes: Term structure, credit premium, ETF relative stress, SPY/TLT sync.
+  fails_when: HY OAS pre-2023; HYG/LQD not in benchmark_panel (cross_asset only).
+  independence: Confirmation layer — must not double-count with M/D/K/X same-family proxies.
+  replay_case: "2020-03 / 2022-09"
+  next_action: add_HYG_LQD_to_benchmark_or_document_cross_asset_only
+  created: '2026-07-02'
+updated_at: '2026-07-02'
