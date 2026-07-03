@@ -64,7 +64,9 @@ def gather_status() -> dict[str, Any]:
         "promotion_gate": {
             "status": (promotion_gate or {}).get("overall_status"),
             "blocked_gates": (promotion_gate or {}).get("blocked_gates", []),
+            "watch_gates": (promotion_gate or {}).get("watch_gates", []),
             "blocking_reasons": (promotion_gate or {}).get("blocking_reasons", []),
+            "watch_reasons": (promotion_gate or {}).get("watch_reasons", []),
             "forbidden_language": (promotion_gate or {}).get("forbidden_language", []),
             "allowed_language": (promotion_gate or {}).get("allowed_language", []),
             "claim_ceiling": (promotion_gate or {}).get("claim_ceiling"),

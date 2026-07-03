@@ -106,6 +106,9 @@ def build_index() -> dict:
             "overall_status": gate_data.get("overall_status"),
             "claim_ceiling": gate_data.get("claim_ceiling"),
             "blocked_gates": gate_data.get("blocked_gates", []),
+            "watch_gates": gate_data.get("watch_gates", []),
+            "blocking_reasons": gate_data.get("blocking_reasons", []),
+            "watch_reasons": gate_data.get("watch_reasons", []),
             "forbidden_language": gate_data.get("forbidden_language", []),
         }
 

@@ -130,6 +130,24 @@ def build_next_actions_md(status: dict[str, Any], actions: list[dict[str, str]])
     else:
         lines.append("- None")
 
+    if gate.get("watch_gates"):
+        lines += ["", "## Watch Gates", ""]
+        for g in gate["watch_gates"]:
+            lines.append(f"- {g}")
+
+    if gate.get("blocking_reasons") or gate.get("watch_reasons"):
+        lines += ["", "## Promotion Reasons", ""]
+        for item in gate.get("blocking_reasons", []):
+            if isinstance(item, dict):
+                lines.append(f"- BLOCKED `{item.get('id')}`: {item.get('reason')}")
+            else:
+                lines.append(f"- BLOCKED: {item}")
+        for item in gate.get("watch_reasons", []):
+            if isinstance(item, dict):
+                lines.append(f"- WATCH `{item.get('id')}`: {item.get('reason')}")
+            else:
+                lines.append(f"- WATCH: {item}")
+
     lines += [
         "",
         "## Forbidden Language",
