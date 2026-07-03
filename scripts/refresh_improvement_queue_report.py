@@ -9,20 +9,19 @@ Usage:
 """
 from __future__ import annotations
 
-import sys
-
 import pandas as pd
 from _runtime_io import ROOT, ensure_dir, utc_now
+from _workspace_imports import add_learning_hub_src
+
+add_learning_hub_src()
+
+from system_learning.reports.writer import render_improvement_queue_report
 
 LEDGER_PATH = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
 REPORT_PATH = ROOT / "Output" / "system_learning" / "latest" / "improvement_queue.md"
-HUB_SRC = ROOT / "system-learning-hub" / "src"
 
 
 def _render(improvements: pd.DataFrame, generated_at: str) -> str:
-    sys.path.insert(0, str(HUB_SRC))
-    from system_learning.reports.writer import render_improvement_queue_report
-
     return render_improvement_queue_report(improvements, generated_at)
 
 

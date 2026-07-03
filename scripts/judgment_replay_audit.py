@@ -275,9 +275,15 @@ def _fmt_metric(metric: dict[str, Any]) -> str:
     if metric.get("status"):
         return "n/a"
     if "return_pct" in metric:
-        return f"{metric['return_pct']:.2f}%"
+        val = metric.get("return_pct")
+        if val is None:
+            return "n/a"
+        return f"{float(val):.2f}%"
     if "change" in metric:
-        return f"{metric['change']:.2f}"
+        val = metric.get("change")
+        if val is None:
+            return "n/a"
+        return f"{float(val):.2f}"
     return "n/a"
 
 

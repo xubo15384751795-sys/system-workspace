@@ -14,19 +14,18 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WB_SRC = ROOT / "Workbench" / "src"
-if str(WB_SRC) not in sys.path:
-    sys.path.insert(0, str(WB_SRC))
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# Workbench ml must win over deformation-framework/src/ml on sys.path.
+sys.path.insert(0, str(WB_SRC))
 
-from ml.regime_detector import (
+from ml.regime_detector import (  # noqa: E402, I001
+    _apply_posterior_epistemic_floor,
     _check_degeneracy,
     _engineer_features,
     _pivot_panel,
+    _posterior_entropy,
     _reduce_to_hmm_input,
 )
 
@@ -367,3 +366,34 @@ def test_check_degeneracy_zero_features():
     )
     assert not result["usable_for_core_judgment"]
     assert "no_features" in result["flags"]
+
+
+def test_posterior_epistemic_floor_raises_entropy():
+    """Near one-hot raw posteriors should gain entropy after smoothing."""
+    raw = {"compression": 0.0001, "volatile": 0.0001, "crisis": 0.9998}
+    assert _posterior_entropy(raw) < 0.01
+    smoothed = _apply_posterior_epistemic_floor(raw)
+    assert _posterior_entropy(smoothed) >= 0.01
+    assert abs(sum(smoothed.values()) - 1.0) < 1e-6
+
+
+def test_detect_regime_reports_raw_and_smoothed_entropy(tmp_path):
+    """Stability block should expose both raw and governance posteriors."""
+    from ml.regime_detector import detect_regime
+
+    panel = _make_long_panel(n_days=300, n_series=4)
+    panel_path = tmp_path / "test_panel.parquet"
+    panel.to_parquet(panel_path)
+
+    result = detect_regime(
+        panel_path,
+        source_release="test",
+        source_created_at="2026-06-17",
+        write=False,
+        train_window=200,
+    )
+
+    stability = result["stability"]
+    assert "raw_posterior_entropy" in stability
+    assert stability["posterior_entropy"] >= stability["raw_posterior_entropy"]
+    assert "raw_state_probs" in result["regime"]

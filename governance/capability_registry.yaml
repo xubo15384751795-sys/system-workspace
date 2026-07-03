@@ -47,7 +47,7 @@ deformation_framework:
     src/_legacy/data/ on 2026-06-29. src/data/__init__.py no longer exports
     DataHub/SourceRegistry/create_data_hub. Legacy gateway (data_hub.py,
     bridge.py) still in src/data/gateway/ as transitional shim — SEALED
-    2026-06-30 (read-only, deprecation warnings active, retire_after: 2026-07-15).
+    2026-06-30 (read-only, deprecation warnings active, retire_after: 2026-10-15).
     Boundary test test_production_paths_do_not_import_legacy added 2026-06-30
     with explicit exemptions for transitional shims (gateway, adapters).
 harvester:

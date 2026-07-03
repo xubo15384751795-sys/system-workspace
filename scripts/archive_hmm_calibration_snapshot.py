@@ -41,7 +41,11 @@ def archive_snapshot(run_date: str) -> dict[str, str | bool]:
     dest_dir = HISTORY_DIR / run_date
     dest = dest_dir / "regime_hmm.json"
     if dest.exists():
-        return {"archived": False, "reason": "already_archived", "date": run_date, "path": str(dest)}
+        existing_mtime = dest.stat().st_mtime
+        source_mtime = source.stat().st_mtime
+        if source_mtime <= existing_mtime:
+            return {"archived": False, "reason": "already_archived", "date": run_date, "path": str(dest)}
+        # Same-day re-fit: refresh snapshot when HMM output was regenerated.
 
     payload = load_json(source)
     if not payload:
