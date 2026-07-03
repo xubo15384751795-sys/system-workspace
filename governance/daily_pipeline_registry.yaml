@@ -225,6 +225,7 @@ steps:
     status: active
     owner: Deformation Framework
     command: python scripts/run_operator_detections.py
+    schedule: weekly
     input:
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
     produces:
@@ -461,6 +462,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/build_measurement_quality_report.py
+    schedule: weekly
     input: &id020mq
     - Output/k_measurement/k_measurement_gate.json
     - Output/x_measurement/x_measurement_gate.json
@@ -777,6 +779,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/build_data_gaps.py
+    schedule: weekly
     input:
     - Output/current/framework_output.json
     - Output/judgment/latest.json
@@ -1184,6 +1187,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/build_evidence_grade_report.py
+    schedule: weekly
     input: &id050_5
     - Output/judgment/latest.json
     - Output/judgment/promotion_gate.json
@@ -1217,6 +1221,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/build_artifact_registry.py
+    schedule: weekly
     input: &id050_55
     - governance/output_routing_policy.yaml
     - governance/daily_pipeline_registry.yaml
@@ -1814,6 +1819,7 @@ steps:
     status: active
     owner: CaseLab Runtime
     command: python caselab_runtime/policies/build_policy_from_paper.py
+    schedule: weekly
     input:
     - Paper/90_Admin/Agent Rules.md
     - Paper/90_Admin/Review-Target.md
@@ -2061,6 +2067,7 @@ steps:
     status: active
     owner: Learning Hub
     command: python scripts/evaluate_pending.py
+    schedule: weekly
     input:
     - Output/trade_ledger/decisions.jsonl
     produces:
@@ -2124,6 +2131,7 @@ steps:
     status: active
     owner: Harvester
     command: python scripts/refresh_cross_asset_panel.py
+    schedule: weekly
     input:
       - Data/panels/cross_asset_daily_panel.parquet
     produces:
@@ -2154,6 +2162,7 @@ steps:
     status: active
     owner: Learning Hub
     command: python scripts/judgment_accuracy_report.py
+    schedule: weekly
     input:
       - Output/system_learning/latest/eval_log.jsonl
       - Output/sandbox/structural_replay_v2/all_signals.parquet

@@ -5,6 +5,7 @@ purpose: >
   daily_run loads this file for dry-run output, step counts, and schedule hints.
   Rebalanced 2026-06-19: signal chain first, governance/reporting deferred.
   Slimmed 2026-06-20: moved 13 validation/reporting steps daily→weekly (25 daily, 30 weekly).
+  Slimmed 2026-07-03: moved 9 sidecar/reporting steps daily→weekly (25 daily, 46 weekly).
 
 steps:
   # ── DATA ACQUISITION ──────────────────────────────────────────────
@@ -15,12 +16,15 @@ steps:
   - id: paper_sync
   - id: caselab_index
   - id: build_policy_from_paper
+    schedule: weekly
+    description: Agent policy from Paper rules — batch, not same-day judgment
 
   # ── CORE SIGNAL CHAIN ─────────────────────────────────────────────
   - id: structural_replay
     description: Current M/D/K/X measurement from Harvester panel (name is historical artifact)
   - id: bridge
   - id: run_operator_detections
+    schedule: weekly
     description: Mechanism operator activations (research-only, no core judgment)
   - id: validate_proxy_observation_catalog
     schedule: weekly
@@ -32,6 +36,7 @@ steps:
   - id: k_measurement_gate
   - id: x_measurement_gate
   - id: measurement_quality_report
+    schedule: weekly
     description: K/X gate summary sidecar for Harvester data-request quality tracking
   - id: caselab_signal
   - id: judgment_layer
@@ -45,15 +50,20 @@ steps:
 
   # ── VALIDATION ────────────────────────────────────────────────────
   - id: build_data_gaps
-    description: Daily data gap scan for Harvester request candidates
+    schedule: weekly
+    description: Data gap scan for Harvester request candidates
   - id: signal_monitor
     schedule: weekly
     description: Moved from daily 2026-06-20 — output not consumed downstream, review-only
   - id: market_feedback
   - id: refresh_cross_asset_panel
-    description: Refresh ETF panel with latest market data before evaluation
+    schedule: weekly
+    description: Refresh ETF workspace mirror — Harvester release is canonical on daily path
   - id: evaluate_pending
+    schedule: weekly
+    description: Forward-outcome checks on trade ledger — batch calibration
   - id: judgment_accuracy_report
+    schedule: weekly
     description: Aggregate judgment calibration data from eval_log
   - id: judgment_replay_audit
     schedule: weekly
@@ -129,9 +139,11 @@ steps:
     description: Build Output/current/status.json from latest daily artifacts
   - id: work_brief
   - id: evidence_grade_report
-    description: Build structured evidence grade report with contributors, blockers, and upgrade path
+    schedule: weekly
+    description: Structured evidence grade report — batch review, not signal-blocking
   - id: build_artifact_registry
-    description: Build Output/current artifact registry from governance routing policy
+    schedule: weekly
+    description: Artifact registry from routing policy — governance reporting
   - id: record_daily_run_event
     description: Record run event to Learning Hub with evidence grade, blockers, git SHA, submodule pins
   - id: readme_first

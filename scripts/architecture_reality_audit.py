@@ -323,7 +323,10 @@ def _check_legacy_deadline_countdown() -> list[dict[str, str]]:
 
     findings = []
     today = datetime.now(UTC).date()
+    terminal_statuses = frozenset({"completed", "completed_sealed", "cancelled", "archived"})
     for item in reg.get("items", []):
+        if str(item.get("status", "")).lower() in terminal_statuses:
+            continue
         hard_dl = item.get("hard_deadline")
         if not hard_dl:
             continue

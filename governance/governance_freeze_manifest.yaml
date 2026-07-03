@@ -57,7 +57,7 @@ baseline_hashes:
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
   capability_registry.yaml: "9a5e0085e18f64a4"
-  daily_pipeline_registry.yaml: "4bebc5b102d7df8b"
+  daily_pipeline_registry.yaml: "1462397fbc06859c"
   data_request_registry.yaml: "4a022aa7d9a526c8"
   data_retention_policy.yaml: "ce516ccc7f87a904"
   deferred_work_register.yaml: "a970068f928a4821"
@@ -498,21 +498,26 @@ baseline_updates:
     old_hash: "75cbb968983d92d7"
     new_hash: "2a5d2451addaec3c"
     reason: "merged_data archived_legacy redundancy budget"
-  - file: daily_run_sequence.yaml
-    approved_at: "2026-07-03"
-    old_hash: "b5580e7df28c42cd"
-    new_hash: "921af86c02671313"
-    reason: "Wire archive_hmm_calibration_snapshot + evaluate_feedback_samples weekly"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-07-03"
-    old_hash: "5ad408001919ea6b"
-    new_hash: "4bebc5b102d7df8b"
-    reason: "Register archive_hmm + evaluate_feedback_samples pipeline steps"
   - file: entrypoint_registry.yaml
     approved_at: "2026-07-03"
     old_hash: "f2622705e25453fb"
     new_hash: "6b1c355c59deb295"
     reason: "Activate feedback eval + HMM archive + improvement queue refresh"
+  - file: daily_run_sequence.yaml
+    approved_at: "2026-07-03"
+    old_hash: "921af86c02671313"
+    new_hash: "d34bfc828ae0b1d3"
+    reason: "Governance slim 2026-07-03 — 9 steps daily→weekly (25 daily)"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-07-03"
+    old_hash: "4bebc5b102d7df8b"
+    new_hash: "1462397fbc06859c"
+    reason: "Mirror weekly schedule for slimmed pipeline steps"
+  - file: pipeline_schedule.md
+    approved_at: "2026-07-03"
+    old_hash: "_unknown_"
+    new_hash: "d9ab7000b74a0005"
+    reason: "Sync pipeline_schedule SSOT with daily_run_sequence (25 daily / 46 weekly)"
 
 work_support_budget:
   max_files: 17
