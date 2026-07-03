@@ -30,7 +30,9 @@ def _load_spy_momentum(panel: pd.DataFrame, lookback: int = 20) -> pd.Series:
     if spy.empty:
         return pd.Series(dtype=float)
     spy["date"] = pd.to_datetime(spy["date"])
-    spy = spy.sort_values("date").set_index("date")
+    spy = spy.sort_values("date")
+    spy = spy[spy["close"].astype(float) > 0].drop_duplicates("date", keep="last")
+    spy = spy.set_index("date")
     ret = spy["close"].pct_change(lookback)
     signal = (ret > 0).astype(int)
     signal.name = "base_long"
@@ -72,7 +74,9 @@ def build_report(days: int = 90) -> dict[str, Any]:
 
     spy = panel.loc[panel["symbol"] == "SPY"].copy()
     spy["date"] = pd.to_datetime(spy["date"])
-    spy = spy.sort_values("date").set_index("date")["close"]
+    spy = spy.sort_values("date")
+    spy = spy[spy["close"].astype(float) > 0].drop_duplicates("date", keep="last")
+    spy = spy.set_index("date")["close"]
 
     base_returns: list[float] = []
     overlay_returns: list[float] = []
@@ -86,7 +90,11 @@ def build_report(days: int = 90) -> dict[str, Any]:
         prev = base.index[i - 1]
         if d not in spy.index or prev not in spy.index:
             continue
-        daily_ret = float(spy.loc[d] / spy.loc[prev] - 1.0)
+        prev_close = float(spy.loc[prev])
+        curr_close = float(spy.loc[d])
+        if prev_close <= 0 or curr_close <= 0:
+            continue
+        daily_ret = curr_close / prev_close - 1.0
         long_base = bool(base.iloc[i - 1])
         card = cards_by_date.get(str(d.date()))
         trade_for_day = (
@@ -117,14 +125,19 @@ def build_report(days: int = 90) -> dict[str, Any]:
         dd = (equity / peak - 1.0).min()
         return float(round(dd, 4))
 
+    def _total_return(rets: list[float]) -> float:
+        if not rets:
+            return 0.0
+        return float(round((1 + pd.Series(rets)).prod() - 1.0, 4))
+
     return {
         "schema_version": "overlay_shadow_report.v1",
         "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "window_days": days,
         "base_strategy": "SPY_20d_momentum",
         "metrics": {
-            "base_total_return": round(sum(base_returns), 4),
-            "overlay_total_return": round(sum(overlay_returns), 4),
+            "base_total_return": _total_return(base_returns),
+            "overlay_total_return": _total_return(overlay_returns),
             "base_max_drawdown": _max_dd(base_returns),
             "overlay_max_drawdown": _max_dd(overlay_returns),
             "bad_add_days_base": bad_adds_base,

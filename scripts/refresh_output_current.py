@@ -9,12 +9,13 @@ Chain:
     2. judgment_layer.py
     3. judgment_promotion_gate.py
     4. trade_decision_layer.py
-    5. build_system_index.py
-    6. build_next_actions.py
-    7. build_evidence_grade_report.py
-    8. build_artifact_registry.py
-    9. record_daily_run_event.py
-    10. build_readme_first.py
+    5. build_current_status.py
+    6. build_system_index.py
+    7. build_next_actions.py
+    8. build_evidence_grade_report.py
+    9. build_artifact_registry.py
+    10. record_daily_run_event.py
+    11. build_readme_first.py
 
 Usage:
     python3 scripts/refresh_output_current.py
@@ -82,16 +83,17 @@ def main() -> int:
         print("  2. judgment_layer.py")
         print("  3. judgment_promotion_gate.py")
         print("  4. trade_decision_layer.py")
-        print("  5. build_system_index.py")
-        print("  6. build_next_actions.py")
-        print("  7. build_evidence_grade_report.py")
-        print("  8. build_artifact_registry.py")
-        print("  9. record_daily_run_event.py")
-        print("  10. build_readme_first.py")
+        print("  5. build_current_status.py")
+        print("  6. build_system_index.py")
+        print("  7. build_next_actions.py")
+        print("  8. build_evidence_grade_report.py")
+        print("  9. build_artifact_registry.py")
+        print("  10. record_daily_run_event.py")
+        print("  11. build_readme_first.py")
         return 0
 
     steps = []
-    total = 10 if not args.skip_bridge else 9
+    total = 11 if not args.skip_bridge else 10
     step_no = 1
 
     def _run(label: str, script: str) -> None:
@@ -110,6 +112,7 @@ def main() -> int:
     _run("judgment_layer", "judgment_layer.py")
     _run("promotion_gate", "judgment_promotion_gate.py")
     _run("trade_decision", "trade_decision_layer.py")
+    _run("current_status", "build_current_status.py")
     _run("system_index", "build_system_index.py")
     _run("next_actions", "build_next_actions.py")
     _run("evidence_grade", "build_evidence_grade_report.py")

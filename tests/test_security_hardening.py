@@ -49,7 +49,7 @@ def test_no_exec_open_in_root_scripts() -> None:
             if "exec(open(" in stripped or "exec(open (" in stripped:
                 violations.append(f"{py_file.name}:{lineno}: {stripped[:100]}")
     assert not violations, (
-        f"Found exec(open(...)) in root scripts (security red line):\n"
+        "Found exec(open(...)) in root scripts (security red line):\n"
         + "\n".join(violations)
     )
 
@@ -86,7 +86,7 @@ def test_no_legacy_display_in_current() -> None:
         if item.name in LEGACY_DISPLAY_NAMES:
             found.append(f"{item.name} ({'symlink' if item.is_symlink() else 'dir' if item.is_dir() else 'file'})")
     assert not found, (
-        f"Legacy display files in Output/current — move to Output/archive/legacy_display/:\n"
+        "Legacy display files in Output/current — move to Output/archive/legacy_display/:\n"
         + "\n".join(found)
     )
 
@@ -131,7 +131,7 @@ def test_data_authority_registry_has_research_entries() -> None:
     ]
     missing = [f for f in research_files if not any(f in p for p in paths)]
     assert not missing, (
-        f"Research HTTP files missing from data_authority_registry.yaml:\n"
+        "Research HTTP files missing from data_authority_registry.yaml:\n"
         + "\n".join(missing)
     )
 
@@ -155,7 +155,7 @@ def test_research_entries_have_correct_authority() -> None:
             if auth != "research_only_non_harvester":
                 violations.append(f"{path}: authority={auth!r} (expected research_only_non_harvester)")
     assert not violations, (
-        f"Research HTTP entries have wrong authority:\n" + "\n".join(violations)
+        "Research HTTP entries have wrong authority:\n" + "\n".join(violations)
     )
 
 
@@ -181,12 +181,26 @@ def test_audit_has_all_hardening_checks() -> None:
     source = script.read_text(encoding="utf-8")
     missing = [c for c in ALL_EXPECTED_CHECKS if c not in source]
     assert not missing, (
-        f"architecture_reality_audit.py missing checks:\n" + "\n".join(missing)
+        "architecture_reality_audit.py missing checks:\n" + "\n".join(missing)
     )
 
 
 # ---------------------------------------------------------------------------
-# 6. Workspace imports helper
+# 6. API security helpers
+# ---------------------------------------------------------------------------
+
+def test_api_security_module_exists() -> None:
+    """Terminal API security helpers must exist in deformation-framework."""
+    security = ROOT / "deformation-framework" / "src" / "api" / "security.py"
+    assert security.exists(), "deformation-framework/src/api/security.py missing"
+    source = security.read_text(encoding="utf-8")
+    assert "assert_bind_allowed" in source
+    assert "install_api_key_middleware" in source
+    assert "resolve_harvester_validation" in source
+
+
+# ---------------------------------------------------------------------------
+# 7. Workspace imports helper
 # ---------------------------------------------------------------------------
 
 EXPECTED_HELPER_FUNCTIONS = [
@@ -206,7 +220,7 @@ def test_workspace_imports_helper_exists() -> None:
     source = helper.read_text(encoding="utf-8")
     missing = [f for f in EXPECTED_HELPER_FUNCTIONS if f"def {f}" not in source]
     assert not missing, (
-        f"_workspace_imports.py missing functions:\n" + "\n".join(missing)
+        "_workspace_imports.py missing functions:\n" + "\n".join(missing)
     )
 
 
@@ -227,7 +241,7 @@ def test_no_raw_sys_path_insert_in_scripts() -> None:
             if "sys.path.insert" in stripped and "_workspace_imports" not in stripped:
                 violations.append(f"{py_file.name}:{lineno}")
     assert not violations, (
-        f"Scripts with raw sys.path.insert (use _workspace_imports instead):\n"
+        "Scripts with raw sys.path.insert (use _workspace_imports instead):\n"
         + "\n".join(violations)
     )
 
