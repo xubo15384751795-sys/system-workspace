@@ -142,21 +142,21 @@ data_sources:
     note: "CSV is export-only; parquet is canonical"
 
   - path: Data/merged_data/benchmark_panel_with_etfs.parquet
-    authority: migration_artifact
+    authority: archived_legacy
     owner: Deformation Framework
-    allowed_use: [research]
-    forbidden_use: [core_judgment_primary_input]
+    allowed_use: [archive]
+    forbidden_use: [core_judgment_primary_input, research]
     data_request_id: merged_data_proxy_inputs
-    note: "Migration artifact; must be consolidated into Harvester release"
+    note: "Superseded by Harvester benchmark_panel; retained for audit until archive_after"
 
   - path: Data/merged_data/benchmark_panel_backup.parquet
-    authority: migration_artifact
+    authority: archived_legacy
     owner: Deformation Framework
     allowed_use: [archive]
     forbidden_use: [core_judgment_primary_input, research]
 
   - path: Data/merged_data/benchmark_panel_merged.parquet
-    authority: migration_artifact
+    authority: archived_legacy
     owner: Deformation Framework
     allowed_use: [archive]
     forbidden_use: [core_judgment_primary_input, research]

@@ -66,11 +66,17 @@ def _calibration_snapshot() -> dict[str, Any]:
     hmm_hist = hmm.get("calibration", {}).get("history", [])
     if not isinstance(hmm_hist, list):
         hmm_hist = []
+    hmm_count = hmm.get("compatible_history_length")
+    if hmm_count is None and hmm_hist:
+        hmm_count = len(hmm_hist)
+    elif hmm_count is None:
+        cal_status = hmm.get("calibration_status", {})
+        hmm_count = cal_status.get("compatible_history", 0)
 
     return {
         "judgment_calibration_evaluated": int(j_eval or 0),
         "trade_decision_calibration_evaluated": int(t_eval or 0),
-        "hmm_calibration_history_count": len(hmm_hist),
+        "hmm_calibration_history_count": int(hmm_count or 0),
         "claim_ladder_tier": claim.get("current_tier"),
         "claim_ladder_last_change": claim.get("last_change_reason"),
     }

@@ -86,15 +86,18 @@ items:
   - id: merged_data_harvester_consolidation
     title: "Migrate Data/merged_data/ into Harvester evidence release"
     owner: Deformation Framework
-    status: deferred
+    status: completed
     reason: >
       Merged data was previously consumed by compute_proxies.py (now archived).
-      Must register as transitional Harvester artifact, then migrate remaining consumers.
+      No active production consumer remains; Harvester benchmark_panel is canonical.
     strategy: "register → provenance → migrate consumer → archive"
     execution_window: "1-2 days (register artifact, update consumer imports)"
     evidence_window: "14 days (verify no data pipeline breakage after migration)"
-    review_date: "2026-07-01"
+    review_date: "2026-07-03"
     hard_deadline: "2026-07-15"
+    progress:
+      - "2026-07-03 Closed: data_request_registry fulfilled_legacy; authority paths archived_legacy"
+      - "2026-07-03 Canonical source Data/harvester/exports/latest/data/benchmark_panel.parquet"
     risk_if_ignored: >
       Shadow data source persists outside Harvester governance.
     fallback_if_expired: >

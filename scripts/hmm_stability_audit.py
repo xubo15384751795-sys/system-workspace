@@ -22,24 +22,25 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from _constants import (
     HMM_CALIBRATION_ENTROPY_THRESHOLD,
     HMM_DEGENERATE_ENTROPY_THRESHOLD,
+    HMM_MEANINGFUL_PROB_THRESHOLD,
     HMM_MIN_COMPATIBLE_HISTORY_CALIBRATION,
     HMM_MIN_COMPATIBLE_HISTORY_FULL,
     HMM_MIN_FEATURE_COUNT,
     HMM_MIN_LABEL_STABILITY,
     HMM_MIN_ROLLING_REFIT,
     HMM_STATE_BALANCE_MAX_PROP,
-    HMM_MEANINGFUL_PROB_THRESHOLD,
     TRADING_DAYS_PER_YEAR,
 )
-from _runtime_io import ROOT, as_float as _as_float, ensure_dir, load_json, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from _runtime_io import as_float as _as_float
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +49,42 @@ HMM_LATEST = HMM_DIR / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "hmm_stability"
 
 
+def _snapshot_sort_key(path: Path) -> tuple[str, str]:
+    parent = path.parent.name
+    if parent.count("-") == 2 and len(parent) == 10:
+        return (parent, str(path))
+    try:
+        stamp = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).date().isoformat()
+    except OSError:
+        stamp = ""
+    return (stamp, str(path))
+
+
 def load_hmm_history() -> list[dict[str, Any]]:
-    """Load all HMM outputs for rolling analysis."""
-    history = []
-    for path in sorted(HMM_DIR.glob("*/regime_hmm.json")):
+    """Load HMM outputs for rolling analysis (dated snapshots + legacy dirs)."""
+    history: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    skip_dirs = {"daily", "latest"}
+
+    history_root = HMM_DIR / "calibration_history"
+    paths: list[Path] = []
+    if history_root.is_dir():
+        paths.extend(sorted(history_root.glob("*/regime_hmm.json"), key=_snapshot_sort_key))
+
+    for path in sorted(HMM_DIR.glob("*/regime_hmm.json"), key=_snapshot_sort_key):
+        if path.parent.name in skip_dirs or path.parent.name == "calibration_history":
+            continue
+        paths.append(path)
+
+    for path in paths:
+        resolved = str(path.resolve())
+        if resolved in seen:
+            continue
         payload = load_json(path)
         if payload:
             payload["_path"] = str(path)
             history.append(payload)
+            seen.add(resolved)
     return history
 
 
@@ -192,7 +221,6 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
     cal = hmm.get("calibration", {})
     calibrated_confidence = regime.get("calibrated_confidence")
     calibration_passed = regime.get("calibration_passed")
-    cal_history_len = cal.get("diagnostics", {}).get("calibration_history_length", 0)
 
     # ── Dimension 1: Model Health ────────────────────────────────────
     # Is the model structurally sound? Does it have enough data to fit?
@@ -346,19 +374,33 @@ def audit_hmm(hmm: dict[str, Any], history: list[dict[str, Any]]) -> dict[str, A
         "history_length": len(history),
     }
 
-    # Add calibration fields if available
+    history_entries = [
+        {
+            "path": h.get("_path", ""),
+            "regime": h.get("regime", {}).get("current", "unknown"),
+            "signature": _get_model_signature(h),
+            "generated_at": h.get("generated_at"),
+        }
+        for h in compatible_history
+    ]
+    calibration_block: dict[str, Any] = {
+        "history": history_entries,
+        "compatible_history_length": len(compatible_history),
+        "required_for_passed": HMM_MIN_COMPATIBLE_HISTORY_FULL,
+    }
     if cal:
-        result["calibration"] = {
+        calibration_block.update({
             "calibrated_confidence": calibrated_confidence,
             "calibration_passed": calibration_passed,
             "cap_applied": cal.get("cap_applied"),
             "degradation_reasons": cal.get("degradation_reasons", []),
-        }
+        })
     elif calibrated_confidence is not None:
-        result["calibration"] = {
+        calibration_block.update({
             "calibrated_confidence": calibrated_confidence,
             "calibration_passed": calibration_passed,
-        }
+        })
+    result["calibration"] = calibration_block
 
     return result
 

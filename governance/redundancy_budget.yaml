@@ -71,9 +71,9 @@ data:
       archive_after_days: 7
 
   merged_data:
-    status: migration_artifact
+    status: archived_legacy
     require_owner: true
-    archive_after_days: 14
+    archive_after_days: 90
 
 # ── Core Judgment Protection ─────────────────────────────────────────────────
 core_judgment:

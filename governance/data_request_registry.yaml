@@ -26,16 +26,16 @@ requests:
   requested_by: Deformation Framework
   needed_for: compute_proxies.py (archived) proxy signal computation
   current_source: Data/merged_data/benchmark_panel_with_etfs.parquet
-  current_authority: migration_artifact
-  status: transitional
-  priority: medium
+  current_authority: archived_legacy
+  status: fulfilled_legacy
+  priority: low
   harvester_response: >
-    Marked as transitional. Consumers listed in authority_registry.yaml
-    (Data/merged_data/benchmark_panel_with_etfs.parquet and related files).
-    No active production consumer imports found outside of archived compute_proxies.py.
-    Full migration deferred to merged_data_harvester_consolidation (deferred_work_register).
-  core_judgment_priority: low_until_harvester_release
-  next_action: register_merged_data_in_harvester_manifest
+    Migration closed 2026-07-03. No active production consumer imports merged_data.
+    Canonical replacement: Data/harvester/exports/latest/data/benchmark_panel.parquet
+    (Harvester benchmark_panel). Legacy files retained for audit under archived_legacy authority.
+  core_judgment_priority: none
+  fulfilled_at: '2026-07-03'
+  next_action: none
   created: '2026-06-17'
 - request_id: fred_cached_data
   requested_by: Deformation Framework

@@ -1,5 +1,5 @@
 schema_version: daily_run_sequence.v1
-updated_at: "2026-06-20"
+updated_at: "2026-07-03"
 purpose: >
   Authoritative ordered step list for scripts/daily_run.py.
   daily_run loads this file for dry-run output, step counts, and schedule hints.
@@ -27,6 +27,8 @@ steps:
     description: Verify proxy catalog series exist in Harvester panels
   - id: quality_validation
   - id: regime_detection
+  - id: archive_hmm_calibration_snapshot
+    description: Dated HMM snapshot for rolling calibration history (after regime_detection)
   - id: k_measurement_gate
   - id: x_measurement_gate
   - id: measurement_quality_report
@@ -156,6 +158,9 @@ steps:
   - id: build_feedback_sample_pool
     schedule: weekly
     description: Append event-window samples to feedback pool
+  - id: evaluate_feedback_samples
+    schedule: weekly
+    description: Backfill forward_outcome labels on feedback sample pool
   - id: archive_daily_snapshots
     schedule: weekly
     description: Moved from daily 2026-06-20 — archival is maintenance, not signal

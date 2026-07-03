@@ -15,13 +15,31 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from _runtime_io import ROOT, current_dir, ensure_dir
 from build_current_status import gather_status
 
 OUTPUT_DIR = current_dir()
-IMPROVEMENT_QUEUE_MD = ROOT / "Output" / "system_learning" / "latest" / "improvement_queue.md"
+IMPROVEMENT_LEDGER = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
+ACTIVE_IMPROVEMENT_STATES = frozenset({"proposed", "approved", "open", "in_progress"})
+
+
+def _write_text_file(path: Path, content: str) -> None:
+    if path.is_symlink():
+        path.unlink()
+    path.write_text(content, encoding="utf-8")
+
+
+def _load_open_improvements() -> pd.DataFrame:
+    if not IMPROVEMENT_LEDGER.is_file():
+        return pd.DataFrame()
+    frame = pd.read_parquet(IMPROVEMENT_LEDGER)
+    if frame.empty or "lifecycle_state" not in frame.columns:
+        return frame
+    return frame[frame["lifecycle_state"].astype(str).isin(ACTIVE_IMPROVEMENT_STATES)]
 
 
 def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
@@ -76,17 +94,21 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "module": "Workbench/src/workbench/signals/",
         })
 
-    # Learning Hub improvement queue — surface open recurrence items
-    if IMPROVEMENT_QUEUE_MD.exists():
-        text = IMPROVEMENT_QUEUE_MD.read_text(encoding="utf-8", errors="replace")
-        if "proposed" in text.lower() or "open" in text.lower():
-            actions.append({
-                "priority": "MEDIUM",
-                "action": "Review Learning Hub improvement queue",
-                "reason": "Open recurrence or proposed improvements in system_learning/latest",
-                "command": f"cat {IMPROVEMENT_QUEUE_MD.relative_to(ROOT)}",
-                "module": "system-learning-hub",
-            })
+    # Learning Hub improvement queue — read parquet ledger (not stale markdown)
+    open_items = _load_open_improvements()
+    if not open_items.empty:
+        top = open_items.iloc[0]
+        subsystem = top.get("subsystem", "unknown")
+        issue = top.get("issue_family", "improvement")
+        actions.append({
+            "priority": "MEDIUM",
+            "action": "Review Learning Hub improvement queue",
+            "reason": (
+                f"{len(open_items)} open item(s); top: {subsystem} — {issue}"
+            ),
+            "command": "python3 scripts/refresh_improvement_queue_report.py",
+            "module": "system-learning-hub",
+        })
 
     # If no blockers, suggest monitoring
     if not actions:
@@ -220,7 +242,7 @@ def main() -> None:
     # Write NEXT_ACTIONS.md
     next_actions_md = build_next_actions_md(status, actions)
     next_actions_path = OUTPUT_DIR / "NEXT_ACTIONS.md"
-    next_actions_path.write_text(next_actions_md, encoding="utf-8")
+    _write_text_file(next_actions_path, next_actions_md)
 
     if args.json:
         print(json.dumps({"status": status, "actions": actions}, indent=2, ensure_ascii=False))

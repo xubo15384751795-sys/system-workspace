@@ -339,6 +339,36 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: ML Signals
+  archive_hmm_calibration_snapshot:
+    order: 8.1
+    status: active
+    owner: ML Signals
+    command: python scripts/archive_hmm_calibration_snapshot.py
+    schedule: daily
+    input:
+    - Output/ml_signals/latest/regime_hmm.json
+    produces:
+    - Output/ml_signals/calibration_history/
+    artifact_path: Output/ml_signals/calibration_history/
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive_hmm_calibration_snapshot.py
+      future_callable: scripts.archive_hmm_calibration_snapshot:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+    contracts:
+      inputs:
+      - Output/ml_signals/latest/regime_hmm.json
+      outputs:
+      - Output/ml_signals/calibration_history/
   hmm_stability_audit:
     order: 8
     status: experimental
@@ -1555,6 +1585,41 @@ steps:
       - Output/sandbox/event_replay/
       outputs:
       - Data/feedback_samples/sample_manifest.jsonl
+  evaluate_feedback_samples:
+    order: 28.75
+    status: active
+    owner: Learning Hub
+    command: python scripts/evaluate_feedback_samples.py
+    schedule: weekly
+    input:
+    - Data/feedback_samples/sample_manifest.jsonl
+    produces:
+    - Output/feedback_samples/calibration_summary.json
+    - Output/feedback_samples/evaluation_report.md
+    - Output/feedback_samples/replay_runs/
+    artifact_path: Output/feedback_samples/calibration_summary.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/evaluate_feedback_samples.py
+      future_callable: scripts.evaluate_feedback_samples:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    contracts:
+      inputs:
+      - Data/feedback_samples/sample_manifest.jsonl
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+      outputs:
+      - Output/feedback_samples/calibration_summary.json
+      - Output/feedback_samples/evaluation_report.md
   current_status:
     order: 27
     status: active

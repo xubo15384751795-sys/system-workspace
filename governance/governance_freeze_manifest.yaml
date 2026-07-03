@@ -2,7 +2,7 @@ schema_version: governance_freeze_manifest.v2
 updated_at: "2026-06-20"
 freeze_commit: "06e91e906d0f8ce6562240b27db556366edb3e2b"
 freeze_date: "2026-06-17"
-review_after: "2026-07-15"
+review_after: "2026-08-15"
 purpose: >
   Machine-checkable governance freeze baseline. Root-level governance files must
   appear in baseline_root_files or approved_additions. Generated overlays and
@@ -53,15 +53,15 @@ baseline_root_files:
 baseline_hashes:
   architecture_cleanup_decisions.md: "446262635117bdf3"
   architecture_reality_decisions.md: "349c61656d98e0ac"
-  authority_registry.yaml: "d364708de5039033"
+  authority_registry.yaml: "0058aae04a6ce7ea"
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
   capability_registry.yaml: "9a5e0085e18f64a4"
-  daily_pipeline_registry.yaml: "5ad408001919ea6b"
-  data_request_registry.yaml: "5709fec9b9de56d7"
-  data_retention_policy.yaml: "e6efe4330eef54b8"
-  deferred_work_register.yaml: "3fa224585ac9cd34"
-  entrypoint_registry.yaml: "f2622705e25453fb"
+  daily_pipeline_registry.yaml: "4bebc5b102d7df8b"
+  data_request_registry.yaml: "4a022aa7d9a526c8"
+  data_retention_policy.yaml: "ce516ccc7f87a904"
+  deferred_work_register.yaml: "a970068f928a4821"
+  entrypoint_registry.yaml: "6b1c355c59deb295"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
   git_workspace_policy.md: "d812b4ed4f0371bd"
@@ -71,7 +71,7 @@ baseline_hashes:
   output_routing_policy.yaml: "24dfa5eb2762d163"
   pipeline_test_baseline.yaml: "d476abebd64035a6"
   proxy_quality_rules.yaml: "09bf85c19edc4c85"
-  redundancy_budget.yaml: "75cbb968983d92d7"
+  redundancy_budget.yaml: "2a5d2451addaec3c"
   repo_layout_map.md: "45c81234ae0a728f"
   run_mode_registry.yaml: "a0aa12f41ec3f33a"
   run_observability_summary.template.md: "69bb81c0d223cf9e"
@@ -468,6 +468,51 @@ baseline_updates:
     old_hash: "_unknown_"
     new_hash: "b860e5a8dfca82ab"
     reason: "Diagnostic readout drift exempt + run_operator_detections zone"
+  - file: governance_freeze_manifest.yaml
+    approved_at: "2026-07-03"
+    old_hash: "093b2e8eee75820f"
+    new_hash: "093b2e8eee75820f"
+    reason: "Pre-7/15 review: extend review_after to 2026-08-15"
+  - file: authority_registry.yaml
+    approved_at: "2026-07-03"
+    old_hash: "d364708de5039033"
+    new_hash: "0058aae04a6ce7ea"
+    reason: "Close merged_data migration — archived_legacy authority"
+  - file: data_request_registry.yaml
+    approved_at: "2026-07-03"
+    old_hash: "5709fec9b9de56d7"
+    new_hash: "4a022aa7d9a526c8"
+    reason: "merged_data_proxy_inputs fulfilled_legacy"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-07-03"
+    old_hash: "3fa224585ac9cd34"
+    new_hash: "a970068f928a4821"
+    reason: "Complete merged_data_harvester_consolidation"
+  - file: data_retention_policy.yaml
+    approved_at: "2026-07-03"
+    old_hash: "e6efe4330eef54b8"
+    new_hash: "ce516ccc7f87a904"
+    reason: "merged_data archived_legacy retention"
+  - file: redundancy_budget.yaml
+    approved_at: "2026-07-03"
+    old_hash: "75cbb968983d92d7"
+    new_hash: "2a5d2451addaec3c"
+    reason: "merged_data archived_legacy redundancy budget"
+  - file: daily_run_sequence.yaml
+    approved_at: "2026-07-03"
+    old_hash: "b5580e7df28c42cd"
+    new_hash: "921af86c02671313"
+    reason: "Wire archive_hmm_calibration_snapshot + evaluate_feedback_samples weekly"
+  - file: daily_pipeline_registry.yaml
+    approved_at: "2026-07-03"
+    old_hash: "5ad408001919ea6b"
+    new_hash: "4bebc5b102d7df8b"
+    reason: "Register archive_hmm + evaluate_feedback_samples pipeline steps"
+  - file: entrypoint_registry.yaml
+    approved_at: "2026-07-03"
+    old_hash: "f2622705e25453fb"
+    new_hash: "6b1c355c59deb295"
+    reason: "Activate feedback eval + HMM archive + improvement queue refresh"
 
 work_support_budget:
   max_files: 17

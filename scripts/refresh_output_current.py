@@ -86,14 +86,15 @@ def main() -> int:
         print("  5. build_current_status.py")
         print("  6. build_system_index.py")
         print("  7. build_next_actions.py")
-        print("  8. build_evidence_grade_report.py")
-        print("  9. build_artifact_registry.py")
-        print("  10. record_daily_run_event.py")
-        print("  11. build_readme_first.py")
+        print("  8. refresh_improvement_queue_report.py")
+        print("  9. build_evidence_grade_report.py")
+        print("  10. build_artifact_registry.py")
+        print("  11. record_daily_run_event.py")
+        print("  12. build_readme_first.py")
         return 0
 
     steps = []
-    total = 11 if not args.skip_bridge else 10
+    total = 12 if not args.skip_bridge else 11
     step_no = 1
 
     def _run(label: str, script: str) -> None:
@@ -115,6 +116,7 @@ def main() -> int:
     _run("current_status", "build_current_status.py")
     _run("system_index", "build_system_index.py")
     _run("next_actions", "build_next_actions.py")
+    _run("improvement_queue_report", "refresh_improvement_queue_report.py")
     _run("evidence_grade", "build_evidence_grade_report.py")
     _run("artifact_registry", "build_artifact_registry.py")
     print(f"[{step_no}/{total}] Recording run event...")

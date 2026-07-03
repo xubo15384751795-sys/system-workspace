@@ -174,6 +174,13 @@ hmm_stability_audit:
   status: experimental
   owner: ML Signals
   reason: HMM experiment, not in active pipeline
+archive_hmm_calibration_snapshot:
+  script: scripts/archive_hmm_calibration_snapshot.py
+  status: active
+  owner: ML Signals
+  description: Archive dated HMM regime JSON for rolling calibration history
+  allowed_use:
+  - hmm_calibration_history
 prepare_dl_training_data:
   script: scripts/archive/prepare_dl_training_data.py
   status: archived
@@ -447,9 +454,16 @@ build_next_actions:
   script: scripts/build_next_actions.py
   status: active
   owner: Workbench
-  description: Build next actions from system learning
+  description: Build NEXT_ACTIONS.md from promotion gate and Hub improvement ledger
   allowed_use:
   - next_actions_generation
+refresh_improvement_queue_report:
+  script: scripts/refresh_improvement_queue_report.py
+  status: active
+  owner: Learning Hub
+  description: Render improvement_queue.md from Hub parquet ledger
+  allowed_use:
+  - learning_hub_reporting
 build_evidence_grade_report:
   script: scripts/build_evidence_grade_report.py
   status: active
@@ -1203,10 +1217,12 @@ check_output_freshness:
   - freshness_check
 evaluate_feedback_samples:
   script: scripts/evaluate_feedback_samples.py
-  status: archived
+  status: active
   owner: Learning Hub
-  description: Moved to archive 2026-06-20
-  allowed_use: []
+  description: Weekly forward-outcome evaluation for feedback sample pool
+  allowed_use:
+  - feedback_calibration
+  - learning_hub_ingest
 feedback_daily_cron:
   script: scripts/feedback_daily_cron.py
   status: archived

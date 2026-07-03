@@ -30,10 +30,10 @@ structural_lab:
     note: "47MB — must confirm consumer or archive"
 
 merged_data:
-  status: migration_artifact
+  status: archived_legacy
   require_owner: true
-  archive_after_days: 14
-  note: "4.3MB — likely duplicates from migration"
+  archive_after_days: 90
+  note: "Migration closed 2026-07-03; canonical panel is Harvester benchmark_panel"
 
 data_root:
   total_size_budget_mb: 300
