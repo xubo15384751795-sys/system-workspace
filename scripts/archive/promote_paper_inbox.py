@@ -19,16 +19,16 @@ import argparse
 import json
 import shutil
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 from _workspace_imports import add_root, add_scripts
+
 add_root()
 add_scripts()
 
-from caselab_context.paper_paths import paper_root  # noqa: E402
-
 from _runtime_io import ROOT, ensure_dir, utc_now, write_json  # noqa: E402
+
+from caselab_context.paper_paths import paper_root  # noqa: E402
 
 REPORT_PATH = ROOT / "Output" / "caselab_runtime" / "paper_promote_report.json"
 APPROVED_STATUSES = {"approved", "reviewed", "accepted"}

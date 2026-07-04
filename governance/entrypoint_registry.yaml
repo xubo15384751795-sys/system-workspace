@@ -64,21 +64,21 @@ learning_hub_comprehensive_summary:
   allowed_use:
   - comprehensive_summary_generation
 learning_hub_judgment_calibration:
-  script: scripts/learning_hub_judgment_calibration.py
+  script: scripts/archive/learning_hub_judgment_calibration.py
   status: active
   owner: Learning Hub
   target_location: system-learning-hub/scripts/
   allowed_use:
   - judgment_calibration
 learning_hub_trade_calibration:
-  script: scripts/learning_hub_trade_calibration.py
+  script: scripts/archive/learning_hub_trade_calibration.py
   status: active
   owner: Learning Hub
   target_location: system-learning-hub/scripts/
   allowed_use:
   - trade_calibration
 historical_validation_suite:
-  script: scripts/historical_validation_suite.py
+  script: scripts/archive/historical_validation_suite.py
   status: experimental
   owner: Deformation Framework
   description: Historical backtest suite for M/D/K/X channel signals
@@ -86,7 +86,7 @@ historical_validation_suite:
   - backtesting
   - signal_validation
 regime_router:
-  script: scripts/regime_router.py
+  script: scripts/archive/regime_router.py
   status: active
   owner: Deformation Framework
   description: Structural state interpretation and action gating (replaces 4-channel average)
@@ -95,7 +95,7 @@ regime_router:
   - action_gating
   - risk_routing
 signal_monitor:
-  script: scripts/signal_monitor.py
+  script: scripts/archive/signal_monitor.py
   status: active
   owner: Deformation Framework
   description: Daily tracking of M+K prediction accuracy vs SPX
@@ -111,25 +111,6 @@ claim_evaluator:
   allowed_use:
   - claim_evaluation
   - forward_outcome_tracking
-blind_replay_test:
-  script: scripts/archive/blind_replay_test.py
-  status: archived
-  owner: Workbench
-  description: Blind replay test for validation
-  allowed_use:
-  - validation_only
-benchmark_comparison:
-  script: scripts/archive/benchmark_comparison.py
-  status: archived
-  owner: Qlib Benchmark
-  allowed_use:
-  - benchmark_comparison
-calibration:
-  script: scripts/archive/calibration.py
-  status: archived
-  owner: Deformation Framework
-  allowed_use:
-  - calibration_analysis
 legacy_data_sources:
   script: deformation-framework/src/_legacy/data/data_sources.py
   status: legacy_sealed
@@ -140,12 +121,6 @@ legacy_data_sources:
   - dual_path_compare
   retire_after: '2026-07-15'
   note: LEGACY_COMPATIBILITY_ONLY — moved to _legacy 2026-06-29, must not be used by production pipeline
-structural_replay_evaluation:
-  script: scripts/archive/structural_replay_evaluation.py
-  status: archived
-  owner: Deformation Framework
-  reason: Not called by any runtime pipeline; uses yfinance directly (violates Harvester-only rule)
-  archived_at: '2026-06-17'
 refresh_etf_panel:
   script: scripts/refresh_etf_panel.py
   status: active
@@ -154,21 +129,6 @@ refresh_etf_panel:
   allowed_use:
   - feature_recomputation
   note: ETF acquisition must come from Harvester evidence release; this script only recomputes features
-solution_phase1:
-  script: scripts/archive/solution_phase1.py
-  status: archived
-  owner: System
-  reason: One-off solution script, no active consumers
-solution_phase2:
-  script: scripts/archive/solution_phase2.py
-  status: archived
-  owner: System
-  reason: One-off solution script, no active consumers
-hmm_generate_history:
-  script: scripts/archive/hmm_generate_history.py
-  status: archived
-  owner: ML Signals
-  reason: HMM experiment, not in active pipeline
 hmm_stability_audit:
   script: scripts/hmm_stability_audit.py
   status: experimental
@@ -181,11 +141,6 @@ archive_hmm_calibration_snapshot:
   description: Archive dated HMM regime JSON for rolling calibration history
   allowed_use:
   - hmm_calibration_history
-prepare_dl_training_data:
-  script: scripts/archive/prepare_dl_training_data.py
-  status: archived
-  owner: ML Signals
-  reason: DL training data prep, not in active pipeline
 caselab_daily_signal:
   script: scripts/caselab_daily_signal.py
   status: active
@@ -193,50 +148,12 @@ caselab_daily_signal:
   target_location: caselab_context/scripts/
   allowed_use:
   - daily_signal_generation
-nlp_extract:
-  script: scripts/archive/nlp_extract.py
-  status: archived
-  owner: NLP Pipeline
-  target_location: Workbench/src/nlp/scripts/
-  allowed_use:
-  - nlp_extraction
-nlp_ingest:
-  script: scripts/archive/nlp_ingest.py
-  status: archived
-  owner: NLP Pipeline
-  target_location: Workbench/src/nlp/scripts/
-  allowed_use:
-  - nlp_ingestion
-audit_boundaries:
-  script: scripts/archive/audit_boundaries.py
-  status: archived
-  owner: Governance
-  allowed_use:
-  - boundary_audit
-record_runtime_event:
-  script: scripts/archive/record_runtime_event.py
-  status: archived
-  owner: Learning Hub
-  allowed_use:
-  - runtime_event_recording
 record_trade_decision:
   script: scripts/record_trade_decision.py
   status: active
   owner: Learning Hub
   allowed_use:
   - trade_decision_recording
-daily_routing_decision:
-  script: scripts/archive/daily_routing_decision.py
-  status: archived
-  owner: Agent Routing
-  allowed_use:
-  - routing_diagnostics
-  - learning_hub_record
-  forbidden_use:
-  - execute_routed_task
-  - affect_core_judgment
-  - bypass_module_ownership
-  blocker: Shadow diagnostics only; needs tests and explicit authority before ACTIVE_PARTIAL.
 routing_cli:
   script: Workbench/agents/harness/entrypoints/routing_cli.py
   status: shadow_active
@@ -352,13 +269,6 @@ judgment_replay_audit:
   description: Audit judgment replay consistency
   allowed_use:
   - governance_audit
-reality_reconciliation_audit:
-  script: scripts/archive/reality_reconciliation_audit.py
-  status: archived
-  owner: Governance
-  description: Reconcile system claims with reality
-  allowed_use:
-  - governance_audit
 sync_paper_world_model:
   script: scripts/sync_paper_world_model.py
   status: active
@@ -386,40 +296,12 @@ install_paper_sync_hook:
   description: Install Paper post-commit hook for automatic world-model sync
   allowed_use:
   - paper_model_sync
-practicality_daily_note:
-  script: scripts/archive/practicality_daily_note.py
-  status: archived
-  owner: Governance
-  description: Daily practicality note generation
-  allowed_use:
-  - governance_note
-market_state_classifier:
-  script: scripts/archive/market_state_classifier.py
-  status: archived
-  owner: ML Signals
-  description: Market state classification
-  allowed_use:
-  - market_classification
-build_daily_run_summary:
-  script: scripts/archive/build_daily_run_summary.py
-  status: archived
-  owner: Workbench
-  description: Build daily run summary report
-  allowed_use:
-  - daily_summary_generation
 ask_evidence:
   script: scripts/ask_evidence.py
   status: archived
   owner: Workbench
   description: Moved to archive 2026-06-20
   allowed_use: []
-build_abandoned_work_report:
-  script: scripts/archive/build_abandoned_work_report.py
-  status: archived
-  owner: Governance
-  description: Report abandoned or stale work items
-  allowed_use:
-  - governance_report
 build_artifact_navigator:
   script: scripts/build_artifact_navigator.py
   status: active
@@ -465,7 +347,7 @@ refresh_improvement_queue_report:
   allowed_use:
   - learning_hub_reporting
 build_evidence_grade_report:
-  script: scripts/build_evidence_grade_report.py
+  script: scripts/archive/build_evidence_grade_report.py
   status: active
   owner: Workbench
   description: Build structured evidence grade report with contributor details, blockers, and upgrade path
@@ -490,143 +372,6 @@ record_daily_run_event:
   - learning_hub_ingestion
   - run_event_recording
   - recurrence_detection
-enrich_agent_context:
-  script: scripts/archive/enrich_agent_context.py
-  status: archived
-  owner: Governance
-  description: Enrich agent context packets
-  allowed_use:
-  - agent_context_enrichment
-github_preflight:
-  script: scripts/archive/github_preflight.py
-  status: archived
-  owner: Governance
-  description: GitHub preflight checks
-  allowed_use:
-  - ci_preflight
-run_all_tests:
-  script: scripts/archive/run_all_tests.py
-  status: archived
-  owner: Governance
-  description: Run all test suites
-  allowed_use:
-  - test_runner
-_audit_coupling:
-  script: scripts/archive/_audit_coupling.py
-  status: archived
-  owner: Governance
-  description: Audit module coupling
-  allowed_use:
-  - governance_audit
-_check_data:
-  script: scripts/archive/_check_data.py
-  status: archived
-  owner: Governance
-  description: Check data integrity
-  allowed_use:
-  - data_integrity_check
-_paths:
-  script: scripts/archive/_paths.py
-  status: archived
-  owner: Governance
-  description: Path configuration utility
-  allowed_use:
-  - path_config
-_run_descriptive_quality_tests:
-  script: scripts/archive/_run_descriptive_quality_tests.py
-  status: archived
-  owner: Governance
-  description: Run descriptive quality tests
-  allowed_use:
-  - quality_test
-wiki_system_bridge_audit:
-  script: scripts/archive/wiki_system_bridge_audit.py
-  status: archived
-  owner: Governance
-  description: Audit wiki system bridge
-  allowed_use:
-  - governance_audit
-compute_proxies:
-  script: scripts/archive/compute_proxies.py
-  status: archived
-  owner: ML Signals
-  description: Compute proxy signals — experimental
-  allowed_use:
-  - proxy_computation
-  retire_after: '2026-07-15'
-d_proxy_daily:
-  script: scripts/archive/d_proxy_daily.py
-  status: archived
-  owner: ML Signals
-  description: Daily D proxy computation — experimental
-  allowed_use:
-  - proxy_computation
-  retire_after: '2026-07-15'
-m_proxy_daily:
-  script: scripts/archive/m_proxy_daily.py
-  status: archived
-  owner: ML Signals
-  description: Daily M proxy computation — experimental
-  allowed_use:
-  - proxy_computation
-  retire_after: '2026-07-15'
-m_proxy_optimization:
-  script: scripts/archive/m_proxy_optimization.py
-  status: archived
-  owner: ML Signals
-  description: M proxy optimization — experimental
-  allowed_use:
-  - proxy_optimization
-  retire_after: '2026-07-15'
-k_features_from_etf:
-  script: scripts/archive/k_features_from_etf.py
-  status: archived
-  owner: ML Signals
-  description: K features from ETF panel — experimental
-  allowed_use:
-  - feature_computation
-k_state_machine:
-  script: scripts/archive/k_state_machine.py
-  status: archived
-  owner: ML Signals
-  description: K state machine — experimental
-  allowed_use:
-  - state_machine_diagnostics
-k_v2_robustness:
-  script: scripts/archive/k_v2_robustness.py
-  status: archived
-  owner: ML Signals
-  description: K v2 robustness test — experimental
-  allowed_use:
-  - robustness_test
-k_v2_robustness_z2:
-  script: scripts/archive/k_v2_robustness_z2.py
-  status: archived
-  owner: ML Signals
-  description: K v2 z2 robustness test — experimental
-  allowed_use:
-  - robustness_test
-identification:
-  script: scripts/archive/identification.py
-  status: archived
-  owner: ML Signals
-  description: Structural identification — experimental
-  allowed_use:
-  - identification_diagnostics
-proxy_validation:
-  script: scripts/archive/proxy_validation.py
-  status: archived
-  owner: ML Signals
-  description: Proxy validation — experimental
-  allowed_use:
-  - proxy_validation
-primitive_readiness_matrix:
-  script: scripts/archive/primitive_readiness_matrix.py
-  status: archived
-  owner: Governance
-  description: Primitive readiness matrix — experimental
-  allowed_use:
-  - readiness_assessment
 walk_forward_validation:
   script: scripts/weekly_walk_forward_validation.py
   status: active
@@ -655,74 +400,13 @@ build_qlib_structural_bridge:
   - validation_only
   can_affect_core_judgment: false
 build_measurement_quality_report:
-  script: scripts/build_measurement_quality_report.py
+  script: scripts/archive/build_measurement_quality_report.py
   status: active
   owner: Harvester
   description: K/X measurement quality sidecar from gate validation
   allowed_use:
   - measurement_quality
   can_affect_core_judgment: false
-reconstruction_data_availability:
-  script: scripts/archive/reconstruction_data_availability.py
-  status: archived
-  owner: Governance
-  description: Reconstruction data availability check — experimental
-  allowed_use:
-  - data_availability_check
-trade_decision_replay:
-  script: scripts/archive/trade_decision_replay.py
-  status: archived
-  owner: Governance
-  description: Trade decision replay — experimental
-  allowed_use:
-  - decision_replay
-x_agg_daily_retest:
-  script: scripts/archive/x_agg_daily_retest.py
-  status: archived
-  owner: ML Signals
-  description: X aggregate daily retest — experimental
-  allowed_use:
-  - x_agg_retest
-x_agg_v3_rebuild:
-  script: scripts/archive/x_agg_v3_rebuild.py
-  status: archived
-  owner: ML Signals
-  description: X aggregate v3 rebuild — experimental
-  allowed_use:
-  - x_agg_rebuild
-run_harvester_no_proxy:
-  script: scripts/archive/run_harvester_no_proxy.py
-  status: archived
-  owner: Harvester
-  description: Run harvester without proxy — experimental
-  allowed_use:
-  - harvester_test
-merge_data_hub:
-  script: scripts/archive/merge_data_hub.py
-  status: archived
-  owner: Governance
-  description: Merge data hub — experimental migration script
-  allowed_use:
-  - data_migration
-  retire_after: '2026-07-15'
-x_agg_contamination_lockdown:
-  script: scripts/archive/x_agg_contamination_lockdown.py
-  status: archived
-  owner: ML Signals
-  reason: One-time lockdown script, no runtime consumers
-  retire_after: '2026-07-01'
-x_agg_frequency_split:
-  script: scripts/archive/x_agg_frequency_split.py
-  status: archived
-  owner: ML Signals
-  reason: One-time frequency split, no runtime consumers
-  retire_after: '2026-07-01'
-x_agg_trigger_decommission:
-  script: scripts/archive/x_agg_trigger_decommission.py
-  status: archived
-  owner: ML Signals
-  reason: One-time decommission script, no runtime consumers
-  retire_after: '2026-07-01'
 promotion_gate:
   script: scripts/promotion_gate.py
   status: archived
@@ -757,20 +441,6 @@ build_data_gaps:
   description: Extract unmet data needs from judgment artifacts — produce Harvester request candidates
   allowed_use:
   - data_gap_analysis
-x_build_incentive_review:
-  script: scripts/archive/build_incentive_review.py
-  status: archived
-  owner: Learning Hub
-  description: Review experimental submissions and incentive policy status (superseded by active build_incentive_review)
-  allowed_use:
-  - incentive_review_generation
-build_module_activity_distribution:
-  script: scripts/archive/build_module_activity_distribution.py
-  status: archived
-  owner: Learning Hub
-  description: Report which modules produced artifacts in recent pipeline runs
-  allowed_use:
-  - module_activity_report
 build_signal_card:
   script: scripts/build_signal_card.py
   status: active
@@ -837,7 +507,7 @@ pending_evaluation:
   allowed_use:
   - pending_evaluation_management
 evaluate_pending:
-  script: scripts/evaluate_pending.py
+  script: scripts/archive/evaluate_pending.py
   status: active
   owner: Learning Hub
   description: 1d/1w/1m window evaluator — checks pending records against actual SPY/HYG/TLT returns
@@ -864,20 +534,6 @@ install_daily_run_launchd:
   description: Install macOS launchd job for scheduled daily_run
   allowed_use:
   - pipeline_scheduling
-update_calibration_summary:
-  script: scripts/archive/update_calibration_summary.py
-  status: archived
-  owner: Learning Hub
-  description: Aggregate eval_log.jsonl into calibration summary by source, decision, and window
-  allowed_use:
-  - calibration_summary_generation
-build_module_contribution_report:
-  script: scripts/archive/build_module_contribution_report.py
-  status: archived
-  owner: Learning Hub
-  description: Module contribution effectiveness — aggregates eval outcomes by contributing module with hit rates and grades
-  allowed_use:
-  - module_contribution_report
 claim_ladder_tracker:
   script: scripts/claim_ladder_tracker.py
   status: active
@@ -885,13 +541,6 @@ claim_ladder_tracker:
   description: Cross-run claim ladder progression — evaluates M/D persistence, CaseLab improvement, HMM conflict, invalidation
   allowed_use:
   - claim_ladder_tracking
-build_claim_ladder_summary:
-  script: scripts/archive/build_claim_ladder_summary.py
-  status: archived
-  owner: Learning Hub
-  description: Learning Hub claim ladder summary — persisted, invalidated, and stuck-at-weak hypothesis report
-  allowed_use:
-  - claim_ladder_summary
 signal_consensus:
   script: scripts/signal_consensus.py
   status: active
@@ -964,14 +613,14 @@ run_pipeline_step:
   - pipeline_execution
   - single_step_run
 check_retire_after:
-  script: scripts/check_retire_after.py
+  script: scripts/archive/check_retire_after.py
   status: active
   owner: Governance
   description: Check for entrypoints past their retire_after date
   allowed_use:
   - governance_audit
 archive_daily_snapshots:
-  script: scripts/archive_daily_snapshots.py
+  script: scripts/archive/archive_daily_snapshots.py
   status: active
   owner: Governance
   description: Archive daily Output snapshots for historical replay
@@ -985,21 +634,21 @@ backfill_judgment_calibration:
   allowed_use:
   - calibration_backfill
 mechanism_calibration:
-  script: scripts/run_mechanism_calibration.py
+  script: scripts/archive/run_mechanism_calibration.py
   status: active
   owner: Learning Hub
   description: Run mechanism calibration gate (weekly)
   allowed_use:
   - mechanism_calibration
 suggest_paper_updates:
-  script: scripts/suggest_paper_updates.py
+  script: scripts/archive/suggest_paper_updates.py
   status: active
   owner: CaseLab
   description: Suggest paper world model updates based on CaseLab signals
   allowed_use:
   - paper_update_suggestion
 promote_paper_inbox:
-  script: scripts/promote_paper_inbox.py
+  script: scripts/archive/promote_paper_inbox.py
   status: active
   owner: CaseLab
   description: Promote approved paper inbox items to world model
@@ -1171,7 +820,7 @@ build_feedback_sample_pool:
   - feedback_sampling
   - calibration
 run_operator_detections:
-  script: scripts/run_operator_detections.py
+  script: scripts/archive/run_operator_detections.py
   status: active
   owner: Deformation Framework
   description: Run mechanism operator detectors (research-only)
@@ -1179,7 +828,7 @@ run_operator_detections:
   - operator_detection
   - research_overlay
 validate_proxy_observation_catalog:
-  script: scripts/validate_proxy_observation_catalog.py
+  script: scripts/archive/validate_proxy_observation_catalog.py
   status: active
   owner: Harvester
   description: Validate proxy observation catalog against Harvester panels
@@ -1187,7 +836,7 @@ validate_proxy_observation_catalog:
   - proxy_validation
   - data_quality
 build_event_replay_factory:
-  script: scripts/build_event_replay_factory.py
+  script: scripts/archive/build_event_replay_factory.py
   status: active
   owner: Deformation Framework
   description: Historical event-window operator replay factory
@@ -1195,7 +844,7 @@ build_event_replay_factory:
   - event_replay
   - operator_calibration
 build_overlay_shadow_report:
-  script: scripts/build_overlay_shadow_report.py
+  script: scripts/archive/build_overlay_shadow_report.py
   status: active
   owner: Strategy Lab
   description: Base strategy vs System overlay shadow metrics
@@ -1273,21 +922,21 @@ verify_agent_work_protocol:
   description: Moved to archive 2026-06-20
   allowed_use: []
 refresh_cross_asset_panel:
-  script: scripts/refresh_cross_asset_panel.py
+  script: scripts/archive/refresh_cross_asset_panel.py
   status: active
   owner: Harvester
   description: Refresh cross-asset daily panel with latest market data from yfinance via Harvester provider
   allowed_use:
   - data_refresh
 re_evaluate_outcomes:
-  script: scripts/re_evaluate_outcomes.py
+  script: scripts/archive/re_evaluate_outcomes.py
   status: active
   owner: Learning Hub
   description: Re-evaluate past judgment outcomes with updated market data
   allowed_use:
   - calibration_repair
 judgment_accuracy_report:
-  script: scripts/judgment_accuracy_report.py
+  script: scripts/archive/judgment_accuracy_report.py
   status: active
   owner: Learning Hub
   description: Aggregate judgment accuracy statistics from evaluation log

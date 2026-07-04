@@ -224,7 +224,7 @@ steps:
     order: 6.5
     status: active
     owner: Deformation Framework
-    command: python scripts/run_operator_detections.py
+    command: python scripts/archive/run_operator_detections.py
     schedule: weekly
     input:
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
@@ -237,7 +237,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/run_operator_detections.py
+      current_command: python scripts/archive/run_operator_detections.py
       future_callable: scripts.run_operator_detections:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -254,7 +254,7 @@ steps:
     order: 6.6
     status: active
     owner: Harvester
-    command: python scripts/validate_proxy_observation_catalog.py
+    command: python scripts/archive/validate_proxy_observation_catalog.py
     schedule: weekly
     input:
     - governance/proxy_observation_catalog.yaml
@@ -268,7 +268,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/validate_proxy_observation_catalog.py
+      current_command: python scripts/archive/validate_proxy_observation_catalog.py
       future_callable: scripts.validate_proxy_observation_catalog:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -461,7 +461,7 @@ steps:
     order: 9.5
     status: active
     owner: Workbench
-    command: python scripts/build_measurement_quality_report.py
+    command: python scripts/archive/build_measurement_quality_report.py
     schedule: weekly
     input: &id020mq
     - Output/k_measurement/k_measurement_gate.json
@@ -476,7 +476,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: callable
-      current_command: python scripts/build_measurement_quality_report.py
+      current_command: python scripts/archive/build_measurement_quality_report.py
       future_callable: scripts.build_measurement_quality_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -813,7 +813,7 @@ steps:
     order: 17.4
     status: active
     owner: Deformation Framework
-    command: python scripts/signal_monitor.py --json
+    command: python scripts/archive/signal_monitor.py --json
     input:
     - Output/sandbox/structural_replay_v2/all_signals.parquet
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
@@ -825,7 +825,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/signal_monitor.py --json
+      current_command: python scripts/archive/signal_monitor.py --json
       future_callable: scripts.signal_monitor:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1018,7 +1018,7 @@ steps:
     order: 18
     status: active
     owner: Learning Hub
-    command: python scripts/learning_hub_judgment_calibration.py
+    command: python scripts/archive/learning_hub_judgment_calibration.py
     input: &id039
     - Output/judgment/
     produces: &id040
@@ -1030,7 +1030,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/learning_hub_judgment_calibration.py
+      current_command: python scripts/archive/learning_hub_judgment_calibration.py
       future_callable: learning_hub.calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1046,7 +1046,7 @@ steps:
     order: 18
     status: active
     owner: Learning Hub
-    command: python scripts/learning_hub_trade_calibration.py
+    command: python scripts/archive/learning_hub_trade_calibration.py
     input: &id041
     - Output/trade_decision/
     produces: &id042
@@ -1058,7 +1058,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/learning_hub_trade_calibration.py
+      current_command: python scripts/archive/learning_hub_trade_calibration.py
       future_callable: learning_hub.calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1186,7 +1186,7 @@ steps:
     order: 22.5
     status: active
     owner: Workbench
-    command: python scripts/build_evidence_grade_report.py
+    command: python scripts/archive/build_evidence_grade_report.py
     schedule: weekly
     input: &id050_5
     - Output/judgment/latest.json
@@ -1204,7 +1204,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: callable
-      current_command: python scripts/build_evidence_grade_report.py
+      current_command: python scripts/archive/build_evidence_grade_report.py
       future_callable: scripts.build_evidence_grade_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1500,7 +1500,7 @@ steps:
     order: 28.5
     status: active
     owner: Strategy Lab
-    command: python scripts/build_overlay_shadow_report.py
+    command: python scripts/archive/build_overlay_shadow_report.py
     schedule: weekly
     input:
     - Output/strategy_lab/shadow_cards/
@@ -1514,7 +1514,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/build_overlay_shadow_report.py
+      current_command: python scripts/archive/build_overlay_shadow_report.py
       future_callable: scripts.build_overlay_shadow_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1532,7 +1532,7 @@ steps:
     order: 28.6
     status: active
     owner: Deformation Framework
-    command: python scripts/build_event_replay_factory.py
+    command: python scripts/archive/build_event_replay_factory.py
     schedule: weekly
     input:
     - governance/event_replay_windows.yaml
@@ -1546,7 +1546,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/build_event_replay_factory.py
+      current_command: python scripts/archive/build_event_replay_factory.py
       future_callable: scripts.build_event_replay_factory:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1850,7 +1850,7 @@ steps:
     order: 10.5
     status: active
     owner: Learning Hub
-    command: python scripts/archive_daily_snapshots.py
+    command: python scripts/archive/archive_daily_snapshots.py
     input:
     - Output/judgment/
     - Output/trade_decision/
@@ -1863,7 +1863,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/archive_daily_snapshots.py
+      current_command: python scripts/archive/archive_daily_snapshots.py
       future_callable: scripts.archive_daily_snapshots:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1913,7 +1913,7 @@ steps:
     status: active
     schedule: weekly
     owner: Learning Hub
-    command: python scripts/run_mechanism_calibration.py
+    command: python scripts/archive/run_mechanism_calibration.py
     input:
     - Output/trade_ledger/
     - Data/harvester/exports/latest/
@@ -1926,7 +1926,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/run_mechanism_calibration.py
+      current_command: python scripts/archive/run_mechanism_calibration.py
       future_callable: scripts.run_mechanism_calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1976,7 +1976,7 @@ steps:
     status: active
     schedule: weekly
     owner: CaseLab Context
-    command: python scripts/suggest_paper_updates.py
+    command: python scripts/archive/suggest_paper_updates.py
     input:
     - Output/system_learning/latest/
     produces:
@@ -1988,7 +1988,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/suggest_paper_updates.py
+      current_command: python scripts/archive/suggest_paper_updates.py
       future_callable: scripts.suggest_paper_updates:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2006,7 +2006,7 @@ steps:
     order: 18.3
     status: active
     owner: CaseLab Context
-    command: python scripts/promote_paper_inbox.py
+    command: python scripts/archive/promote_paper_inbox.py
     input:
     - Paper/40_Review/_inbox/
     produces:
@@ -2018,7 +2018,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/promote_paper_inbox.py
+      current_command: python scripts/archive/promote_paper_inbox.py
       future_callable: scripts.promote_paper_inbox:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2066,7 +2066,7 @@ steps:
     order: 18.5
     status: active
     owner: Learning Hub
-    command: python scripts/evaluate_pending.py
+    command: python scripts/archive/evaluate_pending.py
     schedule: weekly
     input:
     - Output/trade_ledger/decisions.jsonl
@@ -2079,7 +2079,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/evaluate_pending.py
+      current_command: python scripts/archive/evaluate_pending.py
       future_callable: scripts.evaluate_pending:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2130,7 +2130,7 @@ steps:
     order: 28
     status: active
     owner: Harvester
-    command: python scripts/refresh_cross_asset_panel.py
+    command: python scripts/archive/refresh_cross_asset_panel.py
     schedule: weekly
     input:
       - Data/panels/cross_asset_daily_panel.parquet
@@ -2142,7 +2142,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/refresh_cross_asset_panel.py
+      current_command: python scripts/archive/refresh_cross_asset_panel.py
       future_callable: scripts.refresh_cross_asset_panel:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2161,7 +2161,7 @@ steps:
     order: 30
     status: active
     owner: Learning Hub
-    command: python scripts/judgment_accuracy_report.py
+    command: python scripts/archive/judgment_accuracy_report.py
     schedule: weekly
     input:
       - Output/system_learning/latest/eval_log.jsonl
@@ -2174,7 +2174,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/judgment_accuracy_report.py
+      current_command: python scripts/archive/judgment_accuracy_report.py
       future_callable: scripts.judgment_accuracy_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal

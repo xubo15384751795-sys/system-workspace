@@ -22,12 +22,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from _workspace_imports import add_root, add_scripts
+
 add_root()
 add_scripts()
 
-from caselab_context.paper_paths import paper_root  # noqa: E402
-
 from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json  # noqa: E402
+
+from caselab_context.paper_paths import paper_root  # noqa: E402
 
 GATE_PATH = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 WEIGHTS_PATH = ROOT / "Data" / "nlp" / "caselab_calibration" / "weight_adjustments.json"
@@ -45,7 +46,7 @@ def _render_suggestion_draft(
     lines = [
         "---",
         "type: weight_suggestion",
-        f"review_status: needs_review",
+        "review_status: needs_review",
         f"exported_at: {datetime.now(UTC).isoformat()}",
         "source: system/mechanism_calibration",
         f"gate_level: {gate.get('achieved_level', 'none')}",

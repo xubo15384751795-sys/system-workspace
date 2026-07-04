@@ -20,12 +20,8 @@ import argparse
 import json
 import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
-import numpy as np
 import pandas as pd
-
-from _constants import TRADING_DAYS_PER_YEAR
 from _runtime_io import ROOT, ensure_dir, write_json
 
 # ── Paths ───────────────────────────────────────────────────────────
@@ -122,7 +118,7 @@ def compute_agreement(
     # Composite alert
     mk = results.get("MK", {})
     degraded = mk.get("degraded", False)
-    current_agree = mk.get("current_rolling_agreement")
+    mk.get("current_rolling_agreement")
 
     return {
         "status": "DEGRADED" if degraded else "OK",

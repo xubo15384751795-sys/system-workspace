@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-from pathlib import Path
 
 from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 

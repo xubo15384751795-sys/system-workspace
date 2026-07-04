@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir
 from _runtime_io import (
+    ROOT,
     dedupe_entries,
     ensure_dir,
     load_json,

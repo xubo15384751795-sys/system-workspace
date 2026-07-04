@@ -189,6 +189,26 @@ CUSTOM_COMMAND_BUILDERS: dict[str, Callable[[DailyRunContext], list[str]]] = {
 }
 
 
+def _with_archive_pythonpath(
+    cmd: list[str] | None,
+    env: dict[str, str] | None,
+) -> dict[str, str] | None:
+    """Archived scripts live under scripts/archive/; keep scripts/ on PYTHONPATH."""
+    if not cmd:
+        return env
+    joined = " ".join(cmd)
+    if "scripts/archive/" not in joined:
+        return env
+    scripts_dir = str(ROOT / "scripts")
+    merged = dict(env or {})
+    existing = merged.get("PYTHONPATH", "")
+    parts = [p for p in existing.split(os.pathsep) if p]
+    if scripts_dir not in parts:
+        parts.insert(0, scripts_dir)
+    merged["PYTHONPATH"] = os.pathsep.join(parts)
+    return merged
+
+
 def build_step_invocation(step_id: str, ctx: DailyRunContext) -> tuple[str, list[str] | None, dict[str, str] | None]:
     """Return (mode, command_or_argv, env) for run_step_fn / run_registry_step."""
     execution = load_step_execution(step_id)
@@ -201,7 +221,8 @@ def build_step_invocation(step_id: str, ctx: DailyRunContext) -> tuple[str, list
         extra_argv = _build_evaluate_pending_argv(ctx)
 
     if step_id in CUSTOM_COMMAND_BUILDERS:
-        return "subprocess", CUSTOM_COMMAND_BUILDERS[step_id](ctx) + extra_argv, env
+        cmd = CUSTOM_COMMAND_BUILDERS[step_id](ctx) + extra_argv
+        return "subprocess", cmd, _with_archive_pythonpath(cmd, env)
 
     if mode == "callable":
         return "callable", extra_argv or None, env
@@ -219,7 +240,7 @@ def build_step_invocation(step_id: str, ctx: DailyRunContext) -> tuple[str, list
     elif cmd and not Path(cmd[0]).is_absolute() and cmd[0].endswith(".py"):
         cmd = [sys.executable, str(ROOT / cmd[0])] + cmd[1:]
     cmd.extend(extra_argv)
-    return "subprocess", cmd, env
+    return "subprocess", cmd, _with_archive_pythonpath(cmd, env)
 
 
 def execute_step(step_id: str, ctx: DailyRunContext) -> dict[str, Any]:

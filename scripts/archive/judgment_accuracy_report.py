@@ -17,7 +17,6 @@ import argparse
 import json
 from collections import defaultdict
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from _runtime_io import ROOT, ensure_dir, write_json
@@ -292,7 +291,7 @@ def main() -> None:
     if args.json:
         print(json.dumps(report, indent=2))
     else:
-        print(f"Judgment Accuracy Report")
+        print("Judgment Accuracy Report")
         print(f"  Total evaluated: {total}")
         print(f"  Correct: {correct}, Incorrect: {incorrect}, Neutral: {neutral}")
         print(f"  Accuracy: {report['summary']['accuracy']}")

@@ -18,9 +18,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 
 from _runtime_io import ROOT, ensure_dir, load_json, write_json
 
@@ -102,8 +101,6 @@ def route(
     # X is the primary stress detector
     x_stress = X is not None and X > X_STRESS_BLOCK
     k_stress = K is not None and K > STRESS_THRESHOLD
-    m_stress = M is not None and M > STRESS_THRESHOLD
-    m_relief = M is not None and M < RELIEF_THRESHOLD
     m_swing = m_delta_5d is not None and abs(m_delta_5d) > M_SWING_THRESHOLD
 
     # Count stress vs relief signals

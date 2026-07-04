@@ -16,7 +16,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-
 from _runtime_io import ROOT, write_json
 
 SIGNALS_PATH = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"
@@ -252,7 +251,7 @@ def evaluate_state_targets(df: pd.DataFrame, horizons: tuple[int, ...]) -> dict[
         out[hkey] = {}
         stress = df[f"fwd_stress_{h}d"]
         vol_up = df[f"fwd_vol_up_{h}d"]
-        abs_ret = df[f"fwd_abs_{h}d"]
+        df[f"fwd_abs_{h}d"]
         base_stress = float(stress.dropna().mean()) if stress.dropna().any() else 0.0
         base_vol = float(vol_up.dropna().mean()) if len(vol_up.dropna()) else 0.0
         for ch in CHANNEL_COLUMNS:
