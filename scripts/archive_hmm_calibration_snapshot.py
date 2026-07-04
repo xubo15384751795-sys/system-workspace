@@ -58,7 +58,10 @@ def archive_snapshot(run_date: str) -> dict[str, str | bool]:
         "archived_at": datetime.now(UTC).isoformat(),
         "source": str(source.relative_to(ROOT)),
         "run_date": run_date,
-        "model_signature": payload.get("method", "unknown"),
+        "model_signature": payload.get("stability", {}).get(
+            "calibration_signature",
+            payload.get("method", "unknown"),
+        ),
     }
     write_json(dest_dir / "snapshot_meta.json", meta)
     return {"archived": True, "date": run_date, "path": str(dest.relative_to(ROOT))}

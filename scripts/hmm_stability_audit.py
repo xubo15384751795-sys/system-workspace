@@ -162,11 +162,21 @@ def check_state_distribution(hmm: dict[str, Any]) -> dict[str, Any]:
 def _get_model_signature(hmm: dict[str, Any]) -> str:
     """Extract a model signature from HMM output to group compatible history.
 
-    Uses method + train_window + feature_count to identify model versions.
+  Groups by method + train_window + HMM input dimensions (post-PCA), not
+  engineered feature column count which drifts when panel series coverage changes.
     """
-    method = hmm.get("method", "unknown")
     stability = hmm.get("stability", {})
+    explicit = stability.get("calibration_signature")
+    if explicit:
+        return str(explicit)
+
+    method = hmm.get("method", "unknown")
     train_window = stability.get("train_window", "unknown")
+    provenance = hmm.get("provenance", {})
+    hmm_dims = provenance.get("hmm_input_dimensions")
+    if hmm_dims:
+        return f"{method}:{train_window}:{hmm_dims}"
+
     feature_count = stability.get("feature_count", 0)
     return f"{method}:{train_window}:{feature_count}"
 
