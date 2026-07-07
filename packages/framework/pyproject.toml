@@ -7,7 +7,7 @@ name = "structural-deformation-research-system"
 version = "0.1.0"
 description = "Code-managed research system for structural financial deformation diagnostics."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dynamic = ["dependencies"]
 
 [tool.setuptools.dynamic]
@@ -17,7 +17,7 @@ dependencies = {file = ["requirements/lock.txt"]}
 math = ["jax>=0.4.20", "jaxlib>=0.4.20", "diffrax>=0.5", "equinox>=0.11", "numpyro>=0.14", "blackjax>=0.8", "networkx>=3.0", "scikit-learn>=1.3", "ruptures>=1.0"]
 viz = ["plotly>=5", "streamlit>=1.30", "fastapi>=0.110", "uvicorn>=0.25"]
 dev = ["pytest>=7", "pytest-cov>=4", "mypy>=1.8", "ruff>=0.3"]
-dl-core = ["torch>=2.0", "numpy>=1.24"]
+dl-core = ["torch>=2.0", "numpy>=2.0"]
 dl-nlp = ["sentence-transformers>=2.2", "transformers>=4.30"]
 dl-graph = ["torch-geometric>=2.3"]
 dl-full = ["pytorch-forecasting>=1.0", "hmmlearn>=0.3"]

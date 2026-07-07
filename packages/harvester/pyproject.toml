@@ -7,11 +7,11 @@ name = "structural-risk-harvester"
 version = "0.1.0"
 description = "Immutable, manifest-backed data bundles for the Structural Deformation Research System."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "jsonschema>=4.20",
-    "pandas>=1.5",
-    "pyarrow>=8.0",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
     "requests>=2.28",
 ]
 

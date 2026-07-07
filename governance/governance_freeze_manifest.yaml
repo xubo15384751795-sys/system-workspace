@@ -52,7 +52,7 @@ baseline_root_files:
 # Content integrity — SHA256[:16] at freeze time.  Detects silent modifications.
 baseline_hashes:
   architecture_cleanup_decisions.md: "446262635117bdf3"
-  architecture_reality_decisions.md: "349c61656d98e0ac"
+  architecture_reality_decisions.md: "648dc6c8bd00eaec"
   authority_registry.yaml: "0058aae04a6ce7ea"
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
@@ -60,8 +60,8 @@ baseline_hashes:
   daily_pipeline_registry.yaml: "1462397fbc06859c"
   data_request_registry.yaml: "4a022aa7d9a526c8"
   data_retention_policy.yaml: "7441dd45daf12adf"
-  deferred_work_register.yaml: "2bc005e8f4e9d950"
-  entrypoint_registry.yaml: "6b1c355c59deb295"
+  deferred_work_register.yaml: "66323b7fc6d1643a"
+  entrypoint_registry.yaml: "f32ad3bc798aac2e"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
   git_workspace_policy.md: "d812b4ed4f0371bd"
@@ -543,6 +543,21 @@ baseline_updates:
     old_hash: "d3c1f17971f07f2e"
     new_hash: "2bc005e8f4e9d950"
     reason: "Submodule consolidation: status deferred -> in_progress; add progress log"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-07-07"
+    old_hash: "2bc005e8f4e9d950"
+    new_hash: "66323b7fc6d1643a"
+    reason: "Submodule consolidation: status -> completed; B1-B6 progress log"
+  - file: architecture_reality_decisions.md
+    approved_at: "2026-07-07"
+    old_hash: "349c61656d98e0ac"
+    new_hash: "648dc6c8bd00eaec"
+    reason: "§9 submodule structure: transitional -> executed (consolidation complete)"
+  - file: entrypoint_registry.yaml
+    approved_at: "2026-07-07"
+    old_hash: "6b1c355c59deb295"
+    new_hash: "f32ad3bc798aac2e"
+    reason: "Update submodule paths to packages/ (workbench, framework, harvester, learning_hub)"
 
 work_support_budget:
   max_files: 17

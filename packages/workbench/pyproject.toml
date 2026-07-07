@@ -27,13 +27,13 @@ nlp = [
 ml = [
     # classical ML — SVD graph embedding fallback uses numpy (already core)
     "scikit-learn>=1.3",
-    "numpy>=1.24",
+    "numpy>=2.0",
 ]
 gnn = [
     # GNN backend — activates Node2Vec in GraphEmbedder automatically
     "torch>=2.0",
     "torch-geometric>=2.5",
-    "numpy>=1.24",
+    "numpy>=2.0",
 ]
 charts = [
     "matplotlib>=3.7",
@@ -47,7 +47,7 @@ dev = [
 ]
 dl-core = [
     "torch>=2.0",
-    "numpy>=1.24",
+    "numpy>=2.0",
 ]
 dl-nlp = [
     "sentence-transformers>=2.2",

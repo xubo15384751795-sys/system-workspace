@@ -39,7 +39,7 @@ structural_replay_v2:
   script: scripts/structural_replay_v2.py
   status: compatibility_wrapper
   owner: Deformation Framework
-  target_location: deformation-framework/scripts/
+  target_location: packages/framework/scripts/
   allowed_use:
   - legacy_replay
   - current_bridge_until_replacement
@@ -50,7 +50,7 @@ bridge_replay_to_current:
   script: scripts/bridge_replay_to_current.py
   status: compatibility_wrapper
   owner: Workbench
-  target_location: Workbench/scripts/
+  target_location: packages/workbench/scripts/
   allowed_use:
   - replay_to_current_bridge
   replacement:
@@ -60,21 +60,21 @@ learning_hub_comprehensive_summary:
   script: scripts/learning_hub_comprehensive_summary.py
   status: active
   owner: Learning Hub
-  target_location: system-learning-hub/scripts/
+  target_location: packages/learning_hub/scripts/
   allowed_use:
   - comprehensive_summary_generation
 learning_hub_judgment_calibration:
   script: scripts/archive/learning_hub_judgment_calibration.py
   status: active
   owner: Learning Hub
-  target_location: system-learning-hub/scripts/
+  target_location: packages/learning_hub/scripts/
   allowed_use:
   - judgment_calibration
 learning_hub_trade_calibration:
   script: scripts/archive/learning_hub_trade_calibration.py
   status: active
   owner: Learning Hub
-  target_location: system-learning-hub/scripts/
+  target_location: packages/learning_hub/scripts/
   allowed_use:
   - trade_calibration
 historical_validation_suite:
@@ -107,12 +107,12 @@ claim_evaluator:
   status: active
   owner: Learning Hub
   description: Evaluate past claims against current market data
-  target_location: system-learning-hub/scripts/
+  target_location: packages/learning_hub/scripts/
   allowed_use:
   - claim_evaluation
   - forward_outcome_tracking
 legacy_data_sources:
-  script: deformation-framework/src/_legacy/data/data_sources.py
+  script: packages/framework/src/_legacy/data/data_sources.py
   status: legacy_sealed
   owner: Deformation Framework
   allowed_use:
@@ -155,7 +155,7 @@ record_trade_decision:
   allowed_use:
   - trade_decision_recording
 routing_cli:
-  script: Workbench/agents/harness/entrypoints/routing_cli.py
+  script: packages/workbench/agents/harness/entrypoints/routing_cli.py
   status: shadow_active
   owner: Agent Routing
   allowed_use:

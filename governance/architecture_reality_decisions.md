@@ -298,22 +298,23 @@ Output/current conflicts with MODULES.md -> trigger architecture reality audit
 ### 9.1 Statement
 
 ```text
-The current 4-submodule structure is transitional, not strategic.
+The 4-submodule structure was transitional. Consolidation into packages/
+was executed 2026-07-07 (routing decision 2026-07-07-submodule-consolidation).
 ```
 
 ### 9.2 Buffer Period
 
-30-45 days from 2026-06-16.
+30-45 days from 2026-06-16. **Executed 2026-07-07** — within the buffer window.
 
 ### 9.3 Buffer Period Goals
 
-1. Clear dirty submodule state.
-2. Unify test entry points.
-3. Unify Python version and dependency strategy.
-4. Clarify migration path.
-5. Final structure: single-repo workspace with `packages/` directory.
+1. Clear dirty submodule state. ✅ (submodules deinit'd, .gitmodules removed)
+2. Unify test entry points. ✅ (conftest.py + _workspace_imports.py retargeted)
+3. Unify Python version and dependency strategy. ✅ (requires-python >=3.12, numpy/pandas/pyarrow unified)
+4. Clarify migration path. ✅ (routing decision record)
+5. Final structure: single-repo workspace with `packages/` directory. ✅
 
-### 9.4 Target Structure
+### 9.4 Target Structure (EXECUTED)
 
 ```text
 System/

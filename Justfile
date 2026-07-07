@@ -11,7 +11,7 @@ smoke:
     set -e
     echo "=== smoke: critical_gate + semantic ==="
     python3 -m pytest tests/ -n auto -m "critical_gate or semantic" -q --tb=short
-    python3 -m pytest "deformation-framework/tests/" -n auto -m "semantic" -q --tb=short 2>/dev/null || true
+    python3 -m pytest "packages/framework/tests/" -n auto -m "semantic" -q --tb=short 2>/dev/null || true
 
 # Must-pass gates before promotion.
 critical:
@@ -26,7 +26,7 @@ semantic:
     set -e
     echo "=== semantic: registry, proxies, NOT_IMPLEMENTED enforcement ==="
     python3 -m pytest tests/ -n auto -m semantic -v --tb=short
-    python3 -m pytest "deformation-framework/tests/" -n auto -m semantic -q --tb=short 2>/dev/null || true
+    python3 -m pytest "packages/framework/tests/" -n auto -m semantic -q --tb=short 2>/dev/null || true
 
 # Boundary, freshness, provenance.
 data:
@@ -34,7 +34,7 @@ data:
     set -e
     echo "=== data: boundary, freshness, provenance ==="
     python3 -m pytest tests/ -n auto -m data_boundary -v --tb=short
-    python3 -m pytest "deformation-framework/tests/" -n auto -m data_boundary -q --tb=short 2>/dev/null || true
+    python3 -m pytest "packages/framework/tests/" -n auto -m data_boundary -q --tb=short 2>/dev/null || true
 
 # Full promotion preflight.
 promotion:
@@ -42,7 +42,7 @@ promotion:
     set -e
     echo "=== promotion preflight ==="
     python3 -m pytest tests/ -n auto -m "critical_gate or semantic or data_boundary or report" -v --tb=short
-    python3 -m pytest "deformation-framework/tests/" -n auto -m "semantic or data_boundary or benchmark" -q --tb=short 2>/dev/null || true
+    python3 -m pytest "packages/framework/tests/" -n auto -m "semantic or data_boundary or benchmark" -q --tb=short 2>/dev/null || true
     echo "--- semgrep audit ---"
     semgrep --config=semgrep_rules/ --error --quiet 2>/dev/null || echo "(semgrep not configured or not installed)"
 
@@ -52,8 +52,8 @@ nightly:
     set -e
     echo "=== nightly: full suite ==="
     python3 -m pytest tests/ -n auto -q --tb=short
-    python3 -m pytest "deformation-framework/tests/" -n auto -q --tb=short 2>/dev/null || true
-    python3 -m pytest Workbench/governance/system-learning-hub/tests/ -q --tb=short 2>/dev/null || true
+    python3 -m pytest "packages/framework/tests/" -n auto -q --tb=short 2>/dev/null || true
+    python3 -m pytest packages/learning_hub/tests/ -q --tb=short 2>/dev/null || true
     echo "--- architecture reality audit ---"
     python3 scripts/architecture_reality_audit.py 2>/dev/null || echo "(audit script encountered issues)"
     echo "--- semgrep full audit ---"
@@ -74,7 +74,7 @@ report:
 # Benchmark tests.
 benchmark:
     python3 -m pytest tests/ -m benchmark -v --tb=short
-    python3 -m pytest "deformation-framework/tests/" -m benchmark -q --tb=short 2>/dev/null || true
+    python3 -m pytest "packages/framework/tests/" -m benchmark -q --tb=short 2>/dev/null || true
 
 # Architecture reality audit — governance drift detection.
 audit-reality:
