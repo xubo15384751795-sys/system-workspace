@@ -60,7 +60,7 @@ baseline_hashes:
   daily_pipeline_registry.yaml: "1462397fbc06859c"
   data_request_registry.yaml: "4a022aa7d9a526c8"
   data_retention_policy.yaml: "ce516ccc7f87a904"
-  deferred_work_register.yaml: "a970068f928a4821"
+  deferred_work_register.yaml: "271f93d985606be1"
   entrypoint_registry.yaml: "6b1c355c59deb295"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
@@ -518,6 +518,11 @@ baseline_updates:
     old_hash: "_unknown_"
     new_hash: "d9ab7000b74a0005"
     reason: "Sync pipeline_schedule SSOT with daily_run_sequence (25 daily / 46 weekly)"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-07-07"
+    old_hash: "a970068f928a4821"
+    new_hash: "271f93d985606be1"
+    reason: "DuckDB snapshot store migration: status deferred -> in_progress; add migration_steps + progress"
 
 work_support_budget:
   max_files: 17

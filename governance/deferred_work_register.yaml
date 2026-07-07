@@ -52,17 +52,45 @@ items:
   - id: duckdb_snapshot_store_migration
     title: "Migrate DuckDBSnapshotStore from structural_lab/runtime/ to Harvester-backed store"
     owner: Deformation Framework
-    status: deferred
+    status: in_progress
     reason: >
-      DuckDBSnapshotStore (46MB) is actively used by runtime. Migration requires
-      dual-write period to ensure snapshot query compatibility.
+      DuckDBSnapshotStore (46MB) is actively used by runtime. Migration to a
+      greenfield Harvester-backed Parquet store (HarvesterSnapshotStore) follows
+      the FREEZE→MOVE→SEAL pattern. benchmark_panel.parquet is a raw-series input
+      panel, structurally incompatible with the snapshot tables — the new store
+      is a fresh Parquet layout reusing HarvesterAdapter catalog/manifest machinery.
     strategy: dual_write_before_cutover
     execution_window: "2-3 days (implement dual-write, update consumers, remove old store)"
     evidence_window: "14 days (verify snapshot query compatibility across pipeline runs)"
     review_date: "2026-07-15"
     hard_deadline: "2026-07-31"
+    migration_steps:
+      - step: freeze
+        description: >
+          Add snapshot_store_freeze.py guard (LegacySnapshotStoreFrozen exception,
+          _FROZEN flag, ALLOW_LEGACY_DUCKDB env bypass). Mirror data_access/freeze.py.
+        target_date: "2026-07-07"
+        completed: "2026-07-07"
+      - step: move
+        description: >
+          Build HarvesterSnapshotStore (13 methods over Parquet) + DualWriteSnapshotStore.
+          Add backend selector in assembly.py (config snapshot_store.backend).
+          Repoint JsonSnapshotStore alias.
+        target_date: "2026-07-14"
+        completed: "pending"
+      - step: seal
+        description: >
+          Seal DuckDBSnapshotStore write methods with @guard_method. Mark
+          Data/structural_lab/runtime/system.duckdb retire_after: 2026-10-15.
+          Add boundary test (production paths must not construct DuckDB directly).
+        target_date: "2026-07-21"
+        completed: "pending"
+    progress:
+      - "2026-07-07: FREEZE — snapshot_store_freeze.py guard + ALLOW_LEGACY_DUCKDB env bypass"
+      - "2026-07-07: Routing decision record 2026-07-07-duckdb-snapshot-store-migration.yaml created"
     risk_if_ignored: >
       46MB legacy runtime store remains canonical; cannot compress or archive.
+      Gateway shim retirement (retire_after: 2026-10-15) stays blocked.
     fallback_if_expired: >
       Keep DuckDB as-is; mark as legacy_runtime_store in data_retention_policy.
 
