@@ -10,6 +10,8 @@
 #
 # Each module is tested independently. Integration gates on all modules.
 # See also: nightly.yml (full daily pipeline), weekly-governance.yml (governance deep check).
+#
+# 2026-07-07: Submodules consolidated into packages/ — no submodule checkout needed.
 
 name: CI Minimal Gate
 
@@ -19,23 +21,13 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  # Rewrite SSH URLs to HTTPS for private submodule checkout in CI.
-  # TODO(consolidation): Remove after submodules merge into packages/ (target: 2026-07-31).
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
 jobs:
   # ── Layer 0: Fast gates (run immediately, no dependencies) ──────────────
 
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -44,12 +36,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -69,9 +56,9 @@ jobs:
           python -m py_compile scripts/build_signal_card.py
           python -m py_compile scripts/build_work_brief.py
           python -m py_compile scripts/caselab_daily_signal.py
-          python -m py_compile Workbench/src/workbench/judgment/claim_ladder.py
-          python -m py_compile Workbench/src/workbench/judgment/layer.py
-          python -m py_compile Workbench/src/workbench/judgment/promotion_gate.py
+          python -m py_compile packages/workbench/src/workbench/judgment/claim_ladder.py
+          python -m py_compile packages/workbench/src/workbench/judgment/layer.py
+          python -m py_compile packages/workbench/src/workbench/judgment/promotion_gate.py
       - name: Ruff lint
         run: ruff check scripts/ tests/ --select E,F,W,I --ignore E501,E402
 
@@ -81,12 +68,7 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -95,21 +77,16 @@ jobs:
       - name: Install Workbench
         run: |
           pip install --upgrade pip
-          pip install -e "Workbench[dev]"
+          pip install -e "packages/workbench[dev]"
       - name: Run Workbench tests
-        working-directory: Workbench
+        working-directory: packages/workbench
         run: pytest tests/ -q --tb=short
 
   deformation:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -118,21 +95,16 @@ jobs:
       - name: Install deformation-framework
         run: |
           pip install --upgrade pip
-          pip install -e "deformation-framework[dev]"
+          pip install -e "packages/framework[dev]"
       - name: Run deformation-framework tests
-        working-directory: deformation-framework
+        working-directory: packages/framework
         run: pytest tests/ -q --tb=short
 
   harvester:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -141,21 +113,16 @@ jobs:
       - name: Install harvester
         run: |
           pip install --upgrade pip
-          pip install -e "structural-risk-harvester[dev]"
+          pip install -e "packages/harvester[dev]"
       - name: Run harvester tests
-        working-directory: structural-risk-harvester
+        working-directory: packages/harvester
         run: pytest tests/ -q --tb=short
 
   hub:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -164,9 +131,9 @@ jobs:
       - name: Install learning-hub
         run: |
           pip install --upgrade pip
-          pip install -e "system-learning-hub[dev]"
+          pip install -e "packages/learning_hub[dev]"
       - name: Run learning-hub tests
-        working-directory: system-learning-hub
+        working-directory: packages/learning_hub
         run: pytest tests/ -q --tb=short
 
   # ── Layer 2: Integration (root contract tests + pipeline) ───────────────
@@ -177,12 +144,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -195,23 +157,23 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
           pip install pydantic
-          pip install -e "Workbench[dev]"
-          pip install -e "system-learning-hub[dev]"
+          pip install -e "packages/workbench[dev]"
+          pip install -e "packages/learning_hub[dev]"
       - name: Root contract tests
         run: |
           python -m pytest tests/ -q --tb=short -m "critical_gate or semantic or governance_loop" \
             --ignore=tests/test_backfill_judgment_calibration.py \
             --ignore=tests/test_mechanism_tiers.py
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Architecture boundary audit
         run: python scripts/architecture_reality_audit.py --json
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Daily pipeline dry-run
         run: python scripts/daily_run.py --dry-run
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Schema validation
         run: |
           python -c "
@@ -256,20 +218,20 @@ jobs:
           print('All schema validations passed.')
           "
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Entrypoint registry completeness
         run: python -m pytest tests/test_entrypoint_registry_completeness.py::test_registry_paths_exist -q --tb=short
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Experiment → core judgment check
         run: python scripts/verify_experiment_core_judgment.py
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Output freshness check
         run: python scripts/check_output_freshness.py
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Type check
         run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"

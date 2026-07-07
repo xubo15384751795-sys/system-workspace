@@ -1,7 +1,7 @@
 # Nightly Full Pipeline — comprehensive validation including all module tests.
 #
 # Runs daily at 05:00 UTC. Covers everything:
-#   - All 4 submodule test suites (independent)
+#   - All 4 package test suites (independent)
 #   - Root contract tests
 #   - Full daily pipeline dry-run (33+ steps)
 #   - Architecture boundary audit
@@ -9,6 +9,8 @@
 #   - Schema validation
 #
 # This is the safety net that catches drift between modules.
+#
+# 2026-07-07: Submodules consolidated into packages/ — no submodule checkout needed.
 
 name: Nightly Full Pipeline
 
@@ -17,23 +19,13 @@ on:
     - cron: "0 5 * * *"  # 05:00 UTC daily
   workflow_dispatch:
 
-env:
-  # Rewrite SSH URLs to HTTPS for private submodule checkout in CI.
-  # TODO(consolidation): Remove after submodules merge into packages/ (target: 2026-07-31).
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
 jobs:
   # ── Per-module tests (parallel) ─────────────────────────────────────────
 
   workbench:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -41,20 +33,15 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
-          pip install -e "Workbench[dev]"
+          pip install -e "packages/workbench[dev]"
       - name: Run Workbench tests
-        working-directory: Workbench
+        working-directory: packages/workbench
         run: pytest tests/ -q --tb=short
 
   deformation:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -62,20 +49,15 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
-          pip install -e "deformation-framework[dev]"
+          pip install -e "packages/framework[dev]"
       - name: Run deformation-framework tests
-        working-directory: deformation-framework
+        working-directory: packages/framework
         run: pytest tests/ -q --tb=short
 
   harvester:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -83,20 +65,15 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
-          pip install -e "structural-risk-harvester[dev]"
+          pip install -e "packages/harvester[dev]"
       - name: Run harvester tests
-        working-directory: structural-risk-harvester
+        working-directory: packages/harvester
         run: pytest tests/ -q --tb=short
 
   hub:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -104,9 +81,9 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
-          pip install -e "system-learning-hub[dev]"
+          pip install -e "packages/learning_hub[dev]"
       - name: Run learning-hub tests
-        working-directory: system-learning-hub
+        working-directory: packages/learning_hub
         run: pytest tests/ -q --tb=short
 
   # ── Full integration (gates on all module tests) ────────────────────────
@@ -118,12 +95,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -135,26 +107,26 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[dev]"
-          pip install -e "Workbench[dev]"
-          pip install -e "deformation-framework[dev]"
-          pip install -e "structural-risk-harvester[dev]"
-          pip install -e "system-learning-hub[dev]"
+          pip install -e "packages/workbench[dev]"
+          pip install -e "packages/framework[dev]"
+          pip install -e "packages/harvester[dev]"
+          pip install -e "packages/learning_hub[dev]"
       - name: Root contract tests
         run: python -m pytest tests/ -q --tb=short
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Daily pipeline dry-run
         run: python scripts/daily_run.py --dry-run
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Architecture boundary audit
         run: python scripts/architecture_reality_audit.py --json
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Operator registry audit (offline)
         run: python scripts/operator_registry_audit.py --json
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Schema validation
         run: |
           python -c "
@@ -199,16 +171,16 @@ jobs:
           print('All schema validations passed.')
           "
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Experiment → core judgment check
         run: python scripts/verify_experiment_core_judgment.py
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Output freshness check
         run: python scripts/check_output_freshness.py
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Type check (advisory)
         run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary || true
         env:
-          PYTHONPATH: "Workbench/src:scripts"
+          PYTHONPATH: "packages/workbench/src:scripts"

@@ -6,6 +6,8 @@
 #   - Full daily pipeline dry-run
 #   - Architecture reality audit
 #   - Operator registry audit
+#
+# 2026-07-07: Submodules consolidated into packages/ — no submodule checkout needed.
 
 name: Weekly Governance Check
 
@@ -14,22 +16,12 @@ on:
     - cron: "0 3 * * 1"  # Monday 03:00 UTC
   workflow_dispatch:
 
-env:
-  # Rewrite SSH URLs to HTTPS for private submodule checkout in CI.
-  # TODO(consolidation): Remove after submodules merge into packages/ (target: 2026-07-31).
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
 jobs:
   governance-weekly:
     runs-on: ubuntu-latest
     steps:
-      - name: Rewrite SSH to HTTPS
-        run: git config --global url."https://x-access-token:${{ env.GH_TOKEN }}@github.com/".insteadOf "git@github.com:"
-      - name: Checkout with submodules
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ env.GH_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -44,47 +36,47 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
-          python -m pip install -e "Workbench[dev]"
+          python -m pip install -e "packages/workbench[dev]"
 
       - name: Check governance freeze (advisory)
         continue-on-error: true
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/check_governance_freeze.py
 
       - name: Build derived governance artifacts
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/build_authority_graph.py --fail-on-invariant
           python scripts/build_entrypoint_registry.py
           python scripts/build_incentive_review.py
 
       - name: Governance and pipeline contract tests
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python -m pytest tests/test_daily_run_sequence.py tests/test_governance_runtime_contracts.py tests/test_authority_graph.py tests/test_governance_freeze.py tests/test_incentive_engine.py -q --tb=short
 
       - name: Daily pipeline dry-run
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/daily_run.py --dry-run
 
       - name: Architecture reality audit
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/architecture_reality_audit.py --json
 
       - name: Operator registry audit (offline)
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/operator_registry_audit.py --json
 
       - name: Experiment → core judgment check
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/verify_experiment_core_judgment.py
 
       - name: Output freshness check
         run: |
-          export PYTHONPATH="${{ github.workspace }}/Workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/check_output_freshness.py
