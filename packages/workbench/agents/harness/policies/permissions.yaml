@@ -1,0 +1,118 @@
+# permissions.yaml — Mode-based permission matrix.
+#
+# Each mode declares which risk categories are permitted, and whether
+# approval is required, denied outright, or asks the user.
+#
+# Decision levels:
+#   allow                  — proceed without question
+#   ask                    — prompt the user / agent before proceeding
+#   require_manual_review  — halt; a human must review and approve
+#   deny                   — hard block; cannot proceed
+
+version: "0.1.0"
+
+modes:
+  explore:
+    description: "Read-only data inspection; no mutations allowed"
+    permissions:
+      read_only: allow
+      code_edit: deny
+      data_mutation: deny
+      release_finalization: deny
+      snapshot_publish: deny
+      cross_boundary: deny
+      destructive: deny
+    note: >
+      Explore mode is strictly read-only.  Any mutation, code edit,
+      or cross-boundary access is denied.
+
+  plan:
+    description: "Planning and analysis only; no code or data changes"
+    permissions:
+      read_only: allow
+      code_edit: deny
+      data_mutation: deny
+      release_finalization: deny
+      snapshot_publish: deny
+      cross_boundary: ask
+      destructive: deny
+    note: >
+      Plan mode permits cross-boundary analysis for dependency mapping
+      but asks for confirmation before accessing peer system data.
+
+  verify:
+    description: "Read-only verification and validation"
+    permissions:
+      read_only: allow
+      code_edit: deny
+      data_mutation: ask
+      release_finalization: deny
+      snapshot_publish: deny
+      cross_boundary: ask
+      destructive: deny
+    note: >
+      Verify mode allows writing verification records (light mutation)
+      but asks first.  Finalization and publish are denied.
+
+  implement:
+    description: "Code edits allowed; release and publish denied"
+    permissions:
+      read_only: allow
+      code_edit: allow
+      data_mutation: ask
+      release_finalization: deny
+      snapshot_publish: deny
+      cross_boundary: ask
+      destructive: ask
+    note: >
+      Implement mode allows code editing within a subsystem.  Release
+      finalization and publishing remain denied.
+
+  release:
+    description: "Release finalization and publishing; requires manual review"
+    permissions:
+      read_only: allow
+      code_edit: ask
+      data_mutation: allow
+      release_finalization: require_manual_review
+      snapshot_publish: require_manual_review
+      cross_boundary: ask
+      destructive: deny
+
+  run:
+    description: "Full execution mode; most operations allowed"
+    permissions:
+      read_only: allow
+      code_edit: ask
+      data_mutation: allow
+      release_finalization: require_manual_review
+      snapshot_publish: require_manual_review
+      cross_boundary: ask
+      destructive: ask
+    note: >
+      Even in run mode, release finalization and snapshot publishing
+      require manual human review.
+
+  edit:
+    description: "Edit mode; can modify verified artifacts"
+    permissions:
+      read_only: allow
+      code_edit: ask
+      data_mutation: allow
+      release_finalization: deny
+      snapshot_publish: deny
+      cross_boundary: ask
+      destructive: ask
+
+  fetch:
+    description: "Data fetch mode; read + ingestion"
+    permissions:
+      read_only: allow
+      code_edit: deny
+      data_mutation: allow
+      release_finalization: deny
+      snapshot_publish: deny
+      cross_boundary: ask
+      destructive: deny
+
+default: deny

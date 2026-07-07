@@ -1,0 +1,28 @@
+# Pinned dependency lock — 2026-05-05
+# Regenerate: pip freeze | grep -E '^(numpy|scipy|pandas|pyyaml|duckdb|polars|jax|jaxlib|diffrax|equinox|numpyro|blackjax|networkx|scikit-learn|ruptures|plotly|streamlit|fastapi|uvicorn|pytest|mypy|ruff)=='
+#
+# Layer map:
+#   base.in  → numpy, scipy, pandas, pyyaml, duckdb, polars
+#   math.in  → jax, jaxlib, diffrax, equinox, numpyro, blackjax, networkx, scikit-learn, ruptures
+#   viz.in   → plotly, streamlit, fastapi, uvicorn
+#   dev.in   → pytest, pytest-cov, mypy, ruff
+numpy==2.4.4
+scipy==1.17.1
+pandas==3.0.2
+pyyaml==6.0.3
+duckdb==1.5.2
+polars==1.40.1
+jax==0.10.0
+jaxlib==0.10.0
+diffrax==0.7.2
+equinox==0.13.7
+numpyro==0.20.1
+blackjax==1.5
+networkx==3.6.1
+scikit-learn==1.8.0
+ruptures>=1.0
+Jinja2==3.1.6
+plotly==6.7.0
+streamlit==1.56.0
+fastapi==0.128.8
+uvicorn==0.40.0

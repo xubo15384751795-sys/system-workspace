@@ -13,6 +13,7 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^packages/  # packages have their own CI/lint; avoid false positives from submodule code
       - id: check-json
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -23,6 +24,7 @@ repos:
           - "--select=E,F,W,I"
           - "--ignore=E501,E402"
         types_or: [python, pyi]
+        exclude: ^packages/  # packages/ have their own pyproject lint configs (editable installs)
 
   # Governance freeze — block commits that add unapproved governance files
   # or tamper with baseline file content.

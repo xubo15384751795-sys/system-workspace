@@ -1,0 +1,126 @@
+# F.2: Legacy Adapter Retirement Map
+#
+# Each entry records the disposition of a legacy provider adapter.
+# - retire_now: safe to deactivate immediately
+# - migrate_to_harvester: keep until Harvester acquires this source
+# - keep_for_historical: needed for historical replay
+# - delete_after_release_2: safe to remove after second promoted release
+#
+# This document is the authoritative record, not a runtime config.
+
+schema_version: "1.0"
+generated_at: "2026-05-05"
+
+adapters:
+  # ------------------------------------------------------------------
+  # Core financial data — migrate to Harvester
+  # ------------------------------------------------------------------
+  FRED:
+    status: migrate_to_harvester
+    harvester_provider: fred
+    openbb_provider: openbb_fred
+    note: "Primary acquisition engine. Migrated to Harvester FredProvider + OpenBBProvider."
+    series_covered: 19
+    target_migration: "Phase C"
+
+  CBOE:
+    status: migrate_to_harvester
+    harvester_provider: none_yet
+    openbb_provider: openbb_cboe
+    note: "VIXCLS already acquired via FRED/OpenBB. Direct CBOE not needed."
+
+  ECB:
+    status: migrate_to_harvester
+    harvester_provider: none_yet
+    openbb_provider: openbb_ecb
+    note: "Not in current registry. Add if European dimension needed."
+
+  IMF:
+    status: migrate_to_harvester
+    harvester_provider: none_yet
+    note: "Not in current registry. Add if global macro needed."
+
+  # ------------------------------------------------------------------
+  # Government / regulatory — keep direct Harvester
+  # ------------------------------------------------------------------
+  SEC:
+    status: migrate_to_harvester
+    harvester_provider: sec
+    note: "SecProvider already built. Filing pulse is coarse proxy."
+
+  Treasury:
+    status: migrate_to_harvester
+    harvester_provider: treasury
+    note: "TreasuryProvider already built. FiscalData API."
+
+  Fed_H41:
+    status: migrate_to_harvester
+    harvester_provider: h41
+    note: "PROVISIONAL — FRED bridge. Direct H.4.1 parsing needed later."
+
+  # ------------------------------------------------------------------
+  # Third-party data vendors — retire
+  # ------------------------------------------------------------------
+  AlphaVantage:
+    status: retire_now
+    reason: "All needed series covered by FRED/OpenBB. Redundant."
+    series_covered: 0
+
+  Polygon:
+    status: retire_now
+    reason: "Commercial API. No series in current registry."
+    series_covered: 0
+
+  Stooq:
+    status: retire_now
+    reason: "Free but unreliable. No series in current registry."
+    series_covered: 0
+
+  Nasdaq_Data_Link:
+    status: retire_now
+    reason: "Formerly Quandl. Superseded by FRED direct + OpenBB."
+    series_covered: 0
+
+  FFIEC:
+    status: retire_now
+    reason: "Banking data not in current registry scope."
+    series_covered: 0
+
+  # ------------------------------------------------------------------
+  # Optional / conditional
+  # ------------------------------------------------------------------
+  Tiingo:
+    status: retire_now
+    reason: "Paid tier. Covered by FRED/OpenBB. No current registry entries."
+
+  BIS:
+    status: retire_now
+    reason: "Not in current registry. Add if global macro dimension expands."
+
+  CFTC:
+    status: retire_now
+    reason: "COT data not in current registry. Add if positioning dimension needed."
+
+  OECD:
+    status: retire_now
+    reason: "Not in current registry. Add if structural macro needed."
+
+# ------------------------------------------------------------------
+# Retirement phases
+# ------------------------------------------------------------------
+phases:
+  phase_1_now:
+    description: "Adapters safe to deactivate immediately"
+    adapters: [AlphaVantage, Polygon, Stooq, Nasdaq_Data_Link, FFIEC, Tiingo, BIS, CFTC, OECD]
+
+  phase_2_after_migration:
+    description: "Deactivate after Harvester equivalent is confirmed"
+    adapters: [FRED, CBOE]
+
+  phase_3_after_release_2:
+    description: "Deactivate after second promoted Harvester release"
+    adapters: [ECB, IMF]
+
+  phase_4_keep:
+    description: "Keep as Harvester provider backends (not legacy DataHub)"
+    adapters: [SEC, Treasury, Fed_H41]

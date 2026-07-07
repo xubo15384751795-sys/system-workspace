@@ -1,0 +1,1001 @@
+# Series Registry — Canonical definition of every series eligible for Harvester acquisition.
+# This is the single source of truth for provider routing, structural role annotation,
+# and release requirements.  The Harvester records structural_role but does NOT decide
+# how a series enters Deformation equations (channels, preset membership, etc.).
+
+schema_version: "1.0"
+
+providers:
+  fred:
+    source_id: fred
+    kind: public_api
+    url: https://api.stlouisfed.org/fred/series/observations
+    rate_limit_seconds: 0.25
+  h41:
+    source_id: h41
+    kind: public_file
+    url: https://www.federalreserve.gov/datadownload/Download.aspx
+    note: "Direct Federal Reserve Data Download Program CSV. FRED bridge remains a fallback when configured."
+  treasury:
+    source_id: treasury
+    kind: public_api
+    url: https://api.fiscaldata.treasury.gov
+  sec:
+    source_id: sec
+    kind: public_api
+    url: https://data.sec.gov/submissions
+    rate_limit_seconds: 0.5
+  openbb_fred:
+    source_id: fred          # emitted source_id is fred, not openbb
+    kind: public_api
+    url: openbb:economy.fred_series
+    note: "OpenBB is the acquisition engine; downstream identity remains provider-native."
+  openbb_tiingo:
+    source_id: tiingo
+    kind: public_api
+    url: openbb:equity.price.historical
+    note: "OpenBB/Tiingo EOD ETF OHLCV. Free API key; downstream identity remains tiingo."
+  openbb_yfinance:
+    source_id: yfinance
+    kind: public_api
+    url: openbb:equity.price.historical
+    note: "OpenBB/yfinance EOD ETF OHLCV. No API key required; fallback for tiingo."
+  direct_ofr:
+    source_id: ofr
+    kind: public_file
+    url: https://www.financialresearch.gov/financial-stress-index/
+    note: "Direct CSV download from OFR website."
+  cboe_direct:
+    source_id: cboe
+    kind: public_file
+    url: https://cdn.cboe.com/api/global/us_indices/daily_prices/
+    intraday_url_template: https://cdn.cboe.com/api/global/delayed_quotes/quotes/_{symbol}.json
+    note: "Direct CBOE. CSV=EOD, JSON=15-minute delayed intraday. No API key."
+  derived:
+    source_id: derived
+    kind: computed
+    note: "Computed series built inside Harvester from other acquired inputs."
+
+series:
+  # -------------------------------------------------------------------
+  # Required — core structural series
+  # -------------------------------------------------------------------
+  NFCI:
+    canonical_id: NFCI
+    provider_priority:
+      - fred_chicago_fed   # canonical source
+      - fred
+      - openbb_fred
+    measurement_block: financial_conditions
+    structural_role: credit_liquidity_condition
+    frequency: weekly
+    unit: index
+    required_for_release: true
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Chicago Fed National Financial Conditions Index"
+
+  VIXCLS:
+    canonical_id: VIXCLS
+    provider_priority:
+      - fred
+      - cboe_direct
+      - openbb_fred
+    measurement_block: equity_volatility
+    structural_role: volatility_anchor
+    frequency: daily
+    unit: index
+    required_for_release: true
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "CBOE Volatility Index: VIX"
+
+  BAMLH0A0HYM2:
+    canonical_id: BAMLH0A0HYM2
+    provider_priority:
+      - fred
+      - openbb_fred
+    measurement_block: credit_spread
+    structural_role: credit_depth_proxy
+    frequency: daily
+    unit: percent
+    required_for_release: true
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "ICE BofA US High Yield Index Option-Adjusted Spread"
+
+  # -------------------------------------------------------------------
+  # Missing required series (Phase C.4)
+  # -------------------------------------------------------------------
+  MOVE:
+    canonical_id: MOVE
+    provider_priority:
+      - cboe_direct
+      - synthetic_rates_vol_proxy
+    measurement_block: rates_volatility
+    structural_role: rates_volatility_index
+    frequency: daily
+    unit: index
+    required_for_release: true
+    required_for_model_input: true
+    quality_expectation: observed
+    allow_synthetic_proxy: true
+    synthetic_proxy_id: MOVE_PROXY
+    description: "Rates volatility slot now backed by current CBOE VXTLT direct CSV. Proxy allowed if real unavailable."
+
+  TYVIX:
+    canonical_id: TYVIX
+    provider_priority:
+      - cboe_direct
+    measurement_block: rates_volatility
+    structural_role: rates_vol_transition
+    frequency: daily
+    unit: index
+    required_for_release: true
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "CBOE/ICE Interest Rate Volatility Index. Historical public rates-volatility series; CBOE direct file currently ends in 2023."
+
+  VXTLT:
+    canonical_id: VXTLT
+    provider_priority:
+      - cboe_direct
+    measurement_block: rates_volatility
+    structural_role: rates_vol_transition
+    frequency: daily
+    unit: index
+    required_for_release: true
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Cboe 20+ Year Treasury Bond ETF Volatility Index. Current public MOVE alternative."
+
+  VVIX:
+    canonical_id: VVIX
+    provider_priority:
+      - cboe_direct
+    measurement_block: volatility_surface
+    structural_role: vol_of_vol_transition
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "CBOE VIX Volatility Index."
+
+  SKEW:
+    canonical_id: SKEW
+    provider_priority:
+      - cboe_direct
+    measurement_block: volatility_surface
+    structural_role: tail_skew_transition
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "CBOE SKEW Index."
+
+  VIX9D:
+    canonical_id: VIX9D
+    provider_priority:
+      - cboe_direct
+    measurement_block: volatility_term_structure
+    structural_role: short_horizon_vol_transition
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "CBOE 9-Day Volatility Index."
+
+  VIX3M:
+    canonical_id: VIX3M
+    provider_priority:
+      - cboe_direct
+    measurement_block: volatility_term_structure
+    structural_role: three_month_vol_transition
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "CBOE 3-Month Volatility Index."
+
+  VIX6M:
+    canonical_id: VIX6M
+    provider_priority:
+      - cboe_direct
+    measurement_block: volatility_term_structure
+    structural_role: six_month_vol_transition
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "CBOE 6-Month Volatility Index."
+
+  SPX:
+    canonical_id: SPX
+    provider_priority:
+      - cboe_direct
+    measurement_block: market_depth
+    structural_role: roll_bid_ask_input
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "CBOE S&P 500 Index close, used for Roll bid-ask spread approximation."
+
+  STLFSI4:
+    canonical_id: STLFSI4
+    provider_priority:
+      - fred
+      - openbb_fred
+    measurement_block: financial_stress
+    structural_role: financial_stress_index
+    frequency: weekly
+    unit: index
+    required_for_release: true
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "St. Louis Fed Financial Stress Index"
+
+  OFR_FSI:
+    canonical_id: OFR_FSI
+    provider_priority:
+      - direct_ofr
+      - openbb_if_available
+    measurement_block: systemic_stress
+    structural_role: systemic_stress_index
+    frequency: daily
+    unit: index
+    required_for_release: false  # degraded: OFR requires manual CSV download; STLFSI covers financial_stress block
+    required_for_model_input: false
+    quality_expectation: observed
+    allow_synthetic_proxy: true
+    synthetic_proxy_id: STLFSI  # fallback to St. Louis Fed stress index when OFR unavailable
+    description: "OFR Financial Stress Index — systemic stress measurement (degraded, see STLFSI proxy)"
+
+  # -------------------------------------------------------------------
+  # M channel — funding / transmission
+  # -------------------------------------------------------------------
+  T10Y2Y:
+    canonical_id: T10Y2Y
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_gap
+    structural_role: curve_shape_proxy
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "10-Year Treasury Constant Maturity Minus 2-Year"
+
+  DFF:
+    canonical_id: DFF
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_gap
+    structural_role: policy_rate_anchor
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Federal Funds Effective Rate"
+
+  # -------------------------------------------------------------------
+  # D channel — depth / credit conditions
+  # -------------------------------------------------------------------
+  HYG:
+    canonical_id: HYG
+    provider_priority: [openbb_yfinance, openbb_tiingo]
+    measurement_block: depth
+    structural_role: high_yield_etf_price
+    frequency: daily
+    unit: usd
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "iShares iBoxx High Yield Corporate Bond ETF daily close via Tiingo/OpenBB."
+
+  LQD:
+    canonical_id: LQD
+    provider_priority: [openbb_yfinance, openbb_tiingo]
+    measurement_block: depth
+    structural_role: investment_grade_etf_price
+    frequency: daily
+    unit: usd
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "iShares iBoxx Investment Grade Corporate Bond ETF daily close via Tiingo/OpenBB."
+
+  TLT:
+    canonical_id: TLT
+    provider_priority: [openbb_yfinance, openbb_tiingo]
+    measurement_block: depth
+    structural_role: treasury_duration_etf_price
+    frequency: daily
+    unit: usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "iShares 20+ Year Treasury Bond ETF daily close via Tiingo/OpenBB."
+
+  SOFR:
+    canonical_id: SOFR
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_access
+    structural_role: secured_rate_benchmark
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Secured Overnight Financing Rate"
+
+  IORB:
+    canonical_id: IORB
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_access
+    structural_role: reserve_rate_benchmark
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Interest Rate on Reserve Balances"
+
+  DCPF3M:
+    canonical_id: DCPF3M
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_access
+    structural_role: commercial_paper_rate
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "3-Month AA Financial Commercial Paper Rate"
+
+  DGS3MO:
+    canonical_id: DGS3MO
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_access
+    structural_role: treasury_bill_rate
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "3-Month Treasury Constant Maturity Rate"
+
+  DPRIME:
+    canonical_id: DPRIME
+    provider_priority: [fred, openbb_fred]
+    measurement_block: funding_access
+    structural_role: prime_rate
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Bank Prime Loan Rate"
+
+  BAMLC0A0CM:
+    canonical_id: BAMLC0A0CM
+    provider_priority: [fred, openbb_fred]
+    measurement_block: depth
+    structural_role: investment_grade_spread
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "ICE BofA US Corporate Index Option-Adjusted Spread"
+
+  BAMLC0A4CBBB:
+    canonical_id: BAMLC0A4CBBB
+    provider_priority: [fred, openbb_fred]
+    measurement_block: depth
+    structural_role: bbb_spread
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "ICE BofA BBB US Corporate Index Option-Adjusted Spread"
+
+  DBAA:
+    canonical_id: DBAA
+    provider_priority: [fred, openbb_fred]
+    measurement_block: depth
+    structural_role: baa_yield
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Moody's Seasoned Baa Corporate Bond Yield"
+
+  DAAA:
+    canonical_id: DAAA
+    provider_priority: [fred, openbb_fred]
+    measurement_block: depth
+    structural_role: aaa_yield
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Moody's Seasoned Aaa Corporate Bond Yield"
+
+  BAA10YM:
+    canonical_id: BAA10YM
+    provider_priority: [fred, openbb_fred]
+    measurement_block: depth
+    structural_role: baa_10y_spread
+    frequency: monthly
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Moody's Baa Corporate Bond Yield Relative to 10-Year Treasury"
+
+  # -------------------------------------------------------------------
+  # NFCI sub-indices
+  # -------------------------------------------------------------------
+  NFCIRISK:
+    canonical_id: NFCIRISK
+    provider_priority: [fred, openbb_fred]
+    measurement_block: financial_conditions
+    structural_role: nfci_risk_subindex
+    frequency: weekly
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Chicago Fed NFCI Risk Subindex"
+
+  NFCICREDIT:
+    canonical_id: NFCICREDIT
+    provider_priority: [fred, openbb_fred]
+    measurement_block: financial_conditions
+    structural_role: nfci_credit_subindex
+    frequency: weekly
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Chicago Fed NFCI Credit Subindex"
+
+  NFCILEVERAGE:
+    canonical_id: NFCILEVERAGE
+    provider_priority: [fred, openbb_fred]
+    measurement_block: financial_conditions
+    structural_role: nfci_leverage_subindex
+    frequency: weekly
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Chicago Fed NFCI Leverage Subindex"
+
+  # -------------------------------------------------------------------
+  # H.4.1 fields (direct Federal Reserve DDP CSV; FRED fallback available)
+  # -------------------------------------------------------------------
+  discount_window:
+    canonical_id: discount_window
+    provider_priority: [h41]
+    measurement_block: shadow_funding
+    structural_role: discount_window_borrowing
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed_nonzero
+    description: "Discount Window Borrowing (direct H.4.1 DDP CSV)"
+
+  primary_credit:
+    canonical_id: primary_credit
+    provider_priority: [h41]
+    measurement_block: shadow_funding
+    structural_role: primary_credit_usage
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed_nonzero
+    description: "Primary Credit (direct H.4.1 DDP CSV)"
+
+  btfp:
+    canonical_id: btfp
+    provider_priority: [h41]
+    measurement_block: shadow_funding
+    structural_role: btfp_usage
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed_zero_post_expiry
+    description: "Bank Term Funding Program (direct H.4.1 DDP CSV; observed_zero post-expiry)"
+
+  # -------------------------------------------------------------------
+  # Treasury
+  # -------------------------------------------------------------------
+  tot_pub_debt_out_amt:
+    canonical_id: tot_pub_debt_out_amt
+    source_series_id: debt_to_penny:tot_pub_debt_out_amt
+    provider_priority: [treasury]
+    measurement_block: refinancing_pressure
+    structural_role: public_debt_level
+    frequency: daily
+    unit: usd
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Total Public Debt Outstanding"
+
+  open_today_bal:
+    canonical_id: open_today_bal
+    source_series_id: daily_treasury_statement:open_today_bal
+    provider_priority: [treasury]
+    measurement_block: liquidation_path_instability
+    structural_role: treasury_cash_balance
+    frequency: daily
+    unit: usd
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: observed
+    description: "Opening Balance Today (Daily Treasury Statement)"
+
+  # -------------------------------------------------------------------
+  # SEC filing pulse
+  # -------------------------------------------------------------------
+  SEC_FILING_PULSE:
+    canonical_id: SEC_FILING_PULSE
+    # Provider-native id for the SEC submissions endpoint is a CIK, not the
+    # canonical_id. Without this, registry routing would pass the literal
+    # "SEC_FILING_PULSE" to SecProvider, which treats any non-OBS id as a CIK
+    # and builds an invalid CIK000SEC_FILING_PULSE.json URL (404). Pin to the
+    # same CIK the legacy OFFICIAL_SERIES_MAP uses for the issuer filing pulse.
+    source_series_id: "0000072971"
+    provider_priority: [sec]
+    measurement_block: verifiability
+    structural_role: issuer_filing_pulse
+    frequency: daily
+    unit: filing_count
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Issuer filing pulse — daily EDGAR filing count. Coarse proxy, NOT credit-stress metric."
+
+  # X_agg v1 off-balance-sheet — Phase 1 interim (see
+  # ../governance/x_agg_v1_obs_procurement_plan.md). Aggregate derivatives
+  # notional / total assets over the large dealer-bank basket, from SEC XBRL
+  # companyconcept. Interim/coarse; canonical source is FFIEC FR Y-9C HC-L.
+  OBS_DERIV_TO_ASSETS:
+    canonical_id: OBS_DERIV_TO_ASSETS
+    source_series_id: OBS_DERIV_TO_ASSETS
+    provider_priority: [sec]
+    measurement_block: off_balance_sheet
+    structural_role: obs_to_assets
+    frequency: quarterly
+    unit: ratio
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Aggregate derivatives notional / total assets, large dealer banks (SEC XBRL). Phase 1 interim OBS proxy for X_agg v1."
+
+  # -------------------------------------------------------------------
+  # TEDRATE replacement (derived)
+  # -------------------------------------------------------------------
+  SOFR_IORB_SPREAD:
+    canonical_id: SOFR_IORB_SPREAD
+    provider_priority: [derived]
+    derived: true
+    formula: "SOFR - IORB"
+    inputs: [SOFR, IORB]
+    measurement_block: funding_gap
+    structural_role: tedrate_replacement_primary
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: derived
+    description: "SOFR-IORB spread — primary TEDRATE replacement. Aligned via inner join."
+
+  CP_TBILL_SPREAD:
+    canonical_id: CP_TBILL_SPREAD
+    provider_priority: [derived]
+    derived: true
+    formula: "DCPF3M - DGS3MO"
+    inputs: [DCPF3M, DGS3MO]
+    measurement_block: funding_gap
+    structural_role: tedrate_replacement_secondary
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: derived
+    description: "CP-TBill spread — secondary TEDRATE replacement. Aligned via inner join."
+
+  VIX3M_VIX_SLOPE:
+    canonical_id: VIX3M_VIX_SLOPE
+    provider_priority: [derived]
+    derived: true
+    formula: "VIX3M - VIXCLS"
+    inputs: [VIX3M, VIXCLS]
+    measurement_block: volatility_term_structure
+    structural_role: vix_term_slope_transition
+    frequency: daily
+    unit: index_points
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: derived
+    description: "VIX term-structure slope using CBOE VIX3M minus FRED/CBOE VIX."
+
+  VIX9D_VIX_RATIO:
+    canonical_id: VIX9D_VIX_RATIO
+    provider_priority: [derived]
+    derived: true
+    formula: "VIX9D / VIXCLS"
+    inputs: [VIX9D, VIXCLS]
+    measurement_block: volatility_term_structure
+    structural_role: vix_short_end_ratio
+    frequency: daily
+    unit: ratio
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: derived
+    description: "VIX9D over spot VIX — very short-end vol term structure."
+
+  SPX_ROLL_SPREAD:
+    canonical_id: SPX_ROLL_SPREAD
+    provider_priority: [derived]
+    derived: true
+    formula: "ROLL(SPX,21)"
+    inputs: [SPX]
+    measurement_block: market_depth
+    structural_role: roll_bid_ask_spread
+    frequency: daily
+    unit: return_units
+    required_for_release: false
+    required_for_model_input: true
+    quality_expectation: derived
+    description: "Roll bid-ask spread approximation from CBOE SPX daily closes."
+
+  MOVE_PROXY:
+    canonical_id: MOVE_PROXY
+    provider_priority: [derived]
+    derived: true
+    synthetic_proxy: true
+    formula: "VIXCLS * 0.5"
+    inputs: [VIXCLS]
+    measurement_block: rates_volatility
+    structural_role: rates_volatility_synthetic_proxy
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: synthetic
+    description: "Synthetic MOVE proxy (VIXCLS * 0.5). Marked synthetic_proxy=true — NOT real MOVE."
+
+  # -------------------------------------------------------------------
+  # TEDRATE — retired reference
+  # -------------------------------------------------------------------
+  TEDRATE:
+    canonical_id: TEDRATE
+    provider_priority: [fred]
+    status: retired_reference
+    retired_date: "2022-01-31"
+    measurement_block: funding_gap
+    structural_role: retired_ted_spread
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    allowed_use:
+      - historical_replay
+      - reference_only
+    forbidden_use:
+      - current_model_input
+      - freshness_gate
+    replacements:
+      primary: SOFR_IORB_SPREAD
+      secondary: CP_TBILL_SPREAD
+      tertiary: BAMLH0A0HYM2
+    quality_expectation: retired
+    description: "TED Spread — retired January 2022. Valid for historical replay only."
+
+  # -------------------------------------------------------------------
+  # X_agg daily data augmentation — shadow leverage / liquidity
+  # -------------------------------------------------------------------
+  RRPONTSYD:
+    canonical_id: RRPONTSYD
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: reverse_repo_drain
+    frequency: daily
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Overnight Reverse Repurchase Agreements (RRP) — daily liquidity drain indicator. High RRP = liquidity parked at Fed."
+
+  WTREGEN:
+    canonical_id: WTREGEN
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: treasury_general_account
+    frequency: daily
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Treasury General Account (TGA) balance — daily fiscal impact / liquidity absorption indicator."
+
+  TOTRESNS:
+    canonical_id: TOTRESNS
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: bank_reserves
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Total Reserves of Depository Institutions — weekly bank liquidity indicator."
+
+  # -------------------------------------------------------------------
+  # Credit / bank / macro augmentation
+  # -------------------------------------------------------------------
+  WRESBAL:
+    canonical_id: WRESBAL
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: reserve_balances
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Reserve Balances with Federal Reserve Banks — weekly bank liquidity."
+
+  TOTBKCR:
+    canonical_id: TOTBKCR
+    provider_priority: [fred, openbb_fred]
+    measurement_block: credit_plumbing
+    structural_role: total_bank_credit
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Total Bank Credit — weekly bank lending indicator (1973+)."
+
+  WALCL:
+    canonical_id: WALCL
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: fed_total_assets
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Federal Reserve Total Assets — weekly balance sheet size."
+
+  T10YIE:
+    canonical_id: T10YIE
+    provider_priority: [fred, openbb_fred]
+    measurement_block: expectations
+    structural_role: inflation_breakeven_10y
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "10-Year Breakeven Inflation Rate — daily market inflation expectations."
+
+  T5YIE:
+    canonical_id: T5YIE
+    provider_priority: [fred, openbb_fred]
+    measurement_block: expectations
+    structural_role: inflation_breakeven_5y
+    frequency: daily
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "5-Year Breakeven Inflation Rate — daily market inflation expectations."
+
+  BUSLOANS:
+    canonical_id: BUSLOANS
+    provider_priority: [fred, openbb_fred]
+    measurement_block: credit_plumbing
+    structural_role: commercial_industrial_loans
+    frequency: monthly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Commercial and Industrial Loans — monthly business credit (1947+)."
+
+  TREAST:
+    canonical_id: TREAST
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: treasury_deposits_at_fed
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Treasury Deposits at Federal Reserve — weekly fiscal liquidity."
+
+  DRSFRMACBS:
+    canonical_id: DRSFRMACBS
+    provider_priority: [fred, openbb_fred]
+    measurement_block: credit_quality
+    structural_role: mortgage_delinquency
+    frequency: quarterly
+    unit: percent
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Delinquency Rate on Single-Family Residential Mortgages — quarterly credit stress."
+
+  DTWEXBGS:
+    canonical_id: DTWEXBGS
+    provider_priority: [fred, openbb_fred]
+    measurement_block: dollar
+    structural_role: trade_weighted_dollar
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Trade Weighted US Dollar Index — daily broad dollar."
+
+  # -------------------------------------------------------------------
+  # Broker-dealer leverage (Z.1 Financial Accounts, quarterly, 1945+)
+  # -------------------------------------------------------------------
+  BOGZ1FL663067003Q:
+    canonical_id: BOGZ1FL663067003Q
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: broker_dealer_margin_loans
+    frequency: quarterly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Security Brokers and Dealers; Receivables Due from Customers (Margin Loans) — quarterly, 1945+. FINRA margin debt equivalent from Fed Z.1."
+
+  BOGZ1FL624123035Q:
+    canonical_id: BOGZ1FL624123035Q
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: hedge_fund_prime_brokerage
+    frequency: quarterly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Hedge Funds; Loans, Total Secured Borrowing Via Prime Brokerages — quarterly, 1945+. Institutional leverage indicator."
+
+  SBDDSA:
+    canonical_id: SBDDSA
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: broker_dealer_debt_securities
+    frequency: quarterly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Security Brokers and Dealers; Debt Securities — quarterly, 1945+. Broker-dealer balance sheet size."
+
+  SCABSHNO:
+    canonical_id: SCABSHNO
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: cash_accounts_brokers
+    frequency: quarterly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Households; Cash Accounts at Brokers and Dealers — quarterly, 1945+. Retail cash positioning."
+
+  # -------------------------------------------------------------------
+  # Procurement: money market, CP, dealer positions
+  # -------------------------------------------------------------------
+  WRMFNS:
+    canonical_id: WRMFNS
+    provider_priority: [fred, openbb_fred]
+    measurement_block: liquidity
+    structural_role: retail_money_market_funds
+    frequency: weekly
+    unit: bil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Retail Money Market Funds — weekly, 1980+. Liquidity parking indicator."
+
+  COMPOUT:
+    canonical_id: COMPOUT
+    provider_priority: [fred, openbb_fred]
+    measurement_block: credit_plumbing
+    structural_role: commercial_paper_outstanding
+    frequency: weekly
+    unit: bil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Commercial Paper Outstanding — weekly, 2001+. Short-term credit supply."
+
+  RESPPLLOPNWW:
+    canonical_id: RESPPLLOPNWW
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: reserve_bank_credit
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Reserve Bank Credit — weekly, 2002+. Fed lending to financial system."
+
+  BOGZ1FL663061165Q:
+    canonical_id: BOGZ1FL663061165Q
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: dealer_treasury_positions
+    frequency: quarterly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Broker-Dealer Treasury Securities Long Positions — quarterly, 1945+."
+
+  BOGZ1FL663064103Q:
+    canonical_id: BOGZ1FL663064103Q
+    provider_priority: [fred, openbb_fred]
+    measurement_block: shadow_leverage
+    structural_role: dealer_equity_positions
+    frequency: quarterly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "Broker-Dealer Corporate Equities Long Positions — quarterly, 1945+."
+
+  # -------------------------------------------------------------------
+  # K channel — curvature / tail risk (options-derived)
+  # -------------------------------------------------------------------
+  SKEW:
+    canonical_id: SKEW
+    provider_priority: [openbb_yfinance]
+    measurement_block: tail_risk
+    structural_role: skew_index
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "CBOE SKEW Index — measures tail risk pricing in S&P 500 options. Available 2010+."
+
+  VVIX:
+    canonical_id: VVIX
+    provider_priority: [openbb_yfinance]
+    measurement_block: vol_of_vol
+    structural_role: vol_of_vol_index
+    frequency: daily
+    unit: index
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "CBOE VVIX — volatility of VIX (vol-of-vol). Measures second-order stress. Available 2012+."

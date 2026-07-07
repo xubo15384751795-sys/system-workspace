@@ -1,0 +1,23 @@
+## Provider integrity{% if pip.case_id %} — `{{ pip.case_id }}`{% endif %}
+
+**Overall:** `{{ pip.overall_status }}`
+
+{{ pip.interpretation }}
+
+### Checks
+{% for c in pip.checks %}
+- **{{ c.series }}** @ {{ c.provider }} — `{{ c.status }}`
+  {% if c.frequency %}(freq: {{ c.frequency }}){% endif %}
+  {% if c.staleness_days is not none %}(staleness_days: {{ c.staleness_days }}){% endif %}
+  {% if c.provider_disagreement is not none %}(disagreement: {{ c.provider_disagreement }}){% endif %}
+  {% if c.issue %}
+  - *Issue:* {{ c.issue }}
+  {% endif %}
+{% endfor %}
+
+{% if pip.affected_signal_cards %}
+### Affected signal cards
+{% for s in pip.affected_signal_cards %}
+- `{{ s }}`
+{% endfor %}
+{% endif %}

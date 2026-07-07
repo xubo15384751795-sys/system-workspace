@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+*.env
+.vscode/
+.DS_Store
+.snapshot_store.json
+*.egg-info/
+/data
+/output/
+/outputs/
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.log

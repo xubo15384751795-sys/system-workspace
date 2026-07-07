@@ -1,0 +1,5 @@
+# Development tools — should NOT be installed in production runtime.
+pytest>=7,<9
+pytest-cov>=4,<6
+mypy>=1.8,<2
+ruff>=0.3,<1

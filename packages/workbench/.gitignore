@@ -1,0 +1,26 @@
+# ── Local data and artefacts ──────────────────────────────────────────────
+Data/
+Output/
+
+# ── Python caches and build artefacts ─────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# ── Virtual environments and local env ────────────────────────────────────
+.venv/
+venv/
+.env
+*.env
+!*.env.example
+
+# ── Editor / OS ───────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.DS_Store

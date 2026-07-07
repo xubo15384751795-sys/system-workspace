@@ -1,0 +1,333 @@
+project_name: Structural Deformation Research System
+data_backend: harvester
+allow_legacy_fallback: false
+harvester:
+  root: "../Structural Risk Harvester"
+  exports_root: "/Users/a1/System/Data/harvester/exports"
+  release: latest
+  catalog_file: catalog.json
+  require_finalized: true
+  validate_hashes: true
+  validate_schema: true
+  allow_legacy_fallback_when_harvester_selected: false
+data_access:
+  # Transitional boundary only. Existing in-project data remains legacy/frozen.
+  # New ingestion should happen in ../Structural Risk Harvester and be consumed
+  # here through exported bundles.
+  backend: legacy
+pipeline:
+  # Default research UI/API runs stay paper-clean. Exploratory extensions can
+  # be enabled for lab work without changing the paper-aligned core snapshot.
+  run_extensions: false
+  run_belief_extension: false
+  run_ml_extensions: false
+  run_narrative_extension: false
+  # shadow_mass_state requires persist_extension_outputs: true so that
+  # the forced-realization pressure (Π) fed into the joint hitting condition
+  # carries forward between runs. Without this, singular_flag is never True.
+  persist_extension_outputs: true
+  reuse_existing_snapshot: true
+data:
+  system_root: "/Users/a1/System/Data"
+  lab_root: "/Users/a1/System/Data/structural_lab"
+  backend: legacy
+  version: "bootstrap-v1"
+runtime:
+  duckdb_path: "/Users/a1/System/Data/structural_lab/runtime/system.duckdb"
+  processed_dir: "/Users/a1/System/Data/structural_lab/processed"
+  snapshots_dir: "/Users/a1/System/Data/structural_lab/snapshots"
+  calibration_dir: "/Users/a1/System/Data/structural_lab/calibration"
+legacy:
+  root: "/Users/a1/System/Data/structural_lab/legacy"
+  allow_direct_fetch: false
+  deprecated: true
+  requires_explicit_opt_in: true
+data_sources:
+  enabled:
+    - fred
+    - h41
+    - sec
+    - treasury
+    - ecb
+    - cftc
+    # optional:
+    # - alpha_vantage
+    # - stooq
+    # - tiingo
+    # - polygon
+    # - nasdaq_data_link
+    # - cboe
+    # - oecd
+    # - bis
+    # - imf
+    # - ffiec
+
+  # API keys can be set here or via env vars:
+  # FRED_API_KEY, SEC_USER_AGENT, ALPHA_VANTAGE_API_KEY, TIINGO_API_KEY,
+  # POLYGON_API_KEY, NASDAQ_DATA_LINK_API_KEY
+  api_keys:
+    fred: ""
+    alpha_vantage: ""
+    tiingo: ""
+    polygon: ""
+    nasdaq_data_link: ""
+    sec_user_agent: ""
+
+  # DEPRECATED: FRED cache paths must not target Harvester raw storage.
+  # Runtime fallback cache is resolved under data.lab_root when this is unset.
+  fred_cache_dir: null
+  fred_max_workers: 6
+  composite_max_workers: 4
+  proxy_incremental_cache: true
+  h41_csv_url: ""
+  h41_date_column: "date"
+  sec_user_agent: ""
+  treasury_base_url: "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
+  ecb_base_url: "https://data-api.ecb.europa.eu/service/data"
+  cftc_base_url: "https://publicreporting.cftc.gov/resource"
+  stooq_base_url: "https://stooq.com/q/d/l/"
+  tiingo_base_url: "https://api.tiingo.com/tiingo/daily"
+  oecd_base_url: "https://sdmx.oecd.org/public/rest/v1/data"
+  bis_base_url: "https://stats.bis.org/api/v1/data"
+  imf_base_url: "https://dataservices.imf.org/REST/SDMX_JSON.svc/CompactData"
+  ffiec_base_url: ""
+  timeout_sec: 20
+  retries: 2
+  retry_backoff_sec: 0.5
+
+  # Proxy aggregation map: each proxy channel is built from structural proxy
+  # inputs only. Aggregate stress benchmarks such as NFCI/STLFSI/OFR FSI are
+  # deliberately excluded from Sigma construction and reserved for diagnostics.
+  # Supported component syntax:
+  # - "FRED:VIXCLS"
+  # - "-FRED:T10Y2Y" (invert sign)
+  # - "0.5*FRED:TEDRATE" (weight)
+  # - {id: "H41:btfp", weight: 1.0, invert: false}
+  proxy_series_map:
+    # Non-redundancy contract (paper Section 4.1): every channel must explain
+    # >20% unique variance. Series assignments are deliberately non-overlapping.
+    #
+    # ── M: Anchor mismatch ──────────────────────────────────────────────────
+    # Long-duration capital-market anchors: yield-curve inversion + credit spread.
+    # Coverage: VALID_FULL (T10Y2Y + BAA10YM have full history from ~2000).
+    M_PROXY:
+      - {id: "FRED:T10Y2Y",  invert: true,  weight: 1.0}
+      - {id: "FRED:BAA10YM", invert: false, weight: 1.0}
+    # ── D: Path feasibility (DoF) ───────────────────────────────────────────
+    # Short-duration money-market funding access proxy.
+    # VIX EXCLUDED. True bid-ask/depth/hedge NOT available from public FRED.
+    # DCPF3M = commercial paper minus 3m T-bill = short-funding access stress.
+    # TEDRATE = LIBOR minus 3m T-bill = interbank access (ended 2022-01).
+    # High spread = paths contracting → inverted to DoF direction.
+    # Coverage: VALID_FULL pre-2022, VALID_PARTIAL 2022+ (TEDRATE absent).
+    D_PROXY:
+      - {id: "FRED:DCPF3M",  invert: true, weight: 1.0}
+      - {id: "FRED:TEDRATE", invert: true, weight: 0.8}
+    # ── K: Transition deformation ───────────────────────────────────────────
+    # Bond volatility surface deformation (rates term-structure curvature).
+    # VIX LEVEL EXCLUDED — generic equity stress ≠ transition curvature.
+    # MOVE = ICE BofA MOVE bond vol index. Coverage: DIAGNOSTIC_ONLY
+    # (YFINANCE:^MOVE available from 2025-05 only; no usable backfill).
+    K_PROXY:
+      - {id: "YFINANCE:^MOVE", invert: false, weight: 1.0}
+    # ── X: Shadow accumulation ──────────────────────────────────────────────
+    # Emergency Fed credit facilities = X_REALIZED (forced realization after
+    # crisis onset). True X_pre (hidden accumulation) is unobservable.
+    # Coverage: VALID_PARTIAL. H41:btfp available 2023+ only.
+    X_PROXY:
+      - {id: "H41:primary_credit", invert: false, weight: 1.0}
+      - {id: "H41:btfp",           invert: false, weight: 0.5}
+default_run_date: "2026-04-14"
+default_run_type: WEEKLY
+history_start: "2025-01-01"
+mock_seed: 42
+proxies:
+  objective: "Anchor-Mismatch structural diagnostic engine, not a generic financial stress index"
+  construction_boundary:
+    exclude_from_sigma:
+      - NFCI
+      - ANFCI
+      - NFCIRISK
+      - NFCICREDIT
+      - NFCILEVERAGE
+      - STLFSI4
+      - KCFSI
+      - OFR_FSI
+    benchmark_usage:
+      - compression_benchmark
+      - residualization_control
+      - falsification_gate
+  weights:
+    M: 0.25
+    D: 0.25
+    K: 0.25
+    X: 0.25
+benchmarks:
+  aggregate_stress:
+    primary:
+      - NFCI
+      - ANFCI
+      - STLFSI4
+      - OFR_FSI
+    secondary:
+      - KCFSI
+      - NFCIRISK
+      - NFCICREDIT
+      - NFCILEVERAGE
+  volatility:
+    equity:
+      - VIX
+      - VVIX
+    rates:
+      - MOVE
+    realized:
+      - SPX_realized_vol_21d
+      - TY_realized_vol_21d
+  credit:
+    spreads:
+      - BAMLH0A0HYM2_HY_OAS
+      - BAMLC0A0CM_IG_OAS
+      - BAA_AAA_spread
+  liquidity:
+    treasury:
+      - on_off_the_run_spread
+      - treasury_liquidity_proxy
+    market:
+      - bid_ask_proxy
+      - amihud_illiq
+  funding:
+    secured:
+      - SOFR_related_spread
+      - repo_stress_proxy
+    unsecured:
+      - commercial_paper_spread
+      - FRA_OIS_or_historical_equivalent
+  leverage_shadow:
+    public:
+      - NFCILEVERAGE
+      - margin_debt
+      - broker_dealer_assets
+      - repo_volume
+    slow_shadow:
+      - private_credit_proxy
+      - MMF_repo_proxy
+      - HTM_unrealized_loss_proxy
+  portfolio:
+    baselines:
+      - SPY_only
+      - 60_40_SPY_AGG
+      - risk_parity
+      - T_bill
+    overlays:
+      - NFCI_overlay
+      - VIX_overlay
+      - Sigma_overlay
+      - Sigma_residual_overlay
+      - component_morphology_overlay
+evaluation_protocol:
+  tests:
+    - replication_sanity_check
+    - dominance_test
+    - incremental_information_test
+    - residual_morphology_test
+    - sequence_event_path_test
+    - rejection_gates
+  sigma_role: "regime_diagnostic_surface_not_crisis_probability_or_standalone_trading_signal"
+  portfolio_role: "secondary_tail_control_overlay_test"
+mechanisms:
+  enabled: true
+  # External theories enter only as M/D/K/X mechanism terms; they do not add mother-framework states.
+  enabled_families:
+    - danielsson_shin_zigrand
+    - adrian_shin
+    - brunnermeier_pedersen
+    - he_krishnamurthy
+    - geanakoplos
+    - fostel_geanakoplos
+    - haldane_may_santa_fe
+    - santa_fe_complexity
+operators:
+  enabled: true
+  # Event logs are interpreted as non-commutative structural operators over M/D/K/X.
+  enabled_families:
+    - compression
+    - curvature
+    - shadow_transfer
+    - realization
+    - intervention
+  lookback_days: 180
+  max_events: 30
+series_ids:
+  - M_PROXY
+  - D_PROXY
+  - K_PROXY
+  - X_PROXY
+ode_params:
+  backend: auto
+  solver: tsit5
+  dt: 1.0
+  horizon: 4
+  rtol: 0.00001
+  atol: 0.0000001
+  max_steps: 4096
+  singular_dof_threshold: -0.65
+  singular_curvature_threshold: 0.65
+  singular_shadow_threshold: 0.65
+thresholds:
+  # sigma: set to P90 of training-window sigma_t after running calibrate_thresholds.py.
+  # Until calibration is run, 2.0 is a placeholder that will never trigger
+  # (historical max sigma_t was 1.787). Run:
+  #   python3 scripts/calibrate_thresholds.py --train-end 2016-12-31
+  # to replace this with a data-driven value.
+  sigma: 2.0
+  protocol:
+    calibration_mode: percentile_from_training_window
+    frozen: false
+    # 2007-2016: covers GFC, Euro crisis, China deval — representative stress regimes.
+    # Freeze thresholds after 2016 to prevent contamination from the evaluation window.
+    training_window:
+      start: "2007-01-01"
+      end: "2016-12-31"
+    evaluation_window:
+      start: "2017-01-01"
+      end: null
+    percentile_sigma: 90
+    percentile_dof_collapse: 10
+    percentile_curvature_spike: 90
+    percentile_forced_realization: 90
+  joint_hitting:
+    enabled: true
+    # These will be overwritten by calibrate_thresholds.py output.
+    dof_collapse: -0.65
+    curvature_spike: 0.65
+    forced_realization: 0.65
+shadow_mass:
+  dcrit: 0.35
+  kcrit: 0.65
+  rho0: 0.05
+  rho_d: 0.55
+  rho_k: 0.45
+  representative_coupling: 0.10
+  bucket_weights:
+    immediate: 0.20
+    short: 0.30
+    medium: 0.30
+    long: 0.20
+ml:
+  enabled: false
+  anomaly:
+    method: placeholder
+  narrative:
+    method: placeholder
+  reflexivity:
+    method: placeholder
+output:
+  dir: "/Users/a1/System/Output"
+  export_image: true
+  image_width: 1400
+ui:
+  host: "127.0.0.1"
+  port: 8765
+  auto_open: true
+event_log:
+  path: "/Users/a1/System/Output/event_log.jsonl"

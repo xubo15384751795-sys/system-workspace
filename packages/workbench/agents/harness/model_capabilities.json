@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Structural Research Harness — model-facing capability surface",
+  "description": "Inject into agent instructions so automation knows which tools exist and when to use each subsystem.",
+  "version": "1",
+  "subsystems": [
+    {
+      "id": "harvester",
+      "summary": "Acquire and publish admitted evidence releases; inspect catalogs under Data/harvester/exports/.",
+      "cli_entrypoints": ["system harvester list-releases", "system harvester inspect-release ID"],
+      "when_to_use": "Need release IDs, catalog paths, provenance for evidence admitted into the framework."
+    },
+    {
+      "id": "deformation_framework",
+      "summary": "Framework runs and snapshots; consumes admitted evidence only via gateway.",
+      "cli_entrypoints": ["system deformation list-snapshots", "system deformation inspect-snapshot ID"],
+      "when_to_use": "Inspect structural diagnosis outputs and run manifests after a framework run."
+    },
+    {
+      "id": "learning_hub",
+      "summary": "Governance memory: events, health, improvement queue, routing decision audit trail.",
+      "cli_entrypoints": ["system learning-hub inspect-queue", "system learning-hub inspect-health"],
+      "when_to_use": "Record gaps, boundary breaches, or follow improvement items — not for promoting snapshots."
+    },
+    {
+      "id": "artifact_governance",
+      "summary": "Governed Data/Output state transitions, including snapshot promotion preflight and release-mode promotion gate.",
+      "cli_entrypoints": ["system tools run artifact.promote_snapshot_preflight run_id=<RUN> --mode verify --json", "system tools run artifact.promote_snapshot run_id=<RUN> --mode release --json"],
+      "when_to_use": "Use preflight before promotion; actual promotion is a high-risk ToolSpec that requires release mode and manual review."
+    },
+    {
+      "id": "task_router",
+      "summary": "Convert fuzzy user requests into module ownership, context files, expert activation, mode, task plans, and verification expectations.",
+      "cli_entrypoints": ["system tools run routing.route_task task=\"...\" --mode explore --json", "system tools run routing.create_task_plan task=\"...\" --mode explore --json", "system tools run routing.tool_coverage_audit --mode explore --json"],
+      "when_to_use": "Use before broad or ambiguous work so the agent starts from the smallest owning module, records escalation reasons, gets a ToolSpec-bound checklist, and can see missing ToolSpec coverage."
+    },
+    {
+      "id": "tool_registry",
+      "summary": "Governed tools with policy hooks (pre_tool_use / post_tool_use).",
+      "cli_entrypoints": ["system tools list", "system tools run TOOL_ID", "system tools get TOOL_ID"],
+      "when_to_use": "Any mutation or subsystem action must go through registered tools and allowed modes."
+    }
+  ],
+  "workspace_commands": [
+    {
+      "command": "./sys check | open | next | evidence",
+      "purpose": "Human cockpit over Output/current without importing framework code."
+    },
+    {
+      "command": "python3 scripts/promote_snapshot.py --run <run_id>",
+      "purpose": "Canonicalise a deformation snapshot into Data/ per constitution."
+    }
+  ],
+  "policy_documents": [
+    "ROUTING_CONSTITUTION.md",
+    "PRODUCT_FRAMEWORK_BOUNDARY.md",
+    "Workbench/contracts/workbench/context_budget.yaml"
+  ]
+}

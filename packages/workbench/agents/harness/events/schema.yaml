@@ -1,0 +1,215 @@
+# events/schema.yaml — Formal event type definitions for System Learning Hub ingestion.
+#
+# Every event written by system_event_writer.py conforms to this schema.
+# The schema defines required fields, optional fields, and validation rules
+# per event type.
+
+version: "0.1.0"
+
+# ── Event type definitions ───────────────────────────────────────────────
+
+event_types:
+  tool_run:
+    description: "Every tool invocation (success or failure)"
+    severity: info
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - mode: string
+      - decision: string
+      - result: string
+      - summary: string
+      - artifacts: list
+      - evidence: dict
+    optional_fields:
+      - errors: list
+      - warnings: list
+      - rule_id: string
+      - classification: dict
+      - severity: string
+
+  permission_decision:
+    description: "Mode permission allow/deny/ask decision"
+    severity: info
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - mode: string
+      - decision: string
+      - result: string
+      - rule_id: string
+      - reason: string
+    optional_fields:
+      - risk_category: string
+      - classification: dict
+
+  hook_deny:
+    description: "Policy hook denied an invocation"
+    severity: warning
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - mode: string
+      - decision: string
+      - result: string
+      - rule_id: string
+      - reason: string
+    optional_fields:
+      - classification: dict
+
+  verification_result:
+    description: "Verification pass/fail/partial"
+    severity: info
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - mode: string
+      - decision: string
+      - result: string
+      - evidence: dict
+    optional_fields:
+      - summary: string
+      - verdict: string
+      - blockers: list
+      - residual_risks: list
+
+  feature_gate:
+    description: "Feature flag gate decision (allow/deny/promotion_blocked)"
+    severity: info
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - decision: string
+      - result: string
+      - rule_id: string
+      - reason: string
+      - metadata: dict
+    optional_fields:
+      - mode: string
+      - classification: dict
+
+  routing_decision:
+    description: "Routing decision as defined in routing_decision_record.template.yaml"
+    severity: info
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - task_id: string
+      - activated_experts: list
+      - intentionally_not_activated: list
+      - verification: string
+      - outputs: list
+      - unresolved_risks: list
+    optional_fields:
+      - artifacts_touched: list
+      - date: string
+
+  release_attempt:
+    description: "Attempt to finalize or publish a data release"
+    severity: warning
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - mode: string
+      - decision: string
+      - result: string
+      - release_id: string
+      - rule_id: string
+    optional_fields:
+      - reason: string
+      - release_status: string
+      - manual_review_required: boolean
+
+  snapshot_publish_attempt:
+    description: "Attempt to publish a deformation snapshot"
+    severity: warning
+    required_fields:
+      - event_id: string
+      - timestamp: string
+      - subsystem: string
+      - tool_id: string
+      - mode: string
+      - decision: string
+      - result: string
+      - run_id: string
+      - rule_id: string
+    optional_fields:
+      - reason: string
+      - run_purpose: string
+      - feature_name: string
+      - manual_review_required: boolean
+
+# ── Severity levels ──────────────────────────────────────────────────────
+
+severity_levels:
+  debug: "Diagnostic detail, not stored in production"
+  info: "Normal operational event"
+  warning: "Policy denial, boundary breach, fallback blocked"
+  error: "Tool failure, exception, verification fail"
+  critical: "Fatal objection, release contamination, constitution violation"
+
+# ── Result values ────────────────────────────────────────────────────────
+
+result_values:
+  - pass
+  - fail
+  - error
+  - blocked
+  - flagged
+  - partial
+  - pending
+
+# ── Decision values ──────────────────────────────────────────────────────
+
+decision_values:
+  - allow
+  - deny
+  - ask
+  - require_manual_review
+  - verify
+  - pass
+  - fail
+  - partial
+
+# ── Improvement queue generation rules ───────────────────────────────────
+
+improvement_queue_generation:
+  auto_generate_for:
+    recurring_denies:
+      description: "When the same rule_id denies ≥ 3 times within 24 hours, auto-generate a queue item"
+      threshold: 3
+      window_hours: 24
+      severity: medium
+      proposed_action: "Investigate recurring deny: {rule_id}"
+
+    verification_failures:
+      description: "When verification fails for the same tool_id ≥ 2 times consecutively"
+      threshold: 2
+      window: consecutive
+      severity: high
+      proposed_action: "Fix verification failure: {tool_id}"
+
+    boundary_breaches:
+      description: "Every boundary breach auto-generates a queue item"
+      threshold: 1
+      severity: critical
+      proposed_action: "Resolve boundary breach: {rule_id}"
+
+    feature_gate_blacks:
+      description: "When a feature gate blocks ≥ 5 times within 7 days, suggest promotion review"
+      threshold: 5
+      window_days: 7
+      severity: low
+      proposed_action: "Review promotion requirements for: {feature_name}"

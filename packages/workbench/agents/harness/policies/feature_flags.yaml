@@ -1,0 +1,264 @@
+# feature_flags.yaml — Runtime feature gates for the Structural Research Harness.
+#
+# Each feature has a lifecycle status that determines where its output may flow:
+#
+#   paper_aligned        — Production-ready; allowed in paper/main output
+#   engineering_required — Needs engineering work; dev/experiment only, not paper
+#   exploratory          — Research-stage; experiment/sandbox only, not paper
+#   experimental         — Very early; sandbox only
+#   disabled             — Turned off; cannot run at all
+#   denied_for_release   — Can run internally, denied in release/publish context
+#
+# Target output buckets (in decreasing trust):
+#   paper/main_output   — final paper figures, tables, narrative output
+#   paper/supplementary — supplementary materials attached to paper
+#   benchmark_report    — benchmark/calibration reports
+#   experiment          — experimental results, internal dashboards
+#   sandbox             — throwaway runs, debugging, prototyping
+#
+# Runtime gates act BEFORE tool execution:
+#   Agent does NOT need to remember "don't use that in production."
+#   The gate says: your feature is [status], target is [output], → deny.
+
+version: "0.2.0"
+
+# ── Operational toggles (unchanged from v0.1.0) ──────────────────────────
+
+flags:
+  policy_enforcement_enabled:
+    default: true
+    description: "Master switch for all policy enforcement."
+    controlled_by: harness_operator
+
+  require_manual_review_for_finalize:
+    default: true
+    description: "Require manual human review before release_finalization or snapshot_publish."
+    controlled_by: harness_operator
+
+  block_cross_boundary_reads:
+    default: true
+    description: "Block cross-boundary read operations."
+    controlled_by: harness_operator
+
+  log_all_tool_invocations:
+    default: true
+    description: "Write event record for every tool invocation."
+    controlled_by: harness_operator
+
+  log_policy_decisions:
+    default: true
+    description: "Emit events for every policy decision."
+    controlled_by: harness_operator
+
+  auto_ingest_failures:
+    default: true
+    description: "Auto-ingest tool failures into Learning Hub."
+    controlled_by: harness_operator
+
+  auto_ingest_verification_results:
+    default: true
+    description: "Auto-ingest verification results into Learning Hub."
+    controlled_by: harness_operator
+
+# ── Feature Definitions ──────────────────────────────────────────────────
+
+features:
+  # ── Deformation Subsystem ──────────────────────────────────────────────
+  deformation.ode_diffrax:
+    owner: deformation_team
+    status: engineering_required
+    default_enabled: true
+    description: >
+      ODE solver backend using Diffrax (JAX-based).  Correctness validated
+      against analytic benchmarks in simulation mode, but solver stability
+      under singular (sigma_t → 1) regimes needs additional hardening.
+    allowed_outputs:
+      - sandbox
+      - experiment
+      - benchmark_report
+    promotion_requires:
+      - singular_regime_stability_test
+      - comparison_vs_scipy_odeint_reference
+      - paper_alignment_review
+
+  deformation.operator_noncommutativity:
+    owner: deformation_team
+    status: paper_aligned
+    default_enabled: true
+    description: >
+      Operator noncommutativity measurement across proxy channels (M, D, K, X).
+      Core method from the paper; validated against 100+ synthetic deformations.
+    allowed_outputs:
+      - sandbox
+      - experiment
+      - benchmark_report
+      - paper/main_output
+      - paper/supplementary
+    promotion_requires: []
+
+  deformation.shadow_maturity_profile:
+    owner: deformation_team
+    status: paper_aligned
+    default_enabled: true
+    description: >
+      Shadow maturity profile analysis (SMP) measuring information-theoretic
+      aging of deformation histories.  Published in paper.
+    allowed_outputs:
+      - sandbox
+      - experiment
+      - benchmark_report
+      - paper/main_output
+      - paper/supplementary
+    promotion_requires: []
+
+  deformation.gnn_benchmark:
+    owner: deformation_team
+    status: exploratory
+    default_enabled: false
+    description: >
+      GNN-based benchmark for comparing structural deformation patterns
+      against known fragility signatures.  Currently exploratory — not yet
+      validated for paper-level confidence.
+    allowed_outputs:
+      - sandbox
+      - experiment
+    promotion_requires:
+      - benchmark_dataset_freeze
+      - cross_validation_report
+      - independent_audit
+      - paper_alignment_review
+
+  deformation.narrative_detector:
+    owner: deformation_team
+    status: exploratory
+    default_enabled: false
+    description: >
+      Narrative detector that classifies deformation runs into narrative
+      archetypes (fragility, resilience, cyclic, latent).  Exploratory ML
+      pipeline — outputs are suggestive, not conclusive.
+    allowed_outputs:
+      - sandbox
+      - experiment
+    promotion_requires:
+      - labeled_validation_dataset
+      - false_positive_rate_analysis
+      - narrative_stability_test
+      - paper_alignment_review
+
+  deformation.simulated_data_fallback:
+    owner: deformation_team
+    status: denied_for_release
+    default_enabled: false
+    description: >
+      Fallback mode that generates synthetic deformation data when live
+      inputs are unavailable.  Essential for CI/development but MUST NOT
+      enter any release or paper output.
+    allowed_outputs:
+      - sandbox
+    promotion_requires:
+      - N/A — permanently denied for release contexts
+
+  deformation.benchmark_dominance:
+    owner: deformation_team
+    status: engineering_required
+    default_enabled: true
+    description: >
+      Benchmark dominance analysis comparing deformation run outputs against
+      known control baselines.  Used for calibration; requires engineering
+      review before feeding into Sigma_t.
+    allowed_outputs:
+      - sandbox
+      - experiment
+      - benchmark_report
+    promotion_requires:
+      - benchmark_variance_report
+      - control_group_size_analysis
+
+  # ── Harvester Subsystem ────────────────────────────────────────────────
+
+  harvester.fred_provider:
+    owner: harvester_team
+    status: engineering_required
+    default_enabled: true
+    description: >
+      FRED (Federal Reserve Economic Data) data provider.  API integration
+      requires FRED API key and rate-limit handling.  Engineering review
+      needed for production release inclusion.
+    allowed_outputs:
+      - sandbox
+      - experiment
+    promotion_requires:
+      - api_error_handling_audit
+      - rate_limit_acceptance_test
+      - data_freshness_monitor
+
+  harvester.sec_provider:
+    owner: harvester_team
+    status: engineering_required
+    default_enabled: true
+    description: >
+      SEC EDGAR data provider.  API integration requires handling of filing
+      formats, rate limits, and deduplication.  Engineering review needed
+      for production release inclusion.
+    allowed_outputs:
+      - sandbox
+      - experiment
+    promotion_requires:
+      - filing_format_coverage_audit
+      - dedup_accuracy_test
+      - rate_limit_acceptance_test
+
+  harvester.simulated_data_fallback:
+    owner: harvester_team
+    status: denied_for_release
+    default_enabled: false
+    description: >
+      Synthetic data generator used when real providers are unavailable.
+      Essential for CI but MUST NOT enter any finalized release.
+    allowed_outputs:
+      - sandbox
+    promotion_requires:
+      - N/A — permanently denied for release contexts
+
+  # ── Learning Hub Subsystem ─────────────────────────────────────────────
+
+  learning_hub.auto_approval:
+    owner: learning_hub_team
+    status: disabled
+    default_enabled: false
+    description: >
+      Automated approval of low-risk improvements without human review.
+      Currently disabled pending governance board review.
+    allowed_outputs: []
+    promotion_requires:
+      - governance_board_review
+      - approval_accuracy_threshold_met
+      - false_positive_rate_audit
+
+  learning_hub.llm_issue_classifier:
+    owner: learning_hub_team
+    status: exploratory
+    default_enabled: false
+    description: >
+      LLM-based issue classifier that categorizes events into improvement
+      tickets.  Exploratory — classifications may be inaccurate.
+    allowed_outputs:
+      - sandbox
+      - experiment
+    promotion_requires:
+      - human_labeled_validation_set
+      - accuracy_vs_baseline_report
+      - paper_alignment_review
+
+# ── Output bucket hierarchy (for gate resolution) ────────────────────────
+
+output_hierarchy:
+  sandbox: 1
+  experiment: 2
+  benchmark_report: 3
+  paper/supplementary: 4
+  paper/main_output: 5
+
+# ── Default gate when no feature is declared ─────────────────────────────
+
+default_feature_status: engineering_required

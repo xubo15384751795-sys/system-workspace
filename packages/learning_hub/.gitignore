@@ -1,0 +1,26 @@
+# ── Generated data and reports (repo root only; not src/system_learning/reports/) ─
+/data/
+/reports/
+
+# ── Python caches and build artefacts ──────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# ── Virtual environments and local env ─────────────────────────────────────
+.venv/
+venv/
+.env
+*.env
+!*.env.example
+
+# ── Editor / OS ────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.DS_Store

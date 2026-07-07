@@ -1,0 +1,3 @@
+# Convenience redirect to the pinned lock file.
+# The authoritative dependency source is requirements/lock.txt.
+-r requirements/lock.txt

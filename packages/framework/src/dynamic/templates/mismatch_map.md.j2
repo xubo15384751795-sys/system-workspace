@@ -1,0 +1,20 @@
+## Mismatch map{% if mm.case_id %} — `{{ mm.case_id }}`{% endif %}
+
+**Summary:** {{ mm.summary }}
+
+{% if mm.source %}*Source:* `{{ mm.source }}`{% endif %}
+
+{% for p in mm.profiles %}
+### {{ p.pair[0] }}–{{ p.pair[1] }} · `{{ p.mismatch_type }}` ({{ p.status }})
+- **Implication:** {{ p.implication }}
+{% if p.magnitude is not none %}- **Magnitude:** {{ p.magnitude }}{% endif %}
+{% if p.direction %}- **Direction:** {{ p.direction }}{% endif %}
+{% if p.persistence is not none %}- **Persistence:** {{ p.persistence }}{% endif %}
+{% if p.evidence %}
+- **Evidence:**
+{% for e in p.evidence %}
+  - {{ e }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}

@@ -1,0 +1,22 @@
+## {{ card.title }}
+
+**Status:** {{ card.status }} | **Severity:** {{ card.severity }} | **Confidence:** {{ card.confidence }}
+
+**Time window:** {{ card.time_window }}{% if card.phase %} (Phase: {{ card.phase }}){% endif %}
+
+**Triggered by:**
+{% for t in card.main_trigger %}
+- {{ t }}
+{% endfor %}
+
+**Path interpretation:** {{ card.path_interpretation }}
+
+### Evidence
+{% for e in card.evidence %}
+- `{{ e.metric }}` = {{ e.value }} ({{ e.source }}, reliability: {{ e.reliability }})
+{% endfor %}
+
+### Suggested action
+{% for a in card.user_action %}
+- {{ a }}
+{% endfor %}

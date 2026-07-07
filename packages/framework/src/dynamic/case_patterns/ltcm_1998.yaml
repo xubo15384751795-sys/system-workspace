@@ -1,0 +1,32 @@
+case_id: ltcm_1998
+case_type: leveraged_relative_value_break
+
+phase_template:
+  - pre_shock
+  - shock
+  - intervention
+  - post_shock
+
+recommended_signal_cards:
+  - term_structure_deformation
+  - liquidation_path_contraction
+  - anchor_path_mismatch
+  - policy_intervention_rewrite
+  - observation_integrity_warning
+
+recommended_visuals:
+  - event_timeline
+  - long_end_yield_trajectory
+  - criticality_distance_bar
+  - mismatch_matrix
+
+criticality_patterns:
+  - long_end_yield_velocity_exceeds_absorption
+  - collateral_call_feedback_loop
+  - policy_response_lag_exceeds_clearing_speed
+
+known_failure_modes:
+  - using_uk10y_instead_of_uk30y
+  - treating_boe_intervention_as_natural_recovery
+  - mixing_stale_provider_with_live_market_data
+  - collapsing_phases_into_single_event_window

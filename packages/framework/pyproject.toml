@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "structural-deformation-research-system"
+version = "0.1.0"
+description = "Code-managed research system for structural financial deformation diagnostics."
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements/lock.txt"]}
+
+[project.optional-dependencies]
+math = ["jax>=0.4.20", "jaxlib>=0.4.20", "diffrax>=0.5", "equinox>=0.11", "numpyro>=0.14", "blackjax>=0.8", "networkx>=3.0", "scikit-learn>=1.3", "ruptures>=1.0"]
+viz = ["plotly>=5", "streamlit>=1.30", "fastapi>=0.110", "uvicorn>=0.25"]
+dev = ["pytest>=7", "pytest-cov>=4", "mypy>=1.8", "ruff>=0.3"]
+dl-core = ["torch>=2.0", "numpy>=1.24"]
+dl-nlp = ["sentence-transformers>=2.2", "transformers>=4.30"]
+dl-graph = ["torch-geometric>=2.3"]
+dl-full = ["pytorch-forecasting>=1.0", "hmmlearn>=0.3"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["."]
+markers = [
+    "critical_gate: tests that must pass before promotion",
+    "semantic: concept registry, proxy semantics",
+    "data_boundary: data boundary, freshness, provenance",
+    "benchmark: benchmark correctness",
+    "report: report verdict gate",
+    "governance_loop: ledger, escalation, incident",
+    "slow: tests that take >10s",
+]
+
+# ── Typed Boundary: strict on architecture layers, relaxed on UI/scripts ──
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "src.core.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "src.runtime.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "src.data_access.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "src.data.*"
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "src.ui.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.output.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true

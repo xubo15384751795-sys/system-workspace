@@ -1,0 +1,69 @@
+schema_version: "1.0"
+policy_id: fast_track_data_tiers
+updated: "2026-05-07"
+position: "Fast-track daily diagnostics require tiers 2-3; tier 4 streaming is out of scope unless an explicit trading use case is approved."
+
+tiers:
+  1:
+    name: t_plus_1
+    latency: "T+1"
+    role: "Official macro, rates, and credit-spread anchors."
+    providers:
+      - fred
+    covered_series:
+      - DFF
+      - T10Y2Y
+      - SOFR
+      - DAAA
+      - DBAA
+      - NFCI
+    production_status: admitted
+
+  2:
+    name: same_day_eod
+    latency: "same-day EOD"
+    role: "Same-day market closes for volatility term structure and ETF liquidity/depth inputs."
+    providers:
+      - cboe_direct
+      - openbb_tiingo
+    covered_series:
+      - VIXCLS
+      - VVIX
+      - SKEW
+      - TYVIX
+      - VIX3M
+      - VIX9D
+      - HYG
+      - LQD
+      - TLT
+    production_status: admitted
+
+  3:
+    name: intraday_delayed
+    latency: "approximately 15-minute delayed"
+    role: "Market-hours polling for volatility anchors; not a streaming feed."
+    providers:
+      - cboe_direct
+    covered_series:
+      - VIXCLS
+      - VVIX
+      - SKEW
+    production_status: admitted
+
+  4:
+    name: true_streaming
+    latency: "realtime streaming"
+    role: "Commercial WebSocket feeds for high-frequency use cases."
+    providers:
+      - polygon
+    covered_series: []
+    production_status: not_required
+    note: "Do not add tier-4 dependencies to fast-track daily diagnostics without an explicit architecture decision."
+
+fast_track_requirement:
+  required_tiers:
+    - 2
+    - 3
+  explicitly_not_required:
+    - 4
+  rationale: "SVB-type and COVID-type structural stress develops over days to weeks; daily/EOD plus delayed intraday polling is sufficient for this diagnostic layer."

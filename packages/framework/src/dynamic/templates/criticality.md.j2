@@ -1,0 +1,25 @@
+## Criticality{% if cs.case_id %} — `{{ cs.case_id }}`{% endif %}
+
+**Status:** `{{ cs.status }}`
+
+{% if cs.nearest_threshold %}- **Nearest threshold:** `{{ cs.nearest_threshold }}`{% endif %}
+{% if cs.distance_to_threshold is not none %}- **Distance to threshold:** {{ cs.distance_to_threshold }}{% endif %}
+- **Transition candidate:** {{ "yes" if cs.transition_candidate else "no" }}
+{% if cs.level_risk is not none %}- **Level risk (normalized):** {{ cs.level_risk }}{% endif %}
+{% if cs.transition_risk is not none %}- **Transition risk:** {{ cs.transition_risk }}{% endif %}
+
+{% if cs.crossed_conditions %}
+**Crossed / active conditions:**
+{% for c in cs.crossed_conditions %}
+- {{ c }}
+{% endfor %}
+{% endif %}
+
+{% if cs.evidence %}
+**Evidence hooks:**
+{% for e in cs.evidence %}
+- {{ e }}
+{% endfor %}
+{% endif %}
+
+**Interpretation:** {{ cs.interpretation }}

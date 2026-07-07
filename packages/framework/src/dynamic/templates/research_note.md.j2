@@ -1,0 +1,50 @@
+# {{ note.title }}
+
+**Note ID:** `{{ note.note_id }}`
+**Generated:** {{ note.generated_at }}
+
+> {{ note.disclaimer }}
+
+## Executive summary
+
+{{ note.executive_summary }}
+
+## Temporal frame
+
+- **Case:** `{{ note.temporal_frame.case_id }}`
+- **Event speed:** {{ note.temporal_frame.event_speed }}
+- **Required resolution:** {{ note.temporal_frame.required_resolution }}
+- **Observation lag tolerance (days):** {{ note.temporal_frame.observation_lag_tolerance_days }}
+
+### Phases
+{% for ph in note.temporal_frame.phases %}
+- **{{ ph.name }}:** {{ ph.start }} → {{ ph.end }}{% if ph.dominant_mechanism %} — {{ ph.dominant_mechanism }}{% endif %}
+{% endfor %}
+
+---
+
+{{ signal_cards_section }}
+
+---
+
+{{ mismatch_section }}
+
+---
+
+{{ criticality_section }}
+
+---
+
+{{ provider_section }}
+
+---
+
+## Scenario paths
+{% for s in note.scenario_paths %}
+- {{ s }}
+{% endfor %}
+
+## Limitations
+{% for lim in note.limitations %}
+- {{ lim }}
+{% endfor %}

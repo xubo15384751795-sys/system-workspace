@@ -1,0 +1,111 @@
+# boundary_rules.yaml — Hard-deny rules for cross-system boundary violations.
+#
+# These rules CANNOT be overridden by mode permissions, user consent, or
+# any lower-priority hook.  They encode structural separation principles
+# derived from the ROUTING_CONSTITUTION and expert activation map.
+#
+# Priority:  deny > require_manual_review > ask > allow
+# Hook "allow" cannot override a global deny.
+
+version: "0.1.0"
+
+# ── Hard Deny Rules ─────────────────────────────────────────────────────
+
+rules:
+  # ── System Boundary: Deformation must not read Harvester internals ────
+  - id: boundary.deny.deformation-reads-harvester-raw
+    description: >
+      Deformation subsystem must not read Harvester raw/processed/corpus data.
+      Proxy core should receive structured risk data through official releases only.
+    priority: deny
+    scope:
+      caller_subsystem: deformation
+    conditions:
+      - target_contains: ["Data/harvester/raw", "Data/harvester/processed", "Data/harvester/corpus"]
+    reason: >
+      Deformation proxy core must operate on released risk signals, not raw
+      harvester data.  Direct access to raw/processed/corpus violates
+      information-flow constitution boundary rules.
+
+  # ── System Boundary: Learning Hub must not modify peer source ─────────
+  - id: boundary.deny.learninghub-modifies-peer-source
+    description: >
+      System Learning Hub must not modify source code belonging to peer
+      subsystems (harvester, deformation, cc-switch).
+    priority: deny
+    scope:
+      caller_subsystem: learning_hub
+    conditions:
+      - risk_category_in: ["code_edit", "destructive"]
+      - target_subsystem_in: ["harvester", "deformation", "cc_switch"]
+    reason: >
+      Learning Hub analyzes and recommends — it must not directly modify peer
+      system source code.  Improvements must flow through governance review.
+
+  # ── Mutation Gate: finalized release must not be rewritten ────────────
+  - id: boundary.deny.finalized-release-immutable
+    description: >
+      A finalized (non-draft) data release must not be modified, overwritten,
+      or deleted.
+    priority: deny
+    scope:
+      caller_subsystem: any
+    conditions:
+      - risk_category_in: ["release_finalization"]
+      - input_key_equals: { release_status: "final" }
+      - action_is: ["overwrite", "delete", "mutate"]
+    reason: >
+      Finalized releases are immutable audit records.  Any correction must
+      produce a new release with explicit version chaining.
+
+  # ── Signal Integrity: benchmark/control must not silently enter proxy ─
+  - id: boundary.deny.benchmark-silent-proxy-entry
+    description: >
+      Benchmark or control-deformation runs must not silently enter the
+      proxy core Sigma_t computation loop.
+    priority: deny
+    scope:
+      caller_subsystem: deformation
+    conditions:
+      - input_key_equals: { run_purpose: "benchmark" }
+      - tool_id_in: ["deformation.run_snapshot"]
+    reason: >
+      Benchmark/control runs simulate deformation under known conditions for
+      calibration purposes.  Their output must never be routed into live Sigma_t
+      without explicit flag: benchmark_to_proxy=true and manual review.
+
+  # ── Output Boundary: exploratory must not enter paper main output ─────
+  - id: boundary.deny.exploratory-not-paper-output
+    description: >
+      Exploratory deformation runs must not write results into paper/main
+      output directory.
+    priority: deny
+    scope:
+      caller_subsystem: deformation
+    conditions:
+      - input_key_equals: { run_purpose: "exploratory" }
+      - output_target_contains: ["paper/main_output", "paper/final"]
+    reason: >
+      Exploratory runs are hypothesis tests and calibration experiments.
+      They must not contaminate paper/main output.  Only runs tagged
+      'production' with manual review may feed main output.
+
+  # ── Simulated Fallback Gate ───────────────────────────────────────────
+  - id: boundary.deny.simulated-fallback-silent-production
+    description: >
+      Simulated fallback mode must not silently enter production permission
+      or publication flows.
+    priority: deny
+    scope:
+      caller_subsystem: any
+    conditions:
+      - input_key_equals: { run_mode: "simulated_fallback" }
+      - risk_category_in: ["release_finalization", "snapshot_publish"]
+    reason: >
+      Simulated fallback runs exercise failure recovery paths.  Their outputs
+      must carry an explicit fallback marker and must never be published as
+      authentic production data without manual review and explicit override.
+
+# ── Default policy ──────────────────────────────────────────────────────
+
+default: allow

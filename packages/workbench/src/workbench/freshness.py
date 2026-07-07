@@ -1,0 +1,331 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from workbench.paths import workspace_root as _workspace_root
+from typing import Any
+
+import pandas as pd
+import yaml
+
+
+ROOT = _workspace_root()
+POLICY_PATH = ROOT / "configs" / "freshness_policy.yaml"
+HARVESTER_LATEST = ROOT / "Data" / "harvester" / "exports" / "latest"
+DEFORMATION_LATEST = ROOT / "Output" / "deformation_runs" / "latest"
+CURRENT = ROOT / "Output" / "current"
+
+STATUSES = {"fresh", "acceptable_lag", "stale", "missing", "retired_or_unavailable"}
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    """Load a JSON file, raising on missing or invalid."""
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def parse_timestamp(value: Any) -> pd.Timestamp | None:
+    if value in {None, ""}:
+        return None
+    stamp = pd.to_datetime(value, utc=True, errors="coerce")
+    if pd.isna(stamp):
+        return None
+    return pd.Timestamp(stamp)
+
+
+def parse_date(value: Any) -> pd.Timestamp | None:
+    if value in {None, ""}:
+        return None
+    stamp = pd.to_datetime(value, errors="coerce")
+    if pd.isna(stamp):
+        return None
+    return pd.Timestamp(stamp).normalize()
+
+
+def classify_lag(lag_days: int | None, frequency: str, policy: dict[str, Any]) -> str:
+    if lag_days is None:
+        return "missing"
+    thresholds = policy.get("frequency_thresholds", {}).get(frequency) or policy.get("frequency_thresholds", {}).get("unknown", {})
+    if lag_days <= int(thresholds.get("fresh_lag_days", 10)):
+        return "fresh"
+    if lag_days <= int(thresholds.get("acceptable_lag_days", 30)):
+        return "acceptable_lag"
+    return "stale"
+
+
+def series_matches(panel: pd.DataFrame, canonical_id: str) -> pd.Series:
+    """Match canonical IDs against full IDs and provider-native IDs.
+
+    Harvester panels can carry canonical slots such as CBOE:MOVE while keeping
+    source_series_id as the provider-native symbol, for example VXTLT.
+    """
+    if panel.empty:
+        return pd.Series(False, index=panel.index)
+    mask = pd.Series(False, index=panel.index)
+    if "series_id" in panel:
+        series = panel["series_id"].astype(str)
+        mask = mask | series.eq(canonical_id) | series.str.split(":", n=1).str[-1].eq(canonical_id)
+    if "source_series_id" in panel:
+        mask = mask | panel["source_series_id"].astype(str).eq(canonical_id)
+    return mask
+
+
+def build_release_freshness_manifest(
+    release_dir: Path | None = None,
+    *,
+    policy_path: Path = POLICY_PATH,
+    run_generated_at: str | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    release = (release_dir or HARVESTER_LATEST).resolve()
+    policy = load_policy(policy_path)
+    catalog = read_json(release / "catalog.json")
+    panel_path, evidence_created_at = _resolve_panel_from_catalog(release, catalog)
+    panel = pd.read_parquet(panel_path)
+    indicators = []
+    for series_id in policy.get("indicators", {}):
+        indicators.append(_indicator_freshness(series_id, panel, policy, evidence_created_at))
+
+    model_input_validity = _model_input_validity(indicators)
+    manifest = {
+        "schema_version": "workbench.freshness_manifest.v1",
+        "generated_at": utc_now(),
+        "policy_path": str(policy_path.relative_to(ROOT)),
+        "evidence_release_id": release.name,
+        "run_id": run_id,
+        "date_semantics": {
+            "observation_date": "Indicator observation date from the frozen evidence panel.",
+            "vintage_date": "Data vintage date recorded in the frozen evidence panel.",
+            "evidence_created_at": "Harvester release/catalog creation timestamp.",
+            "run_generated_at": "Model run package generation timestamp when available.",
+        },
+        "evidence_created_at": evidence_created_at,
+        "run_generated_at": run_generated_at,
+        "model_input_validity": model_input_validity,
+        "gate_result": _gate_result(indicators, policy, model_input_validity),
+        "indicators": indicators,
+    }
+    return manifest
+
+
+def _resolve_panel_from_catalog(release: Path, catalog: dict[str, Any]) -> tuple[Path, str | None]:
+    """Locate the benchmark panel file regardless of catalog mode.
+
+    Bundle-mode catalogs expose ``files[].role == "benchmark_panel"``.
+    Dataset-mode catalogs expose ``datasets[].dataset_id`` with the
+    canonical long-format panel published as ``official_panel`` (preferred)
+    or ``benchmark_panel`` (legacy alias).  Wide-format dataset ids such as
+    ``benchmark_panel_weekly`` are intentionally not selected here — freshness
+    classification operates on the long-format observation schema.
+    """
+    if "files" in catalog:
+        entry = next(
+            (item for item in catalog.get("files", []) if item.get("role") == "benchmark_panel"),
+            None,
+        )
+        if entry is None:
+            raise FileNotFoundError(f"No benchmark_panel in {release / 'catalog.json'}")
+        return release / entry["path"], catalog.get("created_at") or catalog.get("bundle_id")
+
+    if "datasets" in catalog:
+        for dataset_id in ("official_panel", "benchmark_panel"):
+            entry = next(
+                (item for item in catalog.get("datasets", []) if item.get("dataset_id") == dataset_id),
+                None,
+            )
+            if entry is not None:
+                evidence_created_at = catalog.get("finalized_at") or catalog.get("created_at")
+                return release / entry["data_path"], evidence_created_at
+        available = sorted(d.get("dataset_id", "") for d in catalog.get("datasets", []))
+        raise FileNotFoundError(
+            "dataset-mode catalog does not expose official_panel or benchmark_panel; "
+            f"available: {available} (release={release})"
+        )
+
+    raise FileNotFoundError(f"unknown catalog mode for {release / 'catalog.json'}")
+
+
+def write_release_freshness_manifest(release_dir: Path | None = None, **kwargs: Any) -> Path:
+    release = (release_dir or HARVESTER_LATEST).resolve()
+    manifest = build_release_freshness_manifest(release, **kwargs)
+    path = release / "freshness_manifest.json"
+    path.write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return path
+
+
+def write_model_run_freshness_manifest(run_dir: Path | None = None, release_dir: Path | None = None) -> Path:
+    run = (run_dir or DEFORMATION_LATEST).resolve()
+    manifest = read_json(run / "run_manifest.json")
+    release = (release_dir or (ROOT / "Data" / "harvester" / "exports" / str(manifest.get("harvester_release")))).resolve()
+    freshness = build_release_freshness_manifest(
+        release,
+        run_generated_at=manifest.get("generated_at"),
+        run_id=manifest.get("run_id"),
+    )
+    path = run / "freshness_manifest.json"
+    path.write_text(json.dumps(freshness, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    manifest["freshness_manifest_path"] = "freshness_manifest.json"
+    manifest["model_input_validity"] = freshness["model_input_validity"]
+    manifest["freshness_gate_result"] = freshness["gate_result"]
+    (run / "run_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    _write_report_banner(run, freshness)
+    return path
+
+
+def _indicator_freshness(
+    series_id: str,
+    panel: pd.DataFrame,
+    policy: dict[str, Any],
+    evidence_created_at: str | None,
+) -> dict[str, Any]:
+    indicator_policy = policy.get("indicators", {}).get(series_id, {})
+    frequency = str(indicator_policy.get("frequency") or "unknown")
+    required = bool(indicator_policy.get("required", False))
+    override = indicator_policy.get("status_override")
+    evidence_ts = parse_timestamp(evidence_created_at)
+    part = panel[series_matches(panel, series_id)].copy()
+
+    base = {
+        "series_id": series_id,
+        "required": required,
+        "frequency": frequency,
+        "observation_date": None,
+        "vintage_date": None,
+        "evidence_created_at": evidence_created_at,
+        "lag_days": None,
+        "freshness_status": "missing",
+        "missing_reason": None,
+        "retired_reason": None,
+        "used_in_current_diagnostics": False,
+        "current_diagnostics_allowed": bool(indicator_policy.get("current_diagnostics_allowed", True)),
+        "gate_severity": None,
+    }
+
+    if override == "retired_or_unavailable":
+        base.update(
+            {
+                "freshness_status": "retired_or_unavailable",
+                "retired_reason": indicator_policy.get("retired_reason"),
+                "retired_effective_date": indicator_policy.get("retired_effective_date"),
+                "current_diagnostics_allowed": False,
+                "gate_severity": "none" if not required else policy.get("gate_defaults", {}).get("retired_used_severity", "block"),
+            }
+        )
+        if not part.empty:
+            latest = _latest_observation(part)
+            base.update(_latest_dates(latest, evidence_ts))
+        return base
+
+    if part.empty:
+        base["missing_reason"] = indicator_policy.get("missing_reason") or "Indicator is not present in the admitted evidence panel."
+        base["gate_severity"] = _indicator_gate_severity("missing", indicator_policy, policy, required)
+        return base
+
+    latest = _latest_observation(part)
+    base.update(_latest_dates(latest, evidence_ts))
+    status = classify_lag(base["lag_days"], frequency, policy)
+    base["freshness_status"] = status
+    base["gate_severity"] = _indicator_gate_severity(status, indicator_policy, policy, required)
+    return base
+
+
+def _latest_observation(part: pd.DataFrame) -> pd.Series:
+    part = part.copy()
+    part["date"] = pd.to_datetime(part["date"], errors="coerce")
+    part = part.dropna(subset=["date", "value"]).sort_values("date")
+    return part.iloc[-1] if not part.empty else pd.Series(dtype=object)
+
+
+def _latest_dates(latest: pd.Series, evidence_ts: pd.Timestamp | None) -> dict[str, Any]:
+    observation = parse_date(latest.get("date"))
+    vintage = parse_date(latest.get("vintage_date"))
+    lag_days = None
+    if evidence_ts is not None and observation is not None:
+        lag_days = int((evidence_ts.normalize().tz_localize(None) - observation).days)
+    return {
+        "observation_date": observation.date().isoformat() if observation is not None else None,
+        "vintage_date": vintage.date().isoformat() if vintage is not None else None,
+        "lag_days": lag_days,
+    }
+
+
+def _indicator_gate_severity(status: str, indicator_policy: dict[str, Any], policy: dict[str, Any], required: bool) -> str:
+    if not required:
+        return "none"
+    defaults = policy.get("gate_defaults", {})
+    if status == "stale":
+        return str(indicator_policy.get("stale_required_severity") or defaults.get("stale_required_severity") or "warn")
+    if status == "missing":
+        return str(indicator_policy.get("missing_required_severity") or defaults.get("missing_required_severity") or "warn")
+    return "none"
+
+
+def _model_input_validity(indicators: list[dict[str, Any]]) -> str:
+    required = [item for item in indicators if item.get("required")]
+    if any(item["freshness_status"] == "missing" for item in required):
+        return "incomplete"
+    if any(item["freshness_status"] == "stale" for item in required):
+        return "degraded"
+    if any(item["freshness_status"] == "acceptable_lag" for item in required):
+        return "usable_with_lag"
+    return "usable"
+
+
+def _gate_result(indicators: list[dict[str, Any]], policy: dict[str, Any], model_input_validity: str) -> dict[str, Any]:
+    warnings = []
+    blockers = []
+    for item in indicators:
+        status = item["freshness_status"]
+        severity = item.get("gate_severity")
+        if item.get("required") and status in {"stale", "missing"}:
+            message = f"{item['series_id']} is required but {status}"
+            (blockers if severity == "block" else warnings).append(message)
+        if status == "retired_or_unavailable" and item.get("used_in_current_diagnostics"):
+            blockers.append(f"{item['series_id']} is retired_or_unavailable but marked as used in current diagnostics")
+    return {
+        "promotion_allowed": not blockers,
+        "canonical_promotion_severity": "block" if blockers else "warn" if warnings else "pass",
+        "model_input_validity": model_input_validity,
+        "warnings": warnings,
+        "blockers": blockers,
+    }
+
+
+def banner_lines(freshness: dict[str, Any]) -> list[str]:
+    counts: dict[str, int] = {status: 0 for status in sorted(STATUSES)}
+    for item in freshness.get("indicators", []):
+        counts[item.get("freshness_status", "missing")] = counts.get(item.get("freshness_status", "missing"), 0) + 1
+    gate = freshness.get("gate_result", {})
+    return [
+        "Data recency: batch/vintage evidence, not real-time.",
+        f"Evidence created at: {freshness.get('evidence_created_at') or 'unknown'}",
+        f"Run generated at: {freshness.get('run_generated_at') or 'unknown'}",
+        f"Model input validity: {freshness.get('model_input_validity')}",
+        "Freshness counts: " + ", ".join(f"{key}={value}" for key, value in sorted(counts.items()) if value),
+        f"Promotion gate: {gate.get('canonical_promotion_severity', 'unknown')}",
+    ]
+
+
+def _write_report_banner(run: Path, freshness: dict[str, Any]) -> None:
+    summary = run / "reports" / "executive_summary.md"
+    if summary.exists():
+        text = summary.read_text(encoding="utf-8")
+        if "## Data Recency" not in text:
+            block = "\n".join(["", "## Data Recency", *[f"- {line}" for line in banner_lines(freshness)], ""])
+            summary.write_text(text.rstrip() + "\n" + block, encoding="utf-8")
+    report = run / "reports" / "report.html"
+    if report.exists():
+        text = report.read_text(encoding="utf-8")
+        if "Data Recency" not in text:
+            lis = "".join(f"<li>{line}</li>" for line in banner_lines(freshness))
+            section = f"<section><h2>Data Recency</h2><ul>{lis}</ul></section>"
+            text = text.replace("</div>\n</body>", f"{section}\n  </div>\n</body>")
+            report.write_text(text, encoding="utf-8")

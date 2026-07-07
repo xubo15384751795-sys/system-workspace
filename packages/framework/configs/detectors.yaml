@@ -1,0 +1,30 @@
+# Detector backends for ResearchPipeline (kept out of config.yaml size budget).
+detectors:
+  anomaly:
+    backend: isolation_forest
+    model_release: latest
+    isolation_forest:
+      contamination: 0.05
+      random_state: 7
+      min_samples: 10
+      fit_history_start: "1900-01-01"
+      fit_history_end: "9999-12-31"
+    dl:
+      fit_history_start: "1900-01-01"
+      fit_history_end: "9999-12-31"
+      window: 60
+      hidden: 32
+  narrative:
+    backend: sentence_transformer
+    semantic_prototype:
+      model_name: "all-MiniLM-L6-v2"
+  reflexivity:
+    backend: dtw
+    dtw:
+      channel_threshold: 0.6
+    graph:
+      window: 60
+      channel_threshold: 0.6
+
+paths:
+  ml_models_root: "/Users/a1/System/Output/ml_models"

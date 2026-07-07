@@ -1,0 +1,25 @@
+# The data/ symlink points to a non-versioned data volume
+# (/Users/a1/System/Data/harvester/). Nothing under it is part of the repo.
+data
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+
+# Environment / secrets
+.env
+.env.*
+*.env
+*.local.json
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
