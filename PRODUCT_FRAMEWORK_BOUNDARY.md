@@ -105,17 +105,17 @@ decide what those signals mean inside a framework.
 ```text
 Product / Workbench:
   ./sys
-  Workbench/
-  Workbench/src/workbench/current.py
-  Workbench/src/workbench/evidence_dashboard.py
-  Workbench/src/workbench/artifact_navigator.py
-  Workbench/src/workbench/contract_validator.py
-  Workbench/src/workbench/workspace/
-  Workbench/contracts/workbench/
-  Workbench/contracts/workbench/
-  structural-risk-harvester/
-  Workbench/agents/harness/
-  system-learning-hub/
+  packages/workbench/
+  packages/workbench/src/workbench/current.py
+  packages/workbench/src/workbench/evidence_dashboard.py
+  packages/workbench/src/workbench/artifact_navigator.py
+  packages/workbench/src/workbench/contract_validator.py
+  packages/workbench/src/workbench/workspace/
+  packages/workbench/contracts/workbench/
+  packages/workbench/contracts/workbench/
+  packages/harvester/
+  packages/workbench/agents/harness/
+  packages/learning_hub/
   scripts/refresh_output_current.py (compatibility wrapper)
   scripts/build_benchmark_evidence_dashboard.py (compatibility wrapper)
   scripts/build_artifact_navigator.py (compatibility wrapper)
@@ -124,7 +124,7 @@ Product / Workbench:
   Output/workbench/
 
 Protocol / Contracts:
-  Workbench/contracts/workbench/
+  packages/workbench/contracts/workbench/
   contracts/workbench/ (compatibility symlink)
   Data/system_index/
   run_manifest.json
@@ -132,22 +132,22 @@ Protocol / Contracts:
   dashboard_snapshot.json
 
 Framework Core:
-  deformation-framework/src/proxies/
-  deformation-framework/src/derivation/
-  deformation-framework/src/operators/
-  deformation-framework/src/diagnostics/
-  deformation-framework/src/dynamics/
-  deformation-framework/src/interpretation/
-  deformation-framework/wiki/
-  deformation-framework/papers/
+  packages/framework/src/proxies/
+  packages/framework/src/derivation/
+  packages/framework/src/operators/
+  packages/framework/src/diagnostics/
+  packages/framework/src/dynamics/
+  packages/framework/src/interpretation/
+  packages/framework/wiki/
+  packages/framework/papers/
 
 Data Provider:
-  structural-risk-harvester/
+  packages/harvester/
   Structural Risk Harvester/ (compatibility symlink)
   Data/harvester/exports/
 
 Governance Memory:
-  system-learning-hub/
+  packages/learning_hub/
   System Learning Hub/ (compatibility symlink)
   Data/system_learning/
   Output/system_learning/
@@ -169,11 +169,11 @@ Governance Memory:
    not become model input.
 8. `Output/current/` remains a pointer and cockpit layer; it does not copy large
    report artifacts.
-9. Product source code lives in `Workbench/`. Top-level `scripts/` entries for
+9. Product source code lives in `packages/workbench/`. Top-level `scripts/` entries for
    Workbench behavior must be thin wrappers.
 10. Data Provider and Agent Harness source are separate nested repos or
     Workbench subfolders. Human-readable symlinks at workspace root are
     compatibility aliases only.
-11. Governance memory lives in `system-learning-hub/` with canonical artifacts
+11. Governance memory lives in `packages/learning_hub/` with canonical artifacts
     under `Data/system_learning/` and `Output/system_learning/`.
     Top-level `System Learning Hub` and `contracts` are compatibility symlinks.

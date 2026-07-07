@@ -49,31 +49,31 @@ Sandbox         =  experimental isolation        (OpenBB / Qlib probes)
 System/
 ├── Data/                                  # source of truth (durable, machine-readable)
 ├── Output/                                # run packages + human-facing artifacts
-├── Workbench/                             # Product / Tool layer (nested git)
+├── packages/workbench/                             # Product / Tool layer (nested git)
 │   ├── src/workbench/                     # cockpit, dashboards, workspace utils
 │   ├── src/nlp/                           # structural NLP library
 │   ├── agents/harness/                    # agent/API harness
 │   └── contracts/workbench/               # Workbench JSON schemas
-├── structural-risk-harvester/             # Data Provider repo (nested git)
-├── system-learning-hub/                   # Governance memory repo (nested git)
-├── deformation-framework/  # Framework repo (nested git)
+├── packages/harvester/             # Data Provider repo (nested git)
+├── packages/learning_hub/                   # Governance memory repo (nested git)
+├── packages/framework/  # Framework repo (nested git)
 ├── scripts/                               # workspace-level scripts (see FOLDER_OWNERSHIP.md)
 ├── protocols/                             # cross-module JSON schemas
 ├── governance/                            # constitution + authority registries
-├── contracts -> Workbench/contracts
-├── Structural Risk Harvester -> structural-risk-harvester/
-├── Structural Research Harness -> Workbench/agents/harness/
-├── System Learning Hub -> system-learning-hub/
+├── contracts -> packages/workbench/contracts
+├── Structural Risk Harvester -> packages/harvester/
+├── Structural Research Harness -> packages/workbench/agents/harness/
+├── System Learning Hub -> packages/learning_hub/
 ├── ROUTING_CONSTITUTION.md
 └── routing_decision_record.template.yaml
 ```
 
 See `governance/repo_layout_map.md` for doc-vs-reality history and migration backlog.
 
-Workbench owns Product/Tool source inside `Workbench/`. Harvester and Learning
-Hub are **sibling repos at workspace root**, not nested under `Workbench/`.
+Workbench owns Product/Tool source inside `packages/workbench/`. Harvester and Learning
+Hub are **sibling repos at workspace root**, not nested under `packages/workbench/`.
 Deformation owns Framework source. Protocols live in `protocols/` and
-`Workbench/contracts/workbench/`.
+`packages/workbench/contracts/workbench/`.
 
 ## Repository Layout (multi-repo)
 
@@ -83,10 +83,10 @@ with submodules, or run bootstrap after a plain clone:
 | Repo | Local path | Owns |
 |---|---|---|
 | `system-workspace` | `/` (this repo) | root docs, protocols, scripts, configs, governance |
-| `Structural-Deformation-Research-System` | `deformation-framework/` | framework core (`src/core`, `src/derivation`, `src/dynamics`, …) |
-| `structural-workbench` | `Workbench/` | NLP pipeline, ML signals, contracts, agent harness, tests |
-| `structural-risk-harvester` | `structural-risk-harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
-| `system-learning-hub` | `system-learning-hub/` | cross-system reliability and governance memory |
+| `Structural-Deformation-Research-System` | `packages/framework/` | framework core (`src/core`, `src/derivation`, `src/dynamics`, …) |
+| `structural-workbench` | `packages/workbench/` | NLP pipeline, ML signals, contracts, agent harness, tests |
+| `structural-risk-harvester` | `packages/harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
+| `system-learning-hub` | `packages/learning_hub/` | cross-system reliability and governance memory |
 
 Four sister repos are **git submodules** at the paths above (pinned in
 `.gitmodules`). Four top-level symlinks (`Structural Research Harness`,

@@ -1,7 +1,7 @@
 # Folder Ownership
 
 Directory-level boundary map for `/Users/a1/System`. This file describes **what
-is on disk now**, not a future nested layout under `Workbench/`.
+is on disk now**, not a future nested layout under `packages/workbench/`.
 
 Last aligned: 2026-05-22. See `governance/repo_layout_map.md` for the full
 doc-vs-reality table and migration backlog.
@@ -18,18 +18,18 @@ System/                                    # system-workspace (this git repo)
 ├── governance/                            # constitution + authority registries
 ├── scripts/                               # workspace entrypoints (see below)
 ├── tests/                                 # workspace-level tests
-├── Workbench/                             # structural-workbench (git submodule)
-├── structural-risk-harvester/             # harvester repo (git submodule)
-├── system-learning-hub/                   # learning hub repo (git submodule)
-├── deformation-framework/  # framework repo (git submodule)
-├── contracts -> Workbench/contracts       # compatibility symlink
-├── Structural Risk Harvester -> structural-risk-harvester/
-├── System Learning Hub -> system-learning-hub/
-└── Structural Research Harness -> Workbench/agents/harness/
+├── packages/workbench/                             # structural-workbench (git submodule)
+├── packages/harvester/             # harvester repo (git submodule)
+├── packages/learning_hub/                   # learning hub repo (git submodule)
+├── packages/framework/  # framework repo (git submodule)
+├── contracts -> packages/workbench/contracts       # compatibility symlink
+├── Structural Risk Harvester -> packages/harvester/
+├── System Learning Hub -> packages/learning_hub/
+└── Structural Research Harness -> packages/workbench/agents/harness/
 ```
 
 Four sister repositories are **sibling directories** and **git submodules**,
-not nested under `Workbench/data_providers/` or `Workbench/governance/`.
+not nested under `packages/workbench/data_providers/` or `packages/workbench/governance/`.
 See `governance/git_workspace_policy.md`.
 
 ---
@@ -39,7 +39,7 @@ See `governance/git_workspace_policy.md`.
 ### Workbench (product + NLP + contracts)
 
 ```text
-Workbench/                                 # git submodule: structural-workbench
+packages/workbench/                                 # git submodule: structural-workbench
 ├── src/workbench/                         # product cockpit, dashboards, workspace utils
 ├── src/nlp/                               # structural NLP library
 ├── src/ml/                                # ML signal layer
@@ -58,12 +58,12 @@ Output/workbench/
 ```
 
 Top-level `./sys` and the thin wrappers listed below delegate into
-`Workbench/src/workbench/`.
+`packages/workbench/src/workbench/`.
 
 ### Harvester (data provider)
 
 ```text
-structural-risk-harvester/               # git submodule — canonical source
+packages/harvester/               # git submodule — canonical source
 Data/harvester/exports/                  # published release bundles
 ```
 
@@ -72,7 +72,7 @@ Data/harvester/exports/                  # published release bundles
 ### Learning Hub (governance memory tool)
 
 ```text
-system-learning-hub/                     # git submodule — canonical source
+packages/learning_hub/                     # git submodule — canonical source
 Data/system_learning/                    # canonical ledgers + registries (Hub writes)
 Output/system_learning/runtime/          # append-only runtime log (Hub writes)
 Output/system_learning/latest/           # derived reports (Hub writes)
@@ -86,7 +86,7 @@ Peer modules record via `scripts/record_runtime_event.py` only. See
 ## Structural NLP Library
 
 ```text
-Workbench/src/nlp/
+packages/workbench/src/nlp/
 ```
 
 Owns ingestion, extraction, mapping, candidate export, promotion, and
@@ -108,17 +108,17 @@ Cross-module schemas:
 
 ```text
 protocols/                               # workspace handoff schemas
-Workbench/contracts/workbench/           # Workbench contract catalog
+packages/workbench/contracts/workbench/           # Workbench contract catalog
 ```
 
-`contracts/` at repo root symlinks to `Workbench/contracts/`.
+`contracts/` at repo root symlinks to `packages/workbench/contracts/`.
 
 ---
 
 ## Framework Core
 
 ```text
-deformation-framework/  # git submodule — canonical source
+packages/framework/  # git submodule — canonical source
 ```
 
 Framework-owned areas include `src/proxies/`, `src/derivation/`, `src/operators/`,
@@ -133,7 +133,7 @@ product workflows or generic workspace scripts.
 ## Agent / API Harness
 
 ```text
-Workbench/agents/harness/
+packages/workbench/agents/harness/
 ```
 
 Agent-facing tools, hooks, policies, skills, and workflow guards. Tool /
@@ -145,7 +145,7 @@ Workbench code — not Framework code.
 
 ## Workspace scripts (`scripts/`)
 
-### Thin wrappers only (canonical logic in `Workbench/src/workbench/`)
+### Thin wrappers only (canonical logic in `packages/workbench/src/workbench/`)
 
 ```text
 refresh_output_current.py
