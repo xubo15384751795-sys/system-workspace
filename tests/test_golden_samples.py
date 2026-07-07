@@ -17,13 +17,17 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from caselab_context.build_embeddings import EMBEDDINGS_PATH, build_from_index, save_embeddings
+from caselab_context.build_embeddings import (
+    EMBEDDINGS_PATH,
+    build_from_index,
+    save_embeddings,
+)
 from caselab_context.index_paper import build_index
 from caselab_context.resolve_meaning import build_context_packet
 
 # Ensure embeddings exist for similar_notes tests
 _records = build_index()
-save_embeddings(EMBEDDINGS_PATH, build_from_index(_records))
+save_embeddings(EMBEDDINGS_PATH, build_from_index(_records, backend="tfidf"))
 
 FULL_REGIME = {
     "liquidity": "abundant",

@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 
 from caselab_context.embeddings_core import load_embeddings, search
+from caselab_context.graph_expand import expand_with_graph
+from caselab_context.quality_weights import quality_bonus
 
 EMBEDDINGS_PATH = Path(__file__).resolve().parents[1] / "Data" / "caselab_context" / "embeddings.json"
 
@@ -27,12 +29,14 @@ def _rerank(
 ) -> list[dict]:
     """Boost results that match actor, action, or risk transfer terms.
 
-    Ranking signals (additive on top of TF-IDF score):
+    Ranking signals (additive on top of retrieval score):
       +0.15  actor name appears in title or text
       +0.10  verb appears in title or text
       +0.05  object token appears in title or text
       +0.10  risk_transfer terms overlap with text
-      +0.05  same note type layer (case vs entity vs model)
+      +0.05  graph-expanded neighbor
+      +0.03  ontology chain link (exhibits/defines/observed_by)
+      +quality boost from note quality metadata
       -0.05  only surface object match, no actor (penalize noise)
     """
     if not results:
@@ -49,29 +53,32 @@ def _rerank(
         title_lower = (item.get("title") or "").lower()
         text_lower = (item.get("text") or "").lower()
         combined = title_lower + " " + text_lower
-        note_tags = set(item.get("tags") or [])
 
         bonus = 0.0
 
-        # Actor match (strongest signal)
         actor_hit = any(t in combined for t in actor_tok if len(t) > 2)
         if actor_hit:
             bonus += 0.15
 
-        # Verb match
         if any(t in combined for t in verb_tok if len(t) > 2):
             bonus += 0.10
 
-        # Object token match
         obj_hit = any(t in combined for t in obj_tok if len(t) > 2)
         if obj_hit:
             bonus += 0.05
 
-        # Risk transfer term overlap
         if risk_tok and any(t in combined for t in risk_tok if len(t) > 3):
             bonus += 0.10
 
-        # Penalize surface-only object match without actor
+        if item.get("graph_boost"):
+            bonus += 0.05
+            if int(item.get("graph_hop") or 1) == 2:
+                bonus += 0.02
+            if item.get("graph_relation") in {"exhibits", "defines", "observed_by", "feeds"}:
+                bonus += 0.03
+
+        bonus += quality_bonus(item.get("quality"))
+
         if obj_hit and not actor_hit:
             bonus -= 0.05
 
@@ -87,7 +94,12 @@ def retrieve_similar(query: str, top_k: int = 5) -> list[dict]:
     if not EMBEDDINGS_PATH.exists():
         return []
     payload = load_embeddings(EMBEDDINGS_PATH)
-    return search(payload, query, top_k=top_k)
+    results = search(payload, query, top_k=top_k * 3)
+    graph = payload.get("graph")
+    docs = payload.get("docs") or []
+    if graph and docs:
+        results = expand_with_graph(results, graph, docs, max_hops=2)
+    return results[: top_k * 3]
 
 
 def retrieve_similar_reranked(
@@ -99,15 +111,13 @@ def retrieve_similar_reranked(
     risk_from: str = "",
     risk_to: str = "",
 ) -> list[dict]:
-    """Retrieve with TF-IDF then rerank by structural signals."""
-    # Get more candidates than needed for reranking
-    raw = retrieve_similar(query, top_k=top_k * 3)
+    """Retrieve with hybrid/dense/sparse search, graph expansion, then rerank."""
+    raw = retrieve_similar(query, top_k=top_k)
     return _rerank(raw, actor=actor, verb=verb, obj=obj, risk_from=risk_from, risk_to=risk_to)[:top_k]
 
 
 def merge_similar_into_packet(packet: dict, query: str, top_k: int = 5) -> dict:
     ctx = packet.setdefault("context_packet", packet)
-    # Extract structural signals from the packet for reranking
     actor = ctx.get("actor", "")
     action = ctx.get("action") or {}
     verb = action.get("verb", "")
@@ -118,9 +128,13 @@ def merge_similar_into_packet(packet: dict, query: str, top_k: int = 5) -> dict:
     risk_to = rt.get("to", "")
 
     similar = retrieve_similar_reranked(
-        query, top_k=top_k,
-        actor=actor, verb=verb, obj=obj,
-        risk_from=risk_from, risk_to=risk_to,
+        query,
+        top_k=top_k,
+        actor=actor,
+        verb=verb,
+        obj=obj,
+        risk_from=risk_from,
+        risk_to=risk_to,
     )
     ctx["similar_notes"] = similar
     analogies = list(meaning.get("historical_analogies") or [])
@@ -138,12 +152,15 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=5)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    results = retrieve_similar(args.query, top_k=args.top)
+    results = retrieve_similar(args.query, top_k=args.top)[: args.top]
     if args.json:
         print(json.dumps(results, indent=2, ensure_ascii=False))
         return
     for item in results:
-        print(f"{item['score']:.3f} {item['title']} ({item['id']})")
+        suffix = ""
+        if item.get("graph_boost"):
+            suffix = f" [graph:{item.get('graph_relation')}]"
+        print(f"{item['score']:.3f} {item['title']} ({item['id']}){suffix}")
 
 
 if __name__ == "__main__":

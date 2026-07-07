@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "caselab-context": {
+      "command": "python3",
+      "args": ["-m", "caselab_context.mcp_server"],
+      "cwd": "/Users/a1/System",
+      "env": {
+        "PAPER_ROOT": "/Users/a1/Paper"
+      }
+    }
+  }
+}

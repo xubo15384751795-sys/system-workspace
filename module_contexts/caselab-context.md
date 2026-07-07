@@ -14,9 +14,11 @@ Use this thread when the task mentions:
 ## Owns
 
 - Symbolic context resolution from Paper knowledge
-- TF-IDF note retrieval for historical analogies
+- Hybrid note retrieval (TF-IDF / Ollama dense) with 2-hop graph expansion
+- Quality-aware rerank for historical analogies
 - Context feedback log
 - Trade idea context enrichment
+- MCP server for AI clients (`caselab_context.mcp_server`)
 
 ## Primary locations
 
@@ -43,6 +45,7 @@ python3 -m caselab_context.index_paper
 python3 -m caselab_context.build_embeddings --reindex
 python3 -m caselab_context.resolve_meaning --actor "Goldman Sachs" --verb ipo --object public_market --json
 python3 -m caselab_context.run_samples
+python3 -m caselab_context.mcp_server
 python3 scripts/enrich_agent_context.py --date YYYY-MM-DD
 python3 -m caselab_runtime.feedback.collect_reviews
 python3 -m caselab_runtime.policies.build_policy_from_paper

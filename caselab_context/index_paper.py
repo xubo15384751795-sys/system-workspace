@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from caselab_context.graph_core import extract_links
 from caselab_context.load_context import PAPER_ROOT
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "Data" / "caselab_context"
@@ -18,8 +19,11 @@ INDEX_PATH = DATA_DIR / "paper_index.jsonl"
 SCAN_DIRS = [
     "01_Cases",
     "02_Entities",
+    "03_Mechanisms",
     "04_Mappings",
+    "08_Variables",
     "09_Models",
+    "10_Indicators",
     "90_Admin/Context Samples",
 ]
 
@@ -36,12 +40,20 @@ def _parse_note(path: Path) -> dict[str, Any]:
     title = meta.get("canonical_name") or path.stem
     note_type = meta.get("type") or "note"
     tags = meta.get("tags") or []
+    aliases = meta.get("aliases") or []
+    quality = meta.get("quality")
+    review_status = meta.get("review_status")
+    links = extract_links(meta)
     return {
         "id": str(path.relative_to(PAPER_ROOT)),
         "path": str(path),
         "title": title,
         "type": note_type,
         "tags": tags,
+        "aliases": aliases,
+        "quality": quality,
+        "review_status": review_status,
+        "links": links,
         "text": f"{title}\n{body[:4000]}",
     }
 

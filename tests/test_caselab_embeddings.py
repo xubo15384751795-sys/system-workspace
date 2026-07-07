@@ -17,18 +17,22 @@ from caselab_context.resolve_meaning import build_context_packet
 class EmbeddingTests(unittest.TestCase):
     def test_build_and_search_embeddings(self) -> None:
         records = build_index()[:50]
-        payload = build_from_index(records)
+        payload = build_from_index(records, backend="tfidf")
         results = search(payload, "Goldman IPO risk transfer", top_k=3)
         self.assertTrue(results)
         titles = " ".join(item["title"] for item in results).lower()
         self.assertTrue("goldman" in titles or "ipo" in titles)
 
     def test_context_packet_includes_similar_notes(self) -> None:
-        from caselab_context.build_embeddings import EMBEDDINGS_PATH, build_from_index, save_embeddings
+        from caselab_context.build_embeddings import (
+            EMBEDDINGS_PATH,
+            build_from_index,
+            save_embeddings,
+        )
         from caselab_context.index_paper import build_index
 
         records = build_index()[:100]
-        save_embeddings(EMBEDDINGS_PATH, build_from_index(records))
+        save_embeddings(EMBEDDINGS_PATH, build_from_index(records, backend="tfidf"))
         packet = build_context_packet(
             "Goldman Sachs",
             "ipo",
