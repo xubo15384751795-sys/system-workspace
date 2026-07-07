@@ -56,11 +56,11 @@ baseline_hashes:
   authority_registry.yaml: "0058aae04a6ce7ea"
   canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
   capability_registry.schema.json: "36a5be75b05d591e"
-  capability_registry.yaml: "9a5e0085e18f64a4"
+  capability_registry.yaml: "77843d47b8a6f6fd"
   daily_pipeline_registry.yaml: "1462397fbc06859c"
   data_request_registry.yaml: "4a022aa7d9a526c8"
-  data_retention_policy.yaml: "ce516ccc7f87a904"
-  deferred_work_register.yaml: "271f93d985606be1"
+  data_retention_policy.yaml: "7441dd45daf12adf"
+  deferred_work_register.yaml: "d3c1f17971f07f2e"
   entrypoint_registry.yaml: "6b1c355c59deb295"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
@@ -523,6 +523,21 @@ baseline_updates:
     old_hash: "a970068f928a4821"
     new_hash: "271f93d985606be1"
     reason: "DuckDB snapshot store migration: status deferred -> in_progress; add migration_steps + progress"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-07-07"
+    old_hash: "271f93d985606be1"
+    new_hash: "d3c1f17971f07f2e"
+    reason: "DuckDB snapshot store migration: SEAL phase complete; move/seal steps + progress log"
+  - file: capability_registry.yaml
+    approved_at: "2026-07-07"
+    old_hash: "9a5e0085e18f64a4"
+    new_hash: "77843d47b8a6f6fd"
+    reason: "Clear legacy_data_hub_and_bridge blocker; harvester_becomes_only_provider_owner PARTIAL->COMPLETED (DuckDB SEAL)"
+  - file: data_retention_policy.yaml
+    approved_at: "2026-07-07"
+    old_hash: "ce516ccc7f87a904"
+    new_hash: "7441dd45daf12adf"
+    reason: "structural_lab.runtime legacy_candidate -> archived_legacy (DuckDB SEAL)"
 
 work_support_budget:
   max_files: 17

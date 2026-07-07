@@ -24,10 +24,10 @@ panels:
 
 structural_lab:
   runtime:
-    status: legacy_candidate
+    status: archived_legacy
     require_owner: true
     archive_after_days: 7
-    note: "47MB — must confirm consumer or archive"
+    note: "46MB DuckDB store SEAL'd 2026-07-07 (retire_after: 2026-10-15). Canonical store is HarvesterSnapshotStore under Data/harvester/snapshots/."
 
 merged_data:
   status: archived_legacy

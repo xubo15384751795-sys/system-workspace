@@ -77,17 +77,20 @@ items:
           Add backend selector in assembly.py (config snapshot_store.backend).
           Repoint JsonSnapshotStore alias.
         target_date: "2026-07-14"
-        completed: "pending"
+        completed: "2026-07-07"
       - step: seal
         description: >
           Seal DuckDBSnapshotStore write methods with @guard_method. Mark
           Data/structural_lab/runtime/system.duckdb retire_after: 2026-10-15.
           Add boundary test (production paths must not construct DuckDB directly).
         target_date: "2026-07-21"
-        completed: "pending"
+        completed: "2026-07-07"
     progress:
       - "2026-07-07: FREEZE — snapshot_store_freeze.py guard + ALLOW_LEGACY_DUCKDB env bypass"
       - "2026-07-07: Routing decision record 2026-07-07-duckdb-snapshot-store-migration.yaml created"
+      - "2026-07-07: MOVE — HarvesterSnapshotStore (13 methods, Parquet) + DualWriteSnapshotStore + assembly.py backend selector"
+      - "2026-07-07: SEAL — DuckDBSnapshotStore write methods guarded (@_guard_write), retire_after: 2026-10-15, boundary test added"
+      - "2026-07-07: capability_registry blocker cleared; data_retention_policy structural_lab.runtime -> archived_legacy"
     risk_if_ignored: >
       46MB legacy runtime store remains canonical; cannot compress or archive.
       Gateway shim retirement (retire_after: 2026-10-15) stays blocked.

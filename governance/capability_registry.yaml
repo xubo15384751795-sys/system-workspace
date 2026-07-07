@@ -34,14 +34,13 @@ deformation_framework:
   - raw_public_data_fetch
   - silent_legacy_fallback
   - promote
-  blockers:
-  - legacy_data_hub_and_bridge_still_in_gateway  # gateway/data_hub.py, bridge.py still in public path
+  blockers: []  # 2026-07-07: DuckDB snapshot store migration SEAL phase closed the last blocker
   last_audit_method: automated_test_run
   audit_cadence: biweekly
   promotion_requirements:
   - isolate_legacy_acquisition_in_src_data_init  # COMPLETED 2026-06-29 — files moved to src/_legacy/data/
   - add_boundary_tests_forbidden_imports  # COMPLETED 2026-06-30 — test_production_paths_do_not_import_legacy in test_data_boundary_extended.py
-  - harvester_becomes_only_provider_owner  # PARTIAL — merged_data transitional; cross_asset panel CANONICAL 2026-06-30
+  - harvester_becomes_only_provider_owner  # COMPLETED 2026-07-07 — DuckDB snapshot store SEAL'd; HarvesterSnapshotStore canonical
   notes: >
     data_sources.py, external_downloads.py, public_adapters.py moved to
     src/_legacy/data/ on 2026-06-29. src/data/__init__.py no longer exports
@@ -50,6 +49,11 @@ deformation_framework:
     2026-06-30 (read-only, deprecation warnings active, retire_after: 2026-10-15).
     Boundary test test_production_paths_do_not_import_legacy added 2026-06-30
     with explicit exemptions for transitional shims (gateway, adapters).
+    2026-07-07: DuckDB snapshot store migration SEAL phase complete —
+    DuckDBSnapshotStore write methods guarded (ALLOW_LEGACY_DUCKDB),
+    HarvesterSnapshotStore is the canonical backend, DualWriteSnapshotStore
+    covers the evidence window. Gateway shim retirement (retire_after
+    2026-10-15) no longer blocked by snapshot store.
 harvester:
   status: CANONICAL
   owner: system
