@@ -60,7 +60,7 @@ baseline_hashes:
   daily_pipeline_registry.yaml: "1462397fbc06859c"
   data_request_registry.yaml: "4a022aa7d9a526c8"
   data_retention_policy.yaml: "7441dd45daf12adf"
-  deferred_work_register.yaml: "d3c1f17971f07f2e"
+  deferred_work_register.yaml: "2bc005e8f4e9d950"
   entrypoint_registry.yaml: "6b1c355c59deb295"
   experimental_submission_registry.yaml: "e362f89e927c1957"
   framework_output.schema.json: "7378891650ab5040"
@@ -538,6 +538,11 @@ baseline_updates:
     old_hash: "ce516ccc7f87a904"
     new_hash: "7441dd45daf12adf"
     reason: "structural_lab.runtime legacy_candidate -> archived_legacy (DuckDB SEAL)"
+  - file: deferred_work_register.yaml
+    approved_at: "2026-07-07"
+    old_hash: "d3c1f17971f07f2e"
+    new_hash: "2bc005e8f4e9d950"
+    reason: "Submodule consolidation: status deferred -> in_progress; add progress log"
 
 work_support_budget:
   max_files: 17

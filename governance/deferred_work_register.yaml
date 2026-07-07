@@ -100,15 +100,22 @@ items:
   - id: submodule_consolidation_plan
     title: "Consolidate 4 submodules into packages/ monorepo structure"
     owner: System
-    status: deferred
+    status: in_progress
     reason: >
-      Requires packaging design, dependency resolution, and public reuse API.
-      Current submodule structure works; consolidation is optimization, not fix.
+      Constitution-approved target (architecture_reality_decisions §9, buffer
+      period ending 2026-07-31). 4 submodules move to packages/{workbench,
+      framework,harvester,learning_hub}/. Import root names PRESERVED (workbench,
+      src.*, harvester, system_learning) so boundary tests keep enforcing real
+      boundaries. Single import seam (scripts/_workspace_imports.py) is the
+      only chokepoint to redirect.
     target_window: "30 to 45 days from 2026-06-17"
     execution_window: "3-5 days (move files, update imports, fix CI)"
     evidence_window: "30 days (verify cross-module imports, CI stability, no drift)"
-    review_date: "2026-07-01"
+    review_date: "2026-07-15"
     hard_deadline: "2026-07-31"
+    progress:
+      - "2026-07-07: Routing decision record 2026-07-07-submodule-consolidation.yaml created"
+      - "2026-07-07: status deferred -> in_progress"
     risk_if_ignored: >
       Submodule dirty state, Python version inconsistency, pytest config scatter.
     fallback_if_expired: >
