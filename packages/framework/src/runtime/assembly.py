@@ -92,7 +92,7 @@ MAPPING_RULES_PATH: Path = Path(__file__).resolve().parent.parent.parent / "Data
 
 
 def _system_root(config: dict[str, Any]) -> Path:
-    return Path(str((config.get("data") or {}).get("system_root", Path(__file__).resolve().parents[3]))).expanduser()
+    return Path(str((config.get("data") or {}).get("system_root", Path(__file__).resolve().parents[4]))).expanduser()
 
 
 def _build_composite_event_loader(

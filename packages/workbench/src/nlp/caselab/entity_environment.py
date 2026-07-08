@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 CASELAB_ROOT = Path("/Users/a1/Paper")
-INDEX_PATH = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_environments"
+INDEX_PATH = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_environments"
 
 
 # ── Entity type → default environment variable templates ─────────────────

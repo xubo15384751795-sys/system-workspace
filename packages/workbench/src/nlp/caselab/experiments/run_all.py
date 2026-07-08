@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "Workbench" / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "packages" / "workbench" / "src"))
 
 from nlp.caselab.adapter import CaseLabAdapter
 from nlp.caselab.experiments import mechanism_graph, entity_graph, text_emergence

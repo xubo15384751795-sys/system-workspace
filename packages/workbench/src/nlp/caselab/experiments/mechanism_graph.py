@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_experiments"
+OUTPUT_DIR = Path(__file__).resolve().parents[6] / "Data" / "nlp" / "caselab_experiments"
 
 
 def build_cooccurrence_matrix(cases: list[dict]) -> dict[str, Any]:

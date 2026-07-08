@@ -19,8 +19,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ENV_INDEX = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_environments"
-OUTPUT_DIR = Path(__file__).resolve().parents[4] / "Output" / "caselab" / "events"
+ENV_INDEX = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_environments"
+OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "events"
 
 
 class EventResolver:

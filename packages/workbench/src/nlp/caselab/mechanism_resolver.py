@@ -25,9 +25,9 @@ import yaml
 from .causal_graph import PropagationResult, resolve_event_causal
 from .event_trigger import EventTriggerEngine, TriggerResult
 
-DATA_DIR = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_training"
-MAPPING_RULES = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "mapping_rules.yaml"
-OUTPUT_DIR = Path(__file__).resolve().parents[4] / "Output" / "caselab" / "resolved_mechanisms"
+DATA_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
+MAPPING_RULES = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "mapping_rules.yaml"
+OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "resolved_mechanisms"
 
 
 @dataclass

@@ -33,7 +33,7 @@ from nlp.caselab.text_match import (
 from nlp.cases.case_registry import CaseProfile, CaseRegistry
 from nlp.cases.case_similarity import CaseSimilarityEngine, CaseSimilarityResult
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 
 # ── Mechanism type definitions ──────────────────────────────────────────

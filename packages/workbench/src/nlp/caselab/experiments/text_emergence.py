@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy as np
 
-OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_experiments"
+OUTPUT_DIR = Path(__file__).resolve().parents[6] / "Data" / "nlp" / "caselab_experiments"
 
 # Structural concept seeds — used to anchor emergence, not constrain it.
 # These are broad enough to let patterns emerge within and across them.

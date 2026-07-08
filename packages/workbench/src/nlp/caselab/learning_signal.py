@@ -24,7 +24,7 @@ from nlp.caselab.causal_graph import (
     resolve_event_causal,
 )
 
-OUTPUT_DIR = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_calibration"
+OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_calibration"
 
 
 # ── Historical crisis episodes with ground truth ─────────────────────────

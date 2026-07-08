@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-OUTPUT_DIR = Path(__file__).resolve().parents[4] / "Output" / "caselab" / "causal"
+OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "causal"
 
 
 # ── Relation type → base weight and direction ────────────────────────────

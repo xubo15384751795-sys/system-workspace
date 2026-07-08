@@ -30,7 +30,7 @@ from nlp.caselab.adapter import CaseLabAdapter, CaseLabCase, CaseLabEntity
 
 # ── Paths ─────────────────────────────────────────────────────────────────
 CASELAB_ROOT = Path("/Users/a1/Paper")
-SYSTEM_DATA = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_training"
+SYSTEM_DATA = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
 
 
 # ── Mechanism → K feature mapping ────────────────────────────────────────

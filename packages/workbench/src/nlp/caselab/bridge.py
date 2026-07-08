@@ -18,9 +18,9 @@ from typing import Any
 
 import yaml
 
-CASELAB_TRAINING = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_training"
-MAPPING_RULES = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "mapping_rules.yaml"
-ML_SIGNALS_DIR = Path(__file__).resolve().parents[4] / "Output" / "ml_signals"
+CASELAB_TRAINING = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
+MAPPING_RULES = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "mapping_rules.yaml"
+ML_SIGNALS_DIR = Path(__file__).resolve().parents[5] / "Output" / "ml_signals"
 
 
 # ── 1. VariableMapper: add mechanism mapping rules ───────────────────────

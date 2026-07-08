@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[5]
 FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"

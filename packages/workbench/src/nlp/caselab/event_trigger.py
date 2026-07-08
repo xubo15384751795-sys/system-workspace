@@ -19,8 +19,8 @@ from typing import Any
 
 import yaml
 
-DATA_DIR = Path(__file__).resolve().parents[4] / "Data" / "nlp" / "caselab_training"
-OUTPUT_DIR = Path(__file__).resolve().parents[4] / "Output" / "caselab" / "event_triggers"
+DATA_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
+OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "event_triggers"
 
 # ── Condition evaluator ─────────────────────────────────────────────────
 
