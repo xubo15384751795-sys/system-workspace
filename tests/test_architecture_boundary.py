@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
-HARVESTER_SRC = ROOT / "structural-risk-harvester" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
+HARVESTER_SRC = ROOT / "packages" / "harvester" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
 

@@ -4,9 +4,8 @@ import json
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
@@ -64,4 +63,3 @@ promotion_gate_decision:
     assert "Promotion result: BLOCKED" in summary
     assert "| BLOCK | 1 |" in summary
     assert validate_report_verdict(report)["verdict"] == "BLOCK"
-

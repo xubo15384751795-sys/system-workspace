@@ -1,34 +1,32 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from nlp.chunking.chunk_schema import TextChunk
 from nlp.chunking.chunker import chunk_document
+from nlp.evaluation.hard_cases import append_hard_case, read_hard_cases
+from nlp.export.event_card_writer import write_event_card
+from nlp.export.report_writer import write_extraction_report
 from nlp.extraction.entity_extractor import extract_entities
 from nlp.extraction.event_extractor import extract_event_card
 from nlp.extraction.schema_validator import validate_event_card
-from nlp.extraction.schemas import ExtractedEntity, StructuralEventCard, VariableMapping
-from nlp.mapping.confidence_rules import ConfidenceRules, score_confidence
+from nlp.extraction.schemas import ExtractedEntity, StructuralEventCard
+from nlp.mapping.confidence_rules import ConfidenceRules
 from nlp.mapping.variable_mapper import (
     MappingResult,
     MappingVote,
     VariableMapper,
     map_entities_to_result,
 )
-from nlp.export.event_card_writer import write_event_card
-from nlp.export.report_writer import write_extraction_report
-from nlp.evaluation.hard_cases import append_hard_case, read_hard_cases
 from nlp.promotion import promote_event_card
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
@@ -619,7 +617,7 @@ class TestMultiSectionDocument:
 # ── Boundary Enforcement ─────────────────────────────────────────────
 
 class TestBoundaryEnforcement:
-    NLP_SRC = ROOT / "Workbench" / "src" / "nlp"
+    NLP_SRC = ROOT / "packages" / "workbench" / "src" / "nlp"
 
     def test_no_framework_imports(self):
         """NLP modules must not import from Deformation src.* or harvester."""
@@ -634,7 +632,7 @@ class TestBoundaryEnforcement:
 
     def test_no_deformation_modifications(self):
         """NLP code must not modify Deformation files."""
-        deformation_dir = ROOT / "deformation-framework" / "src"
+        deformation_dir = ROOT / "packages" / "framework" / "src"
         nlp_paths = {p.name for p in self.NLP_SRC.rglob("*.py")}
         deformation_paths = list(deformation_dir.rglob("*.py"))
         assert deformation_paths, "Deformation source must exist"

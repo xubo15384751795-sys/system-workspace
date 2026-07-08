@@ -34,7 +34,7 @@ def _load_module():
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     # Add Workbench/src for workbench.governance, etc.
-    wb_src = str(ROOT / "Workbench" / "src")
+    wb_src = str(ROOT / "packages" / "workbench" / "src")
     if wb_src not in sys.path:
         sys.path.insert(0, wb_src)
 

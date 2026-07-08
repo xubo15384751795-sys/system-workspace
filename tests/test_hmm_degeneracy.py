@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-WB_SRC = ROOT / "Workbench" / "src"
+WB_SRC = ROOT / "packages" / "workbench" / "src"
 # Workbench ml must win over deformation-framework/src/ml on sys.path.
 sys.path.insert(0, str(WB_SRC))
 

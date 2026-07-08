@@ -1,24 +1,20 @@
 """Test isolation: Qlib paths must be strictly sandboxed."""
 
-import json
-from pathlib import Path
-
-import pytest
-
 # Adjust path to find the benchmark modules
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "Workbench" / "src"))
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "workbench" / "src"))
 
 from benchmarks.market_feedback.benchmark_manifest import (
     create_benchmark_manifest,
     validate_manifest_paths,
 )
 from benchmarks.market_feedback.qlib_job_spec import (
+    FORBIDDEN_IN_JOB_SPEC,
     generate_job_spec,
     validate_job_spec_paths,
-    FORBIDDEN_IN_JOB_SPEC,
 )
-
 
 BENCHMARK_ID = "test_2026-05-05_ISOLATION_TEST"
 
@@ -61,7 +57,7 @@ class TestManifestIsolation:
         )
         forbidden = manifest["forbidden_paths"]
         assert "Data/" in forbidden
-        assert "Workbench/src" in forbidden
+        assert "packages/workbench/src" in forbidden
         assert "Output/deformation_runs" in forbidden
         assert "Output/system_learning" in forbidden
 

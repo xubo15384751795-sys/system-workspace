@@ -1,13 +1,10 @@
 """Test sandbox_exporter: data export must be copied snapshots."""
 
-import json
-from pathlib import Path
-
-import pytest
-
 # Adjust path
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "Workbench" / "src"))
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "workbench" / "src"))
 
 
 class TestSandboxExporter:

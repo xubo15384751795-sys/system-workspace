@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HARNESS_ROOT = ROOT / "Workbench" / "agents" / "harness"
+HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
 
 
 def test_list_registry_steps_includes_judgment_layer() -> None:

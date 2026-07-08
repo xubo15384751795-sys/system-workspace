@@ -33,18 +33,18 @@ def _replay_env() -> dict[str, str]:
         "PYTHONPATH": os.pathsep.join([
             str(ROOT),
             str(ROOT / "scripts"),
-            str(ROOT / "Workbench" / "src"),
-            str(ROOT / "deformation-framework" / "src"),
+            str(ROOT / "packages" / "workbench" / "src"),
+            str(ROOT / "packages" / "framework" / "src"),
         ]),
     }
 
 
 def _harvester_env() -> dict[str, str]:
-    return {"PYTHONPATH": str(ROOT / "structural-risk-harvester" / "src")}
+    return {"PYTHONPATH": str(ROOT / "packages" / "harvester" / "src")}
 
 
 def _workbench_env() -> dict[str, str]:
-    return {"PYTHONPATH": str(ROOT / "Workbench" / "src")}
+    return {"PYTHONPATH": str(ROOT / "packages" / "workbench" / "src")}
 
 
 def _policy_env() -> dict[str, str]:

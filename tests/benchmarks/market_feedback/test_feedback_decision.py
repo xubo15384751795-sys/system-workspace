@@ -3,9 +3,7 @@
 import sys
 from pathlib import Path
 
-import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "Workbench" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "workbench" / "src"))
 
 from benchmarks.market_feedback.feedback_decision import FEEDBACK_TYPES, _write_decision
 

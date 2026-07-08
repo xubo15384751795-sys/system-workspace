@@ -32,7 +32,7 @@ from _constants import TIMEOUT_SHORT  # noqa: E402
 from _runtime_io import ROOT, ensure_dir  # noqa: E402
 from _runtime_io import load_yaml as _load_yaml
 
-FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 DAILY_PIPELINE_REGISTRY = ROOT / "governance" / "daily_pipeline_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
@@ -254,8 +254,8 @@ def _check_unmarked_http_in_framework() -> list[dict[str, str]]:
     """Scan Framework research/benchmark files for HTTP imports not marked research_only_non_harvester."""
     http_modules = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3", "urllib"}
     research_dirs = [
-        ROOT / "deformation-framework" / "src" / "benchmarks",
-        ROOT / "deformation-framework" / "src" / "research_corpus",
+        ROOT / "packages" / "framework" / "src" / "benchmarks",
+        ROOT / "packages" / "framework" / "src" / "research_corpus",
     ]
     findings = []
     for dir_path in research_dirs:

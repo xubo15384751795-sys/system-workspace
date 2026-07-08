@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-HARNESS_ROOT = ROOT / "Workbench" / "agents" / "harness"
+HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
 
 
 @pytest.fixture(scope="module")

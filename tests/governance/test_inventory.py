@@ -4,9 +4,8 @@ import json
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
@@ -45,4 +44,3 @@ def test_write_inventory_normalizes_risk(tmp_path) -> None:
     assert inventory[0].status == "ALIVE"
     assert rows[1]["status"] == "ZOMBIE"
     assert rows[1]["risk_level"] == "HIGH"
-

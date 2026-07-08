@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-
 ROOT = Path(__file__).resolve().parents[1]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
@@ -51,7 +50,7 @@ def test_sys_ask_writes_last_answer() -> None:
 
 
 def test_workbench_nlp_does_not_import_framework_or_harvester() -> None:
-    text = (ROOT / "Workbench" / "src" / "workbench" / "nlp.py").read_text(encoding="utf-8")
+    text = (ROOT / "packages" / "workbench" / "src" / "workbench" / "nlp.py").read_text(encoding="utf-8")
     assert "from src." not in text
     assert "import src." not in text
     assert "import harvester" not in text

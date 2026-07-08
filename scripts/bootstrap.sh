@@ -3,23 +3,17 @@
 #
 # After cloning system-workspace, run this script from the repo root:
 #
-#   git clone --recurse-submodules git@github.com:USER/system-workspace.git System
-#   cd System
-#   ./scripts/bootstrap.sh
-#
-# Or without --recurse-submodules:
-#
 #   git clone git@github.com:USER/system-workspace.git System
 #   cd System
 #   ./scripts/bootstrap.sh
 #
 # It will:
-#   1. Init/update git submodules (four sister repos at workspace root)
+#   1. Verify packages/ layout exists (monorepo — no submodules)
 #   2. Recreate top-level compatibility symlinks
-#   3. Link system-learning-hub/data -> workspace Data/system_learning
+#   3. Link packages/learning_hub/data -> workspace Data/system_learning
 #   4. Print next steps for venv installation
 #
-# Re-running is safe: submodules are synced, existing symlinks are kept.
+# Re-running is safe: existing symlinks are kept.
 #
 # Git policy: governance/git_workspace_policy.md
 
@@ -27,34 +21,6 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-
-GH_USER="${GH_USER:-xubo15384751795-sys}"
-GH_PROTO="${GH_PROTO:-ssh}"  # set GH_PROTO=https to use HTTPS instead
-
-repo_url() {
-  local name="$1"
-  if [ "$GH_PROTO" = "https" ]; then
-    echo "https://github.com/${GH_USER}/${name}.git"
-  else
-    echo "git@github.com:${GH_USER}/${name}.git"
-  fi
-}
-
-clone_or_update() {
-  local repo_name="$1"
-  local target_path="$2"
-  local url
-  url="$(repo_url "$repo_name")"
-
-  if [ -d "$target_path/.git" ]; then
-    echo "[update] $target_path"
-    git -C "$target_path" pull --ff-only
-  else
-    echo "[clone]  $url -> $target_path"
-    mkdir -p "$(dirname "$target_path")"
-    git clone "$url" "$target_path"
-  fi
-}
 
 ensure_symlink() {
   local link_path="$1"
@@ -71,38 +37,35 @@ ensure_symlink() {
   ln -s "$target" "$link_path"
 }
 
-echo "=== Initializing sister repositories (git submodules) ==="
-if [ -f "$ROOT/.gitmodules" ]; then
-  git submodule sync --recursive
-  git submodule update --init --recursive
-else
-  echo "[warn]   .gitmodules not found — falling back to direct clone (legacy checkout)"
-  clone_or_update "Structural-Deformation-Research-System" "deformation-framework"
-  clone_or_update "structural-workbench"                    "Workbench"
-  clone_or_update "structural-risk-harvester"               "structural-risk-harvester"
-  clone_or_update "system-learning-hub"                     "system-learning-hub"
-fi
+echo "=== Verifying packages/ layout (monorepo) ==="
+for pkg in workbench framework harvester learning_hub; do
+  if [ ! -d "$ROOT/packages/$pkg" ]; then
+    echo "[ERROR] packages/$pkg not found — repository may be incomplete"
+    exit 1
+  fi
+done
+echo "[ok]     packages/{workbench,framework,harvester,learning_hub} present"
 
 echo
 echo "=== Recreating top-level symlinks ==="
-ensure_symlink "Structural Research Harness" "Workbench/agents/harness" || true
-ensure_symlink "System Learning Hub"         "system-learning-hub" || true
-ensure_symlink "Structural Risk Harvester"   "structural-risk-harvester" || true
-ensure_symlink "contracts"                   "Workbench/contracts" || true
+ensure_symlink "Structural Research Harness" "packages/workbench/agents/harness" || true
+ensure_symlink "System Learning Hub"         "packages/learning_hub" || true
+ensure_symlink "Structural Risk Harvester"   "packages/harvester" || true
+ensure_symlink "contracts"                   "packages/workbench/contracts" || true
 
 echo
 echo "=== Linking Learning Hub data alias ==="
-HUB_DATA="$ROOT/system-learning-hub/data"
-HUB_DATA_TARGET="../Data/system_learning"
+HUB_DATA="$ROOT/packages/learning_hub/data"
+HUB_DATA_TARGET="../../Data/system_learning"
 if [ -L "$HUB_DATA" ]; then
   : # already linked
 elif [ -d "$HUB_DATA" ] && [ -z "$(ls -A "$HUB_DATA" 2>/dev/null)" ]; then
   rmdir "$HUB_DATA" || true
-  ensure_symlink "system-learning-hub/data" "$HUB_DATA_TARGET" || true
+  ensure_symlink "packages/learning_hub/data" "$HUB_DATA_TARGET" || true
 elif [ ! -e "$HUB_DATA" ]; then
-  ensure_symlink "system-learning-hub/data" "$HUB_DATA_TARGET" || true
+  ensure_symlink "packages/learning_hub/data" "$HUB_DATA_TARGET" || true
 else
-  echo "[skip]   system-learning-hub/data exists with content (migrate to Data/system_learning/ manually)"
+  echo "[skip]   packages/learning_hub/data exists with content (migrate to Data/system_learning/ manually)"
 fi
 
 cat <<'EOF'
@@ -112,27 +75,27 @@ cat <<'EOF'
 Next steps (venvs are deliberately not created automatically):
 
   # Workbench (NLP / ML / contracts)
-  python3 -m venv Workbench/.venv
-  source Workbench/.venv/bin/activate
-  pip install -e "Workbench[dev]"
+  python3 -m venv packages/workbench/.venv
+  source packages/workbench/.venv/bin/activate
+  pip install -e "packages/workbench[dev]"
   deactivate
 
   # deformation-framework
-  python3 -m venv "deformation-framework/.venv"
-  source "deformation-framework/.venv/bin/activate"
-  pip install -e "deformation-framework"
+  python3 -m venv "packages/framework/.venv"
+  source "packages/framework/.venv/bin/activate"
+  pip install -e "packages/framework"
   deactivate
 
   # Structural Risk Harvester
-  python3 -m venv structural-risk-harvester/.venv
-  source structural-risk-harvester/.venv/bin/activate
-  pip install -e structural-risk-harvester
+  python3 -m venv packages/harvester/.venv
+  source packages/harvester/.venv/bin/activate
+  pip install -e packages/harvester
   deactivate
 
   # System Learning Hub
-  python3 -m venv system-learning-hub/.venv
-  source system-learning-hub/.venv/bin/activate
-  pip install -e system-learning-hub
+  python3 -m venv packages/learning_hub/.venv
+  source packages/learning_hub/.venv/bin/activate
+  pip install -e packages/learning_hub
   deactivate
 
 Data directories (Data/, Output/) are intentionally not committed. They are

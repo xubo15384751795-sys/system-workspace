@@ -10,9 +10,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
-FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
 
 # Directories that must be clean of HTTP/API-key imports
 CLEAN_DIRS = [

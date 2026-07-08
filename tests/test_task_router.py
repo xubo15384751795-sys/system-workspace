@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HARNESS_ROOT = ROOT / "Workbench" / "agents" / "harness"
+HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
 
 if str(HARNESS_ROOT) not in sys.path:
     sys.path.insert(0, str(HARNESS_ROOT))

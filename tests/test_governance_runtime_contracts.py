@@ -12,10 +12,9 @@ Files tested:
 """
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
 
-import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 GOV = ROOT / "governance"
@@ -300,14 +299,12 @@ class TestPipelineTestBaseline:
 
     def test_no_promotes_to(self):
         """Trust credits must use suggests_review_for, not promotes_to."""
-        import yaml as _yaml
         raw = (GOV / "pipeline_test_baseline.yaml").read_text(encoding="utf-8")
         assert "promotes_to" not in raw, \
             "pipeline_test_baseline.yaml must not contain promotes_to — use suggests_review_for"
 
     def test_no_canonical_candidate(self):
         """Trust credits must not reference canonical_candidate."""
-        import yaml as _yaml
         raw = (GOV / "pipeline_test_baseline.yaml").read_text(encoding="utf-8")
         assert "canonical_candidate" not in raw, \
             "pipeline_test_baseline.yaml must not reference canonical_candidate — use preferred"
@@ -382,7 +379,7 @@ class TestCodeGovernance:
         # Scan scripts/ and Workbench/src/
         scan_dirs = [
             ROOT / "scripts",
-            ROOT / "Workbench" / "src" / "workbench",
+            ROOT / "packages" / "workbench" / "src" / "workbench",
         ]
 
         for scan_dir in scan_dirs:

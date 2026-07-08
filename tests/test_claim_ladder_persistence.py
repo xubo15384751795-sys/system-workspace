@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WB_SRC = ROOT / "Workbench" / "src"
+WB_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WB_SRC) not in sys.path:
     sys.path.insert(0, str(WB_SRC))
 

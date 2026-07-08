@@ -10,11 +10,16 @@ pytestmark = pytest.mark.report
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from workbench.c005_morphology_report import evidence_payload, load_evidence, render_report, write_report
+from workbench.c005_morphology_report import (
+    evidence_payload,
+    load_evidence,
+    render_report,
+    write_report,
+)
 
 
 def test_c005_report_blocks_empty_validation_loop(tmp_path) -> None:

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
 
 
 def test_create_data_hub_not_in_public_all() -> None:
@@ -118,7 +118,7 @@ def test_production_paths_do_not_import_legacy() -> None:
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    framework_src = root / "deformation-framework" / "src"
+    framework_src = root / "packages" / "framework" / "src"
 
     # Production directories to check
     production_dirs = [

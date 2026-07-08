@@ -19,7 +19,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-FRAMEWORK_SRC = ROOT / "deformation-framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
 REGISTRY_PATH = ROOT / "governance" / "authority_registry.yaml"
 
 
@@ -191,7 +191,7 @@ def test_audit_has_all_hardening_checks() -> None:
 
 def test_api_security_module_exists() -> None:
     """Terminal API security helpers must exist in deformation-framework."""
-    security = ROOT / "deformation-framework" / "src" / "api" / "security.py"
+    security = ROOT / "packages" / "framework" / "src" / "api" / "security.py"
     assert security.exists(), "deformation-framework/src/api/security.py missing"
     source = security.read_text(encoding="utf-8")
     assert "assert_bind_allowed" in source

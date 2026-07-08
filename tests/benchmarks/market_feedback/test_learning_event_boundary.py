@@ -1,12 +1,10 @@
 """Test: Learning Hub events must NOT contain raw Qlib payload."""
 
 import json
+import sys
 from pathlib import Path
 
-import pytest
-
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "Workbench" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "workbench" / "src"))
 
 from benchmarks.market_feedback.report_writer import build_benchmark_event
 

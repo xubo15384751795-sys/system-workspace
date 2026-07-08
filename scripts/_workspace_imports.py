@@ -30,28 +30,28 @@ def _add(path: Path) -> None:
 
 
 def add_workbench_src() -> None:
-    """Add Workbench/src to sys.path."""
-    _add(ROOT / "Workbench" / "src")
+    """Add packages/workbench/src to sys.path."""
+    _add(ROOT / "packages" / "workbench" / "src")
 
 
 def add_learning_hub_src() -> None:
-    """Add system-learning-hub/src to sys.path."""
-    _add(ROOT / "system-learning-hub" / "src")
+    """Add packages/learning_hub/src to sys.path."""
+    _add(ROOT / "packages" / "learning_hub" / "src")
 
 
 def add_framework_src() -> None:
-    """Add deformation-framework/src to sys.path."""
-    _add(ROOT / "deformation-framework" / "src")
+    """Add packages/framework/src to sys.path."""
+    _add(ROOT / "packages" / "framework" / "src")
 
 
 def add_framework_root() -> None:
-    """Add deformation-framework/ for ``from src.*`` package imports."""
-    _add(ROOT / "deformation-framework")
+    """Add packages/framework/ for ``from src.*`` package imports."""
+    _add(ROOT / "packages" / "framework")
 
 
 def add_harvester_src() -> None:
-    """Add structural-risk-harvester/src to sys.path."""
-    _add(ROOT / "structural-risk-harvester" / "src")
+    """Add packages/harvester/src to sys.path."""
+    _add(ROOT / "packages" / "harvester" / "src")
 
 
 def add_root() -> None:

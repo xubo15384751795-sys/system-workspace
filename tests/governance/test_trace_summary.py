@@ -4,13 +4,15 @@ import json
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from workbench.governance.trace_summary import count_decision_impacts, summarize_trace_paths
+from workbench.governance.trace_summary import (
+    count_decision_impacts,
+    summarize_trace_paths,
+)
 
 
 def test_count_decision_impacts_includes_zeroes() -> None:
@@ -57,4 +59,3 @@ def test_summarize_trace_paths_counts_authority_and_decisions(tmp_path) -> None:
     assert summary["decision_impact_counts"]["BLOCK"] == 1
     assert summary["authority"]["authority_violations"] == 1
     assert summary["authority"]["authority_configs_enabled"] == 1
-

@@ -10,14 +10,13 @@ pytestmark = pytest.mark.report
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKBENCH_SRC = ROOT / "Workbench" / "src"
+WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
 from workbench.c005_morphology_replay import (
     RESIDUAL_SPECS,
     THRESHOLD_BENCHMARK_DOMINANCE,
-    compute_benchmark_comparison,
     compute_operator_diagnostics,
     compute_rejection_flags,
     compute_residuals,
@@ -28,7 +27,6 @@ from workbench.c005_morphology_replay import (
     spearman,
 )
 from workbench.c005_morphology_report import load_evidence
-
 
 REAL_RESULTS = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "results.json"
 
@@ -193,7 +191,7 @@ def test_replay_end_to_end_writes_canonical_run_layout(tmp_path) -> None:
     fake_results.write_text(json.dumps(minimal_events), encoding="utf-8")
 
     output_root = tmp_path / "deformation_runs"
-    summary = run_replay(
+    run_replay(
         run_id="2026-05-17_C005_TEST",
         harvester_release="test-release",
         results_path=fake_results,

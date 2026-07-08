@@ -1,17 +1,13 @@
 """Test isolation audit checks."""
 
+import sys
 from pathlib import Path
 
-import pytest
-
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "Workbench" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "workbench" / "src"))
 
 from benchmarks.market_feedback.isolation_audit import (
     _check_no_qlib_imports,
     _check_path_sandboxed,
-    _check_job_spec_forbidden,
-    _check_learning_event_clean,
 )
 
 
@@ -34,7 +30,7 @@ class TestIsolationAuditChecks:
         job_spec_path.write_text(json.dumps(spec))
         # This test validates the check logic, not the fs path
         errors = []
-        forbidden = ["Data/", "Workbench/src", "Output/deformation_runs/", "Output/system_learning/"]
+        forbidden = ["Data/", "packages/workbench/src", "Output/deformation_runs/", "Output/system_learning/"]
         for key in ["input_dir", "workspace_dir", "output_dir"]:
             value = spec.get(key, "")
             for f in forbidden:
@@ -43,7 +39,7 @@ class TestIsolationAuditChecks:
         assert len(errors) == 0, f"Valid paths should not trigger forbidden checks: {errors}"
 
     def test_job_spec_forbidden_rejects_bad_path(self):
-        forbidden = ["Data/", "Workbench/src", "Output/deformation_runs/", "Output/system_learning/"]
+        forbidden = ["Data/", "packages/workbench/src", "Output/deformation_runs/", "Output/system_learning/"]
         spec = {"input_dir": "Data/releases/leak", "output_dir": "/tmp/out", "workspace_dir": "/tmp/ws"}
         errors = []
         for key in ["input_dir", "workspace_dir", "output_dir"]:

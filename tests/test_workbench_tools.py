@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import subprocess
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,7 +16,7 @@ def test_product_framework_boundary_doc_exists() -> None:
     assert "Data Consumption vs Audit" in text
     assert "Secondary audit" in text
     assert "Learning Hub event / ledger / improvement queue" in text
-    assert "Workbench/" in text
+    assert "packages/workbench/" in text
 
 
 def test_openbb_secondary_audit_path_is_observe_only() -> None:
@@ -34,13 +33,13 @@ def test_openbb_secondary_audit_path_is_observe_only() -> None:
 
 def test_folder_ownership_declares_tool_and_framework_roots() -> None:
     text = (ROOT / "FOLDER_OWNERSHIP.md").read_text(encoding="utf-8")
-    assert "Workbench/" in text
-    assert "structural-risk-harvester/" in text
-    assert "Workbench/agents/harness/" in text
-    assert "system-learning-hub/" in text
-    assert "Workbench/contracts/workbench/" in text
-    assert "Workbench/src/workbench/" in text
-    assert "deformation-framework/" in text
+    assert "packages/workbench/" in text
+    assert "packages/harvester/" in text
+    assert "packages/workbench/agents/harness/" in text
+    assert "packages/learning_hub/" in text
+    assert "packages/workbench/contracts/workbench/" in text
+    assert "packages/workbench/src/workbench/" in text
+    assert "packages/framework/" in text
     assert "Constitution-Level Red Line" in text
 
 
@@ -53,10 +52,10 @@ def test_legacy_tool_paths_are_symlinks_into_workbench() -> None:
     assert harness.is_symlink()
     assert learning.is_symlink()
     assert contracts.is_symlink()
-    assert harvester.resolve() == ROOT / "structural-risk-harvester"
-    assert harness.resolve() == ROOT / "Workbench" / "agents" / "harness"
-    assert learning.resolve() == ROOT / "system-learning-hub"
-    assert contracts.resolve() == ROOT / "Workbench" / "contracts"
+    assert harvester.resolve() == ROOT / "packages" / "harvester"
+    assert harness.resolve() == ROOT / "packages" / "workbench" / "agents" / "harness"
+    assert learning.resolve() == ROOT / "packages" / "learning_hub"
+    assert contracts.resolve() == ROOT / "packages" / "workbench" / "contracts"
 
 
 def test_benchmark_evidence_dashboard_builds() -> None:
@@ -86,14 +85,14 @@ def test_artifact_navigator_builds_from_current() -> None:
 
 def test_workbench_scripts_do_not_import_framework_or_provider_packages() -> None:
     for rel in [
-        "Workbench/src/workbench/evidence_dashboard.py",
-        "Workbench/src/workbench/artifact_navigator.py",
-        "Workbench/src/workbench/current.py",
-        "Workbench/src/workbench/contract_validator.py",
-        "Workbench/src/workbench/workspace/build_system_index.py",
-        "Workbench/src/workbench/workspace/list_latest.py",
-        "Workbench/src/workbench/workspace/promote_snapshot.py",
-        "Workbench/src/workbench/workspace/system_status.py",
+        "packages/workbench/src/workbench/evidence_dashboard.py",
+        "packages/workbench/src/workbench/artifact_navigator.py",
+        "packages/workbench/src/workbench/current.py",
+        "packages/workbench/src/workbench/contract_validator.py",
+        "packages/workbench/src/workbench/workspace/build_system_index.py",
+        "packages/workbench/src/workbench/workspace/list_latest.py",
+        "packages/workbench/src/workbench/workspace/promote_snapshot.py",
+        "packages/workbench/src/workbench/workspace/system_status.py",
     ]:
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert "from src." not in text
