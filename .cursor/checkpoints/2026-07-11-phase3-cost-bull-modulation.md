@@ -1,0 +1,17 @@
+# Checkpoint: phase3-cost-bull-modulation
+- mission: 阶段 3 — 回测加成本重验 velocity gate + 牛市免打扰调制
+- decisions:
+  - run_comparison 默认 cost_bps=3 + slippage_bps=2；turnover 扣费
+  - 净成本后 production vt=1.5/cn=3 仍 Sharpe Δ=+0.119；bull=2.0 升至 +0.234
+  - 33/36 velocity 配置净成本后 Sharpe 增益为正；仅 vt=2.5|cn=4 家族转负
+  - 牛市调制（63d mom>0 且 21d vol<15% → threshold 1.5→2.0）收窄 2013/2017/2023/2025 拖累，2022 保护保留
+  - 推荐 Phase 4 配置：vt=1.5,cn=3,bull_modulation=True,bull_threshold=2.0,5bp one-way
+- open_threads:
+  - 对齐样本自 2011-05-16 起（信号 warm-up）；2008 年切片不可用
+  - bull_modulation 仍为 CLI 开关（--bull-modulation），未默认改 shadow/daily 路径
+- do_not_touch: caselab_context WIP
+- next_agent_action: 阶段 4 决策函数重构应以上述推荐 config 为对照基准
+- acceptance:
+  - STRATEGY_LAB_FINDINGS.md Appendix A/B 已写
+  - velocity_cost_sweep_report.md 含正增益 config 清单
+  - tests/test_strategy_lab_costs.py 4 passed

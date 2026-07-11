@@ -83,16 +83,48 @@ def _normalize_system_sources(raw: Any) -> list[dict[str, str]]:
     ]
 
 
+def _resolve_velocity_gate_state() -> dict[str, Any]:
+    """Record-only velocity gate snapshot for the ledger (FULL / EXIT / UNKNOWN)."""
+    try:
+        from strategy_lab.risk_gate import latest_velocity_gate_state
+
+        return latest_velocity_gate_state()
+    except Exception as exc:  # noqa: BLE001 — ledger must still write
+        return {
+            "state": "UNKNOWN",
+            "position": None,
+            "trigger": None,
+            "trigger_reason": f"unavailable: {exc}",
+            "source": "error",
+            "as_of_date": None,
+        }
+
+
 def build_ledger_entry(
     decision: dict[str, Any],
     risk_gate: dict[str, Any],
+    velocity_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a ledger entry from trade decision and risk gate."""
+    vg = velocity_gate if velocity_gate is not None else None
+    if vg is None and isinstance(decision.get("velocity_gate"), dict):
+        vg = decision["velocity_gate"]
+    if vg is None:
+        vg = _resolve_velocity_gate_state()
+    stance = decision.get("stance") or decision.get("decision", "WATCH")
+    size = decision.get("size")
+    if size is None:
+        # Legacy allowed_size mapping
+        label = decision.get("allowed_size", "zero")
+        size = {"zero": 0.0, "small": 0.25, "medium": 0.5, "large": 1.0}.get(label, 0.0)
     return {
-        "schema_version": "trade_ledger_entry.v1",
+        "schema_version": "trade_ledger_entry.v2",
         "recorded_at": datetime.now(UTC).isoformat(),
         "date": decision.get("date", datetime.now(UTC).strftime("%Y-%m-%d")),
-        "decision": decision.get("decision", "NO_TRADE"),
+        "decision": decision.get("decision", stance),
+        "stance": stance,
+        "size": float(size),
+        "effective_size": decision.get("effective_size"),
         "confidence": decision.get("confidence", "low"),
         "evidence_grade": decision.get("evidence_grade", "D"),
         "allowed_size": decision.get("allowed_size", "zero"),
@@ -104,9 +136,16 @@ def build_ledger_entry(
         "system_sources": _normalize_system_sources(decision.get("system_sources", [])),
         "risk_gate_status": risk_gate.get("risk_check", {}).get("status", "UNKNOWN"),
         "risk_level": risk_gate.get("risk_check", {}).get("risk_level", "UNKNOWN"),
+        "velocity_gate_state": (
+            decision.get("velocity_gate_state")
+            or vg.get("state")
+            or "UNKNOWN"
+        ),
+        "velocity_gate": vg,
         "trade_thesis": decision.get("trade_thesis", {}),
         "decision_fingerprint": decision_fingerprint(decision),
-        "forward_outcome": None,  # To be filled by replay
+        "forward_outcome": None,  # claim continuity (claim_evaluator)
+        "market_forward_outcome": None,  # filled by trade_decision_replay / evaluate backfill
     }
 
 
@@ -115,7 +154,9 @@ def decision_fingerprint(decision: dict[str, Any]) -> str:
     thesis = decision.get("trade_thesis", {})
     payload = {
         "date": decision.get("date", ""),
-        "decision": decision.get("decision", "NO_TRADE"),
+        "decision": decision.get("decision", "WATCH"),
+        "stance": decision.get("stance", decision.get("decision", "WATCH")),
+        "size": decision.get("size"),
         "confidence": decision.get("confidence", "low"),
         "evidence_grade": decision.get("evidence_grade", "D"),
         "time_horizon": decision.get("time_horizon", "1d"),
@@ -157,6 +198,9 @@ def upsert_to_ledger(entry: dict[str, Any]) -> tuple[Path, str]:
             prior_outcome = existing.get("forward_outcome")
             if prior_outcome is not None:
                 entry["forward_outcome"] = prior_outcome
+            prior_market = existing.get("market_forward_outcome")
+            if prior_market is not None:
+                entry["market_forward_outcome"] = prior_market
             entries[idx] = entry
             _write_ledger(ledger_path, entries)
             return ledger_path, "updated"
@@ -181,6 +225,8 @@ def write_latest(entry: dict[str, Any]) -> Path:
         "## Decision",
         "",
         f"- **Decision:** {entry['decision']}",
+        f"- **Stance:** {entry.get('stance', entry['decision'])}",
+        f"- **Size:** {entry.get('size', 'N/A')}",
         f"- **Confidence:** {entry['confidence']}",
         f"- **Evidence Grade:** {entry['evidence_grade']}",
         f"- **Allowed Size:** {entry['allowed_size']}",
@@ -191,6 +237,7 @@ def write_latest(entry: dict[str, Any]) -> Path:
         "",
         f"- **Status:** {entry['risk_gate_status']}",
         f"- **Risk Level:** {entry['risk_level']}",
+        f"- **Velocity Gate:** {entry.get('velocity_gate_state', 'UNKNOWN')}",
         "",
         "## Trade Thesis",
         "",

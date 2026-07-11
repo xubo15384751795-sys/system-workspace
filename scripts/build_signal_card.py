@@ -37,6 +37,7 @@ CASELAB = ROOT / "Output" / "caselab"
 HMM = ROOT / "Output" / "ml_signals" / "latest"
 VALIDATION = ROOT / "Output" / "validation"
 SHADOW_OUTCOMES = ROOT / "Output" / "strategy_lab" / "shadow_outcomes_90d.json"
+SHADOW_CARD_LATEST = ROOT / "Output" / "strategy_lab" / "shadow_cards" / "latest.json"
 
 
 def _load_caselab_today() -> dict[str, Any] | None:
@@ -575,6 +576,23 @@ def _build_experimental_validation() -> dict[str, Any]:
     }
 
 
+def _build_velocity_gate_section() -> dict[str, Any]:
+    """Record-only velocity gate state (FULL / EXIT). Never gates the decision."""
+    try:
+        from strategy_lab.risk_gate import latest_velocity_gate_state
+
+        return latest_velocity_gate_state()
+    except Exception as exc:  # noqa: BLE001 — explanation layer must not fail the card
+        return {
+            "state": "UNKNOWN",
+            "position": None,
+            "trigger": None,
+            "trigger_reason": f"unavailable: {exc}",
+            "source": "error",
+            "as_of_date": None,
+        }
+
+
 def build_signal_card() -> dict[str, Any]:
     """Build the complete signal card with channel decomposition and gate classification."""
     judgment = load_json(JUDGMENT / "latest.json")
@@ -594,6 +612,7 @@ def build_signal_card() -> dict[str, Any]:
 
     # Claim ladder from judgment card
     claim_ladder = judgment.get("claim_ladder", {})
+    velocity_gate = _build_velocity_gate_section()
 
     card = {
         "schema_version": "signal_card.v2",
@@ -606,6 +625,7 @@ def build_signal_card() -> dict[str, Any]:
             "trade_decision": trade.get("decision", "NO_ARTIFACT") if trade else "NO_ARTIFACT",
             "framework_status": fw.get("status", "UNKNOWN") if fw else "UNKNOWN",
         },
+        "velocity_gate": velocity_gate,
         "channel_decomposition": _decompose_channels(fw),
         "gate_classification": _classify_gates(judgment, fw, hmm_data, caselab_data),
         "evidence": _identify_evidence_list(judgment, fw),
@@ -653,6 +673,18 @@ def generate_markdown(card: dict[str, Any]) -> str:
         f"- **Claim Ceiling:** {r['claim_ceiling']}",
         f"- **Trade Decision:** {r['trade_decision']}",
         f"- **Framework Status:** {r['framework_status']}",
+        "",
+    ]
+
+    vg = card.get("velocity_gate") or {}
+    lines += [
+        "## Velocity Gate",
+        "",
+        f"- **State:** {vg.get('state', 'UNKNOWN')} (record-only; does not authorize trades)",
+        f"- **Position:** {vg.get('position')}",
+        f"- **Source:** {vg.get('source', 'n/a')}",
+        f"- **As-of:** {vg.get('as_of_date', 'n/a')}",
+        f"- **Reason:** {vg.get('trigger_reason', 'n/a')}",
         "",
     ]
 

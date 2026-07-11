@@ -1,12 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Trade Decision",
-  "description": "Structured trade decision from System + Paper synthesis",
+  "description": "Structured trade decision: stance (signal) × size (quality). Research / shadow position calibration only.",
   "type": "object",
-  "required": ["schema_version", "generated_at", "decision", "confidence", "asset_scope", "time_horizon", "invalidation", "risk_notes", "evidence_grade", "paper_sources", "system_sources"],
+  "required": [
+    "schema_version",
+    "generated_at",
+    "decision",
+    "stance",
+    "size",
+    "velocity_gate_state",
+    "confidence",
+    "asset_scope",
+    "time_horizon",
+    "invalidation",
+    "risk_notes",
+    "evidence_grade",
+    "paper_sources",
+    "system_sources"
+  ],
   "properties": {
     "schema_version": {
-      "const": "trade_decision.v2"
+      "const": "trade_decision.v3"
     },
     "generated_at": {
       "type": "string",
@@ -18,7 +33,27 @@
     },
     "decision": {
       "type": "string",
-      "enum": ["NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"]
+      "enum": ["WATCH", "RISK_ON", "RISK_REDUCE", "RISK_OFF"]
+    },
+    "stance": {
+      "type": "string",
+      "enum": ["WATCH", "RISK_ON", "RISK_REDUCE", "RISK_OFF"]
+    },
+    "size": {
+      "type": "number",
+      "enum": [0, 0.25, 0.5, 1.0]
+    },
+    "effective_size": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "velocity_gate_state": {
+      "type": "string",
+      "enum": ["FULL", "EXIT", "UNKNOWN"]
+    },
+    "velocity_gate": {
+      "type": "object"
     },
     "confidence": {
       "type": "string",
@@ -49,30 +84,34 @@
       "enum": ["A", "B", "C", "D"]
     },
     "paper_sources": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["source_file", "content_type"],
-        "properties": {
-          "source_file": {"type": "string"},
-          "content_type": {"type": "string", "enum": ["case", "mechanism", "variable", "indicator", "trade_idea"]},
-          "content_id": {"type": "string"},
-          "relevance": {"type": "string", "enum": ["high", "medium", "low"]},
-          "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]}
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_file", "content_type"],
+            "properties": {
+              "source_file": {"type": "string"},
+              "content_type": {"type": "string", "enum": ["case", "mechanism", "variable", "indicator", "trade_idea"]},
+              "content_id": {"type": "string"},
+              "relevance": {"type": "string", "enum": ["high", "medium", "low"]},
+              "review_status": {"type": "string", "enum": ["approved", "needs_review", "rejected"]}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "approved_support": {"type": "array"},
+            "background_context": {"type": "array"}
+          }
         }
-      }
+      ]
     },
     "system_sources": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["source_type", "source_path"],
-        "properties": {
-          "source_type": {"type": "string", "enum": ["judgment", "k_gate", "x_gate", "hmm", "caselab", "framework_output"]},
-          "source_path": {"type": "string"},
-          "status": {"type": "string"},
-          "value": {}
-        }
+        "type": "object"
       }
     },
     "trade_thesis": {

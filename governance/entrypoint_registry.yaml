@@ -384,12 +384,20 @@ walk_forward_validation:
 build_shadow_outcomes_90d:
   script: scripts/build_shadow_outcomes_90d.py
   status: active
-  schedule: weekly
+  schedule: daily
   owner: Strategy Lab
-  description: Aggregate 90-day shadow card outcomes after backfill
+  description: Aggregate shadow card outcomes (daily after ETF panel restore)
   allowed_use:
   - validation_only
   can_affect_core_judgment: false
+trade_decision_replay:
+  script: scripts/trade_decision_replay.py
+  status: active
+  owner: Learning Hub
+  description: Calibrate ledger decisions vs SPY/HYG/TLT forward windows; WATCH/NO_TRADE as counterfactuals
+  allowed_use:
+  - decision_replay
+  - calibration
 build_qlib_structural_bridge:
   script: scripts/build_qlib_structural_bridge.py
   status: active
@@ -507,10 +515,10 @@ pending_evaluation:
   allowed_use:
   - pending_evaluation_management
 evaluate_pending:
-  script: scripts/archive/evaluate_pending.py
+  script: scripts/evaluate_pending.py
   status: active
   owner: Learning Hub
-  description: 1d/1w/1m window evaluator — checks pending records against actual SPY/HYG/TLT returns
+  description: 1d/1w/1m window evaluator — pending records + WATCH/NO_TRADE counterfactual SPY/HYG/TLT returns
   allowed_use:
   - pending_evaluation_execution
 orchestrate:

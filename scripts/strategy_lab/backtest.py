@@ -153,21 +153,53 @@ def compute_metrics(
     return m
 
 
+def apply_transaction_costs(
+    daily_returns: pd.Series,
+    position: pd.Series,
+    cost_bps: float = 0.0,
+    slippage_bps: float = 0.0,
+) -> tuple[pd.Series, pd.Series]:
+    """Apply round-trip friction to position-weighted returns.
+
+    Cost is charged on absolute position change (turnover):
+        cost = |Δposition| * (cost_bps + slippage_bps) / 10000
+
+    Returns:
+        (net_strategy_returns, daily_cost_series)
+    """
+    turnover = position.diff().abs().fillna(0)
+    cost = turnover * (cost_bps + slippage_bps) / 10000.0
+    strategy_ret = daily_returns * position.shift(1).fillna(0) - cost
+    return strategy_ret, cost
+
+
 def run_comparison(
     daily_returns: pd.Series,
     baseline_position: pd.Series,
     overlay_position: pd.Series,
+    cost_bps: float = 3.0,
+    slippage_bps: float = 2.0,
 ) -> dict:
     """Run full comparison between baseline and System overlay.
+
+    Args:
+        cost_bps: one-way commission/spread in basis points (default 3.0).
+        slippage_bps: one-way slippage in basis points (default 2.0).
+            Total one-way friction = cost_bps + slippage_bps (default 5bp).
 
     Returns dict with:
         baseline: PerformanceMetrics
         overlay: PerformanceMetrics
         comparison: dict of deltas
         yearly: per-year comparison table
+        costs: friction summary
     """
-    baseline_ret = daily_returns * baseline_position.shift(1).fillna(0)
-    overlay_ret = daily_returns * overlay_position.shift(1).fillna(0)
+    baseline_ret, baseline_cost = apply_transaction_costs(
+        daily_returns, baseline_position, cost_bps=cost_bps, slippage_bps=slippage_bps
+    )
+    overlay_ret, overlay_cost = apply_transaction_costs(
+        daily_returns, overlay_position, cost_bps=cost_bps, slippage_bps=slippage_bps
+    )
 
     baseline_m = compute_metrics(baseline_ret, baseline_position, "baseline")
     overlay_m = compute_metrics(overlay_ret, overlay_position, "overlay")
@@ -180,16 +212,34 @@ def run_comparison(
         "calmar_delta": float(overlay_m.calmar - baseline_m.calmar),
         "tail_loss_delta": float(overlay_m.tail_loss_5pct - baseline_m.tail_loss_5pct),
         "trades_delta": int(overlay_m.n_trades - baseline_m.n_trades),
+        "time_in_market_delta": float(overlay_m.time_in_market - baseline_m.time_in_market),
     }
 
-    # Yearly breakdown
-    yearly = _yearly_comparison(daily_returns, baseline_position, overlay_position)
+    # Yearly breakdown (same cost model)
+    yearly = _yearly_comparison(
+        daily_returns,
+        baseline_position,
+        overlay_position,
+        cost_bps=cost_bps,
+        slippage_bps=slippage_bps,
+    )
+
+    costs = {
+        "cost_bps": float(cost_bps),
+        "slippage_bps": float(slippage_bps),
+        "one_way_bps": float(cost_bps + slippage_bps),
+        "baseline_total_cost": float(round(float(baseline_cost.sum()), 6)),
+        "overlay_total_cost": float(round(float(overlay_cost.sum()), 6)),
+        "baseline_avg_turnover": float(round(float(baseline_position.diff().abs().fillna(0).mean()), 6)),
+        "overlay_avg_turnover": float(round(float(overlay_position.diff().abs().fillna(0).mean()), 6)),
+    }
 
     return {
         "baseline": baseline_m.to_dict(),
         "overlay": overlay_m.to_dict(),
         "comparison": {k: round(v, 4) for k, v in comparison.items()},
         "yearly": yearly,
+        "costs": costs,
     }
 
 
@@ -197,10 +247,16 @@ def _yearly_comparison(
     daily_returns: pd.Series,
     baseline_position: pd.Series,
     overlay_position: pd.Series,
+    cost_bps: float = 3.0,
+    slippage_bps: float = 2.0,
 ) -> list[dict]:
-    """Compute per-year comparison between baseline and overlay."""
-    baseline_ret = daily_returns * baseline_position.shift(1).fillna(0)
-    overlay_ret = daily_returns * overlay_position.shift(1).fillna(0)
+    """Compute per-year comparison between baseline and overlay (net of costs)."""
+    baseline_ret, _ = apply_transaction_costs(
+        daily_returns, baseline_position, cost_bps=cost_bps, slippage_bps=slippage_bps
+    )
+    overlay_ret, _ = apply_transaction_costs(
+        daily_returns, overlay_position, cost_bps=cost_bps, slippage_bps=slippage_bps
+    )
 
     years = sorted(set(daily_returns.index.year))
     rows = []

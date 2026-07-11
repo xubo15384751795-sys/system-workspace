@@ -1,11 +1,13 @@
-"""Gate Sweep — test multiple risk gate configurations to find the sweet spot.
+"""Gate Sweep — test risk gate configurations (regime + velocity-with-cost).
 
-Sweeps position sizes for each regime class and reports which configs
-best preserve returns while reducing drawdown.
+Sweeps position sizes for each regime class, and (with --velocity-cost)
+sweeps velocity-gate parameters under transaction costs.
 
 Usage:
     python scripts/strategy_lab/gate_sweep.py
     python scripts/strategy_lab/gate_sweep.py --start 2005-01-01 --lookback 63
+    python scripts/strategy_lab/gate_sweep.py --velocity-cost
+    python scripts/strategy_lab/gate_sweep.py --velocity-cost --cost-bps 3 --slippage-bps 2
 """
 from __future__ import annotations
 
@@ -19,9 +21,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import _runtime_io as rio
 import pandas as pd
-from strategy_lab.backtest import compute_metrics
+from strategy_lab.backtest import apply_transaction_costs, compute_metrics
 from strategy_lab.data_loader import load_aligned
-from strategy_lab.risk_gate import evaluate_day
+from strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
 from strategy_lab.strategies import compute_baseline_position
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
@@ -313,22 +315,261 @@ def print_sweep_report(results: list[dict], top_n: int = 15) -> str:
     return "\n".join(lines)
 
 
+def velocity_cost_sweep(
+    data: pd.DataFrame,
+    *,
+    lookback: int = 63,
+    cost_bps: float = 3.0,
+    slippage_bps: float = 2.0,
+) -> list[dict]:
+    """Sweep velocity-gate configs under transaction costs.
+
+    Returns ranked rows including sharpe_delta vs costed baseline.
+    """
+    daily_returns = data["return_1d"]
+    close = data["close"]
+    baseline_pos = compute_baseline_position(close, lookback=lookback)
+    signals = data[["M", "D", "K", "X"]]
+
+    baseline_ret, _ = apply_transaction_costs(
+        daily_returns, baseline_pos, cost_bps=cost_bps, slippage_bps=slippage_bps
+    )
+    baseline_m = compute_metrics(baseline_ret, baseline_pos, "baseline")
+
+    grid: list[dict] = []
+    for velocity_threshold in (1.0, 1.5, 2.0, 2.5):
+        for cofire_n in (2, 3, 4):
+            for bull_modulation in (False, True):
+                for bull_threshold in ((2.0, 2.5) if bull_modulation else (None,)):
+                    grid.append({
+                        "velocity_window": 20,
+                        "velocity_threshold": velocity_threshold,
+                        "cofire_n": cofire_n,
+                        "cofire_v": 0.2,
+                        "bull_modulation": bull_modulation,
+                        "bull_velocity_threshold": bull_threshold if bull_modulation else None,
+                    })
+
+    # Deduplicate
+    seen: set[tuple] = set()
+    unique = []
+    for cfg in grid:
+        key = tuple(sorted((k, v) for k, v in cfg.items()))
+        if key not in seen:
+            seen.add(key)
+            unique.append(cfg)
+
+    print(
+        f"Velocity+cost sweep: {len(unique)} configs "
+        f"(friction={cost_bps + slippage_bps}bp one-way)..."
+    )
+
+    results = []
+    for cfg in unique:
+        gate_kwargs = {
+            "velocity_window": cfg["velocity_window"],
+            "velocity_threshold": cfg["velocity_threshold"],
+            "cofire_n": cfg["cofire_n"],
+            "cofire_v": cfg["cofire_v"],
+            "bull_modulation": cfg["bull_modulation"],
+        }
+        if cfg["bull_modulation"]:
+            gate_kwargs["bull_velocity_threshold"] = cfg["bull_velocity_threshold"]
+            gate_kwargs["close"] = close
+
+        gate = compute_velocity_gate(signals, **gate_kwargs)
+        overlay_pos = baseline_pos * gate
+        overlay_ret, cost_series = apply_transaction_costs(
+            daily_returns, overlay_pos, cost_bps=cost_bps, slippage_bps=slippage_bps
+        )
+        m = compute_metrics(overlay_ret, overlay_pos, "overlay")
+
+        # Bull-year / crisis-year slices for modulation acceptance
+        yearly_deltas = {}
+        for year in (2008, 2013, 2017, 2022, 2023, 2025):
+            mask = daily_returns.index.year == year
+            if mask.sum() < 20:
+                continue
+            b_y = (1 + baseline_ret[mask]).cumprod().iloc[-1] - 1
+            o_y = (1 + overlay_ret[mask]).cumprod().iloc[-1] - 1
+            yearly_deltas[str(year)] = float(round(o_y - b_y, 4))
+
+        label_parts = [
+            f"vt={cfg['velocity_threshold']}",
+            f"cn={cfg['cofire_n']}",
+        ]
+        if cfg["bull_modulation"]:
+            label_parts.append(f"bull={cfg['bull_velocity_threshold']}")
+        else:
+            label_parts.append("bull=off")
+
+        result = {
+            "config": cfg,
+            "config_label": "|".join(label_parts),
+            "cost_bps": cost_bps,
+            "slippage_bps": slippage_bps,
+            "one_way_bps": cost_bps + slippage_bps,
+            "total_return": m.total_return,
+            "ann_return": m.ann_return,
+            "sharpe": m.sharpe,
+            "max_drawdown": m.max_drawdown,
+            "calmar": m.calmar,
+            "time_in_market": m.time_in_market,
+            "n_trades": m.n_trades,
+            "total_cost": float(cost_series.sum()),
+            "return_delta": m.total_return - baseline_m.total_return,
+            "sharpe_delta": m.sharpe - baseline_m.sharpe,
+            "dd_delta": m.max_drawdown - baseline_m.max_drawdown,
+            "tim_delta": m.time_in_market - baseline_m.time_in_market,
+            "yearly_return_delta": yearly_deltas,
+            "positive_sharpe_delta": m.sharpe - baseline_m.sharpe > 0,
+        }
+        results.append(result)
+
+    baseline_row = {
+        "config": "baseline",
+        "config_label": "baseline",
+        "cost_bps": cost_bps,
+        "slippage_bps": slippage_bps,
+        "one_way_bps": cost_bps + slippage_bps,
+        "total_return": baseline_m.total_return,
+        "ann_return": baseline_m.ann_return,
+        "sharpe": baseline_m.sharpe,
+        "max_drawdown": baseline_m.max_drawdown,
+        "calmar": baseline_m.calmar,
+        "time_in_market": baseline_m.time_in_market,
+        "n_trades": baseline_m.n_trades,
+        "total_cost": 0.0,
+        "return_delta": 0.0,
+        "sharpe_delta": 0.0,
+        "dd_delta": 0.0,
+        "tim_delta": 0.0,
+        "yearly_return_delta": {},
+        "positive_sharpe_delta": False,
+    }
+    return [baseline_row] + sorted(results, key=lambda r: r["sharpe_delta"], reverse=True)
+
+
+def print_velocity_cost_report(results: list[dict], top_n: int = 20) -> str:
+    """Format velocity+cost sweep as markdown with positive-Sharpe inventory."""
+    baseline = next(r for r in results if r["config"] == "baseline")
+    overlays = [r for r in results if r["config"] != "baseline"]
+    positive = [r for r in overlays if r["positive_sharpe_delta"]]
+
+    lines = [
+        "# Velocity Gate Cost Sweep",
+        "",
+        f"**Friction:** {baseline['one_way_bps']} bp one-way "
+        f"(cost={baseline['cost_bps']} + slippage={baseline['slippage_bps']})",
+        f"**Baseline (net):** Sharpe={baseline['sharpe']:.3f}, "
+        f"return={baseline['total_return']:.2%}, TIM={baseline['time_in_market']:.0%}",
+        "",
+        f"## Configs with positive Sharpe Δ after costs: {len(positive)}/{len(overlays)}",
+        "",
+    ]
+
+    if not positive:
+        lines.append(
+            "**All configs lost net Sharpe after costs.** "
+            "Raise velocity_threshold / cofire_n (lower turnover) before Phase 4."
+        )
+        lines.append("")
+    else:
+        lines += [
+            "| # | Config | Sharpe | Δ Sharpe | Return Δ | MaxDD Δ | TIM | Trades | Cost |",
+            "|---|--------|--------|----------|----------|---------|-----|--------|------|",
+        ]
+        for i, r in enumerate(positive[:top_n], 1):
+            lines.append(
+                f"| {i} | `{r['config_label']}` "
+                f"| {r['sharpe']:.3f} "
+                f"| {r['sharpe_delta']:+.3f} "
+                f"| {r['return_delta']:+.2%} "
+                f"| {r['dd_delta']:+.2%} "
+                f"| {r['time_in_market']:.0%} "
+                f"| {r['n_trades']} "
+                f"| {r['total_cost']:.4f} |"
+            )
+        lines.append("")
+
+    # Highlight production + bull modulation
+    lines += ["## Production / bull-modulation focus", ""]
+    for label in ("vt=1.5|cn=3|bull=off", "vt=1.5|cn=3|bull=2.0", "vt=2.0|cn=3|bull=off"):
+        match = next((r for r in overlays if r["config_label"] == label), None)
+        if not match:
+            continue
+        yd = match.get("yearly_return_delta") or {}
+        lines.append(f"### `{label}`")
+        lines.append(
+            f"- Sharpe {match['sharpe']:.3f} (Δ {match['sharpe_delta']:+.3f}), "
+            f"TIM {match['time_in_market']:.0%}, trades {match['n_trades']}"
+        )
+        lines.append(
+            f"- Bull years return Δ: 2013={yd.get('2013', 'n/a')}, "
+            f"2017={yd.get('2017', 'n/a')}, 2023={yd.get('2023', 'n/a')}, "
+            f"2025={yd.get('2025', 'n/a')}"
+        )
+        lines.append(
+            f"- Crisis years return Δ: 2008={yd.get('2008', 'n/a')}, "
+            f"2022={yd.get('2022', 'n/a')}"
+        )
+        lines.append("")
+
+    lines += [
+        "## Acceptance inventory (Sharpe Δ > 0 net of costs)",
+        "",
+    ]
+    if positive:
+        for r in positive:
+            lines.append(
+                f"- `{r['config_label']}`: Sharpe Δ {r['sharpe_delta']:+.3f}, "
+                f"TIM {r['time_in_market']:.0%}"
+            )
+    else:
+        lines.append("- _(none)_")
+
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Gate parameter sweep")
     parser.add_argument("--start", type=str, default="2000-01-01")
     parser.add_argument("--end", type=str, default=None)
     parser.add_argument("--lookback", type=int, default=63)
     parser.add_argument("--top", type=int, default=15)
+    parser.add_argument("--velocity-cost", action="store_true",
+                        help="Sweep velocity gate under transaction costs")
+    parser.add_argument("--cost-bps", type=float, default=3.0)
+    parser.add_argument("--slippage-bps", type=float, default=2.0)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     data = load_aligned(start=args.start, end=args.end)
     print(f"Loaded {len(data)} trading days ({data.index[0].date()} → {data.index[-1].date()})")
 
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.velocity_cost:
+        results = velocity_cost_sweep(
+            data,
+            lookback=args.lookback,
+            cost_bps=args.cost_bps,
+            slippage_bps=args.slippage_bps,
+        )
+        json_path = OUTPUT_DIR / "velocity_cost_sweep_results.json"
+        json_path.write_text(json.dumps(results, indent=2, default=str) + "\n", encoding="utf-8")
+        report = print_velocity_cost_report(results, top_n=args.top)
+        md_path = OUTPUT_DIR / "velocity_cost_sweep_report.md"
+        md_path.write_text(report, encoding="utf-8")
+        print(report)
+        print(f"\nSaved to {md_path}")
+        if args.json:
+            print(json.dumps(results[:8], indent=2, default=str))
+        return
+
     results = sweep(data, lookback=args.lookback)
 
     # Save JSON
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     json_path = OUTPUT_DIR / "gate_sweep_results.json"
     json_path.write_text(json.dumps(results, indent=2, default=str) + "\n", encoding="utf-8")
 

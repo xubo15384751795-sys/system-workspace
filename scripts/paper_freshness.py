@@ -1,4 +1,9 @@
-"""Paper world model freshness checks for claim ceiling enforcement."""
+"""Paper world model freshness checks.
+
+Phase 4: stale Paper no longer lowers claim_ceiling in judgment_layer.
+Freshness is recorded on the judgment card; trade decision size steps down.
+``lower_claim_ceiling_for_stale`` remains for legacy callers only.
+"""
 from __future__ import annotations
 
 import json

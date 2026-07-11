@@ -13,8 +13,8 @@
       "enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision", "admitted"]
     },
     "trade_decision": {
-      "description": "Trade decision types used in trade_decision and position_intent schemas",
-      "enum": ["NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"]
+      "description": "Trade decision types used in trade_decision and position_intent schemas (stance spectrum)",
+      "enum": ["WATCH", "RISK_ON", "RISK_REDUCE", "RISK_OFF"]
     },
     "confidence_level": {
       "description": "Confidence levels used across trade and judgment schemas",

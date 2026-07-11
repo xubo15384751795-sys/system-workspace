@@ -15,7 +15,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-sys.path.insert(0, str(ROOT / "scripts" / "archive"))
 
 from evaluate_pending import (
     classify_outcome,
@@ -124,9 +123,23 @@ def test_classify_watch_only_market_down():
     assert classify_outcome("WATCH_ONLY", "medium", -0.8) == "correct"
 
 
-def test_classify_watch_neutral():
-    """WATCH is always neutral (no position taken)."""
-    assert classify_outcome("WATCH", "medium", 3.0) == "neutral"
+def test_classify_watch_counterfactual_missed_rally():
+    """WATCH is scored as opportunity-cost counterfactual, not always-neutral."""
+    assert classify_outcome("WATCH", "medium", 3.0) == "incorrect"
+
+
+def test_classify_watch_counterfactual_avoided_drop():
+    assert classify_outcome("WATCH", "medium", -1.2) == "correct"
+
+
+def test_classify_risk_on_scores_like_long():
+    assert classify_outcome("RISK_ON", "high", 1.5) == "correct"
+    assert classify_outcome("RISK_ON", "high", -1.0) == "incorrect"
+
+
+def test_classify_risk_off_and_reduce_score_like_defensive():
+    assert classify_outcome("RISK_OFF", "medium", -1.0) == "correct"
+    assert classify_outcome("RISK_REDUCE", "medium", 1.0) == "incorrect"
 
 
 def test_classify_unverifiable():

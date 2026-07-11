@@ -54,6 +54,31 @@ def generate_markdown_report(result: dict) -> str:
         "",
     ]
 
+    costs = result.get("costs") or {}
+    if costs:
+        lines.extend([
+            "## Transaction Costs",
+            "",
+            f"- One-way friction: **{costs.get('one_way_bps')} bp** "
+            f"(cost={costs.get('cost_bps')} + slippage={costs.get('slippage_bps')})",
+            f"- Baseline total cost drag: {costs.get('baseline_total_cost')}",
+            f"- Overlay total cost drag: {costs.get('overlay_total_cost')}",
+            f"- Overlay avg daily turnover: {costs.get('overlay_avg_turnover')}",
+            "",
+        ])
+
+    cfg = result.get("config") or {}
+    if cfg:
+        lines.extend([
+            "## Config",
+            "",
+            f"- Lookback: {cfg.get('lookback')}",
+            f"- Dynamic lookback: {cfg.get('dynamic')}",
+            f"- Bull modulation: {cfg.get('bull_modulation')}",
+            f"- Cost / slippage (bp): {cfg.get('cost_bps')} / {cfg.get('slippage_bps')}",
+            "",
+        ])
+
     # Interpretation
     lines.extend([
         "## Interpretation",

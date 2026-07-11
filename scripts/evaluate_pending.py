@@ -32,6 +32,14 @@ ETF_PANEL = resolve_cross_asset_panel_path()
 
 HORIZONS = {"1d": 1, "1w": 5, "1m": 21}  # trading days
 ETF_SYMBOLS = ("SPY", "HYG", "TLT")
+# Non-action decisions still get market returns as opportunity-cost counterfactuals.
+COUNTERFACTUAL_DECISIONS = {
+    "WATCH",
+    "WATCH_ONLY",
+    "ACTIVE_WATCH",
+    "NO_TRADE",
+    "RESEARCH_REVIEW",
+}
 
 
 # ── Market data ──────────────────────────────────────────────────────────────
@@ -82,30 +90,60 @@ def classify_outcome(
     """Classify whether the decision was correct given actual market return.
 
     Returns: "correct", "incorrect", "neutral", or "unverifiable"
+
+    WATCH / NO_TRADE / WATCH_ONLY are scored as opportunity-cost counterfactuals:
+    staying out of a meaningful rally is incorrect; avoiding a down move is correct.
     """
+    del confidence  # reserved for future confidence-weighted scoring
     if spy_return is None:
         return "unverifiable"
 
-    # NO_TRADE / WATCH_ONLY: correct if market was flat or down
-    if decision in ("NO_TRADE", "WATCH_ONLY"):
+    # Non-action / watch decisions: counterfactual vs long-SPY opportunity cost
+    if decision in COUNTERFACTUAL_DECISIONS:
         if spy_return <= 0:
-            return "correct"  # avoided a down market
-        elif spy_return < 0.5:
+            return "correct"  # avoided a flat/down market
+        if spy_return < 0.5:
             return "neutral"  # missed negligible move
-        else:
-            return "incorrect"  # missed a meaningful up move
+        return "incorrect"  # missed a meaningful up move
 
-    # ACTIVE_WATCH / WATCH: neutral — watching is not a position
-    if decision in ("ACTIVE_WATCH", "WATCH"):
-        return "neutral"
+    # Stance spectrum (Phase 4)
+    if decision == "RISK_ON":
+        return "correct" if spy_return > 0 else "incorrect"
+    if decision in ("RISK_OFF", "RISK_REDUCE"):
+        return "correct" if spy_return < 0 else "incorrect"
 
-    # Directional decisions (if any future decision types)
+    # Legacy directional labels (pre-Phase 4 ledger rows)
     if decision in ("TACTICAL_LONG", "HEDGE"):
         return "correct" if spy_return > 0 else "incorrect"
-    if decision in ("TACTICAL_SHORT", "RISK_REDUCE"):
+    if decision == "TACTICAL_SHORT":
         return "correct" if spy_return < 0 else "incorrect"
 
     return "neutral"
+
+
+def build_counterfactual(
+    decision: str,
+    returns: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Explicit counterfactual block for non-action decisions."""
+    if decision not in COUNTERFACTUAL_DECISIONS:
+        return None
+    spy = returns.get("SPY")
+    if spy is None:
+        interpretation = "insufficient_forward_window"
+    elif spy > 0.5:
+        interpretation = f"if_long_SPY_would_have_gained_{spy:.2f}pct"
+    elif spy < -0.5:
+        interpretation = f"if_long_SPY_would_have_lost_{abs(spy):.2f}pct"
+    else:
+        interpretation = "if_long_SPY_near_flat"
+    return {
+        "kind": "opportunity_cost_if_long",
+        "decision": decision,
+        "returns": returns,
+        "spy_return_pct": spy,
+        "interpretation": interpretation,
+    }
 
 
 # ── Pending record processing ───────────────────────────────────────────────
@@ -190,17 +228,20 @@ def evaluate_record(
             returns[symbol] = ret
 
         spy_return = returns.get("SPY")
+        decision = record.get("decision", "UNKNOWN")
         outcome = classify_outcome(
-            record.get("decision", "UNKNOWN"),
+            decision,
             record.get("confidence", "unknown"),
             spy_return,
         )
+        counterfactual = build_counterfactual(decision, returns)
 
         evaluations[window] = {
             "evaluated_at": today.isoformat(),
             "returns": returns,
             "spy_return_pct": spy_return,
             "outcome": outcome,
+            "counterfactual": counterfactual,
         }
         any_updated = True
 
@@ -210,10 +251,11 @@ def evaluate_record(
             "contributing_modules": record.get("contributing_modules", []),
             "window": window,
             "evaluated_at": today.isoformat(),
-            "decision": record.get("decision"),
+            "decision": decision,
             "confidence": record.get("confidence"),
             "returns": returns,
             "outcome": outcome,
+            "counterfactual": counterfactual,
         })
 
     if any_updated:

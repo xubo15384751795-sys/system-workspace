@@ -1,0 +1,18 @@
+# Checkpoint: 2026-07-11-phase4-stance-size-decision
+- mission: Phase 4 stance × size trade decision refactor (Layer 4 cutover)
+- decisions:
+  - Signal sets stance (RISK_ON / RISK_REDUCE / RISK_OFF); quality sets size ladder
+  - WATCH only when judgment missing / data unavailable
+  - Removed TACTICAL_LONG / TACTICAL_SHORT / HEDGE from schema enums
+  - Paper stale → size step-down, not claim_ceiling crush
+  - Allowed phrase: shadow position (bare position still forbidden)
+  - Cutover despite <2–4 week Phase 2 contrast window; Phase 3 net-cost substitutes
+- open_threads:
+  - 30-day acceptance: non-WATCH ledger distribution with stance+size+velocity_gate_state
+  - position_intent consumers may still emit v1 until translator updated
+- do_not_touch:
+  - caselab_context/* untracked WIP
+  - unrelated audit-reports / governance health WIP
+- next_agent_action:
+  - Monitor daily ledger for non-WATCH stance distribution
+  - Optionally wire position_intent translator to v2 fields

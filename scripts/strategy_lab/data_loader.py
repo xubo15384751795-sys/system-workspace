@@ -16,11 +16,9 @@ import pandas as pd
 
 # ── Paths ────────────────────────────────────────────────────────────
 def _cross_asset_panel_path() -> Path:
-    harvester = (
-        rio.ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"
-    )
-    mirror = rio.ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
-    return harvester if harvester.exists() else mirror
+    from _data_paths import resolve_cross_asset_panel_path
+
+    return resolve_cross_asset_panel_path()
 
 
 PANEL_PATH = _cross_asset_panel_path()

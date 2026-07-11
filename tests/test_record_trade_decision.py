@@ -17,9 +17,13 @@ from record_trade_decision import (
 def _decision(claim: str = "mechanism hypothesis") -> dict:
     return {
         "date": "2026-06-18",
-        "decision": "WATCH",
+        "decision": "RISK_ON",
+        "stance": "RISK_ON",
+        "size": 0.5,
+        "effective_size": 0.5,
         "confidence": "medium",
         "evidence_grade": "D",
+        "allowed_size": "medium",
         "time_horizon": "1w",
         "asset_scope": ["TLT", "SPY"],
         "trade_thesis": {
@@ -39,6 +43,10 @@ def test_decision_fingerprint_is_stable_for_same_decision() -> None:
 def test_upsert_replaces_same_dated_fingerprint(tmp_path, monkeypatch) -> None:
     output_dir = tmp_path / "trade_ledger"
     monkeypatch.setattr("record_trade_decision.OUTPUT_DIR", output_dir)
+    monkeypatch.setattr(
+        "record_trade_decision._resolve_velocity_gate_state",
+        lambda: {"state": "FULL", "position": 1.0, "trigger": False, "source": "test"},
+    )
 
     first = build_ledger_entry(_decision(), {"risk_check": {"status": "APPROVED"}})
     path, mode = upsert_to_ledger(first)
@@ -57,6 +65,10 @@ def test_upsert_replaces_same_dated_fingerprint(tmp_path, monkeypatch) -> None:
 def test_upsert_preserves_forward_outcome(tmp_path, monkeypatch) -> None:
     output_dir = tmp_path / "trade_ledger"
     monkeypatch.setattr("record_trade_decision.OUTPUT_DIR", output_dir)
+    monkeypatch.setattr(
+        "record_trade_decision._resolve_velocity_gate_state",
+        lambda: {"state": "FULL", "position": 1.0, "trigger": False, "source": "test"},
+    )
 
     first = build_ledger_entry(_decision(), {"risk_check": {"status": "APPROVED"}})
     first["forward_outcome"] = {"status": "evaluated"}
@@ -68,3 +80,45 @@ def test_upsert_preserves_forward_outcome(tmp_path, monkeypatch) -> None:
     assert mode == "updated"
     stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     assert stored["forward_outcome"] == {"status": "evaluated"}
+
+
+def test_build_ledger_entry_is_v2_with_velocity_gate(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "record_trade_decision._resolve_velocity_gate_state",
+        lambda: {
+            "state": "FULL",
+            "position": 1.0,
+            "trigger": False,
+            "trigger_reason": "calm",
+            "source": "test",
+            "as_of_date": "2026-06-18",
+        },
+    )
+    entry = build_ledger_entry(_decision(), {"risk_check": {"status": "APPROVED"}})
+    assert entry["schema_version"] == "trade_ledger_entry.v2"
+    assert entry["velocity_gate_state"] == "FULL"
+    assert entry["velocity_gate"]["state"] == "FULL"
+    assert entry["stance"] == "RISK_ON"
+    assert entry["size"] == 0.5
+    assert entry["market_forward_outcome"] is None
+
+
+def test_upsert_preserves_market_forward_outcome(tmp_path, monkeypatch) -> None:
+    output_dir = tmp_path / "trade_ledger"
+    monkeypatch.setattr("record_trade_decision.OUTPUT_DIR", output_dir)
+    monkeypatch.setattr(
+        "record_trade_decision._resolve_velocity_gate_state",
+        lambda: {"state": "EXIT", "position": 0.0, "trigger": True, "source": "test"},
+    )
+
+    first = build_ledger_entry(_decision(), {"risk_check": {"status": "APPROVED"}})
+    first["market_forward_outcome"] = {"status": "evaluated"}
+    path, _ = upsert_to_ledger(first)
+
+    second = build_ledger_entry(_decision(), {"risk_check": {"status": "APPROVED"}})
+    path, mode = upsert_to_ledger(second)
+
+    assert mode == "updated"
+    stored = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert stored["market_forward_outcome"] == {"status": "evaluated"}
+    assert stored["velocity_gate_state"] == "EXIT"

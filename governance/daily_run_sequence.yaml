@@ -7,6 +7,7 @@ purpose: >
   Slimmed 2026-06-20: moved 13 validation/reporting steps daily→weekly (25 daily, 30 weekly).
   Slimmed 2026-07-03: moved 9 sidecar/reporting steps daily→weekly (25 daily, 46 weekly).
   Restored 2026-07-11: refresh_cross_asset_panel weekly→daily (26 daily, 45 weekly).
+  Restored 2026-07-11b: strategy_lab_shadow, shadow_outcomes_90d, evaluate_pending → daily (29 daily, 42 weekly).
 
 steps:
   # ── DATA ACQUISITION ──────────────────────────────────────────────
@@ -60,8 +61,7 @@ steps:
   - id: refresh_cross_asset_panel
     description: Daily ETF workspace mirror refresh (yfinance); Harvester release remains canonical when fresher
   - id: evaluate_pending
-    schedule: weekly
-    description: Forward-outcome checks on trade ledger — batch calibration
+    description: Forward-outcome checks on trade ledger + WATCH/NO_TRADE counterfactuals (daily calibration samples)
   - id: judgment_accuracy_report
     schedule: weekly
     description: Aggregate judgment calibration data from eval_log
@@ -156,11 +156,9 @@ steps:
     schedule: weekly
     description: Moved from daily 2026-06-20 — trend/anomaly analysis is batch
   - id: strategy_lab_shadow
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — shadow backtest is research-only
+    description: Daily shadow decision card (M/D/K/X + velocity gate) for forward evaluation
   - id: shadow_outcomes_90d
-    schedule: weekly
-    description: Aggregate 90-day shadow card outcomes after backfill
+    description: Aggregate shadow card outcomes (needs daily cards + fresh ETF panel)
   - id: build_overlay_shadow_report
     schedule: weekly
     description: SPY momentum vs System overlay shadow metrics

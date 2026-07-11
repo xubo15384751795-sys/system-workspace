@@ -36,6 +36,12 @@ DEFAULT_VELOCITY_THRESHOLD = 1.5
 DEFAULT_COFIRE_N = 3
 DEFAULT_COFIRE_V = 0.2
 
+# Bull-market "don't disturb" modulation (validated via cost sweep)
+DEFAULT_BULL_MOM_LOOKBACK = 63
+DEFAULT_BULL_VOL_LOOKBACK = 21
+DEFAULT_BULL_VOL_CEILING = 0.15  # 21d realized ann. vol
+DEFAULT_BULL_VELOCITY_THRESHOLD = 2.0
+
 
 @dataclass
 class RiskState:
@@ -126,33 +132,68 @@ def evaluate_day(M: float, D: float, K: float, X: float) -> RiskState:
     )
 
 
+def bull_relaxed_threshold_series(
+    close: pd.Series,
+    *,
+    base_threshold: float = DEFAULT_VELOCITY_THRESHOLD,
+    bull_threshold: float = DEFAULT_BULL_VELOCITY_THRESHOLD,
+    mom_lookback: int = DEFAULT_BULL_MOM_LOOKBACK,
+    vol_lookback: int = DEFAULT_BULL_VOL_LOOKBACK,
+    vol_ceiling: float = DEFAULT_BULL_VOL_CEILING,
+) -> pd.Series:
+    """Raise velocity threshold in calm bull regimes.
+
+    Condition: 63d momentum > 0 AND 21d realized annualized vol < 15%.
+    When true, use bull_threshold (default 2.0); else base_threshold (1.5).
+    """
+    mom = close / close.shift(mom_lookback) - 1.0
+    rets = close.pct_change()
+    ann_vol = rets.rolling(vol_lookback).std() * np.sqrt(252)
+    relaxed = (mom > 0) & (ann_vol < vol_ceiling)
+    values = np.where(relaxed.fillna(False), bull_threshold, base_threshold)
+    return pd.Series(values, index=close.index, dtype=float)
+
+
 def compute_velocity_gate(
     signals: pd.DataFrame,
     velocity_window: int = DEFAULT_VELOCITY_WINDOW,
     velocity_threshold: float = DEFAULT_VELOCITY_THRESHOLD,
     cofire_n: int = DEFAULT_COFIRE_N,
     cofire_v: float = DEFAULT_COFIRE_V,
+    *,
+    close: pd.Series | None = None,
+    bull_modulation: bool = False,
+    bull_velocity_threshold: float = DEFAULT_BULL_VELOCITY_THRESHOLD,
+    bull_mom_lookback: int = DEFAULT_BULL_MOM_LOOKBACK,
+    bull_vol_lookback: int = DEFAULT_BULL_VOL_LOOKBACK,
+    bull_vol_ceiling: float = DEFAULT_BULL_VOL_CEILING,
 ) -> pd.Series:
     """Compute binary velocity gate (v2, production).
 
     Returns 1.0 (invested) or 0.0 (cash) for each day.
 
     Trigger conditions (OR):
-      1. Any single channel velocity > velocity_threshold over the window
+      1. Any single channel velocity > day threshold over the window
       2. cofire_n+ channels have velocity > cofire_v over the window
 
-    Args:
-        signals: DataFrame with M, D, K, X columns.
-        velocity_window: days to compute velocity over.
-        velocity_threshold: single-channel velocity trigger.
-        cofire_n: number of channels for cofire event.
-        cofire_v: velocity threshold for cofire detection.
-
-    Returns:
-        Series of 1.0 or 0.0, same index as signals.
+    When bull_modulation=True and ``close`` is provided, the single-channel
+    threshold is raised to ``bull_velocity_threshold`` on calm bull days
+    (63d mom > 0 and 21d ann. vol < bull_vol_ceiling).
     """
     velocity = signals.diff(velocity_window)
     gate = pd.Series(1.0, index=signals.index)
+
+    thresholds = pd.Series(float(velocity_threshold), index=signals.index)
+    if bull_modulation and close is not None:
+        aligned_close = close.reindex(signals.index)
+        thresholds = bull_relaxed_threshold_series(
+            aligned_close,
+            base_threshold=velocity_threshold,
+            bull_threshold=bull_velocity_threshold,
+            mom_lookback=bull_mom_lookback,
+            vol_lookback=bull_vol_lookback,
+            vol_ceiling=bull_vol_ceiling,
+        )
 
     for i in range(velocity_window, len(signals)):
         vel_row = velocity.iloc[i]
@@ -161,9 +202,10 @@ def compute_velocity_gate(
             1 for ch in ["M", "D", "K", "X"] if vel_row[ch] > cofire_v
         )
         max_vel = max(vel_row["M"], vel_row["D"], vel_row["K"], vel_row["X"])
+        day_threshold = float(thresholds.iloc[i])
 
         trigger = False
-        if max_vel > velocity_threshold:
+        if max_vel > day_threshold:
             trigger = True
         if n_deteriorating >= cofire_n:
             trigger = True
@@ -177,6 +219,7 @@ def compute_velocity_gate(
 def compute_position_series(
     signals: pd.DataFrame,
     mode: str = "velocity",
+    close: pd.Series | None = None,
     **kwargs,
 ) -> pd.DataFrame:
     """Compute daily position sizes from a signals DataFrame.
@@ -184,13 +227,12 @@ def compute_position_series(
     Args:
         signals: DataFrame with columns M, D, K, X indexed by date.
         mode: "velocity" (default, production) or "regime" (v1 legacy).
+        close: optional price series for bull-market modulation.
         **kwargs: passed to the underlying gate function.
-
-    Returns:
-        DataFrame with columns: position_size, regime, action_gate,
-        n_stress, n_relief, risk_flags — same index as input.
     """
     if mode == "velocity":
+        if close is not None and "close" not in kwargs:
+            kwargs["close"] = close
         gate = compute_velocity_gate(signals, **kwargs)
         rows = []
         for date, pos in gate.items():
@@ -219,3 +261,83 @@ def compute_position_series(
                 "risk_flags": "|".join(state.risk_flags) if state.risk_flags else "",
             })
         return pd.DataFrame(rows).set_index("date")
+
+
+def latest_velocity_gate_state(signals: pd.DataFrame | None = None) -> dict:
+    """Resolve today's velocity gate as FULL / EXIT for recording only.
+
+    Prefers today's shadow card when present; otherwise computes from signals.
+    Does not authorize or block any trade decision.
+    """
+    import _runtime_io as rio
+
+    shadow_path = rio.ROOT / "Output" / "strategy_lab" / "shadow_cards" / "latest.json"
+    shadow = rio.load_json(shadow_path) if shadow_path.exists() else None
+    if isinstance(shadow, dict) and shadow.get("velocity_gate") is not None:
+        rec = shadow.get("recommendation") or {}
+        vg = shadow.get("velocity_gate") or {}
+        state = rec.get("sizing_label")
+        if state not in ("FULL", "EXIT"):
+            pos = float(vg.get("position", 1.0) or 1.0)
+            state = "EXIT" if pos < 1.0 else "FULL"
+        velocity_20d = vg.get("velocity_20d")
+        n_deteriorating = None
+        if isinstance(velocity_20d, dict):
+            n_deteriorating = sum(
+                1
+                for ch in ("M", "D", "K", "X")
+                if float(velocity_20d.get(ch, 0) or 0) > DEFAULT_COFIRE_V
+            )
+        return {
+            "state": state,
+            "position": float(vg.get("position", 1.0 if state == "FULL" else 0.0) or 0.0),
+            "trigger": bool(vg.get("trigger", state == "EXIT")),
+            "trigger_reason": vg.get("trigger_reason") or rec.get("primary_reason"),
+            "velocity_20d": velocity_20d,
+            "n_deteriorating": n_deteriorating,
+            "source": "shadow_card",
+            "as_of_date": shadow.get("as_of_date"),
+        }
+
+    if signals is None:
+        from strategy_lab.data_loader import load_signals
+
+        signals = load_signals()
+    if signals is None or signals.empty:
+        return {
+            "state": "UNKNOWN",
+            "position": None,
+            "trigger": None,
+            "trigger_reason": "No signal data",
+            "velocity_20d": None,
+            "n_deteriorating": None,
+            "source": "unavailable",
+            "as_of_date": None,
+        }
+
+    gate = compute_velocity_gate(signals)
+    position = float(gate.iloc[-1])
+    state = "EXIT" if position < 1.0 else "FULL"
+    as_of = signals.index[-1]
+    as_of_date = str(as_of.date()) if hasattr(as_of, "date") else str(as_of)[:10]
+    velocity = signals.diff(DEFAULT_VELOCITY_WINDOW)
+    vel_row = velocity.iloc[-1]
+    velocity_20d = {
+        ch: float(vel_row[ch]) if ch in vel_row.index else None
+        for ch in ("M", "D", "K", "X")
+    }
+    n_deteriorating = sum(
+        1
+        for ch in ("M", "D", "K", "X")
+        if ch in vel_row.index and float(vel_row[ch]) > DEFAULT_COFIRE_V
+    )
+    return {
+        "state": state,
+        "position": position,
+        "trigger": state == "EXIT",
+        "trigger_reason": "velocity_deterioration" if state == "EXIT" else "No structural stress detected",
+        "velocity_20d": velocity_20d,
+        "n_deteriorating": n_deteriorating,
+        "source": "compute_velocity_gate",
+        "as_of_date": as_of_date,
+    }

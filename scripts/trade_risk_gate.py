@@ -48,24 +48,32 @@ def check_decision(decision: dict[str, Any]) -> dict[str, Any]:
         "message": "Live execution not allowed in first stage",
     })
 
-    # Rule 2: Paper sources required for active decisions
-    if decision_type in ("RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"):
+    # Rule 2: Paper sources recommended for non-WATCH stance decisions
+    if decision_type in ("RISK_ON", "RISK_REDUCE", "RISK_OFF"):
         paper_sources = decision.get("paper_sources", [])
-        if not paper_sources:
+        # Normalize v3 dict format
+        if isinstance(paper_sources, dict):
+            paper_list = list(paper_sources.get("approved_support", [])) + list(
+                paper_sources.get("background_context", [])
+            )
+        else:
+            paper_list = paper_sources if isinstance(paper_sources, list) else []
+        if not paper_list:
             issues.append({
                 "rule": "require_paper_sources",
-                "status": "FAIL",
-                "message": "Active decision requires paper sources",
+                "status": "WARNING",
+                "message": "Stance decision has no paper sources (size already discounted upstream)",
             })
-            risk_level = "HIGH"
 
-        # Check if any paper source is approved
-        approved_sources = [s for s in paper_sources if s.get("review_status") == "approved"]
+        approved_sources = [
+            s for s in paper_list
+            if isinstance(s, dict) and s.get("review_status") == "approved"
+        ]
         if not approved_sources:
             issues.append({
                 "rule": "paper_review_status",
                 "status": "WARNING",
-                "message": "No approved paper sources - using needs_review sources",
+                "message": "No approved paper sources - size discounted at decision layer",
             })
 
     # Rule 3: System sources required
@@ -108,22 +116,29 @@ def check_decision(decision: dict[str, Any]) -> dict[str, Any]:
         })
         risk_level = "HIGH"
 
-    # Rule 7: Max decision without calibration
-    if decision_type in ("TACTICAL_LONG", "TACTICAL_SHORT"):
-        if evidence_grade in ("C", "D"):
-            issues.append({
-                "rule": "max_decision_without_calibration",
-                "status": "FAIL",
-                "message": f"TACTICAL decision requires evidence grade A/B, got {evidence_grade}",
-            })
-            risk_level = "HIGH"
+    # Rule 7: High effective exposure needs stronger evidence
+    effective = decision.get("effective_size")
+    if effective is None:
+        size = decision.get("size", 0)
+        stance = decision.get("stance", decision_type)
+        weight = {"RISK_ON": 1.0, "RISK_REDUCE": 0.5, "RISK_OFF": 0.0, "WATCH": 0.0}.get(stance, 0.0)
+        try:
+            effective = float(size) * weight
+        except (TypeError, ValueError):
+            effective = 0.0
+    if effective >= 0.5 and evidence_grade in ("C", "D"):
+        issues.append({
+            "rule": "max_decision_without_calibration",
+            "status": "WARNING",
+            "message": f"effective_size>={effective} with evidence grade {evidence_grade}",
+        })
 
     # Rule 8: Confidence requirements
-    if decision_type in ("RISK_REDUCE", "HEDGE") and confidence == "low":
+    if decision_type in ("RISK_ON", "RISK_REDUCE") and confidence == "low":
         issues.append({
             "rule": "min_confidence",
             "status": "WARNING",
-            "message": "Low confidence for active decision",
+            "message": "Low confidence for active stance",
         })
 
     # Determine overall status
@@ -155,7 +170,10 @@ def build_risk_gate_report(decision: dict[str, Any], risk_check: dict[str, Any])
         "schema_version": "trade_risk_gate.v1",
         "generated_at": datetime.now(UTC).isoformat(),
         "date": decision.get("date", datetime.now(UTC).strftime("%Y-%m-%d")),
-        "decision_type": decision.get("decision", "NO_TRADE"),
+        "decision_type": decision.get("decision", "WATCH"),
+        "stance": decision.get("stance", decision.get("decision", "WATCH")),
+        "size": decision.get("size"),
+        "velocity_gate_state": decision.get("velocity_gate_state"),
         "decision_confidence": decision.get("confidence", "low"),
         "decision_evidence_grade": decision.get("evidence_grade", "D"),
         "risk_check": risk_check,

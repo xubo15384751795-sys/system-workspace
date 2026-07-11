@@ -26,8 +26,24 @@ from typing import Any
 
 import yaml
 from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
+from _workspace_imports import add_scripts, add_workbench_src
 from paper_freshness import check_paper_world_model_freshness
 from pending_evaluation import write_pending_evaluation
+
+add_workbench_src()
+add_scripts()
+
+from workbench.judgment.trade_decision import (  # noqa: E402
+    build_quality_inputs,
+    compose_trade_fields,
+    confidence_for_size,
+    determine_size,
+    determine_stance,
+    evidence_grade_for_size,
+)
+from workbench.judgment.trade_decision import (
+    build_trade_thesis as _wb_build_trade_thesis,
+)
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
@@ -176,193 +192,170 @@ def _build_trade_thesis(
     return thesis
 
 
-def _determine_decision(
-    judgment: dict, promotion_gate: dict, k_gate: dict | None,
-    x_gate: dict | None, hmm_audit: dict | None, caselab: dict | None,
-    approved_sources: list,
-) -> tuple[str, str, str, list[str]]:
-    """Determine trade decision from system state."""
-    risk_notes: list[str] = []
+def _resolve_velocity_gate_state() -> dict[str, Any]:
+    try:
+        from strategy_lab.risk_gate import latest_velocity_gate_state
 
-    freshness = judgment.get("paper_world_model_freshness") or check_paper_world_model_freshness()
-    if freshness.get("stale"):
-        risk_notes.append(
-            f"Paper world model stale ({freshness.get('reason')}, age={freshness.get('age_hours')}h)"
-        )
+        return latest_velocity_gate_state()
+    except Exception as exc:  # noqa: BLE001 — decision must still emit
+        return {
+            "state": "UNKNOWN",
+            "position": None,
+            "trigger": None,
+            "trigger_reason": f"unavailable: {exc}",
+            "velocity_20d": None,
+            "n_deteriorating": None,
+            "source": "error",
+            "as_of_date": None,
+        }
 
-    pg_status = promotion_gate.get("overall_status", "UNKNOWN")
-    conf_level = (judgment.get("confidence", {}).get("level") if isinstance(judgment.get("confidence"), dict) else "unknown")
-    ladder = judgment.get("claim_ladder", {})
-    ladder_tier = ladder.get("tier", 0) if ladder else 0
 
-    # If promotion gate is blocked, check if it's a soft block (calibration only)
-    if pg_status == "BLOCKED":
-        blocked = promotion_gate.get("blocked_gates", [])
-        risk_notes.append(f"Promotion gate BLOCKED: {', '.join(blocked)}")
-
-        # Soft block: only calibration_samples blocking → allow WATCH with caution
-        # Hard block: other gates blocking → NO_TRADE
-        soft_block = set(blocked) <= {"calibration_samples"}
-        if soft_block and conf_level in ("medium", "high"):
-            risk_notes.append(
-                "Calibration-only block: allowing WATCH with reduced confidence"
-            )
-            return "WATCH", "medium", "D", risk_notes
-
-        # Include claim ladder context even when blocked
-        if ladder_tier >= 1:
-            risk_notes.append(
-                f"Claim ladder: Tier {ladder_tier} ({ladder.get('label', '?')}) — "
-                f"{ladder.get('claim_statement', '')[:100]}"
-            )
-        return "NO_TRADE", "low", "D", risk_notes
-
-    # Low confidence → watch only
-    if conf_level == "low":
-        risk_notes.append("Confidence is low")
-        if ladder_tier >= 1:
-            risk_notes.append(
-                f"Claim ladder: Tier {ladder_tier} ({ladder.get('label', '?')}) — "
-                f"mechanism hypothesis available but not operationally actionable"
-            )
-        return "NO_TRADE", "low", "D", risk_notes
-
-    # Check HMM stability
-    if hmm_audit:
-        hmm_grade = hmm_audit.get("stability_grade", "UNKNOWN")
-        if hmm_grade == "WEAK":
-            risk_notes.append("HMM stability WEAK")
-            return "NO_TRADE", "low", "D", risk_notes
-
-    # Check gates
-    if k_gate and k_gate.get("gate_verdict", k_gate.get("verdict")) == "FAIL":
-        risk_notes.append("K gate FAIL")
-    if x_gate and x_gate.get("gate_verdict", x_gate.get("verdict")) == "FAIL":
-        risk_notes.append("X gate FAIL")
-
-    # If we have approved paper sources and gates pass, consider watch
-    if approved_sources and conf_level in ("medium", "high"):
-        evidence_grade = "B" if len(approved_sources) >= 2 else "C"
-        return "WATCH", conf_level, evidence_grade, risk_notes
-
-    # Default
-    if risk_notes:
-        return "NO_TRADE", "low", "D", risk_notes
-
-    return "WATCH", conf_level or "low", "D", risk_notes
+def _load_sigma_vector() -> dict[str, Any] | None:
+    """Load sigma_vector from framework_output advanced block when present."""
+    fw = load_json(ROOT / "Output" / "current" / "framework_output.json")
+    if not isinstance(fw, dict):
+        return None
+    adv = fw.get("advanced") or {}
+    sv = adv.get("sigma_vector")
+    return sv if isinstance(sv, dict) else None
 
 
 def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
-    """Build complete trade decision."""
+    """Build complete trade decision (stance × size)."""
     if not date_str:
         date_str = utc_now().strftime("%Y-%m-%d")
 
-    # Load all inputs
     judgment = load_json(JUDGMENT_PATH)
     promotion_gate = load_json(PROMOTION_GATE_PATH)
     k_gate = load_json(K_GATE_PATH)
     x_gate = load_json(X_GATE_PATH)
     hmm_audit = load_json(HMM_AUDIT_PATH)
     caselab = load_json(CASELAB_DIR / f"{date_str}.json")
+    velocity_gate = _resolve_velocity_gate_state()
+    sigma_vector = _load_sigma_vector()
+    if isinstance(sigma_vector, dict) and velocity_gate.get("velocity_20d"):
+        sigma_vector = {**sigma_vector, "velocity_20d": velocity_gate["velocity_20d"]}
+        if velocity_gate.get("n_deteriorating") is not None:
+            sigma_vector = {
+                **sigma_vector,
+                "n_deteriorating": velocity_gate["n_deteriorating"],
+            }
 
-    if not judgment or not promotion_gate:
+    vg_state = velocity_gate.get("state", "UNKNOWN")
+
+    if not judgment:
         return {
-            "schema_version": "trade_decision.v1",
+            "schema_version": "trade_decision.v3",
             "generated_at": utc_now().isoformat(),
             "date": date_str,
-            "decision": "NO_TRADE",
+            "decision": "WATCH",
+            "stance": "WATCH",
+            "size": 0.0,
+            "effective_size": 0.0,
+            "velocity_gate_state": vg_state,
+            "velocity_gate": velocity_gate,
             "confidence": "low",
             "allowed_size": "zero",
             "time_horizon": "1d",
             "asset_scope": [],
             "invalidation": [],
-            "risk_notes": ["Missing judgment or promotion gate"],
+            "risk_notes": ["Missing judgment — data unavailable"],
             "evidence_grade": "D",
-            "paper_sources": [],
+            "paper_sources": {"approved_support": [], "background_context": []},
             "system_sources": [],
             "trade_thesis": {"hypothesis": "Insufficient data"},
         }
 
-    # Find paper sources first (needed for Paper quality gate)
     approved_sources, background_sources = find_paper_sources(caselab, judgment)
+    freshness = judgment.get("paper_world_model_freshness") or check_paper_world_model_freshness()
+    risk_notes: list[str] = []
+    if freshness.get("stale"):
+        risk_notes.append(
+            f"Paper world model stale ({freshness.get('reason')}, "
+            f"age={freshness.get('age_hours')}h) — size stepped down"
+        )
 
-    # Determine decision (now includes Paper quality gate)
-    decision, confidence, evidence_grade, risk_notes = _determine_decision(
-        judgment, promotion_gate, k_gate, x_gate, hmm_audit, caselab, approved_sources
+    quality = build_quality_inputs(
+        promotion_gate=promotion_gate or {},
+        k_gate=k_gate,
+        x_gate=x_gate,
+        hmm_audit=hmm_audit,
+        caselab=caselab,
+        approved_sources=approved_sources,
+        paper_freshness=freshness,
     )
+    if quality.get("promotion_hard_blocked"):
+        blocked = (promotion_gate or {}).get("blocked_gates") or []
+        risk_notes.append(f"Promotion gate hard-blocked: {', '.join(map(str, blocked))}")
+    if not quality.get("has_approved_paper"):
+        risk_notes.append("No approved Paper sources — size discounted")
+    if quality.get("k_verdict") == "FAIL":
+        risk_notes.append("K gate FAIL — size discounted")
+    if quality.get("x_verdict") == "FAIL":
+        risk_notes.append("X gate FAIL — size discounted")
+    if quality.get("hmm_grade") in ("WEAK", "UNKNOWN"):
+        risk_notes.append(f"HMM grade {quality.get('hmm_grade')} — size discounted")
 
-    # Build system sources
+    stance = determine_stance(sigma_vector, velocity_gate)
+    size = determine_size(quality)
+    composed = compose_trade_fields(
+        stance=stance,
+        size=size,
+        data_available=True,
+        risk_notes=risk_notes,
+    )
+    decision = composed["decision"]
+    confidence = confidence_for_size(composed["size"], decision)
+    evidence_grade = evidence_grade_for_size(composed["size"], decision)
+
     system_sources = _build_system_sources(judgment, k_gate, x_gate, hmm_audit, caselab)
-
-    # Build trade thesis (only approved sources can be mechanism support)
     trade_thesis = _build_trade_thesis(decision, judgment, approved_sources, system_sources)
+    # Prefer workbench thesis wording for stance labels
+    wb_thesis = _wb_build_trade_thesis(decision, judgment, approved_sources, system_sources)
+    trade_thesis["hypothesis"] = wb_thesis.get("hypothesis", trade_thesis.get("hypothesis"))
 
-    # Determine allowed size
-    allowed_size = "zero"
-    if decision in ("RISK_REDUCE", "HEDGE"):
-        allowed_size = "small"
-    elif decision in ("TACTICAL_LONG", "TACTICAL_SHORT"):
-        allowed_size = "medium"
-    elif decision == "WATCH" and confidence in ("medium", "high"):
-        allowed_size = "small"  # cautious participation when signal exists
-
-    # Determine time horizon
-    time_horizon = "1d"
-    if decision in ("WATCH", "RISK_REDUCE"):
-        time_horizon = "1w"
-    elif decision in ("HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"):
-        time_horizon = "1w"
-
-    # Asset scope
+    time_horizon = "1w" if decision in ("RISK_ON", "RISK_REDUCE", "RISK_OFF") else "1d"
     asset_scope = ["SPY", "HYG", "TLT"]
-    if decision in ("TACTICAL_LONG", "TACTICAL_SHORT"):
+    if decision == "RISK_ON" and composed["effective_size"] >= 0.5:
         asset_scope.extend(["VIX", "KRE", "XLF"])
 
-    # Invalidation conditions
     invalidation = [
         "Data freshness > 48h",
-        "Promotion gate status changes to BLOCKED",
+        "Velocity gate EXIT",
+        "Promotion gate hard-blocks",
         "K/X gate verdict changes to FAIL",
     ]
-
-    # Trigger conditions (what would upgrade the decision)
-    trigger_conditions = []
-    if decision in ("NO_TRADE", "WATCH"):
-        trigger_conditions = [
-            "Confidence improves to medium/high",
-            "K/X gates pass",
-            "CaseLab match quality improves to usable/strong",
-            "Paper sources approved",
-            "HMM stability improves to ADEQUATE",
-        ]
-    elif decision in ("HEDGE", "RISK_REDUCE"):
-        trigger_conditions = [
-            "Confidence improves to high",
-            "All gates pass",
-            "CaseLab match quality improves to strong",
-            "Forward calibration shows favorable asymmetry",
-        ]
-
-    # Learning hooks (how this decision will be calibrated)
+    trigger_conditions = [
+        "Velocity gate FULL with <3 deteriorating channels",
+        "K/X gates pass",
+        "CaseLab match quality improves to usable/strong",
+        "Paper sources approved and fresh",
+        "HMM stability improves to ADEQUATE/HIGH",
+    ]
     learning_hooks = [
-        f"Track {decision} outcome over 1d/1w/1m horizons",
+        f"Track stance={decision} size={composed['size']} over 1d/1w/1m horizons",
         "Compare with SPY/HYG/TLT forward returns",
         "Record if invalidation conditions triggered",
         "Feed into Learning Hub calibration",
     ]
 
     return {
-        "schema_version": "trade_decision.v2",
+        "schema_version": "trade_decision.v3",
         "generated_at": utc_now().isoformat(),
         "date": date_str,
         "decision": decision,
+        "stance": composed["stance"],
+        "size": composed["size"],
+        "effective_size": composed["effective_size"],
+        "velocity_gate_state": vg_state,
+        "velocity_gate": velocity_gate,
         "confidence": confidence,
-        "allowed_size": allowed_size,
+        "allowed_size": composed["allowed_size"],
         "time_horizon": time_horizon,
         "asset_scope": asset_scope,
         "invalidation": invalidation,
         "trigger_conditions": trigger_conditions,
-        "risk_notes": risk_notes,
+        "risk_notes": composed["risk_notes"],
         "evidence_grade": evidence_grade,
         "learning_hooks": learning_hooks,
         "paper_sources": {
@@ -380,6 +373,10 @@ def _format_markdown(d: dict[str, Any]) -> str:
         f"# Trade Decision — {d.get('date', 'unknown')}",
         "",
         f"- **Decision:** {d['decision']}",
+        f"- **Stance:** {d.get('stance', d['decision'])}",
+        f"- **Size:** {d.get('size', 'N/A')}",
+        f"- **Effective Size:** {d.get('effective_size', 'N/A')}",
+        f"- **Velocity Gate:** {d.get('velocity_gate_state', 'N/A')}",
         f"- **Confidence:** {d['confidence']}",
         f"- **Evidence Grade:** {d['evidence_grade']}",
         f"- **Allowed Size:** {d.get('allowed_size', 'N/A')}",
@@ -431,9 +428,18 @@ def main() -> None:
     else:
         print(f"Trade decision: {paths['markdown']}")
         print(f"Decision: {decision['decision']}")
+        print(f"Stance: {decision.get('stance')}")
+        print(f"Size: {decision.get('size')}")
+        print(f"Velocity Gate: {decision.get('velocity_gate_state')}")
         print(f"Confidence: {decision['confidence']}")
         print(f"Evidence Grade: {decision['evidence_grade']}")
-        print(f"Paper Sources: {len(decision['paper_sources'])}")
+        paper = decision.get("paper_sources") or {}
+        n_paper = (
+            len(paper.get("approved_support", [])) + len(paper.get("background_context", []))
+            if isinstance(paper, dict)
+            else len(paper)
+        )
+        print(f"Paper Sources: {n_paper}")
         print(f"System Sources: {len(decision['system_sources'])}")
 
 

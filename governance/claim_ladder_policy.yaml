@@ -8,6 +8,11 @@ purpose: >
 
 # Tier definitions — ascending from observation to operational research.
 # Promotion requires ALL conditions met (AND). Demotion triggers on ANY (OR).
+# Language policy note (Phase 4): bare "position" remains forbidden at tiers ≥1.
+# "shadow position" is explicitly allowed for research/calibration sizing language.
+language_allowlist_phrases:
+  - shadow position
+
 tiers:
   0:
     label: diagnostic_claim
@@ -28,10 +33,29 @@ tiers:
       - prediction
       - forecast
       - signal
+      - position
 
   1:
     label: mechanism_hypothesis
     description: "Structural comparison — current state resembles a known mechanism"
+    allowed_language:
+      - measurement
+      - reading
+      - observation
+      - diagnostic
+      - mechanism
+      - resembles
+      - structural_similarity
+      - historical_pattern
+      - analogy
+      - shadow position
+    forbidden_language:
+      - prediction
+      - forecast
+      - signal
+      - regime_call
+      - directional_conviction
+      - position
     promotion_requirements:
       - id: caselab_score_above_threshold
         rule: caselab_top_score >= 0.30
@@ -52,6 +76,24 @@ tiers:
   2:
     label: watch_condition
     description: "Specific observable conditions to monitor for confirmation/invalidation"
+    allowed_language:
+      - measurement
+      - observation
+      - mechanism
+      - resembles
+      - watch
+      - monitor
+      - condition
+      - threshold
+      - if-then
+      - upgrade_path
+      - shadow position
+    forbidden_language:
+      - prediction
+      - forecast
+      - signal
+      - position
+      - directional_conviction
     promotion_requirements:
       - id: md_direction_persistence
         rule: md_direction_consecutive_runs >= 2
@@ -89,6 +131,24 @@ tiers:
   3:
     label: operational_research
     description: "Can enter research decision support — backed by replay evidence"
+    allowed_language:
+      - measurement
+      - observation
+      - mechanism
+      - resembles
+      - watch
+      - monitor
+      - condition
+      - invalidation
+      - falsification
+      - boundary
+      - diagnostic_claim
+      - shadow position
+    forbidden_language:
+      - prediction
+      - forecast
+      - signal
+      - position
     promotion_requirements:
       - id: replay_sample_size
         rule: replay_evaluation_count >= 30

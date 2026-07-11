@@ -719,7 +719,7 @@ steps:
     order: 16.5
     status: active
     owner: Learning Hub
-    command: python scripts/archive/trade_decision_replay.py
+    command: python scripts/trade_decision_replay.py
     input: &id_trade_replay_in
     - Output/trade_ledger/decisions.jsonl
     - Data/panels/cross_asset_daily_panel.parquet
@@ -734,7 +734,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/archive/trade_decision_replay.py
+      current_command: python scripts/trade_decision_replay.py
       future_callable: scripts.trade_decision_replay:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1475,8 +1475,7 @@ steps:
     produces:
     - Output/strategy_lab/shadow_outcomes_90d.json
     artifact_path: Output/strategy_lab/shadow_outcomes_90d.json
-    ttl_hours: 168
-    schedule: weekly
+    ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2066,20 +2065,19 @@ steps:
     order: 18.5
     status: active
     owner: Learning Hub
-    command: python scripts/archive/evaluate_pending.py
-    schedule: weekly
+    command: python scripts/evaluate_pending.py
     input:
     - Output/trade_ledger/decisions.jsonl
     produces:
     - Output/system_learning/latest/eval_log.jsonl
     artifact_path: Output/system_learning/latest/eval_log.jsonl
-    ttl_hours: 168
+    ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/archive/evaluate_pending.py
+      current_command: python scripts/evaluate_pending.py
       future_callable: scripts.evaluate_pending:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal

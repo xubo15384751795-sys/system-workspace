@@ -12,10 +12,7 @@ from _workspace_imports import add_workbench_src
 
 add_workbench_src()
 
-from paper_freshness import (
-    check_paper_world_model_freshness,
-    lower_claim_ceiling_for_stale,
-)
+from paper_freshness import check_paper_world_model_freshness
 from pending_evaluation import write_pending_evaluation
 
 from workbench.judgment.layer import (
@@ -51,15 +48,14 @@ def main() -> None:
 
     card = build_judgment(fw, caselab, hmm, k_gate, x_gate, validation)
 
+    # Paper stale no longer crushes claim_ceiling — trade size layer steps down instead.
     freshness = check_paper_world_model_freshness()
+    card["paper_world_model_freshness"] = freshness
     if freshness.get("stale"):
-        original = card.get("claim_ceiling", "unknown")
-        card["claim_ceiling"] = lower_claim_ceiling_for_stale(str(original))
         card.setdefault("confidence", {}).setdefault("reasons", []).append(
             f"Paper world model stale ({freshness.get('reason')}, "
-            f"age={freshness.get('age_hours')}h) — claim ceiling lowered"
+            f"age={freshness.get('age_hours')}h) — size discount at trade decision"
         )
-        card["paper_world_model_freshness"] = freshness
 
     paths = write_outputs(card)
     write_pending_evaluation("judgment_layer", card)

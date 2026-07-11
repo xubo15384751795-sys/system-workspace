@@ -1,0 +1,54 @@
+schema_version: routing_decision.v1
+id: 2026-07-11-stance-size-decision-refactor
+date: "2026-07-11"
+title: "Phase 4 — trade decision power structure: stance × size"
+status: accepted
+summary: >
+  Replace quality-gate binary blocks that collapsed to WATCH/NO_TRADE with a
+  two-layer decision: signal (sigma_vector + velocity gate) sets stance
+  (RISK_ON / RISK_REDUCE / RISK_OFF); quality inputs set discrete size
+  (0 / 0.25 / 0.5 / 1.0). Final exposure = stance_weight × size. WATCH is
+  reserved for data unavailability only. TACTICAL_LONG / TACTICAL_SHORT / HEDGE
+  removed from the main decision spectrum.
+
+power_structure_change:
+  before: >
+    determine_decision / _determine_decision used promotion / Paper / HMM / K/X
+    as hard gates → mostly WATCH or NO_TRADE; tactical labels were unreachable
+    or contradictory with a stress-detection system.
+  after: >
+    determine_stance(sigma_vector, velocity_gate_state) + determine_size(quality_inputs);
+    ledger records stance + size + velocity_gate_state triple; decision mirrors stance.
+
+precondition_note: >
+  Phase 2 velocity/ledger contrast window is not yet 2–4 calendar weeks
+  (same-day landing; historical ledger rows lacked velocity_gate_state).
+  Cutover proceeds with Phase 3 net-cost gate survival and existing
+  counterfactual ledger samples as substitute evidence. Acceptance clock:
+  within 30 days of cutover, ledger must show non-WATCH decisions with the
+  stance/size/velocity_gate_state triple.
+
+artifacts:
+  - packages/workbench/src/workbench/judgment/trade_decision.py
+  - scripts/trade_decision_layer.py
+  - scripts/record_trade_decision.py
+  - scripts/judgment_layer.py
+  - scripts/evaluate_pending.py
+  - protocols/trade_decision.schema.json  # trade_decision.v3
+  - protocols/position_intent.schema.json  # position_intent.v2
+  - protocols/_shared_enums.schema.json
+  - governance/claim_ladder_policy.yaml  # shadow position allowlist
+  - packages/workbench/src/workbench/judgment/claim_ladder.py
+
+language_policy: >
+  Bare "position" remains forbidden on the claim ladder; "shadow position"
+  is explicitly allowed for research/calibration sizing language.
+
+paper_freshness: >
+  Stale Paper world model no longer lowers claim_ceiling; it steps size
+  down one ladder rung at the trade decision layer.
+
+acceptance:
+  - ledger rows include stance, size, velocity_gate_state
+  - non-WATCH decision distribution appears within 30 days post-cutover
+  - unit tests cover stance EXIT / 3-channel REDUCE / size discounts / Paper step-down

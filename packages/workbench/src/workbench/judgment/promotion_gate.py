@@ -293,9 +293,17 @@ def determine_allowed_language(
             if term not in forbidden:
                 forbidden.append(term)
         forbidden = sorted(set(forbidden))
-        # Remove any term from allowed that ended up forbidden
+        # Remove any term from allowed that ended up forbidden —
+        # except allowlist phrases that embed a forbidden substring (e.g. shadow position).
+        allowlist_phrases = {"shadow position"}
         forbidden_set = set(forbidden)
-        allowed = [t for t in allowed if t not in forbidden_set]
+        allowed = [
+            t for t in allowed
+            if t not in forbidden_set or t in allowlist_phrases
+        ]
+        for phrase in allowlist_phrases:
+            if phrase in ladder_allowed and phrase not in allowed:
+                allowed.append(phrase)
 
     return {"allowed": allowed, "forbidden": forbidden}
 

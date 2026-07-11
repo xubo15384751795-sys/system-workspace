@@ -1,0 +1,17 @@
+# Checkpoint: phase2-shadow-velocity-calibration
+- mission: 阶段 2 — shadow 日频 + velocity gate 入卡/账本 + evaluate_pending 反事实回填
+- decisions:
+  - strategy_lab_shadow / shadow_outcomes_90d / evaluate_pending → daily（29 daily steps）
+  - evaluate_pending 移回 scripts/；WATCH/NO_TRADE 等按机会成本反事实打分并写 counterfactual 块
+  - signal_card 增加 Velocity Gate 节（record-only）；ledger schema → trade_ledger_entry.v2 + velocity_gate_state
+  - 恢复 scripts/trade_decision_replay.py（曾被 archive 物理删除）；用 fresher ETF panel；写回 market_forward_outcome
+  - strategy_lab.data_loader 改用 resolve_cross_asset_panel_path（避免只读 Harvester 旧面板）
+- open_threads:
+  - trade_decision_replay 仍为 weekly 序列项；日频校准样本靠 evaluate_pending + 本次历史回填
+  - pending.jsonl 3134 条多为 RESEARCH_REVIEW；status=evaluated 需 1d+1w+1m 齐全，近期卡会长期 pending
+- do_not_touch: untracked caselab_context WIP
+- next_agent_action: 次日 daily run 确认 shadow_cards/ 新增当日卡；30 日后看 calibration evaluated_decisions 持续 ≥30
+- acceptance_now:
+  - shadow card 2026-07-10.json 已生成；velocity FULL
+  - calibration evaluated 43/44（counterfactual 43）；ledger market_forward_outcome 43
+  - tests: evaluate_pending + record_trade_decision + pipeline contract 31 passed

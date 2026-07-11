@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Position Intent",
-  "description": "Structured position intent from trade decision translation",
+  "description": "Structured position intent from trade decision translation (shadow position research)",
   "type": "object",
-  "required": ["schema_version", "generated_at", "decision", "allowed_mode", "positions", "blockers"],
+  "required": ["schema_version", "generated_at", "decision", "stance", "size", "allowed_mode", "positions", "blockers"],
   "properties": {
     "schema_version": {
-      "const": "position_intent.v1"
+      "const": "position_intent.v2"
     },
     "generated_at": {
       "type": "string",
@@ -18,7 +18,19 @@
     },
     "decision": {
       "type": "string",
-      "enum": ["NO_TRADE", "WATCH", "RISK_REDUCE", "HEDGE", "TACTICAL_LONG", "TACTICAL_SHORT"]
+      "enum": ["WATCH", "RISK_ON", "RISK_REDUCE", "RISK_OFF"]
+    },
+    "stance": {
+      "type": "string",
+      "enum": ["WATCH", "RISK_ON", "RISK_REDUCE", "RISK_OFF"]
+    },
+    "size": {
+      "type": "number",
+      "enum": [0, 0.25, 0.5, 1.0]
+    },
+    "velocity_gate_state": {
+      "type": "string",
+      "enum": ["FULL", "EXIT", "UNKNOWN"]
     },
     "allowed_mode": {
       "type": "string",
@@ -26,7 +38,7 @@
     },
     "portfolio_action": {
       "type": "string",
-      "enum": ["hold_flat", "reduce_exposure", "add_hedge", "flatten_all"]
+      "enum": ["hold_flat", "reduce_exposure", "risk_on", "flatten_all"]
     },
     "positions": {
       "type": "array",

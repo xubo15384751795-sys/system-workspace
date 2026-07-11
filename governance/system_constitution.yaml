@@ -102,38 +102,47 @@ module_roles:
     forbidden_outputs: ["signal", "trade", "position"]
     examples: ["Horizon"]
 
-# Decision permission hierarchy
+# Decision permission hierarchy (Phase 4: stance spectrum)
+# Size is set by quality discounts; stance by velocity/sigma. WATCH = data unavailable only.
 decision_permissions:
+  WATCH:
+    requires: []
+    allowed_size: zero
+    note: "Data unavailable — no stance assigned"
+
+  RISK_OFF:
+    requires: ["freshness_pass"]
+    allowed_size: zero
+    note: "Velocity gate EXIT — flatten / stay flat (shadow position)"
+
+  RISK_REDUCE:
+    requires: ["freshness_pass"]
+    allowed_size: small
+    note: "3+ channels deteriorating without EXIT — reduce shadow position"
+
+  RISK_ON:
+    requires: ["freshness_pass"]
+    allowed_size: large
+    note: "No velocity EXIT — size set by quality discounts (shadow position)"
+
+  # Legacy labels retained for historical ledger rows only (not produced by trade_decision.v3)
   NO_TRADE:
     requires: []
     allowed_size: zero
-
-  WATCH:
-    requires: ["freshness_pass"]
-    allowed_size: zero
-
-  RISK_REDUCE:
-    requires: ["freshness_pass", "evidence_grade_b_or_higher", "paper_support"]
-    allowed_size: small
+    enabled: false
+    note: "Legacy — mapped to RISK_OFF + size 0"
 
   HEDGE:
-    requires: ["freshness_pass", "evidence_grade_b_or_higher", "paper_support"]
-    allowed_size: small
+    enabled: false
+    note: "Removed from main spectrum (Phase 4)"
 
   TACTICAL_LONG:
-    requires: ["freshness_pass", "evidence_grade_a", "paper_support", "calibration_pass"]
-    enabled: false  # Disabled until replay calibration passes
-    allowed_size: medium
-    # NOTE: trade_decision_layer.py currently only produces NO_TRADE and WATCH.
-    # RISK_REDUCE, HEDGE, TACTICAL_LONG, TACTICAL_SHORT require calibration
-    # milestones that have not yet been met. This is intentional safe-mode
-    # behavior enforced at three layers: constitution, decision layer, and risk gate.
+    enabled: false
+    note: "Removed from main spectrum (Phase 4) — contradicted stress-detection posture"
 
   TACTICAL_SHORT:
-    requires: ["freshness_pass", "evidence_grade_a", "paper_support", "calibration_pass"]
-    enabled: false  # Disabled until replay calibration passes
-    allowed_size: medium
-    # See TACTICAL_LONG note above.
+    enabled: false
+    note: "Removed from main spectrum (Phase 4) — was unreachable"
 
 # Evidence authority levels
 evidence_authority:

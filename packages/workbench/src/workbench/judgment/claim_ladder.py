@@ -52,7 +52,7 @@ CLAIM_LADDER_TIERS: dict[int, dict[str, Any]] = {
         "allowed_language": [
             "measurement", "reading", "observation", "diagnostic",
             "mechanism", "resembles", "structural similarity",
-            "historical pattern", "analogy",
+            "historical pattern", "analogy", "shadow position",
         ],
         "forbidden_language": [
             "prediction", "forecast", "signal", "regime call",
@@ -65,7 +65,7 @@ CLAIM_LADDER_TIERS: dict[int, dict[str, Any]] = {
         "allowed_language": [
             "measurement", "observation", "mechanism", "resembles",
             "watch", "monitor", "condition", "threshold",
-            "if-then", "upgrade path",
+            "if-then", "upgrade path", "shadow position",
         ],
         "forbidden_language": [
             "prediction", "forecast", "signal", "position",
@@ -79,6 +79,7 @@ CLAIM_LADDER_TIERS: dict[int, dict[str, Any]] = {
             "measurement", "observation", "mechanism", "resembles",
             "watch", "monitor", "condition", "invalidation",
             "falsification", "boundary", "diagnostic claim",
+            "shadow position",
         ],
         "forbidden_language": [
             "prediction", "forecast", "signal", "position",
