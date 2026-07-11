@@ -1,0 +1,11 @@
+# Checkpoint: foundation-cleanup-etf
+- mission: 地基清理（半天）— ruff format commit + ETF 断供根因闭环
+- decisions:
+  - 0.1 formatting committed as `8f4d07f` (plus path-migration leftover `5d1d0e1`)
+  - ETF stall root cause was `value`→`close` column mismatch, not weekly schedule absence
+  - Finalized Harvester `exports/latest` is immutable (0444); weekly refresh updates mirror only
+  - Consumers resolve fresher(mirror, canonical) via `_data_paths` / k_gate helper
+  - Merge is now (symbol, date); all-empty fetch raises RuntimeError
+- open_threads: none for this mission
+- do_not_touch: untracked caselab_context WIP / audit-reports / unrelated checkpoints
+- next_agent_action: none — mission complete; next complete Harvester `stage_complete_release` will refresh immutable canonical

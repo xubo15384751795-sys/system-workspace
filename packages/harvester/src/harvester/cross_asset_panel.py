@@ -92,8 +92,12 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
     results = provider.fetch_series(symbols)
 
     rows: list[dict[str, Any]] = []
+    n_failed = 0
     for result in results:
         if result.frame is None or result.frame.empty:
+            n_failed += 1
+            if result.fetch_error:
+                logger.warning("ETF fetch failed for %s: %s", result.series_id, result.fetch_error)
             continue
         for _, row in result.frame.iterrows():
             # EtfYfinanceProvider emits Close as "value"; accept either name.
@@ -109,6 +113,13 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
                     "volume": float(row.get("volume", 0)),
                 }
             )
+    if symbols and not rows:
+        raise RuntimeError(
+            f"ETF fetch produced no usable rows for {len(symbols)} symbols "
+            f"({n_failed} failed/empty)"
+        )
+    if n_failed:
+        logger.warning("ETF fetch incomplete: %d/%d symbols failed or empty", n_failed, len(symbols))
     if not rows:
         return pd.DataFrame(columns=PANEL_COLUMNS)
     frame = pd.DataFrame(rows)
@@ -162,9 +173,17 @@ def build_cross_asset_panel(
     elif fresh.empty:
         merged = existing.copy()
     else:
-        fresh_dates = fresh["date"].unique()
-        merged = existing[~existing["date"].isin(fresh_dates)]
-        merged = pd.concat([merged, fresh], ignore_index=True)
+        # Replace only (symbol, date) pairs present in fresh. Date-only
+        # replacement deletes other symbols on partial rate-limit failures.
+        existing = existing.copy()
+        existing["_key"] = list(
+            zip(existing["symbol"].astype(str), pd.to_datetime(existing["date"]))
+        )
+        fresh_keys = set(
+            zip(fresh["symbol"].astype(str), pd.to_datetime(fresh["date"]))
+        )
+        kept = existing[~existing["_key"].isin(fresh_keys)].drop(columns=["_key"])
+        merged = pd.concat([kept, fresh], ignore_index=True)
 
     for column in PANEL_COLUMNS:
         if column not in merged.columns:
@@ -174,10 +193,28 @@ def build_cross_asset_panel(
 
 
 def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) -> Path:
+    """Write workspace mirror. Canonical latest is immutable once finalized."""
     root = workspace or workspace_root()
     path = root / "Data" / "panels" / "cross_asset_daily_panel.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     panel.to_parquet(path, index=False)
+
+    canonical = (
+        root / "Data" / "harvester" / "exports" / "latest" / "data" / f"{DATASET_ID}.parquet"
+    )
+    if canonical.parent.is_dir():
+        try:
+            panel.to_parquet(canonical, index=False)
+            logger.info("Synced canonical panel: %s", canonical)
+        except PermissionError:
+            # Finalized Harvester releases are chmod 0444 / 0555.
+            logger.warning(
+                "Canonical panel is read-only (%s); updated mirror only (%s). "
+                "Resolve consumers via fresher(mirror, canonical).",
+                canonical,
+                path,
+            )
+
     return path
 
 

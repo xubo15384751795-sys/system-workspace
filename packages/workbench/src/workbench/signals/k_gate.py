@@ -26,9 +26,25 @@ BP_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchma
 
 
 def _cross_asset_panel_path() -> Path:
+    """Prefer fresher of Harvester canonical vs workspace mirror.
+
+    Finalized Harvester releases are read-only; weekly mirror refresh can lead.
+    """
     harvester = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"
     mirror = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
-    return harvester if harvester.exists() else mirror
+    candidates = [path for path in (harvester, mirror) if path.exists()]
+    if not candidates:
+        return harvester
+    if len(candidates) == 1:
+        return candidates[0]
+
+    def _max_date(path: Path) -> pd.Timestamp:
+        frame = pd.read_parquet(path, columns=["date"])
+        if frame.empty:
+            return pd.Timestamp.min
+        return pd.to_datetime(frame["date"]).max()
+
+    return max(candidates, key=_max_date)
 OUTPUT_DIR = ROOT / "Output" / "k_measurement"
 
 EVENTS = {

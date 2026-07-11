@@ -160,3 +160,118 @@ def test_fetch_recent_ohlcv_accepts_provider_value_column(monkeypatch) -> None:
     assert len(fresh) == 1
     assert fresh.iloc[0]["close"] == pytest.approx(754.95)
     assert fresh.iloc[0]["symbol"] == "SPY"
+
+
+def test_fetch_recent_ohlcv_raises_when_all_symbols_fail(monkeypatch) -> None:
+    from harvester.cross_asset_panel import fetch_recent_ohlcv
+    from harvester.providers.base import ProviderResult
+
+    class FakeProvider:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def fetch_series(self, series_ids):
+            return [
+                ProviderResult(
+                    provider="yfinance",
+                    series_id="SPY",
+                    frame=pd.DataFrame(),
+                    fetch_error="rate limited",
+                )
+            ]
+
+    monkeypatch.setattr(
+        "harvester.providers.etf_yfinance.EtfYfinanceProvider",
+        FakeProvider,
+    )
+    with pytest.raises(RuntimeError, match="no usable rows"):
+        fetch_recent_ohlcv(["SPY"], period="5d")
+
+
+def test_build_merges_by_symbol_date_not_date_only(tmp_path: Path, monkeypatch) -> None:
+    """Partial fresh fetch must not delete other symbols on the same dates."""
+    workspace = tmp_path / "workspace"
+    panel_dir = workspace / "Data" / "panels"
+    panel_dir.mkdir(parents=True)
+    seed = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-07-09", "2026-07-09", "2026-07-10", "2026-07-10"]),
+            "symbol": ["SPY", "QQQ", "SPY", "QQQ"],
+            "open": [1.0, 1.0, 1.0, 1.0],
+            "high": [1.0, 1.0, 1.0, 1.0],
+            "low": [1.0, 1.0, 1.0, 1.0],
+            "close": [100.0, 200.0, 101.0, 201.0],
+            "volume": [1.0, 1.0, 1.0, 1.0],
+            "return_1d": [0.0, 0.0, 0.01, 0.005],
+            "return_5d": [0.0, 0.0, 0.0, 0.0],
+            "return_20d": [0.0, 0.0, 0.0, 0.0],
+            "return_60d": [0.0, 0.0, 0.0, 0.0],
+            "volatility_20d": [0.0, 0.0, 0.0, 0.0],
+            "drawdown_60d": [0.0, 0.0, 0.0, 0.0],
+        }
+    )
+    seed.to_parquet(panel_dir / "cross_asset_daily_panel.parquet", index=False)
+
+    def fake_fetch(symbols, *, period="5d"):
+        # Only SPY refreshes for 2026-07-10; QQQ must be preserved.
+        return pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2026-07-10"]),
+                "symbol": ["SPY"],
+                "open": [1.0],
+                "high": [1.0],
+                "low": [1.0],
+                "close": [102.0],
+                "volume": [1.0],
+            }
+        )
+
+    monkeypatch.setattr("harvester.cross_asset_panel.fetch_recent_ohlcv", fake_fetch)
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["SPY", "QQQ"],
+    )
+
+    panel = build_cross_asset_panel(workspace=workspace)
+    qqq = panel[(panel["symbol"] == "QQQ") & (panel["date"] == pd.Timestamp("2026-07-10"))]
+    spy = panel[(panel["symbol"] == "SPY") & (panel["date"] == pd.Timestamp("2026-07-10"))]
+    assert len(qqq) == 1
+    assert qqq.iloc[0]["close"] == pytest.approx(201.0)
+    assert len(spy) == 1
+    assert spy.iloc[0]["close"] == pytest.approx(102.0)
+
+
+def test_sync_panel_writes_mirror_and_tolerates_readonly_canonical(tmp_path: Path) -> None:
+    from harvester.cross_asset_panel import sync_panel_to_workspace
+
+    workspace = tmp_path / "workspace"
+    latest_data = workspace / "Data" / "harvester" / "exports" / "latest" / "data"
+    latest_data.mkdir(parents=True)
+    canonical = latest_data / "cross_asset_daily_panel.parquet"
+    # Simulate finalized release: present but not writable.
+    pd.DataFrame({"date": ["2026-06-04"], "close": [1.0]}).to_parquet(canonical, index=False)
+    canonical.chmod(0o444)
+    latest_data.chmod(0o555)
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-07-10"]),
+            "symbol": ["SPY"],
+            "open": [1.0],
+            "high": [1.0],
+            "low": [1.0],
+            "close": [100.0],
+            "volume": [1.0],
+            "return_1d": [0.0],
+            "return_5d": [0.0],
+            "return_20d": [0.0],
+            "return_60d": [0.0],
+            "volatility_20d": [0.0],
+            "drawdown_60d": [0.0],
+        }
+    )
+    mirror = sync_panel_to_workspace(panel, workspace)
+    assert mirror.exists()
+    assert pd.read_parquet(mirror).iloc[0]["close"] == pytest.approx(100.0)
+    # Canonical stays at prior content when read-only.
+    assert pd.read_parquet(canonical).iloc[0]["close"] == pytest.approx(1.0)
