@@ -122,3 +122,41 @@ def test_build_cross_asset_panel_returns_columns_when_seeded(tmp_path: Path, mon
     panel = build_cross_asset_panel(workspace=workspace)
     assert not panel.empty
     assert set(PANEL_COLUMNS).issubset(panel.columns)
+
+
+def test_fetch_recent_ohlcv_accepts_provider_value_column(monkeypatch) -> None:
+    """EtfYfinanceProvider emits Close as 'value'; must not be dropped as close=0."""
+    from harvester.cross_asset_panel import fetch_recent_ohlcv
+    from harvester.providers.base import ProviderResult
+
+    class FakeProvider:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def fetch_series(self, series_ids):
+            frame = pd.DataFrame(
+                {
+                    "date": pd.to_datetime(["2026-07-10"]),
+                    "value": [754.95],
+                    "open": [752.0],
+                    "high": [755.0],
+                    "low": [751.0],
+                    "volume": [1.0],
+                }
+            )
+            return [
+                ProviderResult(
+                    provider="yfinance",
+                    series_id="SPY",
+                    frame=frame,
+                )
+            ]
+
+    monkeypatch.setattr(
+        "harvester.providers.etf_yfinance.EtfYfinanceProvider",
+        FakeProvider,
+    )
+    fresh = fetch_recent_ohlcv(["SPY"], period="5d")
+    assert len(fresh) == 1
+    assert fresh.iloc[0]["close"] == pytest.approx(754.95)
+    assert fresh.iloc[0]["symbol"] == "SPY"

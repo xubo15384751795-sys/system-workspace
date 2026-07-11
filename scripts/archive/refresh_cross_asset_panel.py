@@ -7,8 +7,8 @@ This script refreshes the workspace mirror at Data/panels/ using the same
 Harvester builder (`harvester.cross_asset_panel`).
 
 Usage:
-    python3 scripts/refresh_cross_asset_panel.py
-    python3 scripts/refresh_cross_asset_panel.py --days 30
+    python3 scripts/archive/refresh_cross_asset_panel.py
+    python3 scripts/archive/refresh_cross_asset_panel.py --days 30
 
 Output:
     Data/panels/cross_asset_daily_panel.parquet  (updated in place)
@@ -16,10 +16,21 @@ Output:
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
 import pandas as pd
+
+# Archive scripts sit one level below scripts/; pipeline injects PYTHONPATH,
+# but naked CLI (`python3 scripts/archive/...`) does not.
+_SCRIPTS = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
 from _runtime_io import ROOT
-from _workspace_imports import add_harvester_src
+from _workspace_imports import add_harvester_src, add_scripts
+
+add_scripts()
 
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 HARVESTER_PANEL_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"

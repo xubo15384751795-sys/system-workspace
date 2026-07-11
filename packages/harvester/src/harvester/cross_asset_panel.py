@@ -96,11 +96,13 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
         if result.frame is None or result.frame.empty:
             continue
         for _, row in result.frame.iterrows():
+            # EtfYfinanceProvider emits Close as "value"; accept either name.
+            close = row.get("close", row.get("value", 0))
             rows.append(
                 {
                     "date": str(row.get("date", ""))[:10],
                     "symbol": result.series_id,
-                    "close": float(row.get("close", 0)),
+                    "close": float(close),
                     "open": float(row.get("open", 0)),
                     "high": float(row.get("high", 0)),
                     "low": float(row.get("low", 0)),
