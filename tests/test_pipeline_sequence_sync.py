@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from _runtime_io import load_yaml
+
 PIPELINE_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
 SEQUENCE_PATH = ROOT / "governance" / "daily_run_sequence.yaml"
 

@@ -14,6 +14,7 @@ from caselab_context.load_context import (
     load_entity_dna,
     load_resolver_rules,
 )
+from caselab_context.regime_from_indicators import infer_regime_from_indicators
 from caselab_context.retrieve_context import merge_similar_into_packet
 
 FEEDBACK_LOG = Path(__file__).resolve().parent / "feedback_log.jsonl"
@@ -111,8 +112,16 @@ def build_context_packet(
     verb: str,
     obj: str,
     regime: dict[str, str] | None = None,
+    *,
+    use_indicator_regime: bool = False,
+    min_quality: str | None = None,
 ) -> dict[str, Any]:
-    regime = regime or default_regime()
+    regime_meta: dict[str, Any] | None = None
+    if use_indicator_regime:
+        regime_meta = infer_regime_from_indicators()
+        regime = regime_meta["regime"]
+    else:
+        regime = regime or default_regime()
     entity = load_entity_dna(actor)
     rules = load_resolver_rules()
     matched = match_rules(actor, verb, obj, regime, rules)
@@ -135,8 +144,13 @@ def build_context_packet(
             "entity_source": entity.get("source_path"),
         }
     }
+    if regime_meta:
+        packet["context_packet"]["regime_source"] = regime_meta.get("source")
+        packet["context_packet"]["regime_evidence"] = regime_meta.get("evidence")
+        packet["context_packet"]["regime_as_of"] = regime_meta.get("as_of")
+        packet["context_packet"]["indicator_snapshot"] = regime_meta.get("indicator_snapshot")
     query = f"{actor} {verb} {obj}"
-    return merge_similar_into_packet(packet, query)
+    return merge_similar_into_packet(packet, query, min_quality=min_quality)
 
 
 def append_feedback_log(packet: dict[str, Any], review_status: str = "needs_review") -> str:

@@ -7,11 +7,10 @@ INVALID do trigger it.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 
 def _load_classify():
-    import importlib.util, sys
+    import importlib.util
     from pathlib import Path
     # structural_replay_v2.py has many side effects on import;
     # we only need classify_regime, so exec the function directly.

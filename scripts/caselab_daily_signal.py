@@ -26,16 +26,30 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 from _constants import (
-    CASELAB_STRONG_THRESHOLD, CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD,
+    CASELAB_STRONG_THRESHOLD,
+    CASELAB_USABLE_THRESHOLD,
+    CASELAB_WEAK_THRESHOLD,
+    D_DETERIORATION_THRESHOLD,
+    D_IMPROVEMENT_THRESHOLD,
     DEFAULT_SIGMA_T,
-    D_DETERIORATION_THRESHOLD, D_IMPROVEMENT_THRESHOLD,
-    K_CURVATURE_COMPRESSED, K_CURVATURE_ELEVATED, K_CURVATURE_MODERATE, K_CURVATURE_STRONG_COMPRESS,
-    M_MACRO_RELIEF, M_MACRO_SIGNIFICANT, M_MACRO_STRESS,
-    SIGMA_COMPRESSION_LOW, SIGMA_ELEVATED,
-    STRESS_DIRECTION_DEPRESSED, STRESS_DIRECTION_ELEVATED,
-    STRESS_DIRECTION_MILD_BUILD, STRESS_DIRECTION_MILD_RELIEF,
-    STRESS_DIRECTION_STRONG_BUILD, STRESS_DIRECTION_STRONG_RELIEF,
-    X_CROSS_MARKET_DECLINE, X_CROSS_MARKET_ELEVATED, X_CROSS_MARKET_UNWIND,
+    K_CURVATURE_COMPRESSED,
+    K_CURVATURE_ELEVATED,
+    K_CURVATURE_MODERATE,
+    K_CURVATURE_STRONG_COMPRESS,
+    M_MACRO_RELIEF,
+    M_MACRO_SIGNIFICANT,
+    M_MACRO_STRESS,
+    SIGMA_COMPRESSION_LOW,
+    SIGMA_ELEVATED,
+    STRESS_DIRECTION_DEPRESSED,
+    STRESS_DIRECTION_ELEVATED,
+    STRESS_DIRECTION_MILD_BUILD,
+    STRESS_DIRECTION_MILD_RELIEF,
+    STRESS_DIRECTION_STRONG_BUILD,
+    STRESS_DIRECTION_STRONG_RELIEF,
+    X_CROSS_MARKET_DECLINE,
+    X_CROSS_MARKET_ELEVATED,
+    X_CROSS_MARKET_UNWIND,
 )
 from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
@@ -160,7 +174,7 @@ def mdx_to_salvptau(state: dict) -> dict[str, float]:
 
     # Directional indicators
     # stress_level: how much stress is present (use max of M,K,X, clamped to [0,1])
-    stress_level = max(0.0, min(1.0, (abs(M) + abs(K) + abs(X)) / 3.0))
+    max(0.0, min(1.0, (abs(M) + abs(K) + abs(X)) / 3.0))
     # stress_direction: positive = building, negative = relieving
     stress_direction = (M + K + X) / 3.0  # positive = stress building
 
@@ -223,7 +237,7 @@ def derive_tags(state: dict) -> list[str]:
 
     M = state.get("M") or 0.0
     K = state.get("K") or 0.0
-    D = state.get("D") or 0.0
+    state.get("D") or 0.0
     X = state.get("X") or 0.0
     stress_direction = (M + K + X) / 3.0
 
@@ -542,7 +556,7 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
     """
     M = state.get("M") or 0.0
     K = state.get("K") or 0.0
-    D = state.get("D") or 0.0
+    state.get("D") or 0.0
     X = state.get("X") or 0.0
     stress_direction = (M + K + X) / 3.0
 
@@ -952,7 +966,7 @@ def _format_markdown(output: dict) -> str:
     lines = [
         f"# CaseLab Daily Signal — {output['timestamp'][:10]}",
         "",
-        f"## System State",
+        "## System State",
         f"- **Date:** {s['date']}",
         f"- **M/D/K/X:** {_fv(s['M'])} / {_fv(s['D'])} / {_fv(s['K'])} / {_fv(s['X'])}",
         f"- **σ(t):** {s['sigma_t']:.3f}" if s.get("sigma_t") else "- **σ(t):** N/A",
@@ -961,15 +975,15 @@ def _format_markdown(output: dict) -> str:
         f"- **Direction:** {s['direction']}",
         f"- **Escalation:** {'YES' if s.get('escalation') else 'No'}",
         "",
-        f"## Derived S-A-L-V-P-tau",
-        f"```",
+        "## Derived S-A-L-V-P-tau",
+        "```",
         f"S={vec['S']:.3f}  A={vec['A']:.3f}  L={vec['L']:.3f}  V={vec['V']:.3f}  P={vec['P']:.3f}  τ={vec['tau']:.3f}",
-        f"```",
+        "```",
         "",
-        f"## Tags",
+        "## Tags",
         f"`{'` `'.join(output['derived_tags'])}`",
         "",
-        f"## Event Description",
+        "## Event Description",
         f"> {output['event_text'][:300]}",
         "",
         "## Match Quality",
@@ -979,7 +993,7 @@ def _format_markdown(output: dict) -> str:
         f"- **Thresholds:** strong ≥ {mq['thresholds']['strong']:.2f}, usable ≥ {mq['thresholds']['usable']:.2f}, weak ≥ {mq['thresholds']['weak']:.2f}",
         f"- **Interpretation:** {mq['interpretation']}",
         "",
-        f"## Top Matches",
+        "## Top Matches",
         "",
     ]
 
@@ -1065,7 +1079,10 @@ def main():
     # Print summary
     s = output["system_state"]
     print(f"\n=== CaseLab Daily Signal — {s['date']} ===")
-    _fv = lambda v: f"{v:.3f}" if v is not None else "N/A"
+
+    def _fv(v: float | None) -> str:
+        return f"{v:.3f}" if v is not None else "N/A"
+
     print(f"M/D/K/X: {_fv(s['M'])} / {_fv(s['D'])} / {_fv(s['K'])} / {_fv(s['X'])}")
     print(f"Pattern: {s['pattern']}  Leading: {s['leading_channel']}  Direction: {s['direction']}")
     print()

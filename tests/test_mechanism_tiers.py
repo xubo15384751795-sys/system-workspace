@@ -23,7 +23,6 @@ from nlp.caselab.event_trigger import (
 )
 from nlp.caselab.mechanism_resolver import MechanismResolver
 
-
 # ── Condition evaluator unit tests ──────────────────────────────────────
 
 class TestConditionEvaluator(unittest.TestCase):

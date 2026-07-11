@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from _workspace_imports import add_scripts
-add_scripts()
-from _runtime_io import ROOT
 
+add_scripts()
 from _governance_freeze import check_governance_freeze  # noqa: E402
+from _runtime_io import ROOT
 
 
 def main() -> None:

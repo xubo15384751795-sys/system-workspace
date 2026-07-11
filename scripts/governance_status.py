@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from _workspace_imports import add_scripts  # noqa: E402
+
 add_scripts()
 
 from _authority_graph import (  # noqa: E402
@@ -27,7 +28,9 @@ from _authority_graph import (  # noqa: E402
     runtime_can_affect_core_judgment,
     write_authority_graph,
 )
-from _runtime_io import ROOT, ensure_dir, load_json as _load_json, load_yaml as _load_yaml, write_json  # noqa: E402
+from _runtime_io import ROOT, ensure_dir, write_json  # noqa: E402
+from _runtime_io import load_json as _load_json
+from _runtime_io import load_yaml as _load_yaml
 
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 

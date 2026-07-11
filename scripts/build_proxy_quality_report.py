@@ -19,7 +19,6 @@ import argparse
 import ast
 import json
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

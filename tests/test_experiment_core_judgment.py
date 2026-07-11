@@ -126,7 +126,6 @@ def test_verify_returns_empty_when_no_core_dirs():
 def test_approved_marker_allows_diagnostic():
     """Approved diagnostic marker with valid expiry → PASS."""
     import json as json_mod
-    import tempfile
 
     # Create a mock judgment file under Output/judgment/ so relative_to(ROOT) works
     judgment_dir = ROOT / "Output" / "judgment"

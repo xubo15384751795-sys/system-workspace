@@ -7,8 +7,10 @@ import re
 from pathlib import Path
 
 from caselab_context.embeddings_core import load_embeddings, search
+from caselab_context.feedback_weights import feedback_boost
 from caselab_context.graph_expand import expand_with_graph
-from caselab_context.quality_weights import quality_bonus
+from caselab_context.quality_weights import filter_by_min_quality, quality_bonus
+from caselab_context.reference_chains import reference_chain_boost
 
 EMBEDDINGS_PATH = Path(__file__).resolve().parents[1] / "Data" / "caselab_context" / "embeddings.json"
 
@@ -78,6 +80,8 @@ def _rerank(
                 bonus += 0.03
 
         bonus += quality_bonus(item.get("quality"))
+        bonus += feedback_boost(item.get("title") or "")
+        bonus += reference_chain_boost(item.get("title") or "")
 
         if obj_hit and not actor_hit:
             bonus -= 0.05
@@ -90,7 +94,7 @@ def _rerank(
     return [item for _, item in rescored]
 
 
-def retrieve_similar(query: str, top_k: int = 5) -> list[dict]:
+def retrieve_similar(query: str, top_k: int = 5, *, min_quality: str | None = None) -> list[dict]:
     if not EMBEDDINGS_PATH.exists():
         return []
     payload = load_embeddings(EMBEDDINGS_PATH)
@@ -99,6 +103,7 @@ def retrieve_similar(query: str, top_k: int = 5) -> list[dict]:
     docs = payload.get("docs") or []
     if graph and docs:
         results = expand_with_graph(results, graph, docs, max_hops=2)
+    results = filter_by_min_quality(results, min_quality)
     return results[: top_k * 3]
 
 
@@ -110,13 +115,21 @@ def retrieve_similar_reranked(
     obj: str = "",
     risk_from: str = "",
     risk_to: str = "",
+    *,
+    min_quality: str | None = None,
 ) -> list[dict]:
     """Retrieve with hybrid/dense/sparse search, graph expansion, then rerank."""
-    raw = retrieve_similar(query, top_k=top_k)
+    raw = retrieve_similar(query, top_k=top_k, min_quality=min_quality)
     return _rerank(raw, actor=actor, verb=verb, obj=obj, risk_from=risk_from, risk_to=risk_to)[:top_k]
 
 
-def merge_similar_into_packet(packet: dict, query: str, top_k: int = 5) -> dict:
+def merge_similar_into_packet(
+    packet: dict,
+    query: str,
+    top_k: int = 5,
+    *,
+    min_quality: str | None = None,
+) -> dict:
     ctx = packet.setdefault("context_packet", packet)
     actor = ctx.get("actor", "")
     action = ctx.get("action") or {}
@@ -135,6 +148,7 @@ def merge_similar_into_packet(packet: dict, query: str, top_k: int = 5) -> dict:
         obj=obj,
         risk_from=risk_from,
         risk_to=risk_to,
+        min_quality=min_quality,
     )
     ctx["similar_notes"] = similar
     analogies = list(meaning.get("historical_analogies") or [])
@@ -150,9 +164,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Retrieve similar Paper notes.")
     parser.add_argument("query")
     parser.add_argument("--top", type=int, default=5)
+    parser.add_argument("--min-quality", default=None)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    results = retrieve_similar(args.query, top_k=args.top)[: args.top]
+    results = retrieve_similar(args.query, top_k=args.top, min_quality=args.min_quality)[: args.top]
     if args.json:
         print(json.dumps(results, indent=2, ensure_ascii=False))
         return

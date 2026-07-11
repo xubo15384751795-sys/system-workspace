@@ -23,7 +23,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-
 # ── Channel-specific thresholds ──────────────────────────────────────
 # Calibrated so each channel triggers "stress" on roughly the top 25-30%
 # of its distribution. This means the gate activates when a channel is

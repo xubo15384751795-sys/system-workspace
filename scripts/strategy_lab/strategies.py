@@ -146,7 +146,6 @@ def compute_dynamic_lookback_position(
     Returns:
         Series of position sizes (0.0 or 1.0).
     """
-    import numpy as np
 
     vol_20d = daily_returns.rolling(20).std() * np.sqrt(252)
     mom_low = compute_momentum(close, low_lookback)

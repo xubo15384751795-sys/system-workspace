@@ -5,8 +5,9 @@ See: governance/daily_pipeline_registry.yaml
 """
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"

@@ -11,10 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import numpy as np
 import pandas as pd
-
-from strategy_lab.risk_gate import classify_channel, evaluate_day
+from strategy_lab.risk_gate import evaluate_day
 
 
 @dataclass

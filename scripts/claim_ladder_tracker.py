@@ -20,12 +20,20 @@ import json
 import logging
 import math
 import operator
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from _constants import CASELAB_USABLE_THRESHOLD
-from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, load_yaml, utc_now, write_json
+from _runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_json,
+    load_jsonl,
+    load_yaml,
+    utc_now,
+    write_json,
+)
 
 logger = logging.getLogger(__name__)
 

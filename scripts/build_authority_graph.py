@@ -14,7 +14,6 @@ import argparse
 import importlib.util
 import json
 import sys
-from pathlib import Path
 
 from _runtime_io import ROOT
 

@@ -25,7 +25,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import _runtime_io as rio
-from strategy_lab.data_loader import load_aligned, load_signals
+from strategy_lab.data_loader import load_aligned
 from strategy_lab.risk_gate import compute_velocity_gate
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab" / "qlib_experiment"
@@ -249,7 +249,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print("Running LightGBM experiment...")
-    print(f"  Market features vs Market + M/D/K/X velocity features")
+    print("  Market features vs Market + M/D/K/X velocity features")
     print(f"  Forward prediction: {args.forward} days")
     print()
 
@@ -272,7 +272,7 @@ def main() -> None:
 
     vga = results["velocity_gate_accuracy"]
     if vga["exit_correct_rate"] is not None:
-        print(f"  Velocity gate accuracy:")
+        print("  Velocity gate accuracy:")
         print(f"    When EXIT: market dropped {vga['exit_correct_rate']:.1%} of the time ({vga['n_exit_days']} days)")
         print(f"    When FULL: market rose   {vga['full_correct_rate']:.1%} of the time ({vga['n_full_days']} days)")
         print()

@@ -14,7 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, load_yaml as _load_yaml  # noqa: E402
+from _runtime_io import ROOT  # noqa: E402
+from _runtime_io import load_yaml as _load_yaml
 
 MANIFEST_PATH = ROOT / "governance" / "governance_freeze_manifest.yaml"
 TIERS_PATH = ROOT / "governance" / "governance_tiers.yaml"

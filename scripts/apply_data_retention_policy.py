@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from _runtime_io import ROOT, ensure_dir, load_yaml
+
 POLICY_PATH = ROOT / "governance" / "data_retention_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
@@ -122,7 +123,7 @@ def _check_merged_data(policy: dict) -> list[dict[str, str]]:
         return findings
 
     status = config.get("status", "")
-    archive_days = config.get("archive_after_days", 0)
+    config.get("archive_after_days", 0)
 
     size_mb = _dir_size_mb(merged_dir)
     if size_mb > 0:

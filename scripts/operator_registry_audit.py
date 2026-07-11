@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, load_yaml, utc_now, write_json
+from _runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
 
 REGISTRY_PATH = ROOT / "governance" / "operator_registry.yaml"
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
@@ -32,7 +32,6 @@ OUTPUT_DIR = ROOT / "Output" / "quality"
 
 def extract_daily_run_steps() -> list[str]:
     """Extract step names from daily_run.py."""
-    steps = []
     content = DAILY_RUN_PATH.read_text(encoding="utf-8")
     # Look for run_step calls
     matches = re.findall(r'run_step\("([^"]+)"', content)
@@ -226,7 +225,7 @@ def main() -> None:
         return
 
     report = build_audit_report(registry, constitution)
-    paths = write_outputs(report)
+    write_outputs(report)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

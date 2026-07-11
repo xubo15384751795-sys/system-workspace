@@ -23,14 +23,17 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import _runtime_io as rio
-from strategy_lab.data_loader import load_aligned
-from strategy_lab.data_tests import run_data_tests, print_test_report as data_report
-from strategy_lab.signal_tests import run_signal_tests, print_signal_test_report as signal_report
 from strategy_lab.backtest import run_comparison
-from strategy_lab.strategies import compute_baseline_position, compute_system_overlay_position
+from strategy_lab.data_loader import load_aligned
+from strategy_lab.data_tests import run_data_tests
+from strategy_lab.report import save_report
 from strategy_lab.risk_gate import compute_position_series
-from strategy_lab.report import save_report, generate_markdown_report
 from strategy_lab.shadow_card import generate_shadow_card, save_shadow_card
+from strategy_lab.signal_tests import run_signal_tests
+from strategy_lab.strategies import (
+    compute_baseline_position,
+    compute_system_overlay_position,
+)
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 

@@ -30,7 +30,6 @@ add_scripts()
 
 from workbench.judgment.layer import (
     build_judgment,
-    format_markdown,
     load_caselab,
     load_hmm,
     load_k_gate,

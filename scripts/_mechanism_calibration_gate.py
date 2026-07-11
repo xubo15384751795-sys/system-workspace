@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from _runtime_io import ROOT, load_yaml
+
 GATE_PATH = ROOT / "governance" / "mechanism_calibration_gate.yaml"
 
 _LEVEL_ORDER = ("research", "paper_draft", "judgment_support")

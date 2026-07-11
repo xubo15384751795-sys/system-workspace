@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 
 def _make_panel(series: dict[str, list[float]], start: str = "2020-01-01") -> pd.DataFrame:
@@ -22,8 +21,6 @@ class TestProxyBuilderSanity:
 
     def _load_builders(self):
         """Load proxy builders from structural_replay_v2."""
-        import importlib.util, sys
-        from pathlib import Path
         # We need the module's PROXY_REGISTRY, but importing the full module
         # has too many dependencies. Test the helper functions directly.
         pass

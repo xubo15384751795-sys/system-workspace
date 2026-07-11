@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from _constants import TIMEOUT_MEDIUM, TIMEOUT_STANDARD  # noqa: E402
-from _runtime_io import ROOT, load_json as _load_json, load_yaml as _load_yaml  # noqa: E402
+from _runtime_io import load_json as _load_json
+from _runtime_io import load_yaml as _load_yaml
 
 PRIORITY_ORDER = ["low", "registered", "preferred", "canonical"]
 

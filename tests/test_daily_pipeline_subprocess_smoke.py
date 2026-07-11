@@ -160,7 +160,7 @@ def test_main_chain_artifacts_are_output_paths() -> None:
         if ap and not (ap.startswith("Output/") or ap.startswith("Data/")):
             bad.append(f"{name}: {ap}")
     assert not bad, (
-        f"Artifact paths outside Output/ or Data/:\n" + "\n".join(bad)
+        "Artifact paths outside Output/ or Data/:\n" + "\n".join(bad)
     )
 
 
@@ -182,7 +182,7 @@ def test_main_chain_ordering_is_monotonic() -> None:
             violations.append(f"{name}: order={order} < previous={prev_order}")
         prev_order = order
     assert not violations, (
-        f"Main chain ordering violations:\n" + "\n".join(violations)
+        "Main chain ordering violations:\n" + "\n".join(violations)
     )
 
 

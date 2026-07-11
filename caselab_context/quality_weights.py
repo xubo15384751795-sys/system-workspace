@@ -10,6 +10,34 @@ QUALITY_BOOST: dict[str, float] = {
 
 UNKNOWN_QUALITY_PENALTY = -0.02
 
+QUALITY_RANK: dict[str, int] = {
+    "seed": 0,
+    "useful": 1,
+    "core_candidate": 2,
+    "core": 3,
+}
+
+
+def quality_rank(quality: str | None) -> int:
+    if not quality:
+        return -1
+    return QUALITY_RANK.get(str(quality).strip().lower(), -1)
+
+
+def passes_min_quality(quality: str | None, min_quality: str | None) -> bool:
+    if not min_quality:
+        return True
+    required = quality_rank(min_quality)
+    if required < 0:
+        return True
+    return quality_rank(quality) >= required
+
+
+def filter_by_min_quality(results: list[dict], min_quality: str | None) -> list[dict]:
+    if not min_quality:
+        return results
+    return [item for item in results if passes_min_quality(item.get("quality"), min_quality)]
+
 
 def quality_bonus(quality: str | None) -> float:
     if not quality:

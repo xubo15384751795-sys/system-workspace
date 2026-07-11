@@ -22,6 +22,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from _runtime_io import ROOT
+
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 
 
@@ -58,14 +59,14 @@ def main() -> None:
     # Harvester
     harvester = index.get("harvester", {})
     if harvester.get("exists"):
-        print(f"\n📦 HARVESTER")
+        print("\n📦 HARVESTER")
         print(f"  Status: ✅ ({harvester.get('modified', 'N/A')[:10]})")
 
     # Paper World Model
     paper = index.get("paper_world_model", {})
     paper_cases = paper.get("cases", {})
     if paper_cases.get("exists"):
-        print(f"\n📚 PAPER WORLD MODEL")
+        print("\n📚 PAPER WORLD MODEL")
         manifest = paper.get("manifest") or {}
         if manifest.get("synced_at"):
             print(f"  Synced: {manifest['synced_at'][:19]}")
@@ -75,7 +76,7 @@ def main() -> None:
                 f"  Records: cases={counts.get('cases', '?')} "
                 f"mechanisms={counts.get('mechanisms', '?')}"
             )
-        print(f"  Cases: ✅")
+        print("  Cases: ✅")
         print(f"  Mechanisms: {'✅' if paper.get('mechanisms', {}).get('exists') else '❌'}")
         print(f"  Variables: {'✅' if paper.get('variables', {}).get('exists') else '❌'}")
         print(f"  Indicators: {'✅' if paper.get('indicators', {}).get('exists') else '❌'}")
@@ -84,8 +85,8 @@ def main() -> None:
     # Horizon Events
     horizon = index.get("horizon_events", {})
     if horizon.get("events", {}).get("exists"):
-        print(f"\n🌐 HORIZON EVENTS")
-        print(f"  Events: ✅")
+        print("\n🌐 HORIZON EVENTS")
+        print("  Events: ✅")
         print(f"  Mechanism Matches: {'✅' if horizon.get('mechanism_matches', {}).get('exists') else '❌'}")
 
     # Measurement State
@@ -94,7 +95,7 @@ def main() -> None:
     # Judgment
     judgment = measurement.get("judgment", {}).get("summary")
     if judgment:
-        print(f"\n📊 JUDGMENT")
+        print("\n📊 JUDGMENT")
         print(f"  Decision: {judgment.get('decision', 'N/A')}")
         print(f"  Confidence: {judgment.get('confidence', 'N/A')}")
         print(f"  Claim ceiling: {judgment.get('claim_ceiling', 'N/A')}")
@@ -102,7 +103,7 @@ def main() -> None:
     # Promotion gate
     gate = measurement.get("promotion_gate", {}).get("summary")
     if gate:
-        print(f"\n🚧 PROMOTION GATE")
+        print("\n🚧 PROMOTION GATE")
         print(f"  Status: {gate.get('overall_status', 'N/A')}")
         blocked = gate.get("blocked_gates", [])
         if blocked:
@@ -112,26 +113,26 @@ def main() -> None:
     signals = measurement.get("signals", {})
     hmm = signals.get("hmm", {}).get("summary")
     if hmm:
-        print(f"\n📈 HMM")
+        print("\n📈 HMM")
         print(f"  Regime: {hmm.get('current_regime', 'N/A')}")
         print(f"  Stability: {hmm.get('stability_grade', 'N/A')}")
 
     k = signals.get("k_gate", {}).get("summary")
     if k:
-        print(f"\n📐 K GATE")
+        print("\n📐 K GATE")
         print(f"  Verdict: {k.get('verdict', 'N/A')}")
         print(f"  Role: {k.get('current_role', 'N/A')}")
 
     x = signals.get("x_gate", {}).get("summary")
     if x:
-        print(f"\n📏 X GATE")
+        print("\n📏 X GATE")
         print(f"  Verdict: {x.get('verdict', 'N/A')}")
         print(f"  Background: {x.get('background_allowed', 'N/A')}")
 
     # Trade Decision
     trade = index.get("trade_decision", {}).get("summary")
     if trade:
-        print(f"\n💼 TRADE DECISION")
+        print("\n💼 TRADE DECISION")
         print(f"  Decision: {trade.get('decision', 'N/A')}")
         print(f"  Confidence: {trade.get('confidence', 'N/A')}")
         print(f"  Evidence Grade: {trade.get('evidence_grade', 'N/A')}")
@@ -139,15 +140,15 @@ def main() -> None:
     # Risk Gate
     risk = index.get("risk_gate", {}).get("summary")
     if risk:
-        print(f"\n🛡️ RISK GATE")
+        print("\n🛡️ RISK GATE")
         print(f"  Status: {risk.get('status', 'N/A')}")
         print(f"  Risk Level: {risk.get('risk_level', 'N/A')}")
 
     # Probabilistic Context
     prob = measurement.get("probabilistic_context", {})
     if prob.get("exists"):
-        print(f"\n🎲 PROBABILISTIC CONTEXT")
-        print(f"  GluonTS: ✅")
+        print("\n🎲 PROBABILISTIC CONTEXT")
+        print("  GluonTS: ✅")
 
     # Market Feedback
     feedback = index.get("market_feedback", {}).get("latest", {})
@@ -162,16 +163,16 @@ def main() -> None:
             logger.debug("Failed to read feedback at %s", feedback_path, exc_info=True)
 
         source = feedback_data.get("source", "unknown") if feedback_data else "unknown"
-        print(f"\n📉 MARKET FEEDBACK")
+        print("\n📉 MARKET FEEDBACK")
         print(f"  Source: {source}")
         if source == "sample":
-            print(f"  ⚠️ SAMPLE / NOT VALIDATION")
+            print("  ⚠️ SAMPLE / NOT VALIDATION")
 
     # Position Intent
     position = index.get("position", {})
     position_summary = position.get("summary")
     if position_summary:
-        print(f"\n💰 POSITION INTENT")
+        print("\n💰 POSITION INTENT")
         print(f"  Decision: {position_summary.get('decision', 'N/A')}")
         print(f"  Allowed Mode: {position_summary.get('allowed_mode', 'N/A')}")
         print(f"  Portfolio Action: {position_summary.get('portfolio_action', 'N/A')}")
@@ -183,7 +184,7 @@ def main() -> None:
     operator = index.get("operator_registry", {})
     operator_summary = operator.get("summary")
     if operator_summary:
-        print(f"\n📋 OPERATOR REGISTRY")
+        print("\n📋 OPERATOR REGISTRY")
         print(f"  Status: {operator_summary.get('status', 'N/A')}")
         print(f"  Total Operators: {operator_summary.get('total_operators', 'N/A')}")
         print(f"  Issues: {operator_summary.get('issues', 'N/A')}")
@@ -192,7 +193,7 @@ def main() -> None:
     learning = index.get("learning_hub", {})
     learning_exists = learning.get("summary", {}).get("exists") or learning.get("comprehensive_summary", {}).get("exists")
     if learning_exists:
-        print(f"\n🧠 LEARNING HUB")
+        print("\n🧠 LEARNING HUB")
         print(f"  Summary: {'✅' if learning.get('summary', {}).get('exists') else '❌'}")
         print(f"  Comprehensive: {'✅' if learning.get('comprehensive_summary', {}).get('exists') else '❌'}")
         print(f"  Calibration Events: {learning.get('calibration_events_count', 0)}")

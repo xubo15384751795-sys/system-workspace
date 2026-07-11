@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from strategy_lab.backtest import run_comparison
 from strategy_lab.data_loader import load_aligned
-from strategy_lab.report import save_report, generate_markdown_report
+from strategy_lab.report import save_report
 from strategy_lab.risk_gate import compute_position_series
 from strategy_lab.shadow_card import (
     backfill_outcomes,

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -25,7 +25,6 @@ from evaluate_pending import (
     run_evaluation,
     save_pending_records,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

@@ -5,12 +5,10 @@ data and that signal_card.md displays it correctly.
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -78,7 +76,8 @@ def test_contributors_sorted_by_abs_zscore():
     import bridge_replay_to_current as mod
     original_dir = mod.REPLAY_DIR
 
-    import tempfile, json as json_mod
+    import json as json_mod
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         (td_path / "proxy_registry.json").write_text(json_mod.dumps(registry))
@@ -108,7 +107,8 @@ def test_contributors_have_required_fields():
     import bridge_replay_to_current as mod
     original_dir = mod.REPLAY_DIR
 
-    import tempfile, json as json_mod
+    import json as json_mod
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         (td_path / "proxy_registry.json").write_text(json_mod.dumps(registry))
@@ -142,7 +142,8 @@ def test_harvester_sourced_detection():
     import bridge_replay_to_current as mod
     original_dir = mod.REPLAY_DIR
 
-    import tempfile, json as json_mod
+    import json as json_mod
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         (td_path / "proxy_registry.json").write_text(json_mod.dumps(registry))
@@ -170,7 +171,8 @@ def test_direction_classification():
     import bridge_replay_to_current as mod
     original_dir = mod.REPLAY_DIR
 
-    import tempfile, json as json_mod
+    import json as json_mod
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         (td_path / "proxy_registry.json").write_text(json_mod.dumps(registry))
@@ -201,7 +203,8 @@ def test_channel_grouping():
     import bridge_replay_to_current as mod
     original_dir = mod.REPLAY_DIR
 
-    import tempfile, json as json_mod
+    import json as json_mod
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         (td_path / "proxy_registry.json").write_text(json_mod.dumps(registry))
@@ -221,12 +224,12 @@ def test_channel_grouping():
 
 def test_empty_components():
     """Empty components → empty result."""
-    from bridge_replay_to_current import _build_channel_contributors
-
     import bridge_replay_to_current as mod
+    from bridge_replay_to_current import _build_channel_contributors
     original_dir = mod.REPLAY_DIR
 
-    import tempfile, json as json_mod
+    import json as json_mod
+    import tempfile
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         (td_path / "proxy_registry.json").write_text(json_mod.dumps(_make_registry()))

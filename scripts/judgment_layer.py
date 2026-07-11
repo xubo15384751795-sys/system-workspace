@@ -7,18 +7,29 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from _workspace_imports import add_workbench_src
+
 add_workbench_src()
 
-from workbench.judgment.layer import (
-    build_judgment, write_outputs, load_json,
-    load_caselab, load_hmm, load_k_gate, load_x_gate, load_validation,
-    _date_from_framework, FW_PATH,
+from paper_freshness import (
+    check_paper_world_model_freshness,
+    lower_claim_ceiling_for_stale,
 )
 from pending_evaluation import write_pending_evaluation
-from paper_freshness import check_paper_world_model_freshness, lower_claim_ceiling_for_stale
+
+from workbench.judgment.layer import (
+    FW_PATH,
+    _date_from_framework,
+    build_judgment,
+    load_caselab,
+    load_hmm,
+    load_json,
+    load_k_gate,
+    load_validation,
+    load_x_gate,
+    write_outputs,
+)
 
 
 def main() -> None:
@@ -51,7 +62,7 @@ def main() -> None:
         card["paper_world_model_freshness"] = freshness
 
     paths = write_outputs(card)
-    eval_path = write_pending_evaluation("judgment_layer", card)
+    write_pending_evaluation("judgment_layer", card)
     if args.json:
         print(json.dumps(card, indent=2, ensure_ascii=False))
     else:

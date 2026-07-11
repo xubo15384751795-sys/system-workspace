@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 
 from _workspace_imports import add_workbench_src
+
 add_workbench_src()
 
 from workbench.nlp import main

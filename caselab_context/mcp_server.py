@@ -13,8 +13,10 @@ from caselab_context.load_context import (
     load_current_regime,
     load_entity_dna,
 )
+from caselab_context.regime_from_indicators import infer_regime_from_indicators
 from caselab_context.resolve_meaning import build_context_packet
 from caselab_context.retrieve_context import EMBEDDINGS_PATH, retrieve_similar_reranked
+from caselab_context.world_model import query as world_model_query
 
 mcp = FastMCP(
     "caselab-context",
@@ -40,9 +42,11 @@ def resolve_context(
     regulation: str = "",
     market_mood: str = "",
     technology_cycle: str = "",
+    use_indicator_regime: bool = False,
+    min_quality: str = "",
 ) -> str:
     """Resolve contextual meaning for an actor action under the current or overridden regime."""
-    regime = default_regime()
+    regime_override: dict[str, str] | None = None
     overrides = {
         "liquidity": liquidity,
         "rates": rates,
@@ -51,11 +55,56 @@ def resolve_context(
         "market_mood": market_mood,
         "technology_cycle": technology_cycle,
     }
-    for key, value in overrides.items():
-        if value:
-            regime[key] = value
-    packet = build_context_packet(actor, verb, action_object, regime)
+    if any(overrides.values()):
+        regime_override = default_regime()
+        for key, value in overrides.items():
+            if value:
+                regime_override[key] = value
+    packet = build_context_packet(
+        actor,
+        verb,
+        action_object,
+        regime=regime_override,
+        use_indicator_regime=use_indicator_regime and regime_override is None,
+        min_quality=min_quality or None,
+    )
     return _json(packet)
+
+
+@mcp.tool()
+def query_world_model(
+    actor: str,
+    verb: str,
+    action_object: str,
+    use_indicator_regime: bool = True,
+    min_quality: str = "useful",
+    evaluate_state: bool = True,
+) -> str:
+    """Primary world-model entrypoint: context packet + regime evidence + world_state + warnings."""
+    response = world_model_query(
+        actor,
+        verb,
+        action_object,
+        use_indicator_regime=use_indicator_regime,
+        min_quality=min_quality,
+        evaluate_state=evaluate_state,
+    )
+    return _json(response.to_dict())
+
+
+@mcp.tool()
+def evaluate_world_state(machine_id: str = "") -> str:
+    """Evaluate executable state machines (e.g. credit_cycle) from latest indicators."""
+    from caselab_context.state_machine_runtime import evaluate_world_state as run_eval
+
+    ids = [machine_id] if machine_id else None
+    return _json(run_eval(machine_ids=ids))
+
+
+@mcp.tool()
+def get_indicator_regime() -> str:
+    """Infer regime axes from latest FRED-processed indicators in Paper data_pipeline."""
+    return _json(infer_regime_from_indicators())
 
 
 @mcp.tool()
@@ -65,6 +114,7 @@ def search_similar_notes(
     actor: str = "",
     verb: str = "",
     action_object: str = "",
+    min_quality: str = "",
 ) -> str:
     """Search Paper notes with hybrid retrieval, 2-hop graph expansion, and quality-aware rerank."""
     results = retrieve_similar_reranked(
@@ -73,6 +123,7 @@ def search_similar_notes(
         actor=actor,
         verb=verb,
         obj=action_object,
+        min_quality=min_quality or None,
     )
     return _json({"query": query, "results": results})
 

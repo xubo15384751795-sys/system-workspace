@@ -10,7 +10,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
 import sys
 from dataclasses import dataclass
@@ -18,11 +17,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import numpy as np
-import pandas as pd
-
 import _runtime_io as rio
-from strategy_lab.backtest import compute_metrics, compute_drawdown_series
+import pandas as pd
+from strategy_lab.backtest import compute_metrics
 from strategy_lab.data_loader import load_aligned
 from strategy_lab.risk_gate import evaluate_day
 from strategy_lab.strategies import compute_baseline_position

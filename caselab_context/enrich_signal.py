@@ -1,10 +1,9 @@
-"""Map trade signals to Context Layer packets."""
+"""Map trade signals to Context Layer packets via world_model.query()."""
 from __future__ import annotations
 
 from typing import Any
 
-from caselab_context.load_context import default_regime
-from caselab_context.resolve_meaning import build_context_packet
+from caselab_context.world_model import query
 
 TICKER_CONTEXT_MAP: dict[str, dict[str, str]] = {
     "NVDA": {
@@ -64,20 +63,24 @@ def enrich_trade_signal(ticker: str, signal: dict[str, Any] | None = None) -> di
     mapping = TICKER_CONTEXT_MAP.get(ticker.upper())
     if not mapping:
         return {"context_packet": None, "reason": "no_ticker_mapping"}
-    regime = default_regime()
-    if signal:
-        if signal.get("signal") == "bearish" and ticker in {"SPY", "TLT", "HYG"}:
-            regime = {**regime, "rates": "rising", "market_mood": "risk_off", "credit": "fragile"}
-        if signal.get("signal") == "bullish" and ticker in {"TLT"}:
-            regime = {**regime, "rates": "falling", "market_mood": "risk_on"}
-        if signal.get("signal") == "bullish" and ticker in {"NVDA", "GOOGL", "META", "AMZN"}:
-            regime = {**regime, "technology_cycle": "scaling", "credit": "expanding"}
-    return build_context_packet(
+
+    response = query(
         mapping["actor"],
         mapping["verb"],
         mapping["object"],
-        regime,
+        use_indicator_regime=True,
+        evaluate_state=True,
+        min_quality="useful",
+        rematch_on_transition=True,
     )
+    payload = response.to_dict()
+    if signal:
+        payload["agent_signal"] = {
+            "ticker": ticker.upper(),
+            "signal": signal.get("signal"),
+            "confidence": signal.get("confidence"),
+        }
+    return payload
 
 
 def context_section_markdown(packet: dict[str, Any]) -> str:
@@ -92,6 +95,49 @@ def context_section_markdown(packet: dict[str, Any]) -> str:
         f"**Matched rules:** {', '.join(ctx.get('matched_rules') or [])}",
         f"**Deeper structure:** {meaning.get('deeper_structure', 'n/a')}",
         "",
+    ]
+
+    regime = ctx.get("regime") or {}
+    if regime:
+        lines += [
+            "### Regime",
+            "",
+            f"- liquidity: {regime.get('liquidity', 'n/a')}",
+            f"- credit: {regime.get('credit', 'n/a')}",
+            f"- technology_cycle: {regime.get('technology_cycle', 'n/a')}",
+            "",
+        ]
+
+    world_state = packet.get("world_state") or ctx.get("world_state")
+    if world_state and world_state.get("machines"):
+        lines += ["### World State", ""]
+        for machine in world_state["machines"]:
+            lines.append(
+                f"- **{machine.get('canonical_name')}**: {machine.get('current_state')}"
+            )
+            variables = machine.get("variables") or {}
+            if variables:
+                var_text = ", ".join(f"{k}={v}" for k, v in variables.items())
+                lines.append(f"  - variables: {var_text}")
+            if machine.get("transition"):
+                tr = machine["transition"]
+                lines.append(f"  - transition: {tr.get('from')} → {tr.get('to')}")
+        lines.append("")
+
+    if ctx.get("state_transitions"):
+        lines += ["### State Transitions", ""]
+        for tr in ctx["state_transitions"]:
+            lines.append(
+                f"- {tr.get('canonical_name')}: {tr.get('from')} → {tr.get('to')}"
+            )
+        prior_rules = ctx.get("matched_rules_prior") or []
+        if prior_rules:
+            lines.append(f"- prior matched rules: {', '.join(prior_rules)}")
+        if ctx.get("resolver_rematched_on_transition"):
+            lines.append("- resolver rules changed after transition")
+        lines.append("")
+
+    lines += [
         "### Risk Transfer",
         "",
     ]

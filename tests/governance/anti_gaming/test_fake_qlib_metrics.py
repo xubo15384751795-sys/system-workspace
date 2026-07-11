@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[3]
 RUNNER_DIR = ROOT / "ExternalTools" / "qlib_benchmark_runner"
 if str(RUNNER_DIR) not in sys.path:

@@ -23,6 +23,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
 from _runtime_io import ROOT, ensure_dir, load_json
 
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"

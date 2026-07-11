@@ -22,14 +22,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, dedupe_entries
 from _runtime_io import (
-    entry_key as _entry_key,
+    ROOT,
+    dedupe_entries,
     ensure_dir,
     load_json,
     load_jsonl,
     utc_now,
-    write_json,
+)
+from _runtime_io import (
+    entry_key as _entry_key,
 )
 
 logger = logging.getLogger(__name__)
@@ -488,7 +490,7 @@ def main() -> None:
     )
 
     # Bridge: write failures to feedback_pending for threshold_review_bridge
-    failures = write_failures_to_feedback_pending(
+    write_failures_to_feedback_pending(
         result["evaluations"], result.get("module_contributions", {})
     )
 
@@ -505,7 +507,7 @@ def main() -> None:
 
         mc = result.get("module_contributions", {})
         if mc:
-            print(f"\nModule contributions:")
+            print("\nModule contributions:")
             for mod, stats in mc.items():
                 print(f"  {mod}: {stats.get('usefulness', 'unknown')}")
 

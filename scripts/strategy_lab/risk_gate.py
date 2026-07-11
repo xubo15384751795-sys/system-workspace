@@ -24,7 +24,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-
 # ── Regime gate thresholds (v1, backward compat) ─────────────────────
 STRESS_THRESHOLD = 0.3
 RELIEF_THRESHOLD = -0.3

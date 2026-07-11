@@ -7,7 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from record_trade_decision import build_ledger_entry, decision_fingerprint, upsert_to_ledger
+from record_trade_decision import (
+    build_ledger_entry,
+    decision_fingerprint,
+    upsert_to_ledger,
+)
 
 
 def _decision(claim: str = "mechanism hypothesis") -> dict:

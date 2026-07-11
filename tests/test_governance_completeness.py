@@ -4,8 +4,9 @@ Checks the full governance file set established in Batch 1-6.
 """
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 GOV = ROOT / "governance"
@@ -44,7 +45,7 @@ def test_governance_yaml_files_parse() -> None:
                 yaml.safe_load(path.read_text(encoding="utf-8"))
             except Exception as e:
                 failures.append(f"{name}: {e}")
-    assert not failures, f"YAML parse failures:\n" + "\n".join(failures)
+    assert not failures, "YAML parse failures:\n" + "\n".join(failures)
 
 
 def test_deferred_register_has_deadlines() -> None:

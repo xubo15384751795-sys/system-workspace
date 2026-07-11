@@ -121,7 +121,7 @@ def check_feedback_sample_timing(sample: dict[str, Any]) -> list[dict[str, Any]]
     # Check that forward return dates are actually in the future
     fo = sample.get("forward_outcome", {})
     for asset in ("spy", "hyg", "tlt", "gld"):
-        asset_data = fo.get(asset, {})
+        fo.get(asset, {})
         for horizon_key in ("pct_1d", "pct_1w", "pct_1m", "pct_3m"):
             # These are forward returns — the horizon itself should be > as_of
             # We can't check exact dates from pct values, but we can verify

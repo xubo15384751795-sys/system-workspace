@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -17,7 +15,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from pending_evaluation import (
-    PENDING_PATH,
     _compute_eval_windows,
     _make_eval_id,
     write_pending_evaluation,

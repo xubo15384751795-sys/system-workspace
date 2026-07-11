@@ -20,9 +20,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_jsonl as _read_jsonl  # noqa: E402
-
+from _runtime_io import ROOT, ensure_dir  # noqa: E402
+from _runtime_io import load_jsonl as _read_jsonl
 from _workspace_imports import add_root  # noqa: E402
+
 add_root()
 
 from caselab_context.paper_paths import paper_root  # noqa: E402

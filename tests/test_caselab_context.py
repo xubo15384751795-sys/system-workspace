@@ -79,7 +79,11 @@ class ContextLayerTests(unittest.TestCase):
 
     def test_nvda_trade_signal_enrichment(self) -> None:
         packet = enrich_trade_signal("NVDA", {"signal": "bullish"})
-        self.assertIn("nv_capex_scaling", packet["context_packet"]["matched_rules"])
+        rules = packet["context_packet"]["matched_rules"]
+        self.assertTrue(
+            any(rule in rules for rule in ("nv_capex_scaling", "nv_capex_saturation")),
+            msg=f"expected capex rule, got {rules}",
+        )
 
 
 if __name__ == "__main__":

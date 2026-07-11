@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from _runtime_io import ROOT, load_yaml
+
 SEQUENCE_PATH = ROOT / "governance" / "daily_run_sequence.yaml"
 
 

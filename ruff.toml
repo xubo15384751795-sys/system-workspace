@@ -1,4 +1,5 @@
-# Ruff configuration — extends pre-commit ruff hook args.
+# Ruff configuration - extends pre-commit ruff hook args.
 # packages/ are editable-install sub-packages with their own pyproject lint configs;
+# paper-empirical-interface/ and research_terminal/ are independent components;
 # root ruff only lints workspace-level scripts and tests.
-extend-exclude = ["packages", "ExternalTools", "Visualization"]
+extend-exclude = ["packages", "ExternalTools", "Visualization", "paper-empirical-interface", "research_terminal"]

@@ -236,9 +236,13 @@ def test_judgment_inputs_reference_known_artifacts(judgment: dict) -> None:
 def test_readme_first_no_na(readme_first: str) -> None:
     """READ_ME_FIRST should not contain N/A placeholders."""
     lines = readme_first.splitlines()
-    na_lines = [l.strip() for l in lines if "N/A" in l and not l.strip().startswith("#")]
+    na_lines = [
+        line.strip()
+        for line in lines
+        if "N/A" in line and not line.strip().startswith("#")
+    ]
     assert not na_lines, (
-        f"READ_ME_FIRST contains N/A placeholders:\n" + "\n".join(na_lines[:5])
+        "READ_ME_FIRST contains N/A placeholders:\n" + "\n".join(na_lines[:5])
     )
 
 

@@ -46,7 +46,20 @@ python3 -m caselab_context.build_embeddings --reindex
 python3 -m caselab_context.resolve_meaning --actor "Goldman Sachs" --verb ipo --object public_market --json
 python3 -m caselab_context.run_samples
 python3 -m caselab_context.mcp_server
-python3 scripts/enrich_agent_context.py --date YYYY-MM-DD
+python3 -m caselab_context.enrich_agent_context --date YYYY-MM-DD
+```
+
+MCP primary tool: `query_world_model`. Config: `caselab_context/mcp.cursor.json`.
+
+Python SDK:
+
+```python
+from caselab_context.world_model import query
+response = query("Goldman Sachs", "ipo", "public_market")
+# response.context_packet, response.regime_source, response.warnings, response.world_state
+```
+
+```bash
 python3 -m caselab_runtime.feedback.collect_reviews
 python3 -m caselab_runtime.policies.build_policy_from_paper
 ```

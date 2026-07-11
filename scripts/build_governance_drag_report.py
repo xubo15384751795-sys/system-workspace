@@ -20,12 +20,12 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from _workspace_imports import add_scripts  # noqa: E402
+
 add_scripts()
 
 from _daily_run_sequence import load_daily_run_sequence, weekly_step_ids  # noqa: E402
@@ -147,7 +147,7 @@ def _git_log_last_n(root: Path, n: int = 10) -> list[str]:
     """Get last N commit messages."""
     try:
         result = subprocess.run(
-            ["git", "log", f"--oneline", f"-{n}", "--no-decorate"],
+            ["git", "log", "--oneline", f"-{n}", "--no-decorate"],
             capture_output=True, text=True, timeout=10, cwd=str(root),
         )
         if result.returncode == 0:

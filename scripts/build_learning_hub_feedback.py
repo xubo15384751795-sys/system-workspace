@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import Any
 
 from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
@@ -225,7 +224,7 @@ def main() -> None:
             for fs in alert_feedback.get("failed_steps", []):
                 print(f"    - {fs['step']}: {fs['error'][:80]}")
         else:
-            print(f"  No alerts")
+            print("  No alerts")
 
         if accuracy_summary:
             print(f"Judgment accuracy: {accuracy_summary.get('total_evaluated', 0)} evaluated")

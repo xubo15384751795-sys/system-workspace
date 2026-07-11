@@ -12,7 +12,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -22,8 +21,8 @@ if str(ROOT / "scripts") not in sys.path:
 
 from scripts.asof_integrity_checker import (
     check_calibration_evaluation_order,
-    check_judgment_card_forward_window,
     check_feedback_sample_timing,
+    check_judgment_card_forward_window,
 )
 from scripts.baseline_comparison import (
     baseline_always_warn,
@@ -33,7 +32,6 @@ from scripts.baseline_comparison import (
     compute_metrics,
 )
 from scripts.threshold_review_bridge import build_review_candidates
-
 
 # =========================================================================
 # As-of integrity checker tests
