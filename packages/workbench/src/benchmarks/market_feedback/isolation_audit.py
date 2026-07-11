@@ -91,7 +91,7 @@ def _check_path_sandboxed(benchmark_dir: Path, subdir: str) -> dict:
 
 def _check_job_spec_forbidden(benchmark_dir: Path) -> dict:
     """Check job spec paths for forbidden patterns."""
-    forbidden = ["Data/", "Workbench/src", "Output/deformation_runs/", "Output/system_learning/"]
+    forbidden = ["Data/", "packages/workbench/src", "Output/deformation_runs/", "Output/system_learning/"]
     spec_path = benchmark_dir / "qlib_job_spec.json"
     if not spec_path.exists():
         return {"status": "skipped", "detail": "qlib_job_spec.json not found"}

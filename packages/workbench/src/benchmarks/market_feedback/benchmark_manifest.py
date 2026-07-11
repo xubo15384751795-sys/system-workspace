@@ -17,7 +17,7 @@ BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback
 
 FORBIDDEN_PATHS = [
     "Data/",
-    "Workbench/src",
+    "packages/workbench/src",
     "Output/deformation_runs",
     "Output/system_learning",
     "Output/benchmarks/market_feedback/latest",

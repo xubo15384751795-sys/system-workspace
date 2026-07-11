@@ -16,7 +16,7 @@ BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback
 
 FORBIDDEN_IN_JOB_SPEC = [
     "Data/",
-    "Workbench/src",
+    "packages/workbench/src",
     "Output/deformation_runs",
     "Output/system_learning",
     "configs/",
