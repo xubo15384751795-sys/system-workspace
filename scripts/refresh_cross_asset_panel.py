@@ -9,8 +9,8 @@ fresher of mirror vs canonical via `_data_paths.resolve_cross_asset_panel_path`
 `stage_complete_release` refreshes the immutable canonical copy.
 
 Usage:
-    python3 scripts/archive/refresh_cross_asset_panel.py
-    python3 scripts/archive/refresh_cross_asset_panel.py --days 30
+    python3 scripts/refresh_cross_asset_panel.py
+    python3 scripts/refresh_cross_asset_panel.py --days 30
 
 Output:
     Data/panels/cross_asset_daily_panel.parquet
@@ -18,17 +18,9 @@ Output:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import pandas as pd
-
-# Archive scripts sit one level below scripts/; pipeline injects PYTHONPATH,
-# but naked CLI (`python3 scripts/archive/...`) does not.
-_SCRIPTS = Path(__file__).resolve().parents[1]
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-
 from _runtime_io import ROOT
 from _workspace_imports import add_harvester_src, add_scripts
 

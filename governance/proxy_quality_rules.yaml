@@ -11,8 +11,9 @@
 #   scripts/structural_replay_v2.py :: PROXY_REGISTRY against it.
 #
 # CONSUMERS
-#   scripts/proxy_quality_scorer.py   — computes scores + tiers from this rubric.
-#   tests/governance/test_proxy_quality_scorer.py — locks the gate behaviour.
+#   scripts/build_proxy_quality_report.py — computes scores + tiers from this rubric.
+#   tests/test_content_freshness_and_proxy_quality.py — locks nonempty extraction.
+#   tests/governance/test_proxy_quality_scorer.py — locks the gate behaviour (legacy scorer).
 #
 # HONESTY RULE
 #   Criteria that need price/return history (regime coverage, discrimination
@@ -24,7 +25,7 @@ schema_version: proxy_quality_rules.v1
 references:
   canonical_spec: governance/canonical_proxy_spec.yaml
   semantic_boundary: governance/semantic_registry.json
-  wired_registry: scripts/structural_replay_v2.py::PROXY_REGISTRY
+  wired_registry: scripts/_replay_registry.py::PROXY_REGISTRY
 reasoning_target: daily_market_space   # the gate is tuned for daily market-space reasoning
 
 # ── Active criteria: computable from ProxySpec registry metadata ─────────────

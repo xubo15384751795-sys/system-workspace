@@ -1,0 +1,16 @@
+# Checkpoint: phase1-data-supply-repair
+- mission: 阶段 1 数据供血修复（ETF 日频 + content freshness + proxy quality 空转）
+- decisions:
+  - refresh_cross_asset_panel 从 archive 移回 scripts/；daily_run_sequence + registry 去掉 weekly / archive 路径
+  - us_etf_prices.csv 无代码消费者 → Data/archive/benchmarks/；authority_registry 标 archived_unused
+  - freshness_validator 增加 CONTENT_FRESHNESS（etf_panel max(date) ≤ 3 trading days）；STALE 调 _notify.notify_failure
+  - build_proxy_quality_report REGISTRY_PATH → scripts/_replay_registry.py；Total≤0 fail-fast
+  - quarantined_drift 11 个全部仍 REJECTED（语义隔离 2026-05-18，非空转产物）→ 本轮不自动恢复 canonical_voting；见 routing decision 2026-07-11-proxy-quality-scorer-restore
+- open_threads:
+  - Harvester canonical panel 仍停在 2026-06-04（只读）；下次 stage_complete_release 才会刷新不可变副本；消费者已走 fresher(mirror, canonical)
+  - freshness 总 verdict 仍可能 FAIL/WARN（learning_summary / signal_consensus 文件龄），与 etf_panel content 无关
+- do_not_touch: untracked caselab_context WIP / audit-reports governance_health / unrelated checkpoints
+- next_agent_action: 确认次日 daily run 执行 refresh_cross_asset_panel（非 weekly skip）；若置信度仍封顶，查 awaiting_data / family scarcity 而非批量解隔离
+- acceptance:
+  - panel max(date)=2026-07-10（≤3 trading days）；content check STALE→FRESH 已演示
+  - proxy_quality Total=43；tests/test_content_freshness_and_proxy_quality.py 4 passed

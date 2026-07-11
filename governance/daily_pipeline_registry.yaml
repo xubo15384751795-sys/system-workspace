@@ -2130,8 +2130,7 @@ steps:
     order: 28
     status: active
     owner: Harvester
-    command: python scripts/archive/refresh_cross_asset_panel.py
-    schedule: weekly
+    command: python scripts/refresh_cross_asset_panel.py
     input:
       - Data/panels/cross_asset_daily_panel.parquet
     produces:
@@ -2142,7 +2141,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/archive/refresh_cross_asset_panel.py
+      current_command: python scripts/refresh_cross_asset_panel.py
       future_callable: scripts.refresh_cross_asset_panel:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal

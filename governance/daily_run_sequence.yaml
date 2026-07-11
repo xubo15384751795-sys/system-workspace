@@ -1,11 +1,12 @@
 schema_version: daily_run_sequence.v1
-updated_at: "2026-07-03"
+updated_at: "2026-07-11"
 purpose: >
   Authoritative ordered step list for scripts/daily_run.py.
   daily_run loads this file for dry-run output, step counts, and schedule hints.
   Rebalanced 2026-06-19: signal chain first, governance/reporting deferred.
   Slimmed 2026-06-20: moved 13 validation/reporting steps daily→weekly (25 daily, 30 weekly).
   Slimmed 2026-07-03: moved 9 sidecar/reporting steps daily→weekly (25 daily, 46 weekly).
+  Restored 2026-07-11: refresh_cross_asset_panel weekly→daily (26 daily, 45 weekly).
 
 steps:
   # ── DATA ACQUISITION ──────────────────────────────────────────────
@@ -57,8 +58,7 @@ steps:
     description: Moved from daily 2026-06-20 — output not consumed downstream, review-only
   - id: market_feedback
   - id: refresh_cross_asset_panel
-    schedule: weekly
-    description: Refresh ETF workspace mirror — Harvester release is canonical on daily path
+    description: Daily ETF workspace mirror refresh (yfinance); Harvester release remains canonical when fresher
   - id: evaluate_pending
     schedule: weekly
     description: Forward-outcome checks on trade ledger — batch calibration

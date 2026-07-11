@@ -2,7 +2,7 @@
 """Build proxy quality report from registry metadata and governance rules.
 
 Lightweight replacement for archived proxy_quality_scorer.py.  Reads
-ProxySpec metadata from structural_replay_v2.py via AST (no import side
+ProxySpec metadata from `_replay_registry.py` via AST (no import side
 effects) and scores each proxy against governance/proxy_quality_rules.yaml.
 
 Outputs:
@@ -25,14 +25,14 @@ from typing import Any
 from _runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
 
 RULES_PATH = ROOT / "governance" / "proxy_quality_rules.yaml"
-REGISTRY_PATH = ROOT / "scripts" / "structural_replay_v2.py"
+REGISTRY_PATH = ROOT / "scripts" / "_replay_registry.py"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 NOT_IMPLEMENTED_FAMILY = "NOT_IMPLEMENTED"
 
 
 def _extract_registry_metadata() -> list[dict[str, Any]]:
-    """Parse PROXY_REGISTRY from structural_replay_v2.py via AST.
+    """Parse PROXY_REGISTRY from `_replay_registry.py` via AST.
 
     Returns list of dicts with metadata fields only (no builder callable).
     """
@@ -243,6 +243,12 @@ def build_report() -> dict[str, Any]:
         "background_only": sum(1 for r in results if r["quality_tier"] == "BACKGROUND_ONLY"),
         "rejected": sum(1 for r in results if r["quality_tier"] == "REJECTED"),
     }
+
+    if summary["total"] <= 0:
+        raise RuntimeError(
+            f"proxy quality report empty: AST found 0 ProxySpec entries in {REGISTRY_PATH}. "
+            "REGISTRY_PATH must point at the module that assigns PROXY_REGISTRY = [...]."
+        )
 
     return {
         "schema_version": "proxy_quality_report.v1",

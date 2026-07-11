@@ -1,9 +1,9 @@
 # Pipeline Schedule — Daily / Weekly / On-Demand
 
-> Updated 2026-07-03. Daily slimmed **34 → 25** (9 sidecar/reporting steps → weekly).
+> Updated 2026-07-11. `refresh_cross_asset_panel` restored to daily (content-freshness guarded).
 > Authority: `governance/daily_run_sequence.yaml` (order + schedule); registry metadata in `daily_pipeline_registry.yaml`.
 
-## Daily (25 steps) — Signal-blocking, every run
+## Daily (26 steps) — Signal-blocking, every run
 
 These steps form the core signal chain. If any fails, the same-day judgment or trade path is affected.
 
@@ -29,15 +29,16 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 | 18 | signal_card | Signal card output |
 | 19 | signal_consensus | Signal consensus |
 | 20 | market_feedback | Market feedback diagnostics |
-| 21 | freshness_validator | Output freshness validation |
-| 22 | system_index | System index |
-| 23 | current_status | Daily status.json snapshot |
-| 24 | work_brief | Work brief |
-| 25 | record_daily_run_event | Hub run event + calibration snapshot |
+| 21 | refresh_cross_asset_panel | ETF workspace mirror (yfinance); content-freshness guarded |
+| 22 | freshness_validator | Output + content freshness validation |
+| 23 | system_index | System index |
+| 24 | current_status | Daily status.json snapshot |
+| 25 | work_brief | Work brief |
+| 26 | record_daily_run_event | Hub run event + calibration snapshot |
 
 **Automation:** macOS `com.system.daily-run` launchd → `scripts/orchestrate.sh daily` (default 07:00 local).
 
-## Weekly (46 steps) — Monday UTC or `--force-weekly`
+## Weekly (45 steps) — Monday UTC or `--force-weekly`
 
 Validation, calibration, learning, governance, and reporting. These do **not** change same-day judgment when skipped on a daily run.
 
@@ -46,7 +47,7 @@ Validation, calibration, learning, governance, and reporting. These do **not** c
 - `run_operator_detections` — operator activations (research-only)
 - `measurement_quality_report` — K/X quality sidecar
 - `build_data_gaps` — Harvester data-request gap scan
-- `refresh_cross_asset_panel` — workspace mirror refresh (Harvester export is canonical daily)
+- ~~`refresh_cross_asset_panel`~~ — restored to **daily** (2026-07-11); workspace mirror via yfinance, Harvester export remains canonical when fresher
 - `evaluate_pending` — forward-outcome on trade ledger
 - `judgment_accuracy_report` — eval_log aggregation
 - `evidence_grade_report` — evidence grade contributors
@@ -130,4 +131,4 @@ Sidecars, batch calibration, governance reports, and workspace mirror refreshes 
 python3 scripts/build_governance_drag_report.py
 ```
 
-Target: **daily steps ≤ 25**, total drag score **< 25/80** (see `Output/system_learning/latest/governance_drag_report.json`).
+Target: **daily steps ≤ 26** (ETF mirror restored 2026-07-11), total drag score **< 25/80** (see `Output/system_learning/latest/governance_drag_report.json`).

@@ -1,4 +1,4 @@
-"""Contract tests for the 25-step daily signal pipeline."""
+"""Contract tests for the daily signal pipeline (26 daily steps as of 2026-07-11)."""
 from __future__ import annotations
 
 import sys
@@ -34,9 +34,10 @@ def registry_steps() -> dict:
     return _load_registry_steps()
 
 
-def test_daily_step_count_is_25():
-    assert len(_daily_step_ids()) == 25
-
+def test_daily_step_count_is_26():
+    ids = _daily_step_ids()
+    assert len(ids) == 26
+    assert "refresh_cross_asset_panel" in ids
 
 def test_daily_steps_registered_in_pipeline_registry(registry_steps):
     missing = [sid for sid in _daily_step_ids() if sid not in registry_steps]

@@ -922,7 +922,7 @@ verify_agent_work_protocol:
   description: Moved to archive 2026-06-20
   allowed_use: []
 refresh_cross_asset_panel:
-  script: scripts/archive/refresh_cross_asset_panel.py
+  script: scripts/refresh_cross_asset_panel.py
   status: active
   owner: Harvester
   description: Refresh cross-asset daily panel with latest market data from yfinance via Harvester provider

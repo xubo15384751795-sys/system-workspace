@@ -177,12 +177,14 @@ data_sources:
     data_request_id: fred_cached_data
     note: "FRED data available through Harvester official release"
 
-  - path: Data/benchmarks/us_etf_prices.csv
-    authority: non_harvester_transitional
+  - path: Data/archive/benchmarks/us_etf_prices.csv
+    authority: archived_unused
     owner: ML Signals
-    allowed_use: [research, benchmark]
-    forbidden_use: [core_judgment_primary_input]
-    note: "ETF prices for benchmark comparison"
+    allowed_use: [historical_reference]
+    forbidden_use: [core_judgment_primary_input, active_pipeline, research]
+    note: >
+      Archived 2026-07-11 — last row 2025-12-30, zero code consumers.
+      Live ETF prices come from Data/panels/cross_asset_daily_panel.parquet.
 
   - path: "deformation-framework/src/benchmarks/historical_replay.py"
     authority: research_only_non_harvester

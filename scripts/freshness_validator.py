@@ -17,10 +17,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from _runtime_io import ROOT, current_dir, ensure_dir
 
 OUTPUT_DIR = ROOT / "Output"
@@ -42,6 +43,16 @@ MAX_AGE_HOURS = {
     "signal_card": 24,
     "signal_consensus": 24,
     "work_brief": 24,
+}
+
+# Content freshness — file mtime can be fresh while parquet payload is weeks old
+# (e.g. harvester release re-stamped daily with a stale embedded panel).
+CONTENT_FRESHNESS = {
+    "etf_panel": {
+        "path": "Data/panels/cross_asset_daily_panel.parquet",
+        "date_column": "date",
+        "max_trading_days_behind": 3,
+    },
 }
 
 # The "current outputs" chain — these must all be from the same run
@@ -100,6 +111,92 @@ def check_artifact_freshness(
         "age_hours": round(age_hours, 1),
         "max_age_hours": max_age_hours,
         "last_modified": mtime.isoformat(),
+    }
+
+
+def _last_trading_day(on: date) -> date:
+    """Roll calendar date back to the most recent Mon–Fri session."""
+    d = on
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def trading_days_behind(content_max: date, as_of: date) -> int:
+    """Business days that content_max lags the last expected session as of as_of."""
+    expected = _last_trading_day(as_of)
+    if content_max >= expected:
+        return 0
+    return int(np.busday_count(content_max, expected))
+
+
+def check_content_freshness(
+    name: str,
+    path: Path,
+    date_column: str,
+    max_trading_days_behind: int,
+    now: datetime,
+) -> dict[str, Any]:
+    """Check parquet payload max(date) against a trading-day lag budget."""
+    if not path.exists():
+        return {
+            "name": name,
+            "path": str(path),
+            "check_type": "content",
+            "status": "MISSING",
+            "date_column": date_column,
+            "max_date": None,
+            "trading_days_behind": None,
+            "max_trading_days_behind": max_trading_days_behind,
+        }
+
+    try:
+        import pandas as pd
+
+        frame = pd.read_parquet(path, columns=[date_column])
+    except Exception as exc:  # noqa: BLE001 — report as MISSING/unreadable
+        return {
+            "name": name,
+            "path": str(path),
+            "check_type": "content",
+            "status": "MISSING",
+            "date_column": date_column,
+            "max_date": None,
+            "trading_days_behind": None,
+            "max_trading_days_behind": max_trading_days_behind,
+            "error": str(exc),
+        }
+
+    if frame.empty:
+        return {
+            "name": name,
+            "path": str(path),
+            "check_type": "content",
+            "status": "MISSING",
+            "date_column": date_column,
+            "max_date": None,
+            "trading_days_behind": None,
+            "max_trading_days_behind": max_trading_days_behind,
+        }
+
+    max_ts = pd.to_datetime(frame[date_column]).max()
+    max_d = max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10])
+    as_of = now.date() if now.tzinfo is None else now.astimezone().date()
+    behind = trading_days_behind(max_d, as_of)
+    is_fresh = behind <= max_trading_days_behind
+
+    return {
+        "name": name,
+        "path": str(path),
+        "check_type": "content",
+        "status": "FRESH" if is_fresh else "STALE",
+        "date_column": date_column,
+        "max_date": max_d.isoformat(),
+        "trading_days_behind": behind,
+        "max_trading_days_behind": max_trading_days_behind,
+        # Compat fields so markdown table / stale lists stay uniform
+        "age_hours": None,
+        "max_age_hours": None,
     }
 
 
@@ -288,6 +385,20 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
 
     freshness_checks = [check_artifact_freshness(name, path, max_age, now) for name, path, max_age in artifacts]
 
+    # Content freshness — payload max(date), not file mtime
+    content_checks: list[dict[str, Any]] = []
+    for name, cfg in CONTENT_FRESHNESS.items():
+        content_checks.append(
+            check_content_freshness(
+                name,
+                ROOT / cfg["path"],
+                cfg["date_column"],
+                int(cfg["max_trading_days_behind"]),
+                now,
+            )
+        )
+    freshness_checks.extend(content_checks)
+
     # Check evidence release freshness (3-day TTL)
     # See: governance/architecture_reality_decisions.md §4
     evidence_release = ROOT / "Data" / "harvester" / "exports" / "latest"
@@ -319,13 +430,14 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
         verdict = "PASS"
 
     return {
-        "schema_version": "freshness_validator.v2",
+        "schema_version": "freshness_validator.v3",
         "generated_at": now.isoformat(),
         "verdict": verdict,
         "stale_artifacts": [a["name"] for a in stale_artifacts],
         "missing_artifacts": [a["name"] for a in missing_artifacts],
         "ordering_issues": ordering_issues,
         "closure_chain_issues": closure_issues,
+        "content_freshness": content_checks,
         "artifacts": freshness_checks,
     }
 
@@ -348,8 +460,31 @@ def format_markdown(report: dict[str, Any]) -> str:
 
     for artifact in report["artifacts"]:
         status_icon = "✅" if artifact["status"] == "FRESH" else "❌" if artifact["status"] == "STALE" else "⚠️"
-        age = f"{artifact['age_hours']:.1f}" if artifact["age_hours"] is not None else "N/A"
-        lines.append(f"| {artifact['name']} | {status_icon} {artifact['status']} | {age} | {artifact['max_age_hours']} |")
+        if artifact.get("check_type") == "content":
+            behind = artifact.get("trading_days_behind")
+            age = f"{behind}d behind" if behind is not None else "N/A"
+            max_age = str(artifact.get("max_trading_days_behind", "N/A"))
+        else:
+            age = f"{artifact['age_hours']:.1f}" if artifact["age_hours"] is not None else "N/A"
+            max_age = str(artifact["max_age_hours"]) if artifact.get("max_age_hours") is not None else "N/A"
+        lines.append(f"| {artifact['name']} | {status_icon} {artifact['status']} | {age} | {max_age} |")
+
+    if report.get("content_freshness"):
+        lines += [
+            "",
+            "## Content Freshness",
+            "",
+            "| Artifact | Status | max(date) | Days behind | Budget |",
+            "|---|---|---|---:|---:|",
+        ]
+        for item in report["content_freshness"]:
+            status_icon = "✅" if item["status"] == "FRESH" else "❌" if item["status"] == "STALE" else "⚠️"
+            lines.append(
+                f"| {item['name']} | {status_icon} {item['status']} | "
+                f"{item.get('max_date') or 'N/A'} | "
+                f"{item.get('trading_days_behind') if item.get('trading_days_behind') is not None else 'N/A'} | "
+                f"{item.get('max_trading_days_behind', 'N/A')} |"
+            )
 
     if report.get("ordering_issues"):
         lines += [
@@ -427,6 +562,22 @@ def main() -> None:
     report = build_freshness_report(now, mode=args.mode)
     paths = write_outputs(report)
 
+    content_stale = [
+        c for c in report.get("content_freshness", [])
+        if c.get("status") == "STALE"
+    ]
+    if content_stale:
+        from _notify import notify_failure
+
+        details = ", ".join(
+            f"{c['name']} max={c.get('max_date')} behind={c.get('trading_days_behind')}d"
+            for c in content_stale
+        )
+        notify_failure(
+            "Content freshness STALE",
+            details,
+        )
+
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
@@ -435,6 +586,12 @@ def main() -> None:
         print(f"Stale: {len(report['stale_artifacts'])}")
         print(f"Missing: {len(report['missing_artifacts'])}")
         print(f"Ordering issues: {len(report['ordering_issues'])}")
+        if report.get("content_freshness"):
+            for c in report["content_freshness"]:
+                print(
+                    f"Content {c['name']}: {c['status']} "
+                    f"(max={c.get('max_date')}, behind={c.get('trading_days_behind')})"
+                )
 
 
 if __name__ == "__main__":
