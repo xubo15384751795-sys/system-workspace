@@ -73,7 +73,10 @@ def build_index() -> dict:
         replay_latest = check_path(replay_dirs[0] / "framework_output.json")
 
     # Learning hub
-    learning_summary = check_path(OUTPUT_DIR / "system_learning" / "latest" / "learning_summary.json")
+    # The canonical learning summary file is comprehensive_summary.json (the
+    # freshness_validator monitors this same path). The earlier learning_summary.json
+    # reference was a stale name that never existed -> false MISSING. See WB-A3.
+    learning_summary = check_path(OUTPUT_DIR / "system_learning" / "latest" / "comprehensive_summary.json")
     learning_events_dir = OUTPUT_DIR / "system_learning" / "events"
     calibration_events = list(learning_events_dir.glob("judgment_calibration_*.jsonl")) if learning_events_dir.exists() else []
     trade_calibration = check_path(OUTPUT_DIR / "system_learning" / "latest" / "trade_decision_calibration_summary.json")
@@ -194,16 +197,68 @@ def build_index() -> dict:
     check_path(OUTPUT_DIR / "trade_ledger" / "decisions.jsonl")
     trade_calibration = check_path(OUTPUT_DIR / "trade_ledger" / "calibration_report.json")
 
-    # Position intent
+    # Evidence grade report - loaded early because the position translation
+    # (below) derives its live blockers from here (WB-A2).
+    evidence_report_data = load_json(OUTPUT_DIR / "current" / "evidence_grade_report.json")
+    evidence_grade_summary = None
+    if evidence_report_data:
+        evidence_grade_summary = {
+            "structural_grade": evidence_report_data.get("grade"),
+            "trade_decision_grade": evidence_report_data.get("trade_decision_grade"),
+            "grade_match": evidence_report_data.get("grade_match"),
+            "blocker_count": len(evidence_report_data.get("blockers", [])),
+            "paper_support_status": (evidence_report_data.get("paper_support_status") or {}).get("status"),
+        }
+
+    # Position translation - derived from trade_decision.v3 (stance + effective_size
+    # + velocity_gate_state), NOT from the legacy position_intent.v1 file which is a
+    # stale artifact (last written 2026-06-18, predates the v3 migration). The v1
+    # file carries a contradictory decision dialect (WATCH/hold_flat/0%) vs the live
+    # v3 decision (RISK_ON/effective_size 0.5). See WB-A1 in the workbench plan.
+    # Blockers come from the current evidence_grade_report.json (WB-A2): the v1
+    # file's `evidence_grade_d` blocker was stale (current grade is B).
     position_intent = check_path(OUTPUT_DIR / "position" / "latest.json")
-    position_data = load_json(OUTPUT_DIR / "position" / "latest.json")
     position_summary = None
-    if position_data:
+    if trade_decision_data:
+        stance = trade_decision_data.get("stance", trade_decision_data.get("decision", "WATCH"))
+        effective_size = float(trade_decision_data.get("effective_size", 0.0) or 0.0)
+        velocity_gate_state = trade_decision_data.get("velocity_gate_state", "FULL")
+        # Derive a single consistent decision dialect from stance x size x velocity.
+        # velocity_gate EXIT overrides to flat regardless of stance.
+        if velocity_gate_state == "EXIT":
+            portfolio_action = "hold_flat"
+            target_weight = 0.0
+            decision = "WATCH"
+        elif stance in ("RISK_ON", "ON"):
+            portfolio_action = "hold_flat" if effective_size <= 0.0 else "target_weight"
+            target_weight = effective_size
+            decision = "RISK_ON"
+        elif stance in ("RISK_OFF", "OFF"):
+            portfolio_action = "hold_flat"
+            target_weight = 0.0
+            decision = "RISK_OFF"
+        else:  # WATCH or unknown
+            portfolio_action = "hold_flat" if effective_size <= 0.0 else "target_weight"
+            target_weight = effective_size
+            decision = "WATCH"
+        # Blockers: live from the current evidence report, not the stale v1 file.
+        live_blockers = []
+        if evidence_report_data:
+            for b in evidence_report_data.get("blockers", []):
+                code = b.get("code") if isinstance(b, dict) else str(b)
+                if code:
+                    live_blockers.append(code)
         position_summary = {
-            "decision": position_data.get("decision"),
-            "allowed_mode": position_data.get("allowed_mode"),
-            "portfolio_action": position_data.get("portfolio_action"),
-            "blockers": position_data.get("blockers", []),
+            "decision": decision,
+            "allowed_mode": "research_only",
+            "portfolio_action": portfolio_action,
+            "target_weight": target_weight,
+            "blockers": live_blockers,
+            # Provenance: make it auditable that this is derived, not read from v1.
+            "derived_from": "trade_decision.v3",
+            "stance": stance,
+            "effective_size": effective_size,
+            "velocity_gate_state": velocity_gate_state,
         }
 
     # Operator registry audit
@@ -215,17 +270,6 @@ def build_index() -> dict:
             "status": operator_audit_data.get("status"),
             "total_operators": operator_audit_data.get("total_operators"),
             "issues": len(operator_audit_data.get("issues", [])),
-        }
-
-    evidence_report_data = load_json(OUTPUT_DIR / "current" / "evidence_grade_report.json")
-    evidence_grade_summary = None
-    if evidence_report_data:
-        evidence_grade_summary = {
-            "structural_grade": evidence_report_data.get("grade"),
-            "trade_decision_grade": evidence_report_data.get("trade_decision_grade"),
-            "grade_match": evidence_report_data.get("grade_match"),
-            "blocker_count": len(evidence_report_data.get("blockers", [])),
-            "paper_support_status": (evidence_report_data.get("paper_support_status") or {}).get("status"),
         }
 
     return {

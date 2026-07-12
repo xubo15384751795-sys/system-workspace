@@ -37,7 +37,7 @@ MAX_AGE_HOURS = {
     "promotion_gate": 48,
     "trade_decision": 48,
     "risk_gate": 48,
-    "learning_summary": 72,
+    "learning_summary": 192,  # weekly cadence (daily_run_sequence.yaml) -> 8d TTL; 72h was wrong tier (WB-A4)
     "system_index": 24,
     "readme_first": 24,
     "signal_card": 24,

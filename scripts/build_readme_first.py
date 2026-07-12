@@ -69,9 +69,14 @@ def build_readme_from_index(
     prob_available = prob_context.get("exists", False) if isinstance(prob_context, dict) else False
     feedback_available = market_feedback.get("exists", False)
 
-    # Freshness
+    # Freshness - FAIL must name the failing items, never a bare FAIL (WB-A3).
     freshness = index.get("freshness", {})
     freshness_verdict = freshness.get("verdict", "UNKNOWN")
+    stale_artifacts = freshness.get("stale_artifacts", [])
+    if freshness_verdict == "FAIL" and stale_artifacts:
+        freshness_display = f"FAIL ({', '.join(stale_artifacts)})"
+    else:
+        freshness_display = freshness_verdict
 
     report = evidence_report or {}
     structural_grade = report.get("grade", trade_decision.get("evidence_grade", "N/A") if trade_decision else "N/A")
@@ -89,12 +94,19 @@ def build_readme_from_index(
     else:
         hmm_display = f"{hmm_regime} (stability: {hmm.get('stability_grade', 'N/A')})"
 
-    # Position intent
+    # Position intent - now derived from trade_decision.v3 in build_system_index
+    # (stance x effective_size x velocity_gate_state). Single decision dialect.
     position = index.get("position", {}).get("summary", {})
     position_decision = position.get("decision", "N/A")
     position_action = position.get("portfolio_action", "N/A")
     position_mode = position.get("allowed_mode", "N/A")
     position_blockers = position.get("blockers", [])
+    # Target weight comes from the derived effective_size (was hardcoded 0%).
+    target_weight = position.get("target_weight")
+    if target_weight is None:
+        target_weight_str = "N/A"
+    else:
+        target_weight_str = f"{float(target_weight) * 100:.0f}%"
 
     lines = [
         f"# System Output — {date}",
@@ -111,7 +123,7 @@ def build_readme_from_index(
         f"- **Trade Decision:** {trade_decision.get('decision', 'N/A')}",
         f"- **Risk Gate:** {risk_gate.get('status', 'N/A')}",
         f"- **Promotion Gate:** {promotion_gate.get('overall_status', 'N/A')}",
-        f"- **Freshness:** {freshness_verdict}",
+        f"- **Freshness:** {freshness_display}",
         f"- **Structural evidence grade:** {structural_grade}",
         f"- **Trade evidence grade:** {trade_grade}{grade_note}",
         "",
@@ -120,7 +132,7 @@ def build_readme_from_index(
         f"- **Decision:** {position_decision}",
         f"- **Portfolio Action:** {position_action}",
         f"- **Allowed Mode:** {position_mode}",
-        "- **Target Weight:** 0%",
+        f"- **Target Weight:** {target_weight_str}",
         f"- **Blockers:** {', '.join(position_blockers) if position_blockers else 'none'}",
         "",
         "## Data Sources",
