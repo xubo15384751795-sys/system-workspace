@@ -19,12 +19,17 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 from _runtime_io import ROOT, current_dir, ensure_dir
 from build_current_status import gather_status
 
 OUTPUT_DIR = current_dir()
 IMPROVEMENT_LEDGER = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
 ACTIVE_IMPROVEMENT_STATES = frozenset({"proposed", "approved", "open", "in_progress"})
+# WB-D: open_threads.yaml is the single allowed governance file for tracking
+# real next-steps (adjudication run closeout, checkpoint follow-ups). Consumed
+# here so NEXT_ACTIONS shows real work items instead of only "watch hmm".
+OPEN_THREADS_PATH = ROOT / "governance" / "open_threads.yaml"
 
 
 def _write_text_file(path: Path, content: str) -> None:
@@ -40,6 +45,26 @@ def _load_open_improvements() -> pd.DataFrame:
     if frame.empty or "lifecycle_state" not in frame.columns:
         return frame
     return frame[frame["lifecycle_state"].astype(str).isin(ACTIVE_IMPROVEMENT_STATES)]
+
+
+def _load_open_threads() -> list[dict[str, str]]:
+    """WB-D: load open threads from governance/open_threads.yaml.
+
+    Threads with status != 'done' are surfaced in NEXT_ACTIONS. Completed
+    threads (status: done) are pruned here so the file stays current - the
+    adjudication/checkpoint writer marks them done, this consumer deletes them.
+    """
+    if not OPEN_THREADS_PATH.is_file():
+        return []
+    data = yaml.safe_load(OPEN_THREADS_PATH.read_text(encoding="utf-8")) or {}
+    threads = data.get("threads", [])
+    open_threads = [t for t in threads if t.get("status", "open") != "done"]
+    # Prune completed threads in-place (append-only ledger is for NAV; this file
+    # is a live work-queue, not a historical record).
+    if len(open_threads) != len(threads):
+        data["threads"] = open_threads
+        OPEN_THREADS_PATH.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    return open_threads
 
 
 def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
@@ -82,7 +107,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "action": "Improve K measurement gate",
             "reason": f"K gate: {status['signals']['k_gate'].get('verdict', 'N/A')}",
             "command": "Review K component coverage and rolling stability",
-            "module": "Workbench/src/workbench/signals/",
+            "module": "packages/workbench/src/workbench/signals/",
         })
 
     if "x_gate" in blocked:
@@ -91,7 +116,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "action": "Improve X measurement gate",
             "reason": f"X gate: {status['signals']['x_gate'].get('verdict', 'N/A')}",
             "command": "Review X_agg frequency split and VIX correlation",
-            "module": "Workbench/src/workbench/signals/",
+            "module": "packages/workbench/src/workbench/signals/",
         })
 
     # Learning Hub improvement queue — read parquet ledger (not stale markdown)
@@ -107,7 +132,19 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
                 f"{len(open_items)} open item(s); top: {subsystem} — {issue}"
             ),
             "command": "python3 scripts/refresh_improvement_queue_report.py",
-            "module": "system-learning-hub",
+            "module": "packages/learning_hub",
+        })
+
+    # WB-D: open threads from governance/open_threads.yaml (real next-steps:
+    # adjudication closeout, checkpoint follow-ups). These take priority over
+    # the generic "Continue monitoring" fallback.
+    for thread in _load_open_threads():
+        actions.append({
+            "priority": thread.get("priority", "MEDIUM"),
+            "action": thread.get("action", "Open thread"),
+            "reason": thread.get("reason", ""),
+            "command": thread.get("command", ""),
+            "module": thread.get("module", "N/A"),
         })
 
     # If no blockers, suggest monitoring
@@ -218,7 +255,7 @@ def build_next_actions_md(status: dict[str, Any], actions: list[dict[str, str]])
         "python3 scripts/list_latest.py",
         "",
         "# Run governance audit",
-        "PYTHONPATH=system-learning-hub/src python3 -m system_learning governance-audit",
+        "PYTHONPATH=packages/learning_hub/src python3 -m system_learning governance-audit",
         "```",
         "",
         "---",
