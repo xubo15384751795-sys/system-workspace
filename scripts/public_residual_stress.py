@@ -11,6 +11,7 @@ Design (capability pivot):
 """
 from __future__ import annotations
 
+import logging
 from math import sqrt
 from typing import Any, Literal
 
@@ -53,8 +54,15 @@ def public_level_probability(
 ) -> pd.Series:
     """Equal-weight mean of causal PITs across available public stress indices.
 
-    Missing indices are skipped and weights renormalized — never silently
+    Missing indices are skipped and weights renormalized - never silently
     zero-filled (same governance spirit as CISS missing-channel handling).
+
+    However, the renormalization itself is NOT silent: when fewer than the full
+    set of public components is available on a date, a warning is logged so the
+    "no silent channel collapse" principle extends to the public-index side.
+    This guards against stale caches degrading P_public to a single component
+    (e.g. OFR+CISS NaN -> NFCI-only) without any signal - the failure mode
+    documented in routing decision 2026-07-12-g1-contrast-and-freshness-fix.
     """
     if public_levels.empty:
         return pd.Series(np.nan, index=public_levels.index, name="p_public")
@@ -65,6 +73,21 @@ def public_level_probability(
         },
         index=public_levels.index,
     )
+    full_components = pits.shape[1]
+    if full_components > 1:
+        available = pits.notna().sum(axis=1)
+        degraded = available[available < full_components]
+        if not degraded.empty:
+            logging.warning(
+                "p_public component coverage below full set (%d) on %d of %d dates "
+                "(min=%d component(s)); mean(skipna) renormalized silently - check "
+                "public-index cache freshness. Components: %s",
+                full_components,
+                len(degraded),
+                len(pits),
+                int(degraded.min()),
+                list(pits.columns),
+            )
     return pits.mean(axis=1, skipna=True).rename("p_public")
 
 

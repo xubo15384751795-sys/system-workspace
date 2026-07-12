@@ -324,8 +324,12 @@ def _download(url: str, *, timeout_sec: int) -> str:
 def _parse_ofr_fsi_csv(text: str) -> pd.Series:
     frame = pd.read_csv(StringIO(text))
     date_col = next((c for c in frame.columns if c.lower() in {"date", "time_period"}), None)
+    # Accept both "OFR_FSI" (underscore, canonical cache) and "OFR FSI" (space,
+    # the raw header from financialresearch.gov's CSV export) so a fresh
+    # re-download does not silently fail to parse.
     value_col = next(
-        (c for c in frame.columns if c.lower() in {"ofr_fsi", "fsi", "obs_value", "value"}),
+        (c for c in frame.columns if c.lower().replace(" ", "_") in {"ofr_fsi", "fsi"}
+         or c.lower() in {"obs_value", "value"}),
         None,
     )
     if date_col is None or value_col is None:

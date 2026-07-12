@@ -53,6 +53,26 @@ CONTENT_FRESHNESS = {
         "date_column": "date",
         "max_trading_days_behind": 3,
     },
+    # Public-index caches must be checked at content level: a stale payload
+    # silently degrades P_public (eq-weight PIT over OFR/NFCI/CISS) via
+    # mean(skipna=True) re-normalization - the "no silent channel collapse"
+    # failure mode recurring on the public-index side.
+    # See routing decision 2026-07-12-g1-contrast-and-freshness-fix.
+    "ofr_fsi_cache": {
+        "path": "Data/harvester/raw/external_indicators/ofr_fsi.csv",
+        "date_column": "date",
+        "max_trading_days_behind": 10,
+    },
+    "ciss_cache": {
+        "path": "Data/harvester/raw/external_indicators/ciss.csv",
+        "date_column": "TIME_PERIOD",
+        "max_trading_days_behind": 10,
+    },
+    "benchmark_panel": {
+        "path": "Data/harvester/exports/latest/data/benchmark_panel.parquet",
+        "date_column": "date",
+        "max_trading_days_behind": 5,
+    },
 }
 
 # The "current outputs" chain — these must all be from the same run
@@ -153,7 +173,10 @@ def check_content_freshness(
     try:
         import pandas as pd
 
-        frame = pd.read_parquet(path, columns=[date_column])
+        if path.suffix.lower() == ".csv":
+            frame = pd.read_csv(path)
+        else:
+            frame = pd.read_parquet(path, columns=[date_column])
     except Exception as exc:  # noqa: BLE001 — report as MISSING/unreadable
         return {
             "name": name,
