@@ -1,0 +1,26 @@
+# Checkpoint: professional-methodology-s1-s10
+
+- mission: Truly implement S1–S10 (not shadow stubs): robust z wired, deepened Kalman/Sticky-HMM/jump, K surface proxies, Batch-2 feeds, continuous paper sizing, tightened events
+- decisions:
+  - S1: `_freq_aware_zscore` now uses causal median/MAD robust z (classic mean/std retained as `_rolling_zscore` for A/B tests)
+  - S2: K jump (daily RV−BV), VIX/VIX3M ratio, VRP (trailing RV) registered as `canonical_voting`; SKEW/VVIX/butterfly already voting
+  - S3: Primary event = `or_tight` (vol q=0.95 OR dd&lt;−8%, rate ≈12.4%); also report `or_loose` / `and_strict`
+  - S5: Rolling PCA channel factor + DynamicFactorMQ when dense; CISS EWMA retained
+  - S7: Kalman uses statsmodels `UnobservedComponents` MLE (q,r) + one-sided filter; skip leading NaNs / cap gap variance
+  - S8: `paper_portfolio` continuous sizing = vol-target × (1−P(stress)) × quality; velocity gate remains EXIT kill-switch
+  - S10: Real `hmmlearn` sticky Gaussian HMM + Nystrup-style jump-penalty regime (not fixed-mean toy only)
+  - Batch-2: CFTC TFF lev net + NY Fed PDPOSGST-TOT fetchers live; FINRA margin registered (manual CSV fallback); Z.1 margin already on FRED
+  - Promotion: `jump_regime` intermittently `PROMOTION_ELIGIBLE` under or_tight (AUC/PR/Brier/incremental pass; bootstrap CI unstable at low reps) — **not wired to default path**; requires human review
+  - Default decision path still velocity/cofire for EXIT; measurement z is now robust
+- open_threads:
+  - Human review before promoting jump_regime / k_surface / continuous sizing as sole decision layer
+  - Re-run structural_replay_v2 so new K/X proxies enter `all_signals` / proxy_components
+  - FINRA margin still needs manual CSV (HTML page, no stable free CSV API)
+  - dynamic_factor often empty when channel PIT dense intersection &lt; 252 days
+  - Next harvest should merge Batch-2 series into benchmark_panel release
+- do_not_touch: live execution; Output/current defaults; caselab_context WIP
+- next_agent_action: Rebuild structural replay with new proxies; human-gate any PROMOTION_ELIGIBLE candidate before default wiring
+- acceptance:
+  - tests: `test_professional_methods` + `test_paper_portfolio` + `test_run_professional_methodology` passing
+  - artifacts: `Output/validation/professional_methodology/report.json` (schema v2)
+  - Batch-2 cache: `Data/harvester/raw/external_indicators/{cftc_tff_lev_sp,nyfed_pd_treasury_net}.*`

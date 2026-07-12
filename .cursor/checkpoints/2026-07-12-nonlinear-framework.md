@@ -1,0 +1,31 @@
+# Checkpoint: nonlinear-framework
+
+- mission: Execute nonlinear framework research line WP0–WP7 off the ops path (public_lambda0 + velocity EXIT unchanged). Promote only via T6 + capability board.
+- branch: research/nonlinear-framework
+- decisions:
+  - Research / ops separated; 6-week budget; failure is a legitimate good ending.
+  - WP0 frozen in `governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml`.
+  - `D_stress ≡ channel_D_contraction`; D_crit/K_crit = train q75.
+  - T1 G2: synthetic recovery passes with ρ_ξ/κ/noise fixed (λ_R·ρ scale ridge documented).
+  - NY Fed maturity: only TOT / L2 / G11 keyids live; full J=5 deferred (Kalman partial obs).
+  - Caches normalized: nyfed/ciss now slim CSV on read/write.
+  - Paper §7.5.5 still PENDING_VERBATIM.
+- landed:
+  - T5: `folded_pit`, `release_intensity_features`, `diebold_mariano_logloss`; G1 wired in `run_public_index_contrast.py`
+  - T6: `run_framework_validation_protocol.py` + cache heal
+  - T1: `shadow_mass_model.py` + G2 tests
+  - T2: `absorption_capacity.py`
+  - T3: `stability_diagnostics.py`
+  - T4 stub: `noncommutativity_probe.py`
+  - T7: capability board v3 Sharpe/max_dd + `framework_candidates.csv`
+- open_threads:
+  - Paste §7.5.5 verbatim
+  - Run live G1 contrast + T6 protocol on full panels for gate verdicts
+  - Discover remaining NY Fed maturity keyids (bills / 2-6y / 6-11y)
+  - Real-data T1 MLE only after human review of G2 caveat
+  - Commit when user requests (dirty tree includes prior WIP)
+- do_not_touch:
+  - paper_portfolio default (public_lambda0)
+  - velocity EXIT semantics
+  - live execution
+- next_agent_action: Run `run_public_index_contrast` + `run_framework_validation_protocol` for G1/T6 evidence artifacts; then capability board.

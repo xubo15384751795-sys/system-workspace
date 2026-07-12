@@ -1,0 +1,13 @@
+# Checkpoint: 2026-07-11-phase5-paper-portfolio
+- mission: Phase 5 shadow paper portfolio + EXIT/stance alerts
+- decisions:
+  - Config = Phase 3 recommended mom63 × velocity (vt=1.5,cn=3,bull→2.0) + 3+2bp costs
+  - Benchmark = 60/40 SPY/TLT with 21d rebalance
+  - Daily step paper_portfolio after record_trade_decision (30 daily steps)
+  - Alerts via notify_alert → desktop + NOTIFY_WEBHOOK_URL
+  - Bootstrap --backfill-days 90 --reset seeded 90-day NAV for inspection
+- open_threads:
+  - Formal 90-day live acceptance continues via daily appends
+  - Optional: scale target by trade-decision effective_size (currently stance is record/alert only)
+- do_not_touch: caselab_context WIP; live execution
+- next_agent_action: Monitor Output/position/paper_portfolio_nav.jsonl daily growth; commit Phase 5 when asked
