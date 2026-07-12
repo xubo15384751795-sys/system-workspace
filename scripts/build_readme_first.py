@@ -108,10 +108,55 @@ def build_readme_from_index(
     else:
         target_weight_str = f"{float(target_weight) * 100:.0f}%"
 
+    # ── Plain Summary (WB-B1) ──────────────────────────────────────────────
+    # Constitution (PRODUCT_FRAMEWORK_BOUNDARY.md): "Product tools must not
+    # require framework concepts for basic use." The first screen must answer
+    # three questions in plain language: what state / changed vs yesterday /
+    # what would change the decision. Internal jargon stays in the advanced
+    # sections below (System Status, Signal Gates, etc.).
+    stance_value = trade_decision.get("decision", "WATCH")
+    stress_direction = {
+        "RISK_ON": "market structure pressure is low and the direction is relief",
+        "RISK_OFF": "market structure pressure is elevated and the direction is stress",
+        "WATCH": "market structure pressure is neutral; the system is watching",
+    }.get(stance_value, "market structure pressure is in an unspecified state")
+
+    hmm_regime_raw = hmm.get("current_regime", "unknown")
+    regime_plain = {
+        "compression": "compressed (low dispersion)",
+        "expansion": "expanding (rising dispersion)",
+        "transition": "in transition",
+    }.get(hmm_regime_raw.lower(), hmm_regime_raw)
+
+    # What would change the decision (invalidation conditions in plain words)
+    invalidation_plain = []
+    # Read invalidation from the trade_decision v3 file directly for plain mapping
+    td_path = ROOT / "Output" / "trade_decision" / "latest.json"
+    td_data = load_json(td_path) if td_path.exists() else {}
+    for inv in td_data.get("invalidation", []):
+        plain = {
+            "Data freshness > 48h": "data falls more than 2 days behind",
+            "Velocity gate EXIT": "market velocity triggers the automatic safety brake",
+            "Promotion gate hard-blocks": "the system is hard-blocked from live use",
+            "K/X gate verdict changes to FAIL": "a structural integrity check fails",
+        }.get(inv)
+        if plain:
+            invalidation_plain.append(plain)
+    if not invalidation_plain:
+        invalidation_plain = ["the structural state changes materially"]
+
     lines = [
-        f"# System Output — {date}",
+        f"# System Output - {date}",
         "",
         f"**Generated:** {now}",
+        "",
+        "---",
+        "",
+        "## Plain Summary",
+        "",
+        f"- **Today:** {stress_direction} (internal: {stance_value}, regime {regime_plain}).",
+        f"- **Compared to yesterday:** see change analysis; judgment as-of {judgment.get('as_of', date)}.",
+        f"- **What would change the decision:** {'; '.join(invalidation_plain)}.",
         "",
         "---",
         "",
