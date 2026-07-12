@@ -1,0 +1,217 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-12"
+task_id: nonlinear-framework-prereg
+status: FROZEN
+mission: >
+  Preregister the nonlinear-framework research line (WP0–WP7) before any
+  candidate construction or real-data fitting. Operations stay on
+  public_lambda0 + velocity EXIT; research outcomes enter ops only via the
+  capability board risk-adjusted verdict.
+line_separation:
+  operations:
+    paper_portfolio: public_lambda0
+    velocity_gate: EXIT_kill_switch_only
+    claim_ceiling: no live wiring; no default-path promotion without WP-T7 pass
+  research:
+    branch_policy: "independent branch or git worktree; commit at each WP close"
+    budget: "6 weeks; failure does not authorize additional variants"
+freeze_note: >
+  Fields below are frozen at WP0. Amendments require a new dated routing
+  decision that cites this file; silent edits are rejected.
+
+# ── Holdout / embargo ──────────────────────────────────────────────────────
+holdout_split:
+  train: "→ 2018-12-31"
+  validation: "2019-01-01 → 2021-12-31"   # MUST contain 2019-09 repo + 2020-03 UST
+  holdout: "2022-01-01 →"                 # MUST contain 2022 hike bear + 2023-03 SVB
+  embargo_days: 20
+  notes:
+    - "T1 NY Fed bucket coverage starts 2013-04; train window for X-state MLE is short"
+    - "Validation is the mechanism sample; do not retune on holdout"
+
+# ── Symbol convention (prevents D-sign accidents) ──────────────────────────
+symbol_convention:
+  D_stress: "D_stress ≡ channel_D_contraction (positive = contraction = stress)"
+  paper_D_degrees_of_freedom: >
+    Paper D is degrees of freedom (low = stress). Channel D_contraction is the
+    opposite polarity. All formulas use D_stress ≡ D_contraction; never invert
+    casually.
+  D_crit: "causal q75 of D_stress on the train window only"
+  K_crit: "causal q75 of channel_K on the train window only"
+  stress_operators:
+    d_stress: "(pit(D_contraction) − q75_train)_+"
+    k_stress: "(pit(K) − q75_train)_+"
+
+# ── Event battery (causal; formulas frozen) ────────────────────────────────
+event_battery:
+  - id: E1_equity
+    formula: "or_tight: future vol ≥ causal q95 OR forward drawdown < −8%"
+    source: existing_build_forward_stress_events
+  - id: E2_rates_vol
+    formula: "max(MOVE over next 20d) ≥ causal q90"
+    source: "yfinance ^MOVE; cache into harvester raw; do not recompute history on outage"
+  - id: E3_funding
+    formula: "max(SOFR−IORB over next 20d) ≥ causal q95; pre-2018 splice EFFR−IOER"
+    source: FRED
+    splice:
+      pre: "EFFR − IOER"
+      post: "SOFR − IORB"
+      splice_date: "2018-04-03"   # SOFR published; record exact join in T6 artifact
+  - id: E4_duration
+    formula: "TLT 20d drawdown ≤ −5%"
+    source: cross_asset_panel
+  - id: E5_credit
+    formula: "HY OAS 20d widening ≥ +50bp"
+    source: "FRED BAMLH0A0HYM2"
+
+case_calendar:
+  # lead_time / false-alarm overlays (not the event generator)
+  - {date: "1998-09", label: LTCM}
+  - {date: "2007-08", label: BNP}
+  - {date: "2008-09", label: Lehman}
+  - {date: "2011-08", label: "US_downgrade_EU_stress"}
+  - {date: "2013-05", label: Taper_tantrum}
+  - {date: "2015-08", label: CN_FX_shock}
+  - {date: "2018-12", label: Q4_2018_equity}
+  - {date: "2019-09", label: repo_spike}
+  - {date: "2020-03", label: UST_dash_for_cash}
+  - {date: "2022", label: hike_bear}
+  - {date: "2023-03", label: SVB}
+
+# ── Candidates (sign declared a priori) ────────────────────────────────────
+candidates:
+  - {name: release_flow, sign: "+", source: T1, note: "Σ_j λ_R·R_t(ξ_j)·X_{t,j}"}
+  - {name: x_stock_agg, sign: "+", source: T1, note: "Σ_j X_{t,j} filtered posterior mean"}
+  - {name: absorption_A, sign: "-", source: T2, note: "A low = danger; also test −ΔA(5d)"}
+  - {name: lambda_max, sign: "+", source: T3, note: "use CI lower bound crossing causal q90"}
+  - {name: interaction_f1_f3, sign: "+", source: T5, note: "release kernel / forced-sale / injection amp"}
+
+# ── T1 model identity deviations ───────────────────────────────────────────
+t1_model_identity:
+  observation_buckets_J: 5   # bills, ≤2y, 2-6y, 6-11y, >11y; paper uses J=7
+  nyfed_start: "2013-04"
+  pre_2013_observations: "aggregate only (Z.1 / FINRA margin / NFCILEVERAGE); Kalman partial obs"
+  identification:
+    lambda_M: 1.0
+    H_one_loading: 1.0
+  estimation: "L-BFGS-B max Kalman likelihood; params ≥ 0; train ≤ 2018-12-31"
+  gate_G2: >
+    Synthetic recovery test MUST pass before any real-data MLE: recover
+    (λ_R, ρ_D, ρ_K) within ±30% on 500 simulated weeks. Fail → fixed-θ
+    scenario analysis only; no MLE claims.
+
+# ── Pass / reject / stop ───────────────────────────────────────────────────
+pass_criteria: >
+  holdout ΔPR-AUC > 0 AND DM p < 0.05 AND lead_time ≥ funding-only baseline
+  AND capability-board risk-adjusted NAV not worse than public_lambda0
+  (WP-T7). Promotion form: P(stress) = w·public + (1−w)·candidate with w
+  calibrated on validation only.
+
+rejection_criteria:
+  status: PENDING_VERBATIM
+  paper_section: "§7.5.5"
+  note: >
+    Paper §7.5.5 four rejection bullets are NOT present in this repository.
+    Until the verbatim text is pasted and this block is amended via a dated
+    routing decision, treat the operational stop_rules below as binding and
+    do not invent paper language.
+  operational_stop_rules:
+    G1_fail: >
+      Interaction features f1–f3 and GBM upper-bound both show zero holdout
+      incremental ΔPR-AUC → cut to T2+T6 only; total budget → 3 weeks.
+    G2_fail: >
+      Synthetic parameter recovery fails → T1 downgrades to fixed-parameter
+      scenario analysis; no MLE claims on real data.
+    W6_full_fail: >
+      No candidate clears T6+board → write capability registry:
+      "nonlinear realization also has no incremental value; four-channel
+      measurement layer formally frozen"; ops remain public_lambda0 forever.
+      This is a legitimate good ending.
+  budget: "6 weeks; failure does not authorize additional variants"
+
+# ── Work package map ───────────────────────────────────────────────────────
+work_packages:
+  WP0: {status: done, deliverable: this_file}
+  WP_T5: {status: implemented, gate: G1, parallel_with: WP_T6, note: "code+tests landed; G1 verdict requires live contrast run"}
+  WP_T6: {status: implemented, includes: [event_protocol, nyfed_cache_normalize, ciss_cache_normalize]}
+  WP_T1: {status: implemented, gate: G2_passed_with_fixed_nuisance, parallel_with: WP_T2, note: "synthetic recovery with rho_xi/kappa/noise fixed due to scale ridge"}
+  WP_T2: {status: implemented, independent_acceptance: "A_t below 6m baseline at 2019-09/2020-03/2023-03"}
+  WP_T3: {status: implemented}
+  WP_T7: {status: implemented, gate: promotion_or_freeze, note: "board v3 + Sharpe/max_dd + framework_candidates table; no auto-promotion"}
+  WP_T4: {status: stub_landed, note: "noncommutativity_probe.py research-only"}
+
+maturity_bucket_data_note: >
+  Live NY Fed Markets API keyids verified 2026-07-12: PDPOSGST-TOT, PDPOSGSC-L2,
+  PDPOSGSC-G11. Guessed L26/L611/bills keys returned empty timeseries. T1 therefore
+  uses total + partial maturity observations (Kalman partial obs), not full J=5 yet.
+
+# ── Data risks (known at prereg) ───────────────────────────────────────────
+data_risks:
+  - risk: "NY Fed maturity buckets from 2013"
+    mitigation: "pre-2013 aggregate observations via Kalman partial obs"
+  - risk: "SOFR from 2018"
+    mitigation: "EFFR−IOER splice; splice_date frozen above"
+  - risk: "nyfed_pd_treasury_net.csv stores raw JSON bytes"
+    mitigation: >
+      Parser already recovers ~692 weekly rows when routed through
+      _parse_nyfed_pd_treasury. WP-T6 day-1: normalize cache-on-write to
+      Date,value CSV so naive readers and audits do not see 0 usable rows.
+  - risk: "ciss.csv is SDMX-wide"
+    mitigation: >
+      Parser already extracts TIME_PERIOD/OBS_VALUE (~12k daily rows).
+      WP-T6: ensure refresh path writes slim CSV; do not depend on ad-hoc reads.
+  - risk: "FINRA margin still manual CSV"
+    mitigation: "manual fallback exists; non-blocking"
+  - risk: "MOVE via yfinance"
+    mitigation: "cache into harvester raw; outage must not rebuild history"
+
+# ── Baselines for T6 protocol ──────────────────────────────────────────────
+baselines:
+  required:
+    - vol_only: "VIX level + HAR-RV forecast"
+    - funding_only: "causal z of CP−Bill and SOFR−IORB (spliced)"
+    - public_composite: "OFR / NFCI / CISS"
+    - combination: "equal-weight or logistic blend of the above"
+  optional_non_blocking:
+    - SES
+    - MES
+    - SRISK
+
+ablations:
+  - full
+  - no_M
+  - no_D
+  - no_K
+  - no_X
+
+artifacts_touched:
+  - governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+  - .cursor/checkpoints/2026-07-12-nonlinear-framework.md
+
+experts_activated:
+  - id: research_prereg
+    reason: Freeze splits, signs, events, gates before feature construction
+    scope: governance routing decision only
+
+experts_not_activated:
+  - shadow_mass_model fitting
+  - absorption_capacity wiring
+  - stability_diagnostics
+  - paper_portfolio default path
+  - live execution / broker
+
+constitution_alignment:
+  - research line isolated from operations (public_lambda0 retained)
+  - no promotion without holdout + DM + lead_time + board NAV
+  - sign convention for D_stress frozen to prevent polarity accidents
+  - G1/G2/W6 stop rules make failure a publishable outcome
+
+auditable_outputs:
+  - governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+  - .cursor/checkpoints/2026-07-12-nonlinear-framework.md
+
+verification:
+  - "File exists and status=FROZEN"
+  - "holdout_split contains 2019-09/2020-03 in validation and 2023-03 in holdout by construction"
+  - "rejection_criteria.status=PENDING_VERBATIM until paper §7.5.5 pasted"
+  - "No research code merged to ops path in this WP"
