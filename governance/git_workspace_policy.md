@@ -1,11 +1,36 @@
 # Git Workspace Policy
 
-**Status:** authoritative as of 2026-05-22  
-**Supersedes:** ad-hoc "nested clone vs submodule vs move under Workbench" options in older audit notes.
+**Status:** authoritative as of 2026-07-12  
+**Supersedes:** ad-hoc "nested clone vs submodule vs move under Workbench" options in older audit notes;
+also updates the 2026-05-22 layout notes for day-to-day ops (active source now lives under
+`packages/` in this monorepo).
 
 This is the single policy for how source code is versioned in `system-workspace`.
 Path layout is in `governance/repo_layout_map.md`; directory ownership is in
 `FOLDER_OWNERSHIP.md`.
+
+---
+
+## Production vs research workspaces (locked 2026-07-12)
+
+| Branch | Purpose | Merge condition |
+|---|---|---|
+| `main` | Production truth. The launchd daily-run working copy **must stay on `main`**. | Full `pytest` green + `python3 scripts/daily_run.py --dry-run` pass |
+| `research/<topic>` | One research line per branch, developed in an **independent git worktree** (never by switching the production checkout) | Infrastructure (additive, tested, ops defaults unchanged): green may merge. **Conclusion wiring into ops:** capability board pass + dated routing decision |
+| `wip/<thread>` | Parallel threads (e.g. CaseLab) | Thread tests green + thread owner confirmation |
+
+Rules:
+
+1. **Production checkout never switches branches.** Research continues under
+   `../System-research` (or another worktree path) via
+   `git worktree add ../System-research research/<topic>`.
+2. Research **code** that is additive and does not change production defaults may
+   merge to `main` when green.
+3. Research **conclusions** that change paper sizing / decision defaults require
+   capability-board evidence plus a `governance/routing_decisions/` record — the
+   same boundary frozen in nonlinear-framework prereg.
+4. Do not leave multi-day WIP only in the production working tree; commit on the
+   research branch or keep an explicit backup patch outside the repo.
 
 ---
 
@@ -14,28 +39,28 @@ Path layout is in `governance/repo_layout_map.md`; directory ownership is in
 | Topic | Policy |
 |---|---|
 | Layout | **Sibling directories at workspace root** — no physical nest under `Workbench/data_providers/` or `Workbench/governance/` |
-| Versioning | **Git submodules** for all four sister repos; parent records pinned commits in `.gitmodules` |
-| Fresh checkout | `git clone --recurse-submodules` **or** `git clone` + `./scripts/bootstrap.sh` |
+| Versioning | **Monorepo `packages/`** is the active source tree; historical git submodules for sister repos remain documented for migration compatibility |
+| Fresh checkout | `git clone` + `./scripts/bootstrap.sh` |
 | Generated data | **Never committed** in any repo — `Data/` and `Output/` stay gitignored at workspace root |
 | Compatibility symlinks | Recreated by `scripts/bootstrap.sh`; not submodule paths |
 
 Retired options (do not reopen without an explicit migration plan):
 
-- **2a** — move harvester/hub under `Workbench/` (deferred indefinitely; high breakage risk)
-- **Bootstrap-only clone** — sister repos gitignored with no `.gitmodules` (inconsistent; replaced by submodules)
+- **2a** — move harvester/hub under `Workbench/` (deferred indefinitely; high breakage cost)
+- **Bootstrap-only clone** — sister repos gitignored with no `.gitmodules` (inconsistent; replaced by packages/ monorepo)
 
 ---
 
 ## Repository map
 
-| Submodule path | Remote repo | Role |
-|---|---|---|
-| `Workbench/` | `structural-workbench` | Product, NLP, contracts, agent harness |
-| `deformation-framework/` | `Structural-Deformation-Research-System` | Deformation framework core |
-| `structural-risk-harvester/` | `structural-risk-harvester` | Data provider / harvester |
-| `system-learning-hub/` | `system-learning-hub` | Governance memory tool |
+| Path | Role |
+|---|---|
+| `packages/workbench/` | Product, NLP, contracts, agent harness |
+| `packages/framework/` | Deformation framework core |
+| `packages/harvester/` | Data provider / harvester |
+| `packages/learning_hub/` | Governance memory tool |
 
-Parent repo (`system-workspace`) owns:
+Parent repo owns:
 
 - `governance/`, `protocols/`, `module_contexts/`, root `scripts/`, root `tests/`
 - `configs/`, `docs/`, `semgrep_rules/`, `ExternalTools/qlib_benchmark_runner/`
@@ -56,21 +81,14 @@ Parent repo (`system-workspace`) owns:
 
 **Do not list:**
 
-- Submodule directories (`Workbench/`, `structural-risk-harvester/`, `system-learning-hub/`, `deformation-framework/`) — Git tracks these as gitlinks via `.gitmodules`
+- Active source under `packages/`
 - Compatibility symlinks — bootstrap recreates them; they may appear untracked locally and that is fine
 
-### Sister repo `.gitignore` files
+### Package-local `.gitignore` files
 
-Each submodule keeps its **own** `.gitignore` for repo-local generated content:
-
-| Repo | Ignores locally |
-|---|---|
-| `Workbench/` | `Data/` (Workbench-local scratch) |
-| `structural-risk-harvester/` | `data/` symlink target volume |
-| `system-learning-hub/` | `/data/`, `/reports/` at repo root |
-| `deformation-framework/` | framework-local outputs (see that repo's `.gitignore`) |
-
-Workspace truth for cross-module artifacts remains **`Data/` and `Output/` at workspace root**, never committed.
+Each package keeps its **own** `.gitignore` for package-local generated content.
+Workspace truth for cross-module artifacts remains **`Data/` and `Output/` at
+workspace root**, never committed.
 
 ---
 
@@ -79,34 +97,29 @@ Workspace truth for cross-module artifacts remains **`Data/` and `Output/` at wo
 ### First clone
 
 ```bash
-git clone --recurse-submodules git@github.com:xubo15384751795-sys/system-workspace.git System
-cd System
-./scripts/bootstrap.sh    # symlinks + submodule sync + venv hints
-```
-
-Without `--recurse-submodules`:
-
-```bash
 git clone git@github.com:xubo15384751795-sys/system-workspace.git System
 cd System
-./scripts/bootstrap.sh    # runs git submodule update --init --recursive
+./scripts/bootstrap.sh    # symlinks + venv hints
 ```
 
-### Update sister repos
+### Research lane (required for nonlinear / long-running topics)
 
 ```bash
-git submodule update --remote --merge   # advance pins deliberately
-# or enter a submodule and pull on a branch, then commit the new gitlink in parent
+# From a clean main-based production checkout:
+git fetch origin
+git worktree add ../System-research research/<topic>
+# Develop only inside ../System-research; commit per WP close.
+# Merge infrastructure back to main when green; promote conclusions via board + routing decision.
 ```
 
-### Committing cross-repo work
+### Committing
 
-1. Commit inside the submodule on its branch.
-2. Push the submodule repo.
-3. Commit the updated gitlink in `system-workspace`.
-4. Push the parent.
+1. Keep the production directory on `main`.
+2. Commit research work on `research/<topic>` inside its worktree.
+3. Fast-forward merge green research commits into `main` — do not leave the
+   production checkout on a research branch.
 
-Never commit sister-repo source files directly into the parent tree.
+Never commit secrets, `Data/`, or `Output/` blobs.
 
 ---
 
@@ -114,9 +127,9 @@ Never commit sister-repo source files directly into the parent tree.
 
 `scripts/bootstrap.sh` must:
 
-1. `git submodule update --init --recursive` (fallback: clone if submodule metadata missing during migration)
-2. Recreate compatibility symlinks (`Structural Risk Harvester`, `System Learning Hub`, `Structural Research Harness`, `contracts`)
-3. Print per-repo venv install hints
+1. Recreate compatibility symlinks (`Structural Risk Harvester`, `System Learning Hub`, `Structural Research Harness`, `contracts`)
+2. Print per-package venv install hints
+3. Optionally sync legacy submodule metadata if still present
 
 Bootstrap does **not** create or populate `Data/` / `Output/`.
 
@@ -127,9 +140,10 @@ Bootstrap does **not** create or populate `Data/` / `Output/`.
 After any git-layout change:
 
 ```bash
-test -f .gitmodules && git submodule status
 ./scripts/bootstrap.sh
-pytest tests/governance/ -q
+python3 -m pytest tests/ -q
+python3 scripts/daily_run.py --dry-run
+git branch --show-current   # production checkout must print: main
 ```
 
-Expected: four submodule entries, symlinks resolve, governance tests pass.
+Expected: tests green, dry-run lists the daily sequence, production checkout stays on `main`.
