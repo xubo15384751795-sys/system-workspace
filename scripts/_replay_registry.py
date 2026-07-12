@@ -176,10 +176,13 @@ from _replay_transforms import (  # noqa: E402
     _accel_abs,
     _butterfly,
     _component,
+    _daily_jump_variation,
     _jump_activation_score,
     _native_freq_diff_abs,
     _series,
     _spread,
+    _variance_risk_premium,
+    _vix_term_ratio,
 )
 from replay.scoring import CHANNELS  # noqa: E402, F401
 
@@ -1179,6 +1182,24 @@ PROXY_REGISTRY: list[ProxySpec] = [
         ),
     ),
     ProxySpec(
+        name="K_u2_jump_intensity_daily",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("CBOE:SPX", "SPY"),
+        raw_family="REALIZED_JUMP",
+        independence_group="jump_intensity",
+        mechanism="bipower_variation_or_realized_jump",
+        transform="daily RV − bipower variation (Barndorff-Nielsen), robust z-score",
+        builder=lambda p: _component(_daily_jump_variation(p), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.u2_jump_intensity",
+        canonical_alignment_note=(
+            "Daily-frequency jump proxy (coarser than intraday bipower, but "
+            "causal and free). Replaces awaiting_data stub. §4.4 compliant."
+        ),
+    ),
+    ProxySpec(
         name="K_canonical_NOT_IMPLEMENTED_u2_jump_intensity",
         target_variable="K",
         tier="core",
@@ -1187,11 +1208,11 @@ PROXY_REGISTRY: list[ProxySpec] = [
         raw_family="NOT_IMPLEMENTED",
         independence_group="jump_intensity",
         mechanism="bipower_variation_or_realized_jump",
-        transform="(awaiting data: bipower variation gap, realized jump count)",
+        transform="(superseded by K_u2_jump_intensity_daily; kept for audit continuity)",
         builder=lambda p: None,
         canonical_status="awaiting_data",
         canonical_subbasket="K.u2_jump_intensity",
-        canonical_alignment_note="Needs intraday price data for bipower variation.",
+        canonical_alignment_note="Superseded by daily RV-BV proxy; intraday bipower remains optional upgrade.",
     ),
     ProxySpec(
         name="K_u3_tail_convexity_candidate",
@@ -1239,6 +1260,42 @@ PROXY_REGISTRY: list[ProxySpec] = [
         ),
     ),
     ProxySpec(
+        name="K_vix_vix3m_ratio",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("FRED:VIXCLS", "CBOE:VIX3M"),
+        raw_family="CBOE_IVTS",
+        independence_group="iv_distortion",
+        mechanism="near_term_vol_inversion",
+        transform="VIX/VIX3M ratio (inversion >1), robust z-score",
+        builder=lambda p: _component(_vix_term_ratio(p), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.u1_iv_distortion",
+        canonical_alignment_note=(
+            "Classic near-term panic signal: term-structure inversion. "
+            "Complements the butterfly twist with a slope/ratio view."
+        ),
+    ),
+    ProxySpec(
+        name="K_variance_risk_premium",
+        target_variable="K",
+        tier="core",
+        freq="daily",
+        raw_series=("FRED:VIXCLS", "CBOE:SPX", "SPY"),
+        raw_family="VRP_HAR",
+        independence_group="iv_distortion",
+        mechanism="variance_risk_premium",
+        transform="VIX^2 − causal HAR-RV forecast (Corsi), robust z-score",
+        builder=lambda p: _component(_variance_risk_premium(p), freq="daily"),
+        canonical_status="canonical_voting",
+        canonical_subbasket="K.u1_iv_distortion",
+        canonical_alignment_note=(
+            "Literature-backed curvature/insurance-price measure. Positive VRP "
+            "= panic pricing; compression = complacency."
+        ),
+    ),
+    ProxySpec(
         name="K_cboe_skew_tail",
         target_variable="K",
         tier="core",
@@ -1276,6 +1333,48 @@ PROXY_REGISTRY: list[ProxySpec] = [
     ),
 
     # ── X_agg canonical sub-baskets ──
+    ProxySpec(
+        name="X_agg_cftc_lev_funds_net",
+        target_variable="X_agg",
+        tier="core",
+        freq="weekly",
+        raw_series=("CFTC_TFF_LEV_SP",),
+        raw_family="CFTC_TFF",
+        independence_group="positioning_leverage",
+        mechanism="leveraged_fund_net_position_extremes",
+        transform="CFTC TFF leveraged-funds net E-mini S&P position, weekly robust z-score",
+        builder=lambda p: _component(
+            _series(p, "CFTC_TFF_LEV_SP", limit=10) or _series(p, "EXT:CFTC_TFF_LEV_SP", limit=10),
+            freq="weekly",
+        ),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.positioning_leverage",
+        canonical_alignment_note=(
+            "Batch-2 free CFTC TFF feed. Extreme leveraged-fund positioning is the "
+            "X_agg 'aggregate vulnerability' observation the theory wants."
+        ),
+    ),
+    ProxySpec(
+        name="X_agg_nyfed_pd_treasury_net",
+        target_variable="X_agg",
+        tier="core",
+        freq="weekly",
+        raw_series=("NYFED_PD_TREASURY_NET",),
+        raw_family="NYFED_PD",
+        independence_group="dealer_balance_sheet",
+        mechanism="primary_dealer_treasury_net",
+        transform="NY Fed PD net Treasury positions (PDPOSGST-TOT), weekly robust z-score",
+        builder=lambda p: _component(
+            _series(p, "NYFED_PD_TREASURY_NET", limit=10) or _series(p, "EXT:NYFED_PD_TREASURY_NET", limit=10),
+            freq="weekly",
+        ),
+        canonical_status="canonical_voting",
+        canonical_subbasket="X_agg.dealer_balance_sheet",
+        canonical_alignment_note=(
+            "Batch-2 NY Fed primary-dealer statistics — direct shadow-leverage "
+            "observation superior to heavily-revised NFCILEVERAGE alone."
+        ),
+    ),
     ProxySpec(
         name="X_agg_v1_obs_to_assets_candidate",
         target_variable="X_agg",

@@ -79,3 +79,29 @@ def test_resolve_cross_asset_panel_falls_back_to_mirror(tmp_path: Path, monkeypa
     monkeypatch.setattr(dp, "HARVESTER_DATA", tmp_path / "Data" / "harvester" / "exports" / "latest" / "data")
 
     assert resolve_cross_asset_panel_path() == m_file
+
+
+def test_resolve_cross_asset_panel_prefers_longer_panel_on_date_tie(tmp_path: Path, monkeypatch) -> None:
+    import _data_paths as dp
+    import _runtime_io as rio
+
+    harvester = tmp_path / "Data" / "harvester" / "exports" / "latest" / "data"
+    mirror = tmp_path / "Data" / "panels"
+    h_file = harvester / "cross_asset_daily_panel.parquet"
+    m_file = mirror / "cross_asset_daily_panel.parquet"
+    _write_panel(h_file, "2026-07-10")
+    m_file.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-07-09", "2026-07-10"]),
+            "symbol": ["SPY", "SPY"],
+            "close": [1.0, 1.1],
+        }
+    ).to_parquet(m_file, index=False)
+
+    monkeypatch.setattr(rio, "ROOT", tmp_path)
+    monkeypatch.setattr(dp, "ROOT", tmp_path)
+    monkeypatch.setattr(dp, "HARVESTER_LATEST", tmp_path / "Data" / "harvester" / "exports" / "latest")
+    monkeypatch.setattr(dp, "HARVESTER_DATA", harvester)
+
+    assert resolve_cross_asset_panel_path() == m_file

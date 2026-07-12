@@ -9,6 +9,7 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 from _constants import HALF_YEAR_TRADING_DAYS, TRADING_DAYS_PER_YEAR
+from professional_methods import causal_pit, causal_robust_zscore
 
 Freq = Literal["daily", "weekly", "monthly", "quarterly", "sparse", "mixed"]
 
@@ -64,23 +65,41 @@ PANDAS_RESAMPLE_RULE: dict[Freq, str] = {
 
 
 def _rolling_zscore(series: pd.Series, window: int = TRADING_DAYS_PER_YEAR, min_periods: int = HALF_YEAR_TRADING_DAYS) -> pd.Series:
-    """Causal rolling z-score with no look-ahead and explicit missing values."""
+    """Classic causal mean/std z-score (kept for A/B and unit tests)."""
     mu = series.rolling(window=window, min_periods=min_periods).mean()
     sigma = series.rolling(window=window, min_periods=min_periods).std().replace(0, np.nan)
     return ((series - mu) / sigma).clip(-4, 4)
 
 
+def _rolling_robust_zscore(
+    series: pd.Series,
+    window: int = TRADING_DAYS_PER_YEAR,
+    min_periods: int = HALF_YEAR_TRADING_DAYS,
+) -> pd.Series:
+    """Production normalization: causal median/MAD robust z-score."""
+    return causal_robust_zscore(series, window=window, min_periods=min_periods)
+
+
+def _rolling_pit(
+    series: pd.Series,
+    window: int = 5 * TRADING_DAYS_PER_YEAR,
+    min_periods: int = HALF_YEAR_TRADING_DAYS,
+) -> pd.Series:
+    """Causal probability-integral transform in [0, 1]."""
+    return causal_pit(series, window=window, min_periods=min_periods)
+
+
 def _freq_aware_zscore(series: pd.Series, freq: Freq) -> pd.Series:
-    """Rolling z-score with the window scaled to the data's natural frequency.
+    """Rolling robust z-score with the window scaled to native frequency.
 
     For weekly / monthly series the input is daily-aligned but the underlying
     cadence is sparser, so we resample to native frequency, run a same-horizon
-    z-score there, and forward-fill back to daily so it can join the unified
-    daily channel index.
+    robust z-score there, and forward-fill back to daily so it can join the
+    unified daily channel index.
     """
     if freq == "daily":
         w, mp = FREQ_WINDOWS["daily"]
-        return _rolling_zscore(series, w, mp)
+        return _rolling_robust_zscore(series, w, mp)
 
     if freq in ("weekly", "monthly", "quarterly"):
         rule = PANDAS_RESAMPLE_RULE[freq]
@@ -88,14 +107,58 @@ def _freq_aware_zscore(series: pd.Series, freq: Freq) -> pd.Series:
         if native.empty:
             return pd.Series(np.nan, index=series.index)
         w, mp = FREQ_WINDOWS[freq]
-        z_native = _rolling_zscore(native, w, mp)
-        # Forward-fill to daily index, but limit fill so old observations
-        # don't creep into long gaps.
+        z_native = _rolling_robust_zscore(native, w, mp)
         max_fill = {"weekly": 7, "monthly": 35, "quarterly": 100}[freq]
         return z_native.reindex(series.index, method="ffill", limit=max_fill)
 
     raise ValueError(f"_freq_aware_zscore: unsupported freq {freq!r}")
 
+
+def _daily_jump_variation(panel: pd.DataFrame) -> pd.Series | None:
+    """Daily RV − bipower variation jump proxy from SPX/SPY close."""
+    for col in ("CBOE:SPX", "SPX", "SPY", "YF:SPY"):
+        px = _series(panel, col, limit=0)
+        if px is None or px.dropna().shape[0] < 60:
+            continue
+        log_ret = np.log(px).diff()
+        rv = log_ret.pow(2)
+        bv = (np.pi / 2.0) * log_ret.abs() * log_ret.shift(1).abs()
+        return (rv - bv).clip(lower=0.0)
+    return None
+
+
+def _variance_risk_premium(panel: pd.DataFrame) -> pd.Series | None:
+    """Causal VRP proxy: VIX² − trailing 22d realized variance (fast path).
+
+    Full HAR-RV VRP lives in ``professional_methods.k_surface_features`` for
+    shadow evaluation; the proxy registry uses trailing RV so structural
+    replay stays tractable.
+    """
+    vix = _series(panel, "FRED:VIXCLS", limit=0)
+    if vix is None:
+        vix = _series(panel, "CBOE:VIXCLS", limit=0)
+    px = None
+    for col in ("CBOE:SPX", "SPX", "SPY", "YF:SPY"):
+        px = _series(panel, col, limit=0)
+        if px is not None and px.dropna().shape[0] >= 60:
+            break
+        px = None
+    if vix is None or px is None:
+        return None
+    returns = np.log(px).diff()
+    rv22 = returns.pow(2).rolling(22, min_periods=15).mean() * 252.0
+    # Shift RV so VRP_t uses only realized variance known at t (up through t-1).
+    return (vix / 100.0).pow(2) - rv22.shift(1)
+
+def _vix_term_ratio(panel: pd.DataFrame) -> pd.Series | None:
+    """VIX / VIX3M — >1 inversion is near-term panic (classic stress onset)."""
+    vix = _series(panel, "FRED:VIXCLS", limit=0)
+    if vix is None:
+        vix = _series(panel, "CBOE:VIXCLS", limit=0)
+    vix3m = _series(panel, "CBOE:VIX3M", limit=0)
+    if vix is None or vix3m is None:
+        return None
+    return vix / vix3m.replace(0.0, np.nan)
 
 def _jump_activation_score(
     series: pd.Series | None,
