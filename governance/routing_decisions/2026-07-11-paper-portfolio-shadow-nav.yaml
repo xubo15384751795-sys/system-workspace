@@ -1,0 +1,25 @@
+schema_version: routing_decision.v1
+id: 2026-07-11-paper-portfolio-shadow-nav
+date: "2026-07-11"
+title: "Phase 5 — paper portfolio shadow NAV + EXIT/stance alerts"
+status: accepted
+summary: >
+  Add a daily paper portfolio that compounds SPY 63d momentum × velocity gate
+  (Phase 3 recommended: vt=1.5, cn=3, bull_modulation→2.0) with 3+2bp friction,
+  benchmarked against 60/40 SPY/TLT. Alerts fire on velocity FULL→EXIT and on
+  trade-decision stance changes via _notify (desktop + optional webhook).
+
+placement:
+  daily_sequence: after record_trade_decision (step paper_portfolio)
+  artifacts:
+    - Output/position/paper_portfolio.json
+    - Output/position/paper_portfolio_nav.jsonl
+    - Output/position/paper_portfolio_latest.md
+
+acceptance:
+  - 90 continuous trading days of NAV history (bootstrap seeded 2026-03-03→2026-07-10)
+  - Ongoing daily appends start the formal 90-day live acceptance clock
+
+do_not:
+  - live execution
+  - affect core judgment

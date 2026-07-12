@@ -1,0 +1,39 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-11"
+task_id: decision-loop-effective-size-freshness
+mission: >
+  Close shadow decision loop within system constitution: paper_portfolio scales by
+  trade_decision.v3 effective_size; paper_sync heartbeats freshness so size is not
+  permanently stepped down; no live wiring; residual λ stays 0.
+artifacts_touched:
+  - scripts/strategy_lab/paper_portfolio.py
+  - scripts/sync_paper_world_model.py
+  - governance/daily_run_sequence.yaml
+  - governance/pipeline_schedule.md
+  - tests/test_paper_portfolio.py
+  - tests/test_paper_world_model_sync_heartbeat.py
+experts_activated:
+  - id: strategy_lab_paper
+    reason: Wire stance×size into shadow NAV target
+    scope: paper_portfolio only
+  - id: paper_world_model_sync
+    reason: Fix TTL freeze on paper_unchanged skip
+    scope: sync heartbeat; no claim_ceiling change
+experts_not_activated:
+  - Batch-2 / proxy expansion
+  - residual onset redesign
+  - live execution / broker
+  - k_surface promotion
+  - gate_sweep / Sticky-HMM
+verification:
+  - pytest tests/test_paper_portfolio.py tests/test_paper_world_model_sync_heartbeat.py
+  - paper_sync --force refreshed Data/paper_world_model/manifest.json
+constitution_alignment:
+  - shadow position language only
+  - Paper stale → size step-down retained; freshness must be able to recover
+  - Deformation/Harvester boundaries unchanged
+  - No promotion of residual onset (λ=0)
+auditable_outputs:
+  - Output/position/paper_portfolio.json (schema paper_portfolio.v3)
+  - Data/paper_world_model/manifest.json (synced_at heartbeat)
+  - .cursor/checkpoints/2026-07-11-decision-loop-effective-size.md

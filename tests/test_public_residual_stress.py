@@ -1,0 +1,105 @@
+"""Tests for public-level + residual-onset paper path."""
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from scripts.public_residual_stress import (
+    build_public_residual_bundle,
+    dual_stress_position,
+    public_level_probability,
+    residual_onset_probability,
+    residual_velocity_vs_public,
+    residual_vs_public,
+)
+
+
+def test_public_level_skips_missing_and_renormalizes() -> None:
+    index = pd.date_range("2020-01-01", periods=300, freq="B")
+    public = pd.DataFrame(
+        {
+            "ofr_fsi": np.linspace(0, 1, 300),
+            "nfci": np.linspace(0.2, 0.8, 300),
+            "ecb_ciss": [np.nan] * 300,
+        },
+        index=index,
+    )
+    p = public_level_probability(public, min_periods=50)
+    assert p.dropna().between(0.0, 1.0).all()
+    assert p.notna().sum() > 100
+
+
+def test_residual_onset_rises_when_channel_pulls_ahead() -> None:
+    index = pd.RangeIndex(400)
+    public = pd.Series(np.linspace(0.3, 0.4, 400), index=index)
+    channel = public.copy()
+    channel.iloc[250:] = channel.iloc[250:] + np.linspace(0, 0.5, 150)
+    residual = residual_vs_public(channel, public)
+    onset = residual_onset_probability(
+        residual, method="velocity", residual_mode="level", velocity_window=20, min_periods=50
+    )
+    assert onset.dropna().between(0.0, 1.0).all()
+    assert float(onset.iloc[300:350].mean()) > float(onset.iloc[100:150].mean())
+
+
+def test_velocity_residual_mode_detects_relative_heating() -> None:
+    index = pd.RangeIndex(400)
+    public = pd.Series(0.4, index=index)
+    channel = public.copy()
+    # Channel accelerates while public stays flat → velocity residual rises.
+    ramp = np.concatenate([np.zeros(250), np.linspace(0, 0.6, 150)])
+    channel = channel + ramp
+    residual = residual_velocity_vs_public(channel, public, velocity_window=20, min_periods=50)
+    onset = residual_onset_probability(
+        residual, method="velocity", residual_mode="velocity", min_periods=50
+    )
+    assert onset.dropna().between(0.0, 1.0).all()
+    early = onset.iloc[160:200].mean()
+    late = onset.iloc[320:360].mean()
+    assert np.isfinite(early) and np.isfinite(late)
+    assert float(late) > float(early)
+
+
+def test_bundle_velocity_mode_and_lambda0() -> None:
+    index = pd.date_range("2020-01-01", periods=260, freq="B")
+    channels = pd.DataFrame(
+        {name: np.linspace(0, 1, 260) for name in ("M", "D", "K", "X")},
+        index=index,
+    )
+    public = pd.DataFrame(
+        {
+            "ofr_fsi": np.linspace(0, 0.5, 260),
+            "nfci": np.linspace(0.1, 0.4, 260),
+        },
+        index=index,
+    )
+    returns = pd.Series(0.001, index=index)
+    with_onset = build_public_residual_bundle(
+        channels, public, returns, residual_mode="velocity", onset_lambda=1.0, min_periods=50
+    )
+    lambda0 = build_public_residual_bundle(
+        channels, public, returns, residual_mode="velocity", onset_lambda=0.0, min_periods=50
+    )
+    assert with_onset["residual_mode"] == "velocity"
+    assert with_onset["p_onset"].dropna().between(0.0, 1.0).all()
+    # λ=0 ignores onset → positions weakly ≥ λ=1 when onset > 0
+    assert float(lambda0["sizing"]["position"].mean()) >= float(with_onset["sizing"]["position"].mean()) - 1e-9
+
+
+def test_dual_stress_position_formula() -> None:
+    index = pd.date_range("2020-01-01", periods=80, freq="B")
+    returns = pd.Series(0.001, index=index)
+    p_public = pd.Series(0.2, index=index)
+    p_onset = pd.Series(0.5, index=index)
+    sized = dual_stress_position(
+        p_public=p_public,
+        p_onset=p_onset,
+        returns=returns,
+        quality_cap=1.0,
+        target_volatility=0.10,
+        onset_lambda=1.0,
+        ewma_span=5,
+    )
+    # Constant tiny returns → vol small → vol_multiplier clips to 1 → w≈0.8*0.5=0.4
+    assert sized["position"].dropna().iloc[-1] == pytest.approx(0.4, abs=0.05)
