@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Judgment Promotion Gate — thin wrapper.
 
-See Workbench/src/workbench/judgment/promotion_gate.py for core logic.
+See packages/workbench/src/workbench/judgment/promotion_gate.py for core logic.
 """
 from __future__ import annotations
 

@@ -28,17 +28,17 @@ owner, paths, and allowed communication points.
 
 | Thread | Status | Owns | Primary location | Context file | Tests |
 |---|---|---|---|---|---|
-| Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views | `Workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
-| Deformation Framework | `ACTIVE_PARTIAL` | Structural theory, operators, diagnostics, dynamics, claims | `deformation-framework/` | `module_contexts/framework.md` | 15 |
-| Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `structural-risk-harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
-| Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `Workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
+| Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views | `packages/workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
+| Deformation Framework | `ACTIVE_PARTIAL` | Structural theory, operators, diagnostics, dynamics, claims | `packages/framework/` | `module_contexts/framework.md` | 15 |
+| Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `packages/harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
+| Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `packages/workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
 | Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
-| Learning Hub | `ACTIVE_PARTIAL` | Governance memory, events, routing decisions, improvement queue | `system-learning-hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` | 7 |
-| Agent Routing | `ACTIVE_PARTIAL` | Sparse activation, expert routing, workflow guards; diagnostics only | `Workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
-| CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval | `caselab_context/`, `caselab_runtime/`, Paper `90_Admin/Context/` | `module_contexts/caselab-context.md` | — |
-| NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift | `Workbench/src/nlp/` | — | 3 |
-| ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `Workbench/src/ml/` | — | 3 |
-| Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/`, `scripts/run_historical_replay.py` | — | — |
+| Learning Hub | `ACTIVE_PARTIAL` | Governance memory, events, routing decisions, improvement queue | `packages/learning_hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` | 7 |
+| Agent Routing | `ACTIVE_PARTIAL` | Sparse activation, expert routing, workflow guards; diagnostics only | `packages/workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
+| CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval | `caselab_context/`, `caselab_runtime/`, Paper `/90_Admin/Context/` (external, under paper_root) | `module_contexts/caselab-context.md` | — |
+| NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift | `packages/workbench/src/nlp/` | — | 3 |
+| ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `packages/workbench/src/ml/` | — | 3 |
+| Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/`, `packages/framework/scripts/run_historical_replay.py` | — | — |
 | Qlib Benchmark | `REAL_EXPERIMENTAL` | Isolated benchmark runner, alpha metrics | `ExternalTools/qlib_benchmark_runner/` | — | 1 |
 | Research Terminal | `PAPER_RETAIN` | Embedded research terminal | `research_terminal/` | — | — |
 
@@ -85,17 +85,17 @@ Read first:
 - `protocols/current_card.schema.json`
 - `protocols/framework_output.schema.json`
 - `protocols/evidence.schema.json`
-- `Workbench/src/workbench/`
+- `packages/workbench/src/workbench/`
 
 For structural NLP (extraction, event cards, candidate ledger, promotion):
 
-- `Workbench/src/nlp/` — canonical implementation and NLP-domain protocol owner
+- `packages/workbench/src/nlp/` — canonical implementation and NLP-domain protocol owner
 - root `protocols/nlp_*.schema.json` — compatibility mirrors only
 
 Do not read first:
 
-- `deformation-framework/src/core/`
-- `deformation-framework/src/dynamics/`
+- `packages/framework/src/core/`
+- `packages/framework/src/dynamics/`
 - provider acquisition internals
 
 ## Deformation Framework
@@ -115,13 +115,13 @@ Read first:
 
 - `module_contexts/framework.md`
 - `protocols/framework_output.schema.json`
-- `deformation-framework/src/core/`
-- `deformation-framework/src/diagnostics/`
-- `deformation-framework/src/operators/`
+- `packages/framework/src/core/`
+- `packages/framework/src/diagnostics/`
+- `packages/framework/src/operators/`
 
 Do not read first:
 
-- `Workbench/src/workbench/`
+- `packages/workbench/src/workbench/`
 - Harvester provider code
 - generic dashboard renderers
 
@@ -142,7 +142,7 @@ Read first:
 - `module_contexts/harvester.md`
 - `protocols/evidence.schema.json`
 - `configs/freshness_policy.yaml`
-- `structural-risk-harvester/`
+- `packages/harvester/`
 
 Do not read first:
 
@@ -166,7 +166,7 @@ Read first:
 - `module_contexts/protocols.md`
 - `protocols/README.md`
 - `protocols/*.schema.json`
-- `Workbench/contracts/workbench/`
+- `packages/workbench/contracts/workbench/`
 
 Escalate after:
 
@@ -212,7 +212,7 @@ Read first:
 - `module_contexts/learning-hub.md`
 - `ROUTING_CONSTITUTION.md`
 - `routing_decision_record.template.yaml`
-- `system-learning-hub/`
+- `packages/learning_hub/`
 - `Data/system_learning/`
 - `Output/system_learning/`
 
@@ -244,7 +244,7 @@ Three external tools operate under strict module_authority boundaries:
 | Qlib | External sandbox executor only (RUN_ISOLATED_BENCHMARK) | `2026-05-17-qlib-executor-promotion.yaml` |
 
 Boundary rules:
-- OpenBB: Forbidden outside `structural-risk-harvester/`. Enforced by boundary test.
+- OpenBB: Forbidden outside `packages/harvester/`. Enforced by boundary test.
 - GluonTS: Outputs must pass through `semantic_registry` (PROXY_PROBABILISTIC, semantic_distance=2). Cannot support structural claims without constitution validation.
 - Qlib: Runner communicates only via `sandbox_input/` (read) and `qlib_output/` (write). Forbidden from `DEFINE_STRUCTURAL_TRUTH`, `WRITE_CORE_PROXY`, `MODIFY_DEFORMATION_OUTPUT`.
 

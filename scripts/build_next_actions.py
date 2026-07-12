@@ -55,7 +55,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "action": "Improve measurement quality",
             "reason": "Confidence is low due to proxy-reduced channels",
             "command": "Check framework_output.json quality_status",
-            "module": "deformation-framework",
+            "module": "packages/framework",
         })
 
     if "caselab" in blocked:
@@ -64,7 +64,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "action": "Wait for better historical analogy",
             "reason": f"CaseLab top score too low ({status['signals']['caselab'].get('top_score', 'N/A')})",
             "command": "No action needed — CaseLab will improve as more cases are added",
-            "module": "Workbench/src/nlp/caselab/",
+            "module": "packages/workbench/src/nlp/caselab/",
         })
 
     if "hmm" in blocked:
@@ -73,7 +73,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "action": "Improve HMM stability",
             "reason": f"HMM stability: {status['signals']['hmm'].get('stability_grade', 'N/A')}",
             "command": "Run more HMM fits to build history for rolling refit",
-            "module": "Workbench/src/ml/",
+            "module": "packages/workbench/src/ml/",
         })
 
     if "k_gate" in blocked:

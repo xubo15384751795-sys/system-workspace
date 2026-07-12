@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Judgment Layer — thin wrapper.
 
-See Workbench/src/workbench/judgment/layer.py for core logic.
+See packages/workbench/src/workbench/judgment/layer.py for core logic.
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from _workspace_imports import add_workbench_src
 
 add_workbench_src()
 
-from paper_freshness import check_paper_world_model_freshness
-from pending_evaluation import write_pending_evaluation
+from paper_freshness import check_paper_world_model_freshness  # noqa: I001
+from pending_evaluation import write_pending_evaluation  # noqa: I001
 
 from workbench.judgment.layer import (
     FW_PATH,

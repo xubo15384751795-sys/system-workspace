@@ -2,7 +2,7 @@
 
 Replaces independent np.mean aggregation with a coupled solver based on
 ODE drift equations. Each channel's value depends on the others through
-coupling coefficients derived from the deformation-framework's state
+coupling coefficients derived from the packages/framework's state
 evolution model.
 
 Algorithm:
@@ -12,7 +12,7 @@ Algorithm:
     3. Convergence check: stop when max change < tol
     4. Fallback: if no convergence, use last iteration values
 
-Coupling coefficients (from deformation-framework ODE engine):
+Coupling coefficients (from packages/framework ODE engine):
     alpha = 0.1   (relaxation rate)
     beta  = 0.05  (cross-channel coupling)
     chi   = 0.05  (M←D coupling, from Ṁ = F_S(z) - χ·M + ω·X)
