@@ -22,7 +22,14 @@ from typing import Any
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
-SYSTEM_ROOT = WORKBENCH_ROOT.parent
+def _resolve_system_root(workbench_root: Path) -> Path:
+    """Repo root for both legacy `Workbench/` and `packages/workbench` layouts."""
+    parent = workbench_root.parent
+    if workbench_root.name.lower() == "workbench" and parent.name == "packages":
+        return parent.parent
+    return parent
+
+SYSTEM_ROOT = _resolve_system_root(WORKBENCH_ROOT)
 RUNTIME_DIR = SYSTEM_ROOT / "Output" / "system_learning" / "runtime"
 CURSOR_DIR = RUNTIME_DIR / ".cursor"
 CURSOR_FILE = CURSOR_DIR / "cursor.json"

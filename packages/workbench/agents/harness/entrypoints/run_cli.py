@@ -9,7 +9,15 @@ from pathlib import Path
 
 
 HARNESS_ROOT = Path(__file__).resolve().parents[1]
-SYSTEM_ROOT = HARNESS_ROOT.parent.parent.parent
+
+def _resolve_system_root_from_harness(harness_root: Path) -> Path:
+    workbench_root = harness_root.parent.parent
+    parent = workbench_root.parent
+    if workbench_root.name.lower() == "workbench" and parent.name == "packages":
+        return parent.parent
+    return parent
+
+SYSTEM_ROOT = _resolve_system_root_from_harness(HARNESS_ROOT)
 RUN_SCRIPT = SYSTEM_ROOT / "scripts" / "run_pipeline_step.py"
 
 

@@ -1,0 +1,3 @@
+date,series_id,source_id,source_series_id,value,unit,frequency,vintage_date,quality_flag
+2026-05-01,VIXCLS,cboe,VIXCLS,17.10,index,business_daily,2026-05-02,observed
+2026-05-02,VIXCLS,cboe,VIXCLS,16.80,index,business_daily,2026-05-03,observed

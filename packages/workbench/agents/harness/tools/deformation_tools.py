@@ -11,7 +11,14 @@ from tools.registry import ToolResult, ToolSpec, _register
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
-WORKSPACE_ROOT = WORKBENCH_ROOT.parent
+def _resolve_system_root(workbench_root: Path) -> Path:
+    """Repo root for both legacy `Workbench/` and `packages/workbench` layouts."""
+    parent = workbench_root.parent
+    if workbench_root.name.lower() == "workbench" and parent.name == "packages":
+        return parent.parent
+    return parent
+
+WORKSPACE_ROOT = _resolve_system_root(WORKBENCH_ROOT)
 RUNS_ROOT = WORKSPACE_ROOT / "Output" / "deformation_runs"
 CANONICAL_SNAPSHOT_INDEX = WORKSPACE_ROOT / "Data" / "deformation" / "snapshots" / "index.json"
 
