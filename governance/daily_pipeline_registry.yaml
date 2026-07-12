@@ -461,7 +461,7 @@ steps:
     order: 9.5
     status: active
     owner: Workbench
-    command: python scripts/archive/build_measurement_quality_report.py
+    command: python scripts/build_measurement_quality_report.py
     schedule: weekly
     input: &id020mq
     - Output/k_measurement/k_measurement_gate.json
@@ -476,7 +476,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: callable
-      current_command: python scripts/archive/build_measurement_quality_report.py
+      current_command: python scripts/build_measurement_quality_report.py
       future_callable: scripts.build_measurement_quality_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -715,6 +715,38 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
+  paper_portfolio:
+    order: 16.25
+    status: active
+    owner: Strategy Lab
+    command: python scripts/strategy_lab/paper_portfolio.py
+    input: &id_paper_port_in
+    - Output/trade_decision/latest.json
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Output/sandbox/structural_replay_v2/all_signals.parquet
+    produces: &id_paper_port_out
+    - Output/position/paper_portfolio.json
+    - Output/position/paper_portfolio_nav.jsonl
+    - Output/position/paper_portfolio_latest.md
+    artifact_path: Output/position/paper_portfolio.json
+    ttl_hours: 48
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/strategy_lab/paper_portfolio.py
+      future_callable: scripts.strategy_lab.paper_portfolio:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_paper_port_in
+      outputs: *id_paper_port_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
   trade_decision_replay:
     order: 16.5
     status: active
@@ -1186,7 +1218,7 @@ steps:
     order: 22.5
     status: active
     owner: Workbench
-    command: python scripts/archive/build_evidence_grade_report.py
+    command: python scripts/build_evidence_grade_report.py
     schedule: weekly
     input: &id050_5
     - Output/judgment/latest.json
@@ -1204,7 +1236,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: callable
-      current_command: python scripts/archive/build_evidence_grade_report.py
+      current_command: python scripts/build_evidence_grade_report.py
       future_callable: scripts.build_evidence_grade_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal

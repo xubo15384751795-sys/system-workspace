@@ -85,6 +85,117 @@ historical_validation_suite:
   allowed_use:
   - backtesting
   - signal_validation
+professional_methods:
+  script: scripts/professional_methods.py
+  status: experimental
+  owner: Deformation Framework
+  description: Pure causal candidate methods; library only, never writes current state
+  allowed_use:
+  - shadow_method_validation
+  - statistical_method_comparison
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+run_professional_methodology:
+  script: scripts/run_professional_methodology.py
+  status: experimental
+  owner: Deformation Framework
+  description: Unified S1-S10 shadow evaluation runner; writes Output/validation only
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  - incremental_information_testing
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+run_capability_board:
+  script: scripts/run_capability_board.py
+  status: experimental
+  owner: Deformation Framework
+  description: Weekly capability board — residual vs public, paper NAV compare, event sensitivity
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  - weekly_capability_review
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+public_residual_stress:
+  script: scripts/public_residual_stress.py
+  status: experimental
+  owner: Deformation Framework
+  description: Public-index residual onset library (research/shadow only)
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+run_public_index_contrast:
+  script: scripts/run_public_index_contrast.py
+  status: experimental
+  owner: Deformation Framework
+  description: Public index contrast touchstone (OFR/NFCI/CISS vs ours); includes G1 interaction gate
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+run_framework_validation_protocol:
+  script: scripts/run_framework_validation_protocol.py
+  status: experimental
+  owner: Deformation Framework
+  description: Nonlinear-framework T6 event battery / baselines / ablations (research only)
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+shadow_mass_model:
+  script: scripts/shadow_mass_model.py
+  status: experimental
+  owner: Deformation Framework
+  description: WP-T1 shadow maturity-mass Kalman model (research; G2 synthetic gate)
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+absorption_capacity:
+  script: scripts/absorption_capacity.py
+  status: experimental
+  owner: Deformation Framework
+  description: WP-T2 absorption capacity A_t candidate (research only)
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+stability_diagnostics:
+  script: scripts/stability_diagnostics.py
+  status: experimental
+  owner: Deformation Framework
+  description: WP-T3 lambda_max / critical-slowing diagnostics (research only)
+  allowed_use:
+  - shadow_method_validation
+  - signal_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
+noncommutativity_probe:
+  script: scripts/noncommutativity_probe.py
+  status: experimental
+  owner: Deformation Framework
+  description: WP-T4 non-commutativity probe (research report only; no promotion path)
+  allowed_use:
+  - shadow_method_validation
+  forbidden_use:
+  - current_output_generation
+  - production_signal_generation
 regime_router:
   script: scripts/archive/regime_router.py
   status: active
@@ -154,6 +265,17 @@ record_trade_decision:
   owner: Learning Hub
   allowed_use:
   - trade_decision_recording
+paper_portfolio:
+  script: scripts/strategy_lab/paper_portfolio.py
+  status: active
+  owner: Strategy Lab
+  description: Shadow paper NAV with public-level × residual-onset continuous sizing; level/onset alerts via _notify
+  allowed_use:
+  - paper_portfolio_nav
+  - shadow_calibration
+  forbidden_use:
+  - live_execution
+  - affect_core_judgment
 routing_cli:
   script: packages/workbench/agents/harness/entrypoints/routing_cli.py
   status: shadow_active
@@ -347,7 +469,7 @@ refresh_improvement_queue_report:
   allowed_use:
   - learning_hub_reporting
 build_evidence_grade_report:
-  script: scripts/archive/build_evidence_grade_report.py
+  script: scripts/build_evidence_grade_report.py
   status: active
   owner: Workbench
   description: Build structured evidence grade report with contributor details, blockers, and upgrade path
@@ -408,7 +530,7 @@ build_qlib_structural_bridge:
   - validation_only
   can_affect_core_judgment: false
 build_measurement_quality_report:
-  script: scripts/archive/build_measurement_quality_report.py
+  script: scripts/build_measurement_quality_report.py
   status: active
   owner: Harvester
   description: K/X measurement quality sidecar from gate validation

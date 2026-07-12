@@ -63,6 +63,11 @@ def notify_failure(title: str, message: str) -> bool:
     return desktop_ok or webhook_ok
 
 
+def notify_alert(title: str, message: str) -> bool:
+    """Risk / stance alert (same channels as notify_failure; neutral naming)."""
+    return notify_failure(title, message)
+
+
 def _notify_desktop(title: str, message: str) -> bool:
     """Show a macOS desktop notification. Returns True if a notifier ran."""
     if platform.system() != "Darwin":

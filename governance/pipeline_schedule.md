@@ -1,9 +1,9 @@
 # Pipeline Schedule — Daily / Weekly / On-Demand
 
-> Updated 2026-07-11b. Shadow card + evaluate_pending restored to daily; velocity gate recorded on signal card / ledger.
+> Updated 2026-07-11d. Paper portfolio scales shadow target by trade_decision effective_size (stance×size); public λ=0 stress; paper_sync refreshes TTL on unchanged Paper.
 > Authority: `governance/daily_run_sequence.yaml` (order + schedule); registry metadata in `daily_pipeline_registry.yaml`.
 
-## Daily (29 steps) — Signal-blocking, every run
+## Daily (30 steps) — Signal-blocking, every run
 
 These steps form the core signal chain. If any fails, the same-day judgment or trade path is affected.
 
@@ -26,18 +26,19 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 | 15 | trade_decision | Trade decision |
 | 16 | risk_gate | Risk gate |
 | 17 | record_trade_decision | Record to ledger (incl. velocity_gate_state) |
-| 18 | signal_card | Signal card output (incl. Velocity Gate section) |
-| 19 | signal_consensus | Signal consensus |
-| 20 | market_feedback | Market feedback diagnostics |
-| 21 | refresh_cross_asset_panel | ETF workspace mirror (yfinance); content-freshness guarded |
-| 22 | evaluate_pending | 1d/1w/1m outcomes + WATCH counterfactuals |
-| 23 | strategy_lab_shadow | Daily shadow decision card |
-| 24 | shadow_outcomes_90d | Aggregate shadow card outcomes |
-| 25 | freshness_validator | Output + content freshness validation |
-| 26 | system_index | System index |
-| 27 | current_status | Daily status.json snapshot |
-| 28 | work_brief | Work brief |
-| 29 | record_daily_run_event | Hub run event + calibration snapshot |
+| 18 | paper_portfolio | Shadow NAV mom×public×effective_size vs 60/40; level/EXIT alerts |
+| 19 | signal_card | Signal card output (incl. Velocity Gate section) |
+| 20 | signal_consensus | Signal consensus |
+| 21 | market_feedback | Market feedback diagnostics |
+| 22 | refresh_cross_asset_panel | ETF workspace mirror (yfinance); content-freshness guarded |
+| 23 | evaluate_pending | 1d/1w/1m outcomes + WATCH counterfactuals |
+| 24 | strategy_lab_shadow | Daily shadow decision card |
+| 25 | shadow_outcomes_90d | Aggregate shadow card outcomes |
+| 26 | freshness_validator | Output + content freshness validation |
+| 27 | system_index | System index |
+| 28 | current_status | Daily status.json snapshot |
+| 29 | work_brief | Work brief |
+| 30 | record_daily_run_event | Hub run event + calibration snapshot |
 
 **Automation:** macOS `com.system.daily-run` launchd → `scripts/orchestrate.sh daily` (default 07:00 local).
 

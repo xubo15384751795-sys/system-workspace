@@ -8,6 +8,8 @@ purpose: >
   Slimmed 2026-07-03: moved 9 sidecar/reporting steps daily→weekly (25 daily, 46 weekly).
   Restored 2026-07-11: refresh_cross_asset_panel weekly→daily (26 daily, 45 weekly).
   Restored 2026-07-11b: strategy_lab_shadow, shadow_outcomes_90d, evaluate_pending → daily (29 daily, 42 weekly).
+  Added 2026-07-11c: paper_portfolio after record_trade_decision (30 daily).
+  Updated 2026-07-11d: paper_portfolio scales by trade_decision effective_size; paper_sync TTL heartbeat.
 
 steps:
   # ── DATA ACQUISITION ──────────────────────────────────────────────
@@ -47,6 +49,8 @@ steps:
   - id: risk_gate
   - id: record_trade_decision
     description: Risk gate + record to ledger (merged 2026-06-20, was separate record_trade_decision step)
+  - id: paper_portfolio
+    description: Shadow NAV — mom × public_lambda0 × effective_size; velocity EXIT + level alerts; vs 60/40
   - id: signal_card
   - id: signal_consensus
 

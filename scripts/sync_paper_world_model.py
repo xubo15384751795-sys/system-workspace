@@ -500,12 +500,21 @@ def run_sync(
         except (json.JSONDecodeError, OSError):
             existing = None
         if existing and existing.get("paper_mtime_hash") == current_hash:
+            # Hash match confirms Paper is still current — refresh TTL heartbeat.
+            # Without this, skip leaves synced_at frozen and trade size steps down forever.
+            existing["synced_at"] = synced_at
+            existing["freshness_check"] = "paper_unchanged_heartbeat"
+            ensure_dir(output_dir)
+            existing_manifest_path.write_text(
+                json.dumps(existing, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
             if not quiet_on_success:
-                print("Paper unchanged — skipping sync (use --force to override)")
+                print("Paper unchanged — freshness heartbeat updated (use --force to rescan)")
             return {
                 "skipped": True,
                 "reason": "paper_unchanged",
-                "synced_at": existing.get("synced_at"),
+                "synced_at": synced_at,
                 "manifest": str(existing_manifest_path),
                 **(existing.get("record_counts") or {}),
             }

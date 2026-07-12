@@ -267,7 +267,10 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
         }
 
     approved_sources, background_sources = find_paper_sources(caselab, judgment)
-    freshness = judgment.get("paper_world_model_freshness") or check_paper_world_model_freshness()
+    # Live freshness wins over judgment-card cache — otherwise a recovered
+    # paper_sync cannot undo permanent size step-down (constitution: stale→step-down,
+    # but only while actually stale).
+    freshness = check_paper_world_model_freshness()
     risk_notes: list[str] = []
     if freshness.get("stale"):
         risk_notes.append(
