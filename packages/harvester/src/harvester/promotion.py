@@ -71,6 +71,8 @@ def run_promotion_gate(
     has_lookahead_violation: bool = False,
     empty_panels: list[str] | None = None,
     retired_in_current_input: bool = False,
+    cross_asset_row_count: int | None = None,
+    cross_asset_symbol_count: int | None = None,
 ) -> GateResult:
     checks: list[GateCheck] = []
     blockers: list[str] = []
@@ -152,6 +154,27 @@ def run_promotion_gate(
         checks.append(GateCheck("no_empty_required_panels", False, str(empty)))
     else:
         checks.append(GateCheck("no_empty_required_panels", True))
+
+    # Cross-asset history is an input to K/X validation and forward-event
+    # scoring. A few fresh rows must not replace a full historical panel.
+    if cross_asset_row_count is not None:
+        symbol_count = max(1, int(cross_asset_symbol_count or 0))
+        minimum_rows = 252 * symbol_count
+        if cross_asset_row_count < minimum_rows:
+            detail = (
+                f"rows={cross_asset_row_count}, symbols={symbol_count}, "
+                f"minimum_rows={minimum_rows}"
+            )
+            blockers.append(f"cross-asset historical coverage regression: {detail}")
+            checks.append(GateCheck("cross_asset_history_preserved", False, detail))
+        else:
+            checks.append(
+                GateCheck(
+                    "cross_asset_history_preserved",
+                    True,
+                    f"rows={cross_asset_row_count}, symbols={symbol_count}",
+                )
+            )
 
     # ------------------------------------------------------------------
     # Check 7: Retired series not in current input

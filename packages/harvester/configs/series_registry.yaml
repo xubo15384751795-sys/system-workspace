@@ -45,6 +45,11 @@ providers:
     kind: public_file
     url: https://www.financialresearch.gov/financial-stress-index/
     note: "Direct CSV download from OFR website."
+  external_public:
+    source_id: external_public
+    kind: public_api
+    url: https://publicreporting.cftc.gov/
+    note: "Batch-2 public leverage feeds via harvester.providers.external_indicators (CFTC/NY Fed/FINRA)."
   cboe_direct:
     source_id: cboe
     kind: public_file
@@ -256,6 +261,72 @@ series:
     allow_synthetic_proxy: true
     synthetic_proxy_id: STLFSI  # fallback to St. Louis Fed stress index when OFR unavailable
     description: "OFR Financial Stress Index — systemic stress measurement (degraded, see STLFSI proxy)"
+
+  # -------------------------------------------------------------------
+  # Batch-2 leverage / positioning (X_agg feeds) — free public sources
+  # Acquired via harvester.providers.external_indicators KNOWN_INDICATORS.
+  # -------------------------------------------------------------------
+  CFTC_TFF_LEV_SP:
+    canonical_id: CFTC_TFF_LEV_SP
+    provider_priority: [external_public]
+    measurement_block: shadow_leverage
+    structural_role: leveraged_fund_equity_net_position
+    frequency: weekly
+    unit: contracts
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "CFTC TFF Leveraged Funds net position in E-mini S&P 500 (weekly)."
+
+  NYFED_PD_TREASURY_NET:
+    canonical_id: NYFED_PD_TREASURY_NET
+    provider_priority: [external_public]
+    measurement_block: shadow_leverage
+    structural_role: primary_dealer_treasury_net_position
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "NY Fed Primary Dealer net Treasury positions excl. TIPS (PDPOSGST-TOT, weekly)."
+
+  NYFED_PD_TREASURY_LE2Y:
+    canonical_id: NYFED_PD_TREASURY_LE2Y
+    provider_priority: [external_public]
+    measurement_block: shadow_leverage
+    structural_role: primary_dealer_treasury_le2y
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "NY Fed PD Treasury coupons due ≤2y (PDPOSGSC-L2). Partial maturity bucket for T1."
+
+  NYFED_PD_TREASURY_GT11Y:
+    canonical_id: NYFED_PD_TREASURY_GT11Y
+    provider_priority: [external_public]
+    measurement_block: shadow_leverage
+    structural_role: primary_dealer_treasury_gt11y
+    frequency: weekly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    description: "NY Fed PD Treasury coupons due >11y (PDPOSGSC-G11). Partial maturity bucket for T1."
+
+  FINRA_MARGIN_DEBT:
+    canonical_id: FINRA_MARGIN_DEBT
+    provider_priority: [external_public]
+    measurement_block: shadow_leverage
+    structural_role: retail_margin_debt
+    frequency: monthly
+    unit: mil_usd
+    required_for_release: false
+    required_for_model_input: false
+    quality_expectation: observed
+    allow_synthetic_proxy: true
+    synthetic_proxy_id: BOGZ1FL663067003Q
+    description: "FINRA customer margin debit balances (monthly). Z.1 BOGZ1FL663067003Q is quarterly proxy."
 
   # -------------------------------------------------------------------
   # M channel — funding / transmission
@@ -972,30 +1043,3 @@ series:
     required_for_model_input: false
     quality_expectation: observed
     description: "Broker-Dealer Corporate Equities Long Positions — quarterly, 1945+."
-
-  # -------------------------------------------------------------------
-  # K channel — curvature / tail risk (options-derived)
-  # -------------------------------------------------------------------
-  SKEW:
-    canonical_id: SKEW
-    provider_priority: [openbb_yfinance]
-    measurement_block: tail_risk
-    structural_role: skew_index
-    frequency: daily
-    unit: index
-    required_for_release: false
-    required_for_model_input: false
-    quality_expectation: observed
-    description: "CBOE SKEW Index — measures tail risk pricing in S&P 500 options. Available 2010+."
-
-  VVIX:
-    canonical_id: VVIX
-    provider_priority: [openbb_yfinance]
-    measurement_block: vol_of_vol
-    structural_role: vol_of_vol_index
-    frequency: daily
-    unit: index
-    required_for_release: false
-    required_for_model_input: false
-    quality_expectation: observed
-    description: "CBOE VVIX — volatility of VIX (vol-of-vol). Measures second-order stress. Available 2012+."

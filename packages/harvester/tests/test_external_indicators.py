@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from harvester.providers.external_indicators import (
     CISS,
+    NYFED_PD_TREASURY_NET,
     external_series_to_long_panel,
     fetch_external_indicator,
     write_template_csv,
@@ -49,3 +50,41 @@ def test_write_template_csv(tmp_path) -> None:
 
     assert path.exists()
     assert "TIME_PERIOD" in path.read_text(encoding="utf-8")
+
+
+def test_nyfed_json_cache_is_normalized_to_csv(tmp_path) -> None:
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    raw = (
+        '{"pd":{"timeseries":['
+        '{"asofdate":"2013-04-03","keyid":"PDPOSGST-TOT","value":"108014"},'
+        '{"asofdate":"2013-04-10","keyid":"PDPOSGST-TOT","value":"137924"}'
+        "]}}"
+    )
+    path = cache / "nyfed_pd_treasury_net.csv"
+    path.write_text(raw, encoding="utf-8")
+
+    series = fetch_external_indicator(NYFED_PD_TREASURY_NET, cache_dir=cache)
+    healed = path.read_text(encoding="utf-8")
+    assert len(series) == 2
+    assert healed.lstrip().startswith("Date")
+    assert "108014" in healed
+    assert not healed.lstrip().startswith("{")
+
+
+def test_ciss_sdmx_cache_is_normalized_to_slim_csv(tmp_path) -> None:
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    raw = (
+        "KEY,FREQ,REF_AREA,TIME_PERIOD,OBS_VALUE\n"
+        "CISS.D,D,U2,2020-01-02,0.11\n"
+        "CISS.D,D,U2,2020-01-03,0.12\n"
+    )
+    path = cache / "ciss.csv"
+    path.write_text(raw, encoding="utf-8")
+
+    series = fetch_external_indicator(CISS, cache_dir=cache)
+    healed = path.read_text(encoding="utf-8")
+    assert len(series) == 2
+    assert healed.lstrip().startswith("TIME_PERIOD")
+    assert "KEY,FREQ" not in healed.splitlines()[0]

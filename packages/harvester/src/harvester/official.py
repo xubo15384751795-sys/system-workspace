@@ -898,7 +898,10 @@ def stage_complete_release(
         release_id=release_id,
         as_of_date=as_of_date,
         vintage_date=vintage_date,
-        workspace=Path.cwd(),
+        # CLI is normally launched from packages/harvester; derive the shared
+        # System workspace from the canonical data root so history is merged
+        # from /System/Data rather than an accidental package-local /Data.
+        workspace=data_root().resolve().parents[1],
     )
 
     # ------------------------------------------------------------------
@@ -992,6 +995,8 @@ def stage_complete_release(
         panel_series_ids=panel_ids,
         sha256_verified=True,
         empty_panels=["corpus_index"] if proxy_row_count == 0 else [],
+        cross_asset_row_count=int(cross_asset_info.get("row_count", 0)),
+        cross_asset_symbol_count=int(cross_asset_info.get("symbol_count", 0)),
     )
     write_gate_report(gate_result, release_id, release_dir)
 

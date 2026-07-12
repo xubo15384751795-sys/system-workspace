@@ -5,6 +5,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -83,7 +84,110 @@ OFR_FSI = ExternalIndicator(
     ),
 )
 
-KNOWN_INDICATORS: tuple[ExternalIndicator, ...] = (CISS, SRISK, COVAR, OFR_FSI)
+CFTC_TFF_LEV_SP = ExternalIndicator(
+    name="CFTC_TFF_LEV_SP",
+    series_id="CFTC_TFF_LEV_SP",
+    description=(
+        "CFTC Traders in Financial Futures — Leveraged Funds net position in "
+        "E-mini S&P 500 (weekly). Extreme positioning + stress onset = forced-delever risk."
+    ),
+    publisher_url=(
+        "https://publicreporting.cftc.gov/resource/gpe5-46if.csv?"
+        "$select=report_date_as_yyyy_mm_dd,market_and_exchange_names,"
+        "lev_money_positions_long,lev_money_positions_short"
+        "&$where=upper(market_and_exchange_names)%20like%20%27%25E-MINI%20S%26P%20500%25%27"
+        "&$order=report_date_as_yyyy_mm_dd"
+        "&$limit=50000"
+    ),
+    instructions=(
+        "Manual fallback: open https://publicreporting.cftc.gov/Commitments-of-Traders/"
+        "TFF-Futures-Only/gpe5-46if, filter E-MINI S&P 500, export CSV with report date "
+        "and leveraged money long/short columns as cftc_tff_lev_sp.csv."
+    ),
+)
+
+NYFED_PD_TREASURY_NET = ExternalIndicator(
+    name="NYFED_PD_TREASURY_NET",
+    series_id="NYFED_PD_TREASURY_NET",
+    description=(
+        "NY Fed Primary Dealer net outright Treasury positions excluding TIPS "
+        "(PDPOSGST-TOT, weekly). Direct shadow-leverage / dealer balance-sheet observation."
+    ),
+    publisher_url="https://markets.newyorkfed.org/api/pd/get/PDPOSGST-TOT.json",
+    instructions=(
+        "Manual fallback: download "
+        "https://markets.newyorkfed.org/api/pd/get/PDPOSGST-TOT.json "
+        "or export Primary Dealer Statistics PDPOSGST-TOT; save as "
+        "nyfed_pd_treasury_net.csv with columns Date,value."
+    ),
+)
+
+# Verified Markets API keyids (2026-07-12 probe). Full paper J=5 not published under
+# guessed PDPOSGSC-L26/L611 names; register the live partial-maturity observations.
+NYFED_PD_TREASURY_LE2Y = ExternalIndicator(
+    name="NYFED_PD_TREASURY_LE2Y",
+    series_id="NYFED_PD_TREASURY_LE2Y",
+    description="NY Fed PD net Treasury coupons due ≤2y (PDPOSGSC-L2, weekly).",
+    publisher_url="https://markets.newyorkfed.org/api/pd/get/PDPOSGSC-L2.json",
+    instructions="Manual fallback: save PDPOSGSC-L2 JSON/CSV as nyfed_pd_treasury_le2y.csv with Date,value.",
+)
+
+NYFED_PD_TREASURY_GT11Y = ExternalIndicator(
+    name="NYFED_PD_TREASURY_GT11Y",
+    series_id="NYFED_PD_TREASURY_GT11Y",
+    description="NY Fed PD net Treasury coupons due >11y (PDPOSGSC-G11, weekly).",
+    publisher_url="https://markets.newyorkfed.org/api/pd/get/PDPOSGSC-G11.json",
+    instructions="Manual fallback: save PDPOSGSC-G11 JSON/CSV as nyfed_pd_treasury_gt11y.csv with Date,value.",
+)
+
+FINRA_MARGIN_DEBT = ExternalIndicator(
+    name="FINRA_MARGIN_DEBT",
+    series_id="FINRA_MARGIN_DEBT",
+    description="FINRA debit balances in customers' securities margin accounts (monthly, USD millions).",
+    publisher_url="https://www.finra.org/investors/learn-to-invest/advanced-investing/margin-statistics",
+    instructions=(
+        "Manual fallback: download FINRA Margin Statistics CSV from finra.org and save "
+        "as finra_margin_debt.csv with columns Date,DebitBalances. "
+        "FRED series BOGZ1FL663067003Q remains the quarterly Fed Z.1 equivalent."
+    ),
+)
+
+KNOWN_INDICATORS: tuple[ExternalIndicator, ...] = (
+    CISS,
+    SRISK,
+    COVAR,
+    OFR_FSI,
+    CFTC_TFF_LEV_SP,
+    NYFED_PD_TREASURY_NET,
+    NYFED_PD_TREASURY_LE2Y,
+    NYFED_PD_TREASURY_GT11Y,
+    FINRA_MARGIN_DEBT,
+)
+
+
+def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
+    """Write slim Date/value CSV so naive readers never see raw JSON/SDMX."""
+    frame = pd.DataFrame(
+        {
+            "Date" if indicator_name != "CISS" else "TIME_PERIOD": pd.to_datetime(series.index),
+            "value" if indicator_name != "CISS" else "OBS_VALUE": pd.to_numeric(series, errors="coerce"),
+        }
+    ).dropna()
+    if indicator_name == "CISS":
+        frame.columns = ["TIME_PERIOD", "OBS_VALUE"]
+        frame["TIME_PERIOD"] = pd.to_datetime(frame["TIME_PERIOD"]).dt.strftime("%Y-%m-%d")
+    else:
+        frame.columns = ["Date", "value"]
+        frame["Date"] = pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d")
+    return frame.to_csv(index=False)
+
+
+def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Series) -> None:
+    """Rewrite cache to canonical CSV after a successful parse."""
+    try:
+        cache_path.write_text(_canonical_cache_text(indicator_name, series), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def fetch_external_indicator(
@@ -98,14 +202,22 @@ def fetch_external_indicator(
 
     if cache_path.exists() and not refresh:
         try:
-            return parser(cache_path.read_text(encoding="utf-8"))
+            series = parser(cache_path.read_text(encoding="utf-8"))
+            # Heal legacy JSON-as-csv / SDMX-wide caches in place.
+            raw_head = cache_path.read_text(encoding="utf-8")[:200].lstrip()
+            needs_normalize = raw_head.startswith("{") or (
+                indicator.name == "CISS" and "KEY,FREQ" in raw_head
+            )
+            if needs_normalize and not series.empty:
+                _normalize_cache_file(cache_path, indicator.name, series)
+            return series
         except Exception:
             pass
 
     try:
         text = _download(indicator.publisher_url, timeout_sec=timeout_sec)
         series = parser(text)
-        cache_path.write_text(text, encoding="utf-8")
+        _normalize_cache_file(cache_path, indicator.name, series)
         return series
     except Exception as exc:
         if cache_path.exists():
@@ -268,19 +380,98 @@ def _parse_covar_csv(text: str) -> pd.Series:
     return out[~out.index.isna()].dropna().sort_index()
 
 
+def _parse_cftc_tff_lev_sp(text: str) -> pd.Series:
+    frame = pd.read_csv(StringIO(text))
+    date_col = next(
+        (c for c in frame.columns if "report_date" in c.lower() or c.lower() == "date"),
+        None,
+    )
+    long_col = next((c for c in frame.columns if "lev_money" in c.lower() and "long" in c.lower()), None)
+    short_col = next((c for c in frame.columns if "lev_money" in c.lower() and "short" in c.lower()), None)
+    if date_col is None or long_col is None or short_col is None:
+        raise ValueError("Unexpected CFTC TFF schema; need report date + lev money long/short")
+    dates = pd.to_datetime(frame[date_col], errors="coerce")
+    net = pd.to_numeric(frame[long_col], errors="coerce") - pd.to_numeric(frame[short_col], errors="coerce")
+    out = pd.Series(net.to_numpy(), index=dates, name="CFTC_TFF_LEV_SP")
+    # Aggregate duplicate markets/dates by sum (rare) then weekly last.
+    out = out[~out.index.isna()].dropna().groupby(level=0).sum().sort_index()
+    return out
+
+
+def _parse_nyfed_pd_treasury(text: str, *, series_name: str = "NYFED_PD_TREASURY_NET") -> pd.Series:
+    text = text.strip()
+    if text.startswith("{"):
+        import json
+
+        payload = json.loads(text)
+        rows = payload.get("pd", {}).get("timeseries", [])
+        if not rows:
+            raise ValueError("NY Fed PD JSON missing timeseries rows")
+        dates = pd.to_datetime([row.get("asofdate") for row in rows], errors="coerce")
+        values = pd.to_numeric([row.get("value") for row in rows], errors="coerce")
+        out = pd.Series(np.asarray(values, dtype=float), index=dates, name=series_name)
+        return out[~out.index.isna()].dropna().sort_index()
+    frame = pd.read_csv(StringIO(text))
+    date_col = next((c for c in frame.columns if c.lower() in {"date", "asofdate", "as_of_date"}), None)
+    value_col = next((c for c in frame.columns if c.lower() in {"value", "obs_value"}), None)
+    if date_col is None or value_col is None:
+        raise ValueError("Unexpected NY Fed PD CSV schema")
+    dates = pd.to_datetime(frame[date_col], errors="coerce")
+    values = pd.to_numeric(frame[value_col], errors="coerce")
+    out = pd.Series(values.to_numpy(), index=dates, name=series_name)
+    return out[~out.index.isna()].dropna().sort_index()
+
+
+def _parse_nyfed_pd_treasury_le2y(text: str) -> pd.Series:
+    return _parse_nyfed_pd_treasury(text, series_name="NYFED_PD_TREASURY_LE2Y")
+
+
+def _parse_nyfed_pd_treasury_gt11y(text: str) -> pd.Series:
+    return _parse_nyfed_pd_treasury(text, series_name="NYFED_PD_TREASURY_GT11Y")
+
+
+def _parse_finra_margin_debt(text: str) -> pd.Series:
+    frame = pd.read_csv(StringIO(text))
+    date_col = next((c for c in frame.columns if c.lower() in {"date", "month", "year_month"}), None)
+    value_col = next(
+        (
+            c
+            for c in frame.columns
+            if c.lower() in {"debitbalances", "debit_balances", "margin_debt", "value", "obs_value"}
+        ),
+        None,
+    )
+    if date_col is None or value_col is None:
+        raise ValueError("Unexpected FINRA margin CSV; need Date and DebitBalances")
+    dates = pd.to_datetime(frame[date_col], errors="coerce")
+    values = pd.to_numeric(frame[value_col], errors="coerce")
+    out = pd.Series(values.to_numpy(), index=dates, name="FINRA_MARGIN_DEBT")
+    return out[~out.index.isna()].dropna().sort_index()
+
+
 _PARSERS: dict[str, Callable[[str], pd.Series]] = {
     "CISS": _parse_ciss_csv,
     "SRISK": _parse_srisk_csv,
     "COVAR": _parse_covar_csv,
     "OFR_FSI": _parse_ofr_fsi_csv,
+    "CFTC_TFF_LEV_SP": _parse_cftc_tff_lev_sp,
+    "NYFED_PD_TREASURY_NET": _parse_nyfed_pd_treasury,
+    "NYFED_PD_TREASURY_LE2Y": _parse_nyfed_pd_treasury_le2y,
+    "NYFED_PD_TREASURY_GT11Y": _parse_nyfed_pd_treasury_gt11y,
+    "FINRA_MARGIN_DEBT": _parse_finra_margin_debt,
 }
 
 
 __all__ = [
     "CISS",
     "COVAR",
+    "CFTC_TFF_LEV_SP",
+    "FINRA_MARGIN_DEBT",
     "KNOWN_INDICATORS",
     "ManualDownloadRequired",
+    "NYFED_PD_TREASURY_GT11Y",
+    "NYFED_PD_TREASURY_LE2Y",
+    "NYFED_PD_TREASURY_NET",
     "OFR_FSI",
     "SRISK",
     "ExternalIndicator",

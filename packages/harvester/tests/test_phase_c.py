@@ -755,3 +755,32 @@ class TestPromotionGate:
         )
         assert result.state == PromotionState.REJECTED
         assert any("empty" in b.lower() for b in result.blockers)
+
+    def test_cross_asset_history_regression_blocks(self, registry, temp_release_dir):
+        from harvester.promotion import PromotionState, run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            cross_asset_row_count=170,
+            cross_asset_symbol_count=34,
+        )
+        assert result.state == PromotionState.REJECTED
+        assert any(c.name == "cross_asset_history_preserved" and not c.passed for c in result.checks)
+
+    def test_cross_asset_history_sufficient_for_symbols_passes(self, registry, temp_release_dir):
+        from harvester.promotion import run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            cross_asset_row_count=34 * 252,
+            cross_asset_symbol_count=34,
+        )
+        assert not any("cross-asset historical coverage" in blocker for blocker in result.blockers)
