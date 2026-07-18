@@ -1,0 +1,141 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-18"
+task_id: flagship-stock-severity-prereg
+status: FROZEN
+mission: >
+  Freeze the paper flagship hypothesis before the T1 real-data fit: latent
+  fragility stock accumulates fastest in tranquil periods, and its pre-event
+  level predicts subsequent event severity rather than event timing.
+
+amends:
+  record: governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+  clause: freeze_note
+  amendment_scope: >
+    Adds two paper-facing stock hypotheses and their tests. It does not alter
+    the parent split, events, parameter signs, G2 gate, promotion criteria, or
+    operational routing.
+
+line_separation:
+  operations: no_change
+  research: T1_real_data_only_after_G2_and_data_admission
+  paper: >
+    Paper A may label these statements HYPOTHESIS and cite this record. It may
+    not report support before a frozen verdict artifact exists.
+
+preregistered_hypotheses:
+  H_stock_accumulation:
+    statement: >
+      Weekly growth in the filtered aggregate fragility stock X_stock_agg is
+      negatively associated with contemporaneous market volatility: hidden
+      fragility accumulates faster in tranquil periods.
+    estimand: >
+      beta_vol in Delta log(1 + X_stock_agg_t) = alpha + beta_vol * vol_t +
+      gamma' controls_t + error_t.
+    expected_sign: beta_vol < 0
+    primary_volatility: VIX_close_weekly_mean
+    robustness_volatility: realized_volatility_SPY_20d
+    controls:
+      - lagged_Delta_log_X_stock_agg
+      - channel_M
+      - D_stress
+      - channel_K
+    inference: Newey_West_HAC_8_lags
+    pass: beta_vol < 0 AND two_sided_p_value < 0.05
+    fail: beta_vol >= 0 OR two_sided_p_value >= 0.05
+
+  H_stock_severity_not_timing:
+    statement: >
+      The pre-event level of X_stock_agg predicts the severity of a subsequent
+      funding-market event, but is not asserted to predict its exact onset.
+    event_universe: parent_event_battery_E2_E3_E4_E5
+    pre_event_window: mean_zscore_X_stock_agg_days_t_minus_60_to_t_minus_21
+    severity_index: >
+      Within-event z-score average of peak funding spread, peak MOVE, maximum
+      TLT drawdown magnitude, and peak HY-OAS widening, using only components
+      applicable to that event and scale parameters frozen on train.
+    primary_model: >
+      severity_i = alpha + beta_X * pre_event_X_i + delta' event_type_i + error_i
+    expected_sign: beta_X > 0
+    inference: event_level_HC3
+    pass: beta_X > 0 AND one_sided_p_value < 0.05
+    fail: beta_X <= 0 OR one_sided_p_value >= 0.05
+    timing_non_claim:
+      rule: >
+        Event-onset hazard/timing is reported descriptively only. A timing
+        association cannot rescue a failed severity test, and lack of timing
+        power does not fail the preregistered severity hypothesis.
+
+sample_and_freeze:
+  train: "through 2018-12-31"
+  validation: "2019-01-01 through 2021-12-31"
+  holdout: "2022-01-01 onward"
+  embargo_days: 20
+  inherited_from_parent: true
+  no_retuning_on_validation_or_holdout: true
+
+data_gate:
+  required:
+    - G2 synthetic recovery remains passed under the parent normalization
+    - admitted T1 observation matrix with recorded H and point-in-time lags
+    - NY Fed keyid coverage decision recorded before real-data fitting
+    - frozen event and severity tables generated without look-ahead
+  blocked_behavior: >
+    If any requirement is absent, status is NOT_TESTED_DATA_BLOCKED. Paper A
+    retains hypothesis text and design only; no direction-of-effect language
+    may be inferred from proxies or synthetic data.
+
+multiplicity_and_robustness:
+  primary_family: [H_stock_accumulation, H_stock_severity_not_timing]
+  family_adjustment: Holm_at_0.05
+  robustness_does_not_rescue_primary: true
+  prohibited:
+    - alternative_X_smoothing_selected_on_holdout
+    - event_definition_changes_after_verdict
+    - removing_2020_or_2023_as_outliers
+    - replacing_severity_with_timing_after_failure
+
+verdict_artifact:
+  required_path: Output/validation/flagship_stock_hypothesis/verdict.json
+  required_fields:
+    - parent_prereg_sha
+    - this_prereg_sha
+    - data_release_id
+    - observation_operator_H
+    - sample_counts
+    - coefficients
+    - standard_errors
+    - raw_p_values
+    - holm_adjusted_p_values
+    - per_hypothesis_verdict
+    - overall_verdict
+  allowed_overall_verdicts:
+    - SUPPORTED_BOTH
+    - SUPPORTED_ACCUMULATION_ONLY
+    - SUPPORTED_SEVERITY_ONLY
+    - NOT_SUPPORTED
+    - NOT_TESTED_DATA_BLOCKED
+
+paper_wording_contract:
+  before_verdict: >
+    This is the paper's core measurable hypothesis. Its design was
+    preregistered before real-data fitting and will be executed after the T1
+    data-admission gate is satisfied.
+  supported: wording_may_state_support_with_effect_size_and_failure_domain
+  not_supported: wording_must_state_not_supported_and_retain_design
+  blocked: wording_must_state_not_tested_due_to_data_gate
+
+artifacts_touched:
+  - governance/routing_decisions/2026-07-18-flagship-stock-hypothesis-prereg.yaml
+
+constitution_alignment:
+  - registration precedes real-data fitting
+  - hypothesis status cannot be promoted by prose
+  - negative and blocked outcomes are publishable
+  - no operational side effects
+
+verification:
+  - parent prereg exists and is FROZEN
+  - this record has status FROZEN
+  - expected signs and pass/fail criteria are explicit
+  - parent holdout and embargo are unchanged
+  - paper wording contract contains no result claim

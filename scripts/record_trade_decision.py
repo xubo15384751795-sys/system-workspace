@@ -18,13 +18,15 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json
+from system_runtime.events import EventEnvelope, JsonlEventStore
 
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
 RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
@@ -143,6 +145,7 @@ def build_ledger_entry(
         ),
         "velocity_gate": vg,
         "trade_thesis": decision.get("trade_thesis", {}),
+        "learning_trace": decision.get("learning_trace"),
         "decision_fingerprint": decision_fingerprint(decision),
         "forward_outcome": None,  # claim continuity (claim_evaluator)
         "market_forward_outcome": None,  # filled by trade_decision_replay / evaluate backfill
@@ -168,21 +171,17 @@ def decision_fingerprint(decision: dict[str, Any]) -> str:
 
 
 def _load_ledger(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    entries = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                entries.append(json.loads(line))
-    return entries
+    return JsonlEventStore(path).read_payloads()
 
 
 def _write_ledger(path: Path, entries: list[dict[str, Any]]) -> None:
-    with path.open("w", encoding="utf-8") as f:
-        for item in entries:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    JsonlEventStore(path).replace_payloads(
+        entries,
+        event_type="trade_decision_recorded",
+        payload_schema="trade_ledger_entry.v2",
+        producer="record_trade_decision",
+        run_id=os.environ.get("ZCODE_BUNDLE_RUN_ID"),
+    )
 
 
 def upsert_to_ledger(entry: dict[str, Any]) -> tuple[Path, str]:
@@ -205,9 +204,20 @@ def upsert_to_ledger(entry: dict[str, Any]) -> tuple[Path, str]:
             _write_ledger(ledger_path, entries)
             return ledger_path, "updated"
 
-    entries.append(entry)
-    _write_ledger(ledger_path, entries)
-    return ledger_path, "inserted"
+    event = EventEnvelope.create(
+        event_type="trade_decision_recorded",
+        payload_schema=str(entry.get("schema_version", "trade_ledger_entry.v2")),
+        payload=entry,
+        producer="record_trade_decision",
+        run_id=os.environ.get("ZCODE_BUNDLE_RUN_ID"),
+        event_id=str(entry.get("decision_fingerprint") or "") or None,
+        occurred_at=str(entry.get("recorded_at") or "") or None,
+    )
+    mode = JsonlEventStore(ledger_path).upsert(
+        event,
+        identity_fields=("date", "decision_fingerprint"),
+    )
+    return ledger_path, mode
 
 
 def write_latest(entry: dict[str, Any]) -> Path:
@@ -314,7 +324,7 @@ def main() -> None:
         print(f"Risk Gate: {entry['risk_gate_status']}")
 
     # Evaluate past claims and update forward_outcomes
-    claim_eval_script = ROOT / "scripts" / "claim_evaluator.py"
+    claim_eval_script = ROOT / "scripts" / "commands" / "weekly" / "claim_evaluator.py"
     if claim_eval_script.exists():
         try:
             subprocess.run(

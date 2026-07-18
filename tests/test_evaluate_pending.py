@@ -20,6 +20,8 @@ from evaluate_pending import (
     classify_outcome,
     compute_forward_return,
     evaluate_record,
+    evaluate_active_inference,
+    dedupe_pending_records,
     load_pending_records,
     run_evaluation,
     save_pending_records,
@@ -145,6 +147,54 @@ def test_classify_risk_off_and_reduce_score_like_defensive():
 def test_classify_unverifiable():
     """Missing return data → unverifiable."""
     assert classify_outcome("NO_TRADE", "low", None) == "unverifiable"
+
+
+def test_active_inference_detects_structured_invalidation() -> None:
+    original_trace = {
+        "nodes": [
+            {"node_id": "velocity_state", "value": {"velocity_gate": {"state": "FULL"}}},
+            {"node_id": "k_gate", "value": "PASS"},
+        ]
+    }
+    current_trace = {
+        "nodes": [
+            {"node_id": "velocity_state", "value": {"velocity_gate": {"state": "EXIT"}}},
+            {"node_id": "k_gate", "value": "PASS"},
+        ]
+    }
+    result = evaluate_active_inference(
+        {
+            "learning_trace": original_trace,
+            "active_inference_spec": {
+                "invalidation_conditions": ["Velocity gate EXIT", "M reverses sign"]
+            },
+        },
+        current_trace,
+    )
+
+    assert result["status"] == "INVALIDATED"
+    assert result["condition_checks"][0]["status"] == "TRIGGERED"
+    assert result["condition_checks"][1]["status"] == "UNRESOLVED"
+    assert result["node_changes"][0]["node_id"] == "velocity_state"
+
+
+def test_active_inference_refuses_to_invent_history() -> None:
+    result = evaluate_active_inference({}, {"nodes": []})
+    assert result["status"] == "NOT_TRACEABLE"
+
+
+def test_pending_dedupe_preserves_completed_windows_and_new_trace(pending_record) -> None:
+    first = dict(pending_record)
+    first["evaluations"] = {"1d": {"outcome": "correct"}, "1w": None, "1m": None}
+    second = dict(pending_record)
+    second["eval_id"] = "different_run_id"
+    second["learning_trace"] = {"schema_version": "decision_learning_trace.v1"}
+
+    records = dedupe_pending_records([first, second])
+
+    assert len(records) == 1
+    assert records[0]["evaluations"]["1d"] == {"outcome": "correct"}
+    assert records[0]["learning_trace"] == second["learning_trace"]
 
 
 # ── Record evaluation ───────────────────────────────────────────────────────

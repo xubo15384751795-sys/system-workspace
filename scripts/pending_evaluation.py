@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir
+from scripts._runtime_io import ROOT, ensure_dir, load_jsonl, write_jsonl
 
 EVAL_DIR = ROOT / "Output" / "evaluations"
 PENDING_PATH = EVAL_DIR / "pending.jsonl"
@@ -30,6 +30,25 @@ def _make_eval_id(source: str, date_str: str, timestamp: str) -> str:
     raw = f"{source}:{date_str}:{timestamp}"
     short_hash = hashlib.sha256(raw.encode()).hexdigest()[:8]
     return f"eval_{date_str}_{short_hash}"
+
+
+def _observation_fingerprint(source: str, card: dict[str, Any]) -> str:
+    """Stable identity for one observable decision state, excluding run time."""
+    confidence = card.get("confidence", "unknown")
+    if isinstance(confidence, dict):
+        confidence = confidence.get("level", "unknown")
+    ladder = card.get("claim_ladder") or (card.get("trade_thesis") or {}).get("claim_ladder") or {}
+    payload = {
+        "source": source,
+        "date": card.get("date") or card.get("as_of"),
+        "decision": card.get("decision"),
+        "stance": card.get("stance"),
+        "size": card.get("size"),
+        "confidence": confidence,
+        "claim": ladder.get("claim_statement") or (card.get("trade_thesis") or {}).get("hypothesis"),
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
 
 
 def _compute_eval_windows(date_str: str) -> dict[str, str]:
@@ -56,12 +75,15 @@ def _extract_contributing_modules(source: str, card: dict[str, Any]) -> list[str
     # From trade decision system_sources
     system_sources = card.get("system_sources", [])
     for src in system_sources:
-        src_name = src.get("source", "") if isinstance(src, dict) else str(src)
-        if src_name in ("judgment_layer", "promotion_gate"):
+        src_name = (
+            src.get("source") or src.get("source_type") or ""
+            if isinstance(src, dict) else str(src)
+        )
+        if src_name in ("judgment", "judgment_layer", "promotion_gate"):
             modules.add("Workbench")
         elif src_name in ("k_gate", "x_gate"):
             modules.add("ML Signals")
-        elif src_name == "hmm_stability":
+        elif src_name in ("hmm_audit", "hmm_stability"):
             modules.add("ML Signals")
         elif src_name == "caselab":
             modules.add("CaseLab Context")
@@ -110,18 +132,35 @@ def write_pending_evaluation(
     if isinstance(confidence, dict):
         confidence = confidence.get("level", "unknown")
 
-    eval_id = _make_eval_id(source, date_str, timestamp)
+    observation_fingerprint = _observation_fingerprint(source, card)
+    eval_id = f"eval_{date_str}_{observation_fingerprint[:8]}"
     windows = _compute_eval_windows(date_str)
     contributing_modules = _extract_contributing_modules(source, card)
 
     record = {
         "eval_id": eval_id,
+        "observation_fingerprint": observation_fingerprint,
         "source": source,
         "date": date_str,
         "decision": decision,
         "confidence": confidence,
         "generated_at": timestamp,
         "contributing_modules": contributing_modules,
+        "learning_trace": card.get("learning_trace"),
+        "active_inference_spec": {
+            "watch_conditions": (
+                (card.get("claim_ladder") or {}).get("watch_conditions")
+                or (card.get("trade_thesis") or {}).get("watch_conditions")
+                or []
+            ),
+            "invalidation_conditions": (
+                (card.get("claim_ladder") or {}).get("invalidation_conditions")
+                or (card.get("trade_thesis") or {}).get("invalidation_conditions")
+                or card.get("invalidation")
+                or []
+            ),
+            "trigger_conditions": card.get("trigger_conditions") or [],
+        },
         **windows,
         "status": "pending",
         "evaluations": {
@@ -131,7 +170,15 @@ def write_pending_evaluation(
         },
     }
 
-    with PENDING_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    records = load_jsonl(PENDING_PATH)
+    for index, existing in enumerate(records):
+        if existing.get("observation_fingerprint") == observation_fingerprint:
+            record["evaluations"] = existing.get("evaluations") or record["evaluations"]
+            record["status"] = existing.get("status", record["status"])
+            records[index] = record
+            break
+    else:
+        records.append(record)
+    write_jsonl(PENDING_PATH, records)
 
     return PENDING_PATH

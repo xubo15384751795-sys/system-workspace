@@ -1,0 +1,46 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-17"
+task_id: distributed-regulation-exception-reporting
+status: active_probe
+mission: >
+  Replace attention-heavy central rule reporting with distributed module
+  promises, exception-only monitoring, pace-aware change control and a
+  zero-authority variation inlet. No trading or core-judgment semantics change.
+cynefin_domain: complex
+probe:
+  scope: >
+    Governance interfaces, monitor presentation, module self-check ownership,
+    PACE enforcement and Learning Hub variation health only.
+  preregistered_expectation: >
+    Normal scheduled checks emit zero stdout; injected deviations remain visible;
+    L3/L4 edits without a same-change routing decision fail before commit.
+  observation_window: "2026-07-17 through 2026-08-17"
+  instruments:
+    - exception-only CLI tests
+    - pace-routing rejection tests
+    - module-owned test jobs
+    - hypotheses inbox 30-day inflow monitor
+  rollback: >
+    Remove the pace hook and restore verbose scheduled flags; retain generated
+    audit artifacts and module tests. No data or decision artifact migration is involved.
+artifacts_touched:
+  - PACE.md
+  - docs/VSM.md
+  - docs/WARDLEY_MAP.md
+  - docs/COMMITMENTS.md
+  - hypotheses_inbox.md
+  - governance/system_constitution.yaml
+  - module_contexts/*.md
+  - scripts/_notify.py
+  - scripts/commands/ci/check_pace_routing.py
+  - packages/learning_hub/src/system_learning/variation.py
+  - .pre-commit-config.yaml
+  - .github/workflows/weekly-governance.yml
+authority:
+  affects_core_judgment: false
+  grants_promotion: false
+  changes_live_execution: false
+verification:
+  - python3 -m pytest tests/test_pace_routing.py tests/test_notify_exceptions.py -q
+  - python3 -m pytest packages/learning_hub/tests/test_variation.py -q
+  - python3 scripts/daily_run.py --dry-run

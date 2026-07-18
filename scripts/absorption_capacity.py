@@ -31,7 +31,7 @@ DEFAULT_OUTPUT = ROOT / "Output" / "validation" / "absorption_capacity"
 
 def _default_panel_path() -> Path:
     try:
-        from _data_paths import resolve_benchmark_panel_path
+        from scripts._data_paths import resolve_benchmark_panel_path
     except ModuleNotFoundError:
         from scripts._data_paths import resolve_benchmark_panel_path
     return resolve_benchmark_panel_path()

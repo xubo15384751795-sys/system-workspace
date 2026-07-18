@@ -143,8 +143,8 @@ def create_task_plan(task: str, artifacts: list[str] | None = None) -> dict[str,
             content="Resolve owning module, context file, experts, and mode",
             mode="explore",
             tool_ids=["routing.route_task"],
-            artifacts=["MODULES.md", route["context_file"], "ROUTING_CONSTITUTION.md"],
-            verification="Routing decision reviewed before reading source boundaries",
+            artifacts=[route["context_file"]],
+            verification="The task-local context is selected before reading source boundaries",
         )
     )
 

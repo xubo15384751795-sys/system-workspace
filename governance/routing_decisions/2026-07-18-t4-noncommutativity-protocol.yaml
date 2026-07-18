@@ -1,0 +1,56 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-18"
+task_id: t4-threshold-var-noncommutativity
+status: FROZEN
+mission: >
+  Freeze the T4 prototype before execution: compare fitted threshold-VAR
+  impulse-order distance in the September 2019 repo episode with March 2020
+  Treasury stress.
+amends:
+  record: governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+  clause: work_packages.WP_T4
+research_only: true
+operations_effect: none
+data:
+  panel: Output/sandbox/structural_replay_v2/all_signals.parquet
+  variables: [channel_M, channel_K]
+  training_window: ["2000-01-01", "2019-08-31"]
+  event_windows:
+    repo_2019: ["2019-09-16", "2019-09-20"]
+    treasury_2020: ["2020-03-09", "2020-03-23"]
+  admission: "drop only NaN or infinite rows; no winsorization or event removal"
+model:
+  frequency: daily
+  response: first_difference
+  lag_order: 1
+  regime_state: "max(train-zscore(channel_M_level), train-zscore(channel_K_level))"
+  regime_threshold: causal_train_q75
+  ridge_penalty: 1.0e-8
+  numerical_gate: "augmented least-squares ridge fit; any non-finite coefficient or simulated path hard-fails"
+impulses:
+  magnitude: "maximum positive daily first difference inside each frozen event window"
+  fallback_if_no_positive_change: "maximum absolute daily first difference"
+  sequences: [M_then_K, K_then_M]
+  horizon_days: 20
+  distance: "root mean square Euclidean distance between the two simulated level paths"
+inference:
+  bootstrap: stratified_pairs_within_regime
+  replications: 500
+  seed: 20260718
+  primary_difference: "Delta_NC_2020 - Delta_NC_2019"
+  one_sided_p_value: "fraction bootstrap primary_difference <= 0"
+pass_criteria: >
+  SUPPORTED only if Delta_NC_2020 > Delta_NC_2019 and one-sided bootstrap
+  p < 0.05. Otherwise NOT_SUPPORTED. No magnitude-ratio rescue and no
+  alternative event window.
+paper_wording:
+  supported: "The preregistered prototype supports greater impulse-order dependence in March 2020 than September 2019."
+  not_supported: "The preregistered prototype does not support greater impulse-order dependence in March 2020; non-commutativity remains an open question."
+outputs:
+  verdict: Output/validation/noncommutativity_probe/verdict.json
+  paths: Output/validation/noncommutativity_probe/order_paths.csv
+  figure: Output/validation/noncommutativity_probe/order_paths.png
+verification:
+  - parent prereg remains unchanged
+  - verdict contains data SHA-256 and protocol SHA-256
+  - execution writes no authoritative/current artifact

@@ -440,11 +440,7 @@ def route_task(task: str, artifacts: list[str] | None = None) -> dict[str, Any]:
         "routing_record_template": "routing_decision_record.template.yaml"
         if requires_record
         else "",
-        "read_first": [
-            "MODULES.md",
-            primary.context_file,
-            "ROUTING_CONSTITUTION.md",
-        ],
+        "read_first": [primary.context_file],
         "do_not_read_first": primary.forbidden_first_reads,
         "escalation_reasons": escalation_reasons,
         "policy_notes": [
