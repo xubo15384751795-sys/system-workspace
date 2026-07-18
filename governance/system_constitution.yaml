@@ -1,26 +1,8 @@
-# System Constitution — hard governance rules
-# Every module must declare its role and obey these rules.
-#
-# Architecture decisions: governance/architecture_cleanup_decisions.md
-# Deferred work: governance/deferred_work_register.yaml
-# Data requests: governance/data_request_registry.yaml
+# Machine-consumed system invariants. Human principles live on the compact
+# ROUTING_CONSTITUTION.md surface; decisions and explanations are precedent.
+schema_version: system_constitution.v2
+updated_at: "2026-07-18"
 
-schema_version: system_constitution.v1
-updated_at: "2026-06-17"
-
-# Core principles
-core_principles:
-  paper_is_world_model: true
-  proxy_is_observation_not_alpha: true
-  operator_is_decision_core: true
-  ml_cannot_directly_trade: true
-  horizon_is_event_radar_not_signal: true
-  qlib_replay_is_calibration_not_judgment: true
-  freshness_fail_blocks_snapshot: true
-  live_execution_allowed: false
-
-# Hard authority rule — sandbox/research/archive/system_learning cannot affect core.
-# They must go through bridge/gate to produce Output/current/ or Output/deformation_runs/.
 hard_authority_rule:
   only_current_or_formal_runs_can_affect_core_judgment: true
   prohibited_from_core_judgment:
@@ -28,185 +10,62 @@ hard_authority_rule:
     - "Output/research/"
     - "Output/archive/"
     - "Output/system_learning/"
-  # authorized_runtime_chain: outputs that MAY participate in core judgment.
-  # This is the single source of truth for "what can affect core".
-  # Tests must read from this list, not hardcode their own.
   authorized_runtime_chain:
     - "Output/current/"
-    - "Output/deformation_runs/"
     - "Output/judgment/"
     - "Output/trade_decision/"
     - "Output/quality/"
     - "Output/horizon_events/"
-    - "Output/k_measurement/"
-    - "Output/x_measurement/"
     - "Output/caselab/"
     - "canonical Data evidence releases"
-  # Sandbox/research outputs can only influence core through authorized bridge/gate.
   bridge_rule: "sandbox/research → bridge/gate → current (then current is authorized)"
 
-# Authority order — gates must be checked in this order
-# NOTE: This is a LOGICAL ordering of concerns, not a literal script execution
-# order. In the daily pipeline, freshness_validator runs near the end (step 56
-# of 60) as a post-hoc validation. The freshness check is ALSO performed inline
-# by judgment_layer.py and trade_decision_layer.py at their point of execution.
-authority_order:
-  - freshness_gate
-  - evidence_authority_gate
-  - language_gate
-  - trade_permission_gate
-  - risk_gate
-  - position_sizing_gate
-
-# Module role classification
 module_roles:
   world_model:
     description: "Provides mechanisms, cases, variables, indicators"
     allowed_outputs: ["hypothesis", "mechanism", "evidence_record"]
     forbidden_outputs: ["signal", "trade", "position"]
     examples: ["Paper", "CaseLab"]
-
   proxy:
     description: "Provides observable measurements"
     allowed_outputs: ["measurement", "reading", "quality_score"]
     forbidden_outputs: ["signal", "trade", "position"]
     examples: ["M_proxy", "D_proxy", "K_proxy", "X_proxy"]
-
   operator:
     description: "Transforms observations into structured judgments"
     allowed_outputs: ["judgment", "decision", "permission"]
     forbidden_outputs: ["direct_position"]
     examples: ["judgment_layer", "trade_decision_layer"]
-
   gate:
     description: "Enforces constraints on outputs"
     allowed_outputs: ["pass", "fail", "block", "allow"]
     forbidden_outputs: ["signal", "trade"]
     examples: ["promotion_gate", "risk_gate", "freshness_gate"]
-
   uncertainty:
     description: "Provides probabilistic context"
     allowed_outputs: ["forecast_interval", "tail_probability", "confidence_band"]
     forbidden_outputs: ["direction", "signal", "trade"]
     examples: ["GluonTS", "probabilistic_context"]
-
   calibration:
     description: "Provides feedback and learning"
     allowed_outputs: ["feedback", "calibration_score", "hit_rate"]
     forbidden_outputs: ["signal", "trade", "position"]
     examples: ["Qlib", "replay", "Learning Hub"]
-
   event_radar:
     description: "Detects external events"
     allowed_outputs: ["event_candidate", "mechanism_match"]
     forbidden_outputs: ["signal", "trade", "position"]
     examples: ["Horizon"]
 
-# Decision permission hierarchy (Phase 4: stance spectrum)
-# Size is set by quality discounts; stance by velocity/sigma. WATCH = data unavailable only.
-decision_permissions:
-  WATCH:
-    requires: []
-    allowed_size: zero
-    note: "Data unavailable — no stance assigned"
-
-  RISK_OFF:
-    requires: ["freshness_pass"]
-    allowed_size: zero
-    note: "Velocity gate EXIT — flatten / stay flat (shadow position)"
-
-  RISK_REDUCE:
-    requires: ["freshness_pass"]
-    allowed_size: small
-    note: "3+ channels deteriorating without EXIT — reduce shadow position"
-
-  RISK_ON:
-    requires: ["freshness_pass"]
-    allowed_size: large
-    note: "No velocity EXIT — size set by quality discounts (shadow position)"
-
-  # Legacy labels retained for historical ledger rows only (not produced by trade_decision.v3)
-  NO_TRADE:
-    requires: []
-    allowed_size: zero
-    enabled: false
-    note: "Legacy — mapped to RISK_OFF + size 0"
-
-  HEDGE:
-    enabled: false
-    note: "Removed from main spectrum (Phase 4)"
-
-  TACTICAL_LONG:
-    enabled: false
-    note: "Removed from main spectrum (Phase 4) — contradicted stress-detection posture"
-
-  TACTICAL_SHORT:
-    enabled: false
-    note: "Removed from main spectrum (Phase 4) — was unreachable"
-
-# Evidence authority levels
-evidence_authority:
-  approved:
-    can_enter: "mechanism_support"
-    weight: 1.0
-
-  needs_review:
-    can_enter: "background_context_only"
-    weight: 0.0
-
-  rejected:
-    can_enter: "excluded"
-    weight: 0.0
-
-  missing:
-    can_enter: "excluded"
-    weight: 0.0
-
-# Language governance
-language_governance:
-  forbidden_in_active_status:
-    - "compression"
-    - "crisis"
-    - "signal"
-    - "prediction"
-    - "regime call"
-    - "forecast"
-
-  allowed_replacements:
-    compression: "withheld (diagnostic-only)"
-    crisis: "withheld (diagnostic-only)"
-    signal: "observation"
-    prediction: "projection"
-    regime call: "state observation"
-
-# Governance freeze — stop governance expansion
-# Rationale: governance files grew from 77 to 81 during feature work.
-# Governance must only converge, not expand, during active development.
 governance_freeze:
   active: true
-  effective_from: "2026-06-17"
-  review_after: "2026-07-15"
-  rules:
-    - "No new governance files unless explicitly approved"
-    - "New rules go into existing governance files, not new ones"
-    - "Runtime artifacts go into Output/, not governance/"
-    - "Code-inferred rules stay in code, not governance docs"
-    - "Output/runs/ run bundles are exempt (they are run traces, not governance)"
-  enforcement:
-    - "New functionality prioritizes code and output over policy files"
-    - "If a rule can be expressed as code validation, write code not docs"
-    - "Prefer updating system_constitution.yaml over creating new files"
-    - "Machine check: scripts/check_governance_freeze.py (also tests/test_governance_freeze.py)"
-    - "Machine check: scripts/build_incentive_review.py for credit/demotion/anti-gaming"
+  manifest: governance/governance_freeze_manifest.yaml
 
-# Freshness rules
 freshness_rules:
-  # Evidence release TTL — see governance/architecture_reality_decisions.md §4
   evidence_release_ttl_days: 3
   core_judgment_on_expired_snapshot: blocked
   research_use_on_expired_snapshot: allowed_with_stale_warning
   training_feedback_on_expired_snapshot: allowed_if_marked_stale
-
   max_age_hours:
     judgment: 48
     trade_decision: 48
@@ -214,7 +73,6 @@ freshness_rules:
     learning_summary: 72
     system_index: 24
     readme: 24
-    # Additional categories enforced by freshness_validator.py
     harvester: 48
     structural_replay: 48
     framework_output: 48
@@ -222,68 +80,3 @@ freshness_rules:
     signal_card: 24
     signal_consensus: 24
     work_brief: 24
-
-  temporal_ordering:
-    - "judgment before trade_decision"
-    - "trade_decision before risk_gate"
-    - "risk_gate before learning_summary"
-    - "learning_summary before system_index"
-    - "system_index before readme"
-
-  on_fail:
-    readme_header: "SNAPSHOT INVALID — DO NOT USE FOR DECISION"
-    block_decisions: true
-
-# Dual clock — Agent can compress implementation time, not evidence time.
-# Every work item has two clocks: execution (1-3 days) and evidence (14-45 days).
-# A module is not "done" when code is written; it is done when evidence gates pass.
-dual_clock:
-  principle: >
-    Agent can compress implementation time but cannot compress evidence time.
-    Every work item has two clocks: execution (1-3 days) and evidence (14-45 days).
-    A module is not "done" when code is written; it is done when evidence gates pass.
-  execution_clock:
-    description: "Agent-accelerated. 1-3 day cycles."
-    applies_to:
-      - file migration
-      - registry alignment
-      - test coverage
-      - script cleanup
-      - schema validation
-      - thin wrapper conversion
-  evidence_clock:
-    description: "Cannot be fully compressed. Requires real data/time."
-    applies_to:
-      - market feedback sample accumulation
-      - walk-forward / forward return windows
-      - post-migration stability observation
-      - paper worldview validation
-      - experiment module promotion decisions
-  hard_rule: >
-    Every deferred item in deferred_work_register.yaml must declare both
-    execution_window and evidence_window. An item with only execution_window
-    is incomplete.
-
-# Agent work protocol — structured declaration required before any Agent code change.
-# Enforced by: scripts/verify_agent_work_protocol.py
-# Template: module_contexts/agent_work_protocol.template.yaml
-agent_work_protocol:
-  required: true
-  applies_to: "all Agent-initiated code changes"
-  declaration_fields:
-    - owner_module        # from capability_registry.yaml
-    - touched_paths       # file paths to be modified
-    - authority_level     # what this module is allowed to do
-    - expected_artifact   # what the change produces
-    - verification_command  # how to verify the change
-    - affects_core_judgment  # yes/no — if yes, requires extra gates
-  hard_rules:
-    - "No new root scripts unless thin wrapper (redundancy_budget)"
-    - "No new governance files unless explicitly approved (governance_freeze)"
-    - "Schema changes require producer+consumer sync"
-    - "Experiment outputs default to research_only"
-    - "Cross-module changes require protocol/schema first"
-  enforcement:
-    - "Pre-edit: Agent must declare protocol before modifying files"
-    - "Post-edit: Agent must provide verification command"
-    - "Machine check: scripts/verify_agent_work_protocol.py"

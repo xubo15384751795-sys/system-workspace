@@ -17,7 +17,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _constants import (
+from scripts._constants import (
     CASELAB_STRONG_THRESHOLD,
     CASELAB_USABLE_THRESHOLD,
     CASELAB_WEAK_THRESHOLD,
@@ -28,7 +28,7 @@ from _constants import (
     SIGNAL_SIZE_SMALL,
     TRADING_DAYS_PER_YEAR,
 )
-from _runtime_io import ROOT, ensure_dir, load_json, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, write_json
 
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"

@@ -22,7 +22,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now
+from system_runtime.events import EventEnvelope, JsonlEventStore, payload_of
 
 TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
 EVIDENCE_GRADE_PATH = current_dir() / "evidence_grade_report.json"
@@ -128,7 +129,8 @@ def _read_last_event(path: Path) -> dict[str, Any] | None:
     if not lines:
         return None
     try:
-        return json.loads(lines[-1])
+        value = json.loads(lines[-1])
+        return payload_of(value) if isinstance(value, dict) else None
     except json.JSONDecodeError:
         return None
 
@@ -147,15 +149,19 @@ def record_event(event: dict[str, Any], *, force: bool = False, skip_if_unchange
     ensure_dir(EVENTS_DIR)
     ensure_dir(HUB_EVENTS_DIR)
 
-    line = json.dumps(event, ensure_ascii=False) + "\n"
+    envelope = EventEnvelope.create(
+        event_type="pipeline_run",
+        payload_schema=str(event.get("schema_version", "run_event.v1")),
+        payload=event,
+        producer="record_daily_run_event",
+        run_id=str(event.get("event_id") or "") or None,
+        event_id=str(event.get("event_id") or "") or None,
+        occurred_at=str(event.get("timestamp") or "") or None,
+    )
 
-    # Write to system_learning/events/
-    with event_path.open("a", encoding="utf-8") as f:
-        f.write(line)
-
-    # Also write to runtime_events/ for harness consumption
-    with hub_path.open("a", encoding="utf-8") as f:
-        f.write(line)
+    # Both projections use the same envelope and identity.
+    JsonlEventStore(event_path).append(envelope)
+    JsonlEventStore(hub_path).append(envelope)
 
     return event_path
 

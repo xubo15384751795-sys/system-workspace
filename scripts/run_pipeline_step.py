@@ -15,11 +15,9 @@ import argparse
 import json
 import sys
 
-from _workspace_imports import add_scripts
 
-add_scripts()
 
-from _pipeline_runner import (  # noqa: E402
+from scripts._pipeline_runner import (  # noqa: E402
     describe_registry_step,
     list_registry_steps,
     run_registry_step,

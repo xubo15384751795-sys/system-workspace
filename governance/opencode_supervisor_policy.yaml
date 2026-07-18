@@ -32,6 +32,10 @@ responsibilities:
     description: "Which modules actually produced output this cycle?"
     check: "Scan Output/ for fresh artifacts (mtime within cycle window)"
 
+  - id: monitoring_coverage
+    description: "Which current or durable artifacts have no monitor, stale content, or no content clock?"
+    check: "Read Output/system_learning/latest/monitoring_coverage.json produced from the pipeline registry and Data/Output inventory"
+
   - id: data_request_backlog
     description: "Are there unfulfilled data requests?"
     check: "data_request_registry.yaml has status=pending entries"
@@ -70,3 +74,4 @@ review_queue:
     - current_authority_contamination
     - incentive_overreach
     - unreviewed_exception
+    - monitoring_coverage

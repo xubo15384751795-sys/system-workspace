@@ -21,7 +21,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from _runtime_io import ROOT, ensure_dir, load_json, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, write_json
 
 # ── Constants ──────────────────────────────────────────────────────
 STRESS_THRESHOLD = 0.3          # channel value above this = "stress signal"

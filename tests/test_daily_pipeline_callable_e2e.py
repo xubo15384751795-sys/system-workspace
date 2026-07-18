@@ -57,7 +57,7 @@ def test_measurement_quality_report_callable_runs(tmp_path, monkeypatch) -> None
     monkeypatch.setattr(dp, "HARVESTER_DATA", tmp_path / "Data" / "harvester" / "exports" / "latest" / "data")
     monkeypatch.setenv("DAILY_OUTPUT_ROOT", str(out))
 
-    from build_measurement_quality_report import build_report
+    from scripts.commands.weekly.build_measurement_quality_report import build_report
 
     report = build_report()
     assert report["overall_status"] in {"OK", "DEGRADED"}

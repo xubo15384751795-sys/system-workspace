@@ -80,3 +80,13 @@ python3 data_pipeline/embeddings/build_note_embeddings.py --reindex
 - Context Layer explains premises; it does not auto-trade.
 - Vector retrieval finds similarity; resolver rules explain meaning.
 - Human review remains required before `quality: core` promotion.
+
+## Promises
+
+- We explain premises and historical context without granting signal or trade authority.
+- Retrieved similarity remains distinct from mechanism evidence and promotion.
+
+## Relies On
+
+- Paper promises worldview provenance and review state.
+- Selectors promise inbox hypotheses cannot bypass CaseLab and evidence gates.

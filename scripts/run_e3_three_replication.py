@@ -9,14 +9,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-SYSTEM_ROOT = Path("/Users/a1/System")
-sys.path.insert(0, str(SYSTEM_ROOT / "scripts"))
-import run_framework_validation_protocol as protocol  # noqa: E402
+SYSTEM_ROOT = Path(__file__).resolve().parents[1]
+from scripts import run_framework_validation_protocol as protocol
 
 DEFAULT_OUTPUT = SYSTEM_ROOT / "Output" / "validation" / "e3_three_replication"
 SEEDS = (1729, 20260718, 8675309)

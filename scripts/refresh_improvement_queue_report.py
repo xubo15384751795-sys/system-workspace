@@ -10,10 +10,8 @@ Usage:
 from __future__ import annotations
 
 import pandas as pd
-from _runtime_io import ROOT, ensure_dir, utc_now
-from _workspace_imports import add_learning_hub_src
+from scripts._runtime_io import ROOT, ensure_dir, utc_now
 
-add_learning_hub_src()
 
 from system_learning.reports.writer import render_improvement_queue_report
 

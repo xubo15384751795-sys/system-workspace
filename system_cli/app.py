@@ -95,7 +95,6 @@ def _legacy_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
     if command == "refresh":
         for script in (
             "scripts/refresh_output_current.py",
-            "scripts/bridge_replay_to_current.py",
             "scripts/build_artifact_navigator.py",
         ):
             code = _run(paths, script)

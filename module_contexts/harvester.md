@@ -38,6 +38,18 @@ That nested path appears in older docs only.
 - provenance records
 - checksums and source-quality records
 
+## Promises
+
+- We publish immutable releases with provenance, checksums, source identity and freshness state.
+- Provider shape, completeness and date assertions live in this package's tests and quality code.
+- A failed release check produces no admitted evidence side effect.
+
+## Relies On
+
+- Protocols promise versioned evidence and manifest shapes.
+- Governance runtime promises failed admission cannot reach current publication.
+- Consumers promise not to infer provider truth from sandbox or partial files.
+
 ## Must Not
 
 - define Framework theory

@@ -5,11 +5,12 @@ This is the ONLY script that should refresh Output/current/.
 It runs the new judgment chain, not the old Workbench fallback.
 
 Chain:
-    1. bridge_replay_to_current.py
-    2. judgment_layer.py
-    3. judgment_promotion_gate.py
-    4. trade_decision_layer.py
-    5. build_current_status.py
+    1. neutral_pressure_measurement.py
+    2. quality_field_validator.py
+    3. judgment_layer.py
+    4. judgment_promotion_gate.py
+    5. trade_decision_layer.py
+    6. build_current_status.py
     6. build_system_index.py
     7. build_next_actions.py
     8. build_evidence_grade_report.py
@@ -19,11 +20,11 @@ Chain:
 
 Usage:
     python3 scripts/refresh_output_current.py
-    python3 scripts/refresh_output_current.py --skip-bridge
+    python3 scripts/refresh_output_current.py --skip-measurement
     python3 scripts/refresh_output_current.py --dry-run
 
 Output:
-    Output/current/framework_output.json
+    Output/current/neutral_pressure_snapshot.json
     Output/current/00_READ_ME_FIRST.md
     Output/judgment/latest.json
     Output/judgment/latest.md
@@ -38,8 +39,8 @@ import sys
 import time
 from datetime import UTC, datetime
 
-from _constants import TIMEOUT_STANDARD  # noqa: E402
-from _runtime_io import ROOT
+from scripts._constants import TIMEOUT_STANDARD  # noqa: E402
+from scripts._runtime_io import ROOT
 
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
@@ -70,7 +71,8 @@ def run_step(name: str, cmd: list[str]) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Refresh Output/current with new judgment chain.")
-    parser.add_argument("--skip-bridge", action="store_true", help="Skip bridge step.")
+    parser.add_argument("--skip-measurement", action="store_true", help="Skip neutral measurement step.")
+    parser.add_argument("--skip-bridge", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--dry-run", action="store_true", help="Print plan, don't execute.")
     args = parser.parse_args()
 
@@ -78,23 +80,25 @@ def main() -> int:
 
     if args.dry_run:
         print("DRY RUN — would execute:")
-        if not args.skip_bridge:
-            print("  1. bridge_replay_to_current.py")
-        print("  2. judgment_layer.py")
-        print("  3. judgment_promotion_gate.py")
-        print("  4. trade_decision_layer.py")
-        print("  5. build_current_status.py")
-        print("  6. build_system_index.py")
-        print("  7. build_next_actions.py")
-        print("  8. refresh_improvement_queue_report.py")
-        print("  9. build_evidence_grade_report.py")
-        print("  10. build_artifact_registry.py")
-        print("  11. record_daily_run_event.py")
-        print("  12. build_readme_first.py")
+        if not (args.skip_measurement or args.skip_bridge):
+            print("  1. neutral_pressure_measurement.py")
+        print("  2. quality_field_validator.py")
+        print("  3. judgment_layer.py")
+        print("  4. judgment_promotion_gate.py")
+        print("  5. trade_decision_layer.py")
+        print("  6. build_current_status.py")
+        print("  7. build_system_index.py")
+        print("  8. build_next_actions.py")
+        print("  9. refresh_improvement_queue_report.py")
+        print("  10. build_evidence_grade_report.py")
+        print("  11. build_artifact_registry.py")
+        print("  12. record_daily_run_event.py")
+        print("  13. build_readme_first.py")
         return 0
 
     steps = []
-    total = 12 if not args.skip_bridge else 11
+    skip_measurement = args.skip_measurement or args.skip_bridge
+    total = 13 if not skip_measurement else 12
     step_no = 1
 
     def _run(label: str, script: str) -> None:
@@ -103,22 +107,23 @@ def main() -> int:
         steps.append(run_step(label, [sys.executable, str(ROOT / "scripts" / script)]))
         step_no += 1
 
-    # Step 1: Bridge (unless skipped)
-    if not args.skip_bridge:
-        _run("bridge", "bridge_replay_to_current.py")
+    # Step 1: active theory-independent measurement (unless explicitly skipped)
+    if not skip_measurement:
+        _run("neutral_pressure_measurement", "neutral_pressure_measurement.py")
     else:
-        print(f"[{step_no}/{total}] Skipping bridge (--skip-bridge)")
+        print(f"[{step_no}/{total}] Skipping neutral measurement")
         step_no += 1
 
+    _run("quality_validation", "quality_field_validator.py")
     _run("judgment_layer", "judgment_layer.py")
     _run("promotion_gate", "judgment_promotion_gate.py")
     _run("trade_decision", "trade_decision_layer.py")
     _run("current_status", "build_current_status.py")
     _run("system_index", "build_system_index.py")
-    _run("next_actions", "build_next_actions.py")
+    _run("next_actions", "commands/weekly/build_next_actions.py")
     _run("improvement_queue_report", "refresh_improvement_queue_report.py")
-    _run("evidence_grade", "build_evidence_grade_report.py")
-    _run("artifact_registry", "build_artifact_registry.py")
+    _run("evidence_grade", "commands/weekly/build_evidence_grade_report.py")
+    _run("artifact_registry", "commands/weekly/build_artifact_registry.py")
     print(f"[{step_no}/{total}] Recording run event...")
     steps.append(
         run_step(
@@ -127,7 +132,7 @@ def main() -> int:
         )
     )
     step_no += 1
-    _run("readme_first", "build_readme_first.py")
+    _run("readme_first", "commands/weekly/build_readme_first.py")
 
     # Summary
     end_time = datetime.now(UTC)
@@ -145,6 +150,7 @@ def main() -> int:
 
     # Verify outputs exist
     required = [
+        CURRENT / "neutral_pressure_snapshot.json",
         CURRENT / "framework_output.json",
         CURRENT / "00_READ_ME_FIRST.md",
         CURRENT / "status.json",

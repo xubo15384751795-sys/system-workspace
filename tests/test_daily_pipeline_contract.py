@@ -1,4 +1,4 @@
-"""Contract tests for the daily signal pipeline (30 daily steps as of 2026-07-11c)."""
+"""Contract tests for the daily signal pipeline."""
 from __future__ import annotations
 
 import sys
@@ -34,10 +34,11 @@ def registry_steps() -> dict:
     return _load_registry_steps()
 
 
-def test_daily_step_count_is_30():
+def test_daily_step_count_is_26():
     ids = _daily_step_ids()
-    assert len(ids) == 30
-    assert "refresh_cross_asset_panel" in ids
+    assert len(ids) == 26
+    assert "refresh_cross_asset_panel" not in ids
+    assert _load_registry_steps()["refresh_cross_asset_panel"]["schedule"] == "on_demand"
     assert "strategy_lab_shadow" in ids
     assert "shadow_outcomes_90d" in ids
     assert "evaluate_pending" in ids

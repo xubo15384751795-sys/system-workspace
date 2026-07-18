@@ -158,6 +158,8 @@ drift_exempt:
     - build_artifact_registry
     - current_status
     - validate_proxy_observation_catalog
+    - judgment_replay_audit
+    - operator_registry_audit
 
 graph_invariants:
   - id: sandbox_requires_bridge

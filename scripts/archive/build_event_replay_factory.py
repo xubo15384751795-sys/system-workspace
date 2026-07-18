@@ -21,12 +21,9 @@ from typing import Any
 
 import pandas as pd
 import yaml
-from _runtime_io import ROOT, ensure_dir, write_json
-from _workspace_imports import add_framework_root  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir, write_json
 
-add_framework_root()
-
-from src.operators.mechanism import FundingPathStressDetector  # noqa: E402
+from src.operators.mechanism import FundingPathStressDetector
 
 WINDOWS = ROOT / "governance" / "event_replay_windows.yaml"
 PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"

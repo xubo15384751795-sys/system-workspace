@@ -130,7 +130,7 @@ steps:
 def test_normalize_step_name_from_script_path() -> None:
     module = _load_module("authority_graph", ROOT / "scripts" / "_authority_graph.py")
     index = module.build_step_id_index(ROOT)
-    assert module.normalize_step_name("scripts/governance_status.py", index) == "governance_status"
+    assert module.normalize_step_name("scripts/commands/weekly/governance_status.py", index) == "governance_status"
     assert module.normalize_step_name("governance_status", index) == "governance_status"
 
 

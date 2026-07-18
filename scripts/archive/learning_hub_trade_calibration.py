@@ -18,7 +18,7 @@ import argparse
 import json
 from typing import Any
 
-from _runtime_io import (
+from scripts._runtime_io import (
     ROOT,
     dedupe_entries,
     ensure_dir,

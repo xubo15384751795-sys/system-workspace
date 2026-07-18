@@ -20,7 +20,7 @@ from system_learning.guards.audit import (
 )
 from system_learning.guards.registry import Entity, Registry
 
-SYSTEM_ROOT = Path(__file__).resolve().parents[2]
+SYSTEM_ROOT = Path(__file__).resolve().parents[3]
 REGISTRY_PATH = SYSTEM_ROOT / DEFAULT_REGISTRY_RELPATH
 
 

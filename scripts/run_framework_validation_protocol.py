@@ -36,7 +36,7 @@ except ModuleNotFoundError:
     )
 
 try:
-    from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+    from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
 except ModuleNotFoundError:
     from scripts._data_paths import (
         resolve_benchmark_panel_path,
@@ -183,6 +183,7 @@ def evaluate_protocol(
     candidates: pd.DataFrame,
     *,
     bootstrap_reps: int = 100,
+    bootstrap_seed: int = 1729,
     case_dates: tuple[str, ...] = DEFAULT_CASE_DATES,
 ) -> dict[str, Any]:
     """Evaluate every candidate against every available event definition."""
@@ -196,7 +197,11 @@ def evaluate_protocol(
                 "metrics": probability_metrics(target, probability),
                 "lead_profile": lead_profile(target, probability),
                 "stationary_bootstrap_auc": stationary_bootstrap_metric(
-                    target, probability, reps=bootstrap_reps, mean_block=20
+                    target,
+                    probability,
+                    reps=bootstrap_reps,
+                    mean_block=20,
+                    seed=bootstrap_seed,
                 ),
                 "case_calendar_lead_profile": _case_calendar_profile(probability, case_dates=case_dates),
             }
@@ -223,6 +228,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         events,
         candidates.reindex(common_index),
         bootstrap_reps=args.bootstrap_reps,
+        bootstrap_seed=args.bootstrap_seed,
         case_dates=tuple(args.case_dates),
     )
     events_frame = pd.DataFrame(events, index=common_index)
@@ -236,6 +242,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "panel": str(args.panel),
             "cross_asset": str(args.cross_asset) if args.cross_asset else None,
             "channels": str(args.channels),
+            "bootstrap_seed": args.bootstrap_seed,
         },
         "event_status": event_status,
         "candidate_diagnostics": diagnostics,
@@ -297,6 +304,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--horizon", type=int, default=20)
     parser.add_argument("--bootstrap-reps", type=int, default=100)
+    parser.add_argument("--bootstrap-seed", type=int, default=1729)
     parser.add_argument("--case-dates", nargs="*", default=list(DEFAULT_CASE_DATES))
     return parser.parse_args()
 

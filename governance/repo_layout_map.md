@@ -27,7 +27,7 @@ Registered in `.gitmodules`. Parent pins each sister repo at a commit; see
 |---|---|---|
 | Paper (`case-lab`) | `$PAPER_ROOT` (default `/Users/a1/Paper`) | World model source — cases, mechanisms, variables, indicators |
 | | | Synced into `Data/paper_world_model/` via `scripts/sync_paper_world_model.py` |
-| | | Feedback drafts exported to `Paper/40_Review/_inbox/` via `scripts/export_feedback_to_paper.py` |
+| | | Feedback drafts exported to `Paper/40_Review/_inbox/` via `scripts/commands/weekly/export_feedback_to_paper.py` |
 
 Paper is edited in Obsidian and connected by file-system pipes, not git submodule pins.
 Set `PAPER_ROOT` when the vault lives outside the default path.

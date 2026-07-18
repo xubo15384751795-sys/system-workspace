@@ -22,7 +22,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from _runtime_io import ROOT, ensure_dir
+from scripts._runtime_io import ROOT, ensure_dir
 
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"

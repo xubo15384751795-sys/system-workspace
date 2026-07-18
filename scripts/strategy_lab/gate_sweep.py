@@ -17,14 +17,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import _runtime_io as rio
+from scripts import _runtime_io as rio
 import pandas as pd
-from strategy_lab.backtest import apply_transaction_costs, compute_metrics
-from strategy_lab.data_loader import load_aligned
-from strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
-from strategy_lab.strategies import compute_baseline_position
+from scripts.strategy_lab.backtest import apply_transaction_costs, compute_metrics
+from scripts.strategy_lab.data_loader import load_aligned
+from scripts.strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
+from scripts.strategy_lab.strategies import compute_baseline_position
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 

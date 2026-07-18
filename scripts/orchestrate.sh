@@ -68,7 +68,7 @@ case "${cmd}" in
     ;;
   feedback-export)
     cd "${SYSTEM_ROOT}"
-    exec "${PY}" scripts/export_feedback_to_paper.py "${@:2}"
+    exec "${PY}" scripts/commands/weekly/export_feedback_to_paper.py "${@:2}"
     ;;
   install-automation)
     bash "${SYSTEM_ROOT}/scripts/install_daily_run_launchd.sh"

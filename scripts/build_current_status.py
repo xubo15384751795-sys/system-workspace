@@ -19,7 +19,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _runtime_io import ROOT, current_dir, ensure_dir, load_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
@@ -43,9 +43,8 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 def gather_status() -> dict[str, Any]:
     """Gather current system status."""
     now = datetime.now(UTC).isoformat()
-    date_str = now[:10]
-
     judgment = load_json(JUDGMENT_PATH)
+    date_str = str((judgment or {}).get("as_of") or now)[:10]
     promotion_gate = load_json(PROMOTION_GATE_PATH)
     _ = load_json(INDEX_PATH)
     k_gate = load_json(K_GATE_PATH)

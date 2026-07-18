@@ -21,10 +21,8 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from _runtime_io import ROOT
-from _workspace_imports import add_harvester_src, add_scripts
+from scripts._runtime_io import ROOT
 
-add_scripts()
 
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 HARVESTER_PANEL_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"
@@ -40,7 +38,6 @@ def _panel_max_date(path: Path) -> pd.Timestamp | None:
 
 
 def _harvester_build(*, fetch_period: str) -> pd.DataFrame:
-    add_harvester_src()
     from harvester.cross_asset_panel import (  # noqa: I001
         build_cross_asset_panel,
         sync_panel_to_workspace,

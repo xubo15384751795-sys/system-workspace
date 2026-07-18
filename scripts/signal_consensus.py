@@ -20,9 +20,9 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _constants import CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD
-from _runtime_io import ROOT, current_dir, ensure_dir, write_json
-from _runtime_io import load_json as _load_json
+from scripts._constants import CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, write_json
+from scripts._runtime_io import load_json as _load_json
 
 OUTPUT_CURRENT = current_dir()
 

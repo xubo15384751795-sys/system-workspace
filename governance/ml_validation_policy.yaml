@@ -8,7 +8,7 @@ purpose: >
 
 validation_outputs:
   - path: "Output/validation/walk_forward_report.json"
-    producer: scripts/weekly_walk_forward_validation.py
+    producer: scripts/commands/weekly/weekly_walk_forward_validation.py
     schedule: weekly
     allowed_use: validation_only
     can_affect_core_judgment: false
@@ -17,7 +17,7 @@ validation_outputs:
     notes: "Rolling-origin OOS diagnostics. Review-only. Never feeds judgment."
 
   - path: "Output/validation/baseline_comparison.json"
-    producer: scripts/baseline_comparison.py
+    producer: scripts/commands/weekly/baseline_comparison.py
     schedule: weekly
     allowed_use: validation_only
     can_affect_core_judgment: false
@@ -26,7 +26,7 @@ validation_outputs:
     notes: "System vs naive baselines. Review-only."
 
   - path: "Output/system_learning/latest/threshold_review_candidates.json"
-    producer: scripts/threshold_review_bridge.py
+    producer: scripts/commands/weekly/threshold_review_bridge.py
     schedule: weekly
     allowed_use: human_review_only
     can_affect_core_judgment: false
@@ -34,7 +34,7 @@ validation_outputs:
     notes: "Never auto-applies threshold changes. Surfaces candidates for human review."
 
   - path: "Output/quality/asof_integrity_report.json"
-    producer: scripts/asof_integrity_checker.py
+    producer: scripts/commands/weekly/asof_integrity_checker.py
     schedule: weekly
     allowed_use: validation_only
     can_affect_core_judgment: false
@@ -42,7 +42,7 @@ validation_outputs:
     notes: "Future-data leakage detection. Warning-only."
 
   - path: "Output/validation/qlib_structural_bridge.json"
-    producer: scripts/build_qlib_structural_bridge.py
+    producer: scripts/commands/weekly/build_qlib_structural_bridge.py
     schedule: weekly
     allowed_use: validation_only
     can_affect_core_judgment: false

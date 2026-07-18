@@ -17,12 +17,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
-from _runtime_io import ROOT, current_dir, ensure_dir, write_json
-from _workspace_imports import add_framework_root  # noqa: E402
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, write_json
 
-add_framework_root()
-
-from src.operators.mechanism import (  # noqa: E402
+from src.operators.mechanism import (
     ActivationRecord,
     FundingPathStressDetector,
 )

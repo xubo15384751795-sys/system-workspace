@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pandas as pd
-from strategy_lab.risk_gate import evaluate_day
+from scripts.strategy_lab.risk_gate import evaluate_day
 
 
 @dataclass

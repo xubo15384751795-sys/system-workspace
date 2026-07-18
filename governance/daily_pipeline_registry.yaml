@@ -483,7 +483,7 @@ steps:
     command: python scripts/k_measurement_gate.py
     input: &id019
     - Data/harvester/exports/latest/
-    artifact_path: Output/current/
+    artifact_path: Output/k_measurement/
     ttl_hours: 48
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -513,7 +513,7 @@ steps:
     command: python scripts/x_measurement_gate.py
     input: &id020
     - Data/harvester/exports/latest/
-    artifact_path: Output/current/
+    artifact_path: Output/x_measurement/
     ttl_hours: 48
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false

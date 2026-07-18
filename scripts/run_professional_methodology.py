@@ -64,7 +64,7 @@ except ModuleNotFoundError:  # imported as scripts.run_professional_methodology
 
 ROOT = Path(__file__).resolve().parents[1]
 try:
-    from _data_paths import resolve_cross_asset_panel_path
+    from scripts._data_paths import resolve_cross_asset_panel_path
 except ModuleNotFoundError:
     from scripts._data_paths import resolve_cross_asset_panel_path
 

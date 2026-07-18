@@ -1,8 +1,8 @@
-"""Data loader — align SPY prices with M/D/K/X signal history.
+"""Data loader — align SPY prices with neutral macro-pressure history.
 
 Reads from:
   - Data/panels/cross_asset_daily_panel.parquet  (SPY OHLCV)
-  - Output/sandbox/structural_replay_v2/all_signals.parquet  (M/D/K/X channels)
+  - Run-local neutral pressure history named by the current snapshot
 
 Returns a single aligned DataFrame with one row per trading day.
 """
@@ -10,19 +10,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import _runtime_io as rio
+from scripts import _runtime_io as rio
 import pandas as pd
 
 
 # ── Paths ────────────────────────────────────────────────────────────
 def _cross_asset_panel_path() -> Path:
-    from _data_paths import resolve_cross_asset_panel_path
+    from scripts._data_paths import resolve_cross_asset_panel_path
 
     return resolve_cross_asset_panel_path()
 
 
 PANEL_PATH = _cross_asset_panel_path()
-SIGNAL_PATH = rio.ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"
+LEGACY_SIGNAL_PATH = rio.ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"
 
 # ── Column mapping from all_signals.parquet ──────────────────────────
 SIGNAL_COLS = {
@@ -69,12 +69,18 @@ def load_symbol(symbol: str, start: str | None = None, end: str | None = None) -
 
 
 def load_signals(start: str | None = None, end: str | None = None) -> pd.DataFrame:
-    """Load M/D/K/X channel signals from the replay output.
+    """Load neutral funding-mismatch and market-constraint gauges.
 
-    Returns DataFrame indexed by date with columns: M, D, K, X.
+    The M/D column names are compatibility keys only. K/X are deliberately
+    absent because they are unresolved research candidates.
     """
-    raw = pd.read_parquet(SIGNAL_PATH)
-    sig = raw[list(SIGNAL_COLS.keys())].rename(columns=SIGNAL_COLS)
+    snapshot_path = rio.current_dir() / "neutral_pressure_snapshot.json"
+    snapshot = rio.load_json(snapshot_path)
+    history_raw = ((snapshot or {}).get("artifacts") or {}).get("pressure_history")
+    if not history_raw:
+        raise FileNotFoundError(f"neutral pressure history not declared by {snapshot_path}")
+    history_path = Path(str(history_raw))
+    sig = pd.read_parquet(history_path)[["M", "D"]]
     sig.index = pd.to_datetime(sig.index)
     sig = sig.sort_index()
     if start:
@@ -88,11 +94,11 @@ def load_aligned(
     start: str | None = None,
     end: str | None = None,
 ) -> pd.DataFrame:
-    """Load SPY + M/D/K/X signals aligned on date.
+    """Load SPY + neutral pressure gauges aligned on date.
 
     Returns DataFrame indexed by date with columns:
-        close, return_1d, M, D, K, X
-    Only rows where all 4 signals are non-null are kept.
+        close, return_1d, M, D
+    Only rows where both gauges are non-null are kept.
     """
     spy = load_spy(start, end)
     sig = load_signals(start, end)
@@ -101,6 +107,6 @@ def load_aligned(
     merged = spy.join(sig, how="inner")
 
     # Drop rows where any signal is NaN
-    merged = merged.dropna(subset=["M", "D", "K", "X"])
+    merged = merged.dropna(subset=["M", "D"])
 
     return merged

@@ -46,6 +46,17 @@ related, but they are not interchangeable.
 - system index files
 - promotion outputs and summary records
 
+## Promises
+
+- `Data/` changes only through an explicit promotion path; `Output/` remains non-canonical.
+- `Output/sandbox/` is a lawful zero-justification variation zone with zero authority.
+- No sandbox artifact reaches current merely because its file exists or looks fresh.
+
+## Relies On
+
+- Producers promise manifests, lineage and stable run identity.
+- Admission and publication gates promise zero authoritative side effects on rejection.
+
 ## Must Not
 
 - treat Output as canonical truth without promotion

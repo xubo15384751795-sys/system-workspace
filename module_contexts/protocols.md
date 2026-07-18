@@ -65,6 +65,16 @@ planned; duplicate definitions will be merged there.
 - compatibility examples
 - validation fixtures where applicable
 
+## Promises
+
+- We version shared shapes and support explicit coexistence across slow-layer migrations.
+- We define producer/consumer meaning without importing either side's private implementation.
+
+## Relies On
+
+- Producers promise to declare the schema version they emit.
+- Consumers promise explicit rejection or downgrade for unsupported versions.
+
 ## Must Not
 
 - contain provider acquisition logic

@@ -66,20 +66,94 @@ def check_governance_freeze(root: Path = ROOT) -> dict[str, Any]:
                 }
             )
 
-    # ── Check 2: Work support budget ───────────────────────────
+    # ── Check 2: Attention-shape budget ────────────────────────
+    # File volume is not governance weight. A machine-shaped rule must have a
+    # real code/test consumer; a label alone is not enforcement.
     work_support = tiers.get("work_support", {}).get("files", []) or []
     budget = int(manifest.get("work_support_budget", {}).get("max_files", 17))
-    if len(work_support) > budget:
+    inventory = tiers.get("shape_inventory", {}) or {}
+    attention = tiers.get("attention_budget", {}) or {}
+    governed_root_files = {
+        path.name for path in gov_dir.iterdir()
+        if path.is_file() and not _ignored(path.name, ignore_patterns)
+    }
+    classified_files = set(inventory)
+    unclassified_shapes = sorted(governed_root_files - classified_files)
+    stale_shape_entries = sorted(classified_files - governed_root_files)
+    if unclassified_shapes:
         violations.append(
             {
-                "id": "work_support_budget_exceeded",
+                "id": "governance_shape_unclassified",
+                "severity": "high",
+                "message": "Governance files lack an attention shape: " + ", ".join(unclassified_shapes),
+            }
+        )
+    if stale_shape_entries:
+        violations.append(
+            {
+                "id": "governance_shape_stale_entry",
+                "severity": "medium",
+                "message": "Shape inventory entries do not exist: " + ", ".join(stale_shape_entries),
+            }
+        )
+
+    procedural = sorted(
+        name for name, metadata in inventory.items()
+        if (metadata or {}).get("shape") == "procedural_rule"
+    )
+    procedural_budget = int(attention.get("max_procedural_rule_files", 5))
+    if len(procedural) > procedural_budget:
+        violations.append(
+            {
+                "id": "procedural_rule_budget_exceeded",
+                "severity": "high",
+                "message": f"procedural rule files {len(procedural)}/{procedural_budget}",
+            }
+        )
+
+    always_read = list(attention.get("always_read_files", []) or [])
+    always_file_budget = int(attention.get("max_always_read_files", 1))
+    always_line_budget = int(attention.get("max_always_read_rule_lines", 80))
+    always_lines = 0
+    missing_always: list[str] = []
+    for relative in always_read:
+        path = root / str(relative)
+        if not path.is_file():
+            missing_always.append(str(relative))
+        else:
+            always_lines += sum(1 for _ in path.open(encoding="utf-8", errors="replace"))
+    if missing_always or len(always_read) > always_file_budget or always_lines > always_line_budget:
+        violations.append(
+            {
+                "id": "always_read_attention_budget_exceeded",
                 "severity": "high",
                 "message": (
-                    f"work_support file count {len(work_support)} exceeds budget {budget}. "
-                    "Merge or archive before adding."
+                    f"always-read files {len(always_read)}/{always_file_budget}, "
+                    f"lines {always_lines}/{always_line_budget}, missing={missing_always}"
                 ),
             }
         )
+
+    unbacked_machine_files: list[str] = []
+    if (root / "scripts").is_dir() or (root / "tests").is_dir():
+        from scripts.build_governance_drag_report import _machine_consumer_evidence
+
+        machine_names = {
+            name for name, metadata in inventory.items()
+            if (metadata or {}).get("shape") in {"executable_invariant", "feedback_loop"}
+        }
+        consumer_evidence = _machine_consumer_evidence(root, machine_names)
+        unbacked_machine_files = sorted(
+            name for name in machine_names if not consumer_evidence.get(name)
+        )
+        if unbacked_machine_files:
+            violations.append(
+                {
+                    "id": "machine_governance_without_consumer",
+                    "severity": "high",
+                    "message": "Machine-shaped governance has no code/test consumer: " + ", ".join(unbacked_machine_files),
+                }
+            )
 
     # ── Check 3: Freeze active ─────────────────────────────────
     constitution = _load_yaml(root / "governance" / "system_constitution.yaml")
@@ -194,5 +268,8 @@ def check_governance_freeze(root: Path = ROOT) -> dict[str, Any]:
         "hash_mismatches": hash_mismatches,
         "work_support_count": len(work_support),
         "work_support_budget": budget,
+        "procedural_rule_count": len(procedural),
+        "always_read_rule_lines": always_lines,
+        "unbacked_machine_files": unbacked_machine_files,
         "violations": violations,
     }

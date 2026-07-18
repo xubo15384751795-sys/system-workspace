@@ -1,67 +1,127 @@
-# classification: documentation-only
-schema_version: governance_tiers.v1
-updated_at: "2026-06-18"
-purpose: >
-  Classify governance files by execution tier.
-  hard_rules: machine-checked, cannot be violated, fail tests if broken
-  work_support: runtime tools that help the system work, not block it
-  knowledge_background: reference material, not on daily execution path
+# Machine-consumed attention classification. File volume is inventory; only
+# repeated human memory counts as governance weight.
+schema_version: governance_tiers.v2
+updated_at: "2026-07-18"
+purpose: Classify every root governance artifact by enforcement shape and attention demand.
 
-hard_rules:
-  description: "Machine-checked contracts. Must fail if violated."
-  files:
-    - entrypoint_registry.yaml          # every script must be registered
-    - redundancy_budget.yaml            # script/artifact count limits
-    - system_constitution.yaml          # module roles, authority ordering
-    - canonical_proxy_spec.yaml         # M/D/K/X red-line definitions
-    - semantic_registry.json            # channel semantic distance
-    - data_retention_policy.yaml        # data lifecycle rules
-    - output_routing_policy.yaml        # artifact routing rules
-    - framework_output.schema.json      # output schema validation
-    - capability_registry.schema.json   # registry schema validation
+shape_model:
+  structural_impossibility: {rank: 1, attention: zero, decay: none}
+  executable_invariant: {rank: 2, attention: zero_until_violation, decay: very_slow}
+  feedback_loop: {rank: 3, attention: deviation_only, decay: slow}
+  precedent: {rank: 4, attention: on_demand, decay: natural}
+  principle: {rank: 5, attention: small_constant, decay: very_slow}
+  procedural_rule: {rank: 6, attention: human_memory, decay: fast}
 
-work_support:
-  description: "Runtime tools. Help the system work, guide next steps."
-  files:
-    - operator_registry.yaml            # operator types and claim ceilings
-    - run_mode_registry.yaml            # work cycle mode definitions
-    - opencode_supervisor_policy.yaml   # supervisor audit checks
-    - incentive_policy.yaml             # priority credit system
-    - authority_graph_policy.yaml       # topology zones, bridge nodes, invariants
-    - governance_freeze_manifest.yaml     # machine-checkable freeze baseline
-    - experimental_submission_registry.yaml  # non-compliant exploration queue
-    - authority_registry.yaml           # consolidated module/config/data authority
-    - data_request_registry.yaml        # inter-module data requests
-    - deferred_work_register.yaml       # deferred items with deadlines
-    - proxy_quality_rules.yaml          # proxy scoring rules
-    - pipeline_test_baseline.yaml       # test suite acceptance gate
-
-knowledge_background:
-  description: "Reference material. Read when needed, not on daily path."
-  files:
-    - architecture_reality_decisions.md   # architecture constitution
-    - architecture_cleanup_decisions.md   # cleanup decisions D1-D8
-    - repo_layout_map.md                  # on-disk path layout
-    - git_workspace_policy.md             # source versioning policy
-    - submodule_commit_plan.md            # submodule cleanup plan
-
-archived:
-  description: "No consumers. Moved to governance/archive/ for retention."
-  files:
-    - trade_decision_policy.yaml
-    - artifact_policy.yaml
-    - repo_state_audit.md
-    - runtime_log_contract.md
-    - x_agg_v1_obs_procurement_plan.md
-    - hmm_source_policy.json
-
-# Historical snapshots — NOT current authority
-# These reports record past observations. Current authority comes from
-# hard_rules or live registries, not from historical audit snapshots.
-historical_snapshots:
-  description: "Past audit/review reports. Reference only, not current authority."
-  path: governance/audit-reports/
+attention_budget:
+  always_read_files: [ROUTING_CONSTITUTION.md]
+  max_always_read_files: 1
+  max_always_read_rule_lines: 80
+  max_procedural_rule_files: 5
   rule: >
-    Files in governance/audit-reports/ are historical snapshots.
-    They cannot override hard_rules, live registries, or current test results.
-    They may be cited as evidence but not as authority.
+    If nobody reads a governance artifact, its property should still hold.
+    Otherwise promote it to an invariant or loop, retain it as precedent,
+    merge it into the compact principle surface, or sunset it.
+
+shape_inventory:
+  README.md: {shape: precedent, attention: on_demand, role: directory_index}
+  agent_routing_authority.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  architecture_cleanup_decisions.md: {shape: precedent, attention: on_demand, role: decision_record}
+  architecture_reality_decisions.md: {shape: precedent, attention: on_demand, role: decision_record}
+  authority_graph_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  authority_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
+  canonical_proxy_spec.yaml: {shape: executable_invariant, attention: zero, role: machine_spec}
+  capability_registry.schema.json: {shape: executable_invariant, attention: zero, role: schema}
+  capability_registry.yaml: {shape: feedback_loop, attention: deviation_only, role: capability_state}
+  claim_ladder_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  daily_pipeline_registry.yaml: {shape: executable_invariant, attention: zero, role: execution_registry}
+  daily_run_sequence.yaml: {shape: executable_invariant, attention: zero, role: generated_view}
+  data_request_registry.yaml: {shape: feedback_loop, attention: deviation_only, role: request_queue}
+  data_retention_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  deferred_work_register.yaml: {shape: feedback_loop, attention: deviation_only, role: deferred_review_queue}
+  entrypoint_registry.yaml: {shape: executable_invariant, attention: zero, role: execution_registry}
+  event_replay_windows.yaml: {shape: executable_invariant, attention: zero, role: machine_config}
+  experimental_submission_registry.yaml: {shape: feedback_loop, attention: deviation_only, role: review_queue}
+  feedback_sampling_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  framework_output.schema.json: {shape: executable_invariant, attention: zero, role: schema}
+  git_workspace_policy.md: {shape: precedent, attention: on_demand, role: workflow_reference_backed_by_hooks}
+  governance_freeze_manifest.yaml: {shape: executable_invariant, attention: zero, role: freeze_baseline}
+  governance_tiers.yaml: {shape: executable_invariant, attention: zero, role: attention_classifier}
+  incentive_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  mechanism_calibration_gate.yaml: {shape: executable_invariant, attention: zero, role: machine_gate}
+  ml_validation_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  open_threads.yaml: {shape: precedent, attention: on_demand, role: migration_record}
+  opencode_supervisor_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  operator_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
+  output_routing_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  paper_support_registry.yaml: {shape: executable_invariant, attention: zero, role: decision_input_registry}
+  pipeline_schedule.md: {shape: precedent, attention: on_demand, role: historical_schedule_reference}
+  pipeline_test_baseline.yaml: {shape: executable_invariant, attention: zero, role: machine_baseline}
+  proxy_observation_catalog.yaml: {shape: executable_invariant, attention: zero, role: machine_catalog}
+  proxy_quality_rules.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  redundancy_budget.yaml: {shape: executable_invariant, attention: zero, role: machine_budget}
+  repo_layout_map.md: {shape: precedent, attention: on_demand, role: migration_record}
+  run_mode_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
+  run_observability_summary.template.md: {shape: precedent, attention: on_demand, role: superseded_template}
+  semantic_registry.json: {shape: executable_invariant, attention: zero, role: machine_registry}
+  submodule_commit_plan.md: {shape: precedent, attention: on_demand, role: migration_record}
+  system_constitution.yaml: {shape: executable_invariant, attention: zero, role: machine_constitution}
+
+sunset_queue:
+  system_constitution.yaml#agent_work_protocol:
+    property: safe agent changes
+    reason: referenced verifier does not exist; merge gate and task-local verification carry the property
+    disposition: removed_as_unenforced_procedure
+  system_constitution.yaml#language_governance:
+    property: bound claim language to evidence
+    reason: actual promotion and judgment gates own this property; duplicate enum was not consumed
+    disposition: removed_as_duplicate
+  system_constitution.yaml#dual_clock:
+    property: evidence time cannot be compressed
+    reason: principle retained on compact constitution; no runtime consumer used the procedural lists
+    disposition: principle_compacted
+  pipeline_schedule.md:
+    property: historical schedule legibility
+    reason: no machine producer or consumer; daily_pipeline_registry is live authority
+    disposition: archive_after_reference_audit
+  submodule_commit_plan.md:
+    property: monorepo migration provenance
+    reason: migration is complete; retain only as case evidence
+    disposition: archive_after_reference_audit
+  run_observability_summary.template.md:
+    property: externalize run memory
+    reason: no registered invocation; structured run artifacts now carry the property
+    disposition: archive_if_no_consumer_by_next_review
+
+# Compatibility views for older consumers. They do not define attention weight.
+hard_rules:
+  files:
+    - entrypoint_registry.yaml
+    - redundancy_budget.yaml
+    - system_constitution.yaml
+    - canonical_proxy_spec.yaml
+    - semantic_registry.json
+    - data_retention_policy.yaml
+    - output_routing_policy.yaml
+    - framework_output.schema.json
+    - capability_registry.schema.json
+work_support:
+  files:
+    - operator_registry.yaml
+    - run_mode_registry.yaml
+    - opencode_supervisor_policy.yaml
+    - incentive_policy.yaml
+    - authority_graph_policy.yaml
+    - governance_freeze_manifest.yaml
+    - experimental_submission_registry.yaml
+    - authority_registry.yaml
+    - data_request_registry.yaml
+    - deferred_work_register.yaml
+    - proxy_quality_rules.yaml
+    - pipeline_test_baseline.yaml
+knowledge_background:
+  files:
+    - architecture_reality_decisions.md
+    - architecture_cleanup_decisions.md
+    - repo_layout_map.md
+    - git_workspace_policy.md
+    - submodule_commit_plan.md

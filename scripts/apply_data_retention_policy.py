@@ -22,7 +22,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml
 
 POLICY_PATH = ROOT / "governance" / "data_retention_policy.yaml"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"

@@ -16,7 +16,7 @@ import sys
 from typing import Any
 
 import yaml
-from _runtime_io import ROOT, ensure_dir, write_json
+from scripts._runtime_io import ROOT, ensure_dir, write_json
 
 CATALOG = ROOT / "governance" / "proxy_observation_catalog.yaml"
 BENCHMARK = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"

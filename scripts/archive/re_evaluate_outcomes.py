@@ -17,8 +17,8 @@ import argparse
 import json
 
 import pandas as pd
-from _data_paths import resolve_cross_asset_panel_path
-from _runtime_io import ROOT, ensure_dir
+from scripts._data_paths import resolve_cross_asset_panel_path
+from scripts._runtime_io import ROOT, ensure_dir
 
 EVAL_DIR = ROOT / "Output" / "evaluations"
 EVAL_LOG_PATH = EVAL_DIR / "eval_log.jsonl"

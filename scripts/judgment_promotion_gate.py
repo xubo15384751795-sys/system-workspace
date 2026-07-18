@@ -8,9 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from _workspace_imports import add_workbench_src
 
-add_workbench_src()
 
 from workbench.judgment.promotion_gate import run_promotion_gate, write_outputs
 

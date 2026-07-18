@@ -63,6 +63,53 @@ def test_collects_standardized_peer_events(tmp_path: Path) -> None:
     assert all("payload" in event for event in events)
 
 
+def test_collects_checkpoints_routing_decisions_and_migrated_open_threads(tmp_path: Path) -> None:
+    checkpoint = tmp_path / ".cursor" / "checkpoints" / "2026-07-11-capability-pivot.md"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_text("# Pivot\n\n- decision: keep lambda=0\n", encoding="utf-8")
+
+    routing = tmp_path / "Output" / "system_learning" / "routing_decisions" / "2026-07-11-pivot.yaml"
+    routing.parent.mkdir(parents=True)
+    routing.write_text(
+        "id: pivot\ndate: '2026-07-11'\nstatus: accepted\ntitle: Keep lambda zero\n",
+        encoding="utf-8",
+    )
+
+    open_threads = tmp_path / "governance" / "open_threads.yaml"
+    open_threads.parent.mkdir(parents=True)
+    open_threads.write_text(
+        "updated: '2026-07-12'\nthreads:\n"
+        "- id: closeout\n  priority: HIGH\n  action: Close adjudication\n"
+        "  module: governance\n  status: open\n",
+        encoding="utf-8",
+    )
+
+    events = collect_events(tmp_path)
+
+    by_type = {event["event_type"]: event for event in events}
+    assert "governance_checkpoint" in by_type
+    assert "routing_decision_accepted" in by_type
+    assert "governance_open_thread_closeout" in by_type
+    assert by_type["governance_open_thread_closeout"]["recommended_action"] == "Close adjudication"
+
+
+def test_migrated_open_thread_becomes_hub_improvement_item(tmp_path: Path) -> None:
+    open_threads = tmp_path / "governance" / "open_threads.yaml"
+    open_threads.parent.mkdir(parents=True)
+    open_threads.write_text(
+        "updated: '2026-07-12'\nthreads:\n"
+        "- id: closeout\n  priority: HIGH\n  action: Close adjudication\n"
+        "  module: governance\n  status: open\n",
+        encoding="utf-8",
+    )
+
+    queue = build_ledgers(collect_events(tmp_path))["improvement_queue"]
+
+    assert len(queue) == 1
+    assert queue.loc[0, "issue_family"] == "governance_work_item"
+    assert queue.loc[0, "proposed_action"] == "Close adjudication"
+
+
 def test_ledgers_reports_and_state_preservation(tmp_path: Path) -> None:
     events = [
         {

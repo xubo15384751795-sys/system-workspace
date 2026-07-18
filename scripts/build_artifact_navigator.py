@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from _workspace_imports import add_workbench_src
 
-add_workbench_src()
 
 from workbench.artifact_navigator import main
 

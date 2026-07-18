@@ -10,11 +10,6 @@ Usage:
 
 import argparse
 import json
-import sys
-from pathlib import Path
-
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from research_terminal.data.router import DataRouter
 from research_terminal.strategies.engine import QuickBacktest

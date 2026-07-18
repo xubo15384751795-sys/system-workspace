@@ -1142,6 +1142,13 @@ run_e3_three_replication:
   description: Execute the preregistered three-replication E3 protocol
   allowed_use:
   - preregistered_replication
+check_pace_routing:
+  script: scripts/commands/ci/check_pace_routing.py
+  status: governance_active
+  owner: Governance
+  description: Enforce PACE routing declarations for staged changes
+  allowed_use:
+  - commit_routing_validation
 run_learning_hub_ingest:
   script: scripts/run_learning_hub_ingest.py
   status: tool_active

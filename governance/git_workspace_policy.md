@@ -1,11 +1,16 @@
 # Git Workspace Policy
 
-**Status:** authoritative as of 2026-07-12  
+**Status:** precedent/reference as of 2026-07-18; not required reading
 **Supersedes:** ad-hoc "nested clone vs submodule vs move under Workbench" options in older audit notes;
 also updates the 2026-05-22 layout notes for day-to-day ops (active source now lives under
 `packages/` in this monorepo).
 
-This is the single policy for how source code is versioned in `system-workspace`.
+Executable authority now lives in `.gitignore`, `.pre-commit-config.yaml`,
+`scripts/_pre_push_hook.sh`, `scripts/bootstrap.sh`, and
+`scripts/verify_merge.py`. This file preserves reasoning and recovery examples;
+if it is never read, the enforced properties still hold.
+
+This is the reference for how source code is versioned in `system-workspace`.
 Path layout is in `governance/repo_layout_map.md`; directory ownership is in
 `FOLDER_OWNERSHIP.md`.
 

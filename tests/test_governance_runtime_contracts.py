@@ -349,9 +349,9 @@ class TestSystemConstitution:
         chain = har.get("authorized_runtime_chain", [])
         assert len(chain) > 0, "authorized_runtime_chain is empty"
         assert "Output/current/" in chain
-        # Gate outputs must be covered
-        assert "Output/k_measurement/" in chain, "k_measurement gate output not in authorized chain"
-        assert "Output/x_measurement/" in chain, "x_measurement gate output not in authorized chain"
+        # K/X remain research-only candidates and must not inherit v1 authority.
+        assert "Output/k_measurement/" not in chain
+        assert "Output/x_measurement/" not in chain
         assert "Output/caselab/" in chain, "caselab output not in authorized chain"
 
     def test_bridge_rule_declared(self):

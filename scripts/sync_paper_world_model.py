@@ -36,12 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _workspace_imports import add_root, add_scripts
-
-add_root()
-add_scripts()
-
-from _runtime_io import ROOT, ensure_dir
+from scripts._runtime_io import ROOT, ensure_dir
 
 from caselab_context.paper_paths import paper_root  # noqa: E402
 

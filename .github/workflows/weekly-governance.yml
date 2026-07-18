@@ -37,9 +37,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
           python -m pip install -e "packages/workbench[dev]"
+          python -m pip install -e "packages/learning_hub[dev]"
 
-      - name: Check governance freeze (advisory)
-        continue-on-error: true
+      - name: Check governance freeze
         run: |
           export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/check_governance_freeze.py
@@ -80,3 +80,14 @@ jobs:
         run: |
           export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/check_output_freshness.py
+
+      - name: Learning Hub ingest and monitoring blind-spot audit
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/packages/learning_hub/src:${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python scripts/run_learning_hub_ingest.py
+          python scripts/artifact_monitoring_audit.py --strict
+
+      - name: Learning Hub variation inlet health
+        run: |
+          export PYTHONPATH="${{ github.workspace }}/packages/learning_hub/src:${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
+          python -m system_learning variation-health --system-root "${{ github.workspace }}"

@@ -30,7 +30,7 @@ from src.data.paths import resolve_data_root, resolve_fred_cache_dir, resolve_la
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-HARVESTER_CONTRACTS = PROJECT_ROOT.parent / "Structural Risk Harvester" / "contracts"
+HARVESTER_CONTRACTS = PROJECT_ROOT.parent / "harvester" / "contracts"
 
 
 class DataAccessBoundaryTests(unittest.TestCase):

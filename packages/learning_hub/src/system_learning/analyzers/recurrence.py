@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 ISSUE_RULES = [
+    ("governance_work_item", ("governance_open_thread", "governance_work_item")),
     (
         "boundary_violation",
         ("boundary_violation", "import_boundary", "forbidden_dependency", "forbidden_modify", "write_attempt", "manifest", "config"),
@@ -85,6 +86,7 @@ def violation_ledger(event_df: pd.DataFrame) -> pd.DataFrame:
         "event_ids",
         "source_report_paths",
         "requires_manual_review",
+        "recommended_action",
     ]
     if event_df.empty:
         return pd.DataFrame(columns=columns)
@@ -117,6 +119,7 @@ def violation_ledger(event_df: pd.DataFrame) -> pd.DataFrame:
                 "event_ids": json.dumps(event_ids),
                 "source_report_paths": json.dumps(paths),
                 "requires_manual_review": bool(group["requires_manual_review"].any()),
+                "recommended_action": most_common_nonempty(group["recommended_action"].astype(str).tolist()),
             }
         )
     return pd.DataFrame(rows, columns=columns).sort_values(["issue_family", "subsystem"]).reset_index(drop=True)
@@ -271,6 +274,8 @@ def classify_issue_family(row: pd.Series) -> str:
 
 def recommended_action_for(row: pd.Series) -> str:
     family = row["issue_family"]
+    if family == "governance_work_item":
+        return str(row.get("recommended_action") or "Review the migrated governance work item.")
     if family == "boundary_violation":
         return "Clarify governance boundaries and require producer-side approval evidence before implementation."
     if family == "architecture_drift":

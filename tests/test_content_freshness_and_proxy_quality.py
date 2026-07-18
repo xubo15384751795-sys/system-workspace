@@ -13,7 +13,7 @@ SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-import build_proxy_quality_report as bpq  # noqa: E402
+import scripts.commands.weekly.build_proxy_quality_report as bpq  # noqa: E402
 import freshness_validator as fv  # noqa: E402
 
 

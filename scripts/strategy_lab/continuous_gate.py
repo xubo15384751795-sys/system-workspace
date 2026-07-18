@@ -97,8 +97,8 @@ def sweep_continuous(
     lookback: int = 63,
 ) -> list[dict]:
     """Sweep continuous gate parameters."""
-    from strategy_lab.backtest import compute_metrics
-    from strategy_lab.strategies import compute_baseline_position
+    from scripts.strategy_lab.backtest import compute_metrics
+    from scripts.strategy_lab.strategies import compute_baseline_position
 
     daily_returns = data["return_1d"]
     baseline_pos = compute_baseline_position(data["close"], lookback=lookback)

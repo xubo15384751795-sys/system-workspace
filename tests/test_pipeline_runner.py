@@ -13,7 +13,7 @@ def test_load_step_execution_for_record_daily_run_event() -> None:
 
 
 def test_resolve_callable_for_evidence_grade_report() -> None:
-    target = resolve_callable("scripts.build_evidence_grade_report:main")
+    target = resolve_callable("scripts.commands.weekly.build_evidence_grade_report:main")
     assert callable(target)
 
 
@@ -24,8 +24,8 @@ def test_load_step_execution_callable_batch() -> None:
 
 
 def test_resolve_callable_for_readme_and_next_actions() -> None:
-    assert callable(resolve_callable("scripts.build_readme_first:main"))
-    assert callable(resolve_callable("scripts.build_next_actions:main"))
+    assert callable(resolve_callable("scripts.commands.weekly.build_readme_first:main"))
+    assert callable(resolve_callable("scripts.commands.weekly.build_next_actions:main"))
 
 
 def test_run_registry_step_callable_record_daily_run_event(tmp_path: Path, monkeypatch) -> None:

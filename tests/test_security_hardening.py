@@ -175,7 +175,7 @@ ALL_EXPECTED_CHECKS = [
 
 def test_audit_has_all_hardening_checks() -> None:
     """architecture_reality_audit.py must include all 6 hardening checks."""
-    script = SCRIPTS / "architecture_reality_audit.py"
+    script = SCRIPTS / "commands" / "weekly" / "architecture_reality_audit.py"
     if not script.exists():
         pytest.skip("architecture_reality_audit.py not found")
     source = script.read_text(encoding="utf-8")
@@ -200,32 +200,17 @@ def test_api_security_module_exists() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 7. Workspace imports helper
+# 7. Installed package boundaries
 # ---------------------------------------------------------------------------
 
-EXPECTED_HELPER_FUNCTIONS = [
-    "add_workbench_src",
-    "add_learning_hub_src",
-    "add_framework_src",
-    "add_harvester_src",
-    "add_root",
-    "add_scripts",
-]
-
-
-def test_workspace_imports_helper_exists() -> None:
-    """scripts/_workspace_imports.py must exist with all helper functions."""
+def test_workspace_imports_helper_is_retired() -> None:
+    """Path-surgery compatibility helper must not return."""
     helper = SCRIPTS / "_workspace_imports.py"
-    assert helper.exists(), "_workspace_imports.py not found in scripts/"
-    source = helper.read_text(encoding="utf-8")
-    missing = [f for f in EXPECTED_HELPER_FUNCTIONS if f"def {f}" not in source]
-    assert not missing, (
-        "_workspace_imports.py missing functions:\n" + "\n".join(missing)
-    )
+    assert not helper.exists(), "_workspace_imports.py is retired; install workspace packages"
 
 
 def test_no_raw_sys_path_insert_in_scripts() -> None:
-    """Root scripts must not use raw sys.path.insert — use _workspace_imports instead."""
+    """Production scripts must import installed packages without path surgery."""
     violations = []
     for py_file in sorted(SCRIPTS.glob("*.py")):
         if py_file.name.startswith("_"):
@@ -238,29 +223,16 @@ def test_no_raw_sys_path_insert_in_scripts() -> None:
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
-            if "sys.path.insert" in stripped and "_workspace_imports" not in stripped:
+            if "sys.path.insert" in stripped:
                 violations.append(f"{py_file.name}:{lineno}")
     assert not violations, (
-        "Scripts with raw sys.path.insert (use _workspace_imports instead):\n"
+        "Scripts with raw sys.path.insert:\n"
         + "\n".join(violations)
     )
 
 
-def test_scripts_use_workspace_helper() -> None:
-    """Scripts that need workspace imports should use _workspace_imports helper."""
-    # Scripts that we know need workspace imports
-    needs_helper = {
-        "ask_evidence.py": "add_workbench_src",
-        "bridge_replay_to_current.py": "add_workbench_src",
-        "judgment_layer.py": "add_workbench_src",
-        "judgment_promotion_gate.py": "add_workbench_src",
-        "structural_replay_v2.py": "add_workbench_src",
-    }
-    for script_name, expected_func in needs_helper.items():
-        script = SCRIPTS / script_name
-        if not script.exists():
-            continue
-        source = script.read_text(encoding="utf-8")
-        assert expected_func in source and "from _workspace_imports import" in source, (
-            f"{script_name} should use 'from _workspace_imports import ...{expected_func}...'"
-        )
+def test_domain_packages_are_importable() -> None:
+    """The editable workspace exposes public domain packages."""
+    __import__("workbench")
+    __import__("harvester")
+    __import__("system_learning")

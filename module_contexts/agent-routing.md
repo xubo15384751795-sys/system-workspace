@@ -40,6 +40,18 @@ lives under `Workbench/agents/harness/`.
 - routing decision records for non-trivial cross-module tasks
 - updates to `MODULES.md` and `module_contexts/`
 
+## Promises
+
+- We select the smallest owning module and require a decision record only for cross-module or L3/L4 change.
+- Complex-domain routes declare a bounded probe, expectation, observation window and rollback.
+- Routing changes review priority and context; it never grants runtime or promotion authority.
+
+## Relies On
+
+- Module contexts promise current ownership, promises and dependencies.
+- PACE promises stable layer classification for pre-commit enforcement.
+- Learning Hub promises routing decisions are indexed without becoming approvals.
+
 ## Must Not
 
 - make every task cross-module by default

@@ -1,4 +1,4 @@
-"""Desktop and remote notifications for pipeline failures.
+"""Exception-only desktop and remote notifications.
 
 Channels (in priority order):
   1. macOS desktop notification (osascript) — always attempted on Darwin
@@ -22,7 +22,7 @@ import sys
 import urllib.request
 from datetime import UTC, datetime
 
-from _constants import TIMEOUT_SHORT
+from scripts._constants import TIMEOUT_SHORT
 
 
 def _notify_webhook(title: str, message: str) -> bool:
@@ -68,6 +68,17 @@ def notify_alert(title: str, message: str) -> bool:
     return notify_failure(title, message)
 
 
+def notify_deviations(title: str, deviations: list[str]) -> bool:
+    """Notify only when deviations exist; normal state has zero output."""
+    compact = [str(item).strip() for item in deviations if str(item).strip()]
+    if not compact:
+        return False
+    preview = "; ".join(compact[:3])
+    if len(compact) > 3:
+        preview += f"; +{len(compact) - 3} more"
+    return notify_failure(title, preview)
+
+
 def _notify_desktop(title: str, message: str) -> bool:
     """Show a macOS desktop notification. Returns True if a notifier ran."""
     if platform.system() != "Darwin":
@@ -101,13 +112,13 @@ def notify_daily_run_result(
     if status == "success" and not warnings:
         return
     if failed_steps:
-        notify_failure(
+        notify_deviations(
             "System daily_run failed",
-            f"{len(failed_steps)} step(s): {', '.join(failed_steps[:3])}",
+            [f"failed step: {step}" for step in failed_steps],
         )
         return
     if warnings:
-        notify_failure(
+        notify_deviations(
             "System daily_run warnings",
-            f"{len(warnings)} warning(s); check Output/alerts/latest_alert.md",
+            [*warnings, "details: Output/alerts/latest_alert.md"],
         )

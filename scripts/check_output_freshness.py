@@ -22,11 +22,9 @@ import sys
 import time
 from pathlib import Path
 
-from _workspace_imports import add_scripts
 
-add_scripts()
 
-from _runtime_io import ROOT, load_yaml  # noqa: E402
+from scripts._runtime_io import ROOT, load_yaml  # noqa: E402
 
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
 OUTPUT_CURRENT = ROOT / "Output" / "current"
@@ -164,9 +162,6 @@ def main() -> int:
             print(f"WARNING: {len(stale)} stale artifact(s) in Output/current/:")
             for f in stale:
                 print(f"  {f['message']}")
-        else:
-            print("OK: All Output/current/ artifacts are fresh.")
-
         other = [f for f in findings if f.get("status") != "STALE"]
         if other:
             for f in other:
