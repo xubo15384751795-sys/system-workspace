@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from system_runtime.paths import WorkspacePaths
+
+ROOT = WorkspacePaths.discover().root
 
 from caselab_context.index_paper import build_index, write_index
 from caselab_runtime.paper_index.note_schema import required_fields

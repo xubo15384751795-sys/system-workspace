@@ -18,6 +18,8 @@ Rules are grouped:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -317,7 +319,7 @@ def _build_summary(rule: Rule, evidence: dict[str, Any]) -> str:
 
 def _emit_event(violation: ConstitutionViolation, events_dir: Path | None) -> None:
     root = events_dir or (
-        Path(__file__).resolve().parents[6] / "Output" / "system_learning" / "events"
+        WorkspacePaths.discover().root / "Output" / "system_learning" / "events"
     )
     try:
         root.mkdir(parents=True, exist_ok=True)

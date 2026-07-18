@@ -17,6 +17,8 @@ Integration:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import logging
 from dataclasses import dataclass, field
@@ -33,7 +35,7 @@ from .constitution import (
 
 log = logging.getLogger(__name__)
 
-_SYSTEM_ROOT = Path(__file__).resolve().parents[6]
+_SYSTEM_ROOT = WorkspacePaths.discover().root
 _ML_SIGNALS_ROOT = _SYSTEM_ROOT / "Output" / "ml_signals"
 _DEFORMATION_RUNS_ROOT = _SYSTEM_ROOT / "Output" / "deformation_runs"
 _EVENTS_DIR = _SYSTEM_ROOT / "Output" / "system_learning" / "events"

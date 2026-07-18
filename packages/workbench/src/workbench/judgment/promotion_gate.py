@@ -13,12 +13,14 @@ Usage:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = WorkspacePaths.discover().root
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"

@@ -13,14 +13,16 @@ Usage:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ENV_INDEX = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_environments"
-OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "events"
+ENV_INDEX = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_environments"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "events"
 
 
 class EventResolver:

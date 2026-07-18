@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "structural-deformation-system"
-version = "0.1.0"
-description = "deformation-framework — engineering workspace"
+version = "0.2.0"
+description = "Governed structural-risk workspace application"
 requires-python = ">=3.12"
 
 # Core runtime dependencies (shared across all submodules)
@@ -16,6 +16,9 @@ dependencies = [
     "numpy>=2.0",
     "scikit-learn>=1.4",
 ]
+
+[project.scripts]
+system = "system_cli.app:main"
 
 [project.optional-dependencies]
 ml = [
@@ -37,7 +40,25 @@ full = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["scripts*", "tests*"]
+include = [
+    "system_cli*",
+    "system_runtime*",
+    "caselab_context*",
+    "caselab_runtime*",
+    "research_terminal*",
+    "scripts*",
+]
+
+# The four domain distributions stay independently installable.  Workspace
+# tooling installs them together; runtime code imports their public packages
+# and never mutates sys.path to reach their source trees.
+[tool.uv.workspace]
+members = [
+    "packages/framework",
+    "packages/harvester",
+    "packages/learning_hub",
+    "packages/workbench",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

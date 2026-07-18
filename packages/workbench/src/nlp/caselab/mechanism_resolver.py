@@ -15,6 +15,8 @@ for M/D/K/X impact propagation.
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,9 +27,9 @@ import yaml
 from .causal_graph import PropagationResult, resolve_event_causal
 from .event_trigger import EventTriggerEngine, TriggerResult
 
-DATA_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
-MAPPING_RULES = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "mapping_rules.yaml"
-OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "resolved_mechanisms"
+DATA_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
+MAPPING_RULES = WorkspacePaths.discover().root / "Data" / "nlp" / "mapping_rules.yaml"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "resolved_mechanisms"
 
 
 @dataclass

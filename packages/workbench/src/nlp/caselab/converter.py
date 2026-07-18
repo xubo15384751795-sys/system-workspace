@@ -17,6 +17,8 @@ Output (written to Data/nlp/caselab_training/):
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import re
 from datetime import datetime
@@ -30,7 +32,7 @@ from nlp.caselab.adapter import CaseLabAdapter, CaseLabCase, CaseLabEntity
 
 # ── Paths ─────────────────────────────────────────────────────────────────
 CASELAB_ROOT = Path("/Users/a1/Paper")
-SYSTEM_DATA = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
+SYSTEM_DATA = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
 
 
 # ── Mechanism → K feature mapping ────────────────────────────────────────

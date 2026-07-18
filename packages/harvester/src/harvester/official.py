@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import hashlib
 import json
 import logging
@@ -164,7 +166,7 @@ def _ensure_fred_api_key() -> None:
         return
     candidates = [
         Path.cwd() / "OpenBB" / "settings.env",
-        Path(__file__).resolve().parents[5] / "OpenBB" / "settings.env",
+        WorkspacePaths.discover().root / "OpenBB" / "settings.env",
     ]
     for env_path in candidates:
         if not env_path.is_file():

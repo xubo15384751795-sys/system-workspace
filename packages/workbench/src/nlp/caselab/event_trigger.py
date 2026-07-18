@@ -10,6 +10,8 @@ continuous market features.
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import operator
 import re
@@ -19,8 +21,8 @@ from typing import Any
 
 import yaml
 
-DATA_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
-OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Output" / "caselab" / "event_triggers"
+DATA_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "event_triggers"
 
 # ── Condition evaluator ─────────────────────────────────────────────────
 

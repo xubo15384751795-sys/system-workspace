@@ -11,6 +11,8 @@ Run:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from datetime import datetime
 from pathlib import Path
@@ -18,9 +20,9 @@ from typing import Any
 
 import yaml
 
-CASELAB_TRAINING = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_training"
-MAPPING_RULES = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "mapping_rules.yaml"
-ML_SIGNALS_DIR = Path(__file__).resolve().parents[5] / "Output" / "ml_signals"
+CASELAB_TRAINING = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
+MAPPING_RULES = WorkspacePaths.discover().root / "Data" / "nlp" / "mapping_rules.yaml"
+ML_SIGNALS_DIR = WorkspacePaths.discover().root / "Output" / "ml_signals"
 
 
 # ── 1. VariableMapper: add mechanism mapping rules ───────────────────────
