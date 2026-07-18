@@ -22,9 +22,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from scripts._runtime_io import ROOT, ensure_dir
+from scripts._runtime_io import ROOT, current_dir, ensure_dir
 
-CURRENT = ROOT / "Output" / "current"
+CURRENT = current_dir()  # Phase 1.1: honor CURRENT_OUTPUT_DIR candidate redirect
 JUDGMENT = ROOT / "Output" / "judgment"
 TRADE = ROOT / "Output" / "trade_decision"
 ML_SIGNALS = ROOT / "Output" / "ml_signals"

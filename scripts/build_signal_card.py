@@ -28,9 +28,9 @@ from scripts._constants import (
     SIGNAL_SIZE_SMALL,
     TRADING_DAYS_PER_YEAR,
 )
-from scripts._runtime_io import ROOT, ensure_dir, load_json, write_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, write_json
 
-CURRENT = ROOT / "Output" / "current"
+CURRENT = current_dir()  # Phase 1.1: honor CURRENT_OUTPUT_DIR candidate redirect
 JUDGMENT = ROOT / "Output" / "judgment"
 TRADE_DECISION = ROOT / "Output" / "trade_decision"
 CASELAB = ROOT / "Output" / "caselab"

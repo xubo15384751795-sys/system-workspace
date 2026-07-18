@@ -24,28 +24,62 @@ from typing import Any
 
 import numpy as np
 import yaml
+
 from scripts._runtime_io import ROOT, current_dir, ensure_dir
 
 OUTPUT_DIR = ROOT / "Output"
 CURRENT = current_dir()
 QUALITY_DIR = OUTPUT_DIR / "quality"
 
-# Maximum age before artifact is stale
-MAX_AGE_HOURS = {
-    "harvester": 48,
-    "structural_replay": 48,
-    "framework_output": 48,
-    "judgment": 48,
-    "promotion_gate": 48,
-    "trade_decision": 48,
-    "risk_gate": 48,
-    "learning_summary": 192,  # weekly cadence (daily_run_sequence.yaml) -> 8d TTL; 72h was wrong tier (WB-A4)
-    "system_index": 24,
-    "readme_first": 24,
-    "signal_card": 24,
-    "signal_consensus": 24,
-    "work_brief": 24,
+# Phase 1.2: artifact mtime budgets derived from configs/freshness_policy.yaml
+# (single source of truth), not hardcoded. Each artifact maps to its owning
+# step's cadence (daily/weekly); the budget = acceptable_lag_days * 24 hours.
+# This replaces the old hardcoded MAX_AGE_HOURS dict.
+_POLICY_PATH = ROOT / "configs" / "freshness_policy.yaml"
+
+# Map artifact name -> cadence. learning_summary is weekly (8d TTL); the rest
+# of the current-readout chain is daily. System_index/readme/signal are daily
+# display artifacts (24h = 1 day, the fresh_lag threshold for daily).
+_ARTIFACT_CADENCE = {
+    "harvester": "daily",
+    "structural_replay": "daily",
+    "framework_output": "daily",
+    "judgment": "daily",
+    "promotion_gate": "daily",
+    "trade_decision": "daily",
+    "risk_gate": "daily",
+    "learning_summary": "weekly",  # weekly cadence (daily_run_sequence.yaml)
+    "system_index": "daily",
+    "readme_first": "daily",
+    "signal_card": "daily",
+    "signal_consensus": "daily",
+    "work_brief": "daily",
 }
+
+
+def _load_max_age_hours_from_policy() -> dict[str, int]:
+    """Derive per-artifact max-age-hours from freshness_policy.yaml.
+
+    budget = frequency_thresholds[cadence].acceptable_lag_days * 24.
+    Falls back to the policy's daily threshold if the cadence is unknown.
+    """
+    try:
+        policy = yaml.safe_load(_POLICY_PATH.read_text(encoding="utf-8")) or {}
+    except OSError:
+        policy = {}
+    thresholds = policy.get("frequency_thresholds", {}) or {}
+    daily = (thresholds.get("daily") or {}).get("acceptable_lag_days", 10)
+    weekly = (thresholds.get("weekly") or {}).get("acceptable_lag_days", 21)
+    budgets: dict[str, int] = {}
+    for name, cadence in _ARTIFACT_CADENCE.items():
+        if cadence == "weekly":
+            budgets[name] = int(weekly) * 24
+        else:
+            budgets[name] = int(daily) * 24
+    return budgets
+
+
+MAX_AGE_HOURS = _load_max_age_hours_from_policy()
 
 def _load_content_freshness_registry(root: Path = ROOT) -> dict[str, dict[str, Any]]:
     """Compile content clocks from the canonical pipeline registry.
