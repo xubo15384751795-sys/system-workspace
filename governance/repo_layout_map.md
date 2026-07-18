@@ -154,3 +154,20 @@ Retired: nest harvester/hub under `Workbench/` — do not pursue without a new m
 
 See `governance/repo_state_audit.md` for phase plan and risks, and
 `governance/submodule_commit_plan.md` for step 5 details.
+
+---
+
+## 8. Harvester data path canonicalization (Phase 4.1, 2026-07-18)
+
+The harvester exports root has two historical paths:
+- **Canonical:** `Data/harvester/exports/` (the live `latest` symlink target;
+  what `system_runtime.paths.WorkspacePaths.harvester_exports` returns).
+- **Legacy alias:** `packages/harvester/data/` (from when the harvester was a
+  standalone package with its own data dir).
+
+`harvester.core.exporter.default_exports_root()` now resolves to the canonical
+path via `WorkspacePaths`, falling back to the legacy `parents[3]/data/exports`
+only when `system_runtime` is not importable (standalone-testability). New code
+MUST use `WorkspacePaths.harvester_exports` or `default_exports_root()`, never
+a raw `Path(__file__).parents[3] / "data"`. The `packages/harvester/data`
+directory is a symlink alias and must not be written to directly.

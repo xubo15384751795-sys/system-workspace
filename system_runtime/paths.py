@@ -58,6 +58,16 @@ class WorkspacePaths:
         return self.root / "Data"
 
     @property
+    def harvester_exports(self) -> Path:
+        """Harvester evidence-release exports root (Phase 4.1).
+
+        Canonical location is ``Data/harvester/exports``. The legacy
+        ``packages/harvester/data`` path is an alias (see repo_layout_map.md);
+        new code must use this property, not ``Path(__file__).parents[3]``.
+        """
+        return self.data / "harvester" / "exports"
+
+    @property
     def pipeline_spec(self) -> Path:
         return self.governance / "daily_pipeline_registry.yaml"
 
