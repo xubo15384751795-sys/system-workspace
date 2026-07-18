@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
 from scripts._runtime_io import ROOT, current_dir, ensure_dir
 from scripts.build_current_status import gather_status
 
@@ -109,6 +110,27 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
             "command": "python3 scripts/refresh_improvement_queue_report.py",
             "module": "packages/learning_hub",
         })
+
+    # Phase 2.2: external indicator health. Indicators failing >= 7 consecutive
+    # days surface as HIGH-priority actions so a stale external feed (the
+    # OFR/CISS 73-day-blind-spot failure mode) is visible within a week.
+    try:
+        from _external_indicator_health import failing_indicators
+
+        for ind in failing_indicators():
+            actions.append({
+                "priority": "HIGH",
+                "action": f"Restore external indicator: {ind['name']}",
+                "reason": (
+                    f"{ind['name']} failed {ind['consecutive_failures']} consecutive days; "
+                    f"last success {ind.get('last_success') or 'never'}. "
+                    f"Error: {ind.get('last_error', '')[:120]}"
+                ),
+                "command": f"Investigate {ind['name']} provider; check Data/harvester/raw/",
+                "module": "packages/harvester",
+            })
+    except Exception:
+        pass
 
     # If no blockers, suggest monitoring
     if not actions:
