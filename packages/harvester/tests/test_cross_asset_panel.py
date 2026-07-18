@@ -188,6 +188,43 @@ def test_fetch_recent_ohlcv_raises_when_all_symbols_fail(monkeypatch) -> None:
         fetch_recent_ohlcv(["SPY"], period="5d")
 
 
+def test_build_retains_existing_when_fetch_raises(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    panel_dir = workspace / "Data" / "panels"
+    panel_dir.mkdir(parents=True)
+    seed = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-07-09", "2026-07-10"]),
+            "symbol": ["SPY", "SPY"],
+            "open": [1.0, 1.0],
+            "high": [1.0, 1.0],
+            "low": [1.0, 1.0],
+            "close": [100.0, 101.0],
+            "volume": [1.0, 1.0],
+            "return_1d": [0.0, 0.01],
+            "return_5d": [0.0, 0.0],
+            "return_20d": [0.0, 0.0],
+            "return_60d": [0.0, 0.0],
+            "volatility_20d": [0.0, 0.0],
+            "drawdown_60d": [0.0, 0.0],
+        }
+    )
+    seed.to_parquet(panel_dir / "cross_asset_daily_panel.parquet", index=False)
+
+    def boom(symbols, *, period="5d"):
+        raise RuntimeError("ETF fetch produced no usable rows for 1 symbols (1 failed/empty)")
+
+    monkeypatch.setattr("harvester.cross_asset_panel.fetch_recent_ohlcv", boom)
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["SPY"],
+    )
+
+    panel = build_cross_asset_panel(workspace=workspace)
+    assert len(panel) == 2
+    assert panel["close"].iloc[-1] == pytest.approx(101.0)
+
+
 def test_build_merges_by_symbol_date_not_date_only(tmp_path: Path, monkeypatch) -> None:
     """Partial fresh fetch must not delete other symbols on the same dates."""
     workspace = tmp_path / "workspace"
