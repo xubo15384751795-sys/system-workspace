@@ -13,9 +13,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from _daily_run_sequence import load_daily_run_sequence, weekly_step_ids
-from _pipeline_runner import load_registry, load_step_execution, run_registry_step
-from _runtime_io import ROOT, current_dir
+from scripts._daily_run_sequence import load_daily_run_sequence, weekly_step_ids
+from scripts._pipeline_dag import interpret_failure
+from scripts._pipeline_runner import load_registry, load_step_execution, run_registry_step
+from scripts._runtime_io import ROOT, current_dir
 
 logger = logging.getLogger(__name__)
 
@@ -53,27 +54,20 @@ def _policy_env() -> dict[str, str]:
 
 STEP_ENV: dict[str, Callable[[], dict[str, str]]] = {
     "harvester": _harvester_env,
-    "structural_replay": _replay_env,
     "regime_detection": _workbench_env,
     "build_policy_from_paper": _policy_env,
 }
 
 STEP_INPUT_ARTIFACTS: dict[str, Callable[["DailyRunContext"], list[str]]] = {
-    "structural_replay": lambda ctx: [str(ctx.benchmark_panel_path)],
-    "bridge": lambda _ctx: [
-        str(ROOT / "Output" / "sandbox" / "structural_replay_v2" / "framework_output.json"),
-    ],
+    "neutral_pressure_measurement": lambda ctx: [str(ctx.benchmark_panel_path)],
     "judgment_layer": lambda _ctx: [
-        str(current_dir() / "framework_output.json"),
-        str(ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"),
-        str(ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"),
+        str(current_dir() / "neutral_pressure_snapshot.json"),
         str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
     ],
     "trade_decision": lambda _ctx: [
         str(ROOT / "Output" / "judgment" / "latest.json"),
         str(ROOT / "Output" / "judgment" / "promotion_gate.json"),
-        str(ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"),
-        str(ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"),
+        str(current_dir() / "neutral_pressure_snapshot.json"),
         str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
     ],
 }
@@ -88,6 +82,10 @@ class DailyRunContext:
     record_fn: Callable[..., None]
     benchmark_panel_path: Path
     step_index: int = 0
+    # Bundle run_id. Also published as env var ZCODE_BUNDLE_RUN_ID by the
+    # caller (daily_run.py) so subprocess steps inherit it; this field is the
+    # in-process mirror for the executor and callable steps.
+    run_id: str = ""
 
     @property
     def force_weekly(self) -> bool:
@@ -136,27 +134,6 @@ def _build_harvester_command() -> list[str]:
     ]
 
 
-def _build_structural_replay_command(ctx: DailyRunContext) -> list[str]:
-    release_id = "latest"
-    catalog_path = ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
-    if catalog_path.exists():
-        try:
-            import json
-
-            cat = json.loads(catalog_path.read_text(encoding="utf-8"))
-            release_id = cat.get("release_id", "latest")
-        except Exception:
-            logger.debug("Failed to read harvester catalog release_id", exc_info=True)
-    return [
-        sys.executable,
-        str(ROOT / "scripts" / "structural_replay_v2.py"),
-        f"panel.release_id={release_id}",
-        f"panel.path={ctx.benchmark_panel_path}",
-        f"run.tag=daily_{ctx.start_time.strftime('%Y%m%d')}",
-        f"run.as_of_date={ctx.start_time.strftime('%Y-%m-%d')}",
-    ]
-
-
 def _build_regime_detection_command(ctx: DailyRunContext) -> list[str]:
     today_str = ctx.start_time.strftime("%Y-%m-%d")
     code = (
@@ -183,7 +160,6 @@ def _build_evaluate_pending_argv(ctx: DailyRunContext) -> list[str]:
 
 CUSTOM_COMMAND_BUILDERS: dict[str, Callable[[DailyRunContext], list[str]]] = {
     "harvester": lambda _ctx: _build_harvester_command(),
-    "structural_replay": _build_structural_replay_command,
     "regime_detection": _build_regime_detection_command,
     "collect_reviews": lambda _ctx: _build_collect_reviews_command(),
 }
@@ -267,6 +243,43 @@ def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
             logger.info("[%d/%d] Skipping %s (%s)", index, ctx.total_steps, step_id, reason)
             continue
 
+        # Failure-behavior interpreter: decide whether to block, degrade, or run
+        # this step based on which upstream steps already failed and their
+        # declared failure_behavior. This is the runtime enforcement of the
+        # registry's block_*/hold_flat/lower_claim_ceiling/continue_with_warning
+        # semantics. Replaces the Phase A boolean failed_upstream_of with
+        # per-behavior discrimination so hold_flat/lower_claim_ceiling upstreams
+        # degrade-and-continue instead of hard-blocking.
+        decision = interpret_failure(step_id, results)
+        if decision["action"] == "block":
+            blocked_by = decision["blocked_by"]
+            logger.warning(
+                "[%d/%d] Blocking %s (upstream failed: %s)",
+                index,
+                ctx.total_steps,
+                step_id,
+                ", ".join(blocked_by),
+            )
+            result = {
+                "step": step_id,
+                "status": "blocked_upstream",
+                "blocked_by": blocked_by,
+                "duration_s": 0,
+            }
+            input_builder = STEP_INPUT_ARTIFACTS.get(step_id)
+            input_artifacts = input_builder(ctx) if input_builder else None
+            ctx.record_fn(result, input_artifacts=input_artifacts)
+            results.append(result)
+            continue
+
+        degraded = decision.get("degraded", False)
+        if degraded:
+            logger.info(
+                "[%d/%d] Running %s in degraded mode (upstream: %s)",
+                index, ctx.total_steps, step_id,
+                ", ".join(decision.get("degraded_by", [])),
+            )
+
         logger.info("[%d/%d] Running %s...", index, ctx.total_steps, step_id)
         try:
             result = execute_step(step_id, ctx)
@@ -277,6 +290,12 @@ def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
                 "error": str(exc),
                 "duration_s": 0,
             }
+
+        # Tag the result degraded if the interpreter said so (hold_flat or
+        # lower_claim_ceiling upstream). The step still ran and produced output.
+        if degraded and result.get("status") == "success":
+            result["degraded"] = True
+            result["degraded_by"] = decision.get("degraded_by", [])
 
         input_builder = STEP_INPUT_ARTIFACTS.get(step_id)
         input_artifacts = input_builder(ctx) if input_builder else None

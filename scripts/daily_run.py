@@ -28,28 +28,26 @@ import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from system_runtime.events import EventEnvelope, JsonlEventStore
+
 logger = logging.getLogger(__name__)
 
-# RunBundle integration — use auditable path management
-from _workspace_imports import add_scripts
-
-add_scripts()
-from _runtime_io import ROOT, current_dir, ensure_dir, load_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
 
 RUNTIME_DIR = ROOT / "Output" / "runtime_events"
 ALERT_DIR = ROOT / "Output" / "alerts"
-from _constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
-from _current_publish import (
+from scripts._constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
+from scripts._current_publish import (
     begin_candidate,
     clear_candidate_env,
     publish_candidate,
     should_publish,
 )
-from _daily_run_executor import DailyRunContext, execute_daily_sequence
-from _daily_run_sequence import dry_run_labels, load_daily_run_sequence, weekly_step_ids
-from _notify import notify_daily_run_result
-from _pipeline_runner import run_registry_step
-from _pipeline_runner import run_subprocess_step as _run_subprocess_step
+from scripts._daily_run_executor import DailyRunContext, execute_daily_sequence
+from scripts._daily_run_sequence import dry_run_labels, load_daily_run_sequence, weekly_step_ids
+from scripts._notify import notify_daily_run_result
+from scripts._pipeline_runner import run_registry_step
+from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
 from run_bundle import RunBundle
 
 # Numbered user-facing stages in the pipeline
@@ -74,7 +72,7 @@ def _resolve_execution_mode(step_id: str) -> str:
     if _PIPELINE_MODE == "callable":
         return "callable"
     if _PIPELINE_MODE == "auto":
-        from _pipeline_runner import load_step_execution
+        from scripts._pipeline_runner import load_step_execution
 
         return load_step_execution(step_id).get("mode", "subprocess")
     return "subprocess"
@@ -90,8 +88,8 @@ def run_step(name: str, cmd: list[str], env: dict | None = None, *, registry_ste
 
 
 def check_freshness() -> dict:
-    """Check if published framework_output is stale."""
-    fw_path = ROOT / "Output" / "current" / "framework_output.json"
+    """Check if the published neutral pressure snapshot is stale."""
+    fw_path = ROOT / "Output" / "current" / "neutral_pressure_snapshot.json"
     if not fw_path.exists():
         return {"status": "missing", "stale_hours": None}
     mtime = datetime.fromtimestamp(fw_path.stat().st_mtime, tz=UTC)
@@ -109,10 +107,10 @@ def check_warnings() -> list[str]:
     if freshness["status"] == "stale":
         warnings.append(f"STALE: framework_output is {freshness['stale_hours']}h old")
     elif freshness["status"] == "missing":
-        warnings.append("MISSING: framework_output.json does not exist")
+        warnings.append("MISSING: neutral_pressure_snapshot.json does not exist")
 
     # 2. Coverage status
-    fw_path = ROOT / "Output" / "current" / "framework_output.json"
+    fw_path = ROOT / "Output" / "current" / "neutral_pressure_snapshot.json"
     if fw_path.exists():
         try:
             fw = json.loads(fw_path.read_text(encoding="utf-8"))
@@ -123,7 +121,7 @@ def check_warnings() -> list[str]:
             if "PROXY_REDUCED" in quality:
                 warnings.append(f"QUALITY: {quality}")
         except Exception:
-            warnings.append("PARSE_ERROR: cannot read framework_output.json")
+            warnings.append("PARSE_ERROR: cannot read neutral_pressure_snapshot.json")
 
     # 3. Harvester release freshness
     latest = ROOT / "Data" / "harvester" / "exports" / "latest"
@@ -146,13 +144,21 @@ def check_warnings() -> list[str]:
 
 
 def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
-    """Append event to daily JSONL log."""
+    """Append one versioned event to the runtime event store."""
     runtime_dir = output_root / "runtime_events" if output_root else RUNTIME_DIR
     ensure_dir(runtime_dir)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     path = runtime_dir / f"{today}.jsonl"
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(event, default=str, ensure_ascii=False) + "\n")
+    JsonlEventStore(path).append(
+        EventEnvelope.create(
+            event_type=str(event.get("type") or "daily_run_completed"),
+            payload_schema=str(event.get("schema_version") or "run_event.v1"),
+            payload=event,
+            producer="daily_run",
+            run_id=event.get("run_id") or os.environ.get("ZCODE_BUNDLE_RUN_ID"),
+            occurred_at=str(event.get("timestamp") or "") or None,
+        )
+    )
 
 
 def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None = None) -> None:
@@ -281,6 +287,12 @@ def main() -> None:
     logger.info("Run bundle: %s", bundle.run_id)
     candidate_dir = begin_candidate(bundle.run_dir)
 
+    # Publish bundle run_id to the environment so subprocess/callable steps
+    # (structural_replay, bridge, ...) can stamp provenance on their outputs
+    # and consumers can reject stale/previous-run artifacts. Propagation uses
+    # the subprocess env merge in _pipeline_runner.run_subprocess_step.
+    os.environ["ZCODE_BUNDLE_RUN_ID"] = bundle.run_id
+
     steps = []
 
     def _record(step_result: dict, input_artifacts: list[str] | None = None) -> None:
@@ -292,6 +304,7 @@ def main() -> None:
             duration_s=step_result.get("duration_s", 0),
             returncode=step_result.get("returncode", 0),
             input_artifacts=input_artifacts,
+            blocked_by=step_result.get("blocked_by"),
         )
 
     bp_path = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
@@ -302,6 +315,7 @@ def main() -> None:
         run_step_fn=run_step,
         record_fn=_record,
         benchmark_panel_path=bp_path,
+        run_id=bundle.run_id,
     )
     execute_daily_sequence(ctx)
 
@@ -311,7 +325,7 @@ def main() -> None:
     _collect_feedback_pending(bundle)
 
     # Record key artifacts from candidate (pre-publish)
-    from _current_publish import candidate_artifact_names
+    from scripts._current_publish import candidate_artifact_names
 
     for name in candidate_artifact_names():
         artifact = candidate_dir / name
@@ -363,10 +377,39 @@ def main() -> None:
 
     from ingest_daily_run_to_hub import ingest_daily_run_bundle
 
+    # Phase B5: shadow two-phase publish. paper_portfolio wrote its NAV/state
+    # into the shadow_candidate dir; promote atomically only when the run is
+    # publishable. On a failed/blocked run the candidate is retained for audit
+    # but the live shadow state / NAV ledger / latest pointer are untouched.
+    from scripts._shadow_publish import (
+        begin_shadow_candidate,
+        clear_shadow_candidate_env,
+        publish_shadow_candidate,
+    )
+
+    shadow_candidate = begin_shadow_candidate(bundle.run_dir)
+    if can_publish:
+        promoted = publish_shadow_candidate(shadow_candidate)
+        logger.info("Promoted %d shadow artifacts", promoted["count"])
+    else:
+        logger.warning("Skipped shadow publish (run not publishable)")
+    clear_shadow_candidate_env()
+
     ingest_daily_run_bundle(bundle_dir, run_status=run_status, steps=steps)
 
+    # Close the Learning Hub default path on every run. Bundle ingestion alone
+    # only snapshots run metadata; this second stage appends source events and
+    # rematerializes the authoritative ledgers. A failure is intentionally
+    # visible instead of allowing governance reports to refresh over a frozen
+    # learning ledger.
+    from scripts.run_learning_hub_ingest import main as run_learning_hub_ingest
+
+    hub_exit = run_learning_hub_ingest()
+    if hub_exit != 0:
+        raise RuntimeError(f"Learning Hub ingest failed with exit code {hub_exit}")
+
     # Refresh governance status after the bundle has its final manifest.
-    governance_status_script = ROOT / "scripts" / "governance_status.py"
+    governance_status_script = ROOT / "scripts" / "commands" / "weekly" / "governance_status.py"
     if governance_status_script.exists():
         subprocess.run(
             [sys.executable, str(governance_status_script)],

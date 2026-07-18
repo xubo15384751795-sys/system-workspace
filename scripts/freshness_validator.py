@@ -17,12 +17,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from _runtime_io import ROOT, current_dir, ensure_dir
+import yaml
+from scripts._runtime_io import ROOT, current_dir, ensure_dir
 
 OUTPUT_DIR = ROOT / "Output"
 CURRENT = current_dir()
@@ -45,35 +47,20 @@ MAX_AGE_HOURS = {
     "work_brief": 24,
 }
 
-# Content freshness — file mtime can be fresh while parquet payload is weeks old
-# (e.g. harvester release re-stamped daily with a stale embedded panel).
-CONTENT_FRESHNESS = {
-    "etf_panel": {
-        "path": "Data/panels/cross_asset_daily_panel.parquet",
-        "date_column": "date",
-        "max_trading_days_behind": 3,
-    },
-    # Public-index caches must be checked at content level: a stale payload
-    # silently degrades P_public (eq-weight PIT over OFR/NFCI/CISS) via
-    # mean(skipna=True) re-normalization - the "no silent channel collapse"
-    # failure mode recurring on the public-index side.
-    # See routing decision 2026-07-12-g1-contrast-and-freshness-fix.
-    "ofr_fsi_cache": {
-        "path": "Data/harvester/raw/external_indicators/ofr_fsi.csv",
-        "date_column": "date",
-        "max_trading_days_behind": 10,
-    },
-    "ciss_cache": {
-        "path": "Data/harvester/raw/external_indicators/ciss.csv",
-        "date_column": "TIME_PERIOD",
-        "max_trading_days_behind": 10,
-    },
-    "benchmark_panel": {
-        "path": "Data/harvester/exports/latest/data/benchmark_panel.parquet",
-        "date_column": "date",
-        "max_trading_days_behind": 5,
-    },
-}
+def _load_content_freshness_registry(root: Path = ROOT) -> dict[str, dict[str, Any]]:
+    """Compile content clocks from the canonical pipeline registry.
+
+    Keeping these paths in Python recreated the exact "monitor path table drift"
+    failure mode this validator is meant to prevent.
+    """
+    registry_path = root / "governance" / "daily_pipeline_registry.yaml"
+    registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    rows = registry.get("content_freshness", {}) or {}
+    return {str(name): dict(config) for name, config in rows.items() if isinstance(config, dict)}
+
+
+# Backward-compatible import surface for callers/tests; source of truth is YAML.
+CONTENT_FRESHNESS = _load_content_freshness_registry()
 
 # The "current outputs" chain — these must all be from the same run
 CURRENT_OUTPUT_CHAIN = [
@@ -572,7 +559,16 @@ def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
     return {"json": json_path, "markdown": md_path}
 
 
-def main() -> None:
+def main() -> int:
+    """Run freshness validator.
+
+    Returns 0 on PASS/WARN, 1 on FAIL (hard ordering/closure violations).
+    A nonzero return propagates to the pipeline runner as status="failed"
+    and to the publish gate (should_publish) as a block. Note: stale/missing
+    content is WARN here (advisory at the validator level); the pre-consumption
+    admission gate in _admission_gate.py enforces hard blocking for the
+    specific consumers (paper_portfolio) that depend on fresh public components.
+    """
     parser = argparse.ArgumentParser(description="Run freshness validator.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
     parser.add_argument(
@@ -590,7 +586,7 @@ def main() -> None:
         if c.get("status") == "STALE"
     ]
     if content_stale:
-        from _notify import notify_failure
+        from scripts._notify import notify_failure
 
         details = ", ".join(
             f"{c['name']} max={c.get('max_date')} behind={c.get('trading_days_behind')}d"
@@ -616,6 +612,10 @@ def main() -> None:
                     f"(max={c.get('max_date')}, behind={c.get('trading_days_behind')})"
                 )
 
+    # Hard FAIL (ordering/closure violations) must be a non-zero exit so the
+    # pipeline runner records status="failed" and the publish gate blocks.
+    return 1 if report.get("verdict") == "FAIL" else 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

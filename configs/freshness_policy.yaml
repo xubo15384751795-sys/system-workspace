@@ -38,10 +38,26 @@ evidence_release:
   user_override_allowed: true
 
 indicators:
+  # Public stress components (OFR/NFCI/CISS) feed P_public in the paper
+  # portfolio sizing path. A stale/missing component must be a hard blocker,
+  # not a warn: without this the eq-weight PIT mean silently renormalizes
+  # over the surviving subset (the 2026-05..07 NFCI-only degradation).
   NFCI:
     required: true
     frequency: weekly
-    stale_required_severity: warn
+    stale_required_severity: block
+    missing_required_severity: block
+  OFR_FSI:
+    required: true
+    frequency: daily
+    stale_required_severity: block
+    missing_required_severity: block
+  CISS:
+    required: true
+    frequency: daily
+    stale_required_severity: block
+    missing_required_severity: block
+    missing_reason: "ECB CISS; acquired via harvester external_indicators provider."
   VIXCLS:
     required: true
     frequency: daily
@@ -65,6 +81,3 @@ indicators:
   STLFSI4:
     required: false
     frequency: weekly
-  OFR_FSI:
-    required: false
-    frequency: daily

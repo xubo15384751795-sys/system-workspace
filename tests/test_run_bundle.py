@@ -129,6 +129,33 @@ class TestStepRecording:
         step = json.loads(lines[0])
         assert step["detail"] == "some detail text"
 
+    def test_record_step_blocked_upstream_records_blocked_by(self, tmp_output):
+        """A blocked_upstream step records its blocked_by lineage structurally."""
+        bundle = RunBundle.start(mode="test", root=tmp_output)
+        bundle.record_step("structural_replay", status="failed", returncode=1)
+        bundle.record_step(
+            "bridge",
+            status="blocked_upstream",
+            duration_s=0,
+            blocked_by=["structural_replay"],
+        )
+        bundle.finish(status="partial_failure")
+
+        lines = (bundle.run_dir / "steps.jsonl").read_text(encoding="utf-8").strip().split("\n")
+        bridge = json.loads(lines[1])
+        assert bridge["step"] == "bridge"
+        assert bridge["status"] == "blocked_upstream"
+        assert bridge["blocked_by"] == ["structural_replay"]
+
+        manifest = json.loads(
+            (bundle.run_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        # blocked_upstream counts as non-success in steps_failed, and is also
+        # separately tallied in steps_blocked.
+        assert manifest["steps_succeeded"] == 0
+        assert manifest["steps_failed"] == 2
+        assert manifest["steps_blocked"] == 1
+
 
 class TestTraceCapture:
     """Test decision and signal trace capture."""
