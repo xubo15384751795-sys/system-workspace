@@ -8,7 +8,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from _constants import HALF_YEAR_TRADING_DAYS, TRADING_DAYS_PER_YEAR
+from scripts._constants import HALF_YEAR_TRADING_DAYS, TRADING_DAYS_PER_YEAR
 from professional_methods import causal_pit, causal_robust_zscore
 
 Freq = Literal["daily", "weekly", "monthly", "quarterly", "sparse", "mixed"]
@@ -16,7 +16,24 @@ Freq = Literal["daily", "weekly", "monthly", "quarterly", "sparse", "mixed"]
 def _series(panel: pd.DataFrame, col: str, limit: int = 5) -> pd.Series | None:
     if col not in panel.columns:
         return None
-    return panel[col].astype(float).interpolate(limit=limit)
+    s = panel[col].astype(float)
+    # limit<=0 means "do not interpolate" (pandas requires limit > 0).
+    if limit is None or limit <= 0:
+        return s
+    return s.interpolate(limit=limit)
+
+
+def _first_series(
+    panel: pd.DataFrame,
+    *cols: str,
+    limit: int = 5,
+) -> pd.Series | None:
+    """Return the first available column as a series (avoid Series `or` truthiness)."""
+    for col in cols:
+        series = _series(panel, col, limit=limit)
+        if series is not None:
+            return series
+    return None
 
 
 def _spread(panel: pd.DataFrame, left: str, right: str, limit: int = 5) -> pd.Series | None:

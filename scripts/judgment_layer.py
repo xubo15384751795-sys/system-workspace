@@ -8,9 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from _workspace_imports import add_workbench_src
 
-add_workbench_src()
 
 from paper_freshness import check_paper_world_model_freshness  # noqa: I001
 from pending_evaluation import write_pending_evaluation  # noqa: I001
@@ -22,9 +20,7 @@ from workbench.judgment.layer import (
     load_caselab,
     load_hmm,
     load_json,
-    load_k_gate,
     load_validation,
-    load_x_gate,
     write_outputs,
 )
 
@@ -37,13 +33,14 @@ def main() -> None:
 
     fw = load_json(FW_PATH)
     if not fw:
-        raise SystemExit(f"framework_output.json not found at {FW_PATH}")
+        raise SystemExit(f"neutral_pressure_snapshot.json not found at {FW_PATH}")
 
     date_str = args.date or _date_from_framework(fw)
     caselab = load_caselab(date_str)
     hmm = load_hmm()
-    k_gate = load_k_gate()
-    x_gate = load_x_gate()
+    # K/X belong to the v2 research queue and cannot affect this judgment.
+    k_gate = None
+    x_gate = None
     validation = load_validation()
 
     card = build_judgment(fw, caselab, hmm, k_gate, x_gate, validation)

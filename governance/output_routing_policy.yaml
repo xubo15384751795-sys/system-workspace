@@ -12,6 +12,7 @@ groups:
     allowed_artifacts:
       - 00_READ_ME_FIRST.md
       - framework_output.json
+      - neutral_pressure_snapshot.json
       - status.json
       - next_actions.md
       - artifact_navigator.md
@@ -40,7 +41,13 @@ groups:
 
   runs:
     path: Output/deformation_runs/
-    description: "Formal run packages with provenance"
+    description: "Archived Deformation v1 run packages; evidence only"
+    can_affect_core_judgment: false
+    lifecycle: archived_falsified
+
+  neutral_pressure_runs:
+    path: Output/runs/
+    description: "Run-local neutral pressure histories with provenance"
     can_affect_core_judgment: true
 
   research:

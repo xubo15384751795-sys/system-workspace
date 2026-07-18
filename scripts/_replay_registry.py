@@ -172,11 +172,12 @@ def load_official_panel(panel_path: Path) -> pd.DataFrame:
 # CHANNELS for backward compatibility (audit, downstream code) but every proxy
 # pointed at them is marked canonical_status='extension_beyond_canonical', so
 # they evaluate to NaN under the canonical voting rule.
-from _replay_transforms import (  # noqa: E402
+from scripts._replay_transforms import (  # noqa: E402
     _accel_abs,
     _butterfly,
     _component,
     _daily_jump_variation,
+    _first_series,
     _jump_activation_score,
     _native_freq_diff_abs,
     _series,
@@ -1344,7 +1345,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         mechanism="leveraged_fund_net_position_extremes",
         transform="CFTC TFF leveraged-funds net E-mini S&P position, weekly robust z-score",
         builder=lambda p: _component(
-            _series(p, "CFTC_TFF_LEV_SP", limit=10) or _series(p, "EXT:CFTC_TFF_LEV_SP", limit=10),
+            _first_series(p, "CFTC_TFF_LEV_SP", "EXT:CFTC_TFF_LEV_SP", limit=10),
             freq="weekly",
         ),
         canonical_status="canonical_voting",
@@ -1365,7 +1366,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         mechanism="primary_dealer_treasury_net",
         transform="NY Fed PD net Treasury positions (PDPOSGST-TOT), weekly robust z-score",
         builder=lambda p: _component(
-            _series(p, "NYFED_PD_TREASURY_NET", limit=10) or _series(p, "EXT:NYFED_PD_TREASURY_NET", limit=10),
+            _first_series(p, "NYFED_PD_TREASURY_NET", "EXT:NYFED_PD_TREASURY_NET", limit=10),
             freq="weekly",
         ),
         canonical_status="canonical_voting",

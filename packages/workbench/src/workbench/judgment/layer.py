@@ -11,13 +11,17 @@ Usage:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[5]
-FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
+ROOT = WorkspacePaths.discover().root
+PRESSURE_PATH = ROOT / "Output" / "current" / "neutral_pressure_snapshot.json"
+# Compatibility export for callers that have not yet renamed the constant.
+FW_PATH = PRESSURE_PATH
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
@@ -224,8 +228,8 @@ def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
         recon = caselab.get("regime_reconciliation") or {}
         if recon.get("divergence"):
             reasons.append(
-                f"HMM and M/D/K/X diverge: HMM={recon.get('hmm_regime')}, "
-                f"M/D/K/X={recon.get('mdx_regime')}."
+                f"HMM and neutral pressure gauges diverge: HMM={recon.get('hmm_regime')}, "
+                f"gauges={recon.get('mdx_regime')}."
             )
     else:
         reasons.append("CaseLab context is unavailable.")
@@ -234,19 +238,8 @@ def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
     if hmm_grade == "WEAK":
         reasons.extend([f"HMM stability: {r}" for r in hmm_reasons])
 
-    if k_gate:
-        k_verdict = k_gate.get("gate_verdict", "UNKNOWN")
-        if k_verdict != "PASS":
-            reasons.append(f"K measurement gate: {k_verdict}")
-    else:
-        reasons.append("K measurement gate: not available")
-
-    if x_gate:
-        x_verdict = x_gate.get("gate_verdict", "UNKNOWN")
-        if x_verdict != "PASS":
-            reasons.append(f"X_agg measurement gate: {x_verdict}")
-    else:
-        reasons.append("X_agg measurement gate: not available")
+    # K/X are unresolved research candidates. Their availability or verdict
+    # cannot raise or lower the operational neutral-measurement claim ceiling.
 
     if validation:
         val_status = validation.get("status", "UNKNOWN")
@@ -296,7 +289,9 @@ def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
 
     if reasons:
         return trade_confidence, reasons, layered
-    return "medium", ["No major measurement conflict detected, but this is still diagnostic-only."], layered
+    return trade_confidence, [
+        "No major measurement conflict detected, but this is still diagnostic-only."
+    ], layered
 
 
 def _claim_ceiling(fw: dict[str, Any], confidence: str,
@@ -349,11 +344,11 @@ def _meaning(fw: dict[str, Any], confidence: str) -> list[str]:
     state = primary.get("state") or basic.get("primary_market_space", "PRIMARY_READOUT_UNAVAILABLE")
     m_val, d_val = _md_values(fw)
     meaning = [
-        f"Primary readout is {state}, based only on measurement-eligible M/D channels.",
-        f"M={m_val:.3f} and D={d_val:.3f}; this is a path diagnostic, not a forecast.",
+        f"Primary readout is {state}, based on two neutral macro-pressure gauges.",
+        f"Funding mismatch={m_val:.3f} and market constraint={d_val:.3f}; this is a measurement, not a forecast.",
     ]
     if confidence == "low":
-        meaning.append("The reading should be treated as a partial structural stress diagnostic, not a complete market morphology judgment.")
+        meaning.append("The reading is a partial pressure observation, not a complete market-state or morphology judgment.")
     return meaning
 
 
@@ -362,32 +357,28 @@ def _risks(fw: dict[str, Any], caselab: dict[str, Any] | None) -> list[str]:
     basic = fw.get("basic", {})
     if "PROXY_REDUCED" in str(basic.get("quality_status", "")):
         risks.append("False precision: all live channels are proxy-reduced, so numeric values can look more exact than the measurement supports.")
-    roles = _channel_roles(fw)
-    if roles.get("K", {}).get("readout_role") != "primary_readout":
-        risks.append("K is diagnostic/rebuild only; do not treat curvature language as direct measurement.")
-    if roles.get("X_agg", {}).get("readout_role") != "primary_readout":
-        risks.append("X_agg is background-only; do not use it as a daily trigger.")
+    risks.append("K, X, absorption capacity, and non-commutativity are excluded research candidates, not missing operational channels.")
     if caselab:
         match = caselab.get("match_quality") or {}
         if match.get("label") == "weak":
             risks.append("CaseLab has no reliable historical analogy today.")
         recon = caselab.get("regime_reconciliation") or {}
         if recon.get("divergence"):
-            risks.append("Raw-data HMM and structural proxy direction disagree; this is a conflict to monitor, not a resolved forecast.")
+            risks.append("Raw-data HMM and neutral pressure direction disagree; this is a conflict to monitor, not a resolved forecast.")
     return risks or ["No specific additional risk flags beyond diagnostic-only status."]
 
 
 def _actionability(confidence: str) -> dict[str, list[str]]:
     allowed = [
         "Use the card to focus research attention and daily monitoring.",
-        "Inspect M/D component drivers before making a narrative claim.",
-        "Track whether the same M/D state persists across the next daily run.",
+        "Inspect funding-mismatch and market-constraint components before making a narrative claim.",
+        "Track whether the same pressure state persists across the next daily run.",
     ]
     forbidden = [
         "Do not use this output as a trading signal.",
-        "Do not claim a complete market morphology state.",
+        "Do not claim a complete market morphology or universal pressure model.",
         "Do not cite CaseLab as prediction when match quality is weak.",
-        "Do not promote K or X_agg into the primary readout until measurement gates pass.",
+        "Do not import K, X, absorption, or non-commutativity without a new preregistered promotion decision.",
     ]
     if confidence == "low":
         allowed.insert(0, "Keep conclusions at watch-only level.")
@@ -397,14 +388,14 @@ def _actionability(confidence: str) -> dict[str, list[str]]:
 def _invalidation(fw: dict[str, Any], caselab: dict[str, Any] | None) -> list[str]:
     m_val, d_val = _md_values(fw)
     checks = [
-        "If either M or D falls below abs(0.40), downgrade the M/D primary stress readout.",
+        "If either neutral gauge falls below abs(0.40), downgrade the combined pressure readout.",
         "If data freshness or channel coverage degrades, mark judgment unavailable rather than carrying forward today's card.",
-        "If K or X_agg is needed for the claim, require a measurement-gate pass first.",
+        "If a research-only candidate is needed for the claim, open a separate preregistered review.",
     ]
     if abs(m_val) >= 0.65 and abs(d_val) >= 0.65:
-        checks.append("If M and D stop co-moving in stress direction, replace mixed anchor-path language with the single-channel readout.")
+        checks.append("If the gauges stop co-moving, report them separately instead of forcing a composite narrative.")
     if caselab and (caselab.get("regime_reconciliation") or {}).get("divergence"):
-        checks.append("If HMM remains crisis while M/D/K/X remains stress_relief for several runs, open a model-conflict review instead of forcing reconciliation.")
+        checks.append("If HMM remains crisis while the gauges show relief for several runs, open a model-conflict review instead of forcing reconciliation.")
     return checks
 
 
@@ -413,10 +404,10 @@ def _watch_window(fw: dict[str, Any], caselab: dict[str, Any] | None) -> dict[st
     state = primary.get("state", "PRIMARY_READOUT_UNAVAILABLE")
     one_day = [
         f"Confirm whether primary readout remains {state}.",
-        "Check M/D component changes and data freshness.",
+        "Check both neutral gauge components and data freshness.",
     ]
     if caselab and (caselab.get("regime_reconciliation") or {}).get("divergence"):
-        one_day.append("Recheck HMM versus M/D/K/X divergence.")
+        one_day.append("Recheck HMM versus neutral-gauge divergence.")
     return {
         "1d": one_day,
         "1w": [
@@ -424,7 +415,7 @@ def _watch_window(fw: dict[str, Any], caselab: dict[str, Any] | None) -> dict[st
             "Review whether CaseLab match quality improves above weak threshold.",
         ],
         "1m": [
-            "Prioritize K and X_agg measurement-gate rebuild evidence.",
+            "Review neutral-gauge common-sample evidence against public baselines.",
             "Compare judgment cards against realized market path for calibration.",
         ],
     }
@@ -558,7 +549,7 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
             "quality_validation": (validation or {}).get("status", "NOT_AVAILABLE"),
         },
         "inputs": {
-            "framework_output": str(FW_PATH),
+            "neutral_pressure_snapshot": str(PRESSURE_PATH),
             "caselab": str(CASELAB_DIR / f"{date_str}.json") if caselab else None,
             "hmm": str(HMM_PATH),
             "k_gate": str(K_GATE_PATH),

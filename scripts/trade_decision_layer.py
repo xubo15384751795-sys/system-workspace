@@ -21,17 +21,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
-from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
-from _workspace_imports import add_scripts, add_workbench_src
+from scripts._runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
+from system_runtime.credit_assignment import build_trade_learning_trace
 from paper_freshness import check_paper_world_model_freshness
 from pending_evaluation import write_pending_evaluation
 
-add_workbench_src()
-add_scripts()
 
 from workbench.judgment.trade_decision import (  # noqa: E402
     build_quality_inputs,
@@ -211,8 +210,8 @@ def _resolve_velocity_gate_state() -> dict[str, Any]:
 
 
 def _load_sigma_vector() -> dict[str, Any] | None:
-    """Load sigma_vector from framework_output advanced block when present."""
-    fw = load_json(ROOT / "Output" / "current" / "framework_output.json")
+    """Load compatibility gauge vector from the neutral pressure snapshot."""
+    fw = load_json(ROOT / "Output" / "current" / "neutral_pressure_snapshot.json")
     if not isinstance(fw, dict):
         return None
     adv = fw.get("advanced") or {}
@@ -227,8 +226,9 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
 
     judgment = load_json(JUDGMENT_PATH)
     promotion_gate = load_json(PROMOTION_GATE_PATH)
-    k_gate = load_json(K_GATE_PATH)
-    x_gate = load_json(X_GATE_PATH)
+    # K/X are research-only candidates and cannot size the operational path.
+    k_gate = None
+    x_gate = None
     hmm_audit = load_json(HMM_AUDIT_PATH)
     caselab = load_json(CASELAB_DIR / f"{date_str}.json")
     velocity_gate = _resolve_velocity_gate_state()
@@ -244,6 +244,16 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     vg_state = velocity_gate.get("state", "UNKNOWN")
 
     if not judgment:
+        learning_trace = build_trade_learning_trace(
+            date=date_str,
+            quality_inputs={},
+            velocity_gate=velocity_gate,
+            sigma_vector=sigma_vector,
+            stance="WATCH",
+            size=0.0,
+            effective_size=0.0,
+            run_id=os.environ.get("ZCODE_BUNDLE_RUN_ID"),
+        )
         return {
             "schema_version": "trade_decision.v3",
             "generated_at": utc_now().isoformat(),
@@ -264,6 +274,7 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
             "paper_sources": {"approved_support": [], "background_context": []},
             "system_sources": [],
             "trade_thesis": {"hypothesis": "Insufficient data"},
+            "learning_trace": learning_trace,
         }
 
     approved_sources, background_sources = find_paper_sources(caselab, judgment)
@@ -292,10 +303,6 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
         risk_notes.append(f"Promotion gate hard-blocked: {', '.join(map(str, blocked))}")
     if not quality.get("has_approved_paper"):
         risk_notes.append("No approved Paper sources — size discounted")
-    if quality.get("k_verdict") == "FAIL":
-        risk_notes.append("K gate FAIL — size discounted")
-    if quality.get("x_verdict") == "FAIL":
-        risk_notes.append("X gate FAIL — size discounted")
     if quality.get("hmm_grade") in ("WEAK", "UNKNOWN"):
         risk_notes.append(f"HMM grade {quality.get('hmm_grade')} — size discounted")
 
@@ -326,11 +333,11 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
         "Data freshness > 48h",
         "Velocity gate EXIT",
         "Promotion gate hard-blocks",
-        "K/X gate verdict changes to FAIL",
+        "Neutral pressure input becomes stale or unavailable",
     ]
     trigger_conditions = [
         "Velocity gate FULL with <3 deteriorating channels",
-        "K/X gates pass",
+        "Neutral pressure gauges remain admitted and fresh",
         "CaseLab match quality improves to usable/strong",
         "Paper sources approved and fresh",
         "HMM stability improves to ADEQUATE/HIGH",
@@ -341,6 +348,16 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
         "Record if invalidation conditions triggered",
         "Feed into Learning Hub calibration",
     ]
+    learning_trace = build_trade_learning_trace(
+        date=date_str,
+        quality_inputs=quality,
+        velocity_gate=velocity_gate,
+        sigma_vector=sigma_vector,
+        stance=composed["stance"],
+        size=composed["size"],
+        effective_size=composed["effective_size"],
+        run_id=os.environ.get("ZCODE_BUNDLE_RUN_ID"),
+    )
 
     return {
         "schema_version": "trade_decision.v3",
@@ -361,6 +378,7 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
         "risk_notes": composed["risk_notes"],
         "evidence_grade": evidence_grade,
         "learning_hooks": learning_hooks,
+        "learning_trace": learning_trace,
         "paper_sources": {
             "approved_support": approved_sources,
             "background_context": background_sources,

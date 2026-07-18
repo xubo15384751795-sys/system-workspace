@@ -157,6 +157,7 @@ snapshot_policy:
 | `BLOCKED` | Blocked by data, dependency, or governance rule |
 | `FROZEN` | Paused, not expanding |
 | `RETIRED` | Decommissioned, history only |
+| `ARCHIVED_FALSIFIED` | Falsified claim set retained as evidence; execution and promotion denied |
 | `UNKNOWN` | Not audited, must be resolved by deadline |
 
 ### 5.2 Transition Rules
@@ -170,6 +171,7 @@ snapshot_policy:
 | `CANONICAL` | `ACTIVE_PARTIAL` | New blocker identified |
 | Any | `FROZEN` | Explicit governance decision with reason |
 | Any | `RETIRED` | Explicit governance decision + no active consumers |
+| Any | `ARCHIVED_FALSIFIED` | Claim-level falsification decision + immutable evidence + runtime denial |
 | `REAL_EXPERIMENTAL` | `CANONICAL` | Must pass through `ACTIVE_PARTIAL` first |
 
 ### 5.3 Audit Cadence
@@ -309,7 +311,7 @@ was executed 2026-07-07 (routing decision 2026-07-07-submodule-consolidation).
 ### 9.3 Buffer Period Goals
 
 1. Clear dirty submodule state. ✅ (submodules deinit'd, .gitmodules removed)
-2. Unify test entry points. ✅ (conftest.py + _workspace_imports.py retargeted)
+2. Unify test entry points. ✅ (installable workspace packages + `system` console entry point; path helper retired 2026-07-17)
 3. Unify Python version and dependency strategy. ✅ (requires-python >=3.12, numpy/pandas/pyarrow unified)
 4. Clarify migration path. ✅ (routing decision record)
 5. Final structure: single-repo workspace with `packages/` directory. ✅
@@ -336,7 +338,7 @@ System/
 
 ### 10.1 Mechanism
 
-`scripts/architecture_reality_audit.py` — runs weekly or after major changes.
+`scripts/commands/weekly/architecture_reality_audit.py` — runs weekly or after major changes.
 
 ### 10.2 Checks
 

@@ -3,7 +3,16 @@
   "title": "Capability Registry",
   "description": "Schema for governance/capability_registry.yaml — single source of truth for module status",
   "type": "object",
-  "additionalProperties": {"$ref": "#/$defs/module_entry"},
+  "required": ["schema_version", "updated_at", "purpose"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "updated_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "purpose": {"type": "string"}
+  },
+  "patternProperties": {
+    "^(?!schema_version$|updated_at$|purpose$).+$": {"$ref": "#/$defs/module_entry"}
+  },
+  "additionalProperties": false,
   "$defs": {
     "status_enum": {
       "type": "string",
@@ -16,6 +25,7 @@
         "BLOCKED",
         "FROZEN",
         "RETIRED",
+        "ARCHIVED_FALSIFIED",
         "UNKNOWN"
       ]
     },
@@ -25,7 +35,7 @@
     },
     "module_entry": {
       "type": "object",
-      "required": ["status", "owner", "last_verified"],
+      "required": ["status", "owner"],
       "properties": {
         "status": {"$ref": "#/$defs/status_enum"},
         "owner": {"type": "string"},
@@ -65,6 +75,18 @@
           "type": "array",
           "items": {"type": "string"}
         },
+        "archival_invariants": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "notes": {
+          "type": "string"
+        },
+        "authority_policy": {"type": "string"},
+        "governed_execution_tool": {"type": "string"},
+        "canonical_path": {"type": "string"},
+        "mirror_path": {"type": "string"},
+        "fulfilled_at": {"type": "string"},
         "test_count": {
           "type": "integer",
           "minimum": 0
