@@ -127,6 +127,9 @@ def run_subprocess_step(
             "duration_s": round(duration, 1),
             "stdout_tail": result.stdout[-500:] if result.stdout else "",
             "stderr_tail": result.stderr[-500:] if result.stderr else "",
+            # Full stderr for failed-step log persistence (Phase 0.1). Capped
+            # at 256KB by record_step when writing step_logs/<step>.stderr.log.
+            "full_stderr": result.stderr or "",
         }
     except subprocess.TimeoutExpired:
         return {"step": name, "status": "timeout", "mode": "subprocess", "duration_s": TIMEOUT_LONG}

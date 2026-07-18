@@ -5,7 +5,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from harvester.core.exporter import finalize_release
-from harvester.ops import monitor_latest, next_release_id, run_daily_release, run_preflight
+from harvester.ops import (
+    monitor_latest,
+    next_release_id,
+    run_daily_release,
+    run_preflight,
+)
+
 from tests.test_export_immutability import create_release, restore_permissions
 
 
@@ -72,6 +78,127 @@ def test_daily_release_finalizes_when_stage_and_finalize_succeed(tmp_path: Path,
 
     assert result["status"] == "finalized"
     assert result["verified_datasets"] == 3
+
+
+def test_daily_release_writes_failure_report_on_systemexit(tmp_path: Path, monkeypatch) -> None:
+    """Phase 0.2: a SystemExit during staging must still produce a failure
+    report. Previously only ``except Exception`` caught it; SystemExit (a
+    BaseException) escaped, leaving no report - the six-day blind spot."""
+    monkeypatch.setenv("FRED_API_KEY", "test")
+    exports = tmp_path / "exports"
+    exports.mkdir()
+
+    def _raise(*a, **kw):
+        raise SystemExit(1)
+
+    with patch("harvester.official.stage_complete_release", side_effect=_raise), \
+         patch("harvester.ops.finalize_release"):
+        result = run_daily_release(
+            release_id="2026-05-10-r1",
+            exports_root=exports,
+            providers=["fred"],
+            preflight=False,
+        )
+
+    assert result["status"] == "failed"
+    assert result["reason"] == "release_failed"
+    # The failure report file must exist despite SystemExit.
+    report = exports / ".failures" / "2026-05-10-r1.release_failed.json"
+    assert report.exists(), "SystemExit failure must still write a report"
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert "SystemExit" in payload["error"]
+
+
+def test_daily_release_writes_failure_report_on_runtime_error(tmp_path: Path, monkeypatch) -> None:
+    """A RuntimeError during staging must produce a failure report."""
+    monkeypatch.setenv("FRED_API_KEY", "test")
+    exports = tmp_path / "exports"
+    exports.mkdir()
+
+    def _raise(*a, **kw):
+        raise RuntimeError("provider 429")
+
+    with patch("harvester.official.stage_complete_release", side_effect=_raise), \
+         patch("harvester.ops.finalize_release"):
+        result = run_daily_release(
+            release_id="2026-05-10-r2",
+            exports_root=exports,
+            providers=["fred"],
+            preflight=False,
+        )
+
+    assert result["status"] == "failed"
+    report = exports / ".failures" / "2026-05-10-r2.release_failed.json"
+    assert report.exists()
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert "provider 429" in payload["error"]
+
+
+def test_write_failure_report_does_not_raise_on_unwritable_path(tmp_path: Path, capsys) -> None:
+    """Phase 0.2: _write_failure_report swallows OSError and prints to stderr."""
+    from harvester.ops import _write_failure_report
+
+    # Point at a path whose parent cannot be created (root-locked).
+    unwritable = Path("/proc/cannot-create-here")
+    # Should not raise.
+    _write_failure_report(unwritable, "r1", "test", {"error": "boom"})
+    captured = capsys.readouterr()
+    assert "FAILED to write failure report" in captured.err
+
+
+def test_daily_release_reuses_same_day_finalized(tmp_path: Path, monkeypatch) -> None:
+    """Phase 2.1: if latest points to a finalized release for today, the
+    release is reused (status=reused) with no network calls."""
+    from harvester.ops import _check_same_day_reuse
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "20260718-r1"
+    release_dir.mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(json.dumps({
+        "release_id": "20260718-r1",
+        "as_of_date": "2026-07-18",
+    }), encoding="utf-8")
+    (exports / "latest").symlink_to(release_dir)
+
+    result = _check_same_day_reuse(exports, "2026-07-18")
+    assert result is not None
+    assert result["status"] == "reused"
+    assert result["reason"] == "same_day_finalized_release_exists"
+
+
+def test_daily_release_does_not_reuse_stale_day(tmp_path: Path) -> None:
+    """A finalized release for a DIFFERENT day must not be reused."""
+    from harvester.ops import _check_same_day_reuse
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "20260715-r1"
+    release_dir.mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(json.dumps({
+        "release_id": "20260715-r1",
+        "as_of_date": "2026-07-15",
+    }), encoding="utf-8")
+    (exports / "latest").symlink_to(release_dir)
+
+    assert _check_same_day_reuse(exports, "2026-07-18") is None
+
+
+def test_daily_release_does_not_reuse_unfinalized(tmp_path: Path) -> None:
+    """An unfinalized same-day release must not be reused."""
+    from harvester.ops import _check_same_day_reuse
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "20260718-r1"
+    release_dir.mkdir(parents=True)
+    # No .finalized marker.
+    (release_dir / "catalog.json").write_text(json.dumps({
+        "release_id": "20260718-r1",
+        "as_of_date": "2026-07-18",
+    }), encoding="utf-8")
+    (exports / "latest").symlink_to(release_dir)
+
+    assert _check_same_day_reuse(exports, "2026-07-18") is None
 
 
 def test_monitor_latest_reports_healthy_release(tmp_path: Path) -> None:

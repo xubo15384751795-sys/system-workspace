@@ -36,6 +36,8 @@ from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
 
 RUNTIME_DIR = ROOT / "Output" / "runtime_events"
 ALERT_DIR = ROOT / "Output" / "alerts"
+from run_bundle import RunBundle
+
 from scripts._constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
 from scripts._current_publish import (
     begin_candidate,
@@ -44,11 +46,14 @@ from scripts._current_publish import (
     should_publish,
 )
 from scripts._daily_run_executor import DailyRunContext, execute_daily_sequence
-from scripts._daily_run_sequence import dry_run_labels, load_daily_run_sequence, weekly_step_ids
+from scripts._daily_run_sequence import (
+    dry_run_labels,
+    load_daily_run_sequence,
+    weekly_step_ids,
+)
 from scripts._notify import notify_daily_run_result
 from scripts._pipeline_runner import run_registry_step
 from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
-from run_bundle import RunBundle
 
 # Numbered user-facing stages in the pipeline
 TOTAL_STEPS = len(load_daily_run_sequence()) or 33
@@ -225,6 +230,29 @@ def _detect_schedule_slot(hour: int) -> str:
         return "daily_summary"
 
 
+def _truncate_launchd_logs(max_bytes: int = 10 * 1024 * 1024) -> None:
+    """Phase 2.3: truncate launchd log files > max_bytes on startup.
+
+    Keeps the tail (last max_bytes/2) so recent errors survive; the full history
+    is in run bundles (steps.jsonl + step_logs/) anyway.
+    """
+    log_dir = ROOT / "Output" / "logs" / "launchd"
+    if not log_dir.exists():
+        return
+    for log_file in log_dir.glob("*.log"):
+        try:
+            size = log_file.stat().st_size
+            if size <= max_bytes:
+                continue
+            # Keep the last half of the budget (most recent errors).
+            keep = max_bytes // 2
+            data = log_file.read_bytes()[-keep:]
+            log_file.write_bytes(data)
+            logger.info("Truncated %s (%d -> %d bytes)", log_file.name, size, keep)
+        except OSError:
+            pass
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Scheduled Batch Monitor")
     parser.add_argument("--skip-harvester", action="store_true")
@@ -274,7 +302,11 @@ def main() -> None:
 
     start_time = datetime.now(UTC)
     schedule_tag = args.tag or _detect_schedule_slot(start_time.hour)
-    logger.info("Daily Run [%s] — %s", schedule_tag, start_time.strftime('%Y-%m-%d %H:%M'))
+    logger.info("Daily Run [%s] - %s", schedule_tag, start_time.strftime('%Y-%m-%d %H:%M'))
+
+    # Phase 2.3: truncate launchd logs > 10MB on daily_run startup so the
+    # Output/logs/launchd/ files don't grow unbounded.
+    _truncate_launchd_logs()
 
     if args.dry_run:
         print("DRY RUN — would execute:")
@@ -305,6 +337,11 @@ def main() -> None:
             returncode=step_result.get("returncode", 0),
             input_artifacts=input_artifacts,
             blocked_by=step_result.get("blocked_by"),
+            # Phase 0.1: surface subprocess stdout/stderr in the bundle so
+            # nightly-run failures are diagnosable without re-running steps.
+            stdout_tail=step_result.get("stdout_tail", ""),
+            stderr_tail=step_result.get("stderr_tail", ""),
+            full_stderr=step_result.get("full_stderr", step_result.get("stderr_tail", "")),
         )
 
     bp_path = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
