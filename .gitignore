@@ -82,3 +82,7 @@ config/*local*
 # Logs
 *.log
 lightning_logs/
+
+# Phase 3.3: agent/tooling working dirs (not source)
+.zcode/
+.cursor/checkpoints/
