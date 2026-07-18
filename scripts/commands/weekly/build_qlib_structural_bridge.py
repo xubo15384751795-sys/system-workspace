@@ -6,8 +6,8 @@ with Strategy Lab backtest overlay stats. Does not modify core proxies or
 judgment inputs.
 
 Usage:
-    python3 scripts/build_qlib_structural_bridge.py
-    python3 scripts/build_qlib_structural_bridge.py --json
+    python3 scripts/commands/weekly/build_qlib_structural_bridge.py
+    python3 scripts/commands/weekly/build_qlib_structural_bridge.py --json
 
 Output:
     Output/validation/qlib_structural_bridge.json
@@ -19,7 +19,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, write_json
 
 QLIB_EXPERIMENT = ROOT / "Output" / "strategy_lab" / "qlib_experiment" / "lightgbm_experiment.json"
 BACKTEST_RESULT = ROOT / "Output" / "strategy_lab" / "backtest_result.json"

@@ -11,8 +11,8 @@ This script generates a comprehensive Learning Hub summary that includes:
 - Recurring failed assumptions
 
 Usage:
-    python3 scripts/learning_hub_comprehensive_summary.py
-    python3 scripts/learning_hub_comprehensive_summary.py --json
+    python3 scripts/commands/weekly/learning_hub_comprehensive_summary.py
+    python3 scripts/commands/weekly/learning_hub_comprehensive_summary.py --json
 
 Output:
     Output/system_learning/latest/comprehensive_summary.json
@@ -25,7 +25,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
 
 JUDGMENT_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "judgment_calibration_summary.json"
 JUDGMENT_CALIBRATION_REPORT = ROOT / "Output" / "judgment" / "calibration_report.json"

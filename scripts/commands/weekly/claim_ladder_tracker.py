@@ -6,8 +6,8 @@ card to evaluate whether mechanism hypotheses are progressing, stuck,
 or invalidated.  Uses governance/claim_ladder_policy.yaml for tier rules.
 
 Usage:
-    python3 scripts/claim_ladder_tracker.py
-    python3 scripts/claim_ladder_tracker.py --json
+    python3 scripts/commands/weekly/claim_ladder_tracker.py
+    python3 scripts/commands/weekly/claim_ladder_tracker.py --json
 
 Output:
     Output/claim_ladder/progression.json  — per-claim progression status
@@ -24,8 +24,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from _constants import CASELAB_USABLE_THRESHOLD
-from _runtime_io import (
+from scripts._constants import CASELAB_USABLE_THRESHOLD
+from scripts._runtime_io import (
     ROOT,
     ensure_dir,
     load_json,

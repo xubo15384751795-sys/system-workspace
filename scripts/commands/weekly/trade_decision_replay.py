@@ -9,9 +9,9 @@ Also writes `market_forward_outcome` back onto ledger rows so daily
 accumulation is visible without waiting for claim_evaluator continuity.
 
 Usage:
-    python3 scripts/trade_decision_replay.py
-    python3 scripts/trade_decision_replay.py --since 2026-05-01
-    python3 scripts/trade_decision_replay.py --json
+    python3 scripts/commands/weekly/trade_decision_replay.py
+    python3 scripts/commands/weekly/trade_decision_replay.py --since 2026-05-01
+    python3 scripts/commands/weekly/trade_decision_replay.py --json
 
 Output:
     Output/trade_ledger/calibration_report.json
@@ -26,8 +26,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
-from _runtime_io import ROOT
+from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+from scripts._runtime_io import ROOT, load_yaml
+from scripts.commands.weekly.backward_pass import build_report as build_backward_report
+from scripts.commands.weekly.backward_pass import write_report as write_backward_report
+from system_runtime.events import JsonlEventStore
 
 LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 ETF_PANEL = resolve_cross_asset_panel_path()
@@ -48,22 +51,16 @@ COUNTERFACTUAL_DECISIONS = {
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
     """Load JSONL file."""
-    if not path.exists():
-        return []
-    items = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
+    return JsonlEventStore(path).read_payloads()
 
 
 def write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        for item in items:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    JsonlEventStore(path).replace_payloads(
+        items,
+        event_type="trade_decision_recorded",
+        payload_schema="trade_ledger_entry.v2",
+        producer="trade_decision_replay",
+    )
 
 
 def load_market_series() -> dict[str, pd.Series]:
@@ -388,12 +385,20 @@ def main() -> None:
     paths = write_report(report)
 
     ledger_updates = 0
+    ledger_for_learning = load_jsonl(LEDGER_PATH)
     if not args.no_write_ledger:
         # Reload full ledger so we only patch matching rows, preserving others.
         full_ledger = load_jsonl(LEDGER_PATH)
         # Re-evaluate only the filtered subset against full ledger by date+fingerprint
         ledger_updates = write_market_outcomes_to_ledger(full_ledger, report["evaluations"])
         write_jsonl(LEDGER_PATH, full_ledger)
+        ledger_for_learning = full_ledger
+
+    backward = build_backward_report(
+        ledger_for_learning,
+        load_yaml(ROOT / "governance" / "incentive_policy.yaml"),
+    )
+    write_backward_report(backward)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
@@ -404,6 +409,7 @@ def main() -> None:
         print(f"By decision: {report['summary']['by_decision']}")
         print(f"Avg SPY 1w return: {report['summary']['avg_spy_1w_return_pct']}")
         print(f"Ledger market outcomes updated: {ledger_updates}")
+        print(f"Backward pass: {backward['status']}")
 
 
 if __name__ == "__main__":

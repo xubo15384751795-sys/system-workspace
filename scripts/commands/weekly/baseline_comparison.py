@@ -16,8 +16,8 @@ Output:
     Output/validation/baseline_comparison.json
 
 Usage:
-    python3 scripts/baseline_comparison.py
-    python3 scripts/baseline_comparison.py --json
+    python3 scripts/commands/weekly/baseline_comparison.py
+    python3 scripts/commands/weekly/baseline_comparison.py --json
 """
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from _data_paths import resolve_cross_asset_panel_path
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._data_paths import resolve_cross_asset_panel_path
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 # ---------------------------------------------------------------------------
 # Paths

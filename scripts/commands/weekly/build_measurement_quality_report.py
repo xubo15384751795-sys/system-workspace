@@ -6,8 +6,8 @@ release metadata.  Feeds evidence_grade_report and closes K/X data_request
 quality tracking.
 
 Usage:
-    python3 scripts/build_measurement_quality_report.py
-    python3 scripts/build_measurement_quality_report.py --json
+    python3 scripts/commands/weekly/build_measurement_quality_report.py
+    python3 scripts/commands/weekly/build_measurement_quality_report.py --json
 
 Output:
     Output/current/measurement_quality.json
@@ -20,12 +20,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _data_paths import (
+from scripts._data_paths import (
     HARVESTER_LATEST,
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
-from _runtime_io import ROOT, current_dir, ensure_dir, load_json, write_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, write_json
 
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"

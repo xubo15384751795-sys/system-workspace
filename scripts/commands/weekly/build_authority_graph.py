@@ -5,8 +5,8 @@ Derives nodes and edges from daily_pipeline_registry.yaml and writes:
     Output/system_learning/latest/authority_graph.json
 
 Usage:
-    python scripts/build_authority_graph.py
-    python scripts/build_authority_graph.py --json
+    python scripts/commands/weekly/build_authority_graph.py
+    python scripts/commands/weekly/build_authority_graph.py --json
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import importlib.util
 import json
 import sys
 
-from _runtime_io import ROOT
+from scripts._runtime_io import ROOT
 
 
 def _load_authority_graph_module():

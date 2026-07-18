@@ -5,10 +5,10 @@ Reads Output/archive/framework_output + caselab, and daily_pipeline signal trace
 builds dated judgment cards for gaps, then refreshes judgment calibration report.
 
 Usage:
-    python3 scripts/backfill_judgment_calibration.py
-    python3 scripts/backfill_judgment_calibration.py --dry-run
-    python3 scripts/backfill_judgment_calibration.py --force
-    python3 scripts/backfill_judgment_calibration.py --json
+    python3 scripts/commands/weekly/backfill_judgment_calibration.py
+    python3 scripts/commands/weekly/backfill_judgment_calibration.py --dry-run
+    python3 scripts/commands/weekly/backfill_judgment_calibration.py --force
+    python3 scripts/commands/weekly/backfill_judgment_calibration.py --json
 
 Output:
     Output/judgment/YYYY-MM-DD.json (missing dates only, unless --force)
@@ -22,11 +22,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, load_json, utc_now, write_json
-from _workspace_imports import add_scripts, add_workbench_src
+from scripts._runtime_io import ROOT, load_json, utc_now, write_json
 
-add_workbench_src()
-add_scripts()
 
 from workbench.judgment.layer import (
     build_judgment,
@@ -221,7 +218,7 @@ def backfill_judgment_calibration(
 
     calibration_summary: dict[str, Any] | None = None
     if refresh_calibration and not dry_run:
-        from judgment_replay_audit import (
+        from scripts.commands.weekly.judgment_replay_audit import (
             build_report,
             load_judgment_cards,
             load_market_series,

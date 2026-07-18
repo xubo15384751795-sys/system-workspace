@@ -20,11 +20,9 @@ import statistics
 from datetime import UTC, datetime
 from pathlib import Path
 
-from _workspace_imports import add_scripts
 
-add_scripts()
 
-from _runtime_io import ROOT, current_dir, load_json  # noqa: E402
+from scripts._runtime_io import ROOT, current_dir, load_json  # noqa: E402
 
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 CASELAB_DIR = ROOT / "Output" / "caselab"

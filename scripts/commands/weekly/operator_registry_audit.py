@@ -7,8 +7,8 @@ This script checks that:
 3. No operator violates its constraints
 
 Usage:
-    python3 scripts/operator_registry_audit.py
-    python3 scripts/operator_registry_audit.py --json
+    python3 scripts/commands/weekly/operator_registry_audit.py
+    python3 scripts/commands/weekly/operator_registry_audit.py --json
 
 Output:
     Output/quality/operator_registry_audit.json
@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
 
 REGISTRY_PATH = ROOT / "governance" / "operator_registry.yaml"
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"

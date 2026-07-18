@@ -14,7 +14,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from claim_ladder_tracker import (
+from scripts.commands.weekly.claim_ladder_tracker import (
     _check_rule,
     _evaluate_policy_rules,
     apply_transitions,
@@ -44,11 +44,11 @@ def _isolated_dirs(tmp_path, monkeypatch):
     judgment_dir = tmp_path / "judgment"
     judgment_dir.mkdir()
 
-    monkeypatch.setattr("claim_ladder_tracker.RUNS_DIR", runs_dir)
-    monkeypatch.setattr("claim_ladder_tracker.OUTPUT_DIR", output_dir)
-    monkeypatch.setattr("claim_ladder_tracker.CASELAB_DIR", caselab_dir)
-    monkeypatch.setattr("claim_ladder_tracker.HMM_PATH", hmm_dir / "regime_hmm.json")
-    monkeypatch.setattr("claim_ladder_tracker.JUDGMENT_PATH", judgment_dir / "latest.json")
+    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.RUNS_DIR", runs_dir)
+    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.OUTPUT_DIR", output_dir)
+    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.CASELAB_DIR", caselab_dir)
+    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.HMM_PATH", hmm_dir / "regime_hmm.json")
+    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.JUDGMENT_PATH", judgment_dir / "latest.json")
     return runs_dir, output_dir, caselab_dir, hmm_dir, judgment_dir
 
 
@@ -558,7 +558,7 @@ class TestStateIO:
 
     def test_load_state_missing_file(self, _isolated_dirs, monkeypatch):
         output_dir = _isolated_dirs[1]
-        monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", output_dir / "state.json")
+        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.STATE_PATH", output_dir / "state.json")
         state = load_state()
         assert state["schema_version"] == "claim_ladder_state.v1"
         assert state["claims"] == []
@@ -566,8 +566,8 @@ class TestStateIO:
     def test_save_and_load_roundtrip(self, _isolated_dirs, monkeypatch):
         output_dir = _isolated_dirs[1]
         state_path = output_dir / "state.json"
-        monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", state_path)
-        monkeypatch.setattr("claim_ladder_tracker.OUTPUT_DIR", output_dir)
+        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.STATE_PATH", state_path)
+        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.OUTPUT_DIR", output_dir)
 
         state = {
             "schema_version": "claim_ladder_state.v1",
@@ -583,7 +583,7 @@ class TestStateIO:
         output_dir.mkdir(parents=True, exist_ok=True)
         state_path = output_dir / "state.json"
         state_path.write_text('{"schema_version": "wrong.v1", "claims": []}')
-        monkeypatch.setattr("claim_ladder_tracker.STATE_PATH", state_path)
+        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.STATE_PATH", state_path)
         state = load_state()
         # Should return fresh state since schema version doesn't match
         assert state["schema_version"] == "claim_ladder_state.v1"

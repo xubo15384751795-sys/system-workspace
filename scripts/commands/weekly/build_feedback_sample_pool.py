@@ -4,8 +4,8 @@
 Creates stratified feedback_sample.v1 records under Data/feedback_samples/.
 
 Usage:
-    python3 scripts/build_feedback_sample_pool.py
-    python3 scripts/build_feedback_sample_pool.py --append
+    python3 scripts/commands/weekly/build_feedback_sample_pool.py
+    python3 scripts/commands/weekly/build_feedback_sample_pool.py --append
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json
 
 MANIFEST = ROOT / "Data" / "feedback_samples" / "sample_manifest.jsonl"
 REPLAY_DIR = ROOT / "Output" / "sandbox" / "event_replay"

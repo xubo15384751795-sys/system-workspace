@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "governance_status.py"
+SCRIPT = ROOT / "scripts" / "commands" / "weekly" / "governance_status.py"
 
 
 def _load_module():

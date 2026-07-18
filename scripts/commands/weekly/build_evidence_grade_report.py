@@ -6,8 +6,8 @@ explanation of why the evidence grade is D/C/B/A, with per-contributor
 details, blocker IDs, and paper_support status.
 
 Usage:
-    python3 scripts/build_evidence_grade_report.py
-    python3 scripts/build_evidence_grade_report.py --json
+    python3 scripts/commands/weekly/build_evidence_grade_report.py
+    python3 scripts/commands/weekly/build_evidence_grade_report.py --json
 
 Output:
     Output/current/evidence_grade_report.json
@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now, write_json
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"

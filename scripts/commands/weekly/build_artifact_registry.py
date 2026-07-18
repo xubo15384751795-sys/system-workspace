@@ -5,8 +5,8 @@ Maps each allowed current artifact to its producer step, path, and TTL
 using governance/output_routing_policy.yaml and daily_pipeline_registry.yaml.
 
 Usage:
-    python3 scripts/build_artifact_registry.py
-    python3 scripts/build_artifact_registry.py --json
+    python3 scripts/commands/weekly/build_artifact_registry.py
+    python3 scripts/commands/weekly/build_artifact_registry.py --json
 
 Output:
     Output/current/artifact_registry.json
@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from _runtime_io import ROOT, current_dir, ensure_dir, utc_now, write_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, utc_now, write_json
 
 ROUTING_POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
 PIPELINE_REGISTRY_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"

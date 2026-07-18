@@ -14,8 +14,8 @@ Output:
     Output/system_learning/latest/threshold_review_candidates.json
 
 Usage:
-    python3 scripts/threshold_review_bridge.py
-    python3 scripts/threshold_review_bridge.py --json
+    python3 scripts/commands/weekly/threshold_review_bridge.py
+    python3 scripts/commands/weekly/threshold_review_bridge.py --json
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import json
 from collections import defaultdict
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 # ---------------------------------------------------------------------------
 # Paths

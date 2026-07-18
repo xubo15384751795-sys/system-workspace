@@ -5,8 +5,8 @@ This script reads from Data/system_index/latest.json to generate
 a consistent README that reflects the true system state.
 
 Usage:
-    python3 scripts/build_readme_first.py
-    python3 scripts/build_readme_first.py --json
+    python3 scripts/commands/weekly/build_readme_first.py
+    python3 scripts/commands/weekly/build_readme_first.py --json
 
 Output:
     Output/current/00_READ_ME_FIRST.md
@@ -18,7 +18,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _runtime_io import ROOT, current_dir, ensure_dir, load_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
 
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 FRAMEWORK_OUTPUT_PATH = current_dir() / "framework_output.json"
@@ -38,8 +38,9 @@ def build_readme_from_index(
     # Output source and quality from framework_output.json
     fw = framework_output or {}
     run_id = fw.get("run_id", "unknown")
+    source = fw.get("source")
     quality_status = (fw.get("basic") or {}).get("quality_status", "N/A")
-    if run_id.startswith("replay_bridge"):
+    if source == "structural_replay_v2" or run_id.startswith("replay_bridge"):
         output_source = f"structural_replay_v2 bridge ({run_id})"
     elif run_id.startswith("deformation"):
         output_source = f"deformation run ({run_id})"

@@ -10,8 +10,8 @@ Outputs:
     Output/system_learning/latest/proxy_quality_report.md
 
 Usage:
-    python3 scripts/build_proxy_quality_report.py
-    python3 scripts/build_proxy_quality_report.py --json
+    python3 scripts/commands/weekly/build_proxy_quality_report.py
+    python3 scripts/commands/weekly/build_proxy_quality_report.py --json
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
 
 RULES_PATH = ROOT / "governance" / "proxy_quality_rules.yaml"
 REGISTRY_PATH = ROOT / "scripts" / "_replay_registry.py"

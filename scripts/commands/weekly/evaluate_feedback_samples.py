@@ -6,9 +6,9 @@ for elapsed windows using cross-asset and benchmark panels, auto-labels samples,
 and mirrors evaluated records to Output/feedback_samples/replay_runs/.
 
 Usage:
-    python3 scripts/evaluate_feedback_samples.py
-    python3 scripts/evaluate_feedback_samples.py --force
-    python3 scripts/evaluate_feedback_samples.py --limit 50
+    python3 scripts/commands/weekly/evaluate_feedback_samples.py
+    python3 scripts/commands/weekly/evaluate_feedback_samples.py --force
+    python3 scripts/commands/weekly/evaluate_feedback_samples.py --limit 50
 """
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from typing import Any
 
 import pandas as pd
 import yaml
-from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
-from _runtime_io import ROOT, ensure_dir, utc_now, write_json
+from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+from scripts._runtime_io import ROOT, ensure_dir, utc_now, write_json
 
 MANIFEST = ROOT / "Data" / "feedback_samples" / "sample_manifest.jsonl"
 REPLAY_DIR = ROOT / "Output" / "feedback_samples" / "replay_runs"

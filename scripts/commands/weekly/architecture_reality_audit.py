@@ -5,9 +5,9 @@ Checks that governance declarations match code reality.
 See: governance/architecture_reality_decisions.md §10
 
 Usage:
-    python3 scripts/architecture_reality_audit.py
-    python3 scripts/architecture_reality_audit.py --json
-    python3 scripts/architecture_reality_audit.py --strict  # exit 1 on any finding
+    python3 scripts/commands/weekly/architecture_reality_audit.py
+    python3 scripts/commands/weekly/architecture_reality_audit.py --json
+    python3 scripts/commands/weekly/architecture_reality_audit.py --strict  # exit 1 on any finding
 
 Output:
     Output/system_learning/latest/architecture_reality_audit.md
@@ -24,13 +24,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from _workspace_imports import add_root
-
-add_root()
-
-from _constants import TIMEOUT_SHORT  # noqa: E402
-from _runtime_io import ROOT, ensure_dir  # noqa: E402
-from _runtime_io import load_yaml as _load_yaml
+from scripts._constants import TIMEOUT_SHORT  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir  # noqa: E402
+from scripts._runtime_io import load_yaml as _load_yaml
 
 FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
@@ -39,33 +35,36 @@ MODULES_MD = ROOT / "MODULES.md"
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
 
 
-def _scan_for_http_imports(directory: Path) -> list[dict[str, str]]:
-    """Scan a directory for HTTP client imports."""
-    forbidden = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3"}
-    findings = []
-    for py_file in directory.rglob("*.py"):
-        if "__pycache__" in str(py_file):
-            continue
-        try:
-            tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
-        except (SyntaxError, UnicodeDecodeError):
-            continue
-        for node in ast.walk(tree):
-            module = None
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name in forbidden or any(alias.name.startswith(f + ".") for f in forbidden):
-                        module = alias.name
-            elif isinstance(node, ast.ImportFrom):
-                if node.module and (node.module in forbidden or any(node.module.startswith(f + ".") for f in forbidden)):
-                    module = node.module
-            if module:
-                findings.append({
-                    "file": str(py_file.relative_to(ROOT)),
-                    "line": str(node.lineno),
-                    "import": module,
-                })
-    return findings
+def _framework_self_check_heartbeat() -> dict[str, Any]:
+    """Invoke Framework's public self-check; central control only aggregates."""
+    result = subprocess.run(
+        [sys.executable, "-m", "src.validation.architecture_self_check", "--json"],
+        cwd=ROOT / "packages" / "framework",
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=TIMEOUT_SHORT,
+    )
+    if result.returncode not in {0, 1}:
+        issue = {"issue": "Framework self-check unavailable", "stderr": result.stderr[-300:]}
+        return {
+            "checks": {
+                "framework_http_imports": [issue],
+                "framework_api_keys": [],
+                "unmarked_http_in_framework": [],
+            }
+        }
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        issue = {"issue": "Framework self-check returned invalid heartbeat"}
+        return {
+            "checks": {
+                "framework_http_imports": [issue],
+                "framework_api_keys": [],
+                "unmarked_http_in_framework": [],
+            }
+        }
 
 
 def _scan_root_provider_acquisition() -> list[dict[str, str]]:
@@ -111,7 +110,7 @@ def _scan_root_harness_import_hacks() -> list[dict[str, str]]:
         r"HARNESS_SRC|sys\.path\.insert\(.*Workbench.*agents|from\s+harness\.|from\s+tools\.task_router"
     )
     for py_file in (ROOT / "scripts").glob("*.py"):
-        if py_file.name == "architecture_reality_audit.py":
+        if py_file == Path(__file__):
             continue
         try:
             source = py_file.read_text(encoding="utf-8")
@@ -159,31 +158,6 @@ def _check_daily_pipeline_compatibility_steps() -> list[dict[str, str]]:
                 "owner": str(spec.get("owner", "")),
                 "blocker": str(spec.get("blocker", "")),
             })
-    return findings
-
-
-def _scan_for_api_keys(directory: Path) -> list[dict[str, str]]:
-    """Scan a directory for API key references."""
-    patterns = re.compile(r"(api_key|API_KEY|apikey|APIKEY|secret_key|SECRET_KEY)", re.IGNORECASE)
-    findings = []
-    for py_file in directory.rglob("*.py"):
-        if "__pycache__" in str(py_file):
-            continue
-        try:
-            source = py_file.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
-        for lineno, line in enumerate(source.splitlines(), 1):
-            # Skip comments and docstrings
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                continue
-            if patterns.search(line):
-                findings.append({
-                    "file": str(py_file.relative_to(ROOT)),
-                    "line": str(lineno),
-                    "match": patterns.search(line).group(0) if patterns.search(line) else "",
-                })
     return findings
 
 
@@ -250,67 +224,44 @@ def _check_legacy_display_in_current() -> list[dict[str, str]]:
     return findings
 
 
-def _check_unmarked_http_in_framework() -> list[dict[str, str]]:
-    """Scan Framework research/benchmark files for HTTP imports not marked research_only_non_harvester."""
-    http_modules = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3", "urllib"}
-    research_dirs = [
-        ROOT / "packages" / "framework" / "src" / "benchmarks",
-        ROOT / "packages" / "framework" / "src" / "research_corpus",
+def _check_manual_sys_path_insert() -> list[dict[str, str]]:
+    """Scan all production Python trees for path surgery."""
+    scan_roots = [
+        ROOT / "scripts",
+        ROOT / "packages",
+        ROOT / "caselab_context",
+        ROOT / "caselab_runtime",
+        ROOT / "research_terminal",
     ]
     findings = []
-    for dir_path in research_dirs:
-        if not dir_path.exists():
+    for scan_root in scan_roots:
+        if not scan_root.exists():
             continue
-        for py_file in dir_path.rglob("*.py"):
-            if "__pycache__" in str(py_file):
+        for py_file in sorted(scan_root.rglob("*.py")):
+            relative = py_file.relative_to(ROOT)
+            optional_tooling = (
+                relative.parts[:3] == ("packages", "workbench", "agents")
+                or relative.parts[:3] == ("packages", "framework", "apps")
+            )
+            if "tests" in py_file.parts or optional_tooling:
                 continue
             try:
                 source = py_file.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
                 continue
-            # Check if file has HTTP imports
-            has_http = False
-            try:
-                tree = ast.parse(source, filename=str(py_file))
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.Import):
-                        for alias in node.names:
-                            if alias.name in http_modules or any(alias.name.startswith(m + ".") for m in http_modules):
-                                has_http = True
-                    elif isinstance(node, ast.ImportFrom):
-                        if node.module and (node.module in http_modules or any(node.module.startswith(m + ".") for m in http_modules)):
-                            has_http = True
-            except SyntaxError:
-                continue
-            if has_http and "research_only_non_harvester" not in source:
-                findings.append({
-                    "file": str(py_file.relative_to(ROOT)),
-                    "issue": "HTTP import without research_only_non_harvester marker",
-                })
-    return findings
-
-
-def _check_manual_sys_path_insert() -> list[dict[str, str]]:
-    """Scan root scripts for hand-written sys.path.insert — should use _workspace_imports."""
-    scripts_dir = ROOT / "scripts"
-    findings = []
-    for py_file in sorted(scripts_dir.glob("*.py")):
-        if py_file.name.startswith("_"):
-            continue  # Skip helpers like _workspace_imports.py
-        try:
-            source = py_file.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-        for lineno, line in enumerate(source.splitlines(), 1):
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                continue
-            if "sys.path.insert" in stripped and "_workspace_imports" not in stripped:
-                findings.append({
-                    "script": str(py_file.relative_to(ROOT)),
-                    "line": str(lineno),
-                    "code": stripped[:120],
-                })
+            for lineno, line in enumerate(source.splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith("#"):
+                    continue
+                path_mutation = "sys.path" + ".insert"
+                if path_mutation in stripped:
+                    findings.append(
+                        {
+                            "script": str(py_file.relative_to(ROOT)),
+                            "line": str(lineno),
+                            "code": stripped[:120],
+                        }
+                    )
     return findings
 
 
@@ -521,13 +472,9 @@ def run_audit() -> dict[str, Any]:
     }
     findings_count = 0
 
-    # Check 1: Framework HTTP imports
-    core_dirs = ["core", "operators", "diagnostics", "dynamics", "interpretation", "proxies", "derivation"]
-    http_findings = []
-    for dir_name in core_dirs:
-        dir_path = FRAMEWORK_SRC / dir_name
-        if dir_path.exists():
-            http_findings.extend(_scan_for_http_imports(dir_path))
+    # Checks 1/2 are owned by Framework; central S3 only aggregates its heartbeat.
+    framework_heartbeat = _framework_self_check_heartbeat()
+    http_findings = framework_heartbeat["checks"]["framework_http_imports"]
     results["checks"]["framework_http_imports"] = {
         "status": "PASS" if not http_findings else "FAIL",
         "findings": http_findings,
@@ -536,11 +483,7 @@ def run_audit() -> dict[str, Any]:
         findings_count += len(http_findings)
 
     # Check 2: Framework API key references
-    api_key_findings = []
-    for dir_name in core_dirs:
-        dir_path = FRAMEWORK_SRC / dir_name
-        if dir_path.exists():
-            api_key_findings.extend(_scan_for_api_keys(dir_path))
+    api_key_findings = framework_heartbeat["checks"]["framework_api_keys"]
     results["checks"]["framework_api_keys"] = {
         "status": "PASS" if not api_key_findings else "FAIL",
         "findings": api_key_findings,
@@ -650,7 +593,7 @@ def run_audit() -> dict[str, Any]:
         findings_count += len(legacy_display_findings)
 
     # Check 13: Unmarked HTTP in Framework research files
-    unmarked_http_findings = _check_unmarked_http_in_framework()
+    unmarked_http_findings = framework_heartbeat["checks"]["unmarked_http_in_framework"]
     results["checks"]["unmarked_http_in_framework"] = {
         "status": "PASS" if not unmarked_http_findings else "WARN",
         "findings": unmarked_http_findings,
@@ -727,7 +670,7 @@ def generate_markdown_report(results: dict[str, Any]) -> str:
             lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("*Generated by scripts/architecture_reality_audit.py*")
+    lines.append("*Generated by scripts/commands/weekly/architecture_reality_audit.py*")
     lines.append("*Authority: governance/architecture_reality_decisions.md §10*")
     return "\n".join(lines)
 

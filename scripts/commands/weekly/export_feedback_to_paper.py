@@ -5,10 +5,10 @@ Writes markdown drafts to Paper/40_Review/_inbox/ for human merge in Obsidian.
 Does not modify canonical review notes.
 
 Usage:
-    python3 scripts/export_feedback_to_paper.py
-    python3 scripts/export_feedback_to_paper.py --dry-run
-    python3 scripts/export_feedback_to_paper.py --force
-    python3 scripts/export_feedback_to_paper.py --json
+    python3 scripts/commands/weekly/export_feedback_to_paper.py
+    python3 scripts/commands/weekly/export_feedback_to_paper.py --dry-run
+    python3 scripts/commands/weekly/export_feedback_to_paper.py --force
+    python3 scripts/commands/weekly/export_feedback_to_paper.py --json
 """
 from __future__ import annotations
 
@@ -20,12 +20,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir  # noqa: E402
-from _runtime_io import load_jsonl as _read_jsonl
-from _workspace_imports import add_root  # noqa: E402
-
-add_root()
-
+from scripts._runtime_io import ROOT, ensure_dir  # noqa: E402
+from scripts._runtime_io import load_jsonl as _read_jsonl
 from caselab_context.paper_paths import paper_root  # noqa: E402
 
 CONTEXT_LOG = ROOT / "caselab_context" / "feedback_log.jsonl"

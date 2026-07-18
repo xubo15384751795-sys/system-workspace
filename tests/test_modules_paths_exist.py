@@ -26,6 +26,10 @@ ALLOWED_MISSING: set[str] = set()
 
 def _extract_paths(text: str) -> list[str]:
     """Extract backtick-quoted relative paths from MODULES.md text."""
+    # Fenced command examples contain triple backticks; strip them before the
+    # intentionally simple inline-code parser so they cannot shift delimiter
+    # pairing and hide every later path.
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     paths = []
     for m in re.finditer(r"`([^`]+)`", text):
         candidate = m.group(1)

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
-from scripts.judgment_replay_audit import compute_forward_outcomes, evaluate_card
+from scripts.commands.weekly.judgment_replay_audit import compute_forward_outcomes, evaluate_card
 
 
 def test_forward_outcomes_use_future_rows_only_when_available() -> None:

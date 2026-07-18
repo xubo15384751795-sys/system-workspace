@@ -6,8 +6,8 @@ by subsequent M/D/K/X movements. Updates forward_outcome in ledger
 entries and produces an aggregate claim evaluation report.
 
 Usage:
-    python3 scripts/claim_evaluator.py
-    python3 scripts/claim_evaluator.py --json
+    python3 scripts/commands/weekly/claim_evaluator.py
+    python3 scripts/commands/weekly/claim_evaluator.py --json
 
 Output:
     Output/system_learning/latest/claim_evaluation.json
@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import (
+from scripts._runtime_io import (
     ROOT,
     dedupe_entries,
     ensure_dir,
@@ -30,9 +30,10 @@ from _runtime_io import (
     load_jsonl,
     utc_now,
 )
-from _runtime_io import (
+from scripts._runtime_io import (
     entry_key as _entry_key,
 )
+from system_runtime.events import JsonlEventStore
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,14 @@ FEEDBACK_PENDING_PATH = ROOT / "Output" / "system_learning" / "latest" / "claim_
 
 def save_jsonl(path: Path, entries: list[dict]) -> None:
     """Write entries back to JSONL file."""
+    if path == TRADE_LEDGER_PATH:
+        JsonlEventStore(path).replace_payloads(
+            entries,
+            event_type="trade_decision_recorded",
+            payload_schema="trade_ledger_entry.v2",
+            producer="claim_evaluator",
+        )
+        return
     with path.open("w", encoding="utf-8") as f:
         for entry in entries:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")

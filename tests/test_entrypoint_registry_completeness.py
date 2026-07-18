@@ -1,4 +1,4 @@
-"""Entrypoint Registry Completeness — every root script must be registered.
+"""Entrypoint Registry Completeness — every command script must be registered.
 
 See: governance/entrypoint_registry.yaml
      governance/redundancy_budget.yaml
@@ -27,6 +27,7 @@ VALID_STATUSES = {
     "deprecated",
     "blocked",
     "legacy_sealed",
+    "archived_falsified",
 }
 
 
@@ -42,16 +43,21 @@ def _registered_scripts(registry: dict) -> set[str]:
     return scripts
 
 
-def _root_scripts() -> set[str]:
-    return {f"scripts/{p.name}" for p in SCRIPTS_DIR.iterdir() if p.suffix == ".py" and p.is_file() and p.name != "__init__.py"}
+def _command_scripts() -> set[str]:
+    paths = [*SCRIPTS_DIR.glob("*.py"), *(SCRIPTS_DIR / "commands").rglob("*.py")]
+    return {
+        p.relative_to(ROOT).as_posix()
+        for p in paths
+        if p.is_file() and p.name != "__init__.py" and not p.name.startswith("_")
+    }
 
 
-def test_all_root_scripts_registered() -> None:
-    """Every scripts/*.py must appear in entrypoint_registry.yaml."""
+def test_all_command_scripts_registered() -> None:
+    """Every public scripts/**/*.py command must be explicitly registered."""
     registry = _load_registry()
     registered = _registered_scripts(registry)
-    root = _root_scripts()
-    unregistered = root - registered
+    commands = _command_scripts()
+    unregistered = commands - registered
     assert not unregistered, f"Unregistered scripts: {sorted(unregistered)}"
 
 

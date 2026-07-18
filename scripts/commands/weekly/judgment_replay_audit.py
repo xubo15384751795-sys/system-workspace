@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 JUDGMENT_DIR = ROOT / "Output" / "judgment"
 ETF_PANEL = resolve_cross_asset_panel_path()

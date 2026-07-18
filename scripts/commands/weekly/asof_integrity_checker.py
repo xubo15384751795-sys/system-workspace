@@ -9,8 +9,8 @@ Outputs:
     Output/quality/asof_integrity_report.json
 
 Usage:
-    python3 scripts/asof_integrity_checker.py
-    python3 scripts/asof_integrity_checker.py --json
+    python3 scripts/commands/weekly/asof_integrity_checker.py
+    python3 scripts/commands/weekly/asof_integrity_checker.py --json
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 # ---------------------------------------------------------------------------
 # Paths
