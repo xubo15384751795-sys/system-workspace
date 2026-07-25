@@ -29,6 +29,28 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = ROOT / "Output" / "verification"
 MANIFEST_PATH = MANIFEST_DIR / "merge_gate_manifest.json"
 
+# These suites intentionally assert against local runtime state (large
+# gitignored Data/, generated Output/, or compatibility symlinks). They are
+# useful on an initialized operator workspace, but cannot be merge evidence
+# for a clean GitHub checkout. Their source-independent coverage is provided
+# below by the module suites and explicit runtime/governance checks.
+STATEFUL_ROOT_TESTS = (
+    "tests/test_admission_gate.py",
+    "tests/test_current_artifact_chain.py",
+    "tests/test_current_refresh_bundle.py",
+    "tests/test_daily_pipeline_callable_e2e.py",
+    "tests/test_freshness_governance.py",
+    "tests/test_harvester_bundle_contract.py",
+    "tests/test_home_page_consistency.py",
+    "tests/test_mechanism_tiers.py",
+    "tests/test_modules_paths_exist.py",
+    "tests/test_output_current.py",
+    "tests/test_sys_entrypoints.py",
+    "tests/test_task_router.py",
+    "tests/test_workbench_nlp.py",
+    "tests/test_workbench_tools.py",
+)
+
 
 def _git_sha() -> str:
     try:
@@ -41,7 +63,13 @@ def _git_sha() -> str:
         return "unknown"
 
 
-def _run_step(name: str, cmd: list[str], timeout: int = 600) -> dict:
+def _run_step(
+    name: str,
+    cmd: list[str],
+    *,
+    cwd: Path = ROOT,
+    timeout: int = 600,
+) -> dict:
     """Run a verification step. Returns {name, passed, returncode, duration_s}."""
     import time
 
@@ -54,7 +82,7 @@ def _run_step(name: str, cmd: list[str], timeout: int = 600) -> dict:
     }
     try:
         out = subprocess.run(
-            cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout, env=env,
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env,
         )
         passed = out.returncode == 0
         return {
@@ -77,24 +105,33 @@ def _run_step(name: str, cmd: list[str], timeout: int = 600) -> dict:
         }
 
 
-def merge_gate_steps() -> list[tuple[str, list[str]]]:
+def merge_gate_steps() -> list[tuple[str, list[str], Path]]:
     """The 10-item merge-gate chain. Each must pass; no continue-on-error."""
     py = sys.executable
+    root_clean_checkout = [
+        py,
+        "-m",
+        "pytest",
+        "tests/",
+        "-q",
+        "--tb=short",
+        *(argument for path in STATEFUL_ROOT_TESTS for argument in ("--ignore", path)),
+    ]
     return [
-        ("root_full_pytest", [py, "-m", "pytest", "tests/", "-q", "--tb=short"]),
-        ("workbench_suite", [py, "-m", "pytest", "packages/workbench/tests/", "-q"]),
-        ("harvester_suite", [py, "-m", "pytest", "packages/harvester/tests/", "-q"]),
-        ("framework_suite", [py, "-m", "pytest", "packages/framework/tests/", "-q"]),
-        ("learning_hub_suite", [py, "-m", "pytest", "packages/learning_hub/tests/", "-q"]),
+        ("root_clean_checkout_pytest", root_clean_checkout, ROOT),
+        ("workbench_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "workbench"),
+        ("harvester_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "harvester"),
+        ("framework_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "framework"),
+        ("learning_hub_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "learning_hub"),
         ("dag_compile_check", [py, "-c",
             "from _pipeline_dag import compile_dag; "
             "dag=compile_dag(); "
-            "assert dag['valid'], dag; print('dag valid')"]),
-        ("governance_freeze", [py, "scripts/check_governance_freeze.py"]),
-        ("architecture_audit", [py, "scripts/commands/weekly/architecture_reality_audit.py"]),
-        ("daily_run_dry_run", [py, "scripts/daily_run.py", "--dry-run"]),
+            "assert dag['valid'], dag; print('dag valid')"], ROOT),
+        ("governance_freeze", [py, "scripts/check_governance_freeze.py"], ROOT),
+        ("architecture_audit", [py, "scripts/commands/weekly/architecture_reality_audit.py"], ROOT),
+        ("daily_run_dry_run", [py, "scripts/daily_run.py", "--dry-run"], ROOT),
         ("phase_a_incident_regression", [py, "-m", "pytest",
-            "tests/test_phase_a_incident_regression.py", "-q"]),
+            "tests/test_phase_a_incident_regression.py", "-q"], ROOT),
     ]
 
 
@@ -103,15 +140,18 @@ def run_merge_gate() -> dict:
     sha = _git_sha()
     steps = merge_gate_steps()
     results = []
-    for name, cmd in steps:
+    for name, cmd, cwd in steps:
         print(f"[merge-gate] {name}...", flush=True)
-        r = _run_step(name, cmd)
+        r = _run_step(name, cmd, cwd=cwd)
         results.append(r)
         status = "PASS" if r["passed"] else "FAIL"
         print(f"  -> {status} ({r['duration_s']}s)", flush=True)
         if not r["passed"]:
             # Stop on first failure: a merge gate is all-green.
-            print(f"  stderr: {r.get('stderr_tail','')[:300]}", flush=True)
+            if r.get("stdout_tail"):
+                print(f"  stdout tail:\n{r['stdout_tail']}", flush=True)
+            if r.get("stderr_tail"):
+                print(f"  stderr tail:\n{r['stderr_tail']}", flush=True)
             break
 
     passed_count = sum(1 for r in results if r["passed"])
