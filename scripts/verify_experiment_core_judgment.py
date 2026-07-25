@@ -401,7 +401,8 @@ def write_audit_report(audit_entries: list[dict], violations: list[dict]) -> Non
     ]
 
     for entry in audit_entries:
-        icon = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌"}.get(entry.get("decision"), "?")
+        decision = str(entry.get("decision", ""))
+        icon = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌"}.get(decision, "?")
         lines.append(f"### {icon} `{entry.get('file', '?')}` → `{entry.get('field', '?')}`")
         lines.append(f"- **Source:** `{entry.get('source_module', '?')}`")
         lines.append(f"- **Value:** `{entry.get('value', '?')[:120]}`")
