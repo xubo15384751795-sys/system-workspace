@@ -560,6 +560,10 @@ def main() -> int:
 
     routing_decision = _enforce_routing_decision(args.run, snapshot_id)
     manifest, blockers = _check(run_dir, args.force, run_id=args.run)
+    blockers.append(
+        "Deformation v1 is ARCHIVED_FALSIFIED: canonical promotion is permanently denied; "
+        "--force may preserve a copy as non-claim quarantine evidence only."
+    )
     authority_config_events = _audit_force_promotion(args.run, args.force)
     provenance_status = _provenance_status(run_dir, manifest)
     known_limitations = _known_provenance_limitations(provenance_status)

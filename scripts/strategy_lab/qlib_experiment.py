@@ -16,17 +16,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import _runtime_io as rio
-from strategy_lab.data_loader import load_aligned
-from strategy_lab.risk_gate import compute_velocity_gate
+from scripts import _runtime_io as rio
+from scripts.strategy_lab.data_loader import load_aligned
+from scripts.strategy_lab.risk_gate import compute_velocity_gate
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab" / "qlib_experiment"
 

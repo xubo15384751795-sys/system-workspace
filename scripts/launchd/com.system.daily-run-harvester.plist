@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Phase 2.3 staged plist.
+     Apply via: bash scripts/install_launchd_plists.sh (pass apply flag).
+     Logs under Output/logs/launchd/. Authoritative harvester run at 22:30;
+     21:30 postclose job skips harvester. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.system.daily-run-harvester</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>/Users/a1/System/scripts/daily_run.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>/Users/a1/System/system-learning-hub/src</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <!-- 22:30 local: authoritative daily harvester fetch -->
+        <key>Hour</key>
+        <integer>22</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/Users/a1/System</string>
+    <key>StandardOutPath</key>
+    <string>/Users/a1/System/Output/logs/launchd/daily_run_harvester.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/a1/System/Output/logs/launchd/daily_run_harvester.log</string>
+    <!-- launchd soft maxfiles defaults near 256; harvester/yfinance need headroom -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>65536</integer>
+    </dict>
+</dict>
+</plist>

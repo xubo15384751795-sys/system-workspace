@@ -11,7 +11,7 @@ def _load_module():
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "build_learning_hub_feedback",
-        ROOT / "scripts" / "build_learning_hub_feedback.py",
+        ROOT / "scripts" / "commands" / "weekly" / "build_learning_hub_feedback.py",
     )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

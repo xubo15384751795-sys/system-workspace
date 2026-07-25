@@ -131,16 +131,43 @@ STRESS_EVENTS = [
 
 # ── Data Loading ─────────────────────────────────────────────────────────────
 
+
+def _verify_release_if_under_exports(panel_path: Path) -> None:
+    """Phase 4.2: if panel_path is under Data/harvester/exports/<release>/,
+    verify that release is finalized before reading. No-op for test fixtures
+    or non-release paths."""
+    parts = panel_path.parts
+    release_root: Path | None = None
+    for i, part in enumerate(parts):
+        if part == "exports" and i + 1 < len(parts):
+            release_root = Path(*parts[: i + 2])
+            break
+    if release_root is None or not release_root.exists():
+        return
+    try:
+        from _release_boundary import verify_release_finalized
+
+        verify_release_finalized(release_root)
+    except ImportError:
+        # _release_boundary not on path (e.g. harvester standalone test) -
+        # skip the check rather than crash.
+        pass
+
+
 def load_official_panel(panel_path: Path) -> pd.DataFrame:
     """Load the official Harvester panel and return wide-format DataFrame.
 
-    Built manually as per-series Series → DataFrame to avoid a pandas/
+    Built manually as per-series Series -> DataFrame to avoid a pandas/
     numpy datetime64[us] bug (seen on Python 3.14) where pivot_table /
     unstack on this parquet produces an index whose int64 timestamp
-    values are silently corrupted into 1953-1957 range — causing all
+    values are silently corrupted into 1953-1957 range - causing all
     .loc[real_date] lookups to fail or return wrong rows. See
     investigation 2026-05-18 in conversation history.
+
+    Phase 4.2: verifies the harvester release is finalized before reading,
+    so an unfinalized/tampered ``latest`` cannot feed the measurement path.
     """
+    _verify_release_if_under_exports(panel_path)
     raw = pd.read_parquet(panel_path)
     raw["date"] = pd.to_datetime(raw["date"])
     raw = raw.drop_duplicates(subset=["date", "series_id"], keep="first")
@@ -172,11 +199,14 @@ def load_official_panel(panel_path: Path) -> pd.DataFrame:
 # CHANNELS for backward compatibility (audit, downstream code) but every proxy
 # pointed at them is marked canonical_status='extension_beyond_canonical', so
 # they evaluate to NaN under the canonical voting rule.
-from _replay_transforms import (  # noqa: E402
+from replay.scoring import CHANNELS  # noqa: E402, F401
+
+from scripts._replay_transforms import (  # noqa: E402
     _accel_abs,
     _butterfly,
     _component,
     _daily_jump_variation,
+    _first_series,
     _jump_activation_score,
     _native_freq_diff_abs,
     _series,
@@ -184,7 +214,6 @@ from _replay_transforms import (  # noqa: E402
     _variance_risk_premium,
     _vix_term_ratio,
 )
-from replay.scoring import CHANNELS  # noqa: E402, F401
 
 # Known data gaps that limit the proxy registry. These are not measurement-
 # layer problems (the math here is fine); they are Harvester / data-acquisition-
@@ -1344,7 +1373,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         mechanism="leveraged_fund_net_position_extremes",
         transform="CFTC TFF leveraged-funds net E-mini S&P position, weekly robust z-score",
         builder=lambda p: _component(
-            _series(p, "CFTC_TFF_LEV_SP", limit=10) or _series(p, "EXT:CFTC_TFF_LEV_SP", limit=10),
+            _first_series(p, "CFTC_TFF_LEV_SP", "EXT:CFTC_TFF_LEV_SP", limit=10),
             freq="weekly",
         ),
         canonical_status="canonical_voting",
@@ -1365,7 +1394,7 @@ PROXY_REGISTRY: list[ProxySpec] = [
         mechanism="primary_dealer_treasury_net",
         transform="NY Fed PD net Treasury positions (PDPOSGST-TOT), weekly robust z-score",
         builder=lambda p: _component(
-            _series(p, "NYFED_PD_TREASURY_NET", limit=10) or _series(p, "EXT:NYFED_PD_TREASURY_NET", limit=10),
+            _first_series(p, "NYFED_PD_TREASURY_NET", "EXT:NYFED_PD_TREASURY_NET", limit=10),
             freq="weekly",
         ),
         canonical_status="canonical_voting",

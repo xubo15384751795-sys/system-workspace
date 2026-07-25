@@ -17,10 +17,12 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-import _runtime_io as rio
 import pandas as pd
-from strategy_lab.data_loader import load_aligned, load_signals
-from strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
+
+from scripts import _runtime_io as rio
+from scripts.strategy_lab.data_loader import load_aligned, load_signals
+from scripts.strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
+from system_runtime.events import payload_of
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 FRAMEWORK_PATH = rio.ROOT / "Output" / "current" / "framework_output.json"
@@ -284,6 +286,12 @@ def build_90d_outcomes_summary(days: int = 90) -> dict:
     """Aggregate shadow card outcomes over the last N calendar days.
 
     Writes promotion metrics for strategy_lab capability_registry requirements.
+
+    Days whose paper-portfolio NAV row was booked under ``sizing_mode ==
+    HOLD_DEGRADED`` (P_public incomplete -> hold existing) are excluded from
+    the promotion sample counts: a degraded day is not valid evidence for
+    strategy promotion. The card file is still on disk for audit; it just
+    does not count toward ``cards_total`` / ``min_samples_met``.
     """
     card_dir = OUTPUT_DIR / "shadow_cards"
     if not card_dir.exists():
@@ -295,11 +303,16 @@ def build_90d_outcomes_summary(days: int = 90) -> dict:
             "cards_total": 0,
         }
 
+    # Load the set of dates booked as HOLD_DEGRADED in the paper-portfolio
+    # NAV ledger, so degraded samples do not enter promotion statistics.
+    degraded_dates: set[str] = _load_degraded_nav_dates()
+
     cutoff = pd.Timestamp(datetime.now(UTC).date()) - pd.Timedelta(days=days)
     evaluations: dict[str, int] = {}
     with_20d = 0
     correct = 0
     cards_total = 0
+    excluded_degraded = 0
 
     for card_file in sorted(card_dir.glob("2*.json")):
         if card_file.name == "latest.json":
@@ -313,6 +326,10 @@ def build_90d_outcomes_summary(days: int = 90) -> dict:
             continue
         as_of_dt = pd.Timestamp(as_of)
         if as_of_dt < cutoff:
+            continue
+        # Exclude degraded days from promotion evidence.
+        if as_of in degraded_dates:
+            excluded_degraded += 1
             continue
         cards_total += 1
         outcome = card.get("outcome_backfill", {})
@@ -339,9 +356,38 @@ def build_90d_outcomes_summary(days: int = 90) -> dict:
             "min_samples_met": with_20d >= 30,
             "min_correct_rate_met": correct_rate is not None and correct_rate >= 0.55,
         },
+        "excluded_degraded_samples": excluded_degraded,
         "allowed_use": "validation_only",
-        "notes": "Shadow outcomes do not affect core judgment or trade decisions.",
+        "notes": "Shadow outcomes do not affect core judgment or trade decisions. "
+                 "HOLD_DEGRADED days (incomplete P_public) are excluded from promotion counts.",
     }
+
+
+def _load_degraded_nav_dates() -> set[str]:
+    """Return the set of as_of date strings whose NAV row was HOLD_DEGRADED.
+
+    Reads ``Output/position/paper_portfolio_nav.jsonl``. Robust to missing
+    file or rows lacking ``sizing_mode`` (older rows predate the field).
+    """
+    nav_path = rio.ROOT / "Output" / "position" / "paper_portfolio_nav.jsonl"
+    degraded: set[str] = set()
+    if not nav_path.exists():
+        return degraded
+    try:
+        for line in nav_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = payload_of(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+            if row.get("sizing_mode") == "HOLD_DEGRADED":
+                as_of = row.get("as_of") or row.get("date")
+                if as_of:
+                    degraded.add(str(as_of))
+    except OSError:
+        pass
+    return degraded
 
 
 def save_90d_outcomes_summary(summary: dict) -> Path:

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system.event_envelope.v1",
+  "title": "System Event Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "payload_schema",
+    "occurred_at",
+    "producer",
+    "run_id",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {"const": "system.event_envelope.v1"},
+    "event_id": {"type": "string", "minLength": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "payload_schema": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "producer": {"type": "string", "minLength": 1},
+    "run_id": {"type": ["string", "null"]},
+    "payload": {"type": "object"}
+  }
+}

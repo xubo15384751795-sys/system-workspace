@@ -20,7 +20,7 @@ def test_daily_run_sequence_has_core_steps() -> None:
     for required in (
         "harvester",
         "paper_sync",
-        "structural_replay",
+        "neutral_pressure_measurement",
         "judgment_layer",
         "trade_decision",
         "claim_evaluator",
@@ -29,6 +29,7 @@ def test_daily_run_sequence_has_core_steps() -> None:
         "backfill_judgment_calibration",
         "mechanism_calibration",
         "evaluate_pending",
+        "learning_hub_ingest",
         "system_index",
     ):
         assert required in ids
@@ -45,3 +46,10 @@ def test_daily_run_py_uses_sequence_count() -> None:
     content = (ROOT / "scripts" / "daily_run.py").read_text(encoding="utf-8")
     assert "load_daily_run_sequence" in content
     assert "dry_run_labels" in content
+
+
+def test_daily_run_closes_learning_hub_ledgers_after_bundle_ingest() -> None:
+    content = (ROOT / "scripts" / "daily_run.py").read_text(encoding="utf-8")
+    bundle_ingest = content.index("ingest_daily_run_bundle(bundle_dir")
+    ledger_ingest = content.index("run_learning_hub_ingest()")
+    assert bundle_ingest < ledger_ingest

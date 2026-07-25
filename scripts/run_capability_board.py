@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 
 try:
-    from _data_paths import resolve_cross_asset_panel_path
     from professional_methods import build_forward_stress_events
     from public_residual_stress import (
         build_public_residual_bundle,
@@ -37,6 +36,8 @@ try:
         compute_baseline_position,
         compute_system_overlay_position,
     )
+
+    from scripts._data_paths import resolve_cross_asset_panel_path
 except ModuleNotFoundError:
     from scripts._data_paths import resolve_cross_asset_panel_path
     from scripts.professional_methods import build_forward_stress_events
@@ -156,6 +157,7 @@ def table_paper_nav_compare(
         returns,
         residual_mode="level",
         onset_lambda=0.0,
+        min_components=1,
     )
     schemes["public_lambda0"] = (
         baseline.reindex(close.index).fillna(0.0) * lambda0["sizing"]["position"]
@@ -462,6 +464,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             returns,
             residual_mode=mode,
             onset_lambda=1.0,
+            min_components=1,
         )
         for mode in RESIDUAL_MODES
     }

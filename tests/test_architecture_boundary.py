@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -134,9 +135,19 @@ def test_evidence_release_schema_in_protocols() -> None:
 
 
 def test_capability_registry_schema_in_governance() -> None:
-    """governance/ must contain capability_registry.schema.json."""
+    """The capability schema must validate the live registry, not merely exist."""
+    import json
+
+    from jsonschema import Draft202012Validator
+
     path = ROOT / "governance" / "capability_registry.schema.json"
     assert path.exists(), "capability_registry.schema.json missing from governance/"
+    schema = json.loads(path.read_text(encoding="utf-8"))
+    registry = yaml.safe_load(CAPABILITY_REGISTRY.read_text(encoding="utf-8"))
+    errors = sorted(Draft202012Validator(schema).iter_errors(registry), key=lambda error: error.json_path)
+    assert not errors, "capability registry schema violations:\n" + "\n".join(
+        f"{error.json_path}: {error.message}" for error in errors
+    )
 
 
 def test_root_scripts_no_yfinance_import() -> None:

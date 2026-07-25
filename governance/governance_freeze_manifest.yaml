@@ -1,564 +1,572 @@
 schema_version: governance_freeze_manifest.v2
-updated_at: "2026-06-20"
-freeze_commit: "06e91e906d0f8ce6562240b27db556366edb3e2b"
-freeze_date: "2026-06-17"
-review_after: "2026-08-15"
-purpose: >
-  Machine-checkable governance freeze baseline. Root-level governance files must
-  appear in baseline_root_files or approved_additions. Generated overlays and
+updated_at: '2026-06-20'
+freeze_commit: 06e91e906d0f8ce6562240b27db556366edb3e2b
+freeze_date: '2026-06-17'
+review_after: '2026-08-15'
+purpose: 'Machine-checkable governance freeze baseline. Root-level governance files
+  must appear in baseline_root_files or approved_additions. Generated overlays and
   historical snapshots are exempt.  v2: adds file hashes for content integrity.
 
+  '
 approved_additions_budget:
-  max_files: 15
-  reason: "Cap post-freeze additions; +2 for capability proxy catalog and event replay windows (layers 1-5)."
-
+  max_files: 16
+  reason: Cap post-freeze additions; +2 for capability proxy catalog and event replay
+    windows (layers 1-5); +1 for WB-D open_threads.yaml (live work-queue, not a rule
+    file).
 ignore_patterns:
-  - "*.generated.yaml"
-  - ".DS_Store"
-
+- '*.generated.yaml'
+- .DS_Store
 exempt_directories:
-  - audit-reports
-  - archive
-
-# Files present at governance freeze commit 06e91e9 (governance/ root only)
+- audit-reports
+- archive
 baseline_root_files:
-  - architecture_cleanup_decisions.md
-  - architecture_reality_decisions.md
-  - canonical_proxy_spec.yaml
-  - capability_registry.schema.json
-  - capability_registry.yaml
-  - daily_pipeline_registry.yaml
-  - data_request_registry.yaml
-  - data_retention_policy.yaml
-  - deferred_work_register.yaml
-  - entrypoint_registry.yaml
-  - experimental_submission_registry.yaml
-  - framework_output.schema.json
-  - git_workspace_policy.md
-  - incentive_policy.yaml
-  - opencode_supervisor_policy.yaml
-  - operator_registry.yaml
-  - output_routing_policy.yaml
-  - pipeline_test_baseline.yaml
-  - proxy_quality_rules.yaml
-  - redundancy_budget.yaml
-  - repo_layout_map.md
-  - run_mode_registry.yaml
-  - run_observability_summary.template.md
-  - semantic_registry.json
-  - submodule_commit_plan.md
-  - system_constitution.yaml
-
-# Content integrity — SHA256[:16] at freeze time.  Detects silent modifications.
+- architecture_cleanup_decisions.md
+- architecture_reality_decisions.md
+- canonical_proxy_spec.yaml
+- capability_registry.schema.json
+- capability_registry.yaml
+- daily_pipeline_registry.yaml
+- data_request_registry.yaml
+- data_retention_policy.yaml
+- deferred_work_register.yaml
+- entrypoint_registry.yaml
+- experimental_submission_registry.yaml
+- framework_output.schema.json
+- git_workspace_policy.md
+- incentive_policy.yaml
+- opencode_supervisor_policy.yaml
+- operator_registry.yaml
+- output_routing_policy.yaml
+- pipeline_test_baseline.yaml
+- proxy_quality_rules.yaml
+- redundancy_budget.yaml
+- repo_layout_map.md
+- run_mode_registry.yaml
+- run_observability_summary.template.md
+- semantic_registry.json
+- submodule_commit_plan.md
+- system_constitution.yaml
 baseline_hashes:
-  architecture_cleanup_decisions.md: "446262635117bdf3"
-  architecture_reality_decisions.md: "648dc6c8bd00eaec"
-  authority_registry.yaml: "0058aae04a6ce7ea"
-  canonical_proxy_spec.yaml: "d8b9e84466b2dd2e"
-  capability_registry.schema.json: "36a5be75b05d591e"
-  capability_registry.yaml: "77843d47b8a6f6fd"
-  daily_pipeline_registry.yaml: "1462397fbc06859c"
-  data_request_registry.yaml: "4a022aa7d9a526c8"
-  data_retention_policy.yaml: "7441dd45daf12adf"
-  deferred_work_register.yaml: "66323b7fc6d1643a"
-  entrypoint_registry.yaml: "f32ad3bc798aac2e"
-  experimental_submission_registry.yaml: "e362f89e927c1957"
-  framework_output.schema.json: "7378891650ab5040"
-  git_workspace_policy.md: "d812b4ed4f0371bd"
-  incentive_policy.yaml: "eae916244754e015"
-  opencode_supervisor_policy.yaml: "822ecdea6cb684da"
-  operator_registry.yaml: "52406a8a279176c1"
-  output_routing_policy.yaml: "24dfa5eb2762d163"
-  pipeline_test_baseline.yaml: "d476abebd64035a6"
-  proxy_quality_rules.yaml: "09bf85c19edc4c85"
-  redundancy_budget.yaml: "2a5d2451addaec3c"
-  repo_layout_map.md: "45c81234ae0a728f"
-  run_mode_registry.yaml: "a0aa12f41ec3f33a"
-  run_observability_summary.template.md: "69bb81c0d223cf9e"
-  semantic_registry.json: "d72f277e4d56e813"
-  submodule_commit_plan.md: "164a0f9110fba6d5"
-  system_constitution.yaml: "923166d5bd7e467e"
-
-# Post-freeze additions — each requires explicit approval record
+  architecture_cleanup_decisions.md: 446262635117bdf3
+  architecture_reality_decisions.md: 648dc6c8bd00eaec
+  authority_registry.yaml: 0058aae04a6ce7ea
+  canonical_proxy_spec.yaml: d8b9e84466b2dd2e
+  capability_registry.schema.json: 36a5be75b05d591e
+  capability_registry.yaml: 77843d47b8a6f6fd
+  daily_pipeline_registry.yaml: 1462397fbc06859c
+  data_request_registry.yaml: 4a022aa7d9a526c8
+  data_retention_policy.yaml: 7441dd45daf12adf
+  deferred_work_register.yaml: 66323b7fc6d1643a
+  entrypoint_registry.yaml: f32ad3bc798aac2e
+  experimental_submission_registry.yaml: e362f89e927c1957
+  framework_output.schema.json: 7378891650ab5040
+  git_workspace_policy.md: d812b4ed4f0371bd
+  incentive_policy.yaml: eae916244754e015
+  opencode_supervisor_policy.yaml: 822ecdea6cb684da
+  operator_registry.yaml: 52406a8a279176c1
+  output_routing_policy.yaml: 24dfa5eb2762d163
+  pipeline_test_baseline.yaml: d476abebd64035a6
+  proxy_quality_rules.yaml: 09bf85c19edc4c85
+  redundancy_budget.yaml: 2a5d2451addaec3c
+  repo_layout_map.md: 45c81234ae0a728f
+  run_mode_registry.yaml: a0aa12f41ec3f33a
+  run_observability_summary.template.md: 69bb81c0d223cf9e
+  semantic_registry.json: d72f277e4d56e813
+  submodule_commit_plan.md: 164a0f9110fba6d5
+  system_constitution.yaml: 923166d5bd7e467e
 approved_additions:
-  - file: governance_tiers.yaml
-    approved_at: "2026-06-18"
-    commit: "172f56c"
-    reason: "Consolidation classifier — reduces ad-hoc governance docs"
-  - file: daily_run_sequence.yaml
-    approved_at: "2026-06-18"
-    commit: "172f56c"
-    reason: "Pipeline order source of truth for daily_run.py"
-  - file: authority_graph_policy.yaml
-    approved_at: "2026-06-18"
-    commit: "topology-governance"
-    reason: "Structure-over-rules topology layer; replaces per-script drift patches"
-  - file: README.md
-    approved_at: "2026-06-18"
-    commit: "172f56c"
-    reason: "Governance directory index only — not a new rule file"
-  - file: governance_freeze_manifest.yaml
-    approved_at: "2026-06-18"
-    commit: "freeze-enforcement"
-    reason: "Machine-checkable freeze baseline — meta file for CI enforcement"
-  - file: mechanism_calibration_gate.yaml
-    approved_at: "2026-06-18"
-    commit: "be2ffcd"
-    reason: "HMM/mechanism calibration gate — close incentive review authority semantics"
-  - file: claim_ladder_policy.yaml
-    approved_at: "2026-06-18"
-    commit: "agent-quality-hardening"
-    reason: "Claim ladder lifecycle policy for judgment feedback; approved under freeze budget"
-  - file: feedback_sampling_policy.yaml
-    approved_at: "2026-06-18"
-    commit: "agent-quality-hardening"
-    reason: "Feedback sample policy for sparse replay validation; approved under freeze budget"
-  - file: ml_validation_policy.yaml
-    approved_at: "2026-06-20"
-    commit: "pipeline-slim-cut"
-    reason: "Explicit allowed_use:validation_only for walk-forward, baseline, as-of outputs"
-  - file: pipeline_schedule.md
-    approved_at: "2026-06-20"
-    commit: "pipeline-slim-cut"
-    reason: "Daily/weekly/on-demand boundary documentation"
-  - file: authority_registry.yaml
-    approved_at: "2026-06-20"
-    commit: "governance-consolidation"
-    reason: "Consolidates module_authority_registry + config_authority_registry + data_authority_registry into one file"
-  - file: paper_support_registry.yaml
-    approved_at: "2026-06-30"
-    commit: "paper-support-trade-grade"
-    reason: "Governance-approved Paper cases for trade_decision approved_support"
-  - file: agent_routing_authority.yaml
-    approved_at: "2026-06-30"
-    commit: "wave-4-workbench-ux"
-    reason: "Tiered execution authority for routing.execute_pipeline_step"
-  - file: proxy_observation_catalog.yaml
-    approved_at: "2026-07-02"
-    commit: "capability-layers-1-5"
-    reason: "Layer-1 proxy acceptance catalog (observes/fails_when/independence/replay_case)"
-  - file: event_replay_windows.yaml
-    approved_at: "2026-07-02"
-    commit: "capability-layers-1-5"
-    reason: "Layer-3 historical event windows for operator replay factory"
-
-# Baseline hash updates — approved modifications to existing frozen files
+- file: governance_tiers.yaml
+  approved_at: '2026-06-18'
+  commit: 172f56c
+  reason: Consolidation classifier — reduces ad-hoc governance docs
+- file: daily_run_sequence.yaml
+  approved_at: '2026-06-18'
+  commit: 172f56c
+  reason: Pipeline order source of truth for daily_run.py
+- file: authority_graph_policy.yaml
+  approved_at: '2026-06-18'
+  commit: topology-governance
+  reason: Structure-over-rules topology layer; replaces per-script drift patches
+- file: README.md
+  approved_at: '2026-06-18'
+  commit: 172f56c
+  reason: Governance directory index only — not a new rule file
+- file: governance_freeze_manifest.yaml
+  approved_at: '2026-06-18'
+  commit: freeze-enforcement
+  reason: Machine-checkable freeze baseline — meta file for CI enforcement
+- file: mechanism_calibration_gate.yaml
+  approved_at: '2026-06-18'
+  commit: be2ffcd
+  reason: HMM/mechanism calibration gate — close incentive review authority semantics
+- file: claim_ladder_policy.yaml
+  approved_at: '2026-06-18'
+  commit: agent-quality-hardening
+  reason: Claim ladder lifecycle policy for judgment feedback; approved under freeze
+    budget
+- file: feedback_sampling_policy.yaml
+  approved_at: '2026-06-18'
+  commit: agent-quality-hardening
+  reason: Feedback sample policy for sparse replay validation; approved under freeze
+    budget
+- file: ml_validation_policy.yaml
+  approved_at: '2026-06-20'
+  commit: pipeline-slim-cut
+  reason: Explicit allowed_use:validation_only for walk-forward, baseline, as-of outputs
+- file: pipeline_schedule.md
+  approved_at: '2026-06-20'
+  commit: pipeline-slim-cut
+  reason: Daily/weekly/on-demand boundary documentation
+- file: authority_registry.yaml
+  approved_at: '2026-06-20'
+  commit: governance-consolidation
+  reason: Consolidates module_authority_registry + config_authority_registry + data_authority_registry
+    into one file
+- file: paper_support_registry.yaml
+  approved_at: '2026-06-30'
+  commit: paper-support-trade-grade
+  reason: Governance-approved Paper cases for trade_decision approved_support
+- file: agent_routing_authority.yaml
+  approved_at: '2026-06-30'
+  commit: wave-4-workbench-ux
+  reason: Tiered execution authority for routing.execute_pipeline_step
+- file: proxy_observation_catalog.yaml
+  approved_at: '2026-07-02'
+  commit: capability-layers-1-5
+  reason: Layer-1 proxy acceptance catalog (observes/fails_when/independence/replay_case)
+- file: event_replay_windows.yaml
+  approved_at: '2026-07-02'
+  commit: capability-layers-1-5
+  reason: Layer-3 historical event windows for operator replay factory
+- file: open_threads.yaml
+  approved_at: '2026-07-12'
+  commit: wb-d-next-actions
+  reason: 'WB-D: single allowed new governance file - live work-queue for real next-steps
+    surfaced in NEXT_ACTIONS.md (replaces ''watch hmm'' fallback). Not a rule file;
+    a work-queue consumed by build_next_actions.py.'
 baseline_updates:
-  - file: system_constitution.yaml
-    approved_at: "2026-06-18"
-    old_hash: "943992af108ce6b6"
-    new_hash: "3def2eaaf5fcfca8"
-    reason: "Added dual_clock + agent_work_protocol hard rules (三层固化)"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-06-18"
-    old_hash: "6b0d63c2a5da6e57"
-    new_hash: "5fca937e0425457a"
-    reason: "Added evidence_window fields per dual_clock requirement"
-  - file: capability_registry.yaml
-    approved_at: "2026-06-18"
-    old_hash: "912270d329a780d5"
-    new_hash: "31d3df56e2f91f30"
-    reason: "Recorded feedback and lifecycle capabilities without granting core authority"
-  - file: capability_registry.schema.json
-    approved_at: "2026-06-18"
-    old_hash: "8180a383852ae580"
-    new_hash: "36a5be75b05d591e"
-    reason: "Allowed capability metadata needed by feedback lifecycle registration"
-  - file: config_authority_registry.yaml
-    approved_at: "2026-06-18"
-    old_hash: "58be24ae9b44e360"
-    new_hash: "0467b7d9faa99c9f"
-    reason: "Registered new feedback configuration authority"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-06-18"
-    old_hash: "24a0855fdc56530a"
-    new_hash: "c6b5d5aa268c2a99"
-    reason: "Registered daily feedback and proxy lifecycle steps with non-core authority"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-06-18"
-    old_hash: "31feac4296437df9"
-    new_hash: "7963c1d707847934"
-    reason: "Registered all root scripts and shared helpers for entrypoint completeness"
-  - file: output_routing_policy.yaml
-    approved_at: "2026-06-18"
-    old_hash: "4350319aa22c5c2a"
-    new_hash: "09b172ce00ba13d5"
-    reason: "Recorded output routing for feedback and diagnostic artifacts"
-  - file: proxy_quality_rules.yaml
-    approved_at: "2026-06-18"
-    old_hash: "ed3daee1d86713af"
-    new_hash: "49c1aa73ca880944"
-    reason: "Added proxy lifecycle quality rules used by diagnostic reports"
-  - file: redundancy_budget.yaml
-    approved_at: "2026-06-18"
-    old_hash: "31b7bfeafe50ccbc"
-    new_hash: "b877f6469704c8c6"
-    reason: "Aligned redundancy budget with registered feedback scripts"
-  # 2026-06-19: hash reconciliation for dual_clock + agent_work_protocol implementation
-  - file: capability_registry.yaml
-    approved_at: "2026-06-19"
-    old_hash: "31d3df56e2f91f30"
-    new_hash: "0464f87a27f29123"
-    reason: "Lifecycle metadata updates (ACTIVE_PARTIAL review dates)"
-  - file: data_request_registry.yaml
-    approved_at: "2026-06-19"
-    old_hash: "fba3503f685b2ac8"
-    new_hash: "0931a083d1de99ca"
-    reason: "Data request registry updates"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-06-19"
-    old_hash: "5fca937e0425457a"
-    new_hash: "fc26ef8b5a6d28cb"
-    reason: "Added execution_window + evidence_window fields per dual_clock"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-06-19"
-    old_hash: "7963c1d707847934"
-    new_hash: "684ab43b3f38c7fa"
-    reason: "Registered verify_experiment_core_judgment + check_output_freshness"
-  - file: module_authority_registry.yaml
-    approved_at: "2026-06-19"
-    old_hash: "54c060b9413d9c48"
-    new_hash: "120ada48eab24c83"
-    reason: "Module authority registry updates"
-  - file: proxy_quality_rules.yaml
-    approved_at: "2026-06-19"
-    old_hash: "49c1aa73ca880944"
-    new_hash: "09bf85c19edc4c85"
-    reason: "Proxy quality rules updates"
-  - file: redundancy_budget.yaml
-    approved_at: "2026-06-19"
-    old_hash: "b877f6469704c8c6"
-    new_hash: "19cb2b8d9df28b92"
-    reason: "Raised root_scripts max_visible from 95 to 97 for new verification scripts"
-  # 2026-06-20: hash reconciliation for CI restructure + submodule consolidation prep
-  - file: capability_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "0464f87a27f29123"
-    new_hash: "96cffb751e9bfc27"
-    reason: "Stale k_features_from_etf reference fix + ACTIVE_PARTIAL lifecycle updates"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "c6b5d5aa268c2a99"
-    new_hash: "b823b8c40dab982b"
-    reason: "Added future_callable to strategy_lab_shadow execution contract"
-  - file: data_authority_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "6c3fd262df967f33"
-    new_hash: "aeb6d7b6ff23ee8c"
-    reason: "Data authority registry updates during consolidation prep"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "6e76dcebf549b892"
-    new_hash: "431400ffbe2e3d94"
-    reason: "Entrypoint registry updates during consolidation prep"
-  - file: git_workspace_policy.md
-    approved_at: "2026-06-20"
-    old_hash: "52cfed5adc3fa9db"
-    new_hash: "d812b4ed4f0371bd"
-    reason: "Git workspace policy updates for submodule transition"
-  - file: module_contract_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "d336a718a12ae232"
-    new_hash: "6a9e39415463fcca"
-    reason: "Module contract registry updates during consolidation prep"
-  - file: redundancy_budget.yaml
-    approved_at: "2026-06-20"
-    old_hash: "67efcbef344a101e"
-    new_hash: "6c6bfd0a3f743b70"
-    reason: "Redundancy budget updates during consolidation prep"
-  - file: repo_layout_map.md
-    approved_at: "2026-06-20"
-    old_hash: "782106601619c97b"
-    new_hash: "45c81234ae0a728f"
-    reason: "Repo layout map updates for deformation-framework rename"
-  - file: submodule_commit_plan.md
-    approved_at: "2026-06-20"
-    old_hash: "71a15104c9459142"
-    new_hash: "164a0f9110fba6d5"
-    reason: "Submodule commit plan updates during consolidation prep"
-  - file: module_authority_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "120ada48eab24c83"
-    new_hash: "ca9c13a7fa9c4657"
-    reason: "EOF fix by pre-commit hook during governance reconciliation"
-  # 2026-06-20: pipeline slim cut — hash updates for policy changes
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "431400ffbe2e3d94"
-    new_hash: "3fafebcfbab2100a"
-    reason: "Fixed walk_forward_validation stale reference (archived→active) + added can_affect_core_judgment:false"
-  - file: output_routing_policy.yaml
-    approved_at: "2026-06-20"
-    old_hash: "09b172ce00ba13d5"
-    new_hash: "5f71d2c6de937d63"
-    reason: "Added ml_validation routing group with can_affect_core_judgment:false"
-  # 2026-06-20: governance compression — remove unused files and fields
-  - file: capability_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "96cffb751e9bfc27"
-    new_hash: "d1e6d6466c139306"
-    reason: "Governance compression: removed test_count, test_location, last_verified, next_audit_due (zero Python readers)"
-  - file: position_sizing_policy.yaml
-    approved_at: "2026-06-20"
-    old_hash: "38c986ec89459328"
-    new_hash: "_deleted_"
-    reason: "Governance compression: deleted — code (trade_decision_layer.py, trade_risk_gate.py) already implements same logic independently"
-  - file: module_contract_registry.yaml
-    approved_at: "2026-06-20"
-    old_hash: "6a9e39415463fcca"
-    new_hash: "_deleted_"
-    reason: "Governance compression: deleted — protocols/*.schema.json enforce output structure; module import boundaries enforced by directory isolation"
-  - file: decay_policy.yaml
-    approved_at: "2026-06-20"
-    old_hash: "_none_"
-    new_hash: "_deleted_"
-    reason: "Governance compression: deleted — zero Python readers, pure documentation, governance freeze already prevents unbounded growth"
-  - file: data_request_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "0931a083d1de99ca"
-    new_hash: "26e83a83ff3e38c0"
-    reason: "etf_cross_asset_panel fulfilled via Harvester cross_asset_daily_panel release"
-  - file: authority_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "d73bff276d99f078"
-    new_hash: "d364708de5039033"
-    reason: "Harvester canonical path for cross_asset_daily_panel + workspace mirror authority"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-06-30"
-    old_hash: "fc26ef8b5a6d28cb"
-    new_hash: "db71d25881eceda3"
-    reason: "Pipeline callable runner and callable E2E tests moved to in_progress"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "45243c9d94856897"
-    new_hash: "9d2b1a2520225077"
-    reason: "Pilot reporting steps migrated to execution.mode callable"
-  - file: data_request_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "26e83a83ff3e38c0"
-    new_hash: "da2346f09453072d"
-    reason: "cross_asset_confirmation fulfilled; claim_ceiling_lift via governance; K/X in_progress"
-  - file: capability_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "3273727862cfb0f5"
-    new_hash: "fb99980299126f8e"
-    reason: "etf_data_path CANONICAL after Harvester cross_asset release"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "9d2b1a2520225077"
-    new_hash: "899f63c13c9d0166"
-    reason: "Callable mode for build_readme_first, build_next_actions, freshness_validator"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-06-30"
-    old_hash: "db71d25881eceda3"
-    new_hash: "9d4a456c41d111da"
-    reason: "Register capability_upgrade_master in_progress track"
-  - file: data_request_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "da2346f09453072d"
-    new_hash: "500729e504511860"
-    reason: "K/X measurement_quality fulfilled via measurement_quality.json sidecar"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "899f63c13c9d0166"
-    new_hash: "b1af2446974129fe"
-    reason: "Main-chain callable + measurement_quality_report step; fix future_callable specs"
-  - file: daily_run_sequence.yaml
-    approved_at: "2026-06-30"
-    old_hash: "_unknown_"
-    new_hash: "049dccae8ccfa31c"
-    reason: "Add measurement_quality_report after x_measurement_gate"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-06-30"
-    old_hash: "33eaf12af810c842"
-    new_hash: "3687f0a8bb11a7f1"
-    reason: "Wave 3 capability_upgrade_master progress"
-  - file: capability_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "fb99980299126f8e"
-    new_hash: "9a5e0085e18f64a4"
-    reason: "agent_routing ACTIVE_PARTIAL with governed execute_routed_task"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "b1af2446974129fe"
-    new_hash: "01a645b1fb3bd55c"
-    reason: "Wave 3 shadow_outcomes_90d + qlib_structural_bridge registry steps"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-06-30"
-    old_hash: "3fafebcfbab2100a"
-    new_hash: "1352fa71ff09bdea"
-    reason: "Wave 4 run_pipeline_step + measurement quality entrypoints"
-  - file: daily_run_sequence.yaml
-    approved_at: "2026-07-02"
-    old_hash: "2a6d8a92fa4f35d6"
-    new_hash: "a77f6460250594e8"
-    reason: "Add daily current_status reporting step"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-07-02"
-    old_hash: "3687f0a8bb11a7f1"
-    new_hash: "3fa224585ac9cd34"
-    reason: "Wave 4 capability_upgrade_master progress; reconcile freeze baseline hash"
-  - file: output_routing_policy.yaml
-    approved_at: "2026-07-02"
-    old_hash: "c238fee7d18882bf"
-    new_hash: "c638aaef23af8716"
-    reason: "Register measurement_quality.json in groups.current.allowed_artifacts"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "01a645b1fb3bd55c"
-    new_hash: "ad82bff6da5971b5"
-    reason: "Register current_status daily reporting step"
-  - file: system_constitution.yaml
-    approved_at: "2026-07-02"
-    old_hash: "3def2eaaf5fcfca8"
-    new_hash: "923166d5bd7e467e"
-    reason: "Renew governance_freeze review_after to 2026-07-15"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "ad82bff6da5971b5"
-    new_hash: "7ca79516bae9598c"
-    reason: "Fix hmm_stability_audit produces path for IO contract traceability"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "1352fa71ff09bdea"
-    new_hash: "ca13178fff0cb377"
-    reason: "Register build_current_status.py entrypoint"
-  - file: redundancy_budget.yaml
-    approved_at: "2026-07-02"
-    old_hash: "bf6b5286d95a5634"
-    new_hash: "39f66966075a1241"
-    reason: "Bump root_scripts max_visible for build_current_status.py"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "7ca79516bae9598c"
-    new_hash: "fc31db21cc529a63"
-    reason: "Capability layers 1-5 research pipeline steps (operators, replay, overlay, feedback)"
-  - file: daily_run_sequence.yaml
-    approved_at: "2026-07-02"
-    old_hash: "a77f6460250594e8"
-    new_hash: "b5580e7df28c42cd"
-    reason: "Wire operator detections and weekly capability factory steps"
-  - file: data_request_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "500729e504511860"
-    new_hash: "5709fec9b9de56d7"
-    reason: "Register capability funding/vol/credit observation requests"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "ca13178fff0cb377"
-    new_hash: "f2622705e25453fb"
-    reason: "Register capability scripts; reactivate build_feedback_sample_pool"
-  - file: redundancy_budget.yaml
-    approved_at: "2026-07-02"
-    old_hash: "39f66966075a1241"
-    new_hash: "75cbb968983d92d7"
-    reason: "Bump root_scripts max_visible for capability pipeline scripts"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-07-02"
-    old_hash: "fc31db21cc529a63"
-    new_hash: "5ad408001919ea6b"
-    reason: "Close contracts.outputs for capability pipeline steps"
-  - file: output_routing_policy.yaml
-    approved_at: "2026-07-02"
-    old_hash: "c638aaef23af8716"
-    new_hash: "24dfa5eb2762d163"
-    reason: "Register operator_activations.json in current (non-core readout)"
-  - file: authority_graph_policy.yaml
-    approved_at: "2026-07-02"
-    old_hash: "_unknown_"
-    new_hash: "b860e5a8dfca82ab"
-    reason: "Diagnostic readout drift exempt + run_operator_detections zone"
-  - file: governance_freeze_manifest.yaml
-    approved_at: "2026-07-03"
-    old_hash: "093b2e8eee75820f"
-    new_hash: "093b2e8eee75820f"
-    reason: "Pre-7/15 review: extend review_after to 2026-08-15"
-  - file: authority_registry.yaml
-    approved_at: "2026-07-03"
-    old_hash: "d364708de5039033"
-    new_hash: "0058aae04a6ce7ea"
-    reason: "Close merged_data migration — archived_legacy authority"
-  - file: data_request_registry.yaml
-    approved_at: "2026-07-03"
-    old_hash: "5709fec9b9de56d7"
-    new_hash: "4a022aa7d9a526c8"
-    reason: "merged_data_proxy_inputs fulfilled_legacy"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-07-03"
-    old_hash: "3fa224585ac9cd34"
-    new_hash: "a970068f928a4821"
-    reason: "Complete merged_data_harvester_consolidation"
-  - file: data_retention_policy.yaml
-    approved_at: "2026-07-03"
-    old_hash: "e6efe4330eef54b8"
-    new_hash: "ce516ccc7f87a904"
-    reason: "merged_data archived_legacy retention"
-  - file: redundancy_budget.yaml
-    approved_at: "2026-07-03"
-    old_hash: "75cbb968983d92d7"
-    new_hash: "2a5d2451addaec3c"
-    reason: "merged_data archived_legacy redundancy budget"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-07-03"
-    old_hash: "f2622705e25453fb"
-    new_hash: "6b1c355c59deb295"
-    reason: "Activate feedback eval + HMM archive + improvement queue refresh"
-  - file: daily_run_sequence.yaml
-    approved_at: "2026-07-03"
-    old_hash: "921af86c02671313"
-    new_hash: "d34bfc828ae0b1d3"
-    reason: "Governance slim 2026-07-03 — 9 steps daily→weekly (25 daily)"
-  - file: daily_pipeline_registry.yaml
-    approved_at: "2026-07-03"
-    old_hash: "4bebc5b102d7df8b"
-    new_hash: "1462397fbc06859c"
-    reason: "Mirror weekly schedule for slimmed pipeline steps"
-  - file: pipeline_schedule.md
-    approved_at: "2026-07-03"
-    old_hash: "_unknown_"
-    new_hash: "d9ab7000b74a0005"
-    reason: "Sync pipeline_schedule SSOT with daily_run_sequence (25 daily / 46 weekly)"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-07-07"
-    old_hash: "a970068f928a4821"
-    new_hash: "271f93d985606be1"
-    reason: "DuckDB snapshot store migration: status deferred -> in_progress; add migration_steps + progress"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-07-07"
-    old_hash: "271f93d985606be1"
-    new_hash: "d3c1f17971f07f2e"
-    reason: "DuckDB snapshot store migration: SEAL phase complete; move/seal steps + progress log"
-  - file: capability_registry.yaml
-    approved_at: "2026-07-07"
-    old_hash: "9a5e0085e18f64a4"
-    new_hash: "77843d47b8a6f6fd"
-    reason: "Clear legacy_data_hub_and_bridge blocker; harvester_becomes_only_provider_owner PARTIAL->COMPLETED (DuckDB SEAL)"
-  - file: data_retention_policy.yaml
-    approved_at: "2026-07-07"
-    old_hash: "ce516ccc7f87a904"
-    new_hash: "7441dd45daf12adf"
-    reason: "structural_lab.runtime legacy_candidate -> archived_legacy (DuckDB SEAL)"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-07-07"
-    old_hash: "d3c1f17971f07f2e"
-    new_hash: "2bc005e8f4e9d950"
-    reason: "Submodule consolidation: status deferred -> in_progress; add progress log"
-  - file: deferred_work_register.yaml
-    approved_at: "2026-07-07"
-    old_hash: "2bc005e8f4e9d950"
-    new_hash: "66323b7fc6d1643a"
-    reason: "Submodule consolidation: status -> completed; B1-B6 progress log"
-  - file: architecture_reality_decisions.md
-    approved_at: "2026-07-07"
-    old_hash: "349c61656d98e0ac"
-    new_hash: "648dc6c8bd00eaec"
-    reason: "§9 submodule structure: transitional -> executed (consolidation complete)"
-  - file: entrypoint_registry.yaml
-    approved_at: "2026-07-07"
-    old_hash: "6b1c355c59deb295"
-    new_hash: "f32ad3bc798aac2e"
-    reason: "Update submodule paths to packages/ (workbench, framework, harvester, learning_hub)"
-
+- file: system_constitution.yaml
+  approved_at: '2026-06-18'
+  old_hash: 943992af108ce6b6
+  new_hash: 3def2eaaf5fcfca8
+  reason: Added dual_clock + agent_work_protocol hard rules (三层固化)
+- file: deferred_work_register.yaml
+  approved_at: '2026-06-18'
+  old_hash: 6b0d63c2a5da6e57
+  new_hash: 5fca937e0425457a
+  reason: Added evidence_window fields per dual_clock requirement
+- file: capability_registry.yaml
+  approved_at: '2026-06-18'
+  old_hash: 912270d329a780d5
+  new_hash: 31d3df56e2f91f30
+  reason: Recorded feedback and lifecycle capabilities without granting core authority
+- file: capability_registry.schema.json
+  approved_at: '2026-06-18'
+  old_hash: 8180a383852ae580
+  new_hash: 36a5be75b05d591e
+  reason: Allowed capability metadata needed by feedback lifecycle registration
+- file: config_authority_registry.yaml
+  approved_at: '2026-06-18'
+  old_hash: 58be24ae9b44e360
+  new_hash: 0467b7d9faa99c9f
+  reason: Registered new feedback configuration authority
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-06-18'
+  old_hash: 24a0855fdc56530a
+  new_hash: c6b5d5aa268c2a99
+  reason: Registered daily feedback and proxy lifecycle steps with non-core authority
+- file: entrypoint_registry.yaml
+  approved_at: '2026-06-18'
+  old_hash: 31feac4296437df9
+  new_hash: 7963c1d707847934
+  reason: Registered all root scripts and shared helpers for entrypoint completeness
+- file: output_routing_policy.yaml
+  approved_at: '2026-06-18'
+  old_hash: 4350319aa22c5c2a
+  new_hash: 09b172ce00ba13d5
+  reason: Recorded output routing for feedback and diagnostic artifacts
+- file: proxy_quality_rules.yaml
+  approved_at: '2026-06-18'
+  old_hash: ed3daee1d86713af
+  new_hash: 49c1aa73ca880944
+  reason: Added proxy lifecycle quality rules used by diagnostic reports
+- file: redundancy_budget.yaml
+  approved_at: '2026-06-18'
+  old_hash: 31b7bfeafe50ccbc
+  new_hash: b877f6469704c8c6
+  reason: Aligned redundancy budget with registered feedback scripts
+- file: capability_registry.yaml
+  approved_at: '2026-06-19'
+  old_hash: 31d3df56e2f91f30
+  new_hash: 0464f87a27f29123
+  reason: Lifecycle metadata updates (ACTIVE_PARTIAL review dates)
+- file: data_request_registry.yaml
+  approved_at: '2026-06-19'
+  old_hash: fba3503f685b2ac8
+  new_hash: 0931a083d1de99ca
+  reason: Data request registry updates
+- file: deferred_work_register.yaml
+  approved_at: '2026-06-19'
+  old_hash: 5fca937e0425457a
+  new_hash: fc26ef8b5a6d28cb
+  reason: Added execution_window + evidence_window fields per dual_clock
+- file: entrypoint_registry.yaml
+  approved_at: '2026-06-19'
+  old_hash: 7963c1d707847934
+  new_hash: 684ab43b3f38c7fa
+  reason: Registered verify_experiment_core_judgment + check_output_freshness
+- file: module_authority_registry.yaml
+  approved_at: '2026-06-19'
+  old_hash: 54c060b9413d9c48
+  new_hash: 120ada48eab24c83
+  reason: Module authority registry updates
+- file: proxy_quality_rules.yaml
+  approved_at: '2026-06-19'
+  old_hash: 49c1aa73ca880944
+  new_hash: 09bf85c19edc4c85
+  reason: Proxy quality rules updates
+- file: redundancy_budget.yaml
+  approved_at: '2026-06-19'
+  old_hash: b877f6469704c8c6
+  new_hash: 19cb2b8d9df28b92
+  reason: Raised root_scripts max_visible from 95 to 97 for new verification scripts
+- file: capability_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 0464f87a27f29123
+  new_hash: 96cffb751e9bfc27
+  reason: Stale k_features_from_etf reference fix + ACTIVE_PARTIAL lifecycle updates
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: c6b5d5aa268c2a99
+  new_hash: b823b8c40dab982b
+  reason: Added future_callable to strategy_lab_shadow execution contract
+- file: data_authority_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 6c3fd262df967f33
+  new_hash: aeb6d7b6ff23ee8c
+  reason: Data authority registry updates during consolidation prep
+- file: entrypoint_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 6e76dcebf549b892
+  new_hash: 431400ffbe2e3d94
+  reason: Entrypoint registry updates during consolidation prep
+- file: git_workspace_policy.md
+  approved_at: '2026-06-20'
+  old_hash: 52cfed5adc3fa9db
+  new_hash: d812b4ed4f0371bd
+  reason: Git workspace policy updates for submodule transition
+- file: module_contract_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: d336a718a12ae232
+  new_hash: 6a9e39415463fcca
+  reason: Module contract registry updates during consolidation prep
+- file: redundancy_budget.yaml
+  approved_at: '2026-06-20'
+  old_hash: 67efcbef344a101e
+  new_hash: 6c6bfd0a3f743b70
+  reason: Redundancy budget updates during consolidation prep
+- file: repo_layout_map.md
+  approved_at: '2026-06-20'
+  old_hash: 782106601619c97b
+  new_hash: 45c81234ae0a728f
+  reason: Repo layout map updates for deformation-framework rename
+- file: submodule_commit_plan.md
+  approved_at: '2026-06-20'
+  old_hash: 71a15104c9459142
+  new_hash: 164a0f9110fba6d5
+  reason: Submodule commit plan updates during consolidation prep
+- file: module_authority_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 120ada48eab24c83
+  new_hash: ca9c13a7fa9c4657
+  reason: EOF fix by pre-commit hook during governance reconciliation
+- file: entrypoint_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 431400ffbe2e3d94
+  new_hash: 3fafebcfbab2100a
+  reason: Fixed walk_forward_validation stale reference (archived→active) + added
+    can_affect_core_judgment:false
+- file: output_routing_policy.yaml
+  approved_at: '2026-06-20'
+  old_hash: 09b172ce00ba13d5
+  new_hash: 5f71d2c6de937d63
+  reason: Added ml_validation routing group with can_affect_core_judgment:false
+- file: capability_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 96cffb751e9bfc27
+  new_hash: d1e6d6466c139306
+  reason: 'Governance compression: removed test_count, test_location, last_verified,
+    next_audit_due (zero Python readers)'
+- file: position_sizing_policy.yaml
+  approved_at: '2026-06-20'
+  old_hash: 38c986ec89459328
+  new_hash: _deleted_
+  reason: 'Governance compression: deleted — code (trade_decision_layer.py, trade_risk_gate.py)
+    already implements same logic independently'
+- file: module_contract_registry.yaml
+  approved_at: '2026-06-20'
+  old_hash: 6a9e39415463fcca
+  new_hash: _deleted_
+  reason: 'Governance compression: deleted — protocols/*.schema.json enforce output
+    structure; module import boundaries enforced by directory isolation'
+- file: decay_policy.yaml
+  approved_at: '2026-06-20'
+  old_hash: _none_
+  new_hash: _deleted_
+  reason: 'Governance compression: deleted — zero Python readers, pure documentation,
+    governance freeze already prevents unbounded growth'
+- file: data_request_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 0931a083d1de99ca
+  new_hash: 26e83a83ff3e38c0
+  reason: etf_cross_asset_panel fulfilled via Harvester cross_asset_daily_panel release
+- file: authority_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: d73bff276d99f078
+  new_hash: d364708de5039033
+  reason: Harvester canonical path for cross_asset_daily_panel + workspace mirror
+    authority
+- file: deferred_work_register.yaml
+  approved_at: '2026-06-30'
+  old_hash: fc26ef8b5a6d28cb
+  new_hash: db71d25881eceda3
+  reason: Pipeline callable runner and callable E2E tests moved to in_progress
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 45243c9d94856897
+  new_hash: 9d2b1a2520225077
+  reason: Pilot reporting steps migrated to execution.mode callable
+- file: data_request_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 26e83a83ff3e38c0
+  new_hash: da2346f09453072d
+  reason: cross_asset_confirmation fulfilled; claim_ceiling_lift via governance; K/X
+    in_progress
+- file: capability_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 3273727862cfb0f5
+  new_hash: fb99980299126f8e
+  reason: etf_data_path CANONICAL after Harvester cross_asset release
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 9d2b1a2520225077
+  new_hash: 899f63c13c9d0166
+  reason: Callable mode for build_readme_first, build_next_actions, freshness_validator
+- file: deferred_work_register.yaml
+  approved_at: '2026-06-30'
+  old_hash: db71d25881eceda3
+  new_hash: 9d4a456c41d111da
+  reason: Register capability_upgrade_master in_progress track
+- file: data_request_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: da2346f09453072d
+  new_hash: 500729e504511860
+  reason: K/X measurement_quality fulfilled via measurement_quality.json sidecar
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 899f63c13c9d0166
+  new_hash: b1af2446974129fe
+  reason: Main-chain callable + measurement_quality_report step; fix future_callable
+    specs
+- file: daily_run_sequence.yaml
+  approved_at: '2026-06-30'
+  old_hash: _unknown_
+  new_hash: 049dccae8ccfa31c
+  reason: Add measurement_quality_report after x_measurement_gate
+- file: deferred_work_register.yaml
+  approved_at: '2026-06-30'
+  old_hash: 33eaf12af810c842
+  new_hash: 3687f0a8bb11a7f1
+  reason: Wave 3 capability_upgrade_master progress
+- file: capability_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: fb99980299126f8e
+  new_hash: 9a5e0085e18f64a4
+  reason: agent_routing ACTIVE_PARTIAL with governed execute_routed_task
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: b1af2446974129fe
+  new_hash: 01a645b1fb3bd55c
+  reason: Wave 3 shadow_outcomes_90d + qlib_structural_bridge registry steps
+- file: entrypoint_registry.yaml
+  approved_at: '2026-06-30'
+  old_hash: 3fafebcfbab2100a
+  new_hash: 1352fa71ff09bdea
+  reason: Wave 4 run_pipeline_step + measurement quality entrypoints
+- file: daily_run_sequence.yaml
+  approved_at: '2026-07-02'
+  old_hash: 2a6d8a92fa4f35d6
+  new_hash: a77f6460250594e8
+  reason: Add daily current_status reporting step
+- file: deferred_work_register.yaml
+  approved_at: '2026-07-02'
+  old_hash: 3687f0a8bb11a7f1
+  new_hash: 3fa224585ac9cd34
+  reason: Wave 4 capability_upgrade_master progress; reconcile freeze baseline hash
+- file: output_routing_policy.yaml
+  approved_at: '2026-07-02'
+  old_hash: c238fee7d18882bf
+  new_hash: c638aaef23af8716
+  reason: Register measurement_quality.json in groups.current.allowed_artifacts
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: 01a645b1fb3bd55c
+  new_hash: ad82bff6da5971b5
+  reason: Register current_status daily reporting step
+- file: system_constitution.yaml
+  approved_at: '2026-07-02'
+  old_hash: 3def2eaaf5fcfca8
+  new_hash: 923166d5bd7e467e
+  reason: Renew governance_freeze review_after to 2026-07-15
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: ad82bff6da5971b5
+  new_hash: 7ca79516bae9598c
+  reason: Fix hmm_stability_audit produces path for IO contract traceability
+- file: entrypoint_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: 1352fa71ff09bdea
+  new_hash: ca13178fff0cb377
+  reason: Register build_current_status.py entrypoint
+- file: redundancy_budget.yaml
+  approved_at: '2026-07-02'
+  old_hash: bf6b5286d95a5634
+  new_hash: 39f66966075a1241
+  reason: Bump root_scripts max_visible for build_current_status.py
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: 7ca79516bae9598c
+  new_hash: fc31db21cc529a63
+  reason: Capability layers 1-5 research pipeline steps (operators, replay, overlay,
+    feedback)
+- file: daily_run_sequence.yaml
+  approved_at: '2026-07-02'
+  old_hash: a77f6460250594e8
+  new_hash: b5580e7df28c42cd
+  reason: Wire operator detections and weekly capability factory steps
+- file: data_request_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: 500729e504511860
+  new_hash: 5709fec9b9de56d7
+  reason: Register capability funding/vol/credit observation requests
+- file: entrypoint_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: ca13178fff0cb377
+  new_hash: f2622705e25453fb
+  reason: Register capability scripts; reactivate build_feedback_sample_pool
+- file: redundancy_budget.yaml
+  approved_at: '2026-07-02'
+  old_hash: 39f66966075a1241
+  new_hash: 75cbb968983d92d7
+  reason: Bump root_scripts max_visible for capability pipeline scripts
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-02'
+  old_hash: fc31db21cc529a63
+  new_hash: 5ad408001919ea6b
+  reason: Close contracts.outputs for capability pipeline steps
+- file: output_routing_policy.yaml
+  approved_at: '2026-07-02'
+  old_hash: c638aaef23af8716
+  new_hash: 24dfa5eb2762d163
+  reason: Register operator_activations.json in current (non-core readout)
+- file: authority_graph_policy.yaml
+  approved_at: '2026-07-02'
+  old_hash: _unknown_
+  new_hash: b860e5a8dfca82ab
+  reason: Diagnostic readout drift exempt + run_operator_detections zone
+- file: governance_freeze_manifest.yaml
+  approved_at: '2026-07-03'
+  old_hash: 093b2e8eee75820f
+  new_hash: 093b2e8eee75820f
+  reason: 'Pre-7/15 review: extend review_after to 2026-08-15'
+- file: authority_registry.yaml
+  approved_at: '2026-07-03'
+  old_hash: d364708de5039033
+  new_hash: 0058aae04a6ce7ea
+  reason: Close merged_data migration — archived_legacy authority
+- file: data_request_registry.yaml
+  approved_at: '2026-07-03'
+  old_hash: 5709fec9b9de56d7
+  new_hash: 4a022aa7d9a526c8
+  reason: merged_data_proxy_inputs fulfilled_legacy
+- file: deferred_work_register.yaml
+  approved_at: '2026-07-03'
+  old_hash: 3fa224585ac9cd34
+  new_hash: a970068f928a4821
+  reason: Complete merged_data_harvester_consolidation
+- file: data_retention_policy.yaml
+  approved_at: '2026-07-03'
+  old_hash: e6efe4330eef54b8
+  new_hash: ce516ccc7f87a904
+  reason: merged_data archived_legacy retention
+- file: redundancy_budget.yaml
+  approved_at: '2026-07-03'
+  old_hash: 75cbb968983d92d7
+  new_hash: 2a5d2451addaec3c
+  reason: merged_data archived_legacy redundancy budget
+- file: entrypoint_registry.yaml
+  approved_at: '2026-07-03'
+  old_hash: f2622705e25453fb
+  new_hash: 6b1c355c59deb295
+  reason: Activate feedback eval + HMM archive + improvement queue refresh
+- file: daily_run_sequence.yaml
+  approved_at: '2026-07-03'
+  old_hash: 921af86c02671313
+  new_hash: d34bfc828ae0b1d3
+  reason: Governance slim 2026-07-03 — 9 steps daily→weekly (25 daily)
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-03'
+  old_hash: 4bebc5b102d7df8b
+  new_hash: 1462397fbc06859c
+  reason: Mirror weekly schedule for slimmed pipeline steps
+- file: pipeline_schedule.md
+  approved_at: '2026-07-03'
+  old_hash: _unknown_
+  new_hash: d9ab7000b74a0005
+  reason: Sync pipeline_schedule SSOT with daily_run_sequence (25 daily / 46 weekly)
+- file: deferred_work_register.yaml
+  approved_at: '2026-07-07'
+  old_hash: a970068f928a4821
+  new_hash: 271f93d985606be1
+  reason: 'DuckDB snapshot store migration: status deferred -> in_progress; add migration_steps
+    + progress'
+- file: deferred_work_register.yaml
+  approved_at: '2026-07-07'
+  old_hash: 271f93d985606be1
+  new_hash: d3c1f17971f07f2e
+  reason: 'DuckDB snapshot store migration: SEAL phase complete; move/seal steps +
+    progress log'
+- file: capability_registry.yaml
+  approved_at: '2026-07-07'
+  old_hash: 9a5e0085e18f64a4
+  new_hash: 77843d47b8a6f6fd
+  reason: Clear legacy_data_hub_and_bridge blocker; harvester_becomes_only_provider_owner
+    PARTIAL->COMPLETED (DuckDB SEAL)
+- file: data_retention_policy.yaml
+  approved_at: '2026-07-07'
+  old_hash: ce516ccc7f87a904
+  new_hash: 7441dd45daf12adf
+  reason: structural_lab.runtime legacy_candidate -> archived_legacy (DuckDB SEAL)
+- file: deferred_work_register.yaml
+  approved_at: '2026-07-07'
+  old_hash: d3c1f17971f07f2e
+  new_hash: 2bc005e8f4e9d950
+  reason: 'Submodule consolidation: status deferred -> in_progress; add progress log'
+- file: deferred_work_register.yaml
+  approved_at: '2026-07-07'
+  old_hash: 2bc005e8f4e9d950
+  new_hash: 66323b7fc6d1643a
+  reason: 'Submodule consolidation: status -> completed; B1-B6 progress log'
+- file: architecture_reality_decisions.md
+  approved_at: '2026-07-07'
+  old_hash: 349c61656d98e0ac
+  new_hash: 648dc6c8bd00eaec
+  reason: '§9 submodule structure: transitional -> executed (consolidation complete)'
+- file: entrypoint_registry.yaml
+  approved_at: '2026-07-07'
+  old_hash: 6b1c355c59deb295
+  new_hash: f32ad3bc798aac2e
+  reason: Update submodule paths to packages/ (workbench, framework, harvester, learning_hub)
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

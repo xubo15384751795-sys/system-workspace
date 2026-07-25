@@ -1,0 +1,30 @@
+{
+  "schema_version": "workbench.report_artifact.v1",
+  "generated_at": "2026-05-04T12:00:00Z",
+  "artifacts": [
+    {
+      "name": "Summary",
+      "path": "reports/summary.md",
+      "kind": "markdown",
+      "exists": true,
+      "target": "reports/summary.md",
+      "open_first": true
+    },
+    {
+      "name": "HTML report",
+      "path": "reports/report.html",
+      "kind": "html",
+      "exists": true,
+      "target": "reports/report.html",
+      "open_first": true
+    },
+    {
+      "name": "Dashboard snapshot",
+      "path": "reports/dashboard_snapshot.json",
+      "kind": "json",
+      "exists": true,
+      "target": "reports/dashboard_snapshot.json",
+      "open_first": false
+    }
+  ]
+}

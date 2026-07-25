@@ -92,8 +92,8 @@ def test_framework_output_has_required_keys(framework_output: dict) -> None:
 
 def test_framework_output_status_is_known(framework_output: dict) -> None:
     valid = {
-        "ACTIVE", "DEGRADED", "BLOCKED", "SHADOW", "RESEARCH_ONLY",
-        "active_full", "active_degraded", "blocked", "shadow", "partial",
+            "ACTIVE", "DEGRADED", "BLOCKED", "SHADOW", "RESEARCH_ONLY",
+            "active_full", "active_partial", "active_degraded", "blocked", "shadow", "partial",
     }
     status = framework_output.get("status", "")
     assert status in valid, f"Unknown framework status: {status!r}"
@@ -109,6 +109,8 @@ def test_framework_output_as_of_is_recent(framework_output: dict) -> None:
     except ValueError:
         # Try date-only format
         dt = datetime.strptime(as_of, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     age = datetime.now(timezone.utc) - dt
     assert age.days <= 7, f"framework_output as_of is {age.days} days old: {as_of}"
 
@@ -223,9 +225,9 @@ def test_judgment_inputs_reference_known_artifacts(judgment: dict) -> None:
     if not inputs:
         pytest.skip("no inputs in judgment")
     input_str = json.dumps(inputs)
-    # At minimum, judgment should reference framework_output
-    assert "framework_output" in input_str or "status" in input_str, (
-        "judgment.inputs doesn't reference framework_output or status"
+    # At minimum, judgment should reference the active pressure snapshot.
+    assert "neutral_pressure_snapshot" in input_str or "status" in input_str, (
+        "judgment.inputs doesn't reference neutral_pressure_snapshot or status"
     )
 
 

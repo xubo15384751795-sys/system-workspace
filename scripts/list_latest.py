@@ -21,7 +21,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from _runtime_io import ROOT
+from scripts._runtime_io import ROOT
 
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 

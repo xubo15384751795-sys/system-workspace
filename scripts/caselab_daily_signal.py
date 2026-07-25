@@ -25,7 +25,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-from _constants import (
+from scripts._constants import (
     CASELAB_STRONG_THRESHOLD,
     CASELAB_USABLE_THRESHOLD,
     CASELAB_WEAK_THRESHOLD,
@@ -51,7 +51,7 @@ from _constants import (
     X_CROSS_MARKET_ELEVATED,
     X_CROSS_MARKET_UNWIND,
 )
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 OUTPUT_DIR = ROOT / "Output" / "caselab"
 
@@ -806,9 +806,6 @@ def _review_reason(m: dict, query_mechanisms: set[str]) -> str:
 
 def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     """Run the daily CaseLab signal and return results."""
-    from _workspace_imports import add_workbench_src
-    add_workbench_src()
-
     from nlp.caselab.enhanced_similarity import EnhancedSimilarityEngine
 
     # 1. Get current state

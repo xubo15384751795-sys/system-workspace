@@ -11,6 +11,7 @@ Design (capability pivot):
 """
 from __future__ import annotations
 
+import logging
 from math import sqrt
 from typing import Any, Literal
 
@@ -50,11 +51,24 @@ def public_level_probability(
     public_levels: pd.DataFrame,
     *,
     min_periods: int = 126,
+    min_components: int | None = None,
 ) -> pd.Series:
     """Equal-weight mean of causal PITs across available public stress indices.
 
-    Missing indices are skipped and weights renormalized — never silently
-    zero-filled (same governance spirit as CISS missing-channel handling).
+    Fail-closed on incomplete coverage: when fewer than ``min_components``
+    public components are available on a date, P_public is NaN for that date
+    rather than silently renormalized over the surviving subset. Default
+    ``min_components=None`` means "require all components" (full coverage) -
+    this is the paper-portfolio / decision-adjacent path. Research callers
+    (capability board comparison) may pass ``min_components=1`` to preserve
+    the old renormalizing behavior for historical NAV comparison.
+
+    The renormalization failure mode - OFR+CISS NaN -> NFCI-only P_public,
+    silently driving a ~0.14 bias and ~15% sizing error for ~9 weeks - is
+    documented in routing decision 2026-07-12-g1-contrast-and-freshness-fix
+    and governance/open_threads.yaml id shadow-nav-degradation-annotation.
+    Paper_portfolio's run_paper_portfolio translates a NaN P_public into a
+    HOLD-existing position (see _compute_target_series hold branch).
     """
     if public_levels.empty:
         return pd.Series(np.nan, index=public_levels.index, name="p_public")
@@ -65,7 +79,27 @@ def public_level_probability(
         },
         index=public_levels.index,
     )
-    return pits.mean(axis=1, skipna=True).rename("p_public")
+    full_components = pits.shape[1]
+    # Default: require the full component set (fail-closed). A caller may
+    # lower this (e.g. capability_board research comparison passes 1).
+    required_components = min_components if min_components is not None else full_components
+    available = pits.notna().sum(axis=1)
+    degraded = available[available < required_components]
+    if not degraded.empty:
+        logging.warning(
+            "p_public component coverage below required (%d) on %d of %d dates "
+            "(min=%d component(s)); those dates return NaN (fail-closed) instead of "
+            "renormalizing. Components: %s",
+            required_components,
+            len(degraded),
+            len(pits),
+            int(degraded.min()),
+            list(pits.columns),
+        )
+    p_public = pits.mean(axis=1, skipna=True).rename("p_public")
+    # Fail-closed: NaN where coverage is incomplete.
+    p_public = p_public.where(available >= required_components)
+    return p_public
 
 
 def channel_level_probability(
@@ -208,12 +242,20 @@ def build_public_residual_bundle(
     velocity_window: int = 20,
     target_volatility: float = 0.10,
     min_periods: int = 126,
+    min_components: int | None = None,
 ) -> dict[str, Any]:
-    """One-shot construction of public level, residual onset, and paper weights."""
+    """One-shot construction of public level, residual onset, and paper weights.
+
+    ``min_components`` is forwarded to ``public_level_probability``: None
+    (default) = fail-closed on incomplete public-component coverage; 1 =
+    preserve the old renormalizing behavior (research/capability-board only).
+    """
     mode_key = str(residual_mode).strip().lower()
     if mode_key not in {"level", "velocity"}:
         raise ValueError(f"residual_mode must be 'level' or 'velocity', got {residual_mode!r}")
-    p_public = public_level_probability(public_levels, min_periods=min_periods)
+    p_public = public_level_probability(
+        public_levels, min_periods=min_periods, min_components=min_components
+    )
     p_channel = channel_level_probability(channels, min_periods=min_periods)
     if mode_key == "velocity":
         residual = residual_velocity_vs_public(

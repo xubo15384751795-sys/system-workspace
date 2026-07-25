@@ -7,7 +7,7 @@ Before code changes, read the smallest sufficient context:
 1. `MODULES.md` — pick the owning module
 2. `module_contexts/<module>.md` — module scope and boundaries
 3. `ROUTING_CONSTITUTION.md` — sparse activation and evidence rules
-4. `Workbench/contracts/workbench/agent_prompt_sections/constitution.md` — workbench agent constitution
+4. `packages/workbench/contracts/workbench/agent_prompt_sections/constitution.md` — workbench agent constitution
 
 Behavioral guidelines below reduce common LLM coding mistakes. Merge with module-specific instructions as needed.
 

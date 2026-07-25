@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 
 try:
-    from _data_paths import resolve_cross_asset_panel_path
     from professional_methods import (
         bocpd_change_probability,
         build_forward_stress_events,
@@ -37,6 +36,8 @@ try:
         load_spy,
         public_baselines,
     )
+
+    from scripts._data_paths import resolve_cross_asset_panel_path
 except ModuleNotFoundError:
     from scripts._data_paths import resolve_cross_asset_panel_path
     from scripts.professional_methods import (

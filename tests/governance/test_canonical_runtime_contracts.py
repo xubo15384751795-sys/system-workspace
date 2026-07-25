@@ -114,11 +114,17 @@ def test_framework_output_sigma_vector_has_x_agg():
 @pytest.mark.governance_loop
 @pytest.mark.semantic
 def test_readme_shows_output_source():
-    """00_READ_ME_FIRST.md must display output source."""
-    if not README_PATH.exists():
-        pytest.skip("00_READ_ME_FIRST.md not found")
+    """The README builder must identify structural replay independent of run tag."""
+    from scripts.commands.weekly.build_readme_first import build_readme_from_index
 
-    readme = README_PATH.read_text(encoding="utf-8")
+    readme = build_readme_from_index(
+        {"generated_at": "2026-07-17T00:00:00Z"},
+        {
+            "source": "structural_replay_v2",
+            "run_id": "incident_remediation",
+            "basic": {"quality_status": "PARTIAL"},
+        },
+    )
     assert "Output source" in readme, (
         "00_READ_ME_FIRST.md must display output source"
     )

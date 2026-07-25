@@ -129,6 +129,64 @@ class TestStepRecording:
         step = json.loads(lines[0])
         assert step["detail"] == "some detail text"
 
+    def test_record_step_blocked_upstream_records_blocked_by(self, tmp_output):
+        """A blocked_upstream step records its blocked_by lineage structurally."""
+        bundle = RunBundle.start(mode="test", root=tmp_output)
+        bundle.record_step("structural_replay", status="failed", returncode=1)
+        bundle.record_step(
+            "bridge",
+            status="blocked_upstream",
+            duration_s=0,
+            blocked_by=["structural_replay"],
+        )
+        bundle.finish(status="partial_failure")
+
+        lines = (bundle.run_dir / "steps.jsonl").read_text(encoding="utf-8").strip().split("\n")
+        bridge = json.loads(lines[1])
+        assert bridge["step"] == "bridge"
+        assert bridge["status"] == "blocked_upstream"
+        assert bridge["blocked_by"] == ["structural_replay"]
+
+        manifest = json.loads(
+            (bundle.run_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        # Phase 1.3 rollup semantics: steps_failed counts only REAL failures
+        # (not blocked_upstream collateral), steps_blocked counts the collateral,
+        # root_failures names the root-cause step(s).
+        assert manifest["steps_succeeded"] == 0
+        assert manifest["steps_failed"] == 1  # structural_replay only
+        assert manifest["steps_blocked"] == 1  # bridge
+        assert manifest["root_failures"] == ["structural_replay"]
+
+    def test_record_step_captures_stderr_tail_and_log(self, tmp_output):
+        """Phase 0.1: failed step's stderr_tail lands in steps.jsonl and full
+        stderr lands in step_logs/<step>.stderr.log."""
+        bundle = RunBundle.start(mode="test", root=tmp_output)
+        bundle.record_step(
+            "harvester",
+            status="failed",
+            returncode=1,
+            stderr_tail="Traceback: Yahoo rate limit",
+            full_stderr="ERROR: 429 Too Many Requests\nTraceback: Yahoo rate limit\n",
+        )
+        bundle.finish(status="partial_failure")
+
+        lines = (bundle.run_dir / "steps.jsonl").read_text(encoding="utf-8").strip().split("\n")
+        step = json.loads(lines[0])
+        assert step["stderr_tail"] == "Traceback: Yahoo rate limit"
+
+        log = bundle.run_dir / "step_logs" / "harvester.stderr.log"
+        assert log.exists(), "failed step full stderr must be persisted"
+        assert "429 Too Many Requests" in log.read_text(encoding="utf-8")
+
+    def test_record_step_success_discards_full_stderr(self, tmp_output):
+        """Success steps do not write a step_logs file (no noise)."""
+        bundle = RunBundle.start(mode="test", root=tmp_output)
+        bundle.record_step("harvester", status="success", returncode=0,
+                           stderr_tail="", full_stderr="some warning")
+        bundle.finish(status="success")
+        assert not (bundle.run_dir / "step_logs" / "harvester.stderr.log").exists()
+
 
 class TestTraceCapture:
     """Test decision and signal trace capture."""

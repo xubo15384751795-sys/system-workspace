@@ -12,7 +12,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-import _runtime_io as rio
+from scripts import _runtime_io as rio
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 

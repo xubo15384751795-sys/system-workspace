@@ -5,10 +5,9 @@ Case A: March 2020 Treasury market stress
 Case B: March 2023 SVB/regional-bank stress
 """
 
-import pandas as pd
-import numpy as np
-from typing import Optional
 from dataclasses import dataclass, field
+
+import pandas as pd
 
 
 @dataclass
@@ -55,12 +54,12 @@ CASES = {
 class CaseAnalyzer:
     """
     论文案例分析
-    
+
     隔离原则：
     - 只使用 ProxyComputer 和 SignatureQuantities 的输出
     - 不修改任何现有模块
     """
-    
+
     def __init__(self, proxy_computer, signature_quantities=None):
         """
         Args:
@@ -69,33 +68,33 @@ class CaseAnalyzer:
         """
         self.proxy_computer = proxy_computer
         self.signature_quantities = signature_quantities
-    
+
     def analyze_case(self, case_id: str) -> CaseResult:
         """
         分析单个案例
-        
+
         Args:
             case_id: 案例 ID ("treasury_2020" 或 "svb_2023")
-        
+
         Returns:
             CaseResult
         """
         if case_id not in CASES:
             raise ValueError(f"Unknown case: {case_id}. Must be one of {list(CASES.keys())}")
-        
+
         case = CASES[case_id]
         start, end = case["period"]
-        
+
         # 获取代理数据
         proxies = self.proxy_computer.compute_all_proxies(start, end)
-        
+
         # 计算压力评分（等权平均）
         available_channels = [ch for ch in case["channels"] if ch in proxies.columns]
         if available_channels:
             stress_scores = proxies[available_channels].mean(axis=1)
         else:
             stress_scores = pd.Series(dtype=float)
-        
+
         # 通道分析
         channel_analysis = {}
         for channel in available_channels:
@@ -110,7 +109,7 @@ class CaseAnalyzer:
                     "min_date": str(series.idxmin()),
                     "current": float(series.iloc[-1]),
                 }
-        
+
         return CaseResult(
             case_name=case["name"],
             period=case["period"],
@@ -124,14 +123,14 @@ class CaseAnalyzer:
                 "channels": available_channels,
             }
         )
-    
+
     def analyze_all_cases(self) -> dict[str, CaseResult]:
         """分析所有案例"""
         results = {}
         for case_id in CASES:
             results[case_id] = self.analyze_case(case_id)
         return results
-    
+
     def export_case_for_paper(
         self,
         case_id: str,
@@ -139,12 +138,12 @@ class CaseAnalyzer:
     ) -> dict:
         """
         导出单个案例的论文数据
-        
+
         Returns:
             字典包含案例数据
         """
         result = self.analyze_case(case_id)
-        
+
         export = {
             "case_name": result.case_name,
             "period": result.period,
@@ -153,7 +152,7 @@ class CaseAnalyzer:
             "channel_analysis": pd.DataFrame(result.channel_analysis).T,
             "key_events": pd.DataFrame(result.key_events),
         }
-        
+
         if output_path:
             import os
             os.makedirs(output_path, exist_ok=True)
@@ -163,9 +162,9 @@ class CaseAnalyzer:
                 elif isinstance(data, list):
                     pd.DataFrame(data).to_csv(os.path.join(output_path, f"{case_id}_{name}.csv"), index=False)
             print(f"Exported case {case_id} to {output_path}")
-        
+
         return export
-    
+
     def export_all_cases_for_paper(self, output_path: str = "") -> dict[str, dict]:
         """导出所有案例"""
         results = {}

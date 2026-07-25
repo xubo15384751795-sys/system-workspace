@@ -7,31 +7,26 @@ Tests:
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(ROOT / "scripts") not in sys.path:
-    sys.path.insert(0, str(ROOT / "scripts"))
 
-from scripts.asof_integrity_checker import (
+from scripts.commands.weekly.asof_integrity_checker import (
     check_calibration_evaluation_order,
     check_feedback_sample_timing,
     check_judgment_card_forward_window,
 )
-from scripts.baseline_comparison import (
+from scripts.commands.weekly.baseline_comparison import (
     baseline_always_warn,
     baseline_no_signal,
     baseline_random_freq,
     baseline_simple_rule,
     compute_metrics,
 )
-from scripts.threshold_review_bridge import build_review_candidates
+from scripts.commands.weekly.threshold_review_bridge import build_review_candidates
 
 # =========================================================================
 # As-of integrity checker tests
@@ -270,7 +265,7 @@ class TestThresholdReviewBridge:
 
     def test_no_cases_returns_no_candidates(self):
         # Monkey-patch load_missed_stress_cases to return empty
-        import scripts.threshold_review_bridge as bridge
+        import scripts.commands.weekly.threshold_review_bridge as bridge
         original = bridge.load_missed_stress_cases
         bridge.load_missed_stress_cases = lambda: []
         try:

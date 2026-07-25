@@ -164,7 +164,21 @@ def build_cross_asset_panel(
     if not symbols and not existing.empty:
         symbols = sorted(existing["symbol"].astype(str).unique())
 
-    fresh = fetch_recent_ohlcv(symbols, period=fetch_period)
+    try:
+        fresh = fetch_recent_ohlcv(symbols, period=fetch_period)
+    except RuntimeError as exc:
+        # Yahoo often rate-limits the full universe mid-pipeline. Keep the
+        # workspace mirror so harvester/refresh do not hard-fail the release.
+        if existing.empty:
+            raise
+        logger.warning(
+            "ETF fetch failed entirely (%s); retaining existing panel (%d rows)",
+            exc,
+            len(existing),
+        )
+        fresh = pd.DataFrame(
+            columns=["date", "symbol", "open", "high", "low", "close", "volume"]
+        )
     if existing.empty and fresh.empty:
         return pd.DataFrame(columns=PANEL_COLUMNS)
 

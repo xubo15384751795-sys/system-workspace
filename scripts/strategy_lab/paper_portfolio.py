@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -31,14 +30,10 @@ from typing import Any
 import pandas as pd
 
 # Allow `python scripts/strategy_lab/paper_portfolio.py` and package imports
-_SCRIPTS = Path(__file__).resolve().parents[1]
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-
-import _runtime_io as rio  # noqa: E402
-from _notify import notify_alert  # noqa: E402
-from strategy_lab.data_loader import load_aligned, load_symbol  # noqa: E402
-from strategy_lab.risk_gate import (  # noqa: E402
+from scripts import _runtime_io as rio  # noqa: E402
+from scripts._notify import notify_alert  # noqa: E402
+from scripts.strategy_lab.data_loader import load_aligned, load_symbol  # noqa: E402
+from scripts.strategy_lab.risk_gate import (  # noqa: E402
     DEFAULT_BULL_VELOCITY_THRESHOLD,
     DEFAULT_COFIRE_N,
     DEFAULT_COFIRE_V,
@@ -46,7 +41,7 @@ from strategy_lab.risk_gate import (  # noqa: E402
     DEFAULT_VELOCITY_WINDOW,
     compute_velocity_gate,
 )
-from strategy_lab.strategies import (  # noqa: E402
+from scripts.strategy_lab.strategies import (  # noqa: E402
     compute_baseline_position,
     compute_system_overlay_position,
 )
@@ -191,8 +186,35 @@ def _load_public_levels(index: pd.DatetimeIndex, panel_path: Path) -> pd.DataFra
 
     if not panel_path.exists():
         return pd.DataFrame(index=index)
+    # Phase B4: verify the harvester release is finalized before reading the
+    # panel, so a tampered/unfinalized latest symlink cannot be silently
+    # consumed. Best-effort: if the panel path is not under a harvester
+    # release (e.g. a test fixture), skip the finalization check.
+    from scripts._release_boundary import (
+        ReleaseNotFinalizedError,
+        verify_release_finalized,
+    )
+
+    release_root = _resolve_release_root(panel_path)
+    if release_root is not None:
+        try:
+            verify_release_finalized(release_root)
+        except ReleaseNotFinalizedError:
+            # Re-raise as a hard stop: a non-finalized release must not feed
+            # the position sizing path.
+            raise
     panel = load_benchmark_panel(panel_path)
     return extract_public_levels(panel).reindex(index)
+
+
+def _resolve_release_root(panel_path: Path) -> Path | None:
+    """If panel_path is under Data/harvester/exports/<release>/, return the
+    release root; else None (test fixture or non-release path)."""
+    parts = panel_path.parts
+    for i, part in enumerate(parts):
+        if part == "exports" and i + 1 < len(parts):
+            return Path(*parts[: i + 2])
+    return None
 
 
 def _compute_target_series(
@@ -207,7 +229,9 @@ def _compute_target_series(
     from public_residual_stress import build_public_residual_bundle
 
     close = data["close"]
-    signals = data[["M", "D", "K", "X"]]
+    # M/D are compatibility keys for the two neutral gauges. K/X are excluded
+    # from operations and remain in the v2 research queue.
+    signals = data[["M", "D"]]
     baseline = compute_baseline_position(close, lookback=int(config["momentum_lookback"]))
     gate = compute_velocity_gate(
         signals,
@@ -278,9 +302,14 @@ def _compute_target_series(
 
 
 def _append_nav_row(row: dict[str, Any]) -> None:
-    rio.ensure_dir(OUTPUT_DIR)
-    with NAV_JSONL_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    """Append a NAV row via the two-phase shadow publisher (atomic per row).
+
+    Phase B5: writes go to the shadow_candidate dir (or live if no candidate),
+    using temp-file + os.replace so a crash never leaves a partial JSON line.
+    """
+    from scripts._shadow_publish import append_nav_row_atomic
+
+    append_nav_row_atomic(row)
 
 
 def _load_nav_history() -> list[dict[str, Any]]:
@@ -487,6 +516,15 @@ def run_paper_portfolio(
     dry_run: bool = False,
     notify: bool = True,
 ) -> dict[str, Any]:
+    # Pre-consumption admission gate: refuse to run if any required public
+    # component (OFR/NFCI/CISS) is stale or missing, so P_public cannot
+    # silently degrade via mean(skipna=True) renormalization. On block this
+    # exits non-zero; the executor marks shadow_outcomes/overlay descendants
+    # blocked_upstream. Freshness is now a precondition, not a post-run report.
+    from scripts._admission_gate import require_admission
+
+    require_admission("paper_portfolio")
+
     config = dict(DEFAULT_CONFIG)
     aligned = load_aligned()
     if aligned.empty:
@@ -599,6 +637,18 @@ def run_paper_portfolio(
         # Record effective_size only on days that used trade_decision scale.
         row_effective = effective_size if scale != 1.0 or date_s == latest_date else None
 
+        # Fail-closed HOLD: when P_public is NaN (incomplete public-component
+        # coverage - OFR/NFCI/CISS), hold the existing position instead of
+        # silently renormalizing or flattening. New/increase is implicitly
+        # forbidden (target stays at prev_pos). The day is still booked so NAV
+        # history stays continuous (turnover=0, no cost), but flagged
+        # HOLD_DEGRADED so shadow promotion stats exclude it.
+        sizing_mode = "NORMAL"
+        if pub_f is None or (isinstance(pub_f, float) and pd.isna(pub_f)):
+            prev_pos = float(state.get("position") or 0.0)
+            target = prev_pos
+            sizing_mode = "HOLD_DEGRADED"
+
         prev_vg = state.get("velocity_gate_state")
         prev_level = state.get("level_alert_state")
         prev_stance = state.get("stance")
@@ -619,6 +669,11 @@ def run_paper_portfolio(
         day["p_onset"] = onset_f
         day["level_alert_state"] = level_now
         day["stress_probability"] = onset_f
+        day["sizing_mode"] = sizing_mode
+        # Phase D: tag sample validity so promotion stats can filter.
+        from scripts._control_closure import tag_nav_row
+
+        day = tag_nav_row(day)
         new_rows.append(day)
 
         if notify and not dry_run:
@@ -682,8 +737,16 @@ def run_paper_portfolio(
         )
 
     rio.ensure_dir(OUTPUT_DIR)
-    rio.write_json(STATE_PATH, state)
-    LATEST_MD_PATH.write_text(_format_markdown(state, history, monthly), encoding="utf-8")
+    # Phase B5: atomic state + markdown write via shadow publisher (temp +
+    # os.replace). On a crash the live state file is never left half-written.
+    from scripts._shadow_publish import write_state_atomic
+
+    write_state_atomic(state)
+    # Markdown is a display artifact; write via the same candidate path.
+    from scripts._shadow_publish import shadow_candidate_dir
+
+    md_path = shadow_candidate_dir() / "paper_portfolio_latest.md"
+    md_path.write_text(_format_markdown(state, history, monthly), encoding="utf-8")
 
     return {
         "state": state,

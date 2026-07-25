@@ -107,6 +107,9 @@ def test_write_trade_decision(tmp_path, _isolated_eval_dir):
         "generated_at": "2026-06-17T10:00:00Z",
         "decision": "NO_TRADE",
         "confidence": "low",
+        "learning_trace": {"schema_version": "decision_learning_trace.v1"},
+        "trigger_conditions": ["Velocity gate FULL"],
+        "invalidation": ["Velocity gate EXIT"],
     }
     write_pending_evaluation("trade_decision_layer", decision)
 
@@ -116,6 +119,9 @@ def test_write_trade_decision(tmp_path, _isolated_eval_dir):
     assert r["source"] == "trade_decision_layer"
     assert r["decision"] == "NO_TRADE"
     assert r["confidence"] == "low"
+    assert r["learning_trace"] == decision["learning_trace"]
+    assert r["active_inference_spec"]["trigger_conditions"] == ["Velocity gate FULL"]
+    assert r["active_inference_spec"]["invalidation_conditions"] == ["Velocity gate EXIT"]
 
 
 def test_append_only(tmp_path, _isolated_eval_dir):
@@ -133,6 +139,23 @@ def test_append_only(tmp_path, _isolated_eval_dir):
     assert len(records) == 3
     dates = [r["date"] for r in records]
     assert dates == ["2026-06-17", "2026-06-18", "2026-06-19"]
+
+
+def test_same_observation_is_upserted_not_duplicated(tmp_path, _isolated_eval_dir):
+    card = {
+        "date": "2026-06-17",
+        "generated_at": "2026-06-17T10:00:00Z",
+        "decision": "WATCH_ONLY",
+        "confidence": "medium",
+    }
+    write_pending_evaluation("judgment_layer", card)
+    card["generated_at"] = "2026-06-17T11:00:00Z"
+    write_pending_evaluation("judgment_layer", card)
+
+    records = _read_jsonl(_isolated_eval_dir)
+    assert len(records) == 1
+    assert records[0]["generated_at"] == "2026-06-17T11:00:00Z"
+    assert records[0]["observation_fingerprint"]
 
 
 def test_missing_date_fallback(tmp_path, _isolated_eval_dir):

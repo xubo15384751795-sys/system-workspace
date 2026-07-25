@@ -1,6 +1,6 @@
 schema_version: incentive_policy.v1
 created: "2026-06-17"
-updated: "2026-06-18"
+updated: "2026-07-17"
 purpose: >
   Priority incentive system — rewards compliant, useful, and reusable contributions
   with visibility and review priority. Non-compliant exploration is allowed
@@ -27,6 +27,30 @@ authority_boundary:
     Governance has boundary authority, not factual authority.
     It can block overreach, but cannot substitute for verification.
     Canonical entry requires: code wiring + artifact contract + tests + data provenance.
+
+# Outcome credit is a small, shadow-only learning loop. It changes the order of
+# human review, never a gate, permission, tier, or canonical status.
+outcome_credit:
+  enabled: true
+  objective: directional_opportunity_loss
+  deadband_pct: 0.5
+  horizon: 1w
+  market: SPY
+  minimum_samples: 20
+  shapley_minimum_samples: 30
+  shapley_top_nodes: 3
+  velocity_baseline: previous_trace
+  node_baselines:
+    k_gate: PASS
+    x_gate: PASS
+    hmm_quality: UNKNOWN
+    caselab_quality: unknown
+    paper_support: false
+    paper_freshness: true
+    proxy_quality: null
+    promotion_gate: false
+  affects_review_priority_only: true
+  can_affect_authority: false
 
 # ── Priority Levels ──────────────────────────────────────────────────────────
 priority_levels:

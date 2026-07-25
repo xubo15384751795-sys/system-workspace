@@ -125,12 +125,12 @@ def test_readme_first_mtime_matches_bundle() -> None:
         pytest.skip("00_READ_ME_FIRST.md not found")
 
     readme_date = _extract_mtime_date(readme)
-    status_date = _extract_date(CURRENT / "status.json", "date")
-    if not readme_date or not status_date:
+    generated_date = _extract_date(CURRENT / "status.json", "generated_at")
+    if not readme_date or not generated_date:
         pytest.skip("Missing dates")
 
-    assert readme_date == status_date, (
-        f"README mtime={readme_date} != status date={status_date} — "
+    assert readme_date == generated_date, (
+        f"README mtime={readme_date} != status generated_at={generated_date} — "
         f"README was not regenerated with the last bundle refresh"
     )
 

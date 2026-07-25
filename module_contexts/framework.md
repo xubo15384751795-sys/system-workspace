@@ -1,7 +1,11 @@
-# Deformation Framework Context
+# Deformation v1 Evidence Archive Context
 
-The Deformation Framework owns structural theory and framework-specific
-diagnosis. It consumes admitted evidence and publishes protocol-shaped outputs.
+Deformation v1 is an evidence archive for a falsified operational host theory.
+It preserves source, tests, papers, and replay evidence, but has no authority to
+execute in the default path, publish current state, or promote artifacts.
+
+The binding decision is
+`governance/routing_decisions/2026-07-18-deformation-v1-estate-settlement.yaml`.
 
 ## Owns
 
@@ -35,12 +39,25 @@ diagnosis. It consumes admitted evidence and publishes protocol-shaped outputs.
 - `protocols/evidence.schema.json`
 - freshness and run configuration snapshots where applicable
 
-## Writes
+## Archived historical writes
 
-- run artifacts under `Output/deformation_runs/`
-- framework diagnosis shaped by `protocols/framework_output.schema.json`
-- manifests, summaries, evidence links, and next actions for Workbench
-- framework-owned claims, wiki, and paper updates
+- historical run artifacts under `Output/deformation_runs/`
+- historical claims, wiki, papers, and falsification evidence
+
+No new authoritative writes are permitted.
+
+## Archive promises
+
+- Evidence remains reproducible and is never silently deleted.
+- Archived code cannot write `Output/current/`, judgment, trade, or promotion artifacts.
+- No patch may restore v1 operational authority.
+- Surviving tools and candidates receive new identities and no inherited permissions.
+
+## Relies On
+
+- Harvester promises admitted, immutable and provenance-bearing evidence.
+- Protocols promise versioned handoff shapes during migrations.
+- Workbench promises to display blockers and validity limits without changing their meaning.
 
 ## Must Not
 

@@ -1,5 +1,5 @@
 schema_version: redundancy_budget.v1
-updated_at: "2026-06-17"
+updated_at: "2026-07-17"
 purpose: >
   Hard rules for entry, artifact, and data governance.
   Any new script, Output directory, or Data directory must be registered
@@ -7,8 +7,7 @@ purpose: >
 
 # ── Root Scripts ──────────────────────────────────────────────────────────────
 root_scripts:
-  max_visible: 110  # 2026-07-02: capability scripts (+4 research pipeline)
-  # Target: 35 (requires module absorption: work_cycle→Workbench, supervisor→Governance, policies→Governance)
+  max_visible: 95  # Weekly commands moved under scripts/commands/weekly; root is reserved for daily, compatibility, and operator entrypoints.
   require_registry_entry: true
   allowed_statuses:
     - daily_active        # daily_run.py directly uses
@@ -18,6 +17,7 @@ root_scripts:
     - experimental        # research experiment, cannot affect core judgment
     - archive_candidate   # ready to move to scripts/archive/
     - archived            # moved to scripts/archive/
+    - archived_falsified # falsified evidence retained; execution and promotion denied
     - deprecated          # still on disk, must not be called
     - blocked             # cannot run due to missing dependency
     - legacy_sealed       # moved to _legacy, access via ALLOW_LEGACY_DATAHUB=1 opt-in

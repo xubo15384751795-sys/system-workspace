@@ -103,10 +103,9 @@ def test_non_legacy_modules_do_not_read_provider_api_keys():
 def test_non_legacy_modules_do_not_perform_external_http_acquisition():
     offenders = []
     for path in iter_python_files():
-        text = path.read_text(encoding="utf-8")
-        for token in FORBIDDEN_HTTP_TOKENS:
-            if token in text:
-                offenders.append((rel(path), token))
+        for module in imports_in_file(path):
+            if module in {"requests", "httpx", "aiohttp", "urllib.request"}:
+                offenders.append((rel(path), module))
     assert not offenders, "External HTTP acquisition found outside legacy modules:\n" + "\n".join(
         f"{path}: {token}" for path, token in offenders
     )

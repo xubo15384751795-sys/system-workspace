@@ -9,6 +9,8 @@ calibration recommendations for edge weights and sensitivity.
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -24,7 +26,7 @@ from nlp.caselab.causal_graph import (
     resolve_event_causal,
 )
 
-OUTPUT_DIR = Path(__file__).resolve().parents[5] / "Data" / "nlp" / "caselab_calibration"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_calibration"
 
 
 # ── Historical crisis episodes with ground truth ─────────────────────────

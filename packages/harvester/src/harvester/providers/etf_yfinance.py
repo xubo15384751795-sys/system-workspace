@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import pandas as pd
@@ -17,6 +18,12 @@ import pandas as pd
 from harvester.providers.base import OfficialProvider, ProviderResult
 
 logger = logging.getLogger(__name__)
+
+# Yahoo rate-limits bursty sequential downloads; brief spacing + retries
+# recover from the empty-frame / transient-error pattern seen in daily runs.
+_FETCH_ATTEMPTS = 3
+_RETRY_BASE_SLEEP_S = 0.75
+_INTER_TICKER_SLEEP_S = 0.2
 
 # Default tickers for the structural deformation research system.
 DEFAULT_ETF_TICKERS: dict[str, str] = {
@@ -83,24 +90,26 @@ class EtfYfinanceProvider(OfficialProvider):
     def fetch_series(self, series_ids: list[str] | None = None) -> list[ProviderResult]:
         if series_ids is None:
             series_ids = list(self._tickers.keys())
-        return [self._fetch_one(ticker) for ticker in series_ids]
+        if not series_ids:
+            return []
 
-    def _fetch_one(self, ticker: str) -> ProviderResult:
-        try:
-            import yfinance as yf
-        except ImportError:
-            return self._build_error_result(ticker, "yfinance not installed", "missing_dependency")
+        by_id = self._fetch_batch(series_ids)
+        missing = [ticker for ticker in series_ids if by_id.get(ticker) is None or by_id[ticker].empty()]
+        if missing:
+            logger.warning("ETF batch incomplete; retrying %d tickers individually", len(missing))
+            for index, ticker in enumerate(missing):
+                if index:
+                    time.sleep(_INTER_TICKER_SLEEP_S)
+                by_id[ticker] = self._fetch_one(ticker)
 
-        try:
-            data = yf.download(ticker, period=self._period, progress=False, auto_adjust=True)
-            if data.empty:
-                return self._build_error_result(ticker, f"yfinance returned no data for {ticker}", "empty")
+        return [by_id[ticker] for ticker in series_ids]
 
-            # Normalize columns — yfinance may return MultiIndex for single ticker
-            if isinstance(data.columns, pd.MultiIndex):
-                data.columns = data.columns.get_level_values(0)
-
-            frame = pd.DataFrame({
+    def _frame_from_ohlcv(self, data: pd.DataFrame) -> pd.DataFrame:
+        if isinstance(data.columns, pd.MultiIndex):
+            data = data.copy()
+            data.columns = data.columns.get_level_values(0)
+        frame = pd.DataFrame(
+            {
                 "date": data.index,
                 "value": data["Close"].values,
                 "open": data["Open"].values,
@@ -109,22 +118,110 @@ class EtfYfinanceProvider(OfficialProvider):
                 "volume": data["Volume"].values,
                 "unit": "USD",
                 "frequency": "daily",
-            })
-            frame = frame.dropna(subset=["value"]).sort_values("date").reset_index(drop=True)
+            }
+        )
+        return frame.dropna(subset=["value"]).sort_values("date").reset_index(drop=True)
 
-            if self._cache:
-                self._write_raw(ticker, frame.to_json(orient="records", date_format="iso"))
+    def _result_from_frame(self, ticker: str, frame: pd.DataFrame) -> ProviderResult:
+        if self._cache:
+            self._write_raw(ticker, frame.to_json(orient="records", date_format="iso"))
+        return ProviderResult(
+            provider=self.source_id,
+            series_id=ticker,
+            frame=frame,
+            source_url=f"https://finance.yahoo.com/quote/{ticker}",
+            source_params={"period": self._period},
+            data_note=f"yfinance daily OHLCV for {self._tickers.get(ticker, ticker)}",
+        )
 
-            return ProviderResult(
-                provider=self.source_id,
-                series_id=ticker,
-                frame=frame,
-                source_url=f"https://finance.yahoo.com/quote/{ticker}",
-                source_params={"period": self._period},
-                data_note=f"yfinance daily OHLCV for {self._tickers.get(ticker, ticker)}",
+    def _fetch_batch(self, series_ids: list[str]) -> dict[str, ProviderResult]:
+        """One multi-ticker download — fewer Yahoo round-trips than N serial calls."""
+        out: dict[str, ProviderResult] = {}
+        try:
+            import yfinance as yf
+        except ImportError:
+            for ticker in series_ids:
+                out[ticker] = self._build_error_result(
+                    ticker, "yfinance not installed", "missing_dependency"
+                )
+            return out
+
+        try:
+            # threads=False: launchd soft NOFILE is often ~256; threaded
+            # Yahoo fetches open many sockets and trip EMFILE (errno 24).
+            data = yf.download(
+                series_ids,
+                period=self._period,
+                progress=False,
+                auto_adjust=True,
+                group_by="ticker",
+                threads=False,
             )
         except Exception as exc:
-            return self._build_error_result(ticker, f"yfinance error: {exc}", "fetch_error")
+            logger.warning("ETF batch download failed: %s", exc)
+            return out
+
+        if data is None or data.empty:
+            return out
+
+        multi = isinstance(data.columns, pd.MultiIndex)
+        for ticker in series_ids:
+            try:
+                if multi:
+                    if ticker not in data.columns.get_level_values(0):
+                        continue
+                    ticker_df = data[ticker].dropna(how="all")
+                else:
+                    # Single-ticker response shape even when one id requested.
+                    ticker_df = data
+                if ticker_df.empty or "Close" not in ticker_df.columns:
+                    continue
+                frame = self._frame_from_ohlcv(ticker_df)
+                if frame.empty:
+                    continue
+                out[ticker] = self._result_from_frame(ticker, frame)
+            except Exception as exc:
+                logger.warning("ETF batch parse failed for %s: %s", ticker, exc)
+        return out
+
+    def _fetch_one(self, ticker: str) -> ProviderResult:
+        try:
+            import yfinance as yf
+        except ImportError:
+            return self._build_error_result(ticker, "yfinance not installed", "missing_dependency")
+
+        last_error = f"yfinance returned no data for {ticker}"
+        last_kind = "empty"
+        for attempt in range(_FETCH_ATTEMPTS):
+            try:
+                data = yf.download(ticker, period=self._period, progress=False, auto_adjust=True)
+                if data.empty:
+                    last_error = f"yfinance returned no data for {ticker}"
+                    last_kind = "empty"
+                else:
+                    frame = self._frame_from_ohlcv(data)
+                    if frame.empty:
+                        last_error = f"yfinance returned no usable rows for {ticker}"
+                        last_kind = "empty"
+                    else:
+                        return self._result_from_frame(ticker, frame)
+            except Exception as exc:
+                last_error = f"yfinance error: {exc}"
+                last_kind = "fetch_error"
+
+            if attempt + 1 < _FETCH_ATTEMPTS:
+                sleep_s = _RETRY_BASE_SLEEP_S * (2 ** attempt)
+                logger.warning(
+                    "ETF fetch retry %d/%d for %s after %s (sleep %.2fs)",
+                    attempt + 1,
+                    _FETCH_ATTEMPTS,
+                    ticker,
+                    last_kind,
+                    sleep_s,
+                )
+                time.sleep(sleep_s)
+
+        return self._build_error_result(ticker, last_error, last_kind)
 
 
 __all__ = ["EtfYfinanceProvider", "DEFAULT_ETF_TICKERS"]

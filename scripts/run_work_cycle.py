@@ -29,13 +29,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _constants import TIMEOUT_LONG  # noqa: E402
+from scripts._constants import TIMEOUT_LONG  # noqa: E402
 
 # RunBundle integration — use auditable path management
-from _workspace_imports import add_scripts
-
-add_scripts()
-from _runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml
 
 CURRENT = ROOT / "Output" / "current"
 RUNS = ROOT / "Output" / "runs"
@@ -53,14 +50,14 @@ STANDARD_STEPS = [
     "scripts/trade_risk_gate.py",
     "scripts/record_trade_decision.py",
     "scripts/market_feedback.py",
-    "scripts/claim_evaluator.py",
-    "scripts/claim_ladder_tracker.py",
-    "scripts/build_learning_hub_feedback.py",
-    "scripts/build_proxy_quality_report.py",
-    "scripts/learning_hub_comprehensive_summary.py",
+    "scripts/commands/weekly/claim_evaluator.py",
+    "scripts/commands/weekly/claim_ladder_tracker.py",
+    "scripts/commands/weekly/build_learning_hub_feedback.py",
+    "scripts/commands/weekly/build_proxy_quality_report.py",
+    "scripts/commands/weekly/learning_hub_comprehensive_summary.py",
     "scripts/build_system_index.py",
-    "scripts/build_readme_first.py",
-    "scripts/build_next_actions.py",
+    "scripts/commands/weekly/build_readme_first.py",
+    "scripts/commands/weekly/build_next_actions.py",
 ]
 
 # Quick cycle scripts — read-only, no data refresh
@@ -68,10 +65,10 @@ QUICK_SCRIPTS = [
     "scripts/build_signal_card.py",
     "scripts/signal_consensus.py",
     "scripts/build_work_brief.py",
-    "scripts/build_data_gaps.py",
+    "scripts/commands/weekly/build_data_gaps.py",
 ]
 
-GOVERNANCE_STATUS_SCRIPT = "scripts/governance_status.py"
+GOVERNANCE_STATUS_SCRIPT = "scripts/commands/weekly/governance_status.py"
 
 
 
@@ -242,7 +239,7 @@ def run_quick_cycle(bundle: RunBundle) -> dict[str, Any]:
         })
 
     # Always run change analysis (produces new content from historical trends)
-    change_result = _run_script("scripts/build_change_analysis.py")
+    change_result = _run_script("scripts/commands/weekly/build_change_analysis.py")
     step_results.append({"step": "change_analysis", **change_result})
     _record_step(bundle, {"step": "change_analysis", **change_result})
 
@@ -300,7 +297,7 @@ def run_standard_cycle(bundle: RunBundle) -> dict[str, Any]:
         })
 
     # Always run change analysis (produces new content from historical trends)
-    change_result = _run_script("scripts/build_change_analysis.py")
+    change_result = _run_script("scripts/commands/weekly/build_change_analysis.py")
     step_results.append({"step": "change_analysis", **change_result})
     _record_step(bundle, {"step": "change_analysis", **change_result})
 

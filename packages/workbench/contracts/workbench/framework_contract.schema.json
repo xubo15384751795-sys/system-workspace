@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench.framework_contract.v1",
+  "title": "Workbench Framework Capability Contract",
+  "description": "Schema for framework.yaml self-description files. Each framework declares what capabilities it exposes, how the Workbench should render them, and what evidence it requires.",
+  "type": "object",
+  "required": ["framework_id", "version", "capabilities"],
+  "properties": {
+    "framework_id": {
+      "type": "string",
+      "description": "Unique identifier matching framework_output.schema.json framework_id."
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name shown in Workbench UI."
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the framework contract."
+    },
+    "role": {
+      "type": "string",
+      "description": "Functional role (e.g. framework_analysis_engine)."
+    },
+    "description": {
+      "type": "string",
+      "description": "Short description of what the framework does."
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Diagnostic capabilities this framework exposes to the Workbench.",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "value_path", "render"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Capability identifier, e.g. structural_risk."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label for this capability."
+          },
+          "value_path": {
+            "type": "string",
+            "description": "Dot-separated path into framework_output.json, e.g. 'advanced.sigma_t' or 'basic.overall'."
+          },
+          "render": {
+            "type": "string",
+            "enum": ["gauge", "table", "label", "alert", "text", "directional_table"],
+            "description": "How the Workbench should render this capability."
+          },
+          "severity": {
+            "type": "object",
+            "description": "For gauge and alert renders: severity threshold bands.",
+            "properties": {
+              "green": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "[min, max] range for green/normal status."
+              },
+              "yellow": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "[min, max] range for yellow/warning status."
+              },
+              "red": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "[min, max] range for red/critical status."
+              }
+            }
+          },
+          "alert_condition": {
+            "type": "string",
+            "description": "For alert render: expression that triggers the alert (e.g. 'value == \"yes\"')."
+          },
+          "format": {
+            "type": "string",
+            "description": "Python format string, e.g. '{value:.2f}'."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "display": {
+      "type": "object",
+      "description": "Templates controlling how the framework's output is rendered in Workbench surfaces.",
+      "properties": {
+        "basic_card_header": {
+          "type": "string",
+          "description": "Header line template. Use {field} placeholders resolved against framework_output.basic."
+        },
+        "advanced_sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "from"],
+            "properties": {
+              "title": {"type": "string"},
+              "from": {"type": "string", "description": "Dot-path into framework_output, e.g. 'advanced.sigma_t'."},
+              "format": {"type": "string", "description": "Python format string, e.g. '{value:.2f}'."},
+              "render": {"type": "string", "enum": ["text", "table", "list"]}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "basic_check": {
+      "type": "object",
+      "description": "How the Workbench computes the basic check summary from the framework's output.",
+      "properties": {
+        "overall_from": {
+          "type": "string",
+          "description": "Dot-path to the overall status value, e.g. 'basic.overall'."
+        },
+        "main_pressure_from": {
+          "type": "string",
+          "description": "Dot-path to the main pressure value, e.g. 'basic.main_pressure'."
+        },
+        "confidence_from": {
+          "type": "string",
+          "description": "Dot-path to the confidence value, e.g. 'basic.confidence'."
+        },
+        "summary_from": {
+          "type": "string",
+          "description": "Dot-path to the summary text, e.g. 'basic.summary'."
+        }
+      },
+      "additionalProperties": false
+    },
+    "required_evidence": {
+      "type": "array",
+      "description": "Evidence series this framework needs from Data Providers.",
+      "items": {
+        "type": "object",
+        "required": ["series_id"],
+        "properties": {
+          "series_id": {
+            "type": "string",
+            "description": "Canonical series identifier (e.g. 'VIXCLS', 'NFCI')."
+          },
+          "optional": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the framework can still function without this series."
+          },
+          "fallback": {
+            "type": "string",
+            "description": "Alternative series_id to use if primary is unavailable."
+          },
+          "label": {
+            "type": "string",
+            "description": "Display label for the evidence panel."
+          },
+          "area": {
+            "type": "string",
+            "description": "Category grouping for the evidence panel (e.g. 'Rates volatility')."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "raw_output": {
+      "type": "object",
+      "description": "Describes where the framework publishes raw output (for frameworks that don't produce framework_output.json directly).",
+      "properties": {
+        "summary_md": {
+          "type": "string",
+          "description": "Path to executive summary markdown, relative to the framework's output root."
+        },
+        "dashboard_json": {
+          "type": "string",
+          "description": "Path to dashboard snapshot JSON, relative to the framework's output root."
+        },
+        "main_signal_heading": {
+          "type": "string",
+          "description": "Markdown heading that starts the main signal section (e.g. '## Main Signal')."
+        }
+      },
+      "additionalProperties": false
+    },
+    "entrypoints": {
+      "type": "object",
+      "description": "CLI entrypoints the framework exposes for running analysis."
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Output paths relative to the framework root."
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,6 +1,8 @@
 """Runtime assembly — RuntimeWarning for legacy backend path."""
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import warnings
 from pathlib import Path
@@ -88,11 +90,11 @@ def _build_snapshot_store(config: dict[str, Any]) -> Any:
     return DuckDBSnapshotStore(path=_snapshot_store_path(config), data_root=_data_root(config))
 
 
-MAPPING_RULES_PATH: Path = Path(__file__).resolve().parent.parent.parent / "Data" / "nlp" / "mapping_rules.yaml"
+MAPPING_RULES_PATH: Path = WorkspacePaths.discover().data / "structural_lab" / "nlp" / "mapping_rules.yaml"
 
 
 def _system_root(config: dict[str, Any]) -> Path:
-    return Path(str((config.get("data") or {}).get("system_root", Path(__file__).resolve().parents[4]))).expanduser()
+    return Path(str((config.get("data") or {}).get("system_root", WorkspacePaths.discover().root))).expanduser()
 
 
 def _build_composite_event_loader(

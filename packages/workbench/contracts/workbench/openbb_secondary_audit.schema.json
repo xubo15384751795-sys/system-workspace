@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workbench.local/schemas/openbb_secondary_audit.v1",
+  "title": "OpenBB Secondary Audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audit_id",
+    "generated_at",
+    "audit_mode",
+    "openbb_probe_run_id",
+    "deformation_run_id",
+    "compared_series",
+    "verdict",
+    "findings",
+    "recommended_action",
+    "learning_hub_event_id",
+    "non_interference"
+  ],
+  "properties": {
+    "schema_version": { "const": "workbench.openbb_secondary_audit.v1" },
+    "audit_id": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "audit_mode": { "const": "observe_only" },
+    "openbb_probe_run_id": { "type": "string", "minLength": 1 },
+    "deformation_run_id": { "type": "string", "minLength": 1 },
+    "compared_series": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "warn", "fail", "inconclusive"]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "recommended_action": { "type": "string" },
+    "learning_hub_event_id": { "type": "string", "minLength": 1 },
+    "source_paths": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "non_interference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deformation_input_written",
+        "harvester_release_written",
+        "openbb_imported_by_deformation",
+        "allowed_outputs"
+      ],
+      "properties": {
+        "deformation_input_written": { "const": false },
+        "harvester_release_written": { "const": false },
+        "openbb_imported_by_deformation": { "const": false },
+        "allowed_outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

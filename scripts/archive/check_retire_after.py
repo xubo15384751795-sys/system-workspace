@@ -19,11 +19,7 @@ import json
 import sys
 from datetime import date
 
-from _workspace_imports import add_scripts  # noqa: E402
-
-add_scripts()
-
-from _runtime_io import ROOT, load_yaml  # noqa: E402
+from scripts._runtime_io import ROOT, load_yaml
 
 REGISTRY_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
 

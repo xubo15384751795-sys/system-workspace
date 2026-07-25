@@ -12,18 +12,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from _workspace_imports import add_scripts, add_workbench_src
 
-add_scripts()
-add_workbench_src()
-
-from _runtime_io import ROOT, current_dir, ensure_dir
 
 from workbench.current_bridge.reports import (
     generate_daily_market_space,
@@ -38,6 +34,8 @@ from workbench.governance.semantic import (
     SemanticRegistry,
     build_primary_readout,
 )
+
+from scripts._runtime_io import ROOT, current_dir, ensure_dir
 
 CURRENT = current_dir()
 REPLAY_DIR = ROOT / "Output" / "sandbox" / "structural_replay_v2"
@@ -501,12 +499,23 @@ def build_framework_output() -> dict:
 
     now = datetime.now(UTC).isoformat()
 
+    # Prefer the sigma_vector's provenance run_id over a fabricated date tag,
+    # so framework_output.json carries the same run identity as the replay
+    # that produced it. Fall back to the date tag only when running standalone
+    # (no bundle run_id, no sigma_vector run_id).
+    provenance_run_id = (
+        sv.get("run_id")
+        or os.environ.get("ZCODE_BUNDLE_RUN_ID")
+        or f"replay_bridge_{now[:10]}"
+    )
+
     return {
         "schema_version": "workbench.framework_output.v3",
         "framework_id": "structural_deformation",
         "framework_version": "0.3.0",
-        "run_id": f"replay_bridge_{now[:10]}",
-        "as_of": now,
+        "source": "structural_replay_v2",
+        "run_id": provenance_run_id,
+        "as_of": sv.get("as_of") or now,
         "status": "partial" if overall == "ACTIVE_PARTIAL" else overall.lower(),
         "basic": {
             "overall": overall,
@@ -746,12 +755,38 @@ def write_rebase_outputs(fw_output: dict) -> dict[str, Path]:
 
 
 def main() -> None:
+    from scripts._deformation_archive_guard import require_archived_reproduction
+
+    require_archived_reproduction(current_writer=True)
     ensure_dir(CURRENT)
 
     sv = _load_sigma_vector()
     if not sv:
         print("ERROR: No sigma_vector.json found in replay output.")
         print("Run structural replay first: python3 scripts/structural_replay_v2.py")
+        sys.exit(1)
+
+    # Provenance gate: reject sigma_vector from a different/previous run.
+    # Without this, a failed/aborted structural_replay leaves yesterday's
+    # sigma_vector on disk and bridge silently promotes it as today's
+    # framework_output. The bundle run_id is published by the daily-run
+    # executor via ZCODE_BUNDLE_RUN_ID.
+    bundle_run_id = os.environ.get("ZCODE_BUNDLE_RUN_ID")
+    sv_run_id = sv.get("run_id")
+    if bundle_run_id and sv_run_id != bundle_run_id:
+        print(
+            "ERROR: sigma_vector.json run_id mismatch - refusing to promote "
+            "stale/previous-run replay output."
+        )
+        print(f"  expected (bundle): {bundle_run_id}")
+        print(f"  found (sigma_vector): {sv_run_id!r}")
+        print("Run structural replay for this bundle first.")
+        sys.exit(1)
+    if bundle_run_id and not sv_run_id:
+        print(
+            "ERROR: sigma_vector.json has no run_id provenance - refusing to "
+            "promote (cannot confirm it belongs to this run)."
+        )
         sys.exit(1)
 
     fw_output = build_framework_output()

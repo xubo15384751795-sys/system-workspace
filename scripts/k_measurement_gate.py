@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 """K Measurement Gate — thin wrapper.
 
-See Workbench/src/workbench/signals/k_gate.py for core logic.
+See packages/workbench/src/workbench/signals/k_gate.py for core logic.
 """
 from __future__ import annotations
 
 import argparse
 import json
-
-from _workspace_imports import add_workbench_src
-
-add_workbench_src()
 
 from workbench.signals.k_gate import run_gate, write_outputs
 

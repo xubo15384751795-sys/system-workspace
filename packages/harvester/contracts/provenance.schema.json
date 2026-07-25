@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structural-risk-harvester.local/schemas/provenance/1.0",
+  "title": "Harvester Dataset Provenance",
+  "description": "Per-dataset provenance record. One provenance file per dataset per release, located at <release_root>/provenance/<dataset_id>.provenance.json. Records the full acquisition and transformation history, including failed attempts, for audit purposes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "dataset_revision",
+    "release_id",
+    "acquisition",
+    "transformations",
+    "checksums"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$",
+      "description": "Provenance schema version, MAJOR.MINOR. Phase 2 freezes at 1.0."
+    },
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+    },
+    "dataset_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "release_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-r[1-9][0-9]*$"
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "source_identifier", "started_at", "completed_at", "operator"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["http_get", "http_post", "ftp", "sftp", "file_copy", "manual_upload", "api_client", "computed"],
+          "description": "How the raw data was obtained. 'computed' indicates a derived dataset with no external acquisition."
+        },
+        "source_identifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Canonical identifier of the source: URL, file path, API endpoint, or upstream dataset reference."
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the acquisition attempt sequence started."
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the final successful acquisition completed."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Identifier of the human or automated agent that performed the acquisition."
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["attempt_number", "started_at", "outcome"],
+            "properties": {
+              "attempt_number": { "type": "integer", "minimum": 1 },
+              "started_at": { "type": "string", "format": "date-time" },
+              "ended_at": { "type": "string", "format": "date-time" },
+              "outcome": {
+                "type": "string",
+                "enum": ["success", "failed_network", "failed_auth", "failed_schema", "failed_other", "retried"]
+              },
+              "note": { "type": "string", "maxLength": 1000 }
+            }
+          },
+          "description": "Append-only record of all acquisition attempts including failed ones. Required if more than one attempt was made."
+        },
+        "internal_reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "raw_path": {
+              "type": "string",
+              "description": "Path under data/raw/ where the unmodified source bytes are stored. Out-of-scope for consumers; recorded for audit only."
+            },
+            "processed_path": {
+              "type": "string",
+              "description": "Path under data/processed/ if intermediate processing artifacts are kept."
+            }
+          },
+          "description": "References to provider-internal storage. NOT consumer-visible. Audit use only."
+        }
+      }
+    },
+    "transformations": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "code_reference", "started_at", "outcome"],
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Sequence number of the transformation step."
+          },
+          "name": {
+            "type": "string",
+            "description": "Short identifier for this transformation step."
+          },
+          "code_reference": {
+            "type": "string",
+            "description": "Reference to the code that performed the transformation, e.g. 'harvester.providers.nfci:parse_v2' or a git commit + path."
+          },
+          "params": {
+            "type": "object",
+            "description": "Parameters passed to the transformation. Free-form."
+          },
+          "started_at": { "type": "string", "format": "date-time" },
+          "ended_at": { "type": "string", "format": "date-time" },
+          "outcome": {
+            "type": "string",
+            "enum": ["success", "failed", "skipped"]
+          },
+          "note": { "type": "string", "maxLength": 2000 },
+          "input_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "sha256 of the input to this step, if applicable."
+          },
+          "output_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "sha256 of the output of this step, if applicable."
+          }
+        }
+      },
+      "description": "Ordered list of transformations applied between raw acquisition and the final data file. Empty array is valid (raw == final)."
+    },
+    "checksums": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["final_sha256"],
+      "properties": {
+        "raw_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the originally acquired bytes, before any transformation."
+        },
+        "final_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the final data file. MUST match the dataset manifest's data_file.sha256."
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "harvester_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+        },
+        "python_version": { "type": "string" },
+        "platform": { "type": "string" },
+        "git_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        }
+      },
+      "description": "Optional environment metadata for reproducibility."
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 4000
+    }
+  }
+}

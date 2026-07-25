@@ -3,7 +3,7 @@
 All magic numbers that appear in multiple scripts should be defined here.
 Import specific constants in each script::
 
-    from _constants import CASELAB_USABLE_THRESHOLD, TRADING_DAYS_PER_YEAR
+    from scripts._constants import CASELAB_USABLE_THRESHOLD, TRADING_DAYS_PER_YEAR
 
 Do NOT import the entire module with ``*`` — explicit imports make
 dependencies visible and greppable.
@@ -50,7 +50,8 @@ SIGNAL_SIZE_SMALL = 0.3
 TIMEOUT_SHORT = 10
 TIMEOUT_MEDIUM = 60
 TIMEOUT_STANDARD = 120
-TIMEOUT_LONG = 600
+# Harvester daily-release regularly exceeds 10m (FRED + ETF universe).
+TIMEOUT_LONG = 1800
 
 # ─── M/D/K/X stress direction thresholds ────────────────────────────
 # Used by: caselab_daily_signal, evaluate_proxy_lifecycle

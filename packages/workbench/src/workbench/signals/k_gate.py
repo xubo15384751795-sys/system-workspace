@@ -13,6 +13,8 @@ Usage:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,7 +23,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = WorkspacePaths.discover().root
 BP_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
 
 

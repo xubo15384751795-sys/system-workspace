@@ -13,6 +13,7 @@ from system_learning.runtime.context import new_run_context
 from system_learning.runtime.manifest import read_last_run_id
 from system_learning.runtime.paths import HubPaths
 from system_learning.runtime.pipeline import PipelinePlan, execute_pipeline
+from system_learning.variation import build_variation_health, write_variation_health
 
 SUBCOMMANDS = frozenset(
     {
@@ -25,6 +26,7 @@ SUBCOMMANDS = frozenset(
         "replay",
         "governance-audit",
         "research-posture",
+        "variation-health",
     }
 )
 
@@ -46,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         "replay": _cmd_replay,
         "governance-audit": _cmd_governance_audit,
         "research-posture": _cmd_research_posture,
+        "variation-health": _cmd_variation_health,
     }
     return handlers[args.command](args)
 
@@ -100,6 +103,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Render the confidence-graded research posture digest from the registry.",
     )
     rp.add_argument("--registry", type=Path, default=None, help="Override governance registry path.")
+
+    variation = sub.add_parser(
+        "variation-health",
+        parents=[common],
+        help="Exception-only 30-day hypotheses inbox inflow monitor.",
+    )
+    variation.add_argument("--days", type=int, default=30)
+    variation.add_argument("--json", action="store_true", help="Print the full machine report.")
 
     for name in ("verify-lifecycle", "rebuild-ledger", "replay"):
         cmd = sub.add_parser(name, parents=[common], help=f"Hub runtime: {name}.")
@@ -273,6 +284,22 @@ def _cmd_research_posture(args: argparse.Namespace) -> int:
     for name, path in paths.items():
         print(f"  report.{name}: {path}")
     return 0
+
+
+def _cmd_variation_health(args: argparse.Namespace) -> int:
+    """Write a full metric artifact; keep normal scheduled stdout silent."""
+    import json
+
+    system_root = args.system_root.resolve()
+    report = build_variation_health(system_root, days=args.days)
+    evidence_path = write_variation_health(report, system_root)
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    elif report["deviations"]:
+        for deviation in report["deviations"]:
+            print(f"VARIATION DEVIATION: {deviation}", file=sys.stderr)
+        print(f"evidence={evidence_path}", file=sys.stderr)
+    return 1 if report["deviations"] else 0
 
 
 def _print_pipeline_result(result) -> None:

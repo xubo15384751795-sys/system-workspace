@@ -58,6 +58,7 @@ def test_baseline_hash_integrity_detects_modification(tmp_path: Path) -> None:
     # Copy real governance dir to tmp
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
+    shutil.copyfile(ROOT / "ROUTING_CONSTITUTION.md", tmp_path / "ROUTING_CONSTITUTION.md")
 
     # Tamper with a baseline file
     target = gov_tmp / "incentive_policy.yaml"
@@ -75,6 +76,7 @@ def test_baseline_hash_integrity_detects_missing_file(tmp_path: Path) -> None:
     module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
+    shutil.copyfile(ROOT / "ROUTING_CONSTITUTION.md", tmp_path / "ROUTING_CONSTITUTION.md")
 
     # Delete a baseline file
     (gov_tmp / "redundancy_budget.yaml").unlink()

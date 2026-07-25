@@ -36,7 +36,10 @@ except ModuleNotFoundError:
     )
 
 try:
-    from _data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+    from scripts._data_paths import (
+        resolve_benchmark_panel_path,
+        resolve_cross_asset_panel_path,
+    )
 except ModuleNotFoundError:
     from scripts._data_paths import (
         resolve_benchmark_panel_path,
@@ -71,7 +74,19 @@ def build_event_battery(
     events: dict[str, pd.Series] = {}
     status: dict[str, Any] = {}
 
-    equity = _first_market_series(panel, cross, ("SPY", "SPX", "CBOE:SPX", "close"))
+    # Event input series extracted from the benchmark panel inherit the panel's
+    # calendar-day union grid (weekends/holidays as NaN rows). The forward
+    # rolling windows below use min_periods=horizon, which on a calendar grid
+    # is never satisfied (weekend NaNs break every window) and silently yields
+    # all-NaN event labels. Drop to a trading-day-only index before forward
+    # rolling so E1/E2/E3/E5 are not silently emptied (E4/TLT was unaffected
+    # only because it comes from the per-symbol cross-asset dict, which is
+    # already trading-day-only). Events are reindexed to the common index
+    # later in run(), so dropping non-trading days here is safe.
+    def _td(series: pd.Series | None) -> pd.Series | None:
+        return None if series is None else series.dropna()
+
+    equity = _td(_first_market_series(panel, cross, ("SPY", "SPX", "CBOE:SPX", "close")))
     if equity is not None:
         e1 = build_forward_stress_events(equity, horizon=horizon, vol_quantile=0.95, drawdown_threshold=-0.08, logic="or")
         events["E1_equity"] = e1["stress_event"]
@@ -79,30 +94,30 @@ def build_event_battery(
     else:
         status["E1_equity"] = {"status": "skipped", "reason": "SPY/SPX price unavailable"}
 
-    move = _first_series(panel, ("FRED:MOVE", "CBOE:MOVE", "MOVE", "CBOE:VXTLT"))
+    move = _td(_first_series(panel, ("FRED:MOVE", "CBOE:MOVE", "MOVE", "CBOE:VXTLT")))
     if move is None:
-        move = _first_market_series(panel, cross, ("MOVE",))
+        move = _td(_first_market_series(panel, cross, ("MOVE",)))
     if move is not None:
         events["E2_rates_vol"] = _forward_level_event(move, horizon=horizon, quantile=0.90)
         status["E2_rates_vol"] = {"status": "ok", "definition": "max next 20d MOVE >= causal q90"}
     else:
         status["E2_rates_vol"] = {"status": "skipped", "reason": "MOVE unavailable"}
 
-    funding = _funding_spread(panel)
+    funding = _td(_funding_spread(panel))
     if funding is not None:
         events["E3_funding"] = _forward_level_event(funding, horizon=horizon, quantile=0.95)
         status["E3_funding"] = {"status": "ok", "definition": "SOFR-IORB / EFFR-IOER max next 20d >= causal q95"}
     else:
         status["E3_funding"] = {"status": "skipped", "reason": "funding spread inputs unavailable"}
 
-    tlt = _first_market_series(panel, cross, ("TLT",))
+    tlt = _td(_first_market_series(panel, cross, ("TLT",)))
     if tlt is not None:
         events["E4_duration"] = _forward_drawdown_event(tlt, horizon=horizon, threshold=-0.05)
         status["E4_duration"] = {"status": "ok", "definition": "TLT 20d forward drawdown <= -5%"}
     else:
         status["E4_duration"] = {"status": "skipped", "reason": "TLT unavailable"}
 
-    hy_oas = _first_series(panel, ("FRED:BAMLH0A0HYM2", "BAMLH0A0HYM2", "HY_OAS"))
+    hy_oas = _td(_first_series(panel, ("FRED:BAMLH0A0HYM2", "BAMLH0A0HYM2", "HY_OAS")))
     if hy_oas is not None:
         events["E5_credit"] = _forward_widening_event(hy_oas, horizon=horizon, threshold=0.50)
         status["E5_credit"] = {"status": "ok", "definition": "HY OAS 20d widening >= 50bp"}
@@ -171,6 +186,7 @@ def evaluate_protocol(
     candidates: pd.DataFrame,
     *,
     bootstrap_reps: int = 100,
+    bootstrap_seed: int = 1729,
     case_dates: tuple[str, ...] = DEFAULT_CASE_DATES,
 ) -> dict[str, Any]:
     """Evaluate every candidate against every available event definition."""
@@ -184,7 +200,11 @@ def evaluate_protocol(
                 "metrics": probability_metrics(target, probability),
                 "lead_profile": lead_profile(target, probability),
                 "stationary_bootstrap_auc": stationary_bootstrap_metric(
-                    target, probability, reps=bootstrap_reps, mean_block=20
+                    target,
+                    probability,
+                    reps=bootstrap_reps,
+                    mean_block=20,
+                    seed=bootstrap_seed,
                 ),
                 "case_calendar_lead_profile": _case_calendar_profile(probability, case_dates=case_dates),
             }
@@ -211,6 +231,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         events,
         candidates.reindex(common_index),
         bootstrap_reps=args.bootstrap_reps,
+        bootstrap_seed=args.bootstrap_seed,
         case_dates=tuple(args.case_dates),
     )
     events_frame = pd.DataFrame(events, index=common_index)
@@ -224,6 +245,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "panel": str(args.panel),
             "cross_asset": str(args.cross_asset) if args.cross_asset else None,
             "channels": str(args.channels),
+            "bootstrap_seed": args.bootstrap_seed,
         },
         "event_status": event_status,
         "candidate_diagnostics": diagnostics,
@@ -285,6 +307,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--horizon", type=int, default=20)
     parser.add_argument("--bootstrap-reps", type=int, default=100)
+    parser.add_argument("--bootstrap-seed", type=int, default=1729)
     parser.add_argument("--case-dates", nargs="*", default=list(DEFAULT_CASE_DATES))
     return parser.parse_args()
 

@@ -47,7 +47,7 @@ categories:
 enforcement:
   abandoned_report_location: Output/system_learning/latest/abandoned_artifacts.md
   audit_cadence: weekly
-  audit_script: scripts/architecture_reality_audit.py
+  audit_script: scripts/commands/weekly/architecture_reality_audit.py
 
 # Rules:
 # 1. 7 days unregistered: enters abandoned report

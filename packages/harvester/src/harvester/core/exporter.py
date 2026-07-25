@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
 import hashlib
 import json
 import os
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,19 @@ def repo_root() -> Path:
 
 
 def default_exports_root() -> Path:
-    return repo_root() / "data" / "exports"
+    """Default harvester exports root.
+
+    Phase 4.1: prefer the canonical ``Data/harvester/exports`` via
+    WorkspacePaths (system_runtime.paths) over the legacy parents[3]-relative
+    ``data/exports``. Falls back to the legacy path if system_runtime is not
+    importable (keeps the harvester package standalone-testable).
+    """
+    try:
+        from system_runtime.paths import WorkspacePaths
+
+        return WorkspacePaths.discover().harvester_exports
+    except Exception:
+        return repo_root() / "data" / "exports"
 
 
 def finalize_release(

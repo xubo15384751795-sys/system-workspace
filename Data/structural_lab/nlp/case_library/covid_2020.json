@@ -1,0 +1,25 @@
+{
+  "case_name": "COVID-19 Market Dislocation",
+  "vintage": "2020-03-16",
+  "actor": "Federal Reserve",
+  "event_patterns": [
+    "liquidity_crisis",
+    "vol_spike",
+    "basis_dislocation",
+    "policy_intervention",
+    "qe",
+    "liquidity_facility"
+  ],
+  "variable_vector": {
+    "tau": 0.10,
+    "M": 0.90,
+    "D": 0.95,
+    "K": 0.90,
+    "X": 0.80,
+    "P": 0.95
+  },
+  "narrative_summary": "COVID-19 triggered unprecedented market dislocation. Treasury basis blew out, VIX hit 82, corporate bond ETFs traded at deep discounts. Fed responded with massive QE, PMCCF, SMCCF, TALF, and PDCF in a matter of days.",
+  "gics_sector": "Cross-Sector",
+  "outcome": "liquidity_crisis -> vol_spike -> basis_dislocation -> massive_policy_response",
+  "tau_rationale": "Very short tau (0.10): dislocation and response both happened in days"
+}

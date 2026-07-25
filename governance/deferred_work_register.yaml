@@ -256,15 +256,15 @@ items:
       Mark as legacy_retain; add ALLOW_LEGACY_DATASOURCES guard; keep in _legacy/.
 
   - id: sys_path_consolidation
-    title: "Consolidate sys.path.insert to _workspace_imports.py"
+    title: "Retire sys.path surgery through installable workspace packages"
     owner: Workbench
     status: completed
     reason: >
-      31 scripts now use _workspace_imports.py for auditable path management.
-      All scripts verified via --help smoke (25/25 passed).
-      architecture_reality_audit check_manual_sys_path_insert: 0 findings.
-      test_daily_pipeline_subprocess_smoke.py: 26 passed (no update needed).
-    completed_date: "2026-06-29"
+      The transitional _workspace_imports.py seam was removed on 2026-07-17.
+      The root application and four domain packages are installable workspace
+      distributions; production scripts import public packages directly.
+      The architecture audit scans all production package trees for path surgery.
+    completed_date: "2026-07-17"
     execution_window: "1 day (verify all migrated scripts pass smoke tests)"
     evidence_window: "7 days (verify no import breakage across pipeline runs)"
     progress:
@@ -274,12 +274,15 @@ items:
       - "2026-06-29: 31 scripts confirmed using _workspace_imports"
       - "2026-06-29: --help smoke: 25/25 passed (1 non-blocking: structural_replay_v2 needs module deps)"
       - "2026-06-29: test_daily_pipeline_subprocess_smoke.py: 26 passed (no update needed)"
+      - "2026-07-17: root system CLI + system_runtime package installed as editable distributions"
+      - "2026-07-17: _workspace_imports.py deleted; production callers use installed package imports"
+      - "2026-07-17: architecture audit expanded beyond root scripts to production package trees"
     review_date: "2026-07-01"
     hard_deadline: "2026-07-15"
     risk_if_ignored: >
       sys.path management remains unstructured; migration to module runner harder.
     fallback_if_expired: >
-      Keep _workspace_imports.py as permanent transitional layer.
+      Reinstall the editable workspace packages; do not restore path mutation.
 
   - id: legacy_data_move_step2
     title: "Move legacy data modules to _legacy/data/ (P1 Step 2)"
@@ -304,7 +307,7 @@ items:
       - "mv src/data/adapters/public_adapters.py src/_legacy/data/"  # completed
       - "Update src/data/__init__.py — remove legacy symbol exports"  # completed
       - "Update internal imports (data_hub.py, legacy_adapter.py)"  # completed
-      - "Verify: python3 scripts/architecture_reality_audit.py --json"  # pending
+      - "Verify: python3 scripts/commands/weekly/architecture_reality_audit.py --json"  # pending
     review_date: "2026-06-24"
     hard_deadline: "2026-07-01"
     risk_if_ignored: >

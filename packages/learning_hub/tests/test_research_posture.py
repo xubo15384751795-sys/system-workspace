@@ -17,7 +17,7 @@ from system_learning.guards import (
 from system_learning.guards.posture import _derive_overall
 from system_learning.guards.registry import Entity, Posture, Registry
 
-SYSTEM_ROOT = Path(__file__).resolve().parents[2]
+SYSTEM_ROOT = Path(__file__).resolve().parents[3]
 REGISTRY_PATH = SYSTEM_ROOT / DEFAULT_REGISTRY_RELPATH
 
 

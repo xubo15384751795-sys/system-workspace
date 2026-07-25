@@ -1,0 +1,11 @@
+# Context budget for grounded NLP and agent handoff (token discipline).
+# Paths are resolved from workspace root via workbench.paths.workspace_root().
+#
+# chunk_window_chars: max body length per section window in workbench.nlp chunking
+# excerpt_chars: max citation excerpt length in answers
+# top_k_default / top_k_max: ranking window for evidence chunks
+
+chunk_window_chars: 1800
+excerpt_chars: 260
+top_k_default: 5
+top_k_max: 20

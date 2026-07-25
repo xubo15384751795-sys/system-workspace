@@ -14,13 +14,17 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+from system_runtime.events import payload_of
+from system_runtime.paths import WorkspacePaths
+
+ROOT = WorkspacePaths.discover().root
 
 
 def current_dir() -> Path:
@@ -51,24 +55,50 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
         if not line:
             continue
         try:
-            entries.append(json.loads(line))
+            value = json.loads(line)
+            if isinstance(value, dict):
+                entries.append(payload_of(value))
         except json.JSONDecodeError:
             continue
     return entries
 
 
 def write_json(path: Path, data: Any, *, indent: int = 2) -> None:
-    """Write data as JSON, creating parent directories."""
+    """Atomically write JSON, creating parent directories."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=indent, ensure_ascii=False) + "\n", encoding="utf-8")
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=indent, ensure_ascii=False, default=str)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def write_jsonl(path: Path, entries: list[dict[str, Any]]) -> None:
-    """Write a list of dicts as JSONL, creating parent directories."""
+    """Atomically write a list of dicts as JSONL."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            for entry in entries:
+                handle.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def load_yaml(path: Path) -> dict[str, Any]:

@@ -1,8 +1,7 @@
 # Structural Risk Workbench
 
-> **Governance**: See [governance/architecture_cleanup_decisions.md](governance/architecture_cleanup_decisions.md)
-> for the current principles governing this project. All deferred work is in
-> [governance/deferred_work_register.yaml](governance/deferred_work_register.yaml).
+> Governance is compiled into runtime gates, tests, feedback loops, and the
+> task router. Long decision records are precedent, not required reading.
 
 This is a structural-risk workbench.
 It does three things:
@@ -22,9 +21,12 @@ cd /Users/a1/System
 
 Daily users do not need to understand the internal framework first.
 
-For IDE and agent work, start from `MODULES.md`. Keep one workspace folder open,
-then route each task through the smallest owning module in `module_contexts/`
-before reading source code.
+For IDE and agent work, route the task first; read only the returned module
+context before inspecting source:
+
+```bash
+python3 packages/workbench/agents/harness/entrypoints/routing_cli.py "<task>"
+```
 
 Basic use shows familiar risk evidence.
 Advanced use exposes framework-specific structural diagnosis.

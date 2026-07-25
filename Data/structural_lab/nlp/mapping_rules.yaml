@@ -1,0 +1,201 @@
+# ---------------------------------------------------------------------------
+# NLPEventTranslator mapping rules
+# ---------------------------------------------------------------------------
+# Bridges NLP-extracted event_pattern signals to the operator_registry names
+# that the operator algebra can resolve.
+#
+# signal_to_operator:  NLP signal  -> operator_registry name
+# event_patterns:      pattern definitions with weight, variables, description
+# ---------------------------------------------------------------------------
+
+signal_to_operator:
+  # compression family
+  liquidity_crisis:        "LIQUIDITY_WITHDRAWAL"
+  deposit_run:             "DEPOSIT_RUN"
+  collateral_spiral:       "MARGIN_CALL"
+  margin_call:             "MARGIN_CALL"
+  rollover_risk:           "FUNDING_HAIRCUT"
+  funding_stress:          "FUNDING_HAIRCUT"
+  dealer_capacity_drop:    "DEALER_CAPACITY_DROP"
+
+  # curvature family
+  credit_deterioration:    "RATING_CASCADE"
+  rating_cascade:          "RATING_CASCADE"
+  correlation_break:       "CORRELATION_BREAK"
+  vol_spike:               "VOL_SURFACE_KINK"
+  basis_dislocation:       "BASIS_DISLOCATION"
+  visibility_lag:          "BASIS_DISLOCATION"
+  narrative_anchor_drift:  "BASIS_DISLOCATION"
+
+  # realization family
+  liquidation_path_stress: "FORCED_SELLING"
+  forced_selling:          "FORCED_SELLING"
+  fire_sale:               "FORCED_SELLING"
+  default_event:           "DEFAULT_EVENT"
+  counterparty_failure:    "COUNTERPARTY_FAILURE"
+  markdown_event:          "MARKDOWN_EVENT"
+
+  # shadow_transfer family
+  securitization_storage:  "SECURITIZATION_STORAGE"
+  off_balance_sheet_shift: "OFF_BALANCE_SHEET_SHIFT"
+  synthetic_buildup:       "SYNTHETIC_EXPOSURE_BUILDUP"
+
+  # intervention family (recovery)
+  anchor_restoration:      "POLICY_BACKSTOP"
+  policy_intervention:     "POLICY_BACKSTOP"
+  visibility_intervention: "POLICY_BACKSTOP"
+  rate_cut:                "RATE_CUT"
+  qe:                      "QE"
+  liquidity_facility:      "LIQUIDITY_FACILITY"
+  deposit_guarantee:       "DEPOSIT_GUARANTEE"
+  coordinated_rescue:      "COORDINATED_RESCUE"
+
+event_patterns:
+  # -- Compression patterns --
+  deposit_run:
+    signal: liquidity_crisis
+    weight: 0.85
+    variables: [D, tau]
+    description: "Rapid deposit outflow triggered by confidence shock or unrealized losses"
+
+  liquidity_crisis:
+    signal: liquidity_crisis
+    weight: 0.75
+    variables: [M, D]
+    description: "Generalized liquidity withdrawal across funding channels"
+
+  collateral_spiral:
+    signal: collateral_spiral
+    weight: 0.80
+    variables: [M, K, X, tau]
+    description: "Collateral valuation spiral driving margin calls and shadow stress"
+
+  margin_call:
+    signal: margin_call
+    weight: 0.70
+    variables: [M, D]
+    description: "Margin call forcing position reduction"
+
+  rollover_risk:
+    signal: rollover_risk
+    weight: 0.65
+    variables: [D, tau]
+    description: "Short-term funding rollover risk materializing as haircuts"
+
+  funding_stress:
+    signal: funding_stress
+    weight: 0.60
+    variables: [D, tau]
+    description: "Funding market stress widening spreads and reducing capacity"
+
+  # -- Curvature patterns --
+  credit_deterioration:
+    signal: credit_deterioration
+    weight: 0.70
+    variables: [K, X]
+    description: "Credit quality deterioration triggering rating cascades"
+
+  correlation_break:
+    signal: correlation_break
+    weight: 0.65
+    variables: [K, X]
+    description: "Correlation assumptions breaking in stress"
+
+  vol_spike:
+    signal: vol_spike
+    weight: 0.60
+    variables: [K, M]
+    description: "Volatility spike introducing surface kink"
+
+  basis_dislocation:
+    signal: basis_dislocation
+    weight: 0.55
+    variables: [M, D]
+    description: "Basis relationships detaching, widening anchor mismatch"
+
+  # -- Realization patterns --
+  liquidation_path_stress:
+    signal: liquidation_path_stress
+    weight: 0.90
+    variables: [M, D, K, X]
+    description: "Forced liquidation cascade along a stressed path"
+
+  forced_selling:
+    signal: forced_selling
+    weight: 0.85
+    variables: [M, D, X]
+    description: "Forced selling driven by external margin or liquidity constraints"
+
+  fire_sale:
+    signal: fire_sale
+    weight: 0.88
+    variables: [M, D, X, tau]
+    description: "Fire sale liquidating positions at distressed prices"
+
+  default_event:
+    signal: default_event
+    weight: 0.95
+    variables: [M, D, K, X]
+    description: "Counterparty default event realizing latent pressure"
+
+  # -- Shadow transfer patterns --
+  securitization_storage:
+    signal: securitization_storage
+    weight: 0.40
+    variables: [X]
+    description: "Risk storage shifting into securitized shadow channels"
+
+  off_balance_sheet_shift:
+    signal: off_balance_sheet_shift
+    weight: 0.40
+    variables: [X, M]
+    description: "Pressure migrating from visible balance sheets to hidden commitments"
+
+  # -- Intervention patterns (recovery) --
+  anchor_restoration:
+    signal: anchor_restoration
+    weight: 0.60
+    variables: [P, D]
+    description: "Policy action restoring anchor stability and widening degrees of freedom"
+
+  policy_intervention:
+    signal: policy_intervention
+    weight: 0.70
+    variables: [P, D, M]
+    description: "Visible policy intervention widening feasible paths"
+
+  visibility_intervention:
+    signal: visibility_intervention
+    weight: 0.65
+    variables: [P, D]
+    description: "Policy action increasing transparency and restoring visibility"
+
+  rate_cut:
+    signal: rate_cut
+    weight: 0.40
+    variables: [P, M]
+    description: "Monetary easing reducing visible mismatch"
+
+  qe:
+    signal: qe
+    weight: 0.55
+    variables: [P, M, D]
+    description: "Asset purchases expanding liquidity capacity"
+
+  liquidity_facility:
+    signal: liquidity_facility
+    weight: 0.60
+    variables: [P, D]
+    description: "Targeted facility restoring funding paths"
+
+  deposit_guarantee:
+    signal: deposit_guarantee
+    weight: 0.65
+    variables: [P, D]
+    description: "Deposit guarantees arresting run dynamics"
+
+  coordinated_rescue:
+    signal: coordinated_rescue
+    weight: 0.75
+    variables: [P, M, D, K]
+    description: "Coordinated multi-institution rescue operation"

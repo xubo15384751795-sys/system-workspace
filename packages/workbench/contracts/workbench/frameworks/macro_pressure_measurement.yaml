@@ -1,0 +1,37 @@
+framework_id: macro_pressure_measurement
+display_name: Neutral Macro Pressure
+version: 1.0.0
+role: measurement_dashboard
+description: >
+  Two neutral, literature-grounded pressure gauges. This contract carries no
+  Deformation v1 theory authority and makes no universal prediction claim.
+capabilities:
+  - id: funding_mismatch_pressure
+    label: Funding mismatch pressure
+    value_path: advanced.primary_readout.M_anchor_geometry.value
+    render: gauge
+  - id: market_constraint_pressure
+    label: Market constraint pressure
+    value_path: advanced.primary_readout.D_path_geometry.value
+    render: gauge
+  - id: pressure_state
+    label: Pressure state
+    value_path: advanced.primary_readout.state
+    render: label
+basic_check:
+  overall_from: basic.overall
+  main_pressure_from: basic.main_pressure
+  confidence_from: basic.confidence
+  summary_from: basic.summary
+required_evidence:
+  - {series_id: "DERIVED:CP_TBILL_SPREAD", label: "CP minus Treasury bill", area: "Funding"}
+  - {series_id: "DERIVED:SOFR_IORB_SPREAD", label: "SOFR minus IORB", area: "Funding"}
+  - {series_id: "FRED:NFCICREDIT", label: "NFCI credit", area: "Funding"}
+  - {series_id: "FRED:NFCIRISK", label: "NFCI risk", area: "Market constraints"}
+  - {series_id: "CBOE:MOVE", label: "MOVE", area: "Market constraints"}
+  - {series_id: "DERIVED:SPX_ROLL_SPREAD", label: "SPX rolling spread", area: "Market constraints", optional: true}
+outputs:
+  framework_output: Output/current/framework_output.json
+  neutral_snapshot: Output/current/neutral_pressure_snapshot.json
+entrypoints:
+  daily: python scripts/neutral_pressure_measurement.py

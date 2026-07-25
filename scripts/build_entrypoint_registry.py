@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from _runtime_io import ROOT  # noqa: E402
-from _runtime_io import load_yaml as _load_yaml
+
+from scripts._runtime_io import ROOT  # noqa: E402
+from scripts._runtime_io import load_yaml as _load_yaml
 
 HAND_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
 GENERATED_PATH = ROOT / "governance" / "entrypoint_registry.generated.yaml"
@@ -31,15 +32,19 @@ def _discover_scripts(scripts_dir: Path) -> dict[str, dict[str, Any]]:
     discovered: dict[str, dict[str, Any]] = {}
     if not scripts_dir.exists():
         return discovered
-    for path in sorted(scripts_dir.glob("*.py")):
-        if path.name.startswith("_"):
+    root = scripts_dir.parent
+    command_paths = [*scripts_dir.glob("*.py"), *(scripts_dir / "commands").rglob("*.py")]
+    for path in sorted(set(command_paths)):
+        if path.name.startswith("_") or path.name == "__init__.py":
             continue
         entry_id = path.stem
+        if entry_id in discovered:
+            raise ValueError(f"duplicate command basename: {entry_id}")
         discovered[entry_id] = {
-            "script": f"scripts/{path.name}",
+            "script": path.relative_to(root).as_posix(),
             "status": "discovered",
             "owner": "System",
-            "description": "Auto-discovered root script",
+            "description": "Auto-discovered command script",
             "allowed_use": ["discovered_entrypoint"],
             "source": "script_scan",
         }
@@ -78,8 +83,20 @@ def build_generated_registry(root: Path = ROOT) -> dict[str, Any]:
         base = merged.get(entry_id, {})
         merged[entry_id] = {**base, **payload}
 
-    hand_only = {k: v for k, v in hand.items() if k not in merged}
-    missing_from_hand = sorted(set(merged) - set(hand))
+    registered_paths = {
+        str(value.get("script"))
+        for value in hand.values()
+        if isinstance(value, dict) and value.get("script")
+    }
+    discovered_paths = {value["script"] for value in merged.values()}
+    hand_only = {
+        key: value
+        for key, value in hand.items()
+        if not isinstance(value, dict) or value.get("script") not in discovered_paths
+    }
+    missing_from_hand = sorted(
+        key for key, value in merged.items() if value["script"] not in registered_paths
+    )
 
     return {
         "schema_version": "entrypoint_registry.generated.v1",
@@ -87,7 +104,7 @@ def build_generated_registry(root: Path = ROOT) -> dict[str, Any]:
         "sources": [
             "governance/entrypoint_registry.yaml",
             "governance/daily_pipeline_registry.yaml",
-            "scripts/*.py",
+            "scripts/**/*.py",
         ],
         "entries": merged,
         "hand_maintained_only": hand_only,

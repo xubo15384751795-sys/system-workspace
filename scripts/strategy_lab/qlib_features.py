@@ -17,17 +17,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import _runtime_io as rio
-from strategy_lab.data_loader import load_signals
-from strategy_lab.risk_gate import (
+from scripts import _runtime_io as rio
+from scripts.strategy_lab.data_loader import load_signals
+from scripts.strategy_lab.risk_gate import (
     DEFAULT_COFIRE_V,
     DEFAULT_VELOCITY_THRESHOLD,
     compute_velocity_gate,

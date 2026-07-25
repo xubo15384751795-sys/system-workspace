@@ -22,11 +22,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from _workspace_imports import add_scripts
-
-add_scripts()
-
-from _runtime_io import ROOT, ensure_dir, load_json, load_yaml  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir, load_json, load_yaml  # noqa: E402
 
 CURRENT = ROOT / "Output" / "current"
 JUDGMENT = ROOT / "Output" / "judgment"
@@ -37,6 +33,32 @@ SUPERVISOR_POLICY_PATH = ROOT / "governance" / "opencode_supervisor_policy.yaml"
 INCENTIVE_POLICY_PATH = ROOT / "governance" / "incentive_policy.yaml"
 SUBMISSIONS_PATH = ROOT / "governance" / "experimental_submission_registry.yaml"
 ROUTING_POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
+MONITORING_COVERAGE_PATH = LEARNING / "monitoring_coverage.json"
+BACKWARD_PASS_PATH = LEARNING / "backward_pass.json"
+
+
+def _outcome_credit_review_items(backward: dict[str, Any]) -> list[dict[str, Any]]:
+    """Translate eligible shadow credit into human-review items only."""
+    if not (
+        backward.get("status") == "ELIGIBLE_FOR_REVIEW_PRIORITY"
+        and backward.get("eligible_to_affect_review_priority") is True
+        and backward.get("credit_can_grant_authority") is False
+    ):
+        return []
+    items = []
+    for item in (backward.get("review_queue") or [])[:10]:
+        action = str(item.get("review_action", "review"))
+        items.append({
+            "source": "outcome_credit",
+            "id": str(item.get("node_id", "unknown")),
+            "severity": "medium" if action == "investigate_drag" else "low",
+            "action": (
+                f"rank={item.get('rank')}; {action}; "
+                f"n={item.get('samples')}; "
+                f"mean_loss_reduction={item.get('mean_loss_reduction')}"
+            ),
+        })
+    return items
 
 
 def _check_work_cycle_completeness() -> dict[str, Any]:
@@ -120,7 +142,7 @@ def _check_deferred_work_overdue() -> dict[str, Any]:
         if not hard_dl:
             continue
         try:
-            deadline = datetime.strptime(str(hard_dl), "%Y-%m-%d")
+            deadline = datetime.strptime(str(hard_dl), "%Y-%m-%d").replace(tzinfo=UTC)
             days_left = (deadline - today).days
             if days_left < 0:
                 overdue.append({
@@ -163,6 +185,23 @@ def _check_module_activity() -> dict[str, Any]:
         "status": "ACTIVE" if active else "IDLE",
         "active_artifacts": len(active),
         "artifacts": active[:10],
+    }
+
+
+def _check_monitoring_coverage() -> dict[str, Any]:
+    """Surface the meta-audit that finds stale and unmonitored artifacts."""
+    report = load_json(MONITORING_COVERAGE_PATH)
+    if not report:
+        return {"status": "FINDINGS", "report_path": str(MONITORING_COVERAGE_PATH), "issue": "monitoring coverage report is missing"}
+    source_status = str(report.get("status", "UNKNOWN"))
+    status = "PASS" if source_status == "PASS" else "WARN" if source_status == "WARN" else "FINDINGS"
+    return {
+        "status": status,
+        "report_status": source_status,
+        "summary": report.get("summary", {}),
+        "learning_hub_source_lag": report.get("learning_hub_source_lag", {}),
+        "blind_spot_families": report.get("monitoring_blind_spots", []),
+        "report_path": str(MONITORING_COVERAGE_PATH),
     }
 
 
@@ -225,6 +264,13 @@ def _check_incentive_overreach() -> dict[str, Any]:
         if "promote_to_canonical" in outcome:
             issues.append(f"Review outcome '{outcome}' implies automatic canonical promotion")
 
+    outcome_credit = policy.get("outcome_credit", {}) or {}
+    if outcome_credit.get("enabled"):
+        if outcome_credit.get("affects_review_priority_only") is not True:
+            issues.append("outcome_credit must affect review priority only")
+        if outcome_credit.get("can_affect_authority") is not False:
+            issues.append("outcome_credit cannot affect authority")
+
     return {
         "status": "PASS" if not issues else "OVERREACH",
         "issues": issues,
@@ -286,7 +332,7 @@ def _check_unreviewed_exceptions() -> dict[str, Any]:
         retire_after = sub.get("retire_after")
         if retire_after:
             try:
-                retire_date = datetime.strptime(str(retire_after), "%Y-%m-%d")
+                retire_date = datetime.strptime(str(retire_after), "%Y-%m-%d").replace(tzinfo=UTC)
                 if retire_date < today:
                     issues.append(f"Exception '{sid}' retire_after expired on {retire_after}")
             except ValueError:
@@ -327,6 +373,7 @@ def run_supervisor_check() -> dict[str, Any]:
         "unmarked_data": _check_unmarked_data(),
         "deferred_work_overdue": _check_deferred_work_overdue(),
         "module_activity": _check_module_activity(),
+        "monitoring_coverage": _check_monitoring_coverage(),
         "current_authority_contamination": _check_current_authority_contamination(),
         "incentive_overreach": _check_incentive_overreach(),
         "priority_drift": _check_priority_drift(),
@@ -339,7 +386,7 @@ def run_supervisor_check() -> dict[str, Any]:
         overall = "OVERDUE"
     elif "CONTAMINATION" in statuses or "OVERREACH" in statuses:
         overall = "BOUNDARY_VIOLATION"
-    elif "INCONSISTENT" in statuses or "INCOMPLETE" in statuses:
+    elif "INCONSISTENT" in statuses or "INCOMPLETE" in statuses or "FINDINGS" in statuses:
         overall = "FINDINGS"
     elif "WARN" in statuses or "DRIFT" in statuses or "INCOMPLETE_EXCEPTIONS" in statuses:
         overall = "WARN"
@@ -400,6 +447,38 @@ def run_supervisor_check() -> dict[str, Any]:
             "severity": "medium",
             "action": issue,
         })
+
+    # Monitoring blind spots and stale weekly artifacts
+    monitoring = checks["monitoring_coverage"]
+    monitoring_summary = monitoring.get("summary", {})
+    stale_count = int(monitoring_summary.get("weekly_stale_or_missing_count", 0))
+    no_clock_count = int(monitoring_summary.get("weekly_no_content_clock_count", 0))
+    if monitoring.get("status") == "FINDINGS" and not monitoring_summary:
+        review_queue.append({
+            "source": "monitoring_coverage",
+            "id": "missing_monitoring_report",
+            "severity": "high",
+            "action": monitoring.get("issue", "Monitoring coverage audit failed"),
+        })
+    if stale_count or no_clock_count:
+        review_queue.append({
+            "source": "monitoring_coverage",
+            "id": "weekly_content_freshness",
+            "severity": "high" if stale_count else "medium",
+            "action": f"{stale_count} stale/missing weekly artifact(s); {no_clock_count} without a content clock",
+        })
+    for family in monitoring.get("blind_spot_families", [])[:10]:
+        review_queue.append({
+            "source": "monitoring_coverage",
+            "id": family.get("family", "unknown"),
+            "severity": "medium",
+            "action": f"{family.get('count', 0)} artifact(s) have no registered monitor coverage",
+        })
+
+    # Outcome credit reorders human attention only. It does not affect the
+    # supervisor status, gates, permissions, or authority graph.
+    backward = load_json(BACKWARD_PASS_PATH) or {}
+    review_queue.extend(_outcome_credit_review_items(backward))
 
     return {
         "timestamp": now.isoformat(),

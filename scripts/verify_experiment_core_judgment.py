@@ -39,11 +39,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from _workspace_imports import add_scripts
-
-add_scripts()
-
-from _runtime_io import ROOT, ensure_dir, load_yaml, write_json  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, write_json  # noqa: E402
 
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 AUDIT_MD_PATH = ROOT / "Output" / "system_learning" / "latest" / "experiment_core_judgment_audit.md"
@@ -210,6 +206,8 @@ def _is_expired(marker: dict) -> bool:
     if not expires:
         return True
     try:
+        if "T" not in str(expires):
+            return datetime.now(UTC).date() > datetime.fromisoformat(str(expires)).date()
         return datetime.now(UTC) > datetime.fromisoformat(expires).replace(tzinfo=UTC)
     except (ValueError, TypeError):
         return True
@@ -403,7 +401,8 @@ def write_audit_report(audit_entries: list[dict], violations: list[dict]) -> Non
     ]
 
     for entry in audit_entries:
-        icon = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌"}.get(entry.get("decision"), "?")
+        decision = str(entry.get("decision", ""))
+        icon = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌"}.get(decision, "?")
         lines.append(f"### {icon} `{entry.get('file', '?')}` → `{entry.get('field', '?')}`")
         lines.append(f"- **Source:** `{entry.get('source_module', '?')}`")
         lines.append(f"- **Value:** `{entry.get('value', '?')[:120]}`")
@@ -468,17 +467,15 @@ def main() -> int:
                 print(f"WARN: {len(warns)} bridge-required reference(s):")
                 for v in warns:
                     print(f"  {v['message']}")
-        else:
-            print("OK: All experimental references classified and approved.")
-
         summary = {
             "allow_diagnostic": sum(1 for e in audit_entries if e.get("classification") == "allow_diagnostic"),
             "require_bridge": sum(1 for e in audit_entries if e.get("classification") == "require_bridge"),
             "block": sum(1 for e in audit_entries if e.get("classification") == "block"),
             "unknown": sum(1 for e in audit_entries if e.get("classification") == "unknown"),
         }
-        print(f"\nClassification: {json.dumps(summary)}")
-        print(f"Audit report: {AUDIT_MD_PATH}")
+        if violations:
+            print(f"\nClassification: {json.dumps(summary)}")
+            print(f"Audit report: {AUDIT_MD_PATH}")
 
     # Fail only on unclassified or blocked references
     has_violation = any(

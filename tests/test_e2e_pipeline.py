@@ -53,7 +53,7 @@ class TestPipelineSkeleton:
     def test_authority_graph_builds(self):
         """build_authority_graph.py should produce a valid graph."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS / "build_authority_graph.py")],
+            [sys.executable, str(SCRIPTS / "commands" / "weekly" / "build_authority_graph.py")],
             capture_output=True, text=True, timeout=60, cwd=str(ROOT),
         )
         assert result.returncode == 0, f"authority graph build failed: {result.stderr}"

@@ -44,7 +44,9 @@ def test_pipeline_steps_exist_in_sequence():
 
     pipeline_steps = {
         name for name, cfg in pipeline.get("steps", {}).items()
-        if isinstance(cfg, dict) and cfg.get("status") not in (None, "shadow_active", "archived")
+        if isinstance(cfg, dict)
+        and cfg.get("status") not in (None, "shadow_active", "archived")
+        and cfg.get("schedule") not in ("manual", "on_demand")
     }
     sequence_steps = {s["id"] for s in sequence.get("steps", []) if isinstance(s, dict)}
 

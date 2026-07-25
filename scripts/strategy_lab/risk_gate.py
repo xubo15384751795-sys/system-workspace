@@ -1,4 +1,4 @@
-"""Risk Gate — convert M/D/K/X readings into position sizing.
+"""Risk Gate — convert admitted pressure gauges into position sizing.
 
 System role: NOT direction prediction. It answers "how much should I size?"
 based on structural state.
@@ -180,7 +180,10 @@ def compute_velocity_gate(
     threshold is raised to ``bull_velocity_threshold`` on calm bull days
     (63d mom > 0 and 21d ann. vol < bull_vol_ceiling).
     """
-    velocity = signals.diff(velocity_window)
+    signal_columns = [column for column in signals.columns if pd.api.types.is_numeric_dtype(signals[column])]
+    if not signal_columns:
+        raise ValueError("velocity gate requires at least one numeric pressure gauge")
+    velocity = signals[signal_columns].diff(velocity_window)
     gate = pd.Series(1.0, index=signals.index)
 
     thresholds = pd.Series(float(velocity_threshold), index=signals.index)
@@ -198,10 +201,8 @@ def compute_velocity_gate(
     for i in range(velocity_window, len(signals)):
         vel_row = velocity.iloc[i]
 
-        n_deteriorating = sum(
-            1 for ch in ["M", "D", "K", "X"] if vel_row[ch] > cofire_v
-        )
-        max_vel = max(vel_row["M"], vel_row["D"], vel_row["K"], vel_row["X"])
+        n_deteriorating = sum(1 for ch in signal_columns if vel_row[ch] > cofire_v)
+        max_vel = max(float(vel_row[ch]) for ch in signal_columns)
         day_threshold = float(thresholds.iloc[i])
 
         trigger = False
@@ -225,7 +226,7 @@ def compute_position_series(
     """Compute daily position sizes from a signals DataFrame.
 
     Args:
-        signals: DataFrame with columns M, D, K, X indexed by date.
+        signals: DataFrame of admitted numeric pressure gauges indexed by date.
         mode: "velocity" (default, production) or "regime" (v1 legacy).
         close: optional price series for bull-market modulation.
         **kwargs: passed to the underlying gate function.
@@ -269,7 +270,7 @@ def latest_velocity_gate_state(signals: pd.DataFrame | None = None) -> dict:
     Prefers today's shadow card when present; otherwise computes from signals.
     Does not authorize or block any trade decision.
     """
-    import _runtime_io as rio
+    from scripts import _runtime_io as rio
 
     shadow_path = rio.ROOT / "Output" / "strategy_lab" / "shadow_cards" / "latest.json"
     shadow = rio.load_json(shadow_path) if shadow_path.exists() else None
@@ -285,7 +286,7 @@ def latest_velocity_gate_state(signals: pd.DataFrame | None = None) -> dict:
         if isinstance(velocity_20d, dict):
             n_deteriorating = sum(
                 1
-                for ch in ("M", "D", "K", "X")
+                for ch in velocity_20d
                 if float(velocity_20d.get(ch, 0) or 0) > DEFAULT_COFIRE_V
             )
         return {
@@ -300,7 +301,7 @@ def latest_velocity_gate_state(signals: pd.DataFrame | None = None) -> dict:
         }
 
     if signals is None:
-        from strategy_lab.data_loader import load_signals
+        from scripts.strategy_lab.data_loader import load_signals
 
         signals = load_signals()
     if signals is None or signals.empty:
@@ -322,13 +323,10 @@ def latest_velocity_gate_state(signals: pd.DataFrame | None = None) -> dict:
     as_of_date = str(as_of.date()) if hasattr(as_of, "date") else str(as_of)[:10]
     velocity = signals.diff(DEFAULT_VELOCITY_WINDOW)
     vel_row = velocity.iloc[-1]
-    velocity_20d = {
-        ch: float(vel_row[ch]) if ch in vel_row.index else None
-        for ch in ("M", "D", "K", "X")
-    }
+    velocity_20d = {ch: float(vel_row[ch]) for ch in signals.columns if ch in vel_row.index}
     n_deteriorating = sum(
         1
-        for ch in ("M", "D", "K", "X")
+        for ch in signals.columns
         if ch in vel_row.index and float(vel_row[ch]) > DEFAULT_COFIRE_V
     )
     return {

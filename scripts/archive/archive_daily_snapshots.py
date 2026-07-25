@@ -18,7 +18,7 @@ import argparse
 import json
 import shutil
 
-from _runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 FRAMEWORK_SRC = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"

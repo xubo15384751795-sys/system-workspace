@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from harvester.core.catalog import load_catalog
-from harvester.core.exporter import default_exports_root, finalize_release, list_releases
+from harvester.core.exporter import (
+    default_exports_root,
+    finalize_release,
+    list_releases,
+)
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,18 @@ def run_daily_release(
     resolved_as_of = as_of_date or datetime.now(UTC).date().isoformat()
     resolved_vintage = vintage_date or resolved_as_of
 
+    # Phase 2.1: same-day reuse. If the caller did not explicitly request a
+    # new release_id, and ``latest`` already points to a finalized release
+    # whose as_of_date is today, return ``reused`` without any network calls.
+    # This makes the three nightly schedules (21:30/22:30/07:00) idempotent:
+    # whichever succeeds first, the others short-circuit - immune to Yahoo
+    # rate-limiting from duplicate runs.
+    # NOTE: default release_id is "" (not None); empty means "auto-assign".
+    if not release_id:
+        reused = _check_same_day_reuse(root, resolved_as_of)
+        if reused is not None:
+            return reused
+
     if preflight:
         preflight_result = run_preflight(exports_root=root, providers=providers)
         if not preflight_result.passed:
@@ -141,7 +157,12 @@ def run_daily_release(
             notes=notes,
         )
         finalized = finalize_release(resolved_release_id, exports_root=root, dry_run=False)
-    except Exception as exc:
+    except KeyboardInterrupt:
+        raise
+    except BaseException as exc:
+        # Phase 0.2: catch BaseException (not just Exception) so SystemExit-style
+        # failures also leave a failure report. KeyboardInterrupt is re-raised so
+        # Ctrl-C still interrupts cleanly.
         report = _write_failure_report(root, resolved_release_id, "release_failed", {"error": repr(exc)})
         return {
             "release_id": resolved_release_id,
@@ -231,16 +252,75 @@ def _is_writable_dir(path: Path) -> bool:
     return True
 
 
+def _check_same_day_reuse(exports_root: Path, as_of_date: str) -> dict[str, Any] | None:
+    """Phase 2.1: return a ``reused`` result if ``latest`` already points to a
+    finalized release for ``as_of_date``, else None.
+
+    A release counts as same-day if its catalog's as_of_date (or release_id
+    date prefix) matches today. No network calls are made.
+    """
+    latest = exports_root / "latest"
+    if not (latest.exists() or latest.is_symlink()):
+        return None
+    try:
+        release_dir = latest.resolve()
+        catalog_path = release_dir / "catalog.json"
+        if not catalog_path.exists():
+            return None
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    # Finalized marker must be present.
+    if not (release_dir / ".finalized").exists():
+        return None
+    # Match on as_of_date in catalog, or on release_id date prefix.
+    # Release ids are usually YYYY-MM-DD-rN; older fixtures may use YYYYMMDD-rN.
+    cat_as_of = catalog.get("as_of_date") or ""
+    release_id = catalog.get("release_id") or release_dir.name
+    compact = as_of_date.replace("-", "")
+    same_day = (
+        (cat_as_of and cat_as_of == as_of_date)
+        or release_id.startswith(f"{as_of_date}-r")
+        or release_id.startswith(f"{compact}-r")
+    )
+    if not same_day:
+        return None
+    return {
+        "release_id": release_id,
+        "status": "reused",
+        "reason": "same_day_finalized_release_exists",
+        "release_dir": str(release_dir),
+        "as_of_date": as_of_date,
+    }
+
+
 def _write_failure_report(exports_root: Path, release_id: str, reason: str, detail: dict[str, Any]) -> Path:
+    """Write a failure report; never raise (Phase 0.2).
+
+    If the report file itself cannot be written, the payload is printed to
+    stderr so the failure is still visible (rather than swallowed, which was
+    the six-day "why is there no failure report" root cause).
+    """
     path = exports_root / ".failures" / f"{release_id}.{reason}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "release_id": release_id,
         "reason": reason,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         **detail,
     }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError:
+        # Report-writing failure must not mask the original error. Print to
+        # stderr so the operator at least sees the failure payload.
+        import sys as _sys
+
+        print(
+            f"[harvester] FAILED to write failure report to {path}; payload:\n"
+            + json.dumps(payload, indent=2, sort_keys=True),
+            file=_sys.stderr,
+        )
     return path
 
 

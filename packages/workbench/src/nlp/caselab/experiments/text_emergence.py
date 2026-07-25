@@ -10,6 +10,8 @@ rather than being pre-defined (like S-A-L-V-P-tau).
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import re
 from collections import Counter, defaultdict
@@ -19,7 +21,7 @@ from typing import Any
 
 import numpy as np
 
-OUTPUT_DIR = Path(__file__).resolve().parents[6] / "Data" / "nlp" / "caselab_experiments"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_experiments"
 
 # Structural concept seeds — used to anchor emergence, not constrain it.
 # These are broad enough to let patterns emerge within and across them.

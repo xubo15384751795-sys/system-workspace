@@ -20,7 +20,7 @@ from system_learning.guards.audit import (
 )
 from system_learning.guards.registry import Entity, Registry
 
-SYSTEM_ROOT = Path(__file__).resolve().parents[2]
+SYSTEM_ROOT = Path(__file__).resolve().parents[3]
 REGISTRY_PATH = SYSTEM_ROOT / DEFAULT_REGISTRY_RELPATH
 
 
@@ -106,9 +106,12 @@ def test_seeded_registry_is_internally_consistent(registry: Registry):
     assert findings == [], f"registry integrity findings: {findings}"
 
 
-def test_full_audit_on_clean_corpus_passes():
+def test_full_audit_on_clean_corpus_passes(tmp_path: Path):
+    framework_output = tmp_path / "Output" / "current" / "framework_output.json"
+    framework_output.parent.mkdir(parents=True)
+    framework_output.write_text("{}\n", encoding="utf-8")
     report = run_governance_audit(
-        SYSTEM_ROOT,
+        tmp_path,
         registry_path=REGISTRY_PATH,
         daily_corpus="Dominant: K. Continue observation. No contaminated signals cited.",
         now=datetime.now(UTC),

@@ -37,22 +37,22 @@ canonical_zscore_v1(series, freq="daily") → (z_score: pd.Series, metadata: dic
 def canonical_zscore_v1(series, freq="daily"):
     WINDOW_MAP = {"daily": (252, 126), "weekly": (52, 26), "monthly": (12, 6), "quarterly": (20, 8)}
     window, min_periods = WINDOW_MAP[freq]
-    
+
     # 1. Winsorize raw values at ±3σ of rolling window
     mu_raw = series.rolling(window=window, min_periods=min_periods).mean()
     sigma_raw = series.rolling(window=window, min_periods=min_periods).std(ddof=0)
     lo = mu_raw - 3 * sigma_raw
     hi = mu_raw + 3 * sigma_raw
     winsorized = series.clip(lo, hi)
-    
+
     # 2. Compute z-score on winsorized series
     mu = winsorized.rolling(window=window, min_periods=min_periods).mean()
     sigma = winsorized.rolling(window=window, min_periods=min_periods).std(ddof=0).replace(0, np.nan)
     z = (winsorized - mu) / sigma
-    
+
     # 3. Clip extreme values
     z = z.clip(-4, 4)
-    
+
     # 4. Metadata
     metadata = {
         "method": "canonical_zscore_v1",
@@ -64,7 +64,7 @@ def canonical_zscore_v1(series, freq="daily"):
         "lookahead_safe": True,
         "valid_observations": z.notna().sum(),
     }
-    
+
     return z, metadata
 ```
 

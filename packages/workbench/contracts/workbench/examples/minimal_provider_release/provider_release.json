@@ -1,0 +1,31 @@
+{
+  "schema_version": "workbench.data_provider_release.v1",
+  "provider_id": "minimal_provider",
+  "release_id": "20260504T120000Z",
+  "created_at": "2026-05-04T12:00:00Z",
+  "status": "finalized",
+  "artifacts": [
+    {
+      "path": "data/evidence_panel.csv",
+      "role": "evidence_panel",
+      "format": "csv",
+      "sha256": "example_sha256_not_for_integrity_tests",
+      "row_count": 2
+    },
+    {
+      "path": "source_registry.json",
+      "role": "source_registry",
+      "format": "json",
+      "sha256": "example_sha256_not_for_integrity_tests"
+    },
+    {
+      "path": "provenance.jsonl",
+      "role": "provenance",
+      "format": "jsonl",
+      "sha256": "example_sha256_not_for_integrity_tests"
+    }
+  ],
+  "provider_payload": {
+    "example": true
+  }
+}

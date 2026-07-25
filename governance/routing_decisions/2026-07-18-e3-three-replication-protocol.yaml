@@ -1,0 +1,44 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-18"
+task_id: e3-three-replication-protocol
+status: FROZEN
+amends: /Users/a1/System/governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+mission: >
+  Clarify the previously underspecified lead-time comparison before the
+  scheduled three-run E3 replication. This record does not alter the frozen
+  event, features, sample split, embargo, or operational authority.
+scope:
+  event: E3_funding
+  mode: research_shadow
+  operational_promotion: prohibited
+fixed_design:
+  event_formula: "max(SOFR-IORB over next 20d) >= causal q95; pre-2018 EFFR-IOER splice"
+  horizon_days: 20
+  embargo_days: 20
+  bootstrap_reps_per_run: 500
+  bootstrap_seeds: [1729, 20260718, 8675309]
+clarification:
+  reason: >
+    The parent preregistration requires lead_time no worse than funding-only
+    but does not name a scalar. The already implemented lead_profile reports
+    fixed offsets [20, 10, 5, 0]. The earliest frozen offset is therefore the
+    adjudication scalar; no offset is selected after replication results.
+  lead_time_rule: "framework_full lead_profile.t_minus_20 >= funding_only lead_profile.t_minus_20"
+per_run_pass:
+  - "event status is ok"
+  - "holdout delta PR-AUC > 0"
+  - "Diebold-Mariano p-value < 0.05"
+  - "lead_time_rule passes"
+overall_verdict:
+  ALIVE_NARROW: "all three runs pass every per-run condition"
+  DEAD_NEGATIVE: "one or more runs fail a condition"
+failure_handling: >
+  Preserve positive component results, but write the E3 chapter as a negative
+  overall conclusion. Do not retune the event label, offset, or candidate.
+known_diagnostic: >
+  Event prevalence is reported in every replication because a forward
+  20-day maximum against a pointwise q95 threshold may produce a common,
+  rather than rare, label. This is a failure-domain disclosure.
+artifacts:
+  runner: /Users/a1/System/scripts/run_e3_three_replication.py
+  verdict: /Users/a1/System/Output/validation/e3_three_replication/verdict.json

@@ -28,10 +28,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - uses: pre-commit/action@v3.0.1
+        env:
+          PYTHONPATH: ".:scripts"
+      - name: PACE routing decision
+        env:
+          PACE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python -m scripts.commands.ci.check_pace_routing --base-ref "$PACE_BASE_SHA"
 
   lint:
     runs-on: ubuntu-latest
@@ -77,6 +85,7 @@ jobs:
       - name: Install Workbench
         run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/workbench[dev]"
       - name: Run Workbench tests
         working-directory: packages/workbench
@@ -95,6 +104,7 @@ jobs:
       - name: Install deformation-framework
         run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/framework[dev]"
       - name: Run deformation-framework tests
         working-directory: packages/framework
@@ -113,6 +123,7 @@ jobs:
       - name: Install harvester
         run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/harvester[dev]"
       - name: Run harvester tests
         working-directory: packages/harvester
@@ -131,6 +142,7 @@ jobs:
       - name: Install learning-hub
         run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/learning_hub[dev]"
       - name: Run learning-hub tests
         working-directory: packages/learning_hub
@@ -156,7 +168,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install pydantic
+          pip install -e ".[dev]"
+          pip install -e "packages/framework[dev]"
+          pip install -e "packages/harvester[dev]"
           pip install -e "packages/workbench[dev]"
           pip install -e "packages/learning_hub[dev]"
       - name: Root contract tests
@@ -165,15 +179,15 @@ jobs:
             --ignore=tests/test_backfill_judgment_calibration.py \
             --ignore=tests/test_mechanism_tiers.py
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Architecture boundary audit
-        run: python scripts/architecture_reality_audit.py --json
+        run: python scripts/commands/weekly/architecture_reality_audit.py --json
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Daily pipeline dry-run
         run: python scripts/daily_run.py --dry-run
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Schema validation
         run: |
           python -c "
@@ -218,20 +232,65 @@ jobs:
           print('All schema validations passed.')
           "
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Entrypoint registry completeness
         run: python -m pytest tests/test_entrypoint_registry_completeness.py::test_registry_paths_exist -q --tb=short
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Experiment → core judgment check
         run: python scripts/verify_experiment_core_judgment.py
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Output freshness check
         run: python scripts/check_output_freshness.py
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
-      - name: Type check
-        run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
+      - name: Governance boundary type check
+        run: >-
+          python -m mypy
+          scripts/check_governance_freeze.py
+          scripts/_deformation_archive_guard.py
+          scripts/verify_experiment_core_judgment.py
+          --follow-imports=skip
+          --ignore-missing-imports
+          --no-error-summary
         env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
+
+  # ── Layer 3: Single authoritative merge-gate (Phase C4) ─────────────────
+  #
+  # This is the ONE required status for branch protection. It needs every
+  # upstream job; only when all pass does merge-gate pass. No job on this
+  # required path uses continue-on-error or `|| true`. Focused/marker-subset
+  # tests in `integration` are dev feedback; merge-gate treats any failure as
+  # a merge block. Configure branch protection to require ONLY `merge-gate`.
+  merge-gate:
+    needs: [pre-commit, lint, workbench, deformation, harvester, hub, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "**/pyproject.toml"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e ".[dev]"
+          pip install -e "packages/framework[dev]"
+          pip install -e "packages/harvester[dev]"
+          pip install -e "packages/workbench[dev]"
+          pip install -e "packages/learning_hub[dev]"
+      - name: Merge gate (full verification, SHA-bound manifest)
+        run: python scripts/verify_merge.py --merge
+        env:
+          PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
+      - name: Upload verification manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-gate-manifest
+          path: Output/verification/merge_gate_manifest.json
+          if-no-files-found: warn

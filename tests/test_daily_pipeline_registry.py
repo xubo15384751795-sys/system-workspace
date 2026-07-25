@@ -110,12 +110,12 @@ def test_all_steps_have_failure_behavior() -> None:
 
 
 def test_registry_schema_version() -> None:
-    """Registry must use v2 schema with enriched fields."""
+    """Registry must use the compiled v3 schema."""
     import yaml
     path = ROOT / "governance" / "daily_pipeline_registry.yaml"
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert data.get("schema_version") == "daily_pipeline_registry.v2", (
-        f"Expected schema_version v2, got {data.get('schema_version')}"
+    assert data.get("schema_version") == "daily_pipeline_registry.v3", (
+        f"Expected schema_version v3, got {data.get('schema_version')}"
     )
 
 

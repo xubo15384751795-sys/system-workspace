@@ -14,8 +14,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SYSTEM_ROOT = ROOT.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from src.core.execution import RunContext
 from src.runtime.assembly import build_system

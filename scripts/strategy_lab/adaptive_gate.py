@@ -16,7 +16,7 @@ This gate uses:
   4. A floor to prevent complete cash-out except in true crises
 
 Usage:
-    from strategy_lab.adaptive_gate import compute_adaptive_positions
+    from scripts.strategy_lab.adaptive_gate import compute_adaptive_positions
 """
 from __future__ import annotations
 
@@ -131,8 +131,8 @@ def sweep_adaptive(
     lookback: int = 63,
 ) -> list[dict]:
     """Sweep adaptive gate parameters."""
-    from strategy_lab.backtest import compute_metrics
-    from strategy_lab.strategies import compute_baseline_position
+    from scripts.strategy_lab.backtest import compute_metrics
+    from scripts.strategy_lab.strategies import compute_baseline_position
 
     daily_returns = data["return_1d"]
     baseline_pos = compute_baseline_position(data["close"], lookback=lookback)

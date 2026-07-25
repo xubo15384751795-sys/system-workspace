@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from _runtime_io import ROOT, load_yaml
+from scripts._runtime_io import ROOT, load_yaml
 
 GATE_PATH = ROOT / "governance" / "mechanism_calibration_gate.yaml"
 

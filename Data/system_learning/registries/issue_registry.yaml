@@ -1,0 +1,67 @@
+schema_version: learning_hub.issue_registry.v1
+description: >
+  Canonical taxonomy of governance issue families. Severity defaults, hard-gate
+  status, recurrence windows, and recommended remediations are encoded here so
+  that ledgers, summaries, and routing rules share a single source of truth.
+
+issue_families:
+
+  boundary_violation:
+    severity_default: critical
+    hard_gate: true
+    recurrence_window_days: 30
+    recommended_actions:
+      - Clarify the violated boundary in ROUTING_CONSTITUTION.md or the relevant subsystem README.
+      - Add a policy hook that denies the offending tool path.
+      - Add a verification check (lint, audit, or test) that fails when the boundary is crossed.
+
+  architecture_drift:
+    severity_default: warning
+    hard_gate: false
+    recurrence_window_days: 30
+    recommended_actions:
+      - Review whether the code belongs in its current layer.
+      - Move code to the owning subsystem or record an approved routing exception.
+      - Add a cartography regression check for the resolved path.
+
+  provider_health_issue:
+    severity_default: warning
+    hard_gate: false
+    recurrence_window_days: 14
+    recommended_actions:
+      - Add retry with bounded backoff on the provider client.
+      - Add a provider-health probe to the Sandbox layer.
+      - Record fallback provenance when a degraded provider is used.
+
+  benchmark_error:
+    severity_default: high
+    hard_gate: false
+    recurrence_window_days: 30
+    recommended_actions:
+      - Include a simple baseline (SPY-only or 60/40) in the benchmark report.
+      - Run an out-of-sample window before promotion.
+      - State explicit transaction-cost assumptions in the benchmark report.
+
+  ui_governance_issue:
+    severity_default: high
+    hard_gate: false
+    recurrence_window_days: 30
+    recommended_actions:
+      - Confirm UI surface only renders artifacts present in the run package manifest.
+      - Add a UI smoke check that fails if an artifact is missing.
+
+  claim_overreach:
+    severity_default: medium
+    hard_gate: true
+    recurrence_window_days: 60
+    recommended_actions:
+      - Tighten the wording in wiki/papers to match `wiki/claims/claim_registry.md`.
+      - Require manual claim_guardian approval before re-publishing.
+
+  missing_required_artifact:
+    severity_default: warning
+    hard_gate: false
+    recurrence_window_days: 30
+    recommended_actions:
+      - Update the producing runner to emit the missing artifact.
+      - Add a post-run check that fails when the artifact is absent.

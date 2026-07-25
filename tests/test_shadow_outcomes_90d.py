@@ -4,15 +4,15 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
-from strategy_lab.shadow_card import (
+from scripts.strategy_lab.shadow_card import (
     build_90d_outcomes_summary,
     save_90d_outcomes_summary,
 )
 
 
 def test_build_90d_outcomes_summary_counts_evaluations(tmp_path, monkeypatch) -> None:
-    import _runtime_io as rio
-    from strategy_lab import shadow_card as sc
+    from scripts import _runtime_io as rio
+    from scripts.strategy_lab import shadow_card as sc
 
     out_dir = tmp_path / "Output" / "strategy_lab" / "shadow_cards"
     out_dir.mkdir(parents=True)

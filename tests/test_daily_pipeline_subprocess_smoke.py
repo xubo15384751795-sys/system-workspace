@@ -4,8 +4,8 @@ These tests verify the minimum viable pipeline chain can be invoked:
 
   structural_replay → bridge → quality_validation → judgment_layer →
   judgment_promotion_gate → trade_decision → risk_gate →
-  build_system_index → build_readme_first → freshness_validator →
-  architecture_reality_audit
+  freshness_validator → architecture_reality_audit →
+  build_system_index → build_readme_first
 
 Strategy:
   - Scripts that support argparse get ``--help`` (exit 0, no side effects).
@@ -38,10 +38,10 @@ MAIN_CHAIN = [
     "judgment_promotion_gate",
     "trade_decision",
     "risk_gate",
-    "system_index",
-    "readme_first",
     "freshness_validator",
     "architecture_reality_audit",
+    "system_index",
+    "readme_first",
 ]
 
 # Scripts that support --help (have argparse)
@@ -52,9 +52,9 @@ ARGPARSE_SCRIPTS = {
     "trade_decision": "scripts/trade_decision_layer.py",
     "risk_gate": "scripts/trade_risk_gate.py",
     "system_index": "scripts/build_system_index.py",
-    "readme_first": "scripts/build_readme_first.py",
+    "readme_first": "scripts/commands/weekly/build_readme_first.py",
     "freshness_validator": "scripts/freshness_validator.py",
-    "architecture_reality_audit": "scripts/architecture_reality_audit.py",
+    "architecture_reality_audit": "scripts/commands/weekly/architecture_reality_audit.py",
 }
 
 # Scripts without argparse — just check existence + main()

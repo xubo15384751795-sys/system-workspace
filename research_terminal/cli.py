@@ -10,11 +10,6 @@ Usage:
 
 import argparse
 import json
-import sys
-from pathlib import Path
-
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from research_terminal.data.router import DataRouter
 from research_terminal.strategies.engine import QuickBacktest
@@ -49,29 +44,29 @@ def main():
         "--themes", default="[]",
         help='JSON array of themes: ["AI CapEx","Cloud","Data Center"]'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Parse signals and themes
     try:
         signals = json.loads(args.signals)
     except json.JSONDecodeError:
         signals = []
-    
+
     try:
         themes = json.loads(args.themes)
     except json.JSONDecodeError:
         themes = []
-    
+
     print("=" * 60)
     print(f"Hermes Research Terminal - {args.symbol}")
     print("=" * 60)
-    
+
     # Generate report
     print(f"\n[1/3] Fetching {args.symbol} data...")
     print(f"[2/3] Running backtests vs {args.benchmark}...")
     print(f"[3/3] Generating report...")
-    
+
     try:
         output_path = generate_terminal_report(
             symbol=args.symbol,
@@ -81,11 +76,11 @@ def main():
             signals=signals,
             themes=themes,
         )
-        
+
         print(f"\n✅ Report generated: {output_path}")
         print(f"\nOpen in browser:")
         print(f"  open {output_path}")
-        
+
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)

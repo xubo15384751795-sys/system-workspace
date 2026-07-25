@@ -1,0 +1,71 @@
+# ETF Universe Configuration
+# Used by: cross_asset_daily_panel, Backtest Pipeline, K v2
+
+equity:
+  - SPY
+  - QQQ
+  - IWM
+  - DIA
+  - VTI
+
+sector:
+  - XLK
+  - XLF
+  - XLE
+  - XLI
+  - XLY
+  - XLP
+  - XLV
+  - XLU
+  - XLB
+  - XLRE
+  - XLC
+
+credit:
+  - HYG
+  - JNK
+  - LQD
+  - AGG
+  - BND
+
+rates:
+  - TLT
+  - IEF
+  - SHY
+  - TIP
+
+dollar_commodity:
+  - UUP
+  - GLD
+  - SLV
+  - USO
+  - DBC
+
+thematic:
+  - SMH
+  - KRE
+  - KBE
+
+# Derived features reference these pairs
+cross_asset_pairs:
+  - name: SPY_minus_TLT
+    long: SPY
+    short: TLT
+  - name: HYG_minus_TLT
+    long: HYG
+    short: TLT
+  - name: HYG_minus_LQD
+    long: HYG
+    short: LQD
+  - name: SLV_minus_GLD
+    long: SLV
+    short: GLD
+  - name: QQQ_minus_SPY
+    long: QQQ
+    short: SPY
+  - name: KRE_minus_XLF
+    long: KRE
+    short: XLF
+  - name: XLF_minus_SPY
+    long: XLF
+    short: SPY

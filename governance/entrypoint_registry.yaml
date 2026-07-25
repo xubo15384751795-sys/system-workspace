@@ -37,27 +37,45 @@ system_status:
   - status_check
 structural_replay_v2:
   script: scripts/structural_replay_v2.py
-  status: compatibility_wrapper
+  status: archived_falsified
   owner: Deformation Framework
   target_location: packages/framework/scripts/
   allowed_use:
   - legacy_replay
-  - current_bridge_until_replacement
+  forbidden_use:
+  - current_output_generation
+  - core_judgment
+  - promotion
   replacement:
   - scripts/daily_run.py
   retire_after: '2026-07-15'
 bridge_replay_to_current:
   script: scripts/bridge_replay_to_current.py
-  status: compatibility_wrapper
+  status: archived_falsified
   owner: Workbench
   target_location: packages/workbench/scripts/
   allowed_use:
-  - replay_to_current_bridge
+  - historical_reproduction_only
+  forbidden_use:
+  - current_output_generation
+  - core_judgment
+  - promotion
   replacement:
   - scripts/refresh_output_current.py
   retire_after: '2026-07-15'
+neutral_pressure_measurement:
+  script: scripts/neutral_pressure_measurement.py
+  status: active
+  owner: Workbench
+  description: Neutral funding-mismatch and market-constraint gauges; no Deformation theory authority
+  allowed_use:
+  - bounded_pressure_measurement
+  - current_output_generation
+  forbidden_use:
+  - universal_market_prediction
+  - structural_morphology_claim
 learning_hub_comprehensive_summary:
-  script: scripts/learning_hub_comprehensive_summary.py
+  script: scripts/commands/weekly/learning_hub_comprehensive_summary.py
   status: active
   owner: Learning Hub
   target_location: packages/learning_hub/scripts/
@@ -214,7 +232,7 @@ signal_monitor:
   - signal_validation
   - prediction_monitoring
 claim_evaluator:
-  script: scripts/claim_evaluator.py
+  script: scripts/commands/weekly/claim_evaluator.py
   status: active
   owner: Learning Hub
   description: Evaluate past claims against current market data
@@ -305,14 +323,14 @@ freshness_validator:
   allowed_use:
   - freshness_validation
 architecture_reality_audit:
-  script: scripts/architecture_reality_audit.py
+  script: scripts/commands/weekly/architecture_reality_audit.py
   status: active
   owner: Learning Hub
   allowed_use:
   - architecture_reality_audit
   - governance_drift_detection
 proxy_quality_scorer:
-  script: scripts/build_proxy_quality_report.py
+  script: scripts/commands/weekly/build_proxy_quality_report.py
   status: active
   owner: Deformation Framework
   allowed_use:
@@ -350,7 +368,7 @@ build_system_index:
   allowed_use:
   - system_index_generation
 build_readme_first:
-  script: scripts/build_readme_first.py
+  script: scripts/commands/weekly/build_readme_first.py
   status: active
   owner: Workbench
   description: Build 00_READ_ME_FIRST.md from system index
@@ -378,14 +396,14 @@ market_feedback:
   allowed_use:
   - market_feedback_diagnostics
 operator_registry_audit:
-  script: scripts/operator_registry_audit.py
+  script: scripts/commands/weekly/operator_registry_audit.py
   status: active
   owner: Governance
   description: Audit operator registry completeness
   allowed_use:
   - governance_audit
 judgment_replay_audit:
-  script: scripts/judgment_replay_audit.py
+  script: scripts/commands/weekly/judgment_replay_audit.py
   status: active
   owner: Governance
   description: Audit judgment replay consistency
@@ -399,7 +417,7 @@ sync_paper_world_model:
   allowed_use:
   - paper_model_sync
 export_feedback_to_paper:
-  script: scripts/export_feedback_to_paper.py
+  script: scripts/commands/weekly/export_feedback_to_paper.py
   status: active
   owner: CaseLab Context
   description: Export System feedback drafts to Paper review inbox
@@ -455,7 +473,7 @@ build_current_status:
   - current_readout
   - status_snapshot
 build_next_actions:
-  script: scripts/build_next_actions.py
+  script: scripts/commands/weekly/build_next_actions.py
   status: active
   owner: Workbench
   description: Build NEXT_ACTIONS.md from promotion gate and Hub improvement ledger
@@ -469,7 +487,7 @@ refresh_improvement_queue_report:
   allowed_use:
   - learning_hub_reporting
 build_evidence_grade_report:
-  script: scripts/build_evidence_grade_report.py
+  script: scripts/commands/weekly/build_evidence_grade_report.py
   status: active
   owner: Workbench
   description: Build structured evidence grade report with contributor details, blockers, and upgrade path
@@ -478,7 +496,7 @@ build_evidence_grade_report:
   - freshness_reporting
   - paper_support_status
 build_artifact_registry:
-  script: scripts/build_artifact_registry.py
+  script: scripts/commands/weekly/build_artifact_registry.py
   status: active
   owner: Workbench
   description: Build Output/current artifact registry from governance routing policy
@@ -495,7 +513,7 @@ record_daily_run_event:
   - run_event_recording
   - recurrence_detection
 walk_forward_validation:
-  script: scripts/weekly_walk_forward_validation.py
+  script: scripts/commands/weekly/weekly_walk_forward_validation.py
   status: active
   schedule: weekly
   owner: ML Signals
@@ -513,7 +531,7 @@ build_shadow_outcomes_90d:
   - validation_only
   can_affect_core_judgment: false
 trade_decision_replay:
-  script: scripts/trade_decision_replay.py
+  script: scripts/commands/weekly/trade_decision_replay.py
   status: active
   owner: Learning Hub
   description: Calibrate ledger decisions vs SPY/HYG/TLT forward windows; WATCH/NO_TRADE as counterfactuals
@@ -521,7 +539,7 @@ trade_decision_replay:
   - decision_replay
   - calibration
 build_qlib_structural_bridge:
-  script: scripts/build_qlib_structural_bridge.py
+  script: scripts/commands/weekly/build_qlib_structural_bridge.py
   status: active
   schedule: weekly
   owner: Strategy Lab
@@ -530,7 +548,7 @@ build_qlib_structural_bridge:
   - validation_only
   can_affect_core_judgment: false
 build_measurement_quality_report:
-  script: scripts/build_measurement_quality_report.py
+  script: scripts/commands/weekly/build_measurement_quality_report.py
   status: active
   owner: Harvester
   description: K/X measurement quality sidecar from gate validation
@@ -543,13 +561,6 @@ promotion_gate:
   owner: Governance
   description: Moved to archive 2026-06-20 — replaced by judgment_promotion_gate.py
   allowed_use: []
-_workspace_imports:
-  script: scripts/_workspace_imports.py
-  status: tool_active
-  owner: Governance
-  description: Centralized sys.path management — replaces ad-hoc sys.path.insert across scripts
-  allowed_use:
-  - path_management
 apply_data_retention_policy:
   script: scripts/apply_data_retention_policy.py
   status: active
@@ -565,7 +576,7 @@ apply_output_routing_policy:
   allowed_use:
   - output_routing_enforcement
 build_data_gaps:
-  script: scripts/build_data_gaps.py
+  script: scripts/commands/weekly/build_data_gaps.py
   status: active
   owner: Governance
   description: Extract unmet data needs from judgment artifacts — produce Harvester request candidates
@@ -600,7 +611,7 @@ run_supervisor_check:
   allowed_use:
   - supervisor_check
 build_authority_graph:
-  script: scripts/build_authority_graph.py
+  script: scripts/commands/weekly/build_authority_graph.py
   status: governance_active
   owner: Learning Hub
   description: Derive authority graph from pipeline topology
@@ -615,7 +626,7 @@ build_entrypoint_registry:
   allowed_use:
   - entrypoint_registry_generation
 governance_status:
-  script: scripts/governance_status.py
+  script: scripts/commands/weekly/governance_status.py
   status: active
   owner: Learning Hub
   description: Visible governance status for latest run trace, gates, exceptions, and incentive tier
@@ -665,7 +676,7 @@ install_daily_run_launchd:
   allowed_use:
   - pipeline_scheduling
 claim_ladder_tracker:
-  script: scripts/claim_ladder_tracker.py
+  script: scripts/commands/weekly/claim_ladder_tracker.py
   status: active
   owner: Learning Hub
   description: Cross-run claim ladder progression — evaluates M/D persistence, CaseLab improvement, HMM conflict, invalidation
@@ -757,7 +768,7 @@ archive_daily_snapshots:
   allowed_use:
   - daily_archive
 backfill_judgment_calibration:
-  script: scripts/backfill_judgment_calibration.py
+  script: scripts/commands/weekly/backfill_judgment_calibration.py
   status: active
   owner: Learning Hub
   description: Backfill judgment calibration data from historical runs
@@ -785,7 +796,7 @@ promote_paper_inbox:
   allowed_use:
   - paper_promotion
 change_analysis:
-  script: scripts/build_change_analysis.py
+  script: scripts/commands/weekly/build_change_analysis.py
   status: active
   owner: Workbench
   description: Build change analysis comparing current vs previous run
@@ -850,7 +861,7 @@ promote_context_reviews:
   description: Moved to archive 2026-06-20
   allowed_use: []
 build_learning_hub_feedback:
-  script: scripts/build_learning_hub_feedback.py
+  script: scripts/commands/weekly/build_learning_hub_feedback.py
   status: active
   owner: Learning Hub
   description: Summarize claim ladder and CaseLab review results for Learning Hub
@@ -942,7 +953,7 @@ _proxy_aggregation:
   - shared_utility
   - proxy_aggregation
 build_feedback_sample_pool:
-  script: scripts/build_feedback_sample_pool.py
+  script: scripts/commands/weekly/build_feedback_sample_pool.py
   status: active
   owner: Learning Hub
   description: Build feedback sample pool from event replay windows
@@ -995,7 +1006,7 @@ check_output_freshness:
   allowed_use:
   - freshness_check
 evaluate_feedback_samples:
-  script: scripts/evaluate_feedback_samples.py
+  script: scripts/commands/weekly/evaluate_feedback_samples.py
   status: active
   owner: Learning Hub
   description: Weekly forward-outcome evaluation for feedback sample pool
@@ -1073,21 +1084,21 @@ judgment_accuracy_report:
   allowed_use:
   - calibration_report
 asof_integrity_checker:
-  script: scripts/asof_integrity_checker.py
+  script: scripts/commands/weekly/asof_integrity_checker.py
   status: active
   owner: Framework
   description: Check as-of date integrity in calibration outputs
   allowed_use:
   - data_integrity
 baseline_comparison:
-  script: scripts/baseline_comparison.py
+  script: scripts/commands/weekly/baseline_comparison.py
   status: active
   owner: Framework
   description: Compare system judgment against naive baselines
   allowed_use:
   - baseline_validation
 threshold_review_bridge:
-  script: scripts/threshold_review_bridge.py
+  script: scripts/commands/weekly/threshold_review_bridge.py
   status: active
   owner: Framework
   description: Bridge threshold review candidates from claim evaluation to actionable reports
@@ -1100,3 +1111,76 @@ build_governance_drag_report:
   description: Compute governance overhead metrics
   allowed_use:
   - governance_audit
+artifact_monitoring_audit:
+  script: scripts/artifact_monitoring_audit.py
+  status: governance_active
+  owner: Governance
+  description: Verify that authoritative artifacts have monitoring coverage
+  allowed_use:
+  - governance_audit
+backward_pass:
+  script: scripts/commands/weekly/backward_pass.py
+  status: experimental
+  owner: Learning Hub
+  description: Replay evaluated decision traces into non-authoritative credit evidence
+  allowed_use:
+  - shadow_credit_evidence
+  forbidden_use:
+  - authority_granting
+  - canonical_decision_generation
+build_paper_figures:
+  script: scripts/build_paper_figures.py
+  status: experimental
+  owner: Research
+  description: Render preregistered research figures without promotion authority
+  allowed_use:
+  - research_figure_generation
+run_e3_three_replication:
+  script: scripts/run_e3_three_replication.py
+  status: experimental
+  owner: Research
+  description: Execute the preregistered three-replication E3 protocol
+  allowed_use:
+  - preregistered_replication
+check_pace_routing:
+  script: scripts/commands/ci/check_pace_routing.py
+  status: governance_active
+  owner: Governance
+  description: Enforce PACE routing declarations for staged changes
+  allowed_use:
+  - commit_routing_validation
+run_learning_hub_ingest:
+  script: scripts/run_learning_hub_ingest.py
+  status: tool_active
+  owner: Learning Hub
+  description: Ingest governed runtime events into Learning Hub ledgers
+  allowed_use:
+  - weekly_pipeline
+  - manual_ingest
+verify_control_closure:
+  script: scripts/verify_control_closure.py
+  status: governance_active
+  owner: Governance
+  description: Inject control failures and verify authoritative side effects remain closed
+  allowed_use:
+  - governance_acceptance
+verify_merge:
+  script: scripts/verify_merge.py
+  status: governance_active
+  owner: Governance
+  description: Run merge-readiness verification
+  allowed_use:
+  - merge_verification
+daily_routing_decision:
+  script: scripts/archive/daily_routing_decision.py
+  status: archived
+  owner: Learning Hub
+  description: Historical routing decision command; implementation removed
+  allowed_use: []
+strategy_lab_run_backtest:
+  script: scripts/strategy_lab/run_backtest.py
+  status: shadow_active
+  owner: Strategy Lab
+  description: Registered Strategy Lab shadow backtest entrypoint
+  allowed_use:
+  - shadow_research

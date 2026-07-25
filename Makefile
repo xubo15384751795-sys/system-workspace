@@ -30,7 +30,7 @@ test-verbose:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -v
 
 audit:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/architecture_reality_audit.py --json
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/commands/weekly/architecture_reality_audit.py --json
 
 freshness:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/freshness_validator.py

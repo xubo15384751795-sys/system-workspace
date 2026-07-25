@@ -1,0 +1,31 @@
+{
+  "schema_version": "workbench.model_run.v1",
+  "model_id": "minimal_framework",
+  "producer": "Minimal Framework Example",
+  "run_id": "2026-05-04_EXAMPLE",
+  "run_date": "2026-05-04",
+  "generated_at": "2026-05-04T12:00:00Z",
+  "status": "success",
+  "input_bundle": "20260504T120000Z",
+  "artifacts": {
+    "summary": {
+      "path": "reports/summary.md",
+      "kind": "markdown",
+      "description": "Human-readable summary."
+    },
+    "html_report": {
+      "path": "reports/report.html",
+      "kind": "html",
+      "description": "Open-first report."
+    },
+    "dashboard_snapshot": {
+      "path": "reports/dashboard_snapshot.json",
+      "kind": "json",
+      "description": "Machine-readable dashboard snapshot."
+    }
+  },
+  "framework_payload": {
+    "example_signal": "stable",
+    "notes": "Framework-specific semantics stay here."
+  }
+}

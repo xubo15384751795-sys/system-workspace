@@ -1,0 +1,3 @@
+date,series_id,source_id,source_series_id,value,unit,frequency,vintage_date,quality_flag
+2026-04-23,VIXCLS,fred,VIXCLS,19.31,index,business_daily,2026-04-26,observed
+2026-04-17,NFCI,fred_chicago_fed,NFCI,-0.497,index,weekly,2026-04-26,observed

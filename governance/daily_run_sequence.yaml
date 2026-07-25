@@ -1,183 +1,113 @@
-schema_version: daily_run_sequence.v1
-updated_at: "2026-07-11"
-purpose: >
-  Authoritative ordered step list for scripts/daily_run.py.
-  daily_run loads this file for dry-run output, step counts, and schedule hints.
-  Rebalanced 2026-06-19: signal chain first, governance/reporting deferred.
-  Slimmed 2026-06-20: moved 13 validation/reporting steps daily→weekly (25 daily, 30 weekly).
-  Slimmed 2026-07-03: moved 9 sidecar/reporting steps daily→weekly (25 daily, 46 weekly).
-  Restored 2026-07-11: refresh_cross_asset_panel weekly→daily (26 daily, 45 weekly).
-  Restored 2026-07-11b: strategy_lab_shadow, shadow_outcomes_90d, evaluate_pending → daily (29 daily, 42 weekly).
-  Added 2026-07-11c: paper_portfolio after record_trade_decision (30 daily).
-  Updated 2026-07-11d: paper_portfolio scales by trade_decision effective_size; paper_sync TTL heartbeat.
-
+schema_version: daily_run_sequence.generated.v2
+generated_from: governance/daily_pipeline_registry.yaml
 steps:
-  # ── DATA ACQUISITION ──────────────────────────────────────────────
-  - id: harvester
-    skip_flag: skip_harvester
-  - id: etf_refresh
-    skip_flag: skip_etf
-  - id: paper_sync
-  - id: caselab_index
-  - id: build_policy_from_paper
-    schedule: weekly
-    description: Agent policy from Paper rules — batch, not same-day judgment
-
-  # ── CORE SIGNAL CHAIN ─────────────────────────────────────────────
-  - id: structural_replay
-    description: Current M/D/K/X measurement from Harvester panel (name is historical artifact)
-  - id: bridge
-  - id: run_operator_detections
-    schedule: weekly
-    description: Mechanism operator activations (research-only, no core judgment)
-  - id: validate_proxy_observation_catalog
-    schedule: weekly
-    description: Verify proxy catalog series exist in Harvester panels
-  - id: quality_validation
-  - id: regime_detection
-  - id: archive_hmm_calibration_snapshot
-    description: Dated HMM snapshot for rolling calibration history (after regime_detection)
-  - id: k_measurement_gate
-  - id: x_measurement_gate
-  - id: measurement_quality_report
-    schedule: weekly
-    description: K/X gate summary sidecar for Harvester data-request quality tracking
-  - id: caselab_signal
-  - id: judgment_layer
-  - id: judgment_promotion_gate
-  - id: trade_decision
-  - id: risk_gate
-  - id: record_trade_decision
-    description: Risk gate + record to ledger (merged 2026-06-20, was separate record_trade_decision step)
-  - id: paper_portfolio
-    description: Shadow NAV — mom × public_lambda0 × effective_size; velocity EXIT + level alerts; vs 60/40
-  - id: signal_card
-  - id: signal_consensus
-
-  # ── VALIDATION ────────────────────────────────────────────────────
-  - id: build_data_gaps
-    schedule: weekly
-    description: Data gap scan for Harvester request candidates
-  - id: signal_monitor
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — output not consumed downstream, review-only
-  - id: market_feedback
-  - id: refresh_cross_asset_panel
-    description: Daily ETF workspace mirror refresh (yfinance); Harvester release remains canonical when fresher
-  - id: evaluate_pending
-    description: Forward-outcome checks on trade ledger + WATCH/NO_TRADE counterfactuals (daily calibration samples)
-  - id: judgment_accuracy_report
-    schedule: weekly
-    description: Aggregate judgment calibration data from eval_log
-  - id: judgment_replay_audit
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — replay audit is validation, not signal-blocking
-  - id: trade_decision_replay
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — calibration report, not signal-blocking
-  - id: claim_evaluator
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — claim verification is batch validation
-  - id: claim_ladder_tracker
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — cross-run progression is batch review
-
-  # ── GOVERNANCE (weekly or on-demand, not daily signal-blocking) ───
-  - id: hmm_stability_audit
-    schedule: weekly
-  - id: freshness_validator
-  - id: architecture_reality_audit
-    schedule: weekly
-  - id: operator_registry_audit
-    schedule: weekly
-  - id: build_authority_graph
-    schedule: weekly
-  - id: governance_status
-    schedule: weekly
-
-  # ── LEARNING (all weekly — batch calibration, not daily signal) ───
-  - id: learning_hub_feedback
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — aggregates claim ladder + CaseLab, batch only
-  - id: proxy_quality_report
-    schedule: weekly
-  - id: mechanism_calibration
-    schedule: weekly
-  - id: learning_summary
-    schedule: weekly
-  - id: judgment_calibration_event
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — calibration event is review, not signal
-  - id: trade_calibration_event
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — calibration event is review, not signal
-  - id: export_feedback
-    schedule: weekly
-  - id: suggest_paper_updates
-    schedule: weekly
-  - id: promote_paper_inbox
-    schedule: weekly
-  - id: collect_reviews
-    schedule: weekly
-
-  # ── ML VALIDATION HARDENING (weekly, review-only) ───────────────
-  - id: asof_integrity_check
-    schedule: weekly
-    description: As-of integrity checker for calibration outputs
-  - id: baseline_comparison
-    schedule: weekly
-    description: Compare system judgment against naive baselines
-  - id: walk_forward_validation
-    schedule: weekly
-    description: Rolling-origin OOS validation of channel signals
-  - id: qlib_structural_bridge
-    schedule: weekly
-    description: Qlib experiment vs structural backtest bridge (validation-only)
-  - id: threshold_review_bridge
-    schedule: weekly
-    description: Generate threshold review candidates from missed_stress
-
-  # ── REPORTING ─────────────────────────────────────────────────────
-  - id: system_index
-  - id: current_status
-    description: Build Output/current/status.json from latest daily artifacts
-  - id: work_brief
-  - id: evidence_grade_report
-    schedule: weekly
-    description: Structured evidence grade report — batch review, not signal-blocking
-  - id: build_artifact_registry
-    schedule: weekly
-    description: Artifact registry from routing policy — governance reporting
-  - id: record_daily_run_event
-    description: Record run event to Learning Hub with evidence grade, blockers, git SHA, submodule pins
-  - id: readme_first
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — documentation, not signal
-  - id: next_actions
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — action planning is batch review
-  - id: change_analysis
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — trend/anomaly analysis is batch
-  - id: strategy_lab_shadow
-    description: Daily shadow decision card (M/D/K/X + velocity gate) for forward evaluation
-  - id: shadow_outcomes_90d
-    description: Aggregate shadow card outcomes (needs daily cards + fresh ETF panel)
-  - id: build_overlay_shadow_report
-    schedule: weekly
-    description: SPY momentum vs System overlay shadow metrics
-  - id: build_event_replay_factory
-    schedule: weekly
-    description: Historical event-window operator replay samples
-  - id: build_feedback_sample_pool
-    schedule: weekly
-    description: Append event-window samples to feedback pool
-  - id: evaluate_feedback_samples
-    schedule: weekly
-    description: Backfill forward_outcome labels on feedback sample pool
-  - id: archive_daily_snapshots
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — archival is maintenance, not signal
-  - id: backfill_judgment_calibration
-    schedule: weekly
-    description: Moved from daily 2026-06-20 — backfill is batch, not daily signal
+- id: harvester
+  skip_flag: skip_harvester
+- id: etf_refresh
+  skip_flag: skip_etf
+- id: paper_sync
+- id: caselab_index
+- id: build_policy_from_paper
+  schedule: weekly
+- id: neutral_pressure_measurement
+- id: validate_proxy_observation_catalog
+  schedule: weekly
+- id: quality_validation
+- id: regime_detection
+- id: archive_hmm_calibration_snapshot
+- id: measurement_quality_report
+  schedule: weekly
+- id: caselab_signal
+- id: judgment_layer
+- id: judgment_promotion_gate
+- id: trade_decision
+- id: risk_gate
+- id: record_trade_decision
+- id: paper_portfolio
+- id: signal_card
+- id: signal_consensus
+- id: build_data_gaps
+  schedule: weekly
+- id: market_feedback
+- id: evaluate_pending
+- id: judgment_accuracy_report
+  schedule: weekly
+- id: judgment_replay_audit
+  schedule: weekly
+- id: trade_decision_replay
+  schedule: weekly
+- id: claim_evaluator
+  schedule: weekly
+- id: claim_ladder_tracker
+  schedule: weekly
+- id: hmm_stability_audit
+  schedule: weekly
+- id: freshness_validator
+- id: architecture_reality_audit
+  schedule: weekly
+- id: operator_registry_audit
+  schedule: weekly
+- id: build_authority_graph
+  schedule: weekly
+- id: governance_status
+  schedule: weekly
+- id: learning_hub_feedback
+  schedule: weekly
+- id: mechanism_calibration
+  schedule: weekly
+- id: learning_summary
+  schedule: weekly
+- id: judgment_calibration_event
+  schedule: weekly
+- id: trade_calibration_event
+  schedule: weekly
+- id: export_feedback
+  schedule: weekly
+- id: suggest_paper_updates
+  schedule: weekly
+- id: promote_paper_inbox
+  schedule: weekly
+- id: collect_reviews
+  schedule: weekly
+- id: asof_integrity_check
+  schedule: weekly
+- id: baseline_comparison
+  schedule: weekly
+- id: walk_forward_validation
+  schedule: weekly
+- id: qlib_structural_bridge
+  schedule: weekly
+- id: threshold_review_bridge
+  schedule: weekly
+- id: system_index
+- id: current_status
+- id: work_brief
+- id: evidence_grade_report
+  schedule: weekly
+- id: build_artifact_registry
+  schedule: weekly
+- id: record_daily_run_event
+- id: readme_first
+  schedule: weekly
+- id: next_actions
+  schedule: weekly
+- id: change_analysis
+  schedule: weekly
+- id: strategy_lab_shadow
+- id: shadow_outcomes_90d
+- id: build_overlay_shadow_report
+  schedule: weekly
+- id: build_event_replay_factory
+  schedule: weekly
+- id: build_feedback_sample_pool
+  schedule: weekly
+- id: evaluate_feedback_samples
+  schedule: weekly
+- id: archive_daily_snapshots
+  schedule: weekly
+- id: backfill_judgment_calibration
+  schedule: weekly
+- id: learning_hub_ingest
+  schedule: weekly
+- id: monitoring_coverage_audit
+  schedule: weekly

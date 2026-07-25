@@ -10,6 +10,8 @@ cluster into emergent functional groups.
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 from collections import Counter, defaultdict
 from itertools import combinations
@@ -18,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-OUTPUT_DIR = Path(__file__).resolve().parents[6] / "Data" / "nlp" / "caselab_experiments"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_experiments"
 
 
 def build_entity_mechanism_graph(

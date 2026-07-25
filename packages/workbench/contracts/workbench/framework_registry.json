@@ -1,0 +1,18 @@
+{
+  "schema_version": "workbench.framework_registry.v1",
+  "description": "Active framework registry. Workbench reads this at startup to discover available analysis frameworks. Register new frameworks with: ./sys framework register --id <id> --contract <path/to/framework.yaml>",
+  "frameworks": [
+    {
+      "framework_id": "structural_deformation",
+      "contract_path": "packages/framework/framework.yaml",
+      "active": false,
+      "archive_status": "ARCHIVED_FALSIFIED",
+      "archive_decision": "governance/routing_decisions/2026-07-18-deformation-v1-estate-settlement.yaml"
+    },
+    {
+      "framework_id": "macro_pressure_measurement",
+      "contract_path": "packages/workbench/contracts/workbench/frameworks/macro_pressure_measurement.yaml",
+      "active": true
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 """Evidence grade contributor drill-down tests."""
 from __future__ import annotations
 
-from build_evidence_grade_report import (
+from scripts.commands.weekly.build_evidence_grade_report import (
     _build_contributor_drill_down,
     _build_contributors,
 )

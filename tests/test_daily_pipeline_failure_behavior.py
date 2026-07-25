@@ -5,8 +5,8 @@ form a consistent defensive chain.  They do NOT run the pipeline; they check
 that the declared invariants hold structurally.
 
 Core scenarios tested:
-  1. Harvester release missing → structural_replay / freshness must block or degrade
-  2. framework_output missing → judgment / trade_decision cannot produce strong claims
+  1. Harvester release missing → neutral pressure / freshness must block or degrade
+  2. neutral pressure snapshot missing → judgment / trade_decision cannot produce strong claims
   3. promotion_gate blocked → trade_decision must be hold_flat or research_only
 
 See: governance/daily_pipeline_registry.yaml
@@ -111,27 +111,27 @@ class TestHarvesterReleaseMissing:
 
 
 # ---------------------------------------------------------------------------
-# Scenario 2: framework_output missing
+# Scenario 2: neutral pressure snapshot missing
 # ---------------------------------------------------------------------------
 
-class TestFrameworkOutputMissing:
-    """If framework_output.json is absent, no strong judgment allowed."""
+class TestNeutralPressureSnapshotMissing:
+    """If the neutral snapshot is absent, no strong judgment is allowed."""
 
-    def test_judgment_layer_consumes_framework_output(self) -> None:
+    def test_judgment_layer_consumes_neutral_pressure_snapshot(self) -> None:
         reg = _load_registry()
-        consumers = _steps_consuming(reg, "Output/current/framework_output.json")
+        consumers = _steps_consuming(reg, "Output/current/neutral_pressure_snapshot.json")
         names = [n for n, _ in consumers]
         assert "judgment_layer" in names, (
-            f"judgment_layer does not consume framework_output — found: {names}"
+            f"judgment_layer does not consume neutral pressure snapshot — found: {names}"
         )
 
-    def test_judgment_blocks_without_framework_output(self) -> None:
+    def test_judgment_blocks_without_neutral_pressure_snapshot(self) -> None:
         reg = _load_registry()
         step = _steps(reg).get("judgment_layer")
         assert step is not None
         fb = step.get("failure_behavior", "")
         assert fb in BLOCKING_BEHAVIORS, (
-            f"judgment_layer failure_behavior={fb!r} — must block when framework_output missing"
+            f"judgment_layer failure_behavior={fb!r} — must block when neutral snapshot missing"
         )
 
     def test_quality_validation_blocks_without_framework_output(self) -> None:

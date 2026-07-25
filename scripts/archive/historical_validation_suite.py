@@ -16,7 +16,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from _runtime_io import ROOT, write_json
+
+from scripts._runtime_io import ROOT, write_json
 
 SIGNALS_PATH = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"
 BENCHMARK_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"

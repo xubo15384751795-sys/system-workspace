@@ -12,6 +12,8 @@ Hard constraints:
 """
 from __future__ import annotations
 
+from system_runtime.paths import WorkspacePaths
+
 import json
 import logging
 from dataclasses import dataclass, field
@@ -20,7 +22,7 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-_SYSTEM_ROOT = Path(__file__).resolve().parents[4]
+_SYSTEM_ROOT = WorkspacePaths.discover().root
 _DEFAULT_ML_SIGNALS_ROOT = _SYSTEM_ROOT / "Output" / "ml_signals"
 
 

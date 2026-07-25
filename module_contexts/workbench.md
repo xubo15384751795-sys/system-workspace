@@ -63,6 +63,18 @@ live under `Workbench/src/workbench/`.
 - `Output/workbench/`
 - Workbench-facing reports, dashboards, and navigation artifacts
 
+## Promises
+
+- We publish current readout only from admitted, lineage-valid same-run candidates.
+- We expose blockers and degraded states; scheduled normal status is silent.
+- Product-side contract assertions live in Workbench tests and bridge code.
+
+## Relies On
+
+- Framework promises protocol-shaped diagnoses with evidence links and validity domain.
+- Harvester promises admitted evidence and explicit freshness.
+- Governance runtime promises publication is blocked after any ancestor failure.
+
 ## Must Not
 
 - import Deformation Framework source code

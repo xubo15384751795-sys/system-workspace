@@ -11,10 +11,16 @@
       "when_to_use": "Need release IDs, catalog paths, provenance for evidence admitted into the framework."
     },
     {
-      "id": "deformation_framework",
-      "summary": "Framework runs and snapshots; consumes admitted evidence only via gateway.",
+      "id": "deformation_v1_archive",
+      "summary": "Read-only evidence archive for the falsified Deformation v1 host theory.",
       "cli_entrypoints": ["system deformation list-snapshots", "system deformation inspect-snapshot ID"],
-      "when_to_use": "Inspect structural diagnosis outputs and run manifests after a framework run."
+      "when_to_use": "Inspect historical evidence and falsification records only; never run, publish, or promote v1."
+    },
+    {
+      "id": "macro_pressure_measurement",
+      "summary": "Neutral funding-mismatch and market-constraint gauges with no Deformation theory authority.",
+      "cli_entrypoints": ["python scripts/neutral_pressure_measurement.py --json"],
+      "when_to_use": "Produce or inspect the bounded daily pressure measurement."
     },
     {
       "id": "learning_hub",
@@ -47,13 +53,9 @@
       "purpose": "Human cockpit over Output/current without importing framework code."
     },
     {
-      "command": "python3 scripts/promote_snapshot.py --run <run_id>",
-      "purpose": "Canonicalise a deformation snapshot into Data/ per constitution."
+      "command": "system deformation inspect-snapshot <run_id>",
+      "purpose": "Inspect archived Deformation evidence; canonical promotion is denied."
     }
   ],
-  "policy_documents": [
-    "ROUTING_CONSTITUTION.md",
-    "PRODUCT_FRAMEWORK_BOUNDARY.md",
-    "Workbench/contracts/workbench/context_budget.yaml"
-  ]
+  "policy_enforcement": "Compiled task routing, registered tools, runtime gates, schemas, hooks, and tests; no global reading list."
 }

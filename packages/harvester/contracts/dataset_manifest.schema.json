@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://structural-risk-harvester.local/schemas/dataset_manifest/1.0",
+  "title": "Harvester Dataset Manifest",
+  "description": "Per-dataset manifest. One manifest per dataset per release, located at <release_root>/manifests/<dataset_id>.manifest.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "dataset_revision",
+    "release_id",
+    "as_of_date",
+    "vintage_date",
+    "source",
+    "data_file",
+    "columns",
+    "time_coverage",
+    "lineage"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$",
+      "description": "Manifest schema version, MAJOR.MINOR. Phase 2 freezes at 1.0."
+    },
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+      "description": "Stable identifier. Must match the dataset_id in catalog.json."
+    },
+    "dataset_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Revision number within the release. Must match catalog entry."
+    },
+    "release_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-r[1-9][0-9]*$",
+      "description": "release_id this manifest belongs to. Must match the enclosing release directory."
+    },
+    "as_of_date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date describing the world state the data refers to."
+    },
+    "vintage_date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date the data was observed, published, or otherwise recorded. Independent of as_of_date. Used for no-lookahead enforcement."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "kind", "retrieved_at"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the source provider, e.g. 'Federal Reserve Bank of Chicago', 'OFR', 'Brevan Howard internal note'."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["public_api", "public_file", "subscription", "internal_corpus", "manual_curation", "derived"],
+          "description": "Acquisition kind. 'derived' indicates the dataset is computed from other Harvester datasets."
+        },
+        "url_or_reference": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Canonical URL or human-readable reference to the source. Optional but strongly recommended."
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the source was accessed."
+        },
+        "license": {
+          "type": "string",
+          "description": "License or terms-of-use identifier, if known."
+        },
+        "access_notes": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Free-form notes about access conditions, restrictions, or caveats."
+        }
+      }
+    },
+    "data_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "format", "sha256", "byte_size"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^data/[^/]+\\.[a-z0-9]+$",
+          "description": "Path to the data file, relative to the release root."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["parquet", "csv", "tsv", "jsonl", "json", "duckdb", "feather", "arrow"],
+          "description": "File format identifier."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Lowercase hex sha256 of the file's bytes."
+        },
+        "byte_size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size of the file in bytes."
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of rows. Optional but recommended for tabular formats."
+        },
+        "compression": {
+          "type": "string",
+          "enum": ["none", "gzip", "zstd", "snappy", "lz4"],
+          "description": "Compression codec, if any. Default 'none'."
+        }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/column_spec" },
+      "description": "Column specifications. Required even for non-tabular formats; for non-tabular data, list the top-level fields."
+    },
+    "time_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "frequency"],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date",
+          "description": "Earliest date covered by the data, inclusive."
+        },
+        "end": {
+          "type": "string",
+          "format": "date",
+          "description": "Latest date covered by the data, inclusive."
+        },
+        "frequency": {
+          "type": "string",
+          "enum": ["irregular", "daily", "business_daily", "weekly", "monthly", "quarterly", "annual", "intraday"],
+          "description": "Sampling frequency."
+        },
+        "time_column": {
+          "type": "string",
+          "description": "Name of the column carrying the time index. Required for tabular data with time series."
+        }
+      }
+    },
+    "quality_report_path": {
+      "type": "string",
+      "pattern": "^quality_reports/[^/]+\\.quality\\.json$",
+      "description": "Optional path to the quality report, relative to release root."
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provenance_path"],
+      "properties": {
+        "provenance_path": {
+          "type": "string",
+          "pattern": "^provenance/[^/]+\\.provenance\\.json$",
+          "description": "Path to the provenance file, relative to release root."
+        },
+        "derivation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["upstream"],
+          "properties": {
+            "upstream": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["release_id", "dataset_id"],
+                "properties": {
+                  "release_id": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-r[1-9][0-9]*$"
+                  },
+                  "dataset_id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+                  },
+                  "dataset_revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "description": "Upstream Harvester datasets this dataset is derived from."
+            },
+            "method_reference": {
+              "type": "string",
+              "description": "Identifier or path of the derivation method (e.g., a code reference, a documented method ID)."
+            }
+          },
+          "description": "Required if and only if source.kind == 'derived'."
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Free-form notes. Not consumed programmatically."
+    }
+  },
+  "$defs": {
+    "column_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "dtype", "nullable"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Column name as it appears in the data file."
+        },
+        "dtype": {
+          "type": "string",
+          "enum": [
+            "int8", "int16", "int32", "int64",
+            "uint8", "uint16", "uint32", "uint64",
+            "float32", "float64",
+            "bool",
+            "string",
+            "date", "datetime", "timestamp_tz",
+            "category",
+            "binary",
+            "json"
+          ],
+          "description": "Logical data type. Implementations map to physical types per format."
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether the column may contain null values."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Human-readable description of the column."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement, e.g. 'percent', 'basis_points', 'usd'."
+        },
+        "semantic_role": {
+          "type": "string",
+          "enum": ["time_index", "primary_key", "foreign_key", "measure", "category", "identifier", "metadata"],
+          "description": "Role of the column in the dataset's logical structure."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "source": { "properties": { "kind": { "const": "derived" } } } },
+        "required": ["source"]
+      },
+      "then": {
+        "properties": {
+          "lineage": {
+            "required": ["provenance_path", "derivation"]
+          }
+        }
+      }
+    }
+  ]
+}

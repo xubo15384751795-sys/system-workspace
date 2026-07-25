@@ -1,0 +1,54 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-18"
+task_id: governance-attention-shape-migration
+status: ACCEPTED
+decision: >
+  Governance weight is measured by repeated attention demand, not file or line
+  volume. Root governance artifacts must declare one of six shapes. Files
+  labelled executable invariant or feedback loop must have a real code, test,
+  hook, or CI consumer.
+supersedes:
+  - governance_file_count_as_weight
+  - governance_line_count_as_weight
+  - mandatory_global_governance_reading_order
+attention_contract:
+  always_read_files_max: 1
+  always_read_lines_max: 80
+  procedural_rule_files_max: 5
+  actual_at_acceptance:
+    governance_root_files: 42
+    executable_invariants: 29
+    feedback_loops: 4
+    precedents: 9
+    procedural_rules: 0
+    always_read_lines: 28
+implementation:
+  - governance/governance_tiers.yaml
+  - scripts/build_governance_drag_report.py
+  - scripts/_governance_freeze.py
+  - tests/test_governance_attention_budget.py
+  - ROUTING_CONSTITUTION.md
+field_level_cleanup:
+  system_constitution_before_lines: 354
+  system_constitution_after_lines: 85
+  retained_machine_sections:
+    - hard_authority_rule
+    - module_roles
+    - governance_freeze
+    - freshness_rules
+  removed_unconsumed_sections:
+    - agent_work_protocol
+    - language_governance
+    - dual_clock_procedure
+    - decision_permissions
+    - authority_order
+sunset_candidates:
+  - governance/pipeline_schedule.md
+  - governance/submodule_commit_plan.md
+  - governance/run_observability_summary.template.md
+acceptance:
+  - every root governance artifact has a shape
+  - every machine-shaped artifact has a consumer
+  - global reading entrypoints route to one local context
+  - capability registry schema validates the live registry
+  - governance freeze enforces the attention budget

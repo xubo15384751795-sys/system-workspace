@@ -41,6 +41,9 @@ ledger outputs. Treat Hub records as the authoritative governance chronology.
 
 - runtime log and legacy ingest paths during migration
 - routing decisions under `Output/system_learning/routing_decisions/`
+- governance checkpoints under `.cursor/checkpoints/`
+- `governance/open_threads.yaml` as a migration-only input; the Hub improvement
+  queue is the sole live work queue
 - NLP candidate ledgers when NLP governance is involved
 - operational artifacts (run manifests, releases) for Hub-internal scans only
 
@@ -48,6 +51,18 @@ ledger outputs. Treat Hub records as the authoritative governance chronology.
 
 - runtime log records (via Hub `record` API only)
 - derived ledgers and reports (via Hub pipeline only)
+
+## Promises
+
+- We keep runtime records append-only and derived reports reproducible from their sources.
+- Credit changes review priority only; it never changes permission or promotion authority.
+- We report deviations only and raise zero monthly hypothesis inflow as a monitoring failure.
+
+## Relies On
+
+- Peer modules promise to use the Hub record API instead of writing ledgers directly.
+- Routing decisions promise bounded scope, observation windows and rollback for complex probes.
+- The selector promises never to treat `hypotheses_inbox.md` as evidence or a claim source.
 
 ## Must Not
 

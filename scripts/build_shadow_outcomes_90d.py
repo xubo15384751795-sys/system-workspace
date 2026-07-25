@@ -16,10 +16,6 @@ from __future__ import annotations
 import argparse
 import json
 
-from _workspace_imports import add_scripts
-
-add_scripts()
-
 from strategy_lab.shadow_card import (  # noqa: E402
     backfill_outcomes,
     build_90d_outcomes_summary,

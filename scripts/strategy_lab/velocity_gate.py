@@ -12,7 +12,7 @@ This preserves the "stay invested in normal times" behavior while
 catching the genuine stress episodes that precede drawdowns.
 
 Usage:
-    from strategy_lab.velocity_gate import compute_velocity_positions
+    from scripts.strategy_lab.velocity_gate import compute_velocity_positions
 """
 from __future__ import annotations
 
@@ -104,8 +104,8 @@ def sweep_velocity(
     lookback: int = 63,
 ) -> list[dict]:
     """Sweep velocity gate parameters."""
-    from strategy_lab.backtest import compute_metrics
-    from strategy_lab.strategies import compute_baseline_position
+    from scripts.strategy_lab.backtest import compute_metrics
+    from scripts.strategy_lab.strategies import compute_baseline_position
 
     daily_returns = data["return_1d"]
     baseline_pos = compute_baseline_position(data["close"], lookback=lookback)

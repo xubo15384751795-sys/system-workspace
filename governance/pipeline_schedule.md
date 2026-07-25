@@ -1,7 +1,7 @@
 # Pipeline Schedule — Daily / Weekly / On-Demand
 
 > Updated 2026-07-11d. Paper portfolio scales shadow target by trade_decision effective_size (stance×size); public λ=0 stress; paper_sync refreshes TTL on unchanged Paper.
-> Authority: `governance/daily_run_sequence.yaml` (order + schedule); registry metadata in `daily_pipeline_registry.yaml`.
+> Authority: `governance/daily_pipeline_registry.yaml` (order, schedule, execution, contracts). `daily_run_sequence.yaml` is a generated compatibility view checked by `system pipeline generate --check`.
 
 ## Daily (30 steps) — Signal-blocking, every run
 
@@ -42,7 +42,7 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 
 **Automation:** macOS `com.system.daily-run` launchd → `scripts/orchestrate.sh daily` (default 07:00 local).
 
-## Weekly (42 steps) — Monday UTC or `--force-weekly`
+## Weekly (44 steps) — Monday UTC or `--force-weekly`
 
 Validation, calibration, learning, governance, and reporting. These do **not** change same-day judgment when skipped on a daily run.
 
@@ -86,6 +86,7 @@ Validation, calibration, learning, governance, and reporting. These do **not** c
 - `build_feedback_sample_pool` — feedback sample pool append
 - `evaluate_feedback_samples` — forward-outcome on feedback pool
 - `backfill_judgment_calibration` — calibration backfill
+- `learning_hub_ingest` — ingest governed runtime events into Learning Hub ledgers
 
 ### ML validation hardening (weekly, review-only)
 - `asof_integrity_check` — future-data leakage detection
@@ -108,7 +109,7 @@ Validation, calibration, learning, governance, and reporting. These do **not** c
 
 Not in the daily/weekly pipeline. Run manually when needed:
 
-- `python3 scripts/architecture_reality_audit.py` — architecture vs reality
+- `python3 scripts/commands/weekly/architecture_reality_audit.py` — architecture vs reality
 - `python3 scripts/build_governance_drag_report.py` — complexity drag score
 - `python3 scripts/daily_run.py --force-weekly` — run weekly block on any day
 - `just strategy-backtest` / `just strategy-shadow` — Strategy Lab

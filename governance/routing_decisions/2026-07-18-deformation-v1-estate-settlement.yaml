@@ -1,0 +1,78 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-18"
+task_id: deformation-v1-estate-settlement
+status: FROZEN
+mission: >
+  Retire the Deformation v1 monolith without deleting its evidence, while
+  re-authorizing neutral measurements, independent tools, unresolved research
+  candidates, and methodology lessons under separate owners and permissions.
+
+falsified_claim_set:
+  id: deformation_v1_four_channel_universal_predictor
+  verdict: ARCHIVED_FALSIFIED
+  claim: >
+    A single M/D/K/X four-channel composite is a generally sufficient predictor
+    of broad market stress timing and direction and may serve as the host theory
+    for the authoritative daily readout.
+  scope_limit: >
+    This verdict does not falsify every component measurement, every historical
+    mechanism, or every operator hypothesis. Those assets require independent
+    requalification and receive no inherited authority.
+  evidence:
+    - Output/validation/capability_board/board.md
+    - Output/validation/capability_board/report.json
+    - Output/validation/capability_board/residual_vs_public.csv
+    - scripts/archive/historical_validation_suite.py
+
+estate_classes:
+  falsified_theory:
+    identity: deformation_v1_monolith
+    disposition: immutable_evidence_archive
+    executable_authority: denied
+    current_publish_authority: denied
+    promotion_authority: denied
+  neutral_measurements:
+    identity: macro_pressure_measurement
+    disposition: requalified_under_mature_mechanisms
+    initial_status: ACTIVE_PARTIAL
+    inherited_theory_authority: false
+  independent_tools:
+    identity: velocity_risk_gate
+    owner: Strategy Lab
+    disposition: requalify_inputs_and_common_sample_performance
+    initial_status: REAL_EXPERIMENTAL
+    inherited_theory_authority: false
+  unresolved_candidates:
+    identity: funding_endogenous_boundary_v2
+    disposition: new_variation_under_preregistered_selection
+    initial_status: REAL_EXPERIMENTAL
+    inherited_authority: false
+    operational_wiring: denied
+  methodology:
+    identity: research_methodology
+    disposition: encode_lessons_as_executable_gates
+
+permanent_prohibitions:
+  - patch_deformation_v1_to_restore_authority
+  - publish_deformation_v1_to_Output_current
+  - promote_deformation_v1_run
+  - let_v2_inherit_v1_permissions
+  - delete_v1_evidence
+  - describe_unresolved_candidates_as_validated_models
+
+runtime_acceptance:
+  - deformation_v1 is absent from active framework discovery
+  - deformation_v1 has no active daily-pipeline step
+  - archived v1 execution requests fail closed
+  - rejected v1 execution creates zero authoritative current or decision side effects
+  - macro pressure output declares mature-mechanism provenance and no v1 authority
+  - v2 candidates remain validation-only until every preregistered gate passes
+
+supersedes_for_operational_authority:
+  - governance/canonical_proxy_spec.yaml
+  - packages/framework/framework.yaml
+  - scripts/structural_replay_v2.py
+
+notes:
+  - Historical documents remain evidence and are not rewritten to imply they were never believed.
+  - Compatibility file names may exist during migration, but must declare the new producer and deny legacy theory authority.

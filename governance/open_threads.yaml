@@ -1,0 +1,40 @@
+schema_version: open_threads.v1
+updated: '2026-07-12'
+threads:
+- id: nonlinear-adjudication-closeout
+  priority: HIGH
+  action: 'Nonlinear-framework adjudication closeout: merge research branch routing
+    decisions to main after review'
+  reason: 'T6 adjudication (W6_FULL_FAIL, measurement layer frozen) committed on research/nonlinear-framework
+    (ef5d47a, bdac149, f7a161d, 611a164). Routing decisions + prereg amendment live
+    on research branch; decide whether to merge the governance records to main or
+    keep research-only.
+
+    '
+  command: git log --oneline f9a1ea9..research/nonlinear-framework
+  module: governance/routing_decisions/
+  status: open
+- id: f2-signflip-prereg
+  priority: MEDIUM
+  action: 'f2_forced_sale sign-flip hypothesis: if pursued, file a new dated prereg
+    amendment declaring the flipped sign a priori'
+  reason: 'G1 found f2_forced_sale significant but wrong-sign (coef=-0.186, p=0.0375).
+    Booked PENDING_PREREGISTRATION. A re-test requires a new prereg amendment before
+    any evaluation; do NOT re-test opportunistically.
+
+    '
+  command: grep -A5 f2_forced_sale governance/routing_decisions/2026-07-12-g1-contrast-and-freshness-fix.yaml
+  module: governance/routing_decisions/
+  status: open
+- id: shadow-nav-degradation-annotation
+  priority: MEDIUM
+  action: Annotate shadow NAV 2026-05-05..07-03 as NFCI-only P_public in the 90-day
+    acceptance window reader
+  reason: 'P_public was silently degraded to NFCI-only for ~9 weeks (0.14 bias, ~15%
+    sizing error). No NAV back-correction (append-only), but the October 90-day acceptance
+    window must carry this annotation.
+
+    '
+  command: see honesty_notes in 2026-07-12-t6-adjudication-and-freeze.yaml
+  module: Output/position/
+  status: open

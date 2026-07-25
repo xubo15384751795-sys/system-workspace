@@ -37,7 +37,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from _runtime_io import ROOT, ensure_dir
+from scripts._runtime_io import ROOT, ensure_dir
 
 RUNS_DIR = ROOT / "Output" / "runs"
 LATEST_POINTER = ROOT / "Output" / "current" / "latest_run_id.txt"
@@ -136,18 +136,37 @@ class RunBundle:
         returncode: int = 0,
         detail: str = "",
         input_artifacts: list[str | Path] | None = None,
+        blocked_by: list[str] | None = None,
+        stdout_tail: str = "",
+        stderr_tail: str = "",
+        full_stderr: str = "",
     ) -> None:
         """Record one pipeline step result.
 
         Args:
             name: Step identifier.
-            status: "success", "failed", "timeout", "error".
+            status: "success", "failed", "timeout", "error", or
+                "blocked_upstream" (step skipped because an upstream step
+                failed; see scripts/_daily_run_executor.py failure
+                propagation). "blocked_upstream" counts as non-success in
+                the manifest's steps_failed rollup.
             duration_s: Wall-clock seconds.
             returncode: Process exit code.
             detail: Optional human-readable note.
             input_artifacts: Optional list of paths this step consumed.
                 Each is fingerprinted (sha256) and recorded for per-step
-                input provenance — enabling "what did this step see?" queries.
+                input provenance - enabling "what did this step see?" queries.
+            blocked_by: Optional list of upstream step ids that caused this
+                step to be blocked. Recorded structurally so a run bundle can
+                answer "which downstream steps were blocked by which failure".
+            stdout_tail: Last ~2KB of subprocess stdout (for quick triage in
+                steps.jsonl). The full stream is not kept in the bundle.
+            stderr_tail: Last ~2KB of subprocess stderr (for quick triage in
+                steps.jsonl).
+            full_stderr: Full subprocess stderr. For failed steps (status !=
+                success), written to ``step_logs/<step>.stderr.log`` (capped
+                at 256KB) so the original error text survives for diagnosis.
+                Success steps discard it.
         """
         entry = {
             "step": name,
@@ -158,6 +177,27 @@ class RunBundle:
         }
         if detail:
             entry["detail"] = detail[:500]
+        if blocked_by:
+            entry["blocked_by"] = list(blocked_by)
+        # Capture stdout/stderr tails for quick triage (Phase 0.1). These make
+        # the six-day "what did the nightly run actually report" question
+        # answerable from the bundle alone, without re-running the step.
+        if stdout_tail:
+            entry["stdout_tail"] = stdout_tail[-2000:]
+        if stderr_tail:
+            entry["stderr_tail"] = stderr_tail[-2000:]
+
+        # For failed steps, persist the full stderr to a per-step log file so
+        # the original error text is not lost to the 2KB tail truncation.
+        if full_stderr and status not in ("success", "blocked_upstream"):
+            try:
+                log_dir = self.run_dir / "step_logs"
+                ensure_dir(log_dir)
+                (log_dir / f"{name}.stderr.log").write_text(
+                    full_stderr[-256 * 1024:], encoding="utf-8", errors="replace"
+                )
+            except OSError:
+                logger.warning("Failed to write step_logs/%s.stderr.log", name, exc_info=True)
 
         # Per-step input fingerprinting
         if input_artifacts:
@@ -227,15 +267,42 @@ class RunBundle:
             entry["metadata"] = metadata
         self._feedback_items.append(entry)
 
-    def record_artifact(self, path: str | Path) -> None:
+    def record_artifact(
+        self,
+        path: str | Path,
+        *,
+        producer_step: str = "",
+        source_release_id: str = "",
+        as_of_date: str = "",
+        input_paths: list[str | Path] | None = None,
+        validation_verdict: str = "pass",
+        claim_ceiling: str | None = None,
+        degraded_reasons: list[str] | None = None,
+    ) -> None:
         """Record an artifact produced during this run.
 
-        Appends to artifact_index.json incrementally.
+        Appends to artifact_index.json incrementally. When ``producer_step`` is
+        given, the entry carries the full 10-field provenance block (Phase B3)
+        so downstream consumers can verify run_id / release / fingerprints
+        before reading.
         """
         p = Path(path)
         entry = _fingerprint(p, base=self._root)
         if entry is None:
             return
+
+        if producer_step:
+            from scripts._artifact_provenance import build_provenance
+
+            entry["provenance"] = build_provenance(
+                producer_step=producer_step,
+                source_release_id=source_release_id,
+                as_of_date=as_of_date,
+                input_paths=input_paths,
+                validation_verdict=validation_verdict,
+                claim_ceiling=claim_ceiling,
+                degraded_reasons=degraded_reasons,
+            )
 
         index_path = self.run_dir / "artifact_index.json"
         existing: list[dict] = []
@@ -321,6 +388,16 @@ class RunBundle:
         status: str = "running",
     ) -> None:
         """Write or overwrite manifest.json."""
+        # Rollup semantics (Phase 1.3): steps_failed counts only real failures
+        # (failed/timeout/error), NOT blocked_upstream (which is collateral).
+        # steps_blocked counts blocked_upstream separately. root_failures names
+        # the root-cause steps: failed AND not blocked_by an upstream - so "1
+        # root cause + 15 collateral" is readable at a glance.
+        statuses = [s.get("status") for s in self._steps]
+        root_failures = [
+            s.get("step") for s in self._steps
+            if s.get("status") not in ("success", "blocked_upstream")
+        ]
         manifest = {
             "run_id": self.run_id,
             "mode": self.mode,
@@ -330,8 +407,10 @@ class RunBundle:
             "duration_s": duration_s,
             "status": status,
             "steps_count": len(self._steps),
-            "steps_succeeded": sum(1 for s in self._steps if s.get("status") == "success"),
-            "steps_failed": sum(1 for s in self._steps if s.get("status") not in ("success",)),
+            "steps_succeeded": sum(1 for st in statuses if st == "success"),
+            "steps_failed": sum(1 for st in statuses if st not in ("success", "blocked_upstream")),
+            "steps_blocked": sum(1 for st in statuses if st == "blocked_upstream"),
+            "root_failures": root_failures,
             "decision_traces": len(self._decision_traces),
             "signal_traces": len(self._signal_traces),
             "run_dir": _safe_relative(self.run_dir, self._root),

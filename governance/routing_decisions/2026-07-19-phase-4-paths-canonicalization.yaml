@@ -1,0 +1,28 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-19"
+task_id: phase-4-paths-canonicalization
+status: ACCEPTED
+cynefin_domain: complicated
+decision: >
+  Canonicalize the harvester exports root through system_runtime.paths.
+  WorkspacePaths.harvester_exports returns Data/harvester/exports (the live
+  latest symlink target). harvester.core.exporter.default_exports_root
+  prefers WorkspacePaths over the legacy parents[3]/data/exports, with a
+  fallback for standalone testability. repo_layout_map.md §8 records the
+  Data/harvester/exports vs packages/harvester/data alias. Additionally,
+  _replay_registry.load_official_panel now verifies release finalization
+  before reading (Phase 4.2), closing the stale-data-into-positions P0 class
+  at the read-time boundary.
+supersedes: []
+attention_contract:
+  always_read_files_max: 1
+  procedural_rule_files_max: 1
+  actual_at_acceptance:
+    governance_root_files: 42
+    executable_invariants: 30
+    feedback_loops: 4
+implementation:
+  - system_runtime/paths.py: WorkspacePaths.harvester_exports property
+  - packages/harvester/src/harvester/core/exporter.py: default_exports_root via WorkspacePaths
+  - scripts/_replay_registry.py: _verify_release_if_under_exports before panel read
+  - governance/repo_layout_map.md: §8 alias documentation

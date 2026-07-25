@@ -21,21 +21,18 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
 # Ensure scripts/ is on path for shared imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from strategy_lab.backtest import run_comparison
-from strategy_lab.data_loader import load_aligned
-from strategy_lab.report import save_report
-from strategy_lab.risk_gate import compute_position_series
-from strategy_lab.shadow_card import (
+from scripts.strategy_lab.backtest import run_comparison
+from scripts.strategy_lab.data_loader import load_aligned
+from scripts.strategy_lab.report import save_report
+from scripts.strategy_lab.risk_gate import compute_position_series
+from scripts.strategy_lab.shadow_card import (
     backfill_outcomes,
     generate_shadow_card,
     save_shadow_card,
 )
-from strategy_lab.strategies import (
+from scripts.strategy_lab.strategies import (
     compute_baseline_position,
     compute_dynamic_lookback_position,
     compute_system_overlay_position,

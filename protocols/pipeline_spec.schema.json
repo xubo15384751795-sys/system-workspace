@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system.pipeline_spec.v3",
+  "title": "System Pipeline Specification",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "external_inputs", "_defaults", "steps"],
+  "properties": {
+    "schema_version": {"const": "daily_pipeline_registry.v3"},
+    "updated_at": {"type": ["string", "object"]},
+    "generated_views": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "external_inputs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "_defaults": {"type": "object"},
+    "steps": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/step"}
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": ["order", "status", "owner", "execution", "failure_behavior"],
+      "properties": {
+        "order": {"type": ["number", "null"]},
+        "status": {"type": "string"},
+        "owner": {"type": "string", "minLength": 1},
+        "schedule": {"enum": ["daily", "weekly", "on_demand"]},
+        "skip_flag": {"type": "string"},
+        "failure_behavior": {"type": "string", "minLength": 1},
+        "execution": {
+          "type": "object",
+          "required": ["mode"],
+          "properties": {
+            "mode": {"enum": ["subprocess", "callable"]},
+            "current_command": {"type": "string"},
+            "callable": {"type": "string"},
+            "future_callable": {"type": "string"}
+          },
+          "additionalProperties": true
+        },
+        "contracts": {
+          "type": "object",
+          "properties": {
+            "inputs": {"type": "array", "items": {"type": "string"}},
+            "outputs": {"type": "array", "items": {"type": "string"}},
+            "emits_run_event": {"type": "boolean"}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

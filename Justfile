@@ -55,7 +55,7 @@ nightly:
     python3 -m pytest "packages/framework/tests/" -n auto -q --tb=short 2>/dev/null || true
     python3 -m pytest packages/learning_hub/tests/ -q --tb=short 2>/dev/null || true
     echo "--- architecture reality audit ---"
-    python3 scripts/architecture_reality_audit.py 2>/dev/null || echo "(audit script encountered issues)"
+    python3 scripts/commands/weekly/architecture_reality_audit.py 2>/dev/null || echo "(audit script encountered issues)"
     echo "--- semgrep full audit ---"
     semgrep --config=semgrep_rules/ --error --metrics=off 2>/dev/null || echo "(semgrep not configured or not installed)"
 
@@ -81,7 +81,7 @@ audit-reality:
     #!/usr/bin/env zsh
     set -e
     echo "=== architecture reality audit ==="
-    python3 scripts/architecture_reality_audit.py
+    python3 scripts/commands/weekly/architecture_reality_audit.py
     echo "--- framework boundary tests ---"
     python3 -m pytest tests/test_framework_boundary.py tests/test_architecture_boundary.py -v --tb=short
 

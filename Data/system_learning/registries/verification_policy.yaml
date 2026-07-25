@@ -1,0 +1,60 @@
+schema_version: learning_hub.verification_policy.v1
+description: >
+  Rules for when an `improvement_queue` item may transition from
+  `implemented` to `verified`. An implementation is only acknowledged after
+  the listed checks pass — `implemented` does not auto-imply `verified`.
+
+policies:
+
+  provider_health_issue:
+    verification:
+      - "provider_success_rate >= 0.95 over the most recent 5 runs"
+      - "no critical quality failure in the latest finalized Harvester release"
+    evidence_artifacts:
+      - "Output/sandbox/openbb/runs/<run_id>/machine/quality_report.json"
+      - "Data/harvester/exports/latest/quality_report.json"
+
+  boundary_violation:
+    verification:
+      - "policy hook test passes for the offending tool path"
+      - "no recurrence in the last 3 consecutive Deformation runs"
+    evidence_artifacts:
+      - "Output/system_learning/events/events_<date>.jsonl"
+      - "Structural Deformation Research System/tests/policy/*.py"
+
+  architecture_drift:
+    verification:
+      - "latest cartography report no longer lists the path, or an approved routing decision records the exception"
+      - "owning subsystem README or boundary doc explains the approved ownership"
+    evidence_artifacts:
+      - "Workbench/governance/system-learning-hub/reports/codebase/latest/layer_violations.json"
+      - "Output/system_learning/routing_decisions/<decision_id>.yaml"
+
+  benchmark_error:
+    verification:
+      - "benchmark_report exists in the latest Deformation run package"
+      - "report includes a simple baseline section"
+      - "report includes an out-of-sample evaluation section"
+    evidence_artifacts:
+      - "Output/deformation_runs/latest/reports/benchmark_report.md"
+
+  ui_governance_issue:
+    verification:
+      - "UI smoke test passes against the latest run package"
+      - "no missing-artifact warnings in the latest run.log"
+    evidence_artifacts:
+      - "Output/deformation_runs/latest/logs/run.log"
+
+  claim_overreach:
+    verification:
+      - "claim_guardian sign-off recorded in the routing decision record"
+      - "wording diff against claim_registry.md is empty"
+    evidence_artifacts:
+      - "Output/system_learning/routing_decisions/<decision_id>.yaml"
+
+  missing_required_artifact:
+    verification:
+      - "artifact exists in the latest run package of the producing subsystem"
+      - "post-run check is wired into the runner and succeeds"
+    evidence_artifacts:
+      - "Output/deformation_runs/latest/run_manifest.json"

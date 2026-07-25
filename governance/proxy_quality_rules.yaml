@@ -11,7 +11,7 @@
 #   scripts/structural_replay_v2.py :: PROXY_REGISTRY against it.
 #
 # CONSUMERS
-#   scripts/build_proxy_quality_report.py — computes scores + tiers from this rubric.
+#   scripts/commands/weekly/build_proxy_quality_report.py — computes scores + tiers from this rubric.
 #   tests/test_content_freshness_and_proxy_quality.py — locks nonempty extraction.
 #   tests/governance/test_proxy_quality_scorer.py — locks the gate behaviour (legacy scorer).
 #

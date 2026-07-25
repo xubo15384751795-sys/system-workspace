@@ -1,5 +1,5 @@
 schema_version: capability_registry.v1
-updated_at: "2026-06-29"
+updated_at: "2026-07-18"
 purpose: >
   Module capability registry. Tracks status, allowed/forbidden claims, blockers,
   and promotion requirements. Producer/consumer details removed — see
@@ -22,25 +22,32 @@ workbench:
   audit_cadence: monthly
   promotion_requirements: []
 deformation_framework:
-  status: ACTIVE_PARTIAL
+  status: ARCHIVED_FALSIFIED
   owner: system
+  last_verified: "2026-07-18"
   allowed_claims:
-  - consume_admitted_evidence
-  - transform
-  - compute_diagnostics
-  - write_run_output
+  - reproduce_historical_evidence
+  - inspect_falsification_record
+  - support_methodology_postmortem
   forbidden_claims:
+  - execute_in_default_path
+  - write_current_output
+  - write_new_authoritative_run
+  - restore_universal_predictor_claim
   - direct_http_acquire
   - raw_public_data_fetch
-  - silent_legacy_fallback
   - promote
-  blockers: []  # 2026-07-07: DuckDB snapshot store migration SEAL phase closed the last blocker
-  last_audit_method: automated_test_run
-  audit_cadence: biweekly
-  promotion_requirements:
+  blockers: []
+  last_audit_method: claim_level_falsification_and_runtime_denial
+  audit_cadence: on_change
+  archival_invariants:
   - isolate_legacy_acquisition_in_src_data_init  # COMPLETED 2026-06-29 — files moved to src/_legacy/data/
   - add_boundary_tests_forbidden_imports  # COMPLETED 2026-06-30 — test_production_paths_do_not_import_legacy in test_data_boundary_extended.py
   - harvester_becomes_only_provider_owner  # COMPLETED 2026-07-07 — DuckDB snapshot store SEAL'd; HarvesterSnapshotStore canonical
+  decision: >
+    2026-07-18: the four-channel universal-predictor host theory is archived
+    as falsified for operational authority. Evidence is retained; execution,
+    current publication, promotion, and patch-to-revive are permanently denied.
   notes: >
     data_sources.py, external_downloads.py, public_adapters.py moved to
     src/_legacy/data/ on 2026-06-29. src/data/__init__.py no longer exports
@@ -54,6 +61,71 @@ deformation_framework:
     HarvesterSnapshotStore is the canonical backend, DualWriteSnapshotStore
     covers the evidence window. Gateway shim retirement (retire_after
     2026-10-15) no longer blocked by snapshot store.
+macro_pressure_measurement:
+  status: ACTIVE_PARTIAL
+  owner: Workbench
+  last_verified: "2026-07-18"
+  description: Literature-grounded funding-mismatch and market-constraint gauges; no Deformation authority.
+  allowed_claims:
+  - bounded_pressure_measurement
+  - evidence_linked_monitoring
+  - publish_neutral_pressure_snapshot
+  forbidden_claims:
+  - universal_market_predictor
+  - structural_morphology
+  - inherit_deformation_authority
+  - directional_alpha_prediction
+  blockers:
+  - common_sample_requalification_in_progress
+  last_audit_method: mechanism_card_and_causal_transform_review
+  audit_cadence: biweekly
+  promotion_requirements:
+  - common_sample_public_baseline_comparison
+  - forward_shadow_observation
+velocity_risk_gate:
+  status: REAL_EXPERIMENTAL
+  owner: Strategy Lab
+  last_verified: "2026-07-18"
+  description: Net-cost risk overlay undergoing input decontamination from the archived four-channel implementation.
+  allowed_claims:
+  - net_cost_shadow_backtest
+  - risk_overlay_candidate
+  forbidden_claims:
+  - inherit_deformation_authority
+  - live_trading_signal
+  - production_performance_claim
+  blockers:
+  - neutral_input_common_sample_requalification
+  last_audit_method: net_cost_sweep
+  audit_cadence: monthly
+  promotion_requirements:
+  - neutral_gauge_ablation
+  - public_input_comparator
+  - forward_shadow_observation
+funding_endogenous_boundary_v2:
+  status: REAL_EXPERIMENTAL
+  owner: Research
+  last_verified: "2026-07-18"
+  description: Preregistered funding-market endogenous-risk boundary research programme; not a validated model.
+  allowed_claims:
+  - validation_only_candidate_research
+  - synthetic_recovery_testing
+  - preregistered_holdout_evaluation
+  forbidden_claims:
+  - current_output_generation
+  - core_judgment
+  - inherited_v1_permission
+  - promotion_without_all_preregistered_gates
+  blockers:
+  - rejection_criteria_pending_verbatim_amendment
+  - no_candidate_passes_incremental_gate
+  last_audit_method: capability_board
+  audit_cadence: biweekly
+  promotion_requirements:
+  - complete_rejection_criteria_amendment
+  - pass_synthetic_recovery
+  - pass_holdout_incremental_information
+  - pass_risk_adjusted_board
 harvester:
   status: CANONICAL
   owner: system
@@ -97,7 +169,7 @@ data_output:
   last_audit_method: manual_review
   audit_cadence: biweekly
   promotion_requirements:
-  - create_artifact_registry_json  # COMPLETED 2026-06-30 — scripts/build_artifact_registry.py
+  - create_artifact_registry_json  # COMPLETED 2026-06-30 — scripts/commands/weekly/build_artifact_registry.py
   - classify_all_output_subdirectories
 learning_hub:
   status: ACTIVE_PARTIAL

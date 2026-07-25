@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import json
 
-from build_qlib_structural_bridge import build_bridge_report
+from scripts.commands.weekly.build_qlib_structural_bridge import build_bridge_report
 
 
 def test_build_bridge_report_with_experiment(tmp_path, monkeypatch) -> None:
     import _runtime_io as rio
-    import build_qlib_structural_bridge as bridge
+
+    import scripts.commands.weekly.build_qlib_structural_bridge as bridge
 
     exp_dir = tmp_path / "Output" / "strategy_lab" / "qlib_experiment"
     exp_dir.mkdir(parents=True)

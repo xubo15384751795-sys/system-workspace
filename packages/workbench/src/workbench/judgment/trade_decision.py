@@ -59,7 +59,7 @@ def _count_deteriorating(
         return None
     count = 0
     found = False
-    for ch in ("M", "D", "K", "X"):
+    for ch in ("M", "D"):
         if ch not in velocity_20d:
             continue
         found = True
@@ -75,7 +75,7 @@ def determine_stance(
     sigma_vector: dict[str, Any] | None,
     velocity_gate_state: dict[str, Any] | None,
 ) -> str:
-    """Signal layer: M/D/K/X velocity → RISK_ON / RISK_REDUCE / RISK_OFF.
+    """Signal layer: neutral-gauge velocity → RISK_ON / RISK_REDUCE / RISK_OFF.
 
     EXIT → RISK_OFF; 3+ channels deteriorating without exit → RISK_REDUCE;
     otherwise RISK_ON. Without channel velocities, degrade to FULL→ON / EXIT→OFF

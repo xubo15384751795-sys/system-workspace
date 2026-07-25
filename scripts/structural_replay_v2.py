@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────────────────────────────────────
-# ACTIVE LOCATION — canonical workspace entrypoint for structural replay.
-# This script contains the full replay logic (not a thin wrapper).
-# Registered in governance/daily_pipeline_registry.yaml as step 5.
+# ARCHIVED_FALSIFIED — evidence-reproduction entrypoint only.
+# The full historical replay logic is retained as evidence, but direct
+# execution is denied before legacy theory dependencies are imported unless
+# an explicit isolated-reproduction override is present.
 # ─────────────────────────────────────────────────────────────────────────────
 """Structural Deformation System — M/D/K/X Measurement Engine v2.
 
-PRIMARY USE (daily): Builds current M/D/K/X sigma vectors from today's
-Harvester panel data.  Despite the historical name "replay", the daily
-pipeline uses this script for CURRENT measurement, not historical replay.
-
-SECONDARY USE (on-demand): Can also replay historical crisis windows
-for validation, but this is not part of the daily pipeline.
+ARCHIVE USE ONLY: reproduce historical crisis-window evidence in an isolated
+location. This script is not part of the daily pipeline and has no authority
+to publish current output, affect judgment, or promote artifacts.
 
 Uses the official Harvester panel with 27 series across FRED, H41, SEC,
 Treasury, and yfinance sources.  Builds M/D/K/X proxies from real
@@ -27,9 +25,12 @@ Output:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -37,32 +38,15 @@ from omegaconf import DictConfig, OmegaConf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Path setup MUST run before any import that resolves through Workbench or the
-# deformation framework (e.g. `_replay_registry` reaches into `replay.scoring`).
-from _workspace_imports import add_framework_src, add_workbench_src  # noqa: E402
+# Deny ordinary execution before importing any archived framework dependency.
+# This makes governance failure deterministic even when the legacy runtime is
+# not installed or importable.
+if __name__ == "__main__":
+    from scripts._deformation_archive_guard import require_archived_reproduction
 
-add_framework_src()
-add_workbench_src()
+    require_archived_reproduction()
 
-from _constants import TRADING_DAYS_PER_YEAR  # noqa: E402
-from _proxy_aggregation import coupled_aggregate  # noqa: E402
-from _replay_registry import (  # noqa: E402
-    CHANNELS,
-    KNOWN_DATA_GAPS,
-    PROXY_REGISTRY,
-    STRESS_EVENTS,
-    VARIABLES,
-    MeasurementBundle,
-    load_official_panel,
-)
-from _replay_transforms import (  # noqa: E402
-    _component,  # noqa: F401
-    _diff_abs,  # noqa: F401
-    _jump_activation_score,  # noqa: F401
-    _pct_component,  # noqa: F401
-    _rolling_zscore,  # noqa: F401
-)
-from _runtime_io import ensure_dir  # noqa: E402
+
 from replay.scoring import (  # noqa: E402
     compute_contract_violations,
     compute_derivative_contamination,
@@ -74,12 +58,31 @@ from replay.scoring import (  # noqa: E402
     compute_sparsity_flags,
     compute_vif,
 )
-
 from workbench.governance.report_gate import validate_report_verdict  # noqa: E402
 from workbench.governance.semantic import (  # noqa: E402
     SemanticRegistry,
     build_sigma_vector,
 )
+
+from scripts._constants import TRADING_DAYS_PER_YEAR  # noqa: E402
+from scripts._proxy_aggregation import coupled_aggregate  # noqa: E402
+from scripts._replay_registry import (  # noqa: E402
+    CHANNELS,
+    KNOWN_DATA_GAPS,
+    PROXY_REGISTRY,
+    STRESS_EVENTS,
+    VARIABLES,
+    MeasurementBundle,
+    load_official_panel,
+)
+from scripts._replay_transforms import (  # noqa: E402
+    _component,  # noqa: F401
+    _diff_abs,  # noqa: F401
+    _jump_activation_score,  # noqa: F401
+    _pct_component,  # noqa: F401
+    _rolling_zscore,  # noqa: F401
+)
+from scripts._runtime_io import ensure_dir  # noqa: E402
 
 CONFIG_PATH = (
     REPO_ROOT / "configs" / "structural_replay" / "config.yaml"
@@ -106,30 +109,34 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
     The output is intentionally path-oriented. VIX, HY OAS, TEDRATE, and broad
     stress indices remain available as benchmarks/controls, but they no longer
     define D/K/X structural channels.
+
+    Phase C1: each proxy's builder is wrapped in try/except. A builder that
+    raises records BUILD_FAILED (not silent available=False); the proxy is
+    excluded from aggregation and the channel is flagged degraded if the
+    roster shrinks below quorum. See _proxy_state.ProxyState.
     """
+    from scripts._proxy_state import (
+        classify_build_result,
+        is_active_for_aggregation,
+        registry_row_with_state,
+    )
+
     component_values = pd.DataFrame(index=panel.index)
     registry_rows: list[dict] = []
+    build_results: dict[str, Any] = {}
     for spec in PROXY_REGISTRY:
-        value = spec.builder(panel)
-        available = value is not None and value.notna().any()
-        if available:
-            component_values[spec.name] = value
-        registry_rows.append({
-            "name": spec.name,
-            "target_variable": spec.target_variable,
-            "channel": spec.target_variable,  # legacy alias
-            "tier": spec.tier,
-            "role": spec.tier,  # legacy alias
-            "freq": spec.freq,
-            "raw_series": list(spec.raw_series),
-            "raw_family": spec.raw_family,
-            "independence_group": spec.independence_group,
-            "mechanism": spec.mechanism,
-            "transform": spec.transform,
-            "allow_derivative_reuse": spec.allow_derivative_reuse,
-            "available": bool(available),
-            "note": spec.note,
-        })
+        # Phase C1: catch builder exceptions -> BUILD_FAILED, do NOT crash the
+        # whole pipeline. A failed K builder degrades only the K channel.
+        build_error: str | None = None
+        value = None
+        try:
+            value = spec.builder(panel)
+        except Exception as exc:
+            build_error = f"{type(exc).__name__}: {exc}"
+        result = classify_build_result(spec.name, value, build_error=build_error)
+        build_results[spec.name] = result
+        if is_active_for_aggregation(result):
+            component_values[spec.name] = result.value
 
     channels = pd.DataFrame(index=panel.index)
     coverage = pd.DataFrame(index=panel.index)
@@ -151,6 +158,22 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
         channel_present[ch] = present
         if ch in canonical_channels:
             channel_specs[ch] = [s.name for s in present]
+
+    # Advance canonical voting proxies using runtime evidence, not registry
+    # declaration alone.  Active components are emitted to proxy_components;
+    # canonical voters additionally enter the aggregation roster.
+    for spec in PROXY_REGISTRY:
+        result = build_results[spec.name]
+        if not is_active_for_aggregation(result):
+            continue
+        if (
+            spec.target_variable in canonical_channels
+            and spec.tier in ("core", "auxiliary")
+            and spec.canonical_status == "canonical_voting"
+        ):
+            result.eligible_to_vote = True
+            result.in_roster = spec.name in channel_specs.get(spec.target_variable, [])
+            result.emitted = result.in_roster
 
     # ── Step 2: Coupled aggregation for canonical channels ────────────────
     # M, D, K, X are coupled through ODE drift equations. Instead of
@@ -208,6 +231,7 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
             coverage[ch] = (valid.sum(axis=1) / n_in_roster.clip(lower=1)).fillna(0.0)
         confidence[ch] = coverage[ch].map(confidence_label)
 
+    registry_rows = [registry_row_with_state(spec, build_results[spec.name]) for spec in PROXY_REGISTRY]
     semantic = SemanticRegistry(SEMANTIC_REGISTRY_PATH)
     registry_rows = [semantic.attach_metadata(row, row["target_variable"]) for row in registry_rows]
     audit = audit_measurement_layers(channels, component_values, registry_rows, panel)
@@ -246,7 +270,15 @@ def audit_measurement_layers(
     """
     available = [r for r in registry_rows if r["available"]]
     voting = [r for r in available if r["tier"] in ("core", "auxiliary")]
-    core_rows = [r for r in available if r["tier"] == "core"]
+    # Quarantined / non-canonical proxies stay computable for research, but must
+    # not veto the daily measurement path via CORE isolation HARD_ERROR.
+    def _enforced_core(row: dict) -> bool:
+        status = str(row.get("canonical_status") or "")
+        if status.startswith("quarantined") or status == "extension_beyond_canonical":
+            return False
+        return row["tier"] == "core"
+
+    core_rows = [r for r in available if _enforced_core(r)]
     diagnostic_rows = [r for r in available if r["tier"] not in ("core", "auxiliary")]
 
     # ── 1) CORE raw-series isolation (HARD_ERROR) ──────────────────────────
@@ -1143,13 +1175,29 @@ def main(cfg: DictConfig) -> None:
 
     semantic = SemanticRegistry(SEMANTIC_REGISTRY_PATH)
     sigma_vector = build_sigma_vector(latest_scores, semantic)
+    # Provenance: stamp the full 10-field block so downstream consumers (bridge)
+    # can reject stale/previous-run sigma_vector. The bundle run_id is published
+    # by the daily-run executor via ZCODE_BUNDLE_RUN_ID; fall back to the run
+    # tag when invoked standalone (outside a bundle).
+    from scripts._artifact_provenance import build_provenance
+
+    bundle_run_id = os.environ.get("ZCODE_BUNDLE_RUN_ID") or str(cfg.run.tag)
     sigma_output = {
+        "run_id": bundle_run_id,
+        "as_of": str(cfg.run.get("as_of_date", "")),
+        "generated_at": datetime.now(UTC).isoformat(),
         "sigma_scalar": None,
         "sigma_vector": sigma_vector,
         "channel_velocity": latest_velocity,
         "channel_acceleration": latest_acceleration,
         "velocity_window": velocity_window,
         "interpretation_scope": "scalar summary only; structural interpretation requires sigma_vector",
+        "provenance": build_provenance(
+            producer_step="structural_replay",
+            source_release_id=str(cfg.panel.release_id),
+            as_of_date=str(cfg.run.get("as_of_date", "")),
+            input_paths=[str(panel_path)],
+        ),
     }
     (output_dir / "proxy_registry.json").write_text(json.dumps(bundle.registry, indent=2))
     (output_dir / "sigma_vector.json").write_text(json.dumps(sigma_output, indent=2))

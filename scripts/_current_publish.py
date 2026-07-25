@@ -14,8 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from _constants import TIMEOUT_STANDARD
-from _runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._constants import TIMEOUT_STANDARD
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml
 
 ROUTING_POLICY = ROOT / "governance" / "output_routing_policy.yaml"
 LATEST_RUN_ID = ROOT / "Output" / "current" / "latest_run_id.txt"
@@ -42,25 +42,47 @@ def candidate_artifact_names() -> list[str]:
 
 
 def publish_candidate(candidate_dir: Path, *, run_id: str, root: Path = ROOT) -> dict[str, Any]:
-    """Copy candidate artifacts into Output/current/ and update latest_run_id.txt."""
+    """Atomically publish candidate artifacts into Output/current/.
+
+    Phase B5: instead of a per-file copy2/symlink loop (which leaves a mix of
+    new + stale artifacts visible to readers on a mid-loop crash), materialize
+    all allowed artifacts into a staging directory adjacent to the target, then
+    swap the whole directory atomically with os.replace (POSIX rename). The
+    latest_run_id.txt pointer is written into staging so it swaps together.
+    """
     target = root / "Output" / "current"
-    ensure_dir(target)
+    ensure_dir(target.parent)
+    staging = target.parent / f".current_staging.{os.getpid()}"
+    if staging.exists():
+        shutil.rmtree(staging)
+    ensure_dir(staging)
+
     published: list[str] = []
     for name in candidate_artifact_names():
         src = candidate_dir / name
         if not src.exists():
             continue
-        dest = target / name
+        dest = staging / name
         if src.is_symlink():
-            if dest.exists() or dest.is_symlink():
-                dest.unlink()
             dest.symlink_to(src.resolve())
         else:
             shutil.copy2(src, dest)
         published.append(name)
 
-    ensure_dir(LATEST_RUN_ID.parent)
-    LATEST_RUN_ID.write_text(run_id + "\n", encoding="utf-8")
+    # Write the run_id pointer into staging so it swaps atomically with the
+    # artifact files - consumers never see a pointer that names a run whose
+    # artifacts are not yet visible.
+    (staging / "latest_run_id.txt").write_text(run_id + "\n", encoding="utf-8")
+
+    # Atomic swap: rename staging -> target. On POSIX, rename over an existing
+    # directory is atomic only when target is empty; so rename the old target
+    # aside first, then rename staging into place, then remove the old one.
+    retired = target.parent / f".current_retired.{os.getpid()}"
+    if target.exists():
+        os.replace(target, retired)
+    os.replace(staging, target)
+    if retired.exists():
+        shutil.rmtree(retired, ignore_errors=True)
     return {"published": published, "count": len(published)}
 
 
@@ -109,3 +131,25 @@ def should_publish(run_status: str, freshness: dict[str, Any]) -> tuple[bool, st
     if overall in {"FAIL", "STALE", "VIOLATION"}:
         return False, f"freshness_{overall.lower()}"
     return True, "freshness_assumed_ok"
+
+
+def should_publish_with_provenance(
+    run_status: str, freshness: dict[str, Any], artifact_index: list[dict] | None = None
+) -> tuple[bool, str]:
+    """Phase B3 publish gate: freshness + provenance validation_verdict.
+
+    Extends should_publish: if any recorded artifact's provenance carries a
+    ``validation_verdict`` of "fail" or "reject", publishing is blocked even
+    when freshness passes. This closes the gap where a step produced a
+    validation-failed artifact but the run status stayed "success".
+    """
+    ok, reason = should_publish(run_status, freshness)
+    if not ok:
+        return ok, reason
+    if artifact_index:
+        for entry in artifact_index:
+            prov = entry.get("provenance") or {}
+            verdict = str(prov.get("validation_verdict", "pass")).lower()
+            if verdict in ("fail", "reject"):
+                return False, f"validation_verdict={verdict}:{entry.get('path','?')}"
+    return ok, reason

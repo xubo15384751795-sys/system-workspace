@@ -5,7 +5,6 @@ Registry metadata lives in governance/daily_pipeline_registry.yaml.
 """
 from __future__ import annotations
 
-import importlib
 import inspect
 import os
 import subprocess
@@ -13,46 +12,18 @@ import sys
 import time
 from typing import Any, Callable
 
-from _constants import TIMEOUT_LONG
-from _runtime_io import ROOT
-from _workspace_imports import (
-    add_framework_src,
-    add_harvester_src,
-    add_learning_hub_src,
-    add_scripts,
-    add_workbench_src,
-)
+from scripts._constants import TIMEOUT_LONG
+from system_runtime.paths import WorkspacePaths
+from system_runtime.pipeline import resolve_callable as _resolve_installed_callable
+
+ROOT = WorkspacePaths.discover().root
 
 REGISTRY_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
 
 
-def _prepare_import_paths(callable_spec: str) -> None:
-    add_scripts()
-    if callable_spec.startswith("harvester."):
-        add_harvester_src()
-    elif callable_spec.startswith("workbench."):
-        add_workbench_src()
-    elif callable_spec.startswith("system_learning."):
-        add_learning_hub_src()
-    elif callable_spec.startswith("ml.") or callable_spec.startswith("caselab_runtime."):
-        add_framework_src()
-        add_workbench_src()
-    elif callable_spec.startswith("learning_hub."):
-        add_learning_hub_src()
-        add_scripts()
-
-
 def resolve_callable(callable_spec: str) -> Callable[..., Any]:
-    """Resolve module:function from registry future_callable metadata."""
-    if ":" not in callable_spec:
-        raise ValueError(f"invalid callable spec: {callable_spec}")
-    module_name, attr_name = callable_spec.split(":", 1)
-    _prepare_import_paths(callable_spec)
-    module = importlib.import_module(module_name)
-    target = getattr(module, attr_name)
-    if not callable(target):
-        raise TypeError(f"{callable_spec} is not callable")
-    return target
+    """Resolve an installed public ``module:function`` entry point."""
+    return _resolve_installed_callable(callable_spec)
 
 
 def _build_argv_for_callable(target: Callable[..., Any], argv: list[str] | None) -> list[str]:
@@ -156,9 +127,12 @@ def run_subprocess_step(
             "duration_s": round(duration, 1),
             "stdout_tail": result.stdout[-500:] if result.stdout else "",
             "stderr_tail": result.stderr[-500:] if result.stderr else "",
+            # Full stderr for failed-step log persistence (Phase 0.1). Capped
+            # at 256KB by record_step when writing step_logs/<step>.stderr.log.
+            "full_stderr": result.stderr or "",
         }
     except subprocess.TimeoutExpired:
-        return {"step": name, "status": "timeout", "mode": "subprocess", "duration_s": 600}
+        return {"step": name, "status": "timeout", "mode": "subprocess", "duration_s": TIMEOUT_LONG}
     except Exception as exc:
         return {"step": name, "status": "error", "mode": "subprocess", "error": str(exc), "duration_s": 0}
 

@@ -120,8 +120,9 @@ class TestWriteRuntimeEvent:
         lines = files[0].read_text(encoding="utf-8").strip().split("\n")
         assert len(lines) == 1
         parsed = json.loads(lines[0])
-        assert parsed["type"] == "test"
-        assert parsed["step"] == "foo"
+        assert parsed["schema_version"] == "system.event_envelope.v1"
+        assert parsed["event_type"] == "test"
+        assert parsed["payload"]["step"] == "foo"
 
     def test_appends_multiple_events(self, mod, tmp_path):
         for i in range(3):
@@ -176,11 +177,11 @@ class TestCheckFreshness:
             result = mod.check_freshness()
         assert result["status"] == "missing"
 
-    def test_fresh_framework_output(self, mod, tmp_path):
+    def test_fresh_pressure_snapshot(self, mod, tmp_path):
         """Recently modified file returns status=fresh."""
         fw_dir = tmp_path / "Output" / "current"
         fw_dir.mkdir(parents=True)
-        fw_file = fw_dir / "framework_output.json"
+        fw_file = fw_dir / "neutral_pressure_snapshot.json"
         fw_file.write_text("{}")
         with patch("daily_run.ROOT", tmp_path):
             result = mod.check_freshness()

@@ -1,0 +1,22 @@
+{
+  "case_name": "Long-Term Capital Management (LTCM)",
+  "vintage": "1998-09-23",
+  "actor": "Long-Term Capital Management",
+  "event_patterns": [
+    "collateral_spiral",
+    "liquidation_path_stress",
+    "coordinated_rescue"
+  ],
+  "variable_vector": {
+    "tau": 0.35,
+    "M": 0.90,
+    "D": 0.85,
+    "K": 0.95,
+    "X": 0.80,
+    "P": 0.70
+  },
+  "narrative_summary": "LTCM's convergence trades blew up after Russian default. Correlation assumptions failed across all markets. NY Fed coordinated a $3.6B private-sector rescue after margin calls threatened systemic contagion.",
+  "gics_sector": "Financials",
+  "outcome": "collateral_spiral -> liquidation_path_stress -> coordinated_rescue",
+  "tau_rationale": "Medium-short tau (0.35): unwinding took weeks but margin calls were rapid"
+}

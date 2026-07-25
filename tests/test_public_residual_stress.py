@@ -15,19 +15,37 @@ from scripts.public_residual_stress import (
 )
 
 
-def test_public_level_skips_missing_and_renormalizes() -> None:
+def test_public_level_fails_closed_on_missing_components() -> None:
+    """When a public component is entirely missing, P_public is NaN for every
+    date under the default (full-coverage) fail-closed policy - NOT silently
+    renormalized over the surviving subset.
+
+    This is the Phase A fix for the 2026-05..07 NFCI-only degradation: a
+    stale/missing OFR or CISS must not collapse P_public to a single-component
+    value without any signal. Research callers (capability board) may opt out
+    via min_components=1.
+    """
     index = pd.date_range("2020-01-01", periods=300, freq="B")
     public = pd.DataFrame(
         {
             "ofr_fsi": np.linspace(0, 1, 300),
             "nfci": np.linspace(0.2, 0.8, 300),
-            "ecb_ciss": [np.nan] * 300,
+            "ecb_ciss": [np.nan] * 300,  # CISS entirely missing
         },
         index=index,
     )
-    p = public_level_probability(public, min_periods=50)
-    assert p.dropna().between(0.0, 1.0).all()
-    assert p.notna().sum() > 100
+    # Default: fail-closed (require all 3 components) -> all NaN.
+    p_closed = public_level_probability(public, min_periods=50)
+    assert p_closed.notna().sum() == 0, (
+        "incomplete public coverage must yield NaN P_public (fail-closed), "
+        f"got {p_closed.notna().sum()} non-NaN values"
+    )
+
+    # Research opt-out: min_components=1 preserves the old renormalizing
+    # behavior so capability-board NAV comparisons stay comparable.
+    p_research = public_level_probability(public, min_periods=50, min_components=1)
+    assert p_research.dropna().between(0.0, 1.0).all()
+    assert p_research.notna().sum() > 100
 
 
 def test_residual_onset_rises_when_channel_pulls_ahead() -> None:

@@ -22,7 +22,8 @@ import sys
 from datetime import UTC, datetime
 
 import pandas as pd
-from _runtime_io import ROOT, ensure_dir, write_json
+
+from scripts._runtime_io import ROOT, ensure_dir, write_json
 
 # ── Paths ───────────────────────────────────────────────────────────
 SIGNALS_PATH = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "all_signals.parquet"

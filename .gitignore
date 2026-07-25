@@ -9,7 +9,7 @@ OpenBB/
 Structural Research Harness
 Structural Risk Harvester
 System Learning Hub
-contracts
+/contracts
 
 # ExternalTools: keep qlib_benchmark_runner sources in this repo, ignore other
 # external tooling (e.g. OpenBB venv-style installs)
@@ -18,9 +18,30 @@ ExternalTools/*
 ExternalTools/qlib_benchmark_runner/.venv/
 ExternalTools/qlib_benchmark_runner/__pycache__/
 
-# Large / generated data — never commit
-Data/
-Output/
+# Large / generated data — never commit, except small runtime seed/config
+# files required for a clean checkout to run its tests and default assembly.
+/Data/*
+!/Data/system_learning/
+/Data/system_learning/*
+!/Data/system_learning/registries/
+/Data/system_learning/registries/*
+!/Data/system_learning/registries/governance_status_registry.yaml
+!/Data/system_learning/registries/issue_registry.yaml
+!/Data/system_learning/registries/routing_rules.yaml
+!/Data/system_learning/registries/verification_policy.yaml
+!/Data/structural_lab/
+/Data/structural_lab/*
+!/Data/structural_lab/nlp/
+!/Data/structural_lab/nlp/mapping_rules.yaml
+!/Data/structural_lab/nlp/case_library/
+!/Data/structural_lab/nlp/case_library/*.json
+/Output/
+
+# Nested generated artifacts (keep similarly named source packages trackable)
+/Visualization/data/
+/Visualization/output/
+/packages/Output/
+/paper-empirical-interface/output/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────
 # Qlib workspace and output are large intermediate artifacts — never commit
@@ -82,3 +103,7 @@ config/*local*
 # Logs
 *.log
 lightning_logs/
+
+# Phase 3.3: agent/tooling working dirs (not source)
+.zcode/
+.cursor/checkpoints/
