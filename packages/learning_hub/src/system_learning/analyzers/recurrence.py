@@ -417,7 +417,11 @@ def payload_value_text(value: Any) -> str:
 
 
 def most_common_nonempty(values: list[str]) -> str:
-    cleaned = [value for value in values if value and value.lower() not in {"nan", "none"}]
+    cleaned = [
+        text
+        for value in values
+        if (text := str(value).strip()) and text.lower() not in {"nan", "none", "<na>"}
+    ]
     if not cleaned:
         return ""
     return Counter(cleaned).most_common(1)[0][0]

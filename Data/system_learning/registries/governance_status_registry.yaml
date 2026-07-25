@@ -1,0 +1,329 @@
+schema_version: learning_hub.governance_status_registry.v1
+description: >
+  Single source of truth for the governance status of signals, strategies,
+  modules, and defects. The governance-audit guards read this registry to block
+  reuse of contaminated, frozen, missing-artifact, or diagnostic-only entities in
+  the live daily surface. Seeded from the X_agg frequency-split / daily-retest
+  findings (Output/x_agg_frequency_split/, Output/x_agg_daily_retest/).
+
+  Field semantics:
+    status            — lifecycle status (see status_enums below).
+    block_in_daily    — if true, the entity's name/aliases must not appear in the
+                        canonical daily surface (framework_output + practicality note).
+    daily_trigger_allowed — signals only; false means it may never drive a daily trigger.
+    expect_artifact   — relative path that must exist + be non-empty when the status
+                        claims the entity is active/experimental (artifact_reality guard).
+    aliases           — additional strings the forbidden_reference guard scans for.
+
+status_enums:
+  signal:
+    - CANONICAL
+    - SLOW_STRUCTURAL_BACKGROUND
+    - WEEKLY_CONTEXT
+    - BACKGROUND_ONLY
+    - CONTEXT_ONLY
+    - DAILY_DIAGNOSTIC_CANDIDATE
+    - MISSING_ARTIFACT_PENDING_DECISION
+    - CONTAMINATED_BY_QUARTERLY_FORWARD_FILL
+    - DISABLED_CONTAMINATED
+  strategy:
+    - VALID
+    - STRATEGY_PROTOTYPE_RETAIN
+    - FROZEN_PENDING_NEW_DAILY_DATA
+    - RANDOM_NOT_EXCEEDED
+    - DISABLED_CONTAMINATED
+  module:
+    - ACTIVE_IN_DAILY
+    - REAL_EXPERIMENTAL
+    - DIAGNOSTIC_ONLY
+    - FROZEN
+    - MISSING_ARTIFACT
+    - PAPER
+    - DEPRECATED
+  defect:
+    - OPEN
+    - MITIGATED
+    - FIXED
+    - FROZEN
+    - ACCEPTED_LIMITATION
+    - REOPENED
+
+# Statuses that claim an entity is live enough to require its artifact to exist.
+active_claiming_statuses:
+  - ACTIVE_IN_DAILY
+  - REAL_EXPERIMENTAL
+  - CANONICAL
+
+# --- Confidence-aware expression model -------------------------------------
+# Low confidence limits the CLAIM level, it does not cancel the research action.
+# Each entity may carry a `posture:` block graded against these tiers. The Hub
+# research-posture renderer turns them into a digest: what we can say, what to
+# watch, what to upgrade, what is forbidden.
+
+# Expression levels (claim ceiling), L0..L5.
+posture_levels:
+  L0_blocked:     {label: Blocked,           say: "must not be used / cited"}
+  L1_diagnostic:  {label: Diagnostic,        say: "indicates / suggests / points to"}
+  L2_watchlist:   {label: Watchlist,         say: "worth monitoring / should watch"}
+  L3_candidate:   {label: Research Candidate, say: "candidate / promising / requires validation"}
+  L4_prototype:   {label: Prototype,         say: "prototype retained / passed initial tests"}
+  L5_trade_ready: {label: Trade-Ready,       say: "(UNUSED — no entity qualifies)"}
+
+# Research action a posture recommends. Drives the daily note's overall posture.
+# Listed high-to-low priority; the overall posture = highest-priority live action.
+action_types:
+  - ACTIVE_WATCH      # actively monitor a live diagnostic / dominant channel
+  - ROBUSTNESS_TEST   # prototype awaiting walk-forward / robustness
+  - DATA_REPAIR       # blocked/frozen pending new or repaired data
+  - QUIET_WATCH       # background context, low urgency
+  - IGNORE            # no action warranted
+  - BLOCKED           # forbidden use; a constraint, not an action
+
+# Priority for deriving the daily overall posture (BLOCKED is a constraint, not
+# an overall posture, so it is excluded from selection).
+posture_priority:
+  - ACTIVE_WATCH
+  - ROBUSTNESS_TEST
+  - DATA_REPAIR
+  - QUIET_WATCH
+  - IGNORE
+
+signals:
+  K_v1:
+    status: CANONICAL
+    daily_trigger_allowed: true
+    reason: Canonical K channel; passes proxy-alignment and semantic-registry gates.
+    posture:
+      level: L1_diagnostic
+      action_type: ACTIVE_WATCH
+      can_say: "K is the canonical structural channel; when dominant it indicates the current path-deviation regime."
+      watch: ["dominance persistence", "cofire moving 3 -> 2 or 3 -> 4"]
+      upgrade_path: ["confirm with cross-asset stress", "rebuild K_v2 for second reading"]
+      forbidden: ["trade signal", "directional conviction claim"]
+
+  K_v2:
+    status: MISSING_ARTIFACT_PENDING_DECISION
+    daily_trigger_allowed: false
+    block_in_daily: true
+    aliases: ["K_v2_pos_stress"]
+    reason: Memory claimed progress but artifact missing; pending decommission/rebuild decision.
+    posture:
+      level: L0_blocked
+      action_type: DATA_REPAIR
+      can_say: "K_v2 is pending an artifact decision; not a live signal."
+      watch: ["rebuild-vs-retire decision"]
+      upgrade_path: ["rebuild artifact", "rerun K_v2 robustness", "check cross-asset stress confirmation"]
+      forbidden: ["daily active signal", "voting / cofire participation"]
+
+  M_cofire_3:
+    status: CONTEXT_ONLY
+    daily_trigger_allowed: false
+    reason: Co-fire context only; M_cofire_SPY_60d did not exceed random null.
+
+  X_agg_composite:
+    status: SLOW_STRUCTURAL_BACKGROUND
+    daily_trigger_allowed: false
+    block_in_daily: true
+    aliases: ["X_agg_composite daily trigger", "X_agg_dominant daily trigger", "X_agg_dominant"]
+    reason: Mixed-frequency composite cannot generate reliable daily triggers.
+    evidence:
+      - Output/x_agg_frequency_split/X_AGG_FREQUENCY_SPLIT_REPORT.md
+
+  X_agg_positive_spike:
+    status: DISABLED_CONTAMINATED
+    daily_trigger_allowed: false
+    block_in_daily: true
+    aliases: ["X_agg positive spike", "X_agg_positive_spike forward return"]
+    reason: 11/11 historical triggers contaminated by quarterly SEC OBS_DERIV_TO_ASSETS forward-fill.
+    evidence:
+      - Output/x_agg_frequency_split/X_AGG_TRIGGER_CONTAMINATION_LOCKDOWN.md
+      - Output/x_agg_daily_retest/X_AGG_DAILY_RETEST_REPORT.md
+    posture:
+      level: L0_blocked
+      action_type: BLOCKED
+      can_say: ""
+      forbidden: ["daily trigger", "backtest strategy", "forward-return evidence"]
+      upgrade_path: ["procure daily-only shadow-leverage data", "rebuild from daily component", "discrimination retest"]
+
+  X_agg_daily_component:
+    status: DAILY_DIAGNOSTIC_CANDIDATE
+    daily_trigger_allowed: false
+    block_in_daily: true
+    aliases: ["X_agg_daily", "X_agg daily component"]
+    reason: >
+      4 daily proxies at 45.6% coverage trigger 1504 times at z>=1.5 with 0 matched
+      control pairs — insufficient discrimination. Diagnostic only, never a daily trigger.
+    evidence:
+      - Output/x_agg_daily_retest/X_AGG_DAILY_RETEST_REPORT.md
+
+  X_agg_weekly_component:
+    status: WEEKLY_CONTEXT
+    daily_trigger_allowed: false
+    aliases: ["X_agg_weekly"]
+    reason: NFCI leverage weekly (76.3% coverage); valid for weekly-aware context, not daily spike.
+    posture:
+      level: L2_watchlist
+      action_type: QUIET_WATCH
+      can_say: "X_agg weekly leverage context is worth monitoring as a slow background indicator."
+      watch: ["NFCI leverage drift week-over-week"]
+      forbidden: ["daily spike trigger", "daily timing"]
+
+  X_agg_quarterly_component:
+    status: BACKGROUND_ONLY
+    daily_trigger_allowed: false
+    aliases: ["X_agg_quarterly"]
+    reason: SEC OBS_DERIV_TO_ASSETS quarterly (8.6% coverage); too stale for any timing.
+
+strategies:
+  X_agg_spike_SPY_60d:
+    status: FROZEN_PENDING_NEW_DAILY_DATA
+    block_in_daily: true
+    reason: Composite spike contaminated; daily-only retest insufficient. Not an active strategy.
+    can_reactivate: true
+    reactivation_condition: New daily shadow-leverage data + discrimination retest.
+    posture:
+      level: L0_blocked
+      action_type: DATA_REPAIR
+      can_say: ""
+      forbidden: ["active strategy", "live trading", "backtest citation as valid"]
+      upgrade_path: ["procure new daily shadow-leverage data", "discrimination retest", "re-evaluate after unfreeze"]
+
+  X_agg_positive_spike_forward_return:
+    status: DISABLED_CONTAMINATED
+    block_in_daily: true
+    aliases: ["X_agg_positive_spike forward return"]
+    reason: All historical triggers contaminated by quarterly forward-fill.
+    can_reactivate: false
+
+  X_agg_dominant_daily_trigger:
+    status: DISABLED_CONTAMINATED
+    block_in_daily: true
+    aliases: ["X_agg_dominant daily trigger"]
+    reason: Dominant-channel determination may have been driven by stale quarterly data.
+    can_reactivate: true
+
+  K_neg_SLV_60d:
+    status: STRATEGY_PROTOTYPE_RETAIN
+    requires_robustness: true
+    reason: Prototype retained pending robustness; not a confirmed live strategy.
+    posture:
+      level: L4_prototype
+      action_type: ROBUSTNESS_TEST
+      can_say: "K_neg_SLV_60d is a retained strategy prototype that passed the random-null test."
+      watch: ["year concentration", "regime sensitivity"]
+      upgrade_path: ["walk-forward validation", "year-concentration check", "risk-control sizing"]
+      forbidden: ["live trading", "high-conviction / tradable claim"]
+
+  K_neg_basket_60d:
+    status: STRATEGY_PROTOTYPE_RETAIN
+    requires_robustness: true
+    reason: Prototype retained pending robustness; not a confirmed live strategy.
+    posture:
+      level: L4_prototype
+      action_type: ROBUSTNESS_TEST
+      can_say: "K_neg_basket_60d is a retained strategy prototype pending basket robustness."
+      watch: ["basket composition stability", "year concentration"]
+      upgrade_path: ["basket robustness", "walk-forward validation", "risk-control sizing"]
+      forbidden: ["live trading", "high-conviction / tradable claim"]
+
+  M_cofire_SPY_60d:
+    status: RANDOM_NOT_EXCEEDED
+    block_in_daily: true
+    reason: Did not exceed random null; must not be cited as an effective strategy.
+    posture:
+      level: L0_blocked
+      action_type: IGNORE
+      can_say: ""
+      forbidden: ["effective-strategy claim", "live trading"]
+      upgrade_path: ["new hypothesis required — current form did not beat random null"]
+
+modules:
+  structural_replay_core:
+    status: ACTIVE_IN_DAILY
+
+  backtest_lens:
+    status: ACTIVE_IN_DAILY
+
+  backtest_pipeline:
+    status: REAL_EXPERIMENTAL
+
+  k_v2:
+    status: MISSING_ARTIFACT
+    reason: Artifact missing; must not be displayed as REAL_EXPERIMENTAL/active.
+
+  x_agg_v2:
+    status: DEPRECATED
+    reason: >
+      Retired 2026-06-04. Diagnostic experiment that never beat V1 and had no
+      consumed artifact; formally decommissioned rather than left as a missing
+      artifact masquerading as active. Reversible if a concrete use re-emerges.
+
+  gluonts:
+    status: PAPER
+    reason: >
+      Retired to PAPER 2026-06-04. The add-alongside routing decision
+      (2026-05-17-gluonts-probabilistic-forecasting) stands, but no forecast
+      artifact has ever been produced; PAPER is the honest status (code/decision
+      exists, no data). Must not be displayed as REAL_EXPERIMENTAL/active.
+
+  nlp_pipeline:
+    status: PAPER
+
+  learning_hub:
+    status: ACTIVE_IN_DAILY
+    reason: Promoted to ACTIVE_IN_DAILY by the governance guards sprint (2026-06-04).
+
+defects:
+  DEFECT_STATUS_001:
+    status: OPEN
+    title: ACTIVE_FULL is misleading without coverage/measurement/validity context.
+  DEFECT_BLIND_001:
+    status: OPEN
+    title: Blind Spot fallback bug.
+  DEFECT_VIF_001:
+    status: OPEN
+    title: VIF all-zero / independence invalid.
+  DEFECT_X_001:
+    status: OPEN
+    title: X_agg composite daily trigger contaminated by quarterly forward-fill.
+    evidence:
+      - Output/x_agg_frequency_split/X_AGG_TRIGGER_CONTAMINATION_LOCKDOWN.md
+  DEFECT_X_002:
+    status: OPEN
+    title: X_agg daily component has insufficient discrimination (1504 triggers, 0 matched controls).
+    evidence:
+      - Output/x_agg_daily_retest/X_AGG_DAILY_RETEST_REPORT.md
+  DEFECT_ARTIFACT_001:
+    status: MITIGATED
+    title: K_v2 / X_agg_v2 / GluonTS artifact missing vs memory-state mismatch.
+    note: >
+      X_agg_v2 (DEPRECATED) and GluonTS (PAPER) formally retired 2026-06-04, so
+      they no longer claim active/experimental status. K_v2 decision still pending
+      (signal entry MISSING_ARTIFACT_PENDING_DECISION).
+  DEFECT_FREQ_001:
+    status: MITIGATED
+    title: X_agg mixed-frequency daily-trigger risk.
+    note: >
+      Mitigated by decommissioning X_agg composite/positive-spike daily triggers and
+      splitting daily/weekly/quarterly components. The underlying mixed-frequency
+      structure remains by construction; it is now handled honestly (no daily trigger),
+      not a bug. Full resolution needs daily-only shadow-leverage data (procurement).
+
+  DEFECT_PROXY_001:
+    status: ACCEPTED_LIMITATION
+    title: All 41 proxies are PROXY_REDUCED at semantic distance=3.
+    note: >
+      Output and proxy registry are consistent (both LOW); the registry honestly
+      declares not_valid_for complete market morphology. This is the true current
+      state, not a defect. Resolution is data-layer procurement of closer proxies,
+      not a code fix. Keeps the system low-confidence-but-honest.
+    reactivation_condition: Procure lower-distance proxies; re-run proxy reconciliation.
+
+  DEFECT_MONO_001:
+    status: OPEN
+    title: X_REALIZED and Pi_t are proxy monocultures (1 family each).
+    note: >
+      Single-family channels have no within-channel independence/diversification, so
+      a single source error is unhedged. Real procurement gap (not a bug); blocks any
+      independence/robustness claim for these channels.
+    reactivation_condition: Add >=1 independent proxy family per channel; re-run VIF/independence.

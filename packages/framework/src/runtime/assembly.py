@@ -90,7 +90,7 @@ def _build_snapshot_store(config: dict[str, Any]) -> Any:
     return DuckDBSnapshotStore(path=_snapshot_store_path(config), data_root=_data_root(config))
 
 
-MAPPING_RULES_PATH: Path = Path(__file__).resolve().parent.parent.parent / "Data" / "nlp" / "mapping_rules.yaml"
+MAPPING_RULES_PATH: Path = WorkspacePaths.discover().data / "structural_lab" / "nlp" / "mapping_rules.yaml"
 
 
 def _system_root(config: dict[str, Any]) -> Path:

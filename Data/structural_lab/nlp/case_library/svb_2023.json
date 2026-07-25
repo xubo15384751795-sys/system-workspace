@@ -1,0 +1,21 @@
+{
+  "case_name": "Silicon Valley Bank (SVB)",
+  "vintage": "2023-03-10",
+  "actor": "Silicon Valley Bank",
+  "event_patterns": [
+    "deposit_run",
+    "policy_intervention"
+  ],
+  "variable_vector": {
+    "tau": 0.15,
+    "M": 0.85,
+    "D": 0.90,
+    "K": 0.70,
+    "X": 0.65,
+    "P": 0.80
+  },
+  "narrative_summary": "SVB collapsed after depositors withdrew $42B in a single day, triggered by unrealized HTM portfolio losses of $15B. The Fed invoked systemic risk exception and created BTFP, guaranteeing all deposits.",
+  "gics_sector": "Financials",
+  "outcome": "deposit_run -> forced_sale -> policy_backstop",
+  "tau_rationale": "Short tau (0.15): deposit flight was extremely rapid (hours-to-days)"
+}

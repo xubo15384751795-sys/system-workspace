@@ -1,0 +1,21 @@
+{
+  "case_name": "Archegos Capital Management",
+  "vintage": "2021-03-26",
+  "actor": "Archegos Capital Management",
+  "event_patterns": [
+    "margin_call",
+    "forced_selling",
+    "counterparty_failure"
+  ],
+  "variable_vector": {
+    "tau": 0.08,
+    "M": 0.70,
+    "D": 0.85,
+    "K": 0.80,
+    "X": 0.90
+  },
+  "narrative_summary": "Archegos family office imploded after ViacomCBS share sale triggered margin calls. Banks forced-sold $30B+ of positions. Credit Suisse lost $5.5B, Nomura $2.9B. Total return swaps created massive hidden leverage.",
+  "gics_sector": "Financials",
+  "outcome": "margin_call -> forced_selling -> counterparty_failure",
+  "tau_rationale": "Very short tau (0.08): unwinding happened over 2-3 days"
+}

@@ -1,0 +1,42 @@
+schema_version: learning_hub.routing_rules.v1
+description: >
+  Coarse routing table that decides which expert/protocol receives which issue
+  family. Detailed activation logic still lives in
+  `expert_activation_map.yaml`; this file fixes the issue→owner mapping.
+
+rules:
+
+  - issue_family: boundary_violation
+    primary_owner: research_os_layers
+    secondary_owners: [learning_hub_cartographer]
+    requires_manual_review: true
+
+  - issue_family: architecture_drift
+    primary_owner: research_os_layers
+    secondary_owners: [learning_hub_cartographer]
+    requires_manual_review: true
+
+  - issue_family: provider_health_issue
+    primary_owner: harvester_boundary
+    secondary_owners: [learning_hub_cartographer]
+    requires_manual_review: false
+
+  - issue_family: benchmark_error
+    primary_owner: proxy_boundary
+    secondary_owners: [referee_fatal_objection]
+    requires_manual_review: true
+
+  - issue_family: ui_governance_issue
+    primary_owner: ui_boundary
+    secondary_owners: [learning_hub_cartographer]
+    requires_manual_review: true
+
+  - issue_family: claim_overreach
+    primary_owner: claim_guardian
+    secondary_owners: [referee_fatal_objection]
+    requires_manual_review: true
+
+  - issue_family: missing_required_artifact
+    primary_owner: learning_hub_cartographer
+    secondary_owners: []
+    requires_manual_review: false

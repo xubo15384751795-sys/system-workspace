@@ -18,8 +18,23 @@ ExternalTools/*
 ExternalTools/qlib_benchmark_runner/.venv/
 ExternalTools/qlib_benchmark_runner/__pycache__/
 
-# Large / generated data — never commit
-/Data/
+# Large / generated data — never commit, except small runtime seed/config
+# files required for a clean checkout to run its tests and default assembly.
+/Data/*
+!/Data/system_learning/
+/Data/system_learning/*
+!/Data/system_learning/registries/
+/Data/system_learning/registries/*
+!/Data/system_learning/registries/governance_status_registry.yaml
+!/Data/system_learning/registries/issue_registry.yaml
+!/Data/system_learning/registries/routing_rules.yaml
+!/Data/system_learning/registries/verification_policy.yaml
+!/Data/structural_lab/
+/Data/structural_lab/*
+!/Data/structural_lab/nlp/
+!/Data/structural_lab/nlp/mapping_rules.yaml
+!/Data/structural_lab/nlp/case_library/
+!/Data/structural_lab/nlp/case_library/*.json
 /Output/
 
 # Nested generated artifacts (keep similarly named source packages trackable)

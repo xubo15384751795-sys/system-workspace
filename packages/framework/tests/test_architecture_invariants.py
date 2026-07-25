@@ -141,8 +141,8 @@ class RuntimeContextTests(unittest.TestCase):
         self.assertTrue(paths.project_root.is_dir())
         # Project root should contain key marker files
         self.assertTrue((paths.project_root / "ROUTING_CONSTITUTION.md").is_file())
-        self.assertTrue((paths.project_root / "Output").is_dir())
         self.assertTrue((paths.project_root / "Data").is_dir())
+        self.assertEqual(paths.output_root, paths.project_root / "Output")
 
     def test_for_test_creates_isolated_paths(self) -> None:
         from src.core.runtime_context import RuntimePaths

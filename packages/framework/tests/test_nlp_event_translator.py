@@ -5,13 +5,13 @@ import unittest
 from pathlib import Path
 
 import pandas as pd
+from system_runtime.paths import WorkspacePaths
 
 from src.nlp.event_translator import NLPEventTranslator
 
-_HERE = Path(__file__).resolve().parent
-_PROJECT = _HERE.parent
-_CASE_LIBRARY = _PROJECT / "Data" / "nlp" / "case_library"
-_MAPPING_RULES = _PROJECT / "Data" / "nlp" / "mapping_rules.yaml"
+_NLP_DATA = WorkspacePaths.discover().data / "structural_lab" / "nlp"
+_CASE_LIBRARY = _NLP_DATA / "case_library"
+_MAPPING_RULES = _NLP_DATA / "mapping_rules.yaml"
 
 
 class NLPEventTranslatorTests(unittest.TestCase):

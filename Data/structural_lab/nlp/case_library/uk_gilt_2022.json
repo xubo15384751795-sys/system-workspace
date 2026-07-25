@@ -1,0 +1,23 @@
+{
+  "case_name": "UK Gilt Crisis / LDI Meltdown",
+  "vintage": "2022-09-28",
+  "actor": "Bank of England",
+  "event_patterns": [
+    "collateral_spiral",
+    "rollover_risk",
+    "liquidity_crisis",
+    "anchor_restoration"
+  ],
+  "variable_vector": {
+    "tau": 0.12,
+    "M": 0.95,
+    "D": 0.90,
+    "K": 0.85,
+    "X": 0.80,
+    "P": 0.90
+  },
+  "narrative_summary": "UK mini-budget triggered gilt selloff forcing LDI pension funds to meet collateral calls. Gilt yields spiked 100bp+ in days creating a doom loop. BoE intervened with emergency gilt purchases, restoring anchor and arresting the spiral.",
+  "gics_sector": "Government / Pensions",
+  "outcome": "collateral_spiral -> liquidity_crisis -> policy_backstop",
+  "tau_rationale": "Short tau (0.12): spiral accelerated but BoE restored anchor within days"
+}

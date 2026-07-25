@@ -1,0 +1,24 @@
+{
+  "case_name": "Global Financial Crisis (GFC)",
+  "vintage": "2008-09-15",
+  "actor": "Lehman Brothers",
+  "event_patterns": [
+    "rollover_risk",
+    "fire_sale",
+    "credit_deterioration",
+    "default_event",
+    "policy_intervention"
+  ],
+  "variable_vector": {
+    "tau": 0.40,
+    "M": 0.95,
+    "D": 0.95,
+    "K": 0.90,
+    "X": 0.95,
+    "P": 0.85
+  },
+  "narrative_summary": "Lehman Brothers bankruptcy triggered global financial crisis. REPO market froze (rollover risk). Fire sales of MBS drove mark-to-market losses. Rating downgrades cascaded through structured credit. Fed/Treasury/TARP intervention followed.",
+  "gics_sector": "Financials",
+  "outcome": "rollover_risk -> rating_cascade -> default -> fire_sale -> policy_backstop",
+  "tau_rationale": "Medium tau (0.40): crisis unfolded over weeks/months"
+}
