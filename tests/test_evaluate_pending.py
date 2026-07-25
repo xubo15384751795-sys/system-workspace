@@ -19,9 +19,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from evaluate_pending import (
     classify_outcome,
     compute_forward_return,
-    evaluate_record,
-    evaluate_active_inference,
     dedupe_pending_records,
+    evaluate_active_inference,
+    evaluate_record,
     load_pending_records,
     run_evaluation,
     save_pending_records,

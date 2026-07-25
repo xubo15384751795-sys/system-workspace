@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -79,3 +80,47 @@ def test_complete_complex_probe_allows_l4_change(tmp_path: Path) -> None:
         ["PACE.md", "governance/routing_decisions/probe.yaml"],
         tmp_path,
     ) == []
+
+
+def test_non_pace_governance_record_does_not_substitute_for_decision(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    _write_pace(tmp_path)
+    record = tmp_path / "governance" / "routing_decisions" / "research-freeze.yaml"
+    record.parent.mkdir(parents=True)
+    record.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "routing_decision_record.v1",
+                "task_id": "research-freeze",
+                "status": "FROZEN",
+            }
+        ),
+        encoding="utf-8",
+    )
+    errors = module.check_paths(
+        ["PACE.md", "governance/routing_decisions/research-freeze.yaml"],
+        tmp_path,
+    )
+    assert errors and "cynefin_domain required" in errors[0]
+
+
+def test_changed_paths_uses_merge_base_diff(tmp_path: Path, monkeypatch) -> None:
+    module = _load_module()
+
+    def fake_run(command, **kwargs):
+        assert command[-1] == "origin/main...HEAD"
+        assert kwargs["cwd"] == tmp_path
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="PACE.md\ngovernance/routing_decisions/probe.yaml\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    assert module._changed_paths(tmp_path, "origin/main") == [
+        "PACE.md",
+        "governance/routing_decisions/probe.yaml",
+    ]

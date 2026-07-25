@@ -24,8 +24,12 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
 from scripts._constants import TRADING_DAYS_PER_YEAR  # noqa: E402
-from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+from scripts._data_paths import (
+    resolve_benchmark_panel_path,
+    resolve_cross_asset_panel_path,
+)
 from scripts._runtime_io import ROOT, ensure_dir
 
 BP_PATH = resolve_benchmark_panel_path()

@@ -13,13 +13,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
+import pandas as pd
 
 from scripts import _runtime_io as rio
-import pandas as pd
 from scripts.strategy_lab.backtest import apply_transaction_costs, compute_metrics
 from scripts.strategy_lab.data_loader import load_aligned
 from scripts.strategy_lab.risk_gate import compute_velocity_gate, evaluate_day

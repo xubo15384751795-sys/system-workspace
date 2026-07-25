@@ -17,11 +17,12 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts import _runtime_io as rio
-from system_runtime.events import payload_of
 import pandas as pd
+
+from scripts import _runtime_io as rio
 from scripts.strategy_lab.data_loader import load_aligned, load_signals
 from scripts.strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
+from system_runtime.events import payload_of
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 FRAMEWORK_PATH = rio.ROOT / "Output" / "current" / "framework_output.json"

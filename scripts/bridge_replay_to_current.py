@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir
-
 from workbench.current_bridge.reports import (
     generate_daily_market_space,
     generate_k_rebuild_plan,
@@ -36,6 +34,8 @@ from workbench.governance.semantic import (
     SemanticRegistry,
     build_primary_readout,
 )
+
+from scripts._runtime_io import ROOT, current_dir, ensure_dir
 
 CURRENT = current_dir()
 REPLAY_DIR = ROOT / "Output" / "sandbox" / "structural_replay_v2"

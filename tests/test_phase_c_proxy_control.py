@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -17,14 +16,14 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 class TestProxyStateMachine:
     def test_build_failed_on_exception(self):
-        from _proxy_state import classify_build_result, ProxyState, state_of
+        from _proxy_state import ProxyState, classify_build_result, state_of
 
         r = classify_build_result("k_butterfly", None, build_error="ZeroDivisionError: x/0")
         assert r.build_error is not None
         assert state_of(r) == ProxyState.BUILD_FAILED
 
     def test_build_failed_on_all_nan(self):
-        from _proxy_state import classify_build_result, ProxyState, state_of
+        from _proxy_state import ProxyState, classify_build_result, state_of
 
         s = pd.Series([np.nan] * 100)
         r = classify_build_result("k", s)
@@ -32,7 +31,10 @@ class TestProxyStateMachine:
         assert "all-NaN" in (r.build_error or "")
 
     def test_build_failed_on_low_coverage(self):
-        from _proxy_state import classify_build_result, ProxyState, DEFAULT_COVERAGE_FLOOR
+        from _proxy_state import (
+            DEFAULT_COVERAGE_FLOOR,
+            classify_build_result,
+        )
 
         s = pd.Series([1.0] + [np.nan] * 99)  # 1% coverage
         r = classify_build_result("k", s, coverage_floor=DEFAULT_COVERAGE_FLOOR)
@@ -40,7 +42,7 @@ class TestProxyStateMachine:
         assert "coverage" in r.build_error
 
     def test_available_on_release_when_healthy(self):
-        from _proxy_state import classify_build_result, ProxyState, state_of
+        from _proxy_state import ProxyState, classify_build_result, state_of
 
         s = pd.Series(np.random.normal(0, 1, 100))
         r = classify_build_result("k", s)
@@ -108,19 +110,19 @@ class TestControlClosure:
         assert is_hard_enforcement() is False
 
     def test_tag_nav_row_hold_degraded(self):
-        from _control_closure import tag_nav_row, DEGRADED
+        from _control_closure import DEGRADED, tag_nav_row
 
         row = tag_nav_row({"as_of": "2026-07-17", "sizing_mode": "HOLD_DEGRADED"})
         assert row["sample_validity"] == DEGRADED
 
     def test_tag_nav_row_valid(self):
-        from _control_closure import tag_nav_row, VALID
+        from _control_closure import VALID, tag_nav_row
 
         row = tag_nav_row({"as_of": "2026-07-17", "sizing_mode": "NORMAL"})
         assert row["sample_validity"] == VALID
 
     def test_valid_sample_filter_excludes_degraded(self):
-        from _control_closure import valid_sample_filter, VALID, DEGRADED, INVALIDATED
+        from _control_closure import DEGRADED, INVALIDATED, VALID, valid_sample_filter
 
         assert valid_sample_filter({"sample_validity": VALID}) is True
         assert valid_sample_filter({"sample_validity": DEGRADED}) is False
@@ -129,7 +131,7 @@ class TestControlClosure:
         assert valid_sample_filter({}) is True
 
     def test_invalidate_nav_rows(self, tmp_path):
-        from _control_closure import invalidate_nav_rows, INVALIDATED
+        from _control_closure import INVALIDATED, invalidate_nav_rows
 
         nav = tmp_path / "nav.jsonl"
         nav.write_text(
@@ -139,7 +141,11 @@ class TestControlClosure:
         )
         count = invalidate_nav_rows(nav, dates=["d1"], reason="test")
         assert count == 1
-        rows = [__import__("json").loads(l) for l in nav.read_text().splitlines() if l.strip()]
+        rows = [
+            __import__("json").loads(line)
+            for line in nav.read_text().splitlines()
+            if line.strip()
+        ]
         assert rows[0]["sample_validity"] == INVALIDATED
         assert rows[0]["invalidation_reason"] == "test"
         assert rows[1]["sample_validity"] == "VALID"

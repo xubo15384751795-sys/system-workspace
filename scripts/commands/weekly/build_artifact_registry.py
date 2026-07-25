@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, utc_now, write_json
 
 ROUTING_POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"

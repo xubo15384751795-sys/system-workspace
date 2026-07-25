@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
 from scripts._runtime_io import ROOT  # noqa: E402
 from scripts._runtime_io import load_yaml as _load_yaml
 

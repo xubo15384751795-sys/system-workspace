@@ -136,7 +136,10 @@ def test_approved_marker_allows_diagnostic():
 
     try:
         # The approved marker for Output/judgment/*.json + inputs.hmm should match
-        result = classify_reference(filepath, "ml_signals", "inputs.hmm")
+        # This test covers classification while a marker is valid. Expiry
+        # behavior is tested separately and must remain fail-closed.
+        with patch("verify_experiment_core_judgment._is_expired", return_value=False):
+            result = classify_reference(filepath, "ml_signals", "inputs.hmm")
 
         assert result["classification"] == "allow_diagnostic"
         assert result["decision"] == "PASS"

@@ -15,7 +15,11 @@ from typing import Any, Callable
 
 from scripts._daily_run_sequence import load_daily_run_sequence, weekly_step_ids
 from scripts._pipeline_dag import interpret_failure
-from scripts._pipeline_runner import load_registry, load_step_execution, run_registry_step
+from scripts._pipeline_runner import (
+    load_registry,
+    load_step_execution,
+    run_registry_step,
+)
 from scripts._runtime_io import ROOT, current_dir
 
 logger = logging.getLogger(__name__)

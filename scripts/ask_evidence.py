@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import sys
 
-
-
 from workbench.nlp import main
 
 if __name__ == "__main__":

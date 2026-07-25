@@ -18,9 +18,10 @@ from __future__ import annotations
 import argparse
 import json
 
+from nlp.caselab.learning_signal import calibrate_all
+
 from scripts._mechanism_calibration_gate import evaluate_gate, load_gate_policy
 from scripts._runtime_io import ROOT, ensure_dir, utc_now, write_json
-from nlp.caselab.learning_signal import calibrate_all
 
 OUTPUT_DIR = ROOT / "Output" / "caselab" / "causal"
 GATE_PATH = OUTPUT_DIR / "mechanism_calibration_gate.json"

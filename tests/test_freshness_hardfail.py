@@ -126,8 +126,9 @@ class TestFreshnessValidatorMainExitCode:
         scripts_dir = str(ROOT / "scripts")
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
-        import freshness_validator as fv
         import inspect
+
+        import freshness_validator as fv
         sig = inspect.signature(fv.main)
         # The return annotation should be int (not None) - this is the
         # contract the callable runner relies on to produce a nonzero exit.

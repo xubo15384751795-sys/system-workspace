@@ -8,6 +8,7 @@ from scripts.commands.weekly.build_qlib_structural_bridge import build_bridge_re
 
 def test_build_bridge_report_with_experiment(tmp_path, monkeypatch) -> None:
     import _runtime_io as rio
+
     import scripts.commands.weekly.build_qlib_structural_bridge as bridge
 
     exp_dir = tmp_path / "Output" / "strategy_lab" / "qlib_experiment"

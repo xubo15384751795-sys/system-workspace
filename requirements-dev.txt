@@ -9,6 +9,7 @@ jsonschema>=4.0
 pandas>=2.0
 numpy>=2.0
 scikit-learn>=1.4
+mcp>=1.23,<2
 
 # ML
 hmmlearn>=0.3

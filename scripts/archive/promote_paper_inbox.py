@@ -21,9 +21,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from scripts._runtime_io import ROOT, ensure_dir, utc_now, write_json
-
 from caselab_context.paper_paths import paper_root
+from scripts._runtime_io import ROOT, ensure_dir, utc_now, write_json
 
 REPORT_PATH = ROOT / "Output" / "caselab_runtime" / "paper_promote_report.json"
 APPROVED_STATUSES = {"approved", "reviewed", "accepted"}

@@ -8,11 +8,11 @@ Attribution Engine v2 — 语义校准 + 二阶归因 + Regime 识别
 4. X 通道子层拆分
 """
 
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass, field
 from typing import Optional
 
+import numpy as np
+import pandas as pd
 
 # ============================================================
 # 通道语义定义
@@ -156,7 +156,6 @@ REGIME_RULES = [
     },
     {
         "name": "Full Mismatch Regime",
-        "name": "Full Mismatch Regime",
         "label": "全面错配",
         "description": "多个通道同时显示高压力，市场结构处于紧张状态",
         "condition": lambda m, d, k, x: m > 1.5 and d > 1.5 and k > 1.0,
@@ -212,7 +211,7 @@ class VariableAttribution:
     weight: float
     contribution: float
     intuition: str
-    
+
     # 二阶
     change_1w: Optional[float] = None
     change_1m: Optional[float] = None
@@ -230,12 +229,12 @@ class ChannelAttribution:
     level_interpretation: str
     positive_means: str
     negative_means: str
-    
+
     variables: list[VariableAttribution] = field(default_factory=list)
-    
+
     # 子通道
     sub_channels: dict[str, float] = field(default_factory=dict)
-    
+
     # 二阶
     momentum_1w: Optional[float] = None
     momentum_1m: Optional[float] = None
@@ -265,14 +264,14 @@ class AttributionReport:
 class AttributionEngine:
     """
     归因引擎 v2
-    
+
     隔离原则：只读取 ProxyComputer 输出，不修改现有模块
     """
-    
+
     def __init__(self, proxy_computer, window: int = 260):
         self.pc = proxy_computer
         self.window = window
-    
+
     def _compute_variable_attribution(
         self,
         series_id: str,
@@ -282,19 +281,19 @@ class AttributionEngine:
         """计算单个变量的归因"""
         semantics = CHANNEL_SEMANTICS[channel_id]
         var_semantics = semantics["variables"].get(series_id, {})
-        
+
         series = self.pc._get_series(series_id)
         if len(series) < 4:
             return None
-        
+
         # 过滤到有效窗口
         effective_window = min(self.window, len(series))
         window_data = series.iloc[-effective_window:]
-        
+
         mean = float(window_data.mean())
         std = float(window_data.std())
         latest = float(series.iloc[-1])
-        
+
         # z-score
         if std > 0:
             z_raw = (latest - mean) / std
@@ -302,21 +301,21 @@ class AttributionEngine:
         else:
             z_raw = 0.0
             z_clipped = 0.0
-        
+
         direction = var_semantics.get("direction", "normal")
-        
+
         # 根据方向调整贡献
         if direction == "inverted":
             contribution = z_clipped * weight * -1  # 反向
         else:
             contribution = z_clipped * weight
-        
+
         # 二阶变化
         change_1w = self._compute_change(series, 5)
         change_1m = self._compute_change(series, 22)
         change_3m = self._compute_change(series, 66)
         z_change_1m = self._compute_z_change(series, 22)
-        
+
         return VariableAttribution(
             series_id=series_id,
             role=var_semantics.get("role", series_id),
@@ -334,18 +333,18 @@ class AttributionEngine:
             change_3m=change_3m,
             z_change_1m=z_change_1m,
         )
-    
+
     def _compute_change(self, series: pd.Series, periods: int) -> Optional[float]:
         """计算绝对变化"""
         if len(series) < periods + 1:
             return None
         return float(series.iloc[-1] - series.iloc[-periods - 1])
-    
+
     def _compute_z_change(self, series: pd.Series, periods: int) -> Optional[float]:
         """计算 z-score 变化"""
         if len(series) < periods + self.window:
             return None
-        
+
         # 当前 z-score
         current_window = series.iloc[-min(self.window, len(series)):]
         current_mean = current_window.mean()
@@ -354,7 +353,7 @@ class AttributionEngine:
             current_z = (series.iloc[-1] - current_mean) / current_std
         else:
             current_z = 0
-        
+
         # N 天前的 z-score
         past_series = series.iloc[:-periods]
         past_window = past_series.iloc[-min(self.window, len(past_series)):]
@@ -364,20 +363,20 @@ class AttributionEngine:
             past_z = (past_series.iloc[-1] - past_mean) / past_std
         else:
             past_z = 0
-        
+
         return float(current_z - past_z)
-    
+
     def _compute_channel_attribution(self, channel_id: str) -> ChannelAttribution:
         """计算通道归因"""
         semantics = CHANNEL_SEMANTICS[channel_id]
         from paper_interface.proxy_computer import PROXY_BASKETS
         config = PROXY_BASKETS[channel_id]
-        
+
         # 计算每个变量的归因
         variables = []
         total_contribution = 0
         total_weight = 0
-        
+
         for series_id, weight, invert in zip(
             config.series_ids, config.weights, config.invert
         ):
@@ -388,9 +387,9 @@ class AttributionEngine:
                 variables.append(var_attr)
                 total_contribution += var_attr.contribution
                 total_weight += weight
-        
+
         level = total_contribution / total_weight if total_weight > 0 else 0
-        
+
         # 子通道
         sub_channels = {}
         if "sub_channels" in semantics:
@@ -399,17 +398,17 @@ class AttributionEngine:
                 if sub_vars:
                     sub_level = sum(v.contribution for v in sub_vars) / len(sub_vars)
                     sub_channels[sub_id] = sub_level
-        
+
         # 二阶动量
         proxy_series = self.pc.compute_proxy(channel_id)
         momentum_1w = self._compute_change(proxy_series, 5)
         momentum_1m = self._compute_change(proxy_series, 22)
         momentum_3m = self._compute_change(proxy_series, 66)
         acceleration = self._compute_acceleration(proxy_series)
-        
+
         # 解读 level
         level_interp = self._interpret_level(channel_id, level)
-        
+
         return ChannelAttribution(
             channel_id=channel_id,
             channel_name=semantics["name"],
@@ -425,7 +424,7 @@ class AttributionEngine:
             momentum_3m=momentum_3m,
             acceleration=acceleration,
         )
-    
+
     def _compute_acceleration(self, series: pd.Series) -> Optional[float]:
         """计算加速度（动量的变化）"""
         if len(series) < 44:
@@ -433,7 +432,7 @@ class AttributionEngine:
         momentum_recent = series.iloc[-1] - series.iloc[-22]
         momentum_prior = series.iloc[-22] - series.iloc[-44]
         return float(momentum_recent - momentum_prior)
-    
+
     def _interpret_level(self, channel_id: str, level: float) -> str:
         """解读通道水平"""
         if abs(level) < 0.3:
@@ -447,7 +446,7 @@ class AttributionEngine:
         elif level < -0.5:
             return "偏低"
         return "轻微偏离"
-    
+
     def _identify_regime(
         self, channels: dict[str, ChannelAttribution]
     ) -> RegimeResult:
@@ -456,7 +455,7 @@ class AttributionEngine:
         d = channels["D"].level
         k = channels["K"].level
         x = channels["X"].level
-        
+
         for rule in REGIME_RULES:
             if rule["condition"](m, d, k, x):
                 return RegimeResult(
@@ -466,7 +465,7 @@ class AttributionEngine:
                     tradeability=rule["tradeability"],
                     watch_vars=rule["watch_vars"],
                 )
-        
+
         return RegimeResult(
             regime_name="Unclassified",
             regime_label="未分类",
@@ -474,25 +473,25 @@ class AttributionEngine:
             tradeability="WATCHLIST",
             watch_vars=[],
         )
-    
+
     def generate_report(self) -> AttributionReport:
         """生成完整归因报告"""
         channels = {}
         for channel_id in ["M", "D", "K", "X"]:
             channels[channel_id] = self._compute_channel_attribution(channel_id)
-        
+
         regime = self._identify_regime(channels)
-        
+
         # 生成摘要
         summary = self._generate_summary(channels, regime)
-        
+
         return AttributionReport(
             date=str(self.pc._get_series("FRED:T10Y2Y").index[-1].date()),
             channels=channels,
             regime=regime,
             summary=summary,
         )
-    
+
     def _generate_summary(
         self,
         channels: dict[str, ChannelAttribution],
@@ -500,45 +499,45 @@ class AttributionEngine:
     ) -> str:
         """生成文字摘要"""
         lines = []
-        
+
         lines.append(f"## 市场状态：{regime.regime_label} ({regime.regime_name})")
-        lines.append(f"")
+        lines.append("")
         lines.append(f"**可交易性：{regime.tradeability}**")
-        lines.append(f"")
+        lines.append("")
         lines.append(f"> {regime.description}")
-        lines.append(f"")
-        
+        lines.append("")
+
         if regime.watch_vars:
             lines.append(f"**观察变量：** {', '.join(regime.watch_vars)}")
-            lines.append(f"")
-        
+            lines.append("")
+
         lines.append("---")
         lines.append("")
-        
+
         for ch_id, ch in channels.items():
             lines.append(f"### {ch_id} 通道：{ch.channel_name}")
             lines.append(f"- **经济含义：** {ch.economic_meaning}")
             lines.append(f"- **当前水平：** {ch.level:+.2f} ({ch.level_interpretation})")
             lines.append(f"- **正向含义：** {ch.positive_means}")
             lines.append(f"- **负向含义：** {ch.negative_means}")
-            
+
             # 二阶
             if ch.momentum_1w is not None:
                 lines.append(f"- **动量：** 1周 {ch.momentum_1w:+.2f} | 1月 {ch.momentum_1m:+.2f} | 3月 {ch.momentum_3m:+.2f}" if ch.momentum_1m and ch.momentum_3m else "")
             if ch.acceleration is not None:
                 lines.append(f"- **加速度：** {ch.acceleration:+.2f}")
-            
+
             # 子通道
             if ch.sub_channels:
-                lines.append(f"- **子通道：**")
+                lines.append("- **子通道：**")
                 for sub_id, sub_val in ch.sub_channels.items():
                     lines.append(f"  - {sub_id}: {sub_val:+.2f}")
-            
+
             # 变量归因
-            lines.append(f"- **变量归因：**")
-            lines.append(f"  | 变量 | 角色 | 最新值 | 5年均值 | z-score | 方向 | 贡献 | 直觉 |")
-            lines.append(f"  |------|------|--------|---------|---------|------|------|------|")
-            
+            lines.append("- **变量归因：**")
+            lines.append("  | 变量 | 角色 | 最新值 | 5年均值 | z-score | 方向 | 贡献 | 直觉 |")
+            lines.append("  |------|------|--------|---------|---------|------|------|------|")
+
             for v in ch.variables:
                 dir_str = "↑正向" if v.direction == "normal" else "↓反向"
                 lines.append(
@@ -546,20 +545,20 @@ class AttributionEngine:
                     f"{v.mean_5y:.2f} | {v.z_score:+.2f} | {dir_str} | "
                     f"{v.contribution:+.3f} | {v.intuition} |"
                 )
-            
+
             lines.append("")
-        
+
         return "\n".join(lines)
 
 
 def format_attribution_markdown(report: AttributionReport) -> str:
     """格式化为 Markdown"""
     lines = []
-    
-    lines.append(f"# M/D/K/X 归因报告")
+
+    lines.append("# M/D/K/X 归因报告")
     lines.append(f"**日期：** {report.date}")
-    lines.append(f"**版本：** v2.0 (语义校准 + 二阶归因)")
-    lines.append(f"")
+    lines.append("**版本：** v2.0 (语义校准 + 二阶归因)")
+    lines.append("")
     lines.append(report.summary)
-    
+
     return "\n".join(lines)

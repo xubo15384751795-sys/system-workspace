@@ -21,9 +21,9 @@ from typing import Any
 
 import pandas as pd
 import yaml
-from scripts._runtime_io import ROOT, ensure_dir, write_json
-
 from src.operators.mechanism import FundingPathStressDetector
+
+from scripts._runtime_io import ROOT, ensure_dir, write_json
 
 WINDOWS = ROOT / "governance" / "event_replay_windows.yaml"
 PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"

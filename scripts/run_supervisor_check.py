@@ -22,8 +22,6 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-
-
 from scripts._runtime_io import ROOT, ensure_dir, load_json, load_yaml  # noqa: E402
 
 CURRENT = ROOT / "Output" / "current"

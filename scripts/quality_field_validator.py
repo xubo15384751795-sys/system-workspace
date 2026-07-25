@@ -19,7 +19,14 @@ import json
 from typing import Any
 
 from scripts._constants import CASELAB_USABLE_THRESHOLD
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    load_json,
+    utc_now,
+    write_json,
+)
 
 FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"

@@ -14,6 +14,12 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
+from workbench.judgment.trade_decision import (
+    compose_trade_fields,
+    determine_size,
+    determine_stance,
+)
+
 from scripts._runtime_io import ROOT, ensure_dir, load_yaml
 from system_runtime.credit_assignment import (
     ablation_marginals,
@@ -22,8 +28,6 @@ from system_runtime.credit_assignment import (
     validate_trace,
 )
 from system_runtime.events import JsonlEventStore
-from workbench.judgment.trade_decision import compose_trade_fields, determine_size, determine_stance
-
 
 LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
 REPORT_JSON = ROOT / "Output" / "system_learning" / "latest" / "backward_pass.json"

@@ -19,7 +19,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    load_json,
+    utc_now,
+    write_json,
+)
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"

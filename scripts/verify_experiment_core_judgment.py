@@ -39,8 +39,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
-
 from scripts._runtime_io import ROOT, ensure_dir, load_yaml, write_json  # noqa: E402
 
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"

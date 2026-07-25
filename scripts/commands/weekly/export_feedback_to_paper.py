@@ -20,9 +20,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from caselab_context.paper_paths import paper_root  # noqa: E402
 from scripts._runtime_io import ROOT, ensure_dir  # noqa: E402
 from scripts._runtime_io import load_jsonl as _read_jsonl
-from caselab_context.paper_paths import paper_root  # noqa: E402
 
 CONTEXT_LOG = ROOT / "caselab_context" / "feedback_log.jsonl"
 PREFERENCE_LOG = ROOT / "caselab_runtime" / "feedback" / "preference_dataset.jsonl"

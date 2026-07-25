@@ -13,7 +13,6 @@ from itertools import combinations
 from math import factorial
 from typing import Any
 
-
 ReplayFunction = Callable[[dict[str, Any]], dict[str, Any]]
 LossFunction = Callable[[dict[str, Any]], float]
 

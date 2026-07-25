@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
+
 from scripts._runtime_io import ROOT, ensure_dir, load_json, write_json
 
 SHADOW_DIR = ROOT / "Output" / "strategy_lab" / "shadow_cards"

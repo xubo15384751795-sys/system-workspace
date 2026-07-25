@@ -36,9 +36,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir
-
 from caselab_context.paper_paths import paper_root  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir
 
 OUTPUT_DIR = ROOT / "Data" / "paper_world_model"
 REPORT_DIR = ROOT / "Output" / "paper_world_model"

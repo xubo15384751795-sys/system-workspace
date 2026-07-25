@@ -74,6 +74,19 @@ def validate_decision(path: Path) -> list[str]:
     return errors
 
 
+def is_pace_decision(path: Path) -> bool:
+    """Return whether a routing-decision record carries PACE/Cynefin fields.
+
+    The routing_decisions directory also contains frozen research protocols
+    and estate-disposition records. Those records are governance evidence,
+    but they are not substitutes for a PACE routing decision.
+    """
+    if not path.is_file():
+        return True
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return isinstance(data, dict) and "cynefin_domain" in data
+
+
 def check_paths(paths: list[str], root: Path = ROOT) -> list[str]:
     pace = load_pace(root / "PACE.md")
     classified = {path: classify_path(path, pace) for path in paths}
@@ -81,19 +94,26 @@ def check_paths(paths: list[str], root: Path = ROOT) -> list[str]:
     if not slow:
         return []
 
-    decision_refs = [
+    candidate_refs = [
         path for path in paths
         if path.replace("\\", "/").lstrip("./").startswith(DECISION_PREFIX)
         and path.endswith((".yaml", ".yml"))
     ]
     env_ref = os.environ.get("ROUTING_DECISION_REF", "").strip()
     if env_ref:
-        decision_refs.append(env_ref)
+        candidate_refs.append(env_ref)
+
+    decision_refs = [
+        ref
+        for ref in candidate_refs
+        if is_pace_decision(root / ref.replace("\\", "/").lstrip("./"))
+    ]
 
     if not decision_refs:
         details = ", ".join(f"{path} ({layer})" for path, layer in sorted(slow.items()))
         return [
-            "PACE violation: L3/L4 change has no routing decision in the same change: " + details
+            "PACE violation: L3/L4 change has no PACE routing decision "
+            "(cynefin_domain required) in the same change: " + details
         ]
 
     errors: list[str] = []
@@ -114,12 +134,41 @@ def _staged_paths(root: Path) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
+def _changed_paths(root: Path, base_ref: str) -> list[str]:
+    result = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--name-only",
+            "--diff-filter=ACMR",
+            f"{base_ref}...HEAD",
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"git diff exited {result.returncode}"
+        raise ValueError(f"could not resolve PACE base ref {base_ref!r}: {detail}")
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="*", help="Changed paths (pre-commit passes these).")
+    parser.add_argument(
+        "--base-ref",
+        help="Compare this Git ref or SHA with HEAD (used by pull-request CI).",
+    )
     args = parser.parse_args(argv)
-    paths = args.paths or _staged_paths(ROOT)
     try:
+        if args.paths:
+            paths = args.paths
+        elif args.base_ref:
+            paths = _changed_paths(ROOT, args.base_ref)
+        else:
+            paths = _staged_paths(ROOT)
         errors = check_paths(paths, ROOT)
     except (OSError, ValueError, yaml.YAMLError) as exc:
         errors = [f"PACE check could not run: {exc}"]

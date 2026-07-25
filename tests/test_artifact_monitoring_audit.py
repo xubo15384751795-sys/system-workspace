@@ -13,8 +13,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from artifact_monitoring_audit import (  # noqa: E402
     build_report,
     learning_hub_source_lag,
-    monitoring_matrix,
     monitoring_blind_spots,
+    monitoring_matrix,
     non_daily_contract_violations,
 )
 

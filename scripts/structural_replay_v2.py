@@ -30,6 +30,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -45,6 +46,23 @@ if __name__ == "__main__":
 
     require_archived_reproduction()
 
+
+from replay.scoring import (  # noqa: E402
+    compute_contract_violations,
+    compute_derivative_contamination,
+    compute_family_concentration,
+    compute_horizon_consistency,
+    compute_pc1_variance,
+    compute_realized_activation_quality,
+    compute_residual_uniqueness,
+    compute_sparsity_flags,
+    compute_vif,
+)
+from workbench.governance.report_gate import validate_report_verdict  # noqa: E402
+from workbench.governance.semantic import (  # noqa: E402
+    SemanticRegistry,
+    build_sigma_vector,
+)
 
 from scripts._constants import TRADING_DAYS_PER_YEAR  # noqa: E402
 from scripts._proxy_aggregation import coupled_aggregate  # noqa: E402
@@ -65,23 +83,6 @@ from scripts._replay_transforms import (  # noqa: E402
     _rolling_zscore,  # noqa: F401
 )
 from scripts._runtime_io import ensure_dir  # noqa: E402
-from replay.scoring import (  # noqa: E402
-    compute_contract_violations,
-    compute_derivative_contamination,
-    compute_family_concentration,
-    compute_horizon_consistency,
-    compute_pc1_variance,
-    compute_realized_activation_quality,
-    compute_residual_uniqueness,
-    compute_sparsity_flags,
-    compute_vif,
-)
-
-from workbench.governance.report_gate import validate_report_verdict  # noqa: E402
-from workbench.governance.semantic import (  # noqa: E402
-    SemanticRegistry,
-    build_sigma_vector,
-)
 
 CONFIG_PATH = (
     REPO_ROOT / "configs" / "structural_replay" / "config.yaml"
@@ -114,7 +115,11 @@ def build_measurement_bundle(panel: pd.DataFrame) -> MeasurementBundle:
     excluded from aggregation and the channel is flagged degraded if the
     roster shrinks below quorum. See _proxy_state.ProxyState.
     """
-    from scripts._proxy_state import classify_build_result, is_active_for_aggregation, registry_row_with_state
+    from scripts._proxy_state import (
+        classify_build_result,
+        is_active_for_aggregation,
+        registry_row_with_state,
+    )
 
     component_values = pd.DataFrame(index=panel.index)
     registry_rows: list[dict] = []

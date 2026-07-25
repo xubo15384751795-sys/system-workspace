@@ -22,9 +22,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, load_json, utc_now, write_json
-
-
 from workbench.judgment.layer import (
     build_judgment,
     load_caselab,
@@ -34,6 +31,8 @@ from workbench.judgment.layer import (
     load_x_gate,
     write_dated_outputs,
 )
+
+from scripts._runtime_io import ROOT, load_json, utc_now, write_json
 
 ARCHIVE_FW = ROOT / "Output" / "archive" / "framework_output"
 ARCHIVE_CASELAB = ROOT / "Output" / "archive" / "caselab"

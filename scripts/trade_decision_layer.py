@@ -26,12 +26,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from scripts._runtime_io import ROOT, ensure_dir, load_json, load_jsonl, utc_now, write_json
-from system_runtime.credit_assignment import build_trade_learning_trace
 from paper_freshness import check_paper_world_model_freshness
 from pending_evaluation import write_pending_evaluation
-
-
 from workbench.judgment.trade_decision import (  # noqa: E402
     build_quality_inputs,
     compose_trade_fields,
@@ -43,6 +39,16 @@ from workbench.judgment.trade_decision import (  # noqa: E402
 from workbench.judgment.trade_decision import (
     build_trade_thesis as _wb_build_trade_thesis,
 )
+
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_json,
+    load_jsonl,
+    utc_now,
+    write_json,
+)
+from system_runtime.credit_assignment import build_trade_learning_trace
 
 JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
 PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"

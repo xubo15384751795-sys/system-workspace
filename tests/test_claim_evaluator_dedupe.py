@@ -6,7 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from scripts.commands.weekly.claim_evaluator import dedupe_entries, update_forward_outcomes
+from scripts.commands.weekly.claim_evaluator import (
+    dedupe_entries,
+    update_forward_outcomes,
+)
 
 
 def _entry(recorded_at: str, claim: str = "claim") -> dict:

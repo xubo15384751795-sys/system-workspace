@@ -17,12 +17,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, write_json
-
 from src.operators.mechanism import (
     ActivationRecord,
     FundingPathStressDetector,
 )
+
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, write_json
 
 PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
 OUT = current_dir() / "operator_activations.json"

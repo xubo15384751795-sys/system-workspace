@@ -21,10 +21,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
 # Ensure scripts/ is on path for shared imports
-
 from scripts.strategy_lab.backtest import run_comparison
 from scripts.strategy_lab.data_loader import load_aligned
 from scripts.strategy_lab.report import save_report

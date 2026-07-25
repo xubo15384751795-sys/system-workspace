@@ -56,7 +56,7 @@ class TestScenario1MergeGate:
 
 class TestScenario2PressureBuilderFailure:
     def test_k_builder_exception_records_build_failed(self):
-        from _proxy_state import classify_build_result, ProxyState, state_of
+        from _proxy_state import ProxyState, classify_build_result, state_of
 
         r = classify_build_result("K_butterfly", None, build_error="ZeroDivisionError")
         assert state_of(r) == ProxyState.BUILD_FAILED
@@ -178,7 +178,7 @@ class TestScenario5ArchivedRuntimeInjection:
 
 class TestScenario6WrongLatestPointer:
     def test_release_not_finalized_rejected(self, tmp_path):
-        from _release_boundary import verify_release_finalized, ReleaseNotFinalizedError
+        from _release_boundary import ReleaseNotFinalizedError, verify_release_finalized
 
         release = tmp_path / "release"
         release.mkdir()
@@ -193,9 +193,9 @@ class TestScenario6WrongLatestPointer:
 
 class TestScenario7ShadowFailure:
     def test_hold_degraded_excluded_from_promotion(self, tmp_path, monkeypatch):
-        from scripts.strategy_lab import shadow_card as sc
+
         from scripts import _runtime_io as rio
-        import _control_closure
+        from scripts.strategy_lab import shadow_card as sc
 
         monkeypatch.setattr(sc, "OUTPUT_DIR", tmp_path / "strategy_lab")
         monkeypatch.setattr(rio, "ROOT", tmp_path)

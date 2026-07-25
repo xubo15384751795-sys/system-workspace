@@ -1,0 +1,31 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-25"
+task_id: ci-gate-closure-before-main-sync
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Repair the repository's existing CI gate so the 19-commit local-to-GitHub
+  synchronization can be evaluated without bypassing lint, pre-commit,
+  integration, PACE, or merge-gate controls.
+decision: >
+  Normalize files already covered by the declared lint policy, declare the
+  MCP SDK used by the CaseLab server as a project dependency, and evaluate
+  PACE routing against the pull-request merge base instead of treating
+  pre-commit --all-files as one synthetic repository-wide change.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+acceptance:
+  - root Ruff command passes with the workflow's selected rules
+  - pre-commit --all-files passes
+  - PACE check passes against the pull-request base SHA
+  - marked root integration tests pass
+  - GitHub merge-gate passes before merge
+rollback: >
+  Revert the CI remediation commit; the pre-existing backup branch remains
+  pinned to commit 929dbb9da9ebb02613fb092b4cdd23ce0bbf26f6.
+evidence:
+  pull_request: "https://github.com/xubo15384751795-sys/system-workspace/pull/2"
+  failed_run: "https://github.com/xubo15384751795-sys/system-workspace/actions/runs/30146523693"

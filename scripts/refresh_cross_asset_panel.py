@@ -21,8 +21,8 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from scripts._runtime_io import ROOT
 
+from scripts._runtime_io import ROOT
 
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 HARVESTER_PANEL_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"

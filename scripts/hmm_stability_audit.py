@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
 from scripts._constants import (
     HMM_CALIBRATION_ENTROPY_THRESHOLD,
     HMM_DEGENERATE_ENTROPY_THRESHOLD,

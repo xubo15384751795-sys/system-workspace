@@ -24,7 +24,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._daily_run_sequence import load_daily_run_sequence, weekly_step_ids  # noqa: E402
+from scripts._daily_run_sequence import (  # noqa: E402
+    load_daily_run_sequence,
+    weekly_step_ids,
+)
 from scripts._runtime_io import ROOT, ensure_dir, load_yaml  # noqa: E402
 
 OUTPUT_PATH = ROOT / "Output" / "system_learning" / "latest" / "governance_drag_report.json"

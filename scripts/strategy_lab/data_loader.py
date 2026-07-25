@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts import _runtime_io as rio
 import pandas as pd
+
+from scripts import _runtime_io as rio
 
 
 # ── Paths ────────────────────────────────────────────────────────────

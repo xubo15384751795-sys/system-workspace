@@ -2,9 +2,9 @@
 """Run the canonical Learning Hub collect -> append -> derive pipeline."""
 from __future__ import annotations
 
-from scripts._runtime_io import ROOT
-
 from system_learning.cli import main as hub_main
+
+from scripts._runtime_io import ROOT
 
 
 def main() -> int:

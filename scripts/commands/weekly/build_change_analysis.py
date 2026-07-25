@@ -20,8 +20,6 @@ import statistics
 from datetime import UTC, datetime
 from pathlib import Path
 
-
-
 from scripts._runtime_io import ROOT, current_dir, load_json  # noqa: E402
 
 JUDGMENT_DIR = ROOT / "Output" / "judgment"

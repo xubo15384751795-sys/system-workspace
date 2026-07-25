@@ -17,12 +17,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 
 from scripts import _runtime_io as rio
 from scripts.strategy_lab.data_loader import load_signals

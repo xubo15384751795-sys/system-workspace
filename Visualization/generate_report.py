@@ -37,13 +37,13 @@ def load_backtest_data():
     """Load backtest data from files."""
     with open(DATA_DIR / "backtest_summary.json") as f:
         summary = json.load(f)
-    
+
     portfolio_curve = pd.read_csv(DATA_DIR / "portfolio_curve.csv")
     portfolio_curve['date'] = pd.to_datetime(portfolio_curve['date'])
-    
+
     event_results = pd.read_csv(DATA_DIR / "event_results.csv")
     event_results['date'] = pd.to_datetime(event_results['date'])
-    
+
     return summary, portfolio_curve, event_results
 
 
@@ -55,7 +55,7 @@ def load_mdkx_data():
 
 def generate_backtest_lens(summary, portfolio_curve, event_results):
     """Generate Backtest Lens report with Plotly."""
-    
+
     # Create subplots
     fig = make_subplots(
         rows=3, cols=2,
@@ -75,7 +75,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         vertical_spacing=0.12,
         horizontal_spacing=0.1
     )
-    
+
     # 1. Equity Curve
     fig.add_trace(
         go.Scatter(
@@ -97,7 +97,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         ),
         row=1, col=1
     )
-    
+
     # 2. Drawdown
     fig.add_trace(
         go.Scatter(
@@ -111,12 +111,12 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         ),
         row=1, col=2
     )
-    
+
     # 3. Monthly Returns Heatmap
     monthly_returns = summary['monthly_returns']
     months = sorted(monthly_returns.keys())
     years = sorted(set(m[:4] for m in months))
-    
+
     # Create heatmap data
     heatmap_data = []
     for year in years:
@@ -125,7 +125,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
             key = f"{year}-{month_num:02d}"
             year_returns.append(monthly_returns.get(key, 0) * 100)
         heatmap_data.append(year_returns)
-    
+
     fig.add_trace(
         go.Heatmap(
             z=heatmap_data,
@@ -137,7 +137,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         ),
         row=2, col=1
     )
-    
+
     # 4. Event Returns Distribution
     fig.add_trace(
         go.Histogram(
@@ -150,7 +150,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         ),
         row=2, col=2
     )
-    
+
     # 5. Best Events Table
     best_events = event_results.nlargest(5, 'excess_return')
     fig.add_trace(
@@ -176,7 +176,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         ),
         row=3, col=1
     )
-    
+
     # 6. Worst Events Table
     worst_events = event_results.nsmallest(5, 'excess_return')
     fig.add_trace(
@@ -202,7 +202,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         ),
         row=3, col=2
     )
-    
+
     # Update layout
     fig.update_layout(
         title=dict(
@@ -224,11 +224,11 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
             x=1
         )
     )
-    
+
     # Update axes
     fig.update_xaxes(gridcolor='#1a1a2e', zerolinecolor='#1a1a2e')
     fig.update_yaxes(gridcolor='#1a1a2e', zerolinecolor='#1a1a2e')
-    
+
     # Add summary stats as annotation
     stats_text = (
         f"<b>Strategy Performance</b><br>"
@@ -239,7 +239,7 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         f"Alpha: {summary['summary']['alpha']:.1%}<br>"
         f"Win Rate: {summary['summary']['win_rate']:.1%}"
     )
-    
+
     fig.add_annotation(
         text=stats_text,
         xref='paper', yref='paper',
@@ -252,17 +252,17 @@ def generate_backtest_lens(summary, portfolio_curve, event_results):
         borderpad=10,
         align='left'
     )
-    
+
     return fig
 
 
 def generate_mdkx_lens(mdkx_data):
     """Generate MDKX Attribution Lens report with ECharts."""
-    
+
     channels = mdkx_data['channels']
     attribution = mdkx_data['attribution']
     watchlist = mdkx_data['watchlist']
-    
+
     # Generate watchlist HTML
     watchlist_rows = []
     for item in watchlist:
@@ -279,7 +279,7 @@ def generate_mdkx_lens(mdkx_data):
         """
         watchlist_rows.append(row)
     watchlist_html = ''.join(watchlist_rows)
-    
+
     # Create HTML with ECharts
     html_content = f"""
 <!DOCTYPE html>
@@ -414,25 +414,25 @@ def generate_mdkx_lens(mdkx_data):
         <div class="header">
             <h1>Hermes MDKX Attribution Lens</h1>
             <div class="subtitle">
-                Run Date: {mdkx_data['metadata']['run_date']} | 
-                Regime: {mdkx_data['metadata']['regime']} | 
+                Run Date: {mdkx_data['metadata']['run_date']} |
+                Regime: {mdkx_data['metadata']['regime']} |
                 Sigma: {mdkx_data['metadata']['sigma']:.3f}
             </div>
         </div>
-        
+
         <div class="grid">
             <!-- Radar Chart -->
             <div class="card">
                 <h2>M/D/K/X Channel Scores</h2>
                 <div id="radar" class="chart"></div>
             </div>
-            
+
             <!-- Contribution Waterfall -->
             <div class="card">
                 <h2>Channel Contributions</h2>
                 <div id="waterfall" class="chart"></div>
             </div>
-            
+
             <!-- Regime Card -->
             <div class="card regime-card">
                 <h2>Current Regime</h2>
@@ -456,13 +456,13 @@ def generate_mdkx_lens(mdkx_data):
                     </div>
                 </div>
             </div>
-            
+
             <!-- Component Breakdown -->
             <div class="card">
                 <h2>Component Breakdown</h2>
                 <div id="components" class="chart"></div>
             </div>
-            
+
             <!-- Watchlist -->
             <div class="card full-width">
                 <h2>Next Variables Watchlist</h2>
@@ -484,7 +484,7 @@ def generate_mdkx_lens(mdkx_data):
             </div>
         </div>
     </div>
-    
+
     <script>
         // Radar Chart
         var radarChart = echarts.init(document.getElementById('radar'), 'dark');
@@ -539,7 +539,7 @@ def generate_mdkx_lens(mdkx_data):
             }}]
         }};
         radarChart.setOption(radarOption);
-        
+
         // Waterfall Chart
         var waterfallChart = echarts.init(document.getElementById('waterfall'), 'dark');
         var channels = ['M', 'D', 'K', 'X', 'Total'];
@@ -551,7 +551,7 @@ def generate_mdkx_lens(mdkx_data):
             {attribution['total_contribution']}
         ];
         var colors = contributions.map(v => v >= 0 ? '#00d4aa' : '#ff5252');
-        
+
         var waterfallOption = {{
             backgroundColor: 'transparent',
             tooltip: {{
@@ -604,19 +604,19 @@ def generate_mdkx_lens(mdkx_data):
             }}]
         }};
         waterfallChart.setOption(waterfallOption);
-        
+
         // Components Chart
         var componentsChart = echarts.init(document.getElementById('components'), 'dark');
         var componentData = [];
         var componentNames = [];
-        
+
         Object.keys(channels).forEach(ch => {{
             Object.keys(channels[ch].components).forEach(comp => {{
                 componentNames.push(ch + ': ' + comp);
                 componentData.push(channels[ch].components[comp]);
             }});
         }});
-        
+
         var componentsOption = {{
             backgroundColor: 'transparent',
             tooltip: {{
@@ -667,7 +667,7 @@ def generate_mdkx_lens(mdkx_data):
             }}]
         }};
         componentsChart.setOption(componentsOption);
-        
+
         // Handle resize
         window.addEventListener('resize', function() {{
             radarChart.resize();
@@ -678,7 +678,7 @@ def generate_mdkx_lens(mdkx_data):
 </body>
 </html>
 """
-    
+
     return html_content
 
 
@@ -689,37 +689,37 @@ def main():
     parser.add_argument('--export', choices=['html', 'png', 'svg', 'pdf'], default='html',
                        help='Export format')
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("Hermes Visualization Layer - Report Generator")
     print("=" * 60)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+
     if args.type in ['backtest', 'all']:
         print("\n[1/2] Generating Backtest Lens...")
         summary, portfolio_curve, event_results = load_backtest_data()
         fig = generate_backtest_lens(summary, portfolio_curve, event_results)
-        
+
         output_path = OUTPUT_DIR / f"backtest_lens_{timestamp}.html"
         fig.write_html(str(output_path))
         print(f"  ✅ Saved: {output_path}")
-        
+
         if args.export == 'png':
             png_path = OUTPUT_DIR / f"backtest_lens_{timestamp}.png"
             fig.write_image(str(png_path), width=1400, height=1200, scale=2)
             print(f"  ✅ PNG: {png_path}")
-    
+
     if args.type in ['mdkx', 'all']:
         print("\n[2/2] Generating MDKX Attribution Lens...")
         mdkx_data = load_mdkx_data()
         html_content = generate_mdkx_lens(mdkx_data)
-        
+
         output_path = OUTPUT_DIR / f"mdkx_lens_{timestamp}.html"
         with open(output_path, 'w') as f:
             f.write(html_content)
         print(f"  ✅ Saved: {output_path}")
-    
+
     print("\n" + "=" * 60)
     print("✅ All reports generated successfully!")
     print(f"Output directory: {OUTPUT_DIR}")

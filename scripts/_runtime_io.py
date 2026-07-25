@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
 from system_runtime.events import payload_of
 from system_runtime.paths import WorkspacePaths
 

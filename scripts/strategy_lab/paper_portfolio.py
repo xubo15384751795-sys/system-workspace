@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -31,7 +30,6 @@ from typing import Any
 import pandas as pd
 
 # Allow `python scripts/strategy_lab/paper_portfolio.py` and package imports
-
 from scripts import _runtime_io as rio  # noqa: E402
 from scripts._notify import notify_alert  # noqa: E402
 from scripts.strategy_lab.data_loader import load_aligned, load_symbol  # noqa: E402
@@ -192,7 +190,10 @@ def _load_public_levels(index: pd.DatetimeIndex, panel_path: Path) -> pd.DataFra
     # panel, so a tampered/unfinalized latest symlink cannot be silently
     # consumed. Best-effort: if the panel path is not under a harvester
     # release (e.g. a test fixture), skip the finalization check.
-    from scripts._release_boundary import verify_release_finalized, ReleaseNotFinalizedError
+    from scripts._release_boundary import (
+        ReleaseNotFinalizedError,
+        verify_release_finalized,
+    )
 
     release_root = _resolve_release_root(panel_path)
     if release_root is not None:

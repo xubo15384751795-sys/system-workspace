@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 
-
 from scripts._governance_freeze import check_governance_freeze  # noqa: E402
 from scripts._runtime_io import ROOT
 

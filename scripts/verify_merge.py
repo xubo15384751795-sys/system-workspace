@@ -16,7 +16,6 @@ commit SHA. A stale manifest (different SHA) is automatically invalid.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import subprocess
@@ -44,7 +43,6 @@ def _git_sha() -> str:
 
 def _run_step(name: str, cmd: list[str], timeout: int = 600) -> dict:
     """Run a verification step. Returns {name, passed, returncode, duration_s}."""
-    import os
     import time
 
     t0 = time.time()

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
 if str(HARNESS_ROOT) not in sys.path:

@@ -8,8 +8,6 @@ from __future__ import annotations
 import argparse
 import json
 
-
-
 from workbench.judgment.promotion_gate import run_promotion_gate, write_outputs
 
 

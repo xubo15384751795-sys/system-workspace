@@ -8,8 +8,6 @@ from __future__ import annotations
 import argparse
 import json
 
-
-
 from workbench.signals.k_gate import run_gate, write_outputs
 
 

@@ -8,8 +8,9 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from scripts._constants import HALF_YEAR_TRADING_DAYS, TRADING_DAYS_PER_YEAR
 from professional_methods import causal_pit, causal_robust_zscore
+
+from scripts._constants import HALF_YEAR_TRADING_DAYS, TRADING_DAYS_PER_YEAR
 
 Freq = Literal["daily", "weekly", "monthly", "quarterly", "sparse", "mixed"]
 

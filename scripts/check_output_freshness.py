@@ -22,8 +22,6 @@ import sys
 import time
 from pathlib import Path
 
-
-
 from scripts._runtime_io import ROOT, load_yaml  # noqa: E402
 
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"

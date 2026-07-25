@@ -8,11 +8,8 @@ from __future__ import annotations
 import argparse
 import json
 
-
-
 from paper_freshness import check_paper_world_model_freshness  # noqa: I001
 from pending_evaluation import write_pending_evaluation  # noqa: I001
-
 from workbench.judgment.layer import (
     FW_PATH,
     _date_from_framework,

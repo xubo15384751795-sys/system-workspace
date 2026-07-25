@@ -101,7 +101,6 @@ class TestAdmitForConsumption:
         """A stale CISS content cache is a blocker even if the release is fine."""
         release = tmp_path / "release"
         _write_release(release)
-        from _admission_gate import _content_level_blockers
 
         def fake_content(now):
             return (["ciss_cache:stale (behind=69d)"],

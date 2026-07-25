@@ -22,6 +22,7 @@ import sys
 from datetime import UTC, datetime
 
 import pandas as pd
+
 from scripts._runtime_io import ROOT, ensure_dir, write_json
 
 # ── Paths ───────────────────────────────────────────────────────────

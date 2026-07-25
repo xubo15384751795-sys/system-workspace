@@ -9,7 +9,10 @@ from typing import Any
 import yaml
 
 from caselab_context.paper_paths import paper_root
-from caselab_context.regime_from_indicators import _load_history, load_indicator_snapshot
+from caselab_context.regime_from_indicators import (
+    _load_history,
+    load_indicator_snapshot,
+)
 
 MACHINES_DIR = paper_root() / "90_Admin/Context Rules/state_machines"
 PROCESSED_DIR = paper_root() / "data_pipeline/data/processed"

@@ -32,7 +32,7 @@ def generate_terminal_report(
     themes: list = None,
 ) -> str:
     """Generate a complete terminal report for a ticker.
-    
+
     Args:
         symbol: Ticker symbol
         start: Start date
@@ -40,7 +40,7 @@ def generate_terminal_report(
         benchmark: Benchmark ticker
         signals: List of signal dicts with date, label, level
         themes: List of theme strings
-    
+
     Returns:
         Path to generated HTML file
     """
@@ -50,22 +50,22 @@ def generate_terminal_report(
         signals = []
     if themes is None:
         themes = []
-    
+
     # Get data
     router = DataRouter()
     df = router.get_ohlcv(symbol, start, end)
     info = router.get_info(symbol)
-    
+
     benchmark_df = None
     try:
         benchmark_df = router.get_ohlcv(benchmark, start, end)
     except Exception:
         pass
-    
+
     # Run backtests
     bt = QuickBacktest(df, benchmark_df)
     results = bt.run_all()
-    
+
     # Calculate summary stats
     current_price = df["close"].iloc[-1]
     return_1d = df["return_1d"].iloc[-1] if len(df) > 1 else 0
@@ -80,14 +80,14 @@ def generate_terminal_report(
             ytd_return = ytd_df["close"].iloc[-1] / ytd_df["close"].iloc[0] - 1
     except Exception:
         pass
-    
+
     max_drawdown = df["drawdown"].min()
     vol_20d = df["volatility_20d"].iloc[-1] if "volatility_20d" in df.columns else 0
-    
+
     # Generate charts
     price_chart = _create_price_chart(df, symbol, signals)
     backtest_chart = _create_backtest_chart(results, symbol, benchmark)
-    
+
     # Generate HTML
     html = _render_html(
         symbol=symbol,
@@ -107,18 +107,18 @@ def generate_terminal_report(
         backtest_chart=backtest_chart,
         benchmark=benchmark,
     )
-    
+
     # Save report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = REPORTS_DIR / f"{symbol}_terminal_{timestamp}.html"
     with open(output_path, "w") as f:
         f.write(html)
-    
+
     # Also save as latest
     latest_path = REPORTS_DIR / f"{symbol}_terminal.html"
     with open(latest_path, "w") as f:
         f.write(html)
-    
+
     return str(latest_path)
 
 
@@ -131,7 +131,7 @@ def _create_price_chart(df: pd.DataFrame, symbol: str, signals: list) -> str:
         row_heights=[0.7, 0.3],
         subplot_titles=(f"{symbol} Price", "Volume")
     )
-    
+
     # Candlestick
     fig.add_trace(
         go.Candlestick(
@@ -146,7 +146,7 @@ def _create_price_chart(df: pd.DataFrame, symbol: str, signals: list) -> str:
         ),
         row=1, col=1
     )
-    
+
     # Moving averages
     if "ma20" in df.columns:
         fig.add_trace(
@@ -164,7 +164,7 @@ def _create_price_chart(df: pd.DataFrame, symbol: str, signals: list) -> str:
             ),
             row=1, col=1
         )
-    
+
     # Signal markers
     for sig in signals:
         sig_date = pd.to_datetime(sig["date"])
@@ -183,14 +183,14 @@ def _create_price_chart(df: pd.DataFrame, symbol: str, signals: list) -> str:
                 ),
                 row=1, col=1
             )
-    
+
     # Volume
     colors = ["#00d4aa" if c >= o else "#ff5252" for c, o in zip(df["close"], df["open"])]
     fig.add_trace(
         go.Bar(x=df["date"], y=df["volume"], name="Volume", marker_color=colors, opacity=0.5),
         row=2, col=1
     )
-    
+
     fig.update_layout(
         height=600,
         template="plotly_dark",
@@ -200,10 +200,10 @@ def _create_price_chart(df: pd.DataFrame, symbol: str, signals: list) -> str:
         xaxis_rangeslider_visible=False,
         margin=dict(l=50, r=50, t=30, b=30),
     )
-    
+
     fig.update_xaxes(gridcolor="#1a1a2e", zerolinecolor="#1a1a2e")
     fig.update_yaxes(gridcolor="#1a1a2e", zerolinecolor="#1a1a2e")
-    
+
     return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
@@ -216,14 +216,14 @@ def _create_backtest_chart(results: dict, symbol: str, benchmark: str) -> str:
         row_heights=[0.6, 0.4],
         subplot_titles=("Equity Curve", "Drawdown")
     )
-    
+
     colors = {
         "buy_and_hold": "#00d4aa",
         "ma_cross_20_60": "#42a5f5",
         "momentum_20d": "#ffab40",
         "mean_reversion_20d": "#ab47bc",
     }
-    
+
     for name, result in results.items():
         color = colors.get(name, "#666666")
         fig.add_trace(
@@ -235,7 +235,7 @@ def _create_backtest_chart(results: dict, symbol: str, benchmark: str) -> str:
             ),
             row=1, col=1
         )
-        
+
         # Drawdown
         cummax = result.equity_curve.cummax()
         dd = (result.equity_curve - cummax) / cummax
@@ -251,7 +251,7 @@ def _create_backtest_chart(results: dict, symbol: str, benchmark: str) -> str:
             ),
             row=2, col=1
         )
-    
+
     fig.update_layout(
         height=500,
         template="plotly_dark",
@@ -261,10 +261,10 @@ def _create_backtest_chart(results: dict, symbol: str, benchmark: str) -> str:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(l=50, r=50, t=50, b=30),
     )
-    
+
     fig.update_xaxes(gridcolor="#1a1a2e", zerolinecolor="#1a1a2e")
     fig.update_yaxes(gridcolor="#1a1a2e", zerolinecolor="#1a1a2e")
-    
+
     return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
@@ -275,13 +275,13 @@ def _render_html(
     price_chart, backtest_chart, benchmark
 ) -> str:
     """Render final HTML report."""
-    
+
     # Format returns
     def fmt_pct(v):
         color = "#00d4aa" if v >= 0 else "#ff5252"
         sign = "+" if v >= 0 else ""
         return f'<span style="color:{color}">{sign}{v:.1%}</span>'
-    
+
     # Backtest table rows
     bt_rows = ""
     for name, r in results.items():
@@ -296,10 +296,10 @@ def _render_html(
             <td>{r.total_trades}</td>
         </tr>
         """
-    
+
     # Themes
     themes_html = "".join(f'<span class="theme-tag">{t}</span>' for t in themes) if themes else '<span style="color:#666">None linked</span>'
-    
+
     # Signals
     signals_html = ""
     if signals:
@@ -315,7 +315,7 @@ def _render_html(
             """
     else:
         signals_html = '<span style="color:#666">No signals recorded</span>'
-    
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -359,7 +359,7 @@ def _render_html(
                 <div style="font-size:14px">{fmt_pct(return_1d)} today</div>
             </div>
         </div>
-        
+
         <div class="grid">
             <div class="stat-card">
                 <div class="label">1D Return</div>
@@ -394,12 +394,12 @@ def _render_html(
                 <div class="value" style="font-size:12px">{themes_html}</div>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Price Chart</h2>
             {price_chart}
         </div>
-        
+
         <div class="two-col">
             <div class="card">
                 <h2>Hermes Signals</h2>
@@ -425,7 +425,7 @@ def _render_html(
                 </table>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Backtest Equity Curves</h2>
             {backtest_chart}

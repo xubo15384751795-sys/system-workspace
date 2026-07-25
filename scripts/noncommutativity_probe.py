@@ -64,7 +64,6 @@ def design(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.
     mean = levels.mean().to_numpy()
     scale = levels.std(ddof=0).replace(0.0, 1.0).to_numpy()
     regime_score = ((levels.shift(1).loc[lagged.index].to_numpy() - mean) / scale).max(axis=1)
-    threshold = float(np.quantile(regime_score, 0.75))
     return x, response, regime_score, mean, scale
 
 

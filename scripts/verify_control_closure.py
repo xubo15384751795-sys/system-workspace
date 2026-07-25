@@ -86,8 +86,6 @@ def _inline_proxy_check() -> str:
 def control_closure_steps() -> list[tuple[str, list[str]]]:
     """The 12-step control-closure verification chain (spec §V)."""
     py = sys.executable
-    # PYTHONPATH is set via env in _run (we add it here for the inline checks).
-    env_path = "packages/workbench/src:scripts"
     return [
         ("1_dag_compile_validation",
          [py, "-c", _inline_dag_check()]),

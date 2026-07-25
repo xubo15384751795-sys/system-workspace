@@ -36,7 +36,10 @@ except ModuleNotFoundError:
     )
 
 try:
-    from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+    from scripts._data_paths import (
+        resolve_benchmark_panel_path,
+        resolve_cross_asset_panel_path,
+    )
 except ModuleNotFoundError:
     from scripts._data_paths import (
         resolve_benchmark_panel_path,

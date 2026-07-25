@@ -12,6 +12,7 @@ from record_trade_decision import (
     decision_fingerprint,
     upsert_to_ledger,
 )
+
 from system_runtime.events import payload_of
 
 

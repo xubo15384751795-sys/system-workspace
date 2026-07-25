@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 
 try:
-    from scripts._data_paths import resolve_cross_asset_panel_path
     from professional_methods import build_forward_stress_events
     from public_residual_stress import (
         build_public_residual_bundle,
@@ -37,6 +36,8 @@ try:
         compute_baseline_position,
         compute_system_overlay_position,
     )
+
+    from scripts._data_paths import resolve_cross_asset_panel_path
 except ModuleNotFoundError:
     from scripts._data_paths import resolve_cross_asset_panel_path
     from scripts.professional_methods import build_forward_stress_events

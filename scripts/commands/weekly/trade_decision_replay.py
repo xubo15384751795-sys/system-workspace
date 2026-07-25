@@ -26,7 +26,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from scripts._data_paths import resolve_benchmark_panel_path, resolve_cross_asset_panel_path
+
+from scripts._data_paths import (
+    resolve_benchmark_panel_path,
+    resolve_cross_asset_panel_path,
+)
 from scripts._runtime_io import ROOT, load_yaml
 from scripts.commands.weekly.backward_pass import build_report as build_backward_report
 from scripts.commands.weekly.backward_pass import write_report as write_backward_report

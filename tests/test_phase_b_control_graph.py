@@ -162,7 +162,7 @@ class TestProvenance:
 
 class TestReleaseBoundary:
     def test_unfinalized_release_rejected(self, tmp_path):
-        from _release_boundary import verify_release_finalized, ReleaseNotFinalizedError
+        from _release_boundary import ReleaseNotFinalizedError, verify_release_finalized
 
         release = tmp_path / "release"
         release.mkdir()
@@ -182,7 +182,7 @@ class TestReleaseBoundary:
         assert catalog["release_id"] == "r1"
 
     def test_non_finalized_status_rejected(self, tmp_path):
-        from _release_boundary import verify_release_finalized, ReleaseNotFinalizedError
+        from _release_boundary import ReleaseNotFinalizedError, verify_release_finalized
 
         release = tmp_path / "release"
         release.mkdir()
@@ -219,7 +219,10 @@ class TestAtomicPublish:
         assert not list(target.parent.glob(".current_staging.*"))
 
     def test_publish_shadow_candidate_atomic(self, tmp_path, monkeypatch):
-        from _shadow_publish import publish_shadow_candidate, LIVE_POSITION_DIR, NAV_JSONL_NAME
+        from _shadow_publish import (
+            NAV_JSONL_NAME,
+            publish_shadow_candidate,
+        )
 
         candidate = tmp_path / "shadow_candidate"
         candidate.mkdir()
@@ -237,8 +240,8 @@ class TestAtomicPublish:
         assert (live / "paper_portfolio.json").read_text() == '{"position":0.5}'
 
     def test_append_nav_row_atomic_no_partial_line(self, tmp_path, monkeypatch):
-        from _shadow_publish import append_nav_row_atomic
         import _shadow_publish as sp
+        from _shadow_publish import append_nav_row_atomic
 
         monkeypatch.setattr(sp, "LIVE_POSITION_DIR", tmp_path / "live")
         candidate = tmp_path / "cand"
@@ -246,8 +249,8 @@ class TestAtomicPublish:
         append_nav_row_atomic({"as_of": "d1", "nav": 1.0}, candidate)
         append_nav_row_atomic({"as_of": "d2", "nav": 1.01}, candidate)
         nav = candidate / "paper_portfolio_nav.jsonl"
-        lines = [l for l in nav.read_text().splitlines() if l.strip()]
+        lines = [line for line in nav.read_text().splitlines() if line.strip()]
         assert len(lines) == 2
         # Each line is valid JSON (no partial).
-        for l in lines:
-            json.loads(l)
+        for line in lines:
+            json.loads(line)

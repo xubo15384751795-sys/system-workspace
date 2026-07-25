@@ -21,9 +21,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
-
 from caselab_context.paper_paths import paper_root
+from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
 
 GATE_PATH = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 WEIGHTS_PATH = ROOT / "Data" / "nlp" / "caselab_calibration" / "weight_adjustments.json"

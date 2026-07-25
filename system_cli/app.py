@@ -9,9 +9,14 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from system_runtime.pipeline import PipelineSpecError, load_pipeline, render_sequence_yaml, run_step
-from system_runtime.paths import WorkspacePaths
 from system_runtime.migrations import migrate_known_event_stores
+from system_runtime.paths import WorkspacePaths
+from system_runtime.pipeline import (
+    PipelineSpecError,
+    load_pipeline,
+    render_sequence_yaml,
+    run_step,
+)
 
 
 def _run(paths: WorkspacePaths, relative: str, args: Sequence[str] = ()) -> int:
