@@ -30,18 +30,26 @@ MANIFEST_DIR = ROOT / "Output" / "verification"
 MANIFEST_PATH = MANIFEST_DIR / "merge_gate_manifest.json"
 
 # These suites intentionally assert against local runtime state (large
-# gitignored Data/, generated Output/, or compatibility symlinks). They are
-# useful on an initialized operator workspace, but cannot be merge evidence
-# for a clean GitHub checkout. Their source-independent coverage is provided
-# below by the module suites and explicit runtime/governance checks.
+# gitignored Data/, generated Output/, compatibility symlinks, or the external
+# Paper sister repository). They are useful on an initialized operator
+# workspace, but cannot be merge evidence for a clean GitHub checkout. Their
+# source-independent coverage is provided below by the module suites and
+# explicit runtime/governance checks.
 STATEFUL_ROOT_TESTS = (
     "tests/test_admission_gate.py",
+    "tests/test_caselab_context.py",
+    "tests/test_caselab_embeddings.py",
+    "tests/test_caselab_graph.py",
+    "tests/test_caselab_mcp.py",
+    "tests/test_caselab_state_machine.py",
+    "tests/test_caselab_world_model.py",
     "tests/test_current_artifact_chain.py",
     "tests/test_current_refresh_bundle.py",
     "tests/test_daily_pipeline_callable_e2e.py",
     "tests/test_freshness_governance.py",
     "tests/test_harvester_bundle_contract.py",
     "tests/test_home_page_consistency.py",
+    "tests/test_golden_samples.py",
     "tests/test_mechanism_tiers.py",
     "tests/test_modules_paths_exist.py",
     "tests/test_output_current.py",
