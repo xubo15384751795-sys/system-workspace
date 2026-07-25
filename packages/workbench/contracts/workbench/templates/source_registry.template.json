@@ -1,0 +1,25 @@
+{
+  "provider_id": "example_provider",
+  "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "sources": [
+    {
+      "source_id": "fred",
+      "provider": "Federal Reserve Economic Data (FRED)",
+      "homepage": "https://fred.stlouisfed.org/",
+      "kind": "public_file",
+      "license": "FRED public data; source-specific terms may apply",
+      "series": [
+        {
+          "source_series_id": "VIXCLS",
+          "name": "CBOE Volatility Index: VIX",
+          "description": "CBOE Volatility Index close, published through FRED.",
+          "role": "benchmark_series",
+          "unit": "index",
+          "frequency": "business_daily",
+          "url": "https://fred.stlouisfed.org/series/VIXCLS",
+          "raw_sha256": "replace_with_raw_sha256"
+        }
+      ]
+    }
+  ]
+}

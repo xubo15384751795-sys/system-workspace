@@ -1,0 +1,31 @@
+{
+  "schema_version": "workbench.data_provider_release.v1",
+  "provider_id": "example_provider",
+  "release_id": "YYYYMMDDTHHMMSSZ",
+  "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "status": "finalized",
+  "artifacts": [
+    {
+      "path": "data/evidence_panel.csv",
+      "role": "evidence_panel",
+      "format": "csv",
+      "sha256": "replace_with_sha256",
+      "row_count": 2
+    },
+    {
+      "path": "source_registry.json",
+      "role": "source_registry",
+      "format": "json",
+      "sha256": "replace_with_sha256"
+    },
+    {
+      "path": "provenance.jsonl",
+      "role": "provenance",
+      "format": "jsonl",
+      "sha256": "replace_with_sha256"
+    }
+  ],
+  "provider_payload": {
+    "notes": "Provider-specific metadata goes here. Product tools should not require this for basic use."
+  }
+}

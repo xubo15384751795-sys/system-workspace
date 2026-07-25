@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench.ml_signal.v1",
+  "title": "Workbench ML Signal",
+  "description": "Protocol shape for a single ML signal emitted by the Workbench ML layer. Read-only by Deformation; never injected into M/D/K/X channels.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "signal_type",
+    "generated_at",
+    "source_release",
+    "method",
+    "freshness_gate"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "workbench.ml_signal.v1",
+      "description": "Protocol version — must match exactly."
+    },
+    "signal_type": {
+      "type": "string",
+      "enum": ["regime", "factor"],
+      "description": "Distinguishes HMM regime outputs from PCA factor outputs."
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp of signal generation."
+    },
+    "source_release": {
+      "type": "string",
+      "description": "Harvester release ID this signal was computed from. Gate fails if release changes."
+    },
+    "method": {
+      "type": "string",
+      "description": "Algorithm identifier, e.g. hmm_3state or pca_n."
+    },
+    "regime": {
+      "type": "object",
+      "description": "Present when signal_type == 'regime'.",
+      "required": ["current", "probability", "state_probs"],
+      "properties": {
+        "current": {
+          "type": "string",
+          "enum": ["compression", "volatile", "crisis"]
+        },
+        "probability": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "state_probs": {
+          "type": "object",
+          "required": ["compression", "volatile", "crisis"],
+          "properties": {
+            "compression": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "volatile":    {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "crisis":      {"type": "number", "minimum": 0.0, "maximum": 1.0}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "factors": {
+      "type": "array",
+      "description": "Present when signal_type == 'factor'.",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "score", "loading"],
+        "properties": {
+          "id":      {"type": "string"},
+          "label":   {"type": "string"},
+          "score":   {"type": "number"},
+          "loading": {"type": "number"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "conformal": {
+      "type": "object",
+      "description": "Optional conformal prediction overlay (e.g. regime prediction sets).",
+      "additionalProperties": true
+    },
+    "freshness_gate": {
+      "type": "object",
+      "required": ["source_created_at", "signal_valid", "stale_if_release_changes"],
+      "properties": {
+        "source_created_at": {
+          "type": "string",
+          "description": "ISO-8601 UTC timestamp of the Harvester release this signal was derived from."
+        },
+        "signal_valid": {
+          "type": "boolean",
+          "description": "False when gateway has determined the signal is stale or invalid."
+        },
+        "stale_if_release_changes": {
+          "type": "boolean",
+          "const": true,
+          "description": "Immutable contract: any release change invalidates this signal."
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Optional provenance record written by ml_signal_writer.",
+      "properties": {
+        "input_panel_path": {"type": "string"},
+        "input_row_count":  {"type": "integer"},
+        "input_date_range": {
+          "type": "object",
+          "properties": {
+            "start": {"type": "string"},
+            "end":   {"type": "string"}
+          }
+        },
+        "feature_columns": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"signal_type": {"const": "regime"}}},
+      "then": {"required": ["regime"]}
+    },
+    {
+      "if": {"properties": {"signal_type": {"const": "factor"}}},
+      "then": {"required": ["factors"]}
+    }
+  ],
+  "additionalProperties": false
+}

@@ -9,7 +9,7 @@ OpenBB/
 Structural Research Harness
 Structural Risk Harvester
 System Learning Hub
-contracts
+/contracts
 
 # ExternalTools: keep qlib_benchmark_runner sources in this repo, ignore other
 # external tooling (e.g. OpenBB venv-style installs)
@@ -19,8 +19,14 @@ ExternalTools/qlib_benchmark_runner/.venv/
 ExternalTools/qlib_benchmark_runner/__pycache__/
 
 # Large / generated data — never commit
-Data/
-Output/
+/Data/
+/Output/
+
+# Nested generated artifacts (keep similarly named source packages trackable)
+/Visualization/data/
+/Visualization/output/
+/packages/Output/
+/paper-empirical-interface/output/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────
 # Qlib workspace and output are large intermediate artifacts — never commit

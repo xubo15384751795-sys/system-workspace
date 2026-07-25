@@ -1,0 +1,35 @@
+{
+  "provider_id": "minimal_provider",
+  "created_at": "2026-05-04T12:00:00Z",
+  "sources": [
+    {
+      "source_id": "fred",
+      "provider": "Federal Reserve Economic Data (FRED)",
+      "homepage": "https://fred.stlouisfed.org/",
+      "kind": "public_file",
+      "license": "FRED public data; source-specific terms may apply",
+      "series": [
+        {
+          "source_series_id": "VIXCLS",
+          "name": "CBOE Volatility Index: VIX",
+          "description": "CBOE Volatility Index close, published through FRED.",
+          "role": "benchmark_series",
+          "unit": "index",
+          "frequency": "business_daily",
+          "url": "https://fred.stlouisfed.org/series/VIXCLS",
+          "raw_sha256": "example_raw_sha256"
+        },
+        {
+          "source_series_id": "NFCI",
+          "name": "Chicago Fed National Financial Conditions Index",
+          "description": "Weekly Chicago Fed National Financial Conditions Index.",
+          "role": "benchmark_series",
+          "unit": "index",
+          "frequency": "weekly",
+          "url": "https://fred.stlouisfed.org/series/NFCI",
+          "raw_sha256": "example_raw_sha256"
+        }
+      ]
+    }
+  ]
+}

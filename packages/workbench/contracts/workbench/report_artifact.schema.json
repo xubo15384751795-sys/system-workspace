@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench.report_artifact.v1",
+  "title": "Workbench Report Artifact",
+  "type": "object",
+  "required": ["schema_version", "artifacts"],
+  "properties": {
+    "schema_version": {"const": "workbench.report_artifact.v1"},
+    "generated_at": {"type": "string"},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "kind", "exists"],
+        "properties": {
+          "name": {"type": "string"},
+          "path": {"type": "string"},
+          "kind": {"type": "string"},
+          "exists": {"type": "boolean"},
+          "target": {"type": ["string", "null"]},
+          "open_first": {"type": "boolean"}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

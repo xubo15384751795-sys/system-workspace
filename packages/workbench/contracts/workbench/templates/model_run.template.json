@@ -1,0 +1,30 @@
+{
+  "schema_version": "workbench.model_run.v1",
+  "model_id": "example_framework",
+  "producer": "Example Framework",
+  "run_id": "2026-05-04_EXAMPLE",
+  "run_date": "2026-05-04",
+  "generated_at": "2026-05-04T12:00:00Z",
+  "status": "success",
+  "input_bundle": "YYYYMMDDTHHMMSSZ",
+  "artifacts": {
+    "summary": {
+      "path": "reports/summary.md",
+      "kind": "markdown",
+      "description": "Human-readable summary."
+    },
+    "html_report": {
+      "path": "reports/report.html",
+      "kind": "html",
+      "description": "Open-first report."
+    },
+    "dashboard_snapshot": {
+      "path": "reports/dashboard_snapshot.json",
+      "kind": "json",
+      "description": "Machine-readable snapshot for Product tools."
+    }
+  },
+  "framework_payload": {
+    "notes": "Framework-owned semantics go here."
+  }
+}

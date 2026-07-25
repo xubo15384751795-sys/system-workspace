@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench.data_provider_release.v1",
+  "title": "Workbench Data Provider Release",
+  "type": "object",
+  "required": ["schema_version", "provider_id", "release_id", "status", "artifacts"],
+  "properties": {
+    "schema_version": {"const": "workbench.data_provider_release.v1"},
+    "provider_id": {"type": "string"},
+    "release_id": {"type": "string"},
+    "created_at": {"type": "string"},
+    "status": {"type": "string"},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "role"],
+        "properties": {
+          "path": {"type": "string"},
+          "role": {"type": "string"},
+          "format": {"type": "string"},
+          "sha256": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "provider_payload": {"type": "object"}
+  },
+  "additionalProperties": true
+}

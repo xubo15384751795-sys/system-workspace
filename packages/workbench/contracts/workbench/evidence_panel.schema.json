@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench.evidence_panel.v1",
+  "title": "Workbench Evidence Panel",
+  "type": "object",
+  "required": ["schema_version", "provider_release", "series"],
+  "properties": {
+    "schema_version": {"const": "workbench.evidence_panel.v1"},
+    "provider_release": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "series": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["series_id", "status"],
+        "properties": {
+          "series_id": {"type": "string"},
+          "status": {"enum": ["available", "missing"]},
+          "latest_date": {"type": ["string", "null"]},
+          "latest_value": {"type": ["number", "null"]},
+          "unit": {"type": ["string", "null"]},
+          "frequency": {"type": ["string", "null"]},
+          "source_id": {"type": ["string", "null"]},
+          "source_url": {"type": ["string", "null"]},
+          "quality_flag": {"type": ["string", "null"]},
+          "provider_payload": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

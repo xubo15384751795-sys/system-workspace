@@ -39,7 +39,7 @@ repos:
         always_run: false
       - id: pace-routing-decision
         name: pace L3/L4 routing-decision check
-        entry: python3 scripts/commands/ci/check_pace_routing.py
+        entry: python3 -m scripts.commands.ci.check_pace_routing
         language: system
         files: ^(PACE\.md|ROUTING_CONSTITUTION\.md|MODULES\.md|FOLDER_OWNERSHIP\.md|governance/|protocols/|module_contexts/|system_runtime/|\.github/workflows/|\.pre-commit-config\.yaml)
         # With no explicit paths the checker reads the staged diff. This keeps

@@ -48,7 +48,10 @@ def _run_step(name: str, cmd: list[str], timeout: int = 600) -> dict:
     t0 = time.time()
     # Ensure subprocess steps can import scripts/ and workbench/ without each
     # command having to sys.path.insert (which the security audit forbids).
-    env = {**os.environ, "PYTHONPATH": "packages/workbench/src:scripts"}
+    env = {
+        **os.environ,
+        "PYTHONPATH": ".:packages/framework/src:packages/workbench/src:scripts",
+    }
     try:
         out = subprocess.run(
             cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout, env=env,

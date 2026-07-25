@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench.model_run.v1",
+  "title": "Workbench Model Run",
+  "type": "object",
+  "required": ["schema_version", "model_id", "run_id", "status", "artifacts"],
+  "properties": {
+    "schema_version": {"const": "workbench.model_run.v1"},
+    "model_id": {"type": "string"},
+    "producer": {"type": "string"},
+    "run_id": {"type": "string"},
+    "run_date": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "status": {"type": "string"},
+    "input_bundle": {"type": ["string", "null"]},
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": {"type": "string"},
+          "kind": {"type": "string"},
+          "description": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "framework_payload": {
+      "type": "object",
+      "description": "Framework-owned semantics. Workbench may display this, but basic Product use must not require it."
+    }
+  },
+  "additionalProperties": true
+}
