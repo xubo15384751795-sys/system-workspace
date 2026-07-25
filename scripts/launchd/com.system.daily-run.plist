@@ -33,5 +33,11 @@
   </dict>
   <key>RunAtLoad</key>
   <false/>
+  <!-- launchd soft maxfiles defaults ~256; harvester/yfinance need headroom -->
+  <key>SoftResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>65536</integer>
+  </dict>
 </dict>
 </plist>

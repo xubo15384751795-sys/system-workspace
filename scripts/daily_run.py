@@ -253,6 +253,23 @@ def _truncate_launchd_logs(max_bytes: int = 10 * 1024 * 1024) -> None:
             pass
 
 
+def _raise_open_file_limit(target: int = 65536) -> None:
+    """Raise soft RLIMIT_NOFILE — launchd often starts at 256 (EMFILE in harvester)."""
+    try:
+        import resource
+
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if hard == resource.RLIM_INFINITY:
+            new_soft = max(soft, target)
+        else:
+            new_soft = min(max(soft, target), hard)
+        if new_soft > soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (new_soft, hard))
+            logger.info("Raised RLIMIT_NOFILE soft limit %s -> %s (hard=%s)", soft, new_soft, hard)
+    except (ValueError, OSError) as exc:
+        logger.warning("Could not raise RLIMIT_NOFILE: %s", exc)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Scheduled Batch Monitor")
     parser.add_argument("--skip-harvester", action="store_true")
@@ -293,6 +310,7 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )
+    _raise_open_file_limit()
 
     # Resolve output root — default is ROOT/Output, override for test isolation
     output_root = Path(args.output_root) if args.output_root else ROOT / "Output"

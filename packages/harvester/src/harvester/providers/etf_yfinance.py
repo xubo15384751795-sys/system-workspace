@@ -147,13 +147,15 @@ class EtfYfinanceProvider(OfficialProvider):
             return out
 
         try:
+            # threads=False: launchd soft NOFILE is often ~256; threaded
+            # Yahoo fetches open many sockets and trip EMFILE (errno 24).
             data = yf.download(
                 series_ids,
                 period=self._period,
                 progress=False,
                 auto_adjust=True,
                 group_by="ticker",
-                threads=True,
+                threads=False,
             )
         except Exception as exc:
             logger.warning("ETF batch download failed: %s", exc)

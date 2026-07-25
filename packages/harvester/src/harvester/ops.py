@@ -122,7 +122,8 @@ def run_daily_release(
     # This makes the three nightly schedules (21:30/22:30/07:00) idempotent:
     # whichever succeeds first, the others short-circuit - immune to Yahoo
     # rate-limiting from duplicate runs.
-    if release_id is None:
+    # NOTE: default release_id is "" (not None); empty means "auto-assign".
+    if not release_id:
         reused = _check_same_day_reuse(root, resolved_as_of)
         if reused is not None:
             return reused
@@ -273,11 +274,14 @@ def _check_same_day_reuse(exports_root: Path, as_of_date: str) -> dict[str, Any]
     if not (release_dir / ".finalized").exists():
         return None
     # Match on as_of_date in catalog, or on release_id date prefix.
+    # Release ids are usually YYYY-MM-DD-rN; older fixtures may use YYYYMMDD-rN.
     cat_as_of = catalog.get("as_of_date") or ""
     release_id = catalog.get("release_id") or release_dir.name
+    compact = as_of_date.replace("-", "")
     same_day = (
         (cat_as_of and cat_as_of == as_of_date)
-        or release_id.startswith(as_of_date.replace("-", ""))
+        or release_id.startswith(f"{as_of_date}-r")
+        or release_id.startswith(f"{compact}-r")
     )
     if not same_day:
         return None

@@ -15,6 +15,9 @@ PAPER_ROOT="${PAPER_ROOT:-/Users/a1/Paper}"
 HORIZON_ROOT="${HORIZON_ROOT:-$(dirname "${SYSTEM_ROOT}")/Horizon}"
 export SYSTEM_ROOT PAPER_ROOT HORIZON_ROOT
 
+# Defend against launchd's low soft NOFILE (harvester hits EMFILE otherwise).
+ulimit -n 65536 2>/dev/null || ulimit -n 10240 2>/dev/null || true
+
 # Auto-detect Python: prefer Framework 3.14, then PYTHON env, then python3
 if [[ -z "${PYTHON:-}" ]]; then
   if [[ -x "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3" ]]; then

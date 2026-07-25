@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Phase 0.3 + 2.3 STAGED plist (not yet installed).
-     To apply: ./scripts/install_launchd_plists.sh
-     Changes vs the currently-installed agent:
-       0.3: adds --skip-harvester so the 21:30 run does NOT re-fetch Yahoo
-            (the 22:30 run is the authoritative daily harvester). Eliminates
-            the self-rate-limit from two back-to-back full fetches.
-       2.3: redirects logs from /tmp/ to Output/logs/launchd/ (versioned,
-            monthly-truncated by daily_run startup). -->
+<!-- Phase 0.3 + 2.3 staged plist.
+     Apply via: bash scripts/install_launchd_plists.sh (pass apply flag).
+     Changes vs older installed agent:
+       0.3: 21:30 run uses skip-harvester (no Yahoo re-fetch; 22:30 is authoritative).
+       2.3: logs under Output/logs/launchd/ (monthly truncate by daily_run). -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
@@ -25,7 +22,7 @@
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
-        <!-- 21:30 UTC (05:30+1 CST) - US market close; downstream-only (skip harvester) -->
+        <!-- 21:30 local: US market close; downstream-only (skip harvester) -->
         <key>Hour</key>
         <integer>21</integer>
         <key>Minute</key>
@@ -37,5 +34,11 @@
     <string>/Users/a1/System/Output/logs/launchd/daily_run_harvester_postclose.log</string>
     <key>StandardErrorPath</key>
     <string>/Users/a1/System/Output/logs/launchd/daily_run_harvester_postclose.log</string>
+    <!-- launchd soft maxfiles defaults near 256; harvester/yfinance need headroom -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>65536</integer>
+    </dict>
 </dict>
 </plist>

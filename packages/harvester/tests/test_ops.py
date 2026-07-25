@@ -167,6 +167,51 @@ def test_daily_release_reuses_same_day_finalized(tmp_path: Path, monkeypatch) ->
     assert result["reason"] == "same_day_finalized_release_exists"
 
 
+def test_run_daily_release_reuses_when_release_id_empty(tmp_path: Path, monkeypatch) -> None:
+    """Empty release_id (CLI default) must trigger same-day reuse — not ``is None`` only."""
+    monkeypatch.setenv("FRED_API_KEY", "test")
+    exports = tmp_path / "exports"
+    release_dir = exports / "2026-07-18-r1"
+    release_dir.mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(
+        json.dumps({"release_id": "2026-07-18-r1", "as_of_date": "2026-07-18"}),
+        encoding="utf-8",
+    )
+    (exports / "latest").symlink_to(release_dir)
+
+    with patch("harvester.official.stage_complete_release") as stage:
+        result = run_daily_release(
+            as_of_date="2026-07-18",
+            exports_root=exports,
+            providers=["fred"],
+            preflight=False,
+        )
+        stage.assert_not_called()
+
+    assert result["status"] == "reused"
+    assert result["release_id"] == "2026-07-18-r1"
+
+
+def test_daily_release_reuses_dashed_release_id_without_catalog_as_of(tmp_path: Path) -> None:
+    """Reuse must match YYYY-MM-DD-rN even when catalog omits as_of_date."""
+    from harvester.ops import _check_same_day_reuse
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "2026-07-18-r2"
+    release_dir.mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(
+        json.dumps({"release_id": "2026-07-18-r2"}),
+        encoding="utf-8",
+    )
+    (exports / "latest").symlink_to(release_dir)
+
+    result = _check_same_day_reuse(exports, "2026-07-18")
+    assert result is not None
+    assert result["status"] == "reused"
+
+
 def test_daily_release_does_not_reuse_stale_day(tmp_path: Path) -> None:
     """A finalized release for a DIFFERENT day must not be reused."""
     from harvester.ops import _check_same_day_reuse
