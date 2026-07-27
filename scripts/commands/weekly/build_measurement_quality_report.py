@@ -20,13 +20,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import scripts._data_paths as _dp
+import scripts._runtime_io as _rio
 from scripts._data_paths import (
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
 from scripts._runtime_io import current_dir, ensure_dir, load_json, write_json
-import scripts._data_paths as _dp
-import scripts._runtime_io as _rio
 
 
 def _k_gate_path() -> Path:
