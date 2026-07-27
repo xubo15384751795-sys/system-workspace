@@ -6,6 +6,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pandas as pd
+
 from tests.helpers.sandbox_workspace import build_sandbox_workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -92,6 +94,30 @@ def seed_callable_chain_workspace(target: Path) -> Path:
         encoding="utf-8",
     )
 
+    # Minimal panels so k/x measurement gates can execute without live Harvester.
+    data_dir = sandbox / "Data" / "harvester" / "exports" / "latest" / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    bp_fixture = (
+        REPO_ROOT / "tests" / "fixtures" / "benchmark_panel_real_format.parquet"
+    )
+    if bp_fixture.is_file():
+        shutil.copy2(bp_fixture, data_dir / "benchmark_panel.parquet")
+    else:
+        pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=10, freq="B"),
+                "series_id": ["CBOE:MOVE"] * 10,
+                "value": list(range(10)),
+            }
+        ).to_parquet(data_dir / "benchmark_panel.parquet")
+
+    dates = pd.date_range("2020-01-01", periods=600, freq="B")
+    etf_rows: list[dict] = []
+    for symbol in ("SPY", "TLT", "HYG", "LQD", "GLD", "UUP"):
+        for i, day in enumerate(dates):
+            etf_rows.append({"date": day, "symbol": symbol, "close": 100.0 + i * 0.01})
+    pd.DataFrame(etf_rows).to_parquet(data_dir / "cross_asset_daily_panel.parquet")
+
     index_dir = sandbox / "Data" / "system_index"
     index_dir.mkdir(parents=True, exist_ok=True)
     (index_dir / "latest.json").write_text(
@@ -115,6 +141,7 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     """Point runtime + judgment modules at the sandbox workspace root."""
     import workbench.judgment.layer as jl
     import workbench.judgment.promotion_gate as pg
+    import workbench.signals.k_gate as k_gate
 
     import scripts._data_paths as dp
     import scripts._runtime_io as rio
@@ -127,6 +154,7 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     import scripts.judgment_layer as jl_script
     import scripts.pending_evaluation as pe
     import scripts.trade_decision_layer as trade_decision
+    import scripts.x_measurement_gate as x_gate
 
     out = sandbox / "Output"
     current = out / "current"
@@ -317,6 +345,18 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     monkeypatch.setattr(
         freshness, "_POLICY_PATH", sandbox / "configs" / "freshness_policy.yaml"
     )
+
+    harvester_data = sandbox / "Data" / "harvester" / "exports" / "latest" / "data"
+    monkeypatch.setattr(k_gate, "ROOT", sandbox)
+    monkeypatch.setattr(k_gate, "BP_PATH", harvester_data / "benchmark_panel.parquet")
+    monkeypatch.setattr(k_gate, "OUTPUT_DIR", out / "k_measurement")
+
+    monkeypatch.setattr(x_gate, "ROOT", sandbox)
+    monkeypatch.setattr(x_gate, "BP_PATH", harvester_data / "benchmark_panel.parquet")
+    monkeypatch.setattr(
+        x_gate, "ETF_PATH", harvester_data / "cross_asset_daily_panel.parquet"
+    )
+    monkeypatch.setattr(x_gate, "OUTPUT_DIR", out / "x_measurement")
 
     monkeypatch.setenv("SYSTEM_WORKSPACE_ROOT", str(sandbox))
     monkeypatch.setenv("SYSTEM_ROOT", str(sandbox))

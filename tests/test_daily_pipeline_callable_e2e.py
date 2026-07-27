@@ -9,6 +9,8 @@ P0-3:
   wave 4 — trade_decision / next_actions / freshness_validator on the same sandbox;
            operator isolation for trade_decision; still no live etf_refresh /
            structural_replay / k|x_measurement_gate panel execution
+  wave 5 — k_measurement_gate / x_measurement_gate under seeded panel fixtures;
+           still no live etf_refresh / structural_replay
 
 Failure propagation remains covered by tests/test_failure_propagation.py.
 """
@@ -67,6 +69,12 @@ EXECUTABLE_POST_JUDGMENT_STEPS = (
     "trade_decision",
     "next_actions",
     "freshness_validator",
+)
+
+# Measurement gates that need panel parquet fixtures (wave 5).
+EXECUTABLE_GATE_STEPS = (
+    "k_measurement_gate",
+    "x_measurement_gate",
 )
 
 
@@ -376,3 +384,44 @@ def test_freshness_validator_writes_sandbox_report(tmp_path: Path, monkeypatch) 
     assert report.exists()
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert "verdict" in payload or "overall" in payload or isinstance(payload, dict)
+
+
+@pytest.mark.parametrize("step_id", EXECUTABLE_GATE_STEPS)
+def test_measurement_gate_callable_executes(
+    step_id: str, tmp_path: Path, monkeypatch
+) -> None:
+    """P0-3 wave 5: k/x gates run on seeded panel fixtures (verdict may be FAIL)."""
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    patch_callable_chain_paths(monkeypatch, sandbox)
+
+    result = run_registry_step(step_id, mode="callable")
+    assert result["mode"] == "callable"
+    assert result["status"] in {"success", "failed", "error"}, result
+
+    if step_id == "k_measurement_gate":
+        report_path = sandbox / "Output" / "k_measurement" / "k_measurement_gate.json"
+    else:
+        report_path = sandbox / "Output" / "x_measurement" / "x_measurement_gate.json"
+    assert report_path.exists()
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "gate_verdict" in payload
+    assert "tests" in payload
+
+
+def test_measurement_gates_write_sandbox_only(tmp_path: Path, monkeypatch) -> None:
+    """k/x gates must not mutate operator Output/{k,x}_measurement trees."""
+    operator_k = ROOT / "Output" / "k_measurement"
+    operator_x = ROOT / "Output" / "x_measurement"
+    before_k = _fingerprint(operator_k)
+    before_x = _fingerprint(operator_x)
+
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    patch_callable_chain_paths(monkeypatch, sandbox)
+    for step_id in EXECUTABLE_GATE_STEPS:
+        result = run_registry_step(step_id, mode="callable")
+        assert result["status"] in {"success", "failed", "error"}
+
+    assert before_k == _fingerprint(operator_k)
+    assert before_x == _fingerprint(operator_x)
+    assert (sandbox / "Output" / "k_measurement" / "k_measurement_gate.json").exists()
+    assert (sandbox / "Output" / "x_measurement" / "x_measurement_gate.json").exists()
