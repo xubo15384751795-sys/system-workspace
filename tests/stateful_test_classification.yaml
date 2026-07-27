@@ -47,8 +47,8 @@ items:
     reason: Sandbox fixture bundle atomicity; no operator Output mutation
 
   - path: tests/test_daily_pipeline_callable_e2e.py
-    class: split_candidate
-    reason: Callable E2E is P0-3; keep ignored until hermetic fixtures land
+    class: hermetic
+    reason: Resolve all main-chain callables + execute light steps under tmp Output root
 
   - path: tests/test_freshness_governance.py
     class: hermetic

@@ -44,8 +44,9 @@ STATEFUL_ROOT_TESTS = (
     "tests/test_caselab_state_machine.py",
     "tests/test_caselab_world_model.py",
     "tests/test_golden_samples.py",
-    # P0-3
-    "tests/test_daily_pipeline_callable_e2e.py",
+    # P0-3 remaining heavy E2E scenarios (degrade/block/recover fixtures) still open;
+    # resolve+light-execute coverage is hermetic in test_daily_pipeline_callable_e2e.py
+    # "tests/test_daily_pipeline_callable_e2e.py",
     # Operator residuals (P0-2 waves 4–5 splits)
     "tests/test_freshness_governance_operator.py",
     "tests/test_harvester_bundle_operator.py",

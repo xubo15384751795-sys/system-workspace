@@ -1,0 +1,28 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-3-wave1-callable-e2e-light
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-3 wave 1: hermeticize daily_pipeline_callable_e2e — resolve all default
+  main-chain callables and execute lightweight report steps under tmp Output.
+decision: >
+  Fix measurement_quality_report to resolve gate paths from live _runtime_io.ROOT
+  so sandbox monkeypatches work. Expand callable E2E with light executable steps
+  and soft-skip structural_replay resolve when omegaconf is absent locally.
+  Remove the suite from STATEFUL_ROOT_TESTS. Full degrade/block/recover fixtures
+  and subprocess equivalence remain follow-up P0-3 waves.
+preregistered_expectation: >
+  Clean-checkout merge-gate runs callable E2E without operator Output mutation.
+observation_window: "single PR CI run on codex/p0-3-callable-e2e"
+rollback: >
+  Revert this branch; re-add the suite to STATEFUL_ROOT_TESTS.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - test_daily_pipeline_callable_e2e absent from STATEFUL_ROOT_TESTS
+  - local pytest of the suite passes (structural_replay may skip without omegaconf)
+  - merge-gate green on the PR

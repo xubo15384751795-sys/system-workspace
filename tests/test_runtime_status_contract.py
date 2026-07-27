@@ -59,11 +59,11 @@ def test_stateful_classification_covers_ignored_suites() -> None:
     ):
         assert path in hermetic, path
         assert path not in ignored, path
-    # Residual ignore list is CaseLab/Paper + P0-3 + explicit *_operator suites.
+    # Residual ignore list is CaseLab/Paper + explicit *_operator suites.
     assert all(
         path.endswith("_operator.py")
         or "caselab" in path
         or path.endswith("golden_samples.py")
-        or path.endswith("daily_pipeline_callable_e2e.py")
         for path in ignored
     )
+    assert "tests/test_daily_pipeline_callable_e2e.py" not in ignored
