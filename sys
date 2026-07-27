@@ -4,7 +4,10 @@ set -euo pipefail
 # Compatibility launcher. The application itself is the installable
 # ``system`` console entry point declared in pyproject.toml.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SYSTEM_WORKSPACE_ROOT="$ROOT"
+# Honor an explicit sandbox / operator override; default to this checkout.
+if [ -z "${SYSTEM_WORKSPACE_ROOT:-}" ]; then
+  export SYSTEM_WORKSPACE_ROOT="$ROOT"
+fi
 if [ "$#" -eq 0 ]; then
   set -- check
 fi

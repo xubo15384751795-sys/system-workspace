@@ -49,3 +49,7 @@ def test_stateful_classification_covers_ignored_suites() -> None:
     hermetic = {item["path"] for item in data["items"] if item["class"] == "hermetic"}
     assert "tests/test_current_artifact_chain.py" in hermetic
     assert "tests/test_current_artifact_chain.py" not in ignored
+    assert "tests/test_sys_entrypoints.py" in hermetic
+    assert "tests/test_sys_entrypoints.py" not in ignored
+    assert "tests/test_output_current.py" in hermetic
+    assert "tests/test_output_current.py" not in ignored
