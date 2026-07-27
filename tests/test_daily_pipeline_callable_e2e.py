@@ -9,6 +9,7 @@ P0-3:
 
 Failure propagation remains covered by tests/test_failure_propagation.py.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -71,7 +72,9 @@ def _fingerprint(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _seed_measurement_gates(tmp_path: Path, *, k_pass: bool = True, x_pass: bool = True) -> Path:
+def _seed_measurement_gates(
+    tmp_path: Path, *, k_pass: bool = True, x_pass: bool = True
+) -> Path:
     out = tmp_path / "Output"
     (out / "current").mkdir(parents=True, exist_ok=True)
     (out / "k_measurement").mkdir(parents=True, exist_ok=True)
@@ -132,7 +135,9 @@ def test_measurement_quality_report_callable_runs(tmp_path, monkeypatch) -> None
     assert report["channels"]["X_agg"]["gate_verdict"] == "PASS"
 
 
-def test_measurement_quality_degraded_when_k_gate_missing(tmp_path, monkeypatch) -> None:
+def test_measurement_quality_degraded_when_k_gate_missing(
+    tmp_path, monkeypatch
+) -> None:
     """P0-3 degraded scenario: missing K gate → overall DEGRADED, X still readable."""
     out = _seed_measurement_gates(tmp_path, k_pass=False, x_pass=True)
     _patch_sandbox(monkeypatch, tmp_path, out)
@@ -146,7 +151,9 @@ def test_measurement_quality_degraded_when_k_gate_missing(tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize("step_id", EXECUTABLE_LIGHT_STEPS)
-def test_light_main_chain_callable_executes(step_id: str, tmp_path: Path, monkeypatch) -> None:
+def test_light_main_chain_callable_executes(
+    step_id: str, tmp_path: Path, monkeypatch
+) -> None:
     """Actually invoke light callables under an isolated Output root."""
     out = _seed_measurement_gates(tmp_path)
     _patch_sandbox(monkeypatch, tmp_path, out)
@@ -159,7 +166,9 @@ def test_light_main_chain_callable_executes(step_id: str, tmp_path: Path, monkey
     assert "callable" in result
 
 
-def test_light_callable_does_not_mutate_operator_current(tmp_path: Path, monkeypatch) -> None:
+def test_light_callable_does_not_mutate_operator_current(
+    tmp_path: Path, monkeypatch
+) -> None:
     """Candidate/sandbox writes must not touch authoritative Output/current."""
     operator_current = ROOT / "Output" / "current"
     before = _fingerprint(operator_current)
@@ -176,13 +185,17 @@ def test_light_callable_does_not_mutate_operator_current(tmp_path: Path, monkeyp
     assert sandbox_report.exists() or result["status"] in {"success", "failed", "error"}
 
 
-def test_measurement_quality_callable_and_subprocess_agree(tmp_path: Path, monkeypatch) -> None:
+def test_measurement_quality_callable_and_subprocess_agree(
+    tmp_path: Path, monkeypatch
+) -> None:
     """Same light step via callable vs subprocess must both complete without crash."""
     out = _seed_measurement_gates(tmp_path)
     _patch_sandbox(monkeypatch, tmp_path, out)
 
     callable_result = run_registry_step("measurement_quality_report", mode="callable")
-    subprocess_result = run_registry_step("measurement_quality_report", mode="subprocess")
+    subprocess_result = run_registry_step(
+        "measurement_quality_report", mode="subprocess"
+    )
 
     assert callable_result["mode"] == "callable"
     assert subprocess_result["mode"] == "subprocess"
@@ -238,7 +251,9 @@ def test_shared_run_id_env_visible_to_callable(tmp_path: Path, monkeypatch) -> N
 
 
 @pytest.mark.parametrize("step_id", EXECUTABLE_CHAIN_STEPS)
-def test_judgment_chain_callable_executes(step_id: str, tmp_path: Path, monkeypatch) -> None:
+def test_judgment_chain_callable_executes(
+    step_id: str, tmp_path: Path, monkeypatch
+) -> None:
     """P0-3 wave 3: run judgment/promotion/readout callables on seeded fixtures."""
     sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
     patch_callable_chain_paths(monkeypatch, sandbox)
@@ -247,7 +262,11 @@ def test_judgment_chain_callable_executes(step_id: str, tmp_path: Path, monkeypa
     if step_id != "judgment_layer":
         jl = run_registry_step("judgment_layer", mode="callable")
         assert jl["status"] in {"success", "failed", "error"}, jl
-        if step_id in {"evidence_grade_report", "readme_first", "build_artifact_registry"}:
+        if step_id in {
+            "evidence_grade_report",
+            "readme_first",
+            "build_artifact_registry",
+        }:
             pg = run_registry_step("judgment_promotion_gate", mode="callable")
             assert pg["status"] in {"success", "failed", "error"}, pg
 
@@ -256,7 +275,9 @@ def test_judgment_chain_callable_executes(step_id: str, tmp_path: Path, monkeypa
     assert result["status"] in {"success", "failed", "error"}, result
 
 
-def test_judgment_chain_writes_sandbox_artifacts_only(tmp_path: Path, monkeypatch) -> None:
+def test_judgment_chain_writes_sandbox_artifacts_only(
+    tmp_path: Path, monkeypatch
+) -> None:
     """Judgment + promotion must write under sandbox Output/judgment, not operator tree."""
     operator_judgment = ROOT / "Output" / "judgment"
     before = _fingerprint(operator_judgment)

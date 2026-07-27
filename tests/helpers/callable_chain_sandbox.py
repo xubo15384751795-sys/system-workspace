@@ -1,4 +1,5 @@
 """Sandbox helpers for P0-3 callable main-chain execution tests."""
+
 from __future__ import annotations
 
 import json
@@ -53,7 +54,9 @@ _SYSTEM_INDEX = {
     "generated_at": "2026-07-26T00:00:00+00:00",
     "measurement_state": {
         "judgment": {"summary": {"decision": "ACTIVE_WATCH", "confidence": "low"}},
-        "promotion_gate": {"summary": {"status": "BLOCKED", "blocked_gates": ["fixture_gate"]}},
+        "promotion_gate": {
+            "summary": {"status": "BLOCKED", "blocked_gates": ["fixture_gate"]}
+        },
         "signals": {
             "hmm": {"summary": {"status": "SKIP"}},
             "k_gate": {"summary": {"status": "SKIP"}},
@@ -126,7 +129,9 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
 
     monkeypatch.setattr(rio, "ROOT", sandbox)
     monkeypatch.setattr(dp, "ROOT", sandbox)
-    monkeypatch.setattr(dp, "HARVESTER_LATEST", sandbox / "Data" / "harvester" / "exports" / "latest")
+    monkeypatch.setattr(
+        dp, "HARVESTER_LATEST", sandbox / "Data" / "harvester" / "exports" / "latest"
+    )
     monkeypatch.setattr(
         dp,
         "HARVESTER_DATA",
@@ -137,22 +142,38 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     monkeypatch.setattr(jl, "PRESSURE_PATH", current / "neutral_pressure_snapshot.json")
     monkeypatch.setattr(jl, "FW_PATH", current / "neutral_pressure_snapshot.json")
     monkeypatch.setattr(jl, "CASELAB_DIR", out / "caselab")
-    monkeypatch.setattr(jl, "HMM_PATH", out / "ml_signals" / "latest" / "regime_hmm.json")
-    monkeypatch.setattr(jl, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json")
-    monkeypatch.setattr(jl, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json")
+    monkeypatch.setattr(
+        jl, "HMM_PATH", out / "ml_signals" / "latest" / "regime_hmm.json"
+    )
+    monkeypatch.setattr(
+        jl, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        jl, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json"
+    )
     monkeypatch.setattr(jl, "VALIDATION_PATH", current / "quality_validation.json")
     monkeypatch.setattr(jl, "OUTPUT_DIR", judgment)
 
     # scripts.judgment_layer binds FW_PATH at import time — keep it aligned.
-    monkeypatch.setattr(jl_script, "FW_PATH", current / "neutral_pressure_snapshot.json")
+    monkeypatch.setattr(
+        jl_script, "FW_PATH", current / "neutral_pressure_snapshot.json"
+    )
 
     monkeypatch.setattr(pg, "ROOT", sandbox)
     monkeypatch.setattr(pg, "JUDGMENT_PATH", judgment / "latest.json")
     monkeypatch.setattr(pg, "CASELAB_DIR", out / "caselab")
-    monkeypatch.setattr(pg, "HMM_PATH", out / "ml_signals" / "latest" / "regime_hmm.json")
-    monkeypatch.setattr(pg, "HMM_AUDIT_PATH", out / "hmm_stability" / "hmm_stability_audit.json")
-    monkeypatch.setattr(pg, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json")
-    monkeypatch.setattr(pg, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json")
+    monkeypatch.setattr(
+        pg, "HMM_PATH", out / "ml_signals" / "latest" / "regime_hmm.json"
+    )
+    monkeypatch.setattr(
+        pg, "HMM_AUDIT_PATH", out / "hmm_stability" / "hmm_stability_audit.json"
+    )
+    monkeypatch.setattr(
+        pg, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        pg, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json"
+    )
     monkeypatch.setattr(pg, "OUTPUT_DIR", judgment)
 
     monkeypatch.setattr(pe, "ROOT", sandbox)
@@ -161,14 +182,30 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
 
     monkeypatch.setattr(evidence_grade, "ROOT", sandbox)
     monkeypatch.setattr(evidence_grade, "JUDGMENT_PATH", judgment / "latest.json")
-    monkeypatch.setattr(evidence_grade, "PROMOTION_GATE_PATH", judgment / "promotion_gate.json")
-    monkeypatch.setattr(evidence_grade, "TRADE_DECISION_PATH", out / "trade_decision" / "latest.json")
-    monkeypatch.setattr(evidence_grade, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json")
-    monkeypatch.setattr(evidence_grade, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json")
-    monkeypatch.setattr(evidence_grade, "HMM_AUDIT_PATH", out / "hmm_stability" / "hmm_stability_audit.json")
-    monkeypatch.setattr(evidence_grade, "FRESHNESS_PATH", out / "quality" / "freshness_report.json")
     monkeypatch.setattr(
-        evidence_grade, "PAPER_MANIFEST_PATH", sandbox / "Data" / "paper_world_model" / "manifest.json"
+        evidence_grade, "PROMOTION_GATE_PATH", judgment / "promotion_gate.json"
+    )
+    monkeypatch.setattr(
+        evidence_grade, "TRADE_DECISION_PATH", out / "trade_decision" / "latest.json"
+    )
+    monkeypatch.setattr(
+        evidence_grade, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        evidence_grade, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        evidence_grade,
+        "HMM_AUDIT_PATH",
+        out / "hmm_stability" / "hmm_stability_audit.json",
+    )
+    monkeypatch.setattr(
+        evidence_grade, "FRESHNESS_PATH", out / "quality" / "freshness_report.json"
+    )
+    monkeypatch.setattr(
+        evidence_grade,
+        "PAPER_MANIFEST_PATH",
+        sandbox / "Data" / "paper_world_model" / "manifest.json",
     )
     monkeypatch.setattr(
         evidence_grade,
@@ -176,23 +213,37 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
         sandbox / "Data" / "harvester" / "exports" / "latest" / "catalog.json",
     )
     monkeypatch.setattr(
-        evidence_grade, "DATA_REQUEST_PATH", sandbox / "governance" / "data_request_registry.yaml"
+        evidence_grade,
+        "DATA_REQUEST_PATH",
+        sandbox / "governance" / "data_request_registry.yaml",
     )
-    monkeypatch.setattr(evidence_grade, "OUTPUT_PATH", current / "evidence_grade_report.json")
+    monkeypatch.setattr(
+        evidence_grade, "OUTPUT_PATH", current / "evidence_grade_report.json"
+    )
 
     monkeypatch.setattr(artifact_reg, "ROOT", sandbox)
     monkeypatch.setattr(
-        artifact_reg, "ROUTING_POLICY_PATH", sandbox / "governance" / "output_routing_policy.yaml"
+        artifact_reg,
+        "ROUTING_POLICY_PATH",
+        sandbox / "governance" / "output_routing_policy.yaml",
     )
     monkeypatch.setattr(
-        artifact_reg, "PIPELINE_REGISTRY_PATH", sandbox / "governance" / "daily_pipeline_registry.yaml"
+        artifact_reg,
+        "PIPELINE_REGISTRY_PATH",
+        sandbox / "governance" / "daily_pipeline_registry.yaml",
     )
     monkeypatch.setattr(artifact_reg, "OUTPUT_PATH", current / "artifact_registry.json")
 
     monkeypatch.setattr(readme_first, "ROOT", sandbox)
-    monkeypatch.setattr(readme_first, "INDEX_PATH", sandbox / "Data" / "system_index" / "latest.json")
-    monkeypatch.setattr(readme_first, "FRAMEWORK_OUTPUT_PATH", current / "framework_output.json")
-    monkeypatch.setattr(readme_first, "EVIDENCE_REPORT_PATH", current / "evidence_grade_report.json")
+    monkeypatch.setattr(
+        readme_first, "INDEX_PATH", sandbox / "Data" / "system_index" / "latest.json"
+    )
+    monkeypatch.setattr(
+        readme_first, "FRAMEWORK_OUTPUT_PATH", current / "framework_output.json"
+    )
+    monkeypatch.setattr(
+        readme_first, "EVIDENCE_REPORT_PATH", current / "evidence_grade_report.json"
+    )
     monkeypatch.setattr(readme_first, "OUTPUT_PATH", current / "00_READ_ME_FIRST.md")
 
     monkeypatch.setenv("SYSTEM_WORKSPACE_ROOT", str(sandbox))
