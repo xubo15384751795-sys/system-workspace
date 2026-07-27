@@ -1,0 +1,20 @@
+{
+  "schema_version": "workbench.framework_output.v3",
+  "framework_id": "fixture_current_chain",
+  "framework_version": "test",
+  "run_id": "replay_bridge_fixture_p0_2",
+  "as_of": "2026-07-26T00:00:00+00:00",
+  "status": "degraded_partial",
+  "basic": {
+    "overall": "DEGRADED_PARTIAL",
+    "quality_status": "PARTIAL",
+    "main_pressure": "fixture",
+    "confidence": "low",
+    "summary": "Committed P0-2 fixture; not operator evidence."
+  },
+  "advanced": {
+    "primary_readout": {
+      "state": "FIXTURE_ONLY"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "decision": "ACTIVE_WATCH",
+  "confidence": {
+    "level": "low",
+    "reasons": ["fixture"]
+  },
+  "claim_ceiling": "diagnostic_watch_only",
+  "actionability": {
+    "forbidden": ["Do not use this output as a trading signal."]
+  }
+}

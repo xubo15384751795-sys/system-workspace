@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-07-26T00:00:00+00:00",
+  "date": "2026-07-26",
+  "judgment": {
+    "decision": "ACTIVE_WATCH",
+    "confidence": "low",
+    "claim_ceiling": "diagnostic_watch_only"
+  },
+  "promotion_gate": {
+    "status": "BLOCKED",
+    "blocked_gates": ["fixture_gate"]
+  },
+  "signals": {
+    "k_gate": {"status": "SKIP"},
+    "x_gate": {"status": "SKIP"},
+    "hmm": {"status": "SKIP"},
+    "caselab": {"status": "SKIP"}
+  }
+}

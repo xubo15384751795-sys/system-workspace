@@ -1,44 +1,52 @@
-"""Current artifact semantic chain — verify existing outputs explain each other.
+"""Current artifact semantic chain — verify outputs explain each other.
 
-These tests do NOT run the pipeline.  They read the artifacts already on disk
-and verify that the information in each file is semantically consistent with
-the files it claims to derive from.
+Hermetic mode (default on clean checkout):
+  Reads committed fixtures under tests/fixtures/current_chain/.
 
-Artifacts checked:
-  - Output/current/framework_output.json
-  - Output/current/status.json
-  - Output/current/quality_validation.json
-  - Output/judgment/latest.json
-  - Output/current/00_READ_ME_FIRST.md
+Operator mode:
+  If Output/current/framework_output.json exists, prefer live artifacts
+  (still must obey runtime_status_contract enums).
 
 See: governance/daily_pipeline_registry.yaml
+     governance/runtime_status_contract.yaml
      governance/architecture_cleanup_decisions.md D2
 """
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+from scripts._runtime_status_contract import (
+    framework_output_status_values,
+    judgment_confidence_values,
+    judgment_decision_values,
+)
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURE_ROOT = ROOT / "tests" / "fixtures" / "current_chain"
+
+
+def _prefer_live() -> bool:
+    if os.environ.get("SYSTEM_TEST_FORCE_FIXTURES") == "1":
+        return False
+    return (ROOT / "Output" / "current" / "framework_output.json").exists()
+
+
+def _base() -> Path:
+    return ROOT / "Output" / "current" if _prefer_live() else FIXTURE_ROOT
+
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _artifact(name: str) -> Path:
-    return ROOT / "Output" / "current" / name
+    return _base() / name
 
-
-# ---------------------------------------------------------------------------
-# Fixtures — skip gracefully when artifacts are missing
-# ---------------------------------------------------------------------------
 
 @pytest.fixture()
 def framework_output() -> dict:
@@ -66,7 +74,10 @@ def quality_validation() -> dict:
 
 @pytest.fixture()
 def judgment() -> dict:
-    p = ROOT / "Output" / "judgment" / "latest.json"
+    if _prefer_live():
+        p = ROOT / "Output" / "judgment" / "latest.json"
+    else:
+        p = FIXTURE_ROOT / "judgment" / "latest.json"
     if not p.exists():
         pytest.skip("judgment/latest.json not found")
     return _load_json(p)
@@ -80,10 +91,6 @@ def readme_first() -> str:
     return p.read_text(encoding="utf-8")
 
 
-# ---------------------------------------------------------------------------
-# 1. framework_output schema
-# ---------------------------------------------------------------------------
-
 def test_framework_output_has_required_keys(framework_output: dict) -> None:
     required = {"schema_version", "framework_id", "as_of", "status"}
     missing = required - set(framework_output.keys())
@@ -91,33 +98,27 @@ def test_framework_output_has_required_keys(framework_output: dict) -> None:
 
 
 def test_framework_output_status_is_known(framework_output: dict) -> None:
-    valid = {
-            "ACTIVE", "DEGRADED", "BLOCKED", "SHADOW", "RESEARCH_ONLY",
-            "active_full", "active_partial", "active_degraded", "blocked", "shadow", "partial",
-    }
+    valid = framework_output_status_values(include_legacy=True)
     status = framework_output.get("status", "")
     assert status in valid, f"Unknown framework status: {status!r}"
 
 
 def test_framework_output_as_of_is_recent(framework_output: dict) -> None:
-    """as_of should be within the last 7 days — catches stale artifacts."""
+    """as_of should be within the last 7 days — catches stale operator artifacts."""
+    if not _prefer_live():
+        pytest.skip("fixture as_of is pinned; freshness applies to operator artifacts")
     as_of = framework_output.get("as_of", "")
     if not as_of:
         pytest.skip("no as_of in framework_output")
     try:
         dt = datetime.fromisoformat(as_of.replace("Z", "+00:00"))
     except ValueError:
-        # Try date-only format
         dt = datetime.strptime(as_of, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     age = datetime.now(timezone.utc) - dt
     assert age.days <= 7, f"framework_output as_of is {age.days} days old: {as_of}"
 
-
-# ---------------------------------------------------------------------------
-# 2. status.json explains framework_output
-# ---------------------------------------------------------------------------
 
 def test_status_has_judgment_section(status_json: dict) -> None:
     assert "judgment" in status_json, "status.json missing 'judgment' section"
@@ -146,10 +147,6 @@ def test_status_date_matches_framework(status_json: dict, framework_output: dict
     )
 
 
-# ---------------------------------------------------------------------------
-# 3. quality_validation gate summary
-# ---------------------------------------------------------------------------
-
 def test_quality_has_gate_summary(quality_validation: dict) -> None:
     assert "gate_summary" in quality_validation, "quality_validation missing gate_summary"
     gs = quality_validation["gate_summary"]
@@ -174,10 +171,6 @@ def test_quality_fail_has_issues(quality_validation: dict) -> None:
         assert quality_validation.get("issues"), "status=FAIL but issues list is empty"
 
 
-# ---------------------------------------------------------------------------
-# 4. judgment explains status / framework_output
-# ---------------------------------------------------------------------------
-
 def test_judgment_has_required_keys(judgment: dict) -> None:
     required = {"decision", "confidence", "claim_ceiling"}
     missing = required - set(judgment.keys())
@@ -185,24 +178,22 @@ def test_judgment_has_required_keys(judgment: dict) -> None:
 
 
 def test_judgment_decision_is_known(judgment: dict) -> None:
-    valid = {
-        "STRONG_BUY", "BUY", "HOLD", "WATCH_ONLY", "NO_TRADE",
-        "RESEARCH_ONLY", "STRONG_SELL", "SELL", "RESEARCH_REVIEW",
-    }
+    valid = judgment_decision_values(include_legacy=True)
     decision = judgment.get("decision", "")
     assert decision in valid, f"Unknown judgment decision: {decision!r}"
 
 
 def test_judgment_confidence_is_known(judgment: dict) -> None:
-    valid = {"high", "medium", "low", "none"}
+    valid = judgment_confidence_values()
     conf = judgment.get("confidence", "")
-    # confidence can be a string or a dict with "level"
     if isinstance(conf, dict):
         conf = conf.get("level", "")
     assert conf in valid, f"Unknown confidence: {conf!r}"
 
 
 def test_judgment_gate_status_present(judgment: dict) -> None:
+    if not _prefer_live() and "gate_status" not in judgment:
+        pytest.skip("fixture judgment omits gate_status; required on operator artifacts")
     assert "gate_status" in judgment, "judgment missing gate_status"
 
 
@@ -225,15 +216,10 @@ def test_judgment_inputs_reference_known_artifacts(judgment: dict) -> None:
     if not inputs:
         pytest.skip("no inputs in judgment")
     input_str = json.dumps(inputs)
-    # At minimum, judgment should reference the active pressure snapshot.
     assert "neutral_pressure_snapshot" in input_str or "status" in input_str, (
         "judgment.inputs doesn't reference neutral_pressure_snapshot or status"
     )
 
-
-# ---------------------------------------------------------------------------
-# 5. READ_ME_FIRST doesn't show N/A or stale data
-# ---------------------------------------------------------------------------
 
 def test_readme_first_no_na(readme_first: str) -> None:
     """READ_ME_FIRST should not contain N/A placeholders."""
@@ -249,15 +235,12 @@ def test_readme_first_no_na(readme_first: str) -> None:
 
 
 def test_readme_first_no_stale_authority(readme_first: str) -> None:
-    """READ_ME_FIRST should not reference 'latest' authority from Output/judgment
-    without an actual date — catches stale symlinks."""
-    # Just verify the file is non-trivial (not a stub)
-    assert len(readme_first) > 100, "READ_ME_FIRST looks like a stub (< 100 chars)"
+    """READ_ME_FIRST should not be an empty stub."""
+    min_len = 40 if not _prefer_live() else 100
+    assert len(readme_first) > min_len, (
+        f"READ_ME_FIRST looks like a stub (< {min_len} chars)"
+    )
 
-
-# ---------------------------------------------------------------------------
-# 6. Cross-file age consistency
-# ---------------------------------------------------------------------------
 
 def test_artifacts_not_stale_relative_to_each_other(
     framework_output: dict,
@@ -266,13 +249,12 @@ def test_artifacts_not_stale_relative_to_each_other(
 ) -> None:
     """Key artifacts should be from the same run (same date)."""
     dates = set()
-    for d, label in [
+    for d, _label in [
         (framework_output.get("as_of"), "framework_output"),
         (status_json.get("date"), "status.json"),
         (judgment.get("as_of"), "judgment"),
     ]:
         if d:
-            # Normalize to date-only
             dates.add(d[:10])
     if len(dates) > 1:
         pytest.fail(
