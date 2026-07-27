@@ -1,0 +1,31 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-2-wave2-sys-output-sandbox
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-2 wave 2: hermeticize ./sys entrypoint and Output/current contract tests
+  via SYSTEM_WORKSPACE_ROOT sandboxes seeded from committed fixtures.
+decision: >
+  Add tests/helpers/sandbox_workspace.py to build an isolated workspace with
+  copied governance/protocols markers and seeded Output/current+judgment.
+  Rewrite tests/test_sys_entrypoints.py and tests/test_output_current.py to use
+  python -m system_cli --workspace <sandbox> (and refresh --dry-run) so operator
+  Data/Output are never mutated. Teach ./sys to honor a pre-set
+  SYSTEM_WORKSPACE_ROOT. Remove both suites from STATEFUL_ROOT_TESTS.
+preregistered_expectation: >
+  Clean-checkout merge-gate runs the hermeticized suites successfully without
+  requiring live Output/current.
+observation_window: "single PR CI run on codex/hermetic-sys-output-sandbox"
+rollback: >
+  Revert this branch; restore prior operator-bound tests and re-add them to
+  STATEFUL_ROOT_TESTS.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - test_sys_entrypoints and test_output_current absent from STATEFUL_ROOT_TESTS
+  - local pytest of both suites passes on clean tree
+  - merge-gate green on the PR

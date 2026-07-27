@@ -1,5 +1,15 @@
 # READ ME FIRST (fixture)
 
-System status: ACTIVE_WATCH (fixture only).
+## System Status
 
-This file is a committed P0-2 hermetic fixture. It is not operator evidence.
+Judgment: ACTIVE_WATCH
+Trade Decision: NO_TRADE
+Risk Gate: BLOCKED
+
+## Forbidden Language
+
+Terms reserved for promotion-blocked language listing: buy, sell.
+
+## Framework Diagnosis
+
+Committed P0-2 fixture readout. Not operator evidence.

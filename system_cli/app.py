@@ -19,8 +19,33 @@ from system_runtime.pipeline import (
 )
 
 
+def _code_root() -> Path:
+    """Checkout that contains system_cli + scripts (may differ from data workspace)."""
+    return Path(__file__).resolve().parents[1]
+
+
+def _script_path(paths: WorkspacePaths, relative: str) -> Path:
+    """Resolve a repo script for the active workspace.
+
+    Operator workspaces usually coincide with the code checkout. Hermetic tests
+    inject a data-only SYSTEM_WORKSPACE_ROOT; scripts still live in the checkout.
+    """
+    in_workspace = paths.root / relative
+    if in_workspace.is_file():
+        return in_workspace
+    in_code = _code_root() / relative
+    if in_code.is_file():
+        return in_code
+    return in_workspace
+
+
 def _run(paths: WorkspacePaths, relative: str, args: Sequence[str] = ()) -> int:
-    result = subprocess.run([sys.executable, str(paths.root / relative), *args], cwd=paths.root)
+    # cwd stays on the workspace so relative writes land in the sandbox/operator root;
+    # SYSTEM_WORKSPACE_ROOT (set by --workspace) keeps WorkspacePaths.discover correct.
+    result = subprocess.run(
+        [sys.executable, str(_script_path(paths, relative)), *args],
+        cwd=paths.root,
+    )
     return result.returncode
 
 

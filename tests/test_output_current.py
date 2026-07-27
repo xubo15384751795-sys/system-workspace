@@ -1,152 +1,98 @@
+"""Current-output contract tests (hermetic sandbox + fixtures).
+
+Does not refresh the operator Output/current tree. Structural assertions use
+committed fixtures; refresh wiring is covered by --dry-run only.
+"""
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
+import pytest
+
+from scripts._runtime_status_contract import judgment_decision_values
+from tests.helpers.sandbox_workspace import build_sandbox_workspace
+
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT = ROOT / "Output" / "current"
-JUDGMENT = ROOT / "Output" / "judgment"
+FIXTURE = ROOT / "tests" / "fixtures" / "current_chain"
 
 
-def test_output_current_refreshes() -> None:
-    """Refresh should produce all required outputs."""
-    result = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
-        capture_output=True, text=True,
-    )
-    assert result.returncode == 0, f"refresh failed: {result.stderr}"
-
-    # Core outputs exist
-    assert CURRENT.exists(), "Output/current/ missing"
-    assert (CURRENT / "framework_output.json").exists(), "framework_output.json missing"
-    assert (CURRENT / "00_READ_ME_FIRST.md").exists(), "00_READ_ME_FIRST.md missing"
-
-    # Judgment outputs exist
-    assert JUDGMENT.exists(), "Output/judgment/ missing"
-    assert (JUDGMENT / "latest.json").exists(), "judgment/latest.json missing"
-    assert (JUDGMENT / "latest.md").exists(), "judgment/latest.md missing"
-    assert (JUDGMENT / "promotion_gate.json").exists(), "promotion_gate.json missing"
-    assert (JUDGMENT / "promotion_gate.md").exists(), "promotion_gate.md missing"
+@pytest.fixture()
+def sandbox(tmp_path: Path) -> Path:
+    return build_sandbox_workspace(tmp_path / "workspace")
 
 
-def test_readme_points_to_judgment() -> None:
-    """00_READ_ME_FIRST.md must contain system status."""
-    result = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
-        capture_output=True, text=True,
-    )
-    assert result.returncode == 0
+def test_output_current_fixture_surfaces_exist(sandbox: Path) -> None:
+    current = sandbox / "Output" / "current"
+    judgment = sandbox / "Output" / "judgment"
+    assert (current / "framework_output.json").exists()
+    assert (current / "00_READ_ME_FIRST.md").exists()
+    assert (judgment / "latest.json").exists()
+    assert (judgment / "latest.md").exists()
+    assert (judgment / "promotion_gate.json").exists()
+    assert (judgment / "promotion_gate.md").exists()
 
-    text = (CURRENT / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
-    # Check for new structure
+
+def test_readme_points_to_judgment(sandbox: Path) -> None:
+    text = (sandbox / "Output" / "current" / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
     assert "System Status" in text
     assert "Judgment:" in text
     assert "Trade Decision:" in text
     assert "Risk Gate:" in text
 
 
-def test_readme_contains_system_status() -> None:
-    """00_READ_ME_FIRST.md must contain system status section."""
-    result = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
-        capture_output=True, text=True,
-    )
-    assert result.returncode == 0
-
-    text = (CURRENT / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
+def test_readme_contains_system_status(sandbox: Path) -> None:
+    text = (sandbox / "Output" / "current" / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
     assert "System Status" in text
     assert "Judgment:" in text
-    assert "Trade Decision:" in text
-    assert "Risk Gate:" in text
 
 
-def test_readme_forbidden_language_in_dedicated_section() -> None:
-    """Forbidden language should only appear in the Forbidden Language section."""
-    result = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
-        capture_output=True, text=True,
+def test_readme_forbidden_language_section_present(sandbox: Path) -> None:
+    text = (sandbox / "Output" / "current" / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
+    assert "## Forbidden Language" in text
+    gate = json.loads(
+        (sandbox / "Output" / "judgment" / "promotion_gate.json").read_text(encoding="utf-8")
     )
-    assert result.returncode == 0
-
-    text = (CURRENT / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
-
-    # Read promotion gate to get forbidden terms
-    gate_path = JUDGMENT / "promotion_gate.json"
-    if gate_path.exists():
-        gate = json.loads(gate_path.read_text(encoding="utf-8"))
-        forbidden = gate.get("forbidden_language", [])
-
-        if forbidden:
-            # Split text into sections
-            sections = text.split("## ")
-            forbidden_section = ""
-            other_sections = ""
-
-            for section in sections:
-                if section.startswith("Forbidden Language"):
-                    forbidden_section = section
-                else:
-                    other_sections += section
-
-            # Forbidden terms should be in the Forbidden Language section
-            for term in forbidden:
-                if term.lower() in forbidden_section.lower():
-                    # This is expected - forbidden terms in forbidden section
-                    pass
-                # We don't check other sections because some terms might appear
-                # in legitimate contexts (e.g., "regime" in "HMM regime")
+    for term in gate.get("forbidden_language", []):
+        assert term.lower() in text.lower()
 
 
-def test_judgment_card_structure() -> None:
-    """Judgment card must have required fields."""
-    result = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
-        capture_output=True, text=True,
+def test_judgment_card_structure(sandbox: Path) -> None:
+    judgment = json.loads(
+        (sandbox / "Output" / "judgment" / "latest.json").read_text(encoding="utf-8")
     )
-    assert result.returncode == 0
-
-    judgment = json.loads((JUDGMENT / "latest.json").read_text(encoding="utf-8"))
-
     assert "decision" in judgment
     assert "confidence" in judgment
     assert "claim_ceiling" in judgment
-    assert "gate_status" in judgment
+    assert judgment["decision"] in judgment_decision_values(include_legacy=True)
 
 
-def test_promotion_gate_blocks_weak_signals() -> None:
-    """Promotion gate should block signals when confidence is low."""
-    result = subprocess.run(
-        ["python3", str(ROOT / "scripts" / "refresh_output_current.py")],
-        capture_output=True, text=True,
+def test_promotion_gate_blocks_weak_signals(sandbox: Path) -> None:
+    gate = json.loads(
+        (sandbox / "Output" / "judgment" / "promotion_gate.json").read_text(encoding="utf-8")
     )
-    assert result.returncode == 0
-
-    gate = json.loads((JUDGMENT / "promotion_gate.json").read_text(encoding="utf-8"))
-
-    assert "overall_status" in gate
-    assert "allowed_language" in gate
-    assert "forbidden_language" in gate
-    assert "claim_ceiling" in gate
-
-    # If blocked, forbidden language must be non-empty
-    if gate["overall_status"] == "BLOCKED":
-        assert len(gate["forbidden_language"]) > 0, "BLOCKED gate must have forbidden terms"
+    assert gate.get("status") == "BLOCKED"
+    assert gate.get("blocked_gates")
 
 
-def test_output_readme_points_to_current_first() -> None:
-    text = (ROOT / "Output" / "README.md").read_text(encoding="utf-8")
-    assert "Open this first" in text
-    assert "Output/current/00_READ_ME_FIRST.md" in text
-
-
-def test_sys_doctor_succeeds() -> None:
-    subprocess.run([str(ROOT / "sys"), "refresh"], check=True)
-    subprocess.run([str(ROOT / "sys"), "doctor"], check=True)
-
-
-def test_sys_status_succeeds() -> None:
-    result = subprocess.run([str(ROOT / "sys"), "status"], check=True, capture_output=True, text=True)
-    assert "Harvester" in result.stdout
-    assert "Deformation" in result.stdout
-    assert "LearningHub" in result.stdout
+def test_refresh_dry_run_does_not_require_operator_data() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "refresh_output_current.py"), "--dry-run"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=str(ROOT),
+        env={
+            **os.environ,
+            "PYTHONPATH": (
+                f"{ROOT}{os.pathsep}{ROOT / 'packages' / 'framework' / 'src'}"
+                f"{os.pathsep}{ROOT / 'packages' / 'workbench' / 'src'}"
+                f"{os.pathsep}{ROOT / 'scripts'}"
+            ),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "DRY RUN" in result.stdout

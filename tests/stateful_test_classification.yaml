@@ -75,12 +75,12 @@ items:
     reason: Path existence only; should not need operator state (candidate for early removal)
 
   - path: tests/test_output_current.py
-    class: split_candidate
-    reason: Invokes sys refresh against real roots; needs sandbox (follow-up)
+    class: hermetic
+    reason: Fixture/sandbox surfaces + refresh --dry-run; no operator Output mutation
 
   - path: tests/test_sys_entrypoints.py
-    class: split_candidate
-    reason: CLI entrypoints; needs sandbox workspace/output roots
+    class: hermetic
+    reason: system_cli --workspace sandbox with seeded current/judgment fixtures
 
   - path: tests/test_task_router.py
     class: split_candidate
