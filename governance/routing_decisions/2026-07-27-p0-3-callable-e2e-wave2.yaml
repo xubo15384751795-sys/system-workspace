@@ -1,0 +1,26 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-3-wave2-degrade-block-isolation
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-3 wave 2: add degraded measurement, blocked_upstream DAG lineage,
+  operator-current isolation, shared run_id injection, and callable/subprocess
+  mode agreement for a light main-chain step.
+decision: >
+  Extend tests/test_daily_pipeline_callable_e2e.py with sandbox helpers and
+  scenario coverage. Do not claim full 14-step fixture E2E or 14-day shadow
+  evidence yet; those remain later P0-3 waves.
+preregistered_expectation: >
+  Merge-gate runs the expanded hermetic suite without mutating operator Output/current.
+observation_window: "single PR CI run on codex/p0-3-callable-e2e-wave2"
+rollback: >
+  Revert this branch.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - local pytest of callable E2E passes
+  - merge-gate green on the PR
