@@ -1,3 +1,7 @@
+"""Freshness governance contracts (hermetic).
+
+Live Harvester release probes live in test_freshness_governance_operator.py.
+"""
 from __future__ import annotations
 
 import json
@@ -5,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages" / "workbench" / "src"))
@@ -27,21 +32,6 @@ def test_daily_and_weekly_staleness_classification() -> None:
     assert classify_lag(10, "weekly", policy) == "fresh"
     assert classify_lag(20, "weekly", policy) == "acceptable_lag"
     assert classify_lag(22, "weekly", policy) == "stale"
-
-
-def test_current_release_marks_tedrate_retired_and_move_missing() -> None:
-    manifest = build_release_freshness_manifest(ROOT / "Data" / "harvester" / "exports" / "20260426T074656Z")
-    by_series = {item["series_id"]: item for item in manifest["indicators"]}
-
-    assert by_series["TEDRATE"]["freshness_status"] == "retired_or_unavailable"
-    assert by_series["TEDRATE"]["current_diagnostics_allowed"] is False
-    assert "January 2022" in by_series["TEDRATE"]["retired_reason"]
-
-    assert by_series["MOVE"]["freshness_status"] == "missing"
-    assert by_series["MOVE"]["required"] is True
-    assert by_series["MOVE"]["missing_reason"] == "Not present in the admitted Harvester evidence release."
-    assert manifest["model_input_validity"] == "incomplete"
-    assert "MOVE is required but missing" in manifest["gate_result"]["warnings"]
 
 
 def test_freshness_manifest_distinguishes_date_semantics(tmp_path: Path) -> None:
@@ -85,7 +75,9 @@ def test_freshness_manifest_distinguishes_date_semantics(tmp_path: Path) -> None
         )
     )
 
-    manifest = build_release_freshness_manifest(release, run_generated_at="2026-05-01T01:00:00Z", run_id="test")
+    manifest = build_release_freshness_manifest(
+        release, run_generated_at="2026-05-01T01:00:00Z", run_id="test"
+    )
     assert manifest["date_semantics"]["observation_date"].startswith("Indicator observation date")
     assert manifest["evidence_created_at"] == "2026-05-01T00:00:00Z"
     assert manifest["run_generated_at"] == "2026-05-01T01:00:00Z"
@@ -96,21 +88,11 @@ def test_freshness_manifest_distinguishes_date_semantics(tmp_path: Path) -> None
     assert by_series["NFCI"]["freshness_status"] == "acceptable_lag"
 
 
-# --- Evidence Release TTL Tests ---
-# See: governance/architecture_reality_decisions.md §3-4
-# See: configs/freshness_policy.yaml evidence_release section
-
-
 def test_evidence_release_ttl_policy_exists() -> None:
-    """Freshness policy must define evidence_release TTL rules."""
     policy_path = ROOT / "configs" / "freshness_policy.yaml"
-    if not policy_path.exists():
-        return
-    import yaml
+    assert policy_path.exists()
     policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
-    assert "evidence_release" in policy, (
-        "freshness_policy.yaml missing evidence_release section"
-    )
+    assert "evidence_release" in policy, "freshness_policy.yaml missing evidence_release section"
     er = policy["evidence_release"]
     assert er["default_ttl_days"] == 3
     assert er["core_judgment_on_expired"] == "blocked"
@@ -119,8 +101,6 @@ def test_evidence_release_ttl_policy_exists() -> None:
 
 
 def test_constitution_has_evidence_release_ttl() -> None:
-    """System constitution must define evidence release TTL rules."""
-    import yaml
     constitution_path = ROOT / "governance" / "system_constitution.yaml"
     constitution = yaml.safe_load(constitution_path.read_text(encoding="utf-8"))
     fr = constitution["freshness_rules"]

@@ -1,0 +1,29 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-2-wave5-compress-residuals
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-2 wave 5: compress remaining compressible STATEFUL suites into hermetic
+  halves; leave CaseLab/Paper, golden samples, P0-3 E2E, and explicit
+  *_operator residuals ignored.
+decision: >
+  Hermeticize admission_gate (stub content blockers), split freshness /
+  home_page / mechanism_tiers / workbench_nlp into hermetic + *_operator
+  modules, expand current_chain README fixture for dialect checks. Do not
+  attempt CaseLab hermeticization without PAPER_ROOT fixtures.
+preregistered_expectation: >
+  Clean-checkout merge-gate runs the newly hermetic suites; STATEFUL list
+  shrinks to CaseLab/Paper + golden + P0-3 + *_operator only.
+observation_window: "single PR CI run on codex/hermetic-compress-wave5"
+rollback: >
+  Revert this branch; restore prior STATEFUL_ROOT_TESTS membership.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - admission/freshness/home/mechanism/nlp hermetic halves absent from STATEFUL
+  - local pytest of hermetic halves passes
+  - merge-gate green on the PR

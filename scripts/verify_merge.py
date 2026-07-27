@@ -36,30 +36,24 @@ MANIFEST_PATH = MANIFEST_DIR / "merge_gate_manifest.json"
 # source-independent coverage is provided below by the module suites and
 # explicit runtime/governance checks.
 STATEFUL_ROOT_TESTS = (
-    "tests/test_admission_gate.py",
+    # CaseLab + Paper vault (external) — not compressable without PAPER_ROOT fixtures
     "tests/test_caselab_context.py",
     "tests/test_caselab_embeddings.py",
     "tests/test_caselab_graph.py",
     "tests/test_caselab_mcp.py",
     "tests/test_caselab_state_machine.py",
     "tests/test_caselab_world_model.py",
-    # test_current_artifact_chain.py hermeticized in P0-2 wave 1
-    # test_current_refresh_bundle.py hermeticized in P0-2 wave 3
-    "tests/test_daily_pipeline_callable_e2e.py",
-    "tests/test_freshness_governance.py",
-    "tests/test_harvester_bundle_operator.py",
-    # test_harvester_bundle_contract.py hermeticized in P0-2 wave 4
-    "tests/test_home_page_consistency.py",
     "tests/test_golden_samples.py",
-    "tests/test_mechanism_tiers.py",
-    # test_modules_paths_exist.py hermeticized in P0-2 wave 3
-    # test_output_current.py hermeticized in P0-2 wave 2
-    # test_sys_entrypoints.py hermeticized in P0-2 wave 2
+    # P0-3
+    "tests/test_daily_pipeline_callable_e2e.py",
+    # Operator residuals (P0-2 waves 4–5 splits)
+    "tests/test_freshness_governance_operator.py",
+    "tests/test_harvester_bundle_operator.py",
+    "tests/test_home_page_consistency_operator.py",
+    "tests/test_mechanism_tiers_operator.py",
     "tests/test_task_router_operator.py",
-    # test_task_router.py hermeticized in P0-2 wave 4
-    "tests/test_workbench_nlp.py",
+    "tests/test_workbench_nlp_operator.py",
     "tests/test_workbench_tools_operator.py",
-    # test_workbench_tools.py hermeticized in P0-2 wave 4
 )
 
 
