@@ -11,8 +11,8 @@ updated: "2026-07-27"
 
 items:
   - path: tests/test_admission_gate.py
-    class: operator_workspace
-    reason: Touches live admission / promotion artifacts under Output/
+    class: hermetic
+    reason: tmp_path releases + stubbed content-level blockers; no live Data/
 
   - path: tests/test_caselab_context.py
     class: operator_workspace
@@ -51,8 +51,12 @@ items:
     reason: Callable E2E is P0-3; keep ignored until hermetic fixtures land
 
   - path: tests/test_freshness_governance.py
+    class: hermetic
+    reason: classify_lag + tmp_path manifest + policy/constitution TTL contracts
+
+  - path: tests/test_freshness_governance_operator.py
     class: operator_workspace
-    reason: Asserts against live Output freshness clocks
+    reason: Probes a live Harvester export under Data/harvester/exports
 
   - path: tests/test_harvester_bundle_contract.py
     class: hermetic
@@ -63,16 +67,24 @@ items:
     reason: Requires Data/harvester/exports on initialized operator workspace
 
   - path: tests/test_home_page_consistency.py
+    class: hermetic
+    reason: Fixture README dialect/freshness wording + CONTENT_FRESHNESS path shape
+
+  - path: tests/test_home_page_consistency_operator.py
     class: operator_workspace
-    reason: Reads live home/current surfaces
+    reason: Live Output/Data path existence and freshness_report false-missing check
 
   - path: tests/test_golden_samples.py
     class: operator_workspace
-    reason: Compares against local golden run artifacts
+    reason: Compares against local golden run artifacts / Paper index
 
   - path: tests/test_mechanism_tiers.py
+    class: hermetic
+    reason: Pure evaluate_condition unit tests only
+
+  - path: tests/test_mechanism_tiers_operator.py
     class: operator_workspace
-    reason: Depends on mechanism tier outputs in Output/
+    reason: EventTriggerEngine/MechanismResolver need Data/nlp/caselab_training YAML
 
   - path: tests/test_modules_paths_exist.py
     class: hermetic
@@ -95,8 +107,12 @@ items:
     reason: Writes system_index / refresh current / live deformation run tools
 
   - path: tests/test_workbench_nlp.py
+    class: hermetic
+    reason: NLP protocol schemas + import boundary only
+
+  - path: tests/test_workbench_nlp_operator.py
     class: operator_workspace
-    reason: Requires refreshed current + NLP corpora
+    reason: sys refresh + grounded ask against live Output
 
   - path: tests/test_workbench_tools.py
     class: hermetic

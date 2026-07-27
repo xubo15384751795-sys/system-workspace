@@ -68,17 +68,21 @@ class TestAdmitForConsumption:
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
-            "freshness_validator.check_content_freshness",
-            lambda **kw: {"name": kw["name"], "status": "FRESH"},
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
                                           now=pd.Timestamp("2026-07-17"))
         assert decision.allowed is False
         assert any("OFR_FSI" in b for b in decision.blockers)
 
-    def test_stale_nfci_blocks(self, tmp_path):
+    def test_stale_nfci_blocks(self, tmp_path, monkeypatch):
         release = tmp_path / "release"
         _write_release(release, nfci_stale=True)
+        monkeypatch.setattr(
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
+        )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
                                           now=pd.Timestamp("2026-07-17"))
         assert decision.allowed is False
@@ -87,11 +91,10 @@ class TestAdmitForConsumption:
     def test_all_fresh_allowed(self, tmp_path, monkeypatch):
         release = tmp_path / "release"
         _write_release(release)
-        # Stub content checks to return empty (they read real Data/ which may
-        # not exist in CI); we are testing the release-level aggregation here.
+        # Stub content checks — they read operator Data/ which is absent in CI.
         monkeypatch.setattr(
-            "freshness_validator.check_content_freshness",
-            lambda **kw: {"name": kw["name"], "status": "FRESH"},
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
                                           now=pd.Timestamp("2026-07-17"))
@@ -117,8 +120,8 @@ class TestRequireAdmission:
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
-            "freshness_validator.check_content_freshness",
-            lambda **kw: {"name": kw["name"], "status": "FRESH"},
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
         )
         with pytest.raises(SystemExit) as exc:
             require_admission("paper_portfolio", release_dir=release,
@@ -129,8 +132,8 @@ class TestRequireAdmission:
         release = tmp_path / "release"
         _write_release(release)
         monkeypatch.setattr(
-            "freshness_validator.check_content_freshness",
-            lambda **kw: {"name": kw["name"], "status": "FRESH"},
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
         )
         decision = require_admission("paper_portfolio", release_dir=release,
                                      now=pd.Timestamp("2026-07-17"))

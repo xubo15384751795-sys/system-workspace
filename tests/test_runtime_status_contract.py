@@ -47,19 +47,23 @@ def test_stateful_classification_covers_ignored_suites() -> None:
     missing = ignored - classified
     assert not missing, f"STATEFUL_ROOT_TESTS missing classification: {missing}"
     hermetic = {item["path"] for item in data["items"] if item["class"] == "hermetic"}
-    assert "tests/test_current_artifact_chain.py" in hermetic
-    assert "tests/test_current_artifact_chain.py" not in ignored
-    assert "tests/test_sys_entrypoints.py" in hermetic
-    assert "tests/test_sys_entrypoints.py" not in ignored
-    assert "tests/test_output_current.py" in hermetic
-    assert "tests/test_output_current.py" not in ignored
-    assert "tests/test_current_refresh_bundle.py" in hermetic
-    assert "tests/test_current_refresh_bundle.py" not in ignored
-    assert "tests/test_modules_paths_exist.py" in hermetic
-    assert "tests/test_modules_paths_exist.py" not in ignored
-    assert "tests/test_harvester_bundle_contract.py" in hermetic
-    assert "tests/test_harvester_bundle_contract.py" not in ignored
-    assert "tests/test_task_router.py" in hermetic
-    assert "tests/test_task_router.py" not in ignored
-    assert "tests/test_workbench_tools.py" in hermetic
-    assert "tests/test_workbench_tools.py" not in ignored
+    for path in (
+        "tests/test_admission_gate.py",
+        "tests/test_freshness_governance.py",
+        "tests/test_home_page_consistency.py",
+        "tests/test_mechanism_tiers.py",
+        "tests/test_workbench_nlp.py",
+        "tests/test_harvester_bundle_contract.py",
+        "tests/test_task_router.py",
+        "tests/test_workbench_tools.py",
+    ):
+        assert path in hermetic, path
+        assert path not in ignored, path
+    # Residual ignore list is CaseLab/Paper + P0-3 + explicit *_operator suites.
+    assert all(
+        path.endswith("_operator.py")
+        or "caselab" in path
+        or path.endswith("golden_samples.py")
+        or path.endswith("daily_pipeline_callable_e2e.py")
+        for path in ignored
+    )
