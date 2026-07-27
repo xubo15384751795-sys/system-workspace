@@ -118,11 +118,15 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
 
     import scripts._data_paths as dp
     import scripts._runtime_io as rio
+    import scripts.build_current_status as current_status
     import scripts.commands.weekly.build_artifact_registry as artifact_reg
     import scripts.commands.weekly.build_evidence_grade_report as evidence_grade
+    import scripts.commands.weekly.build_next_actions as next_actions
     import scripts.commands.weekly.build_readme_first as readme_first
+    import scripts.freshness_validator as freshness
     import scripts.judgment_layer as jl_script
     import scripts.pending_evaluation as pe
+    import scripts.trade_decision_layer as trade_decision
 
     out = sandbox / "Output"
     current = out / "current"
@@ -247,8 +251,75 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     )
     monkeypatch.setattr(readme_first, "OUTPUT_PATH", current / "00_READ_ME_FIRST.md")
 
+    # trade_decision / status / next_actions / freshness bind ROOT at import time.
+    trade_out = out / "trade_decision"
+    monkeypatch.setattr(trade_decision, "ROOT", sandbox)
+    monkeypatch.setattr(trade_decision, "JUDGMENT_PATH", judgment / "latest.json")
+    monkeypatch.setattr(
+        trade_decision, "PROMOTION_GATE_PATH", judgment / "promotion_gate.json"
+    )
+    monkeypatch.setattr(
+        trade_decision, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        trade_decision, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        trade_decision,
+        "HMM_AUDIT_PATH",
+        out / "hmm_stability" / "hmm_stability_audit.json",
+    )
+    monkeypatch.setattr(trade_decision, "CASELAB_DIR", out / "caselab")
+    monkeypatch.setattr(
+        trade_decision, "PAPER_WORLD_MODEL_DIR", sandbox / "Data" / "paper_world_model"
+    )
+    monkeypatch.setattr(trade_decision, "OUTPUT_DIR", trade_out)
+    monkeypatch.setattr(
+        trade_decision,
+        "PAPER_SUPPORT_REGISTRY",
+        sandbox / "governance" / "paper_support_registry.yaml",
+    )
+
+    monkeypatch.setattr(current_status, "ROOT", sandbox)
+    monkeypatch.setattr(current_status, "JUDGMENT_PATH", judgment / "latest.json")
+    monkeypatch.setattr(
+        current_status, "PROMOTION_GATE_PATH", judgment / "promotion_gate.json"
+    )
+    monkeypatch.setattr(
+        current_status, "INDEX_PATH", sandbox / "Data" / "system_index" / "latest.json"
+    )
+    monkeypatch.setattr(
+        current_status, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        current_status, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json"
+    )
+    monkeypatch.setattr(
+        current_status,
+        "HMM_AUDIT_PATH",
+        out / "hmm_stability" / "hmm_stability_audit.json",
+    )
+    monkeypatch.setattr(current_status, "CASELAB_DIR", out / "caselab")
+    monkeypatch.setattr(current_status, "OUTPUT_DIR", current)
+
+    monkeypatch.setattr(next_actions, "ROOT", sandbox)
+    monkeypatch.setattr(next_actions, "OUTPUT_DIR", current)
+    monkeypatch.setattr(
+        next_actions,
+        "IMPROVEMENT_LEDGER",
+        sandbox / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet",
+    )
+
+    monkeypatch.setattr(freshness, "ROOT", sandbox)
+    monkeypatch.setattr(freshness, "OUTPUT_DIR", out)
+    monkeypatch.setattr(freshness, "CURRENT", current)
+    monkeypatch.setattr(freshness, "QUALITY_DIR", out / "quality")
+    monkeypatch.setattr(
+        freshness, "_POLICY_PATH", sandbox / "configs" / "freshness_policy.yaml"
+    )
+
     monkeypatch.setenv("SYSTEM_WORKSPACE_ROOT", str(sandbox))
     monkeypatch.setenv("SYSTEM_ROOT", str(sandbox))
     monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(current))
     monkeypatch.setenv("DAILY_OUTPUT_ROOT", str(out))
-    monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "p0_3_wave3_fixture_run")
+    monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "p0_3_wave4_fixture_run")
