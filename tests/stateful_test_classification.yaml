@@ -55,8 +55,12 @@ items:
     reason: Asserts against live Output freshness clocks
 
   - path: tests/test_harvester_bundle_contract.py
-    class: split_candidate
-    reason: Mostly schema; some paths assume Harvester release on disk
+    class: hermetic
+    reason: Schema + synthetic sample only; export-tree check split to operator suite
+
+  - path: tests/test_harvester_bundle_operator.py
+    class: operator_workspace
+    reason: Requires Data/harvester/exports on initialized operator workspace
 
   - path: tests/test_home_page_consistency.py
     class: operator_workspace
@@ -83,13 +87,21 @@ items:
     reason: system_cli --workspace sandbox with seeded current/judgment fixtures
 
   - path: tests/test_task_router.py
-    class: split_candidate
-    reason: Tool runs touch live paths; split verify vs run modes
+    class: hermetic
+    reason: In-process routing/planning + CLI mode/contract checks without Output mutation
+
+  - path: tests/test_task_router_operator.py
+    class: operator_workspace
+    reason: Writes system_index / refresh current / live deformation run tools
 
   - path: tests/test_workbench_nlp.py
     class: operator_workspace
     reason: Requires refreshed current + NLP corpora
 
   - path: tests/test_workbench_tools.py
-    class: split_candidate
-    reason: Mix of contract validation and refresh-dependent tools
+    class: hermetic
+    reason: Docs/wrappers/contract examples; refresh builds split to operator suite
+
+  - path: tests/test_workbench_tools_operator.py
+    class: operator_workspace
+    reason: sys refresh + live Output/workbench dashboard/navigator builds
