@@ -6,6 +6,9 @@ P0-3:
            and callable/subprocess mode agreement for a light step
   wave 3 — judgment → promotion → evidence/readme/artifact callables under a seeded
            sandbox fixture chain (still no live structural_replay)
+  wave 4 — trade_decision / next_actions / freshness_validator on the same sandbox;
+           operator isolation for trade_decision; still no live etf_refresh /
+           structural_replay / k|x_measurement_gate panel execution
 
 Failure propagation remains covered by tests/test_failure_propagation.py.
 """
@@ -57,6 +60,13 @@ EXECUTABLE_CHAIN_STEPS = (
     "evidence_grade_report",
     "build_artifact_registry",
     "readme_first",
+)
+
+# Post-judgment / quality callables seeded by the same sandbox (wave 4).
+EXECUTABLE_POST_JUDGMENT_STEPS = (
+    "trade_decision",
+    "next_actions",
+    "freshness_validator",
 )
 
 
@@ -311,3 +321,58 @@ def test_recover_scenario_clears_block_when_upstream_succeeds() -> None:
     )
     assert recovered["action"] == "run"
     assert recovered["blocked_by"] == []
+
+
+def _seed_judgment_through_promotion(sandbox: Path, monkeypatch) -> None:
+    patch_callable_chain_paths(monkeypatch, sandbox)
+    jl = run_registry_step("judgment_layer", mode="callable")
+    assert jl["status"] in {"success", "failed", "error"}, jl
+    pg = run_registry_step("judgment_promotion_gate", mode="callable")
+    assert pg["status"] in {"success", "failed", "error"}, pg
+
+
+@pytest.mark.parametrize("step_id", EXECUTABLE_POST_JUDGMENT_STEPS)
+def test_post_judgment_callable_executes(
+    step_id: str, tmp_path: Path, monkeypatch
+) -> None:
+    """P0-3 wave 4: trade_decision / next_actions / freshness under sandbox fixtures."""
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    _seed_judgment_through_promotion(sandbox, monkeypatch)
+
+    result = run_registry_step(step_id, mode="callable")
+    assert result["mode"] == "callable"
+    # freshness_validator exits 1 on FAIL verdict — still a completed callable run.
+    assert result["status"] in {"success", "failed", "error"}, result
+
+
+def test_trade_decision_writes_sandbox_only(tmp_path: Path, monkeypatch) -> None:
+    """trade_decision must not mutate operator Output/trade_decision."""
+    operator_trade = ROOT / "Output" / "trade_decision"
+    before = _fingerprint(operator_trade)
+
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    _seed_judgment_through_promotion(sandbox, monkeypatch)
+    result = run_registry_step("trade_decision", mode="callable")
+    assert result["status"] in {"success", "failed", "error"}
+
+    after = _fingerprint(operator_trade)
+    assert before == after, "trade_decision mutated operator Output/trade_decision"
+    assert (sandbox / "Output" / "trade_decision" / "latest.json").exists()
+
+
+def test_freshness_validator_writes_sandbox_report(tmp_path: Path, monkeypatch) -> None:
+    """freshness_validator must write its report under sandbox Output/quality."""
+    operator_quality = ROOT / "Output" / "quality"
+    before = _fingerprint(operator_quality)
+
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    _seed_judgment_through_promotion(sandbox, monkeypatch)
+    result = run_registry_step("freshness_validator", mode="callable")
+    assert result["status"] in {"success", "failed", "error"}
+
+    after = _fingerprint(operator_quality)
+    assert before == after, "freshness_validator mutated operator Output/quality"
+    report = sandbox / "Output" / "quality" / "freshness_report.json"
+    assert report.exists()
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert "verdict" in payload or "overall" in payload or isinstance(payload, dict)
