@@ -1,0 +1,40 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-4-freshness-ttl-schedule
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-4 wave 1 from SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md: close registry
+  monitoring contract failures where weekly TTL is shorter than weekly cadence,
+  without papering over missing daily execution by universally lengthening TTL.
+decision: >
+  For steps already on the default daily main chain
+  (measurement_quality_report, readme_first, evidence_grade_report,
+  build_artifact_registry, next_actions), set schedule=daily and keep their
+  existing short TTL. For remaining true weekly steps that failed
+  ttl_shorter_than_schedule, set ttl_hours=168 so TTL is at least one weekly
+  cadence. This restores artifact_monitoring_audit non_daily_contract_violations
+  to empty on the live registry.
+preregistered_expectation: >
+  non_daily_contract_violations(live registry) == []; weekly governance
+  monitoring audit no longer reports those 15 TTL/schedule mismatches.
+observation_window: "single PR CI run on codex/p0-4-freshness-monitoring-closure"
+rollback: >
+  Revert this branch/PR; restore prior schedule/ttl_hours values on the fifteen
+  steps in governance/daily_pipeline_registry.yaml.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: false
+acceptance:
+  - non_daily_contract_violations on live registry is empty
+  - daily main-chain readout steps are schedule=daily
+  - true weekly steps have ttl_hours >= 168
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  files:
+    - governance/daily_pipeline_registry.yaml
+    - tests/test_artifact_monitoring_audit.py
+    - scripts/artifact_monitoring_audit.py

@@ -149,3 +149,12 @@ def test_report_fails_when_weekly_contract_is_unmonitored(tmp_path: Path) -> Non
     report = build_report(tmp_path, now=datetime(2026, 7, 17, tzinfo=UTC))
 
     assert report["status"] == "FAIL"
+
+
+def test_live_registry_has_no_non_daily_ttl_schedule_violations() -> None:
+    """P0-4 wave 1: weekly TTL must not be shorter than weekly cadence."""
+    registry = yaml.safe_load(
+        (ROOT / "governance" / "daily_pipeline_registry.yaml").read_text(encoding="utf-8")
+    )
+    findings = non_daily_contract_violations(registry or {})
+    assert findings == []

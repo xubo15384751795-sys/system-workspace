@@ -456,7 +456,7 @@ steps:
     - Output/hmm_stability/hmm_stability_audit.json
     - Output/hmm_stability/hmm_stability_audit.md
     artifact_path: Output/hmm_stability/hmm_stability_audit.json
-    ttl_hours: 48
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -540,7 +540,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_measurement_quality_report.py
-    schedule: weekly
+    schedule: daily
     input: &id020mq
     - Output/k_measurement/k_measurement_gate.json
     - Output/x_measurement/x_measurement_gate.json
@@ -906,7 +906,7 @@ steps:
     - Output/current/data_gaps.json
     - Output/current/data_gaps.md
     artifact_path: Output/current/data_gaps.json
-    ttl_hours: 48
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1122,7 +1122,7 @@ steps:
     produces: &id038
     - Output/system_learning/latest/comprehensive_summary.md
     artifact_path: Output/system_learning/latest/comprehensive_summary.md
-    ttl_hours: 72
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1210,7 +1210,7 @@ steps:
     - Output/quality/operator_registry_audit.json
     - Output/quality/operator_registry_audit.md
     artifact_path: Output/quality/operator_registry_audit.json
-    ttl_hours: 72
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1315,13 +1315,13 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
-    schedule: weekly
+    schedule: daily
   evidence_grade_report:
     order: 59
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_evidence_grade_report.py
-    schedule: weekly
+    schedule: daily
     input: &id050_5
     - Output/judgment/latest.json
     - Output/judgment/promotion_gate.json
@@ -1355,7 +1355,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_artifact_registry.py
-    schedule: weekly
+    schedule: daily
     input: &id050_55
     - governance/output_routing_policy.yaml
     - governance/daily_pipeline_registry.yaml
@@ -1432,7 +1432,7 @@ steps:
     - Output/system_learning/latest/summary.json
     - Output/system_learning/latest/improvement_queue.md
     artifact_path: Data/system_learning/ledgers/system_event_ledger.parquet
-    ttl_hours: 36
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1510,7 +1510,7 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
-    schedule: weekly
+    schedule: daily
   freshness_validator:
     order: 36
     status: active
@@ -1905,7 +1905,7 @@ steps:
     produces: &id084_out
     - Output/system_learning/latest/authority_graph.json
     artifact_path: Output/system_learning/latest/authority_graph.json
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1945,7 +1945,7 @@ steps:
     - Output/system_learning/latest/governance_status.md
     - Output/system_learning/latest/governance_status.json
     artifact_path: Output/system_learning/latest/governance_status.md
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2034,7 +2034,7 @@ steps:
     produces:
     - caselab_runtime/policies/agent_policy.yml
     artifact_path: caselab_runtime/policies/agent_policy.yml
-    ttl_hours: 72
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2314,7 +2314,7 @@ steps:
       - Output/current/change_analysis.json
       - Output/current/change_analysis.md
     artifact_path: Output/current/change_analysis.json
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2381,7 +2381,7 @@ steps:
       - Output/sandbox/structural_replay_v2/all_signals.parquet
     produces:
       - Output/system_learning/latest/judgment_accuracy_report.json
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
