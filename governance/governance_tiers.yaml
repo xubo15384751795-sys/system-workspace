@@ -60,6 +60,7 @@ shape_inventory:
   proxy_quality_rules.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   redundancy_budget.yaml: {shape: executable_invariant, attention: zero, role: machine_budget}
   repo_layout_map.md: {shape: precedent, attention: on_demand, role: migration_record}
+  runtime_status_contract.yaml: {shape: executable_invariant, attention: zero, role: status_enum_authority}
   run_mode_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
   run_observability_summary.template.md: {shape: precedent, attention: on_demand, role: superseded_template}
   semantic_registry.json: {shape: executable_invariant, attention: zero, role: machine_registry}
