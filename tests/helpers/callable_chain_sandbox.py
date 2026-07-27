@@ -113,6 +113,9 @@ def seed_callable_chain_workspace(target: Path) -> Path:
 
 def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     """Point runtime + judgment modules at the sandbox workspace root."""
+    import workbench.judgment.layer as jl
+    import workbench.judgment.promotion_gate as pg
+
     import scripts._data_paths as dp
     import scripts._runtime_io as rio
     import scripts.commands.weekly.build_artifact_registry as artifact_reg
@@ -120,8 +123,6 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     import scripts.commands.weekly.build_readme_first as readme_first
     import scripts.judgment_layer as jl_script
     import scripts.pending_evaluation as pe
-    import workbench.judgment.layer as jl
-    import workbench.judgment.promotion_gate as pg
 
     out = sandbox / "Output"
     current = out / "current"
