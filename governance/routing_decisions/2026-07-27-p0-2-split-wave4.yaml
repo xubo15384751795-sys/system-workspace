@@ -1,0 +1,27 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-2-wave4-split-harvester-workbench-router
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-2 wave 4: split harvester_bundle, workbench_tools, and task_router into
+  hermetic source/contract suites and operator-bound residual suites.
+decision: >
+  Keep schema/routing/contract/mode checks in the original test modules (now
+  hermetic, using sys.executable and packages/workbench/contracts). Move export
+  tree, refresh/dashboard, system_index write, live replay, and promote checks
+  into *_operator.py modules listed in STATEFUL_ROOT_TESTS.
+preregistered_expectation: >
+  Clean-checkout merge-gate runs the hermetic halves without operator Data/Output.
+observation_window: "single PR CI run on codex/hermetic-split-wave4"
+rollback: >
+  Revert this branch; restore monolithic suites to STATEFUL_ROOT_TESTS.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - hermetic halves absent from STATEFUL_ROOT_TESTS; operator halves present
+  - local pytest of hermetic halves passes on clean tree
+  - merge-gate green on the PR

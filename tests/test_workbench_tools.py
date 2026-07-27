@@ -1,10 +1,17 @@
+"""Workbench tool surface contracts (hermetic / source-level).
+
+Operator refresh + live Output builds live in test_workbench_tools_operator.py.
+"""
 from __future__ import annotations
 
-import json
 import subprocess
+import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
+CONTRACTS = ROOT / "packages" / "workbench" / "contracts"
 
 
 def test_product_framework_boundary_doc_exists() -> None:
@@ -48,6 +55,8 @@ def test_legacy_tool_paths_are_symlinks_into_workbench() -> None:
     harness = ROOT / "Structural Research Harness"
     learning = ROOT / "System Learning Hub"
     contracts = ROOT / "contracts"
+    if not all(p.exists() for p in (harvester, harness, learning, contracts)):
+        pytest.skip("legacy symlink aliases not present on this checkout")
     assert harvester.is_symlink()
     assert harness.is_symlink()
     assert learning.is_symlink()
@@ -56,31 +65,6 @@ def test_legacy_tool_paths_are_symlinks_into_workbench() -> None:
     assert harness.resolve() == ROOT / "packages" / "workbench" / "agents" / "harness"
     assert learning.resolve() == ROOT / "packages" / "learning_hub"
     assert contracts.resolve() == ROOT / "packages" / "workbench" / "contracts"
-
-
-def test_benchmark_evidence_dashboard_builds() -> None:
-    subprocess.run(["python3", str(ROOT / "scripts" / "build_benchmark_evidence_dashboard.py")], check=True)
-
-    payload_path = ROOT / "Output" / "workbench" / "benchmark_evidence" / "benchmark_evidence_dashboard.json"
-    payload = json.loads(payload_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "workbench.evidence_panel.v1"
-    statuses = {row["series_id"]: row["status"] for row in payload["series"]}
-    assert statuses["NFCI"] == "available"
-    assert statuses["VIXCLS"] == "available"
-    assert "MOVE" in statuses
-
-
-def test_artifact_navigator_builds_from_current() -> None:
-    subprocess.run([str(ROOT / "sys"), "refresh"], check=True)
-    subprocess.run(["python3", str(ROOT / "scripts" / "build_benchmark_evidence_dashboard.py")], check=True)
-    subprocess.run(["python3", str(ROOT / "scripts" / "build_artifact_navigator.py")], check=True)
-
-    payload_path = ROOT / "Output" / "workbench" / "artifacts" / "artifact_navigator.json"
-    payload = json.loads(payload_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "workbench.report_artifact.v1"
-    names = {item["name"]: item for item in payload["artifacts"]}
-    assert names["Current status card"]["exists"] is True
-    assert names["Framework output"]["exists"] is True
 
 
 def test_workbench_scripts_do_not_import_framework_or_provider_packages() -> None:
@@ -115,7 +99,6 @@ def test_workbench_scripts_are_thin_wrappers() -> None:
 
 
 def test_refresh_output_current_is_authority_entry_point() -> None:
-    """refresh_output_current.py is the unified authority entry point, not a thin wrapper."""
     text = (ROOT / "scripts" / "refresh_output_current.py").read_text(encoding="utf-8")
     assert "Refresh Output/current" in text
     assert "judgment_layer" in text
@@ -125,14 +108,12 @@ def test_refresh_output_current_is_authority_entry_point() -> None:
 
 
 def test_build_system_index_is_authority_entry_point() -> None:
-    """build_system_index.py is the unified fact source, not a thin wrapper."""
     text = (ROOT / "scripts" / "build_system_index.py").read_text(encoding="utf-8")
     assert "system index" in text.lower()
     assert "measurement_state" in text
 
 
 def test_list_latest_is_authority_entry_point() -> None:
-    """list_latest.py reads from unified index, not a thin wrapper."""
     text = (ROOT / "scripts" / "list_latest.py").read_text(encoding="utf-8")
     assert "system_index" in text or "latest.json" in text
 
@@ -140,18 +121,17 @@ def test_list_latest_is_authority_entry_point() -> None:
 def test_workbench_contract_examples_validate() -> None:
     commands = [
         [
-            "python3",
+            sys.executable,
             str(ROOT / "scripts" / "validate_workbench_contract.py"),
             "provider-release",
-            str(ROOT / "contracts" / "workbench" / "examples" / "minimal_provider_release"),
+            str(CONTRACTS / "workbench" / "examples" / "minimal_provider_release"),
         ],
         [
-            "python3",
+            sys.executable,
             str(ROOT / "scripts" / "validate_workbench_contract.py"),
             "evidence-panel",
             str(
-                ROOT
-                / "contracts"
+                CONTRACTS
                 / "workbench"
                 / "examples"
                 / "minimal_provider_release"
@@ -160,30 +140,23 @@ def test_workbench_contract_examples_validate() -> None:
             ),
         ],
         [
-            "python3",
+            sys.executable,
             str(ROOT / "scripts" / "validate_workbench_contract.py"),
             "model-run",
-            str(ROOT / "contracts" / "workbench" / "examples" / "minimal_framework_run" / "model_run.json"),
+            str(CONTRACTS / "workbench" / "examples" / "minimal_framework_run" / "model_run.json"),
         ],
         [
-            "python3",
+            sys.executable,
             str(ROOT / "scripts" / "validate_workbench_contract.py"),
             "report-artifacts",
-            str(ROOT / "contracts" / "workbench" / "examples" / "minimal_framework_run" / "report_artifacts.json"),
+            str(
+                CONTRACTS
+                / "workbench"
+                / "examples"
+                / "minimal_framework_run"
+                / "report_artifacts.json"
+            ),
         ],
     ]
     for command in commands:
-        subprocess.run(command, check=True)
-
-
-def test_current_model_run_contract_validates() -> None:
-    subprocess.run([str(ROOT / "sys"), "refresh"], check=True)
-    subprocess.run(
-        [
-            "python3",
-            str(ROOT / "scripts" / "validate_workbench_contract.py"),
-            "model-run",
-            str(ROOT / "Output" / "current" / "model_run.json"),
-        ],
-        check=True,
-    )
+        subprocess.run(command, check=True, cwd=str(ROOT))

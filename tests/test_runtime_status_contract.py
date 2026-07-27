@@ -57,3 +57,9 @@ def test_stateful_classification_covers_ignored_suites() -> None:
     assert "tests/test_current_refresh_bundle.py" not in ignored
     assert "tests/test_modules_paths_exist.py" in hermetic
     assert "tests/test_modules_paths_exist.py" not in ignored
+    assert "tests/test_harvester_bundle_contract.py" in hermetic
+    assert "tests/test_harvester_bundle_contract.py" not in ignored
+    assert "tests/test_task_router.py" in hermetic
+    assert "tests/test_task_router.py" not in ignored
+    assert "tests/test_workbench_tools.py" in hermetic
+    assert "tests/test_workbench_tools.py" not in ignored

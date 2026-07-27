@@ -1,3 +1,9 @@
+"""Task router / ToolSpec coverage (hermetic).
+
+In-process routing/planning plus CLI mode/contract checks that do not mutate
+operator Data/Output. Live index/refresh/replay/promote live in
+test_task_router_operator.py.
+"""
 from __future__ import annotations
 
 import json
@@ -7,6 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
+CONTRACTS = ROOT / "packages" / "workbench" / "contracts"
+SYSTEM_ENTRY = HARNESS_ROOT / "entrypoints" / "system.py"
 
 if str(HARNESS_ROOT) not in sys.path:
     sys.path.insert(0, str(HARNESS_ROOT))
@@ -14,6 +22,16 @@ if str(HARNESS_ROOT) not in sys.path:
 from tools.coverage_audit import audit_tool_coverage  # noqa: E402
 from tools.task_planner import create_task_plan  # noqa: E402
 from tools.task_router import route_task  # noqa: E402
+
+
+def _tools(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(SYSTEM_ENTRY), "tools", *args],
+        cwd=ROOT,
+        check=check,
+        text=True,
+        capture_output=True,
+    )
 
 
 def test_route_task_selects_harvester_for_fuzzy_data_source_request() -> None:
@@ -38,23 +56,14 @@ def test_resolve_execution_authority_denies_judgment_layer_in_run_mode() -> None
 
 
 def test_routing_execute_pipeline_step_dry_run_allowed() -> None:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "routing.execute_pipeline_step",
-            "step_id=evidence_grade_report",
-            "pipeline_dry_run=true",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
+    proc = _tools(
+        "run",
+        "routing.execute_pipeline_step",
+        "step_id=evidence_grade_report",
+        "pipeline_dry_run=true",
+        "--mode",
+        "run",
+        "--json",
     )
     payload = json.loads(proc.stdout)
     assert payload["ok"] is True
@@ -63,22 +72,14 @@ def test_routing_execute_pipeline_step_dry_run_allowed() -> None:
 
 
 def test_routing_execute_pipeline_step_blocks_judgment_layer() -> None:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "routing.execute_pipeline_step",
-            "step_id=judgment_layer",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
+    proc = _tools(
+        "run",
+        "routing.execute_pipeline_step",
+        "step_id=judgment_layer",
+        "--mode",
+        "run",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
     assert proc.returncode == 1
@@ -98,22 +99,13 @@ def test_route_task_escalates_claim_and_paper_work() -> None:
 
 
 def test_route_task_tool_is_available_through_system_cli() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "routing.route_task",
-            "task=Add a dashboard evidence view for Output/current",
-            "--mode",
-            "explore",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
+    proc = _tools(
+        "run",
+        "routing.route_task",
+        "task=Add a dashboard evidence view for Output/current",
+        "--mode",
+        "explore",
+        "--json",
     )
     payload = json.loads(proc.stdout)
     decision = payload["evidence"]["routing_decision"]
@@ -125,21 +117,7 @@ def test_route_task_tool_is_available_through_system_cli() -> None:
 
 
 def test_system_tools_list_includes_routing_and_deformation_tools() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "list",
-            "--mode",
-            "explore",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
+    proc = _tools("list", "--mode", "explore", "--json")
     payload = json.loads(proc.stdout)
     tool_ids = {tool["id"] for tool in payload["tools"]}
 
@@ -161,9 +139,7 @@ def test_create_task_plan_binds_harvester_steps_to_toolspecs() -> None:
         "governance",
     ]
     bound_tools = {
-        tool_id
-        for step in plan["steps"]
-        for tool_id in step["tool_spec"]["tool_ids"]
+        tool_id for step in plan["steps"] for tool_id in step["tool_spec"]["tool_ids"]
     }
     assert "routing.route_task" in bound_tools
     assert "harvester.inspect_release" in bound_tools
@@ -183,22 +159,13 @@ def test_create_task_plan_blocks_unregistered_implementation_actions() -> None:
 
 
 def test_create_task_plan_tool_is_available_through_system_cli() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "routing.create_task_plan",
-            "task=Implement a new Workbench dashboard panel for Output/current",
-            "--mode",
-            "explore",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
+    proc = _tools(
+        "run",
+        "routing.create_task_plan",
+        "task=Implement a new Workbench dashboard panel for Output/current",
+        "--mode",
+        "explore",
+        "--json",
     )
     payload = json.loads(proc.stdout)
     plan = payload["evidence"]["task_plan"]
@@ -214,9 +181,7 @@ def test_tool_coverage_audit_marks_promotion_covered() -> None:
 
     assert audit["surface_count"] >= 1
     promote = next(
-        item
-        for item in audit["surfaces"]
-        if item["script"] == "scripts/promote_snapshot.py"
+        item for item in audit["surfaces"] if item["script"] == "scripts/promote_snapshot.py"
     )
     assert promote["priority"] == "critical"
     assert promote["coverage"] == "covered"
@@ -240,9 +205,7 @@ def test_tool_coverage_audit_marks_system_index_covered() -> None:
     audit = audit_tool_coverage()
 
     system_index = next(
-        item
-        for item in audit["surfaces"]
-        if item["script"] == "scripts/build_system_index.py"
+        item for item in audit["surfaces"] if item["script"] == "scripts/build_system_index.py"
     )
     assert system_index["priority"] == "high"
     assert system_index["coverage"] == "covered"
@@ -280,9 +243,7 @@ def test_create_task_plan_binds_protocol_validation_tasks_to_toolspec() -> None:
 
     assert plan["route"]["primary_module"] == "Protocols"
     bound_tools = {
-        tool_id
-        for step in plan["steps"]
-        for tool_id in step["tool_spec"]["tool_ids"]
+        tool_id for step in plan["steps"] for tool_id in step["tool_spec"]["tool_ids"]
     }
     assert "protocols.validate_contract" in bound_tools
     assert plan["blocked_actions"] == []
@@ -293,9 +254,7 @@ def test_create_task_plan_binds_system_index_run_tasks_to_toolspec() -> None:
 
     assert plan["route"]["primary_module"] == "Data and Output"
     bound_tools = {
-        tool_id
-        for step in plan["steps"]
-        for tool_id in step["tool_spec"]["tool_ids"]
+        tool_id for step in plan["steps"] for tool_id in step["tool_spec"]["tool_ids"]
     }
     assert "data_output.build_system_index" in bound_tools
     assert plan["blocked_actions"] == []
@@ -307,9 +266,7 @@ def test_create_task_plan_binds_refresh_current_tasks_to_toolspec() -> None:
     assert plan["route"]["primary_module"] == "Workbench"
     assert plan["route"]["recommended_mode"] == "run"
     bound_tools = {
-        tool_id
-        for step in plan["steps"]
-        for tool_id in step["tool_spec"]["tool_ids"]
+        tool_id for step in plan["steps"] for tool_id in step["tool_spec"]["tool_ids"]
     }
     assert "workbench.refresh_current" in bound_tools
 
@@ -319,9 +276,7 @@ def test_create_task_plan_binds_replay_verification_to_toolspec() -> None:
 
     assert plan["route"]["primary_module"] == "Deformation Framework"
     bound_tools = {
-        tool_id
-        for step in plan["steps"]
-        for tool_id in step["tool_spec"]["tool_ids"]
+        tool_id for step in plan["steps"] for tool_id in step["tool_spec"]["tool_ids"]
     }
     assert "deformation.evaluate_replay" in bound_tools
 
@@ -338,22 +293,7 @@ def test_create_task_plan_includes_tool_coverage_summary() -> None:
 
 
 def test_tool_coverage_audit_is_available_through_system_cli() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "routing.tool_coverage_audit",
-            "--mode",
-            "explore",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
+    proc = _tools("run", "routing.tool_coverage_audit", "--mode", "explore", "--json")
     payload = json.loads(proc.stdout)
     audit = payload["evidence"]["tool_coverage_audit"]
 
@@ -363,23 +303,15 @@ def test_tool_coverage_audit_is_available_through_system_cli() -> None:
 
 
 def test_validate_contract_tool_is_available_through_system_cli() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "protocols.validate_contract",
-            "contract_type=provider-release",
-            f"target_path={ROOT / 'contracts' / 'workbench' / 'examples' / 'minimal_provider_release'}",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
+    target = CONTRACTS / "workbench" / "examples" / "minimal_provider_release"
+    proc = _tools(
+        "run",
+        "protocols.validate_contract",
+        "contract_type=provider-release",
+        f"target_path={target}",
+        "--mode",
+        "verify",
+        "--json",
     )
     payload = json.loads(proc.stdout)
     validation = payload["evidence"]["validation"]
@@ -395,12 +327,11 @@ def test_validate_contract_tool_validates_minimal_examples() -> None:
     examples = [
         (
             "provider-release",
-            ROOT / "contracts" / "workbench" / "examples" / "minimal_provider_release",
+            CONTRACTS / "workbench" / "examples" / "minimal_provider_release",
         ),
         (
             "evidence-panel",
-            ROOT
-            / "contracts"
+            CONTRACTS
             / "workbench"
             / "examples"
             / "minimal_provider_release"
@@ -409,12 +340,11 @@ def test_validate_contract_tool_validates_minimal_examples() -> None:
         ),
         (
             "model-run",
-            ROOT / "contracts" / "workbench" / "examples" / "minimal_framework_run" / "model_run.json",
+            CONTRACTS / "workbench" / "examples" / "minimal_framework_run" / "model_run.json",
         ),
         (
             "report-artifacts",
-            ROOT
-            / "contracts"
+            CONTRACTS
             / "workbench"
             / "examples"
             / "minimal_framework_run"
@@ -423,23 +353,14 @@ def test_validate_contract_tool_validates_minimal_examples() -> None:
     ]
 
     for contract_type, target_path in examples:
-        proc = subprocess.run(
-            [
-                "python3",
-                str(HARNESS_ROOT / "entrypoints" / "system.py"),
-                "tools",
-                "run",
-                "protocols.validate_contract",
-                f"contract_type={contract_type}",
-                f"target_path={target_path}",
-                "--mode",
-                "verify",
-                "--json",
-            ],
-            cwd=ROOT,
-            check=True,
-            text=True,
-            capture_output=True,
+        proc = _tools(
+            "run",
+            "protocols.validate_contract",
+            f"contract_type={contract_type}",
+            f"target_path={target_path}",
+            "--mode",
+            "verify",
+            "--json",
         )
         payload = json.loads(proc.stdout)
         assert payload["ok"] is True
@@ -447,23 +368,15 @@ def test_validate_contract_tool_validates_minimal_examples() -> None:
 
 
 def test_validate_contract_tool_returns_structured_failure_for_bad_path() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "protocols.validate_contract",
-            "contract_type=model-run",
-            "target_path=does/not/exist/model_run.json",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
+    proc = _tools(
+        "run",
+        "protocols.validate_contract",
+        "contract_type=model-run",
+        "target_path=does/not/exist/model_run.json",
+        "--mode",
+        "verify",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
     validation = payload["evidence"]["validation"]
@@ -472,29 +385,24 @@ def test_validate_contract_tool_returns_structured_failure_for_bad_path() -> Non
     assert payload["ok"] is False
     assert payload["tool_id"] == "protocols.validate_contract"
     assert validation["contract_type"] == "model-run"
-    assert validation["target_path"] == "does/not/exist/model_run.json"
+    assert validation["target_path"].replace("\\", "/") == "does/not/exist/model_run.json"
     assert validation["valid"] is False
     assert payload["errors"]
 
 
 def test_validate_contract_tool_is_verify_or_explore_only() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "protocols.validate_contract",
-            "contract_type=model-run",
-            f"target_path={ROOT / 'contracts' / 'workbench' / 'examples' / 'minimal_framework_run' / 'model_run.json'}",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
+    target = (
+        CONTRACTS / "workbench" / "examples" / "minimal_framework_run" / "model_run.json"
+    )
+    proc = _tools(
+        "run",
+        "protocols.validate_contract",
+        "contract_type=model-run",
+        f"target_path={target}",
+        "--mode",
+        "run",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
 
@@ -509,79 +417,32 @@ def test_build_system_index_dry_run_does_not_write_outputs() -> None:
         ROOT / "Data" / "system_index" / "system_catalog.json",
         ROOT / "Data" / "system_index" / "lineage_graph.json",
     ]
-    before = {path: path.stat().st_mtime_ns for path in output_paths}
+    before = {str(path): path.stat().st_mtime_ns if path.exists() else None for path in output_paths}
 
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "data_output.build_system_index",
-            "dry_run=true",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
+    proc = _tools(
+        "run",
+        "data_output.build_system_index",
+        "dry_run=true",
+        "--mode",
+        "run",
+        "--json",
     )
     payload = json.loads(proc.stdout)
-    after = {path: path.stat().st_mtime_ns for path in output_paths}
+    after = {str(path): path.stat().st_mtime_ns if path.exists() else None for path in output_paths}
 
     assert payload["ok"] is True
     assert payload["tool_id"] == "data_output.build_system_index"
     assert before == after
 
 
-def test_build_system_index_tool_writes_expected_outputs() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "data_output.build_system_index",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    payload = json.loads(proc.stdout)
-    outputs = payload["evidence"]["system_index"]["outputs"]
-
-    assert payload["ok"] is True
-    assert payload["tool_id"] == "data_output.build_system_index"
-    assert sorted(payload["artifacts"]) == [
-        "Data/system_index/latest.json",
-        "Data/system_index/lineage_graph.json",
-        "Data/system_index/system_catalog.json",
-    ]
-    assert all(item["exists"] for item in outputs.values())
-
-
 def test_build_system_index_tool_is_run_or_release_only() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "data_output.build_system_index",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
+    proc = _tools(
+        "run",
+        "data_output.build_system_index",
+        "--mode",
+        "verify",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
 
@@ -590,48 +451,14 @@ def test_build_system_index_tool_is_run_or_release_only() -> None:
     assert "Allowed modes: ['run', 'release']" in payload["errors"][0]
 
 
-def test_refresh_current_tool_updates_contract_artifacts() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "workbench.refresh_current",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    payload = json.loads(proc.stdout)
-    refresh = payload["evidence"]["current_refresh"]
-
-    assert payload["ok"] is True
-    assert payload["tool_id"] == "workbench.refresh_current"
-    assert refresh["required_artifacts"]["00_READ_ME_FIRST.md"]["exists"] is True
-    assert refresh["required_artifacts"]["framework_output.json"]["exists"] is True
-
-
 def test_refresh_current_tool_is_run_or_edit_only() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "workbench.refresh_current",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
+    proc = _tools(
+        "run",
+        "workbench.refresh_current",
+        "--mode",
+        "verify",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
 
@@ -640,53 +467,15 @@ def test_refresh_current_tool_is_run_or_edit_only() -> None:
     assert "Allowed modes: ['run', 'edit']" in payload["errors"][0]
 
 
-def test_evaluate_replay_tool_reports_current_run_warnings() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "deformation.evaluate_replay",
-            "run_id=2026-04-22_WEEKLY",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    payload = json.loads(proc.stdout)
-    replay = payload["evidence"]["replay_evaluation"]
-
-    assert payload["ok"] is True
-    assert payload["tool_id"] == "deformation.evaluate_replay"
-    assert replay["run_id"] == "2026-04-22_WEEKLY"
-    assert replay["verdict"] == "WARN"
-    assert replay["snapshot_match"] is True
-    assert replay["artifacts"]["operator_trace"]["header_status"] == "missing"
-    assert "operator_trace.jsonl has no per-operator records" in payload["warnings"]
-
-
 def test_evaluate_replay_tool_returns_structured_failure_for_bad_run() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "deformation.evaluate_replay",
-            "run_id=missing-run",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
+    proc = _tools(
+        "run",
+        "deformation.evaluate_replay",
+        "run_id=missing-run",
+        "--mode",
+        "verify",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
     replay = payload["evidence"]["replay_evaluation"]
@@ -699,80 +488,17 @@ def test_evaluate_replay_tool_returns_structured_failure_for_bad_run() -> None:
 
 
 def test_evaluate_replay_tool_is_explore_or_verify_only() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "deformation.evaluate_replay",
-            "run_id=2026-04-22_WEEKLY",
-            "--mode",
-            "run",
-            "--json",
-        ],
-        cwd=ROOT,
+    proc = _tools(
+        "run",
+        "deformation.evaluate_replay",
+        "run_id=missing-run",
+        "--mode",
+        "run",
+        "--json",
         check=False,
-        text=True,
-        capture_output=True,
     )
     payload = json.loads(proc.stdout)
 
     assert proc.returncode == 1
     assert payload["ok"] is False
     assert "Allowed modes: ['explore', 'verify']" in payload["errors"][0]
-
-
-def test_promote_snapshot_preflight_reports_blockers_without_mutation() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "artifact.promote_snapshot_preflight",
-            "run_id=2026-04-22_WEEKLY",
-            "--mode",
-            "verify",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    payload = json.loads(proc.stdout)
-    preflight = payload["evidence"]["preflight"]
-
-    assert payload["ok"] is True
-    assert payload["tool_id"] == "artifact.promote_snapshot_preflight"
-    assert preflight["run_id"] == "2026-04-22_WEEKLY"
-    assert preflight["manual_review_required"] is True
-    assert "blockers" in preflight
-
-
-def test_promote_snapshot_requires_manual_review_in_release_mode() -> None:
-    proc = subprocess.run(
-        [
-            "python3",
-            str(HARNESS_ROOT / "entrypoints" / "system.py"),
-            "tools",
-            "run",
-            "artifact.promote_snapshot",
-            "run_id=2026-04-22_WEEKLY",
-            "--mode",
-            "release",
-            "--json",
-        ],
-        cwd=ROOT,
-        check=False,
-        text=True,
-        capture_output=True,
-    )
-    payload = json.loads(proc.stdout)
-    decision = payload["evidence"]["policy_decision"]
-
-    assert proc.returncode == 1
-    assert payload["ok"] is False
-    assert decision["decision"] == "require_manual_review"
-    assert decision["classification"]["primary"] == "snapshot_publish"

@@ -10,7 +10,21 @@ from typing import Any
 
 
 ROOT = _workbench_root()
-CONTRACTS = ROOT / "contracts" / "workbench"
+
+
+def _resolve_contracts() -> Path:
+    """Prefer legacy ``contracts/`` symlink; fall back to packages tree."""
+    candidates = (
+        ROOT / "contracts" / "workbench",
+        ROOT / "packages" / "workbench" / "contracts" / "workbench",
+    )
+    for path in candidates:
+        if path.is_dir():
+            return path
+    return candidates[0]
+
+
+CONTRACTS = _resolve_contracts()
 
 EVIDENCE_COLUMNS = {
     "date",
