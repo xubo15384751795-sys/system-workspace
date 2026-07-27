@@ -120,7 +120,7 @@ class BrevanHowardProvider:
             title=seed.title,
             publication_date=seed.publication_date,
             url=seed.url,
-            local_path=str(local_path),
+            local_path=local_path.as_posix(),
             file_hash=file_hash,
             document_type=seed.document_type,
             topics=seed.topics or DEFAULT_TOPICS,

@@ -266,7 +266,7 @@ def _raise_open_file_limit(target: int = 65536) -> None:
         if new_soft > soft:
             resource.setrlimit(resource.RLIMIT_NOFILE, (new_soft, hard))
             logger.info("Raised RLIMIT_NOFILE soft limit %s -> %s (hard=%s)", soft, new_soft, hard)
-    except (ValueError, OSError) as exc:
+    except (ImportError, ValueError, OSError) as exc:
         logger.warning("Could not raise RLIMIT_NOFILE: %s", exc)
 
 

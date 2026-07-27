@@ -78,7 +78,12 @@ def _validate_schema(payload: dict[str, Any], schema: dict[str, Any]) -> list[st
 
 
 def _path_is_relative(path: str) -> bool:
-    return path != "" and not Path(path).is_absolute() and ".." not in Path(path).parts
+    return (
+        path != ""
+        and not path.startswith("/")
+        and not Path(path).is_absolute()
+        and ".." not in Path(path).parts
+    )
 
 
 def _validate_artifact_paths(root: Path, artifacts: list[dict[str, Any]], path_key: str = "path") -> list[str]:

@@ -34,9 +34,9 @@ def registry_steps() -> dict:
     return _load_registry_steps()
 
 
-def test_daily_step_count_is_26():
+def test_daily_step_count_is_31():
     ids = _daily_step_ids()
-    assert len(ids) == 26
+    assert len(ids) == 31
     assert "refresh_cross_asset_panel" not in ids
     assert _load_registry_steps()["refresh_cross_asset_panel"]["schedule"] == "on_demand"
     assert "strategy_lab_shadow" in ids

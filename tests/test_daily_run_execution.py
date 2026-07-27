@@ -46,7 +46,7 @@ def mod():
 class TestRunStep:
     def test_success(self, mod):
         """Successful command returns status=success."""
-        result = mod.run_step("test_ok", ["python3", "-c", "print('hello')"])
+        result = mod.run_step("test_ok", [sys.executable, "-c", "print('hello')"])
         assert result["step"] == "test_ok"
         assert result["status"] == "success"
         assert result["returncode"] == 0
@@ -54,7 +54,7 @@ class TestRunStep:
 
     def test_failure(self, mod):
         """Failing command returns status=failed."""
-        result = mod.run_step("test_fail", ["python3", "-c", "import sys; sys.exit(1)"])
+        result = mod.run_step("test_fail", [sys.executable, "-c", "import sys; sys.exit(1)"])
         assert result["step"] == "test_fail"
         assert result["status"] == "failed"
         assert result["returncode"] == 1
@@ -63,7 +63,7 @@ class TestRunStep:
         """Command exceeding timeout returns status=timeout."""
         result = mod.run_step(
             "test_timeout",
-            ["python3", "-c", "import time; time.sleep(10)"],
+            [sys.executable, "-c", "import time; time.sleep(10)"],
             env={"_TEST_TIMEOUT": "1"},
         )
         # The function uses TIMEOUT_LONG (600s), so we can't easily trigger

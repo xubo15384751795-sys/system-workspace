@@ -1,6 +1,8 @@
 """Tests for ml.graph_embed — SVD backend (numpy-only, always available)."""
 from __future__ import annotations
 
+import unittest.mock
+
 import numpy as np
 import pytest
 
@@ -183,8 +185,17 @@ class TestGraphEmbedderSVD:
         assert GraphEmbedder(backend="svd").active_backend() == "svd"
 
     def test_active_backend_auto_falls_back_to_svd_without_torch(self):
-        # torch_geometric is not installed in this environment
-        assert GraphEmbedder(backend="auto").active_backend() == "svd"
+        # When torch_geometric is not available, auto should fall back to svd.
+        import builtins
+        real_import = builtins.__import__
+
+        def _block_torch_geometric(name, *args, **kwargs):
+            if name == "torch_geometric":
+                raise ImportError("mocked: torch_geometric not available")
+            return real_import(name, *args, **kwargs)
+
+        with unittest.mock.patch("builtins.__import__", side_effect=_block_torch_geometric):
+            assert GraphEmbedder(backend="auto").active_backend() == "svd"
 
 
 # ---------------------------------------------------------------------------

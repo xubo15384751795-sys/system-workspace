@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -8,6 +10,21 @@ from harvester.core.exporter import ExportValidationError, FinalizedReleaseError
 from harvester.core.manifest import write_manifest
 from harvester.core.provenance import build_provenance, record_provenance
 from tests.test_manifest_schema import sample_manifest
+
+
+def _can_symlink() -> bool:
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / "target"
+            target.write_text("x")
+            link = Path(td) / "link"
+            os.symlink(target, link)
+        return True
+    except (OSError, NotImplementedError):
+        return False
+
+
+_no_symlink = pytest.mark.skipif(not _can_symlink(), reason="symlink not available on this platform")
 
 
 def create_release(exports_root: Path, *, bad_hash: bool = False) -> Path:
@@ -63,6 +80,7 @@ def test_finalize_release_dry_run_does_not_write(tmp_path: Path) -> None:
     assert not (exports_root / "latest").exists()
 
 
+@_no_symlink
 def test_finalize_release_writes_catalog_latest_and_seals(tmp_path: Path) -> None:
     exports_root = tmp_path / "exports"
     release_dir = create_release(exports_root)

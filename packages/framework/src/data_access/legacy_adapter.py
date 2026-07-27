@@ -155,7 +155,7 @@ def _reject_harvester_internal_root(path: Path) -> None:
     from src.core.runtime_context import RuntimePaths
 
     normalized = path.expanduser().resolve(strict=False).as_posix()
-    harvester_root = str(RuntimePaths.discover().harvester_root)
+    harvester_root = RuntimePaths.discover().harvester_root.as_posix()
     forbidden = (
         f"{harvester_root}/raw",
         f"{harvester_root}/processed",

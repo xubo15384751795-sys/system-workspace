@@ -6,6 +6,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -13,6 +15,11 @@ from check_output_freshness import (
     check_artifact_freshness,
     check_symlink_freshness,
     get_freshness_rules,
+)
+
+_windows_no_symlink = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.symlink requires admin/developer mode on Windows",
 )
 
 
@@ -58,6 +65,7 @@ def test_artifact_stale(tmp_path):
     assert result["age_hours"] > 99
 
 
+@_windows_no_symlink
 def test_symlink_fresh(tmp_path):
     """No finding when symlink target is fresh."""
     target = tmp_path / "target.json"
@@ -68,6 +76,7 @@ def test_symlink_fresh(tmp_path):
     assert result is None
 
 
+@_windows_no_symlink
 def test_symlink_broken(tmp_path):
     """Finding reported for broken symlink."""
     link = tmp_path / "broken.link"

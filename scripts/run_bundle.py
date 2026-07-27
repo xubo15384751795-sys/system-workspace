@@ -67,9 +67,9 @@ def _generate_run_id(mode: str) -> str:
 def _safe_relative(path: Path, base: Path) -> str:
     """Compute relative path, falling back to absolute if not a subpath."""
     try:
-        return str(path.relative_to(base))
+        return path.relative_to(base).as_posix()
     except ValueError:
-        return str(path)
+        return path.as_posix()
 
 
 def _fingerprint(path: Path, base: Path | None = None) -> dict[str, Any] | None:

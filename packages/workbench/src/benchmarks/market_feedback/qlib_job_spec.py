@@ -46,9 +46,9 @@ def generate_job_spec(
     spec = {
         "job_id": f"qlib_job_{benchmark_id}",
         "benchmark_id": benchmark_id,
-        "input_dir": str(benchmark_dir / "sandbox_input"),
-        "workspace_dir": str(benchmark_dir / "qlib_workspace"),
-        "output_dir": str(benchmark_dir / "qlib_output"),
+        "input_dir": (benchmark_dir / "sandbox_input").as_posix(),
+        "workspace_dir": (benchmark_dir / "qlib_workspace").as_posix(),
+        "output_dir": (benchmark_dir / "qlib_output").as_posix(),
         "experiments": experiments,
         "read_only_input": True,
         "fail_policy": fail_policy,

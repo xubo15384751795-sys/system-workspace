@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from harvester.core.exporter import finalize_release
 from harvester.ops import (
@@ -13,6 +17,21 @@ from harvester.ops import (
 )
 
 from tests.test_export_immutability import create_release, restore_permissions
+
+
+def _can_symlink() -> bool:
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / "target"
+            target.write_text("x")
+            link = Path(td) / "link"
+            os.symlink(target, link)
+        return True
+    except (OSError, NotImplementedError):
+        return False
+
+
+_no_symlink = pytest.mark.skipif(not _can_symlink(), reason="symlink not available on this platform")
 
 
 def test_next_release_id_increments_for_release_date(tmp_path: Path) -> None:
@@ -138,14 +157,14 @@ def test_write_failure_report_does_not_raise_on_unwritable_path(tmp_path: Path, 
     """Phase 0.2: _write_failure_report swallows OSError and prints to stderr."""
     from harvester.ops import _write_failure_report
 
-    # Point at a path whose parent cannot be created (root-locked).
-    unwritable = Path("/proc/cannot-create-here")
-    # Should not raise.
-    _write_failure_report(unwritable, "r1", "test", {"error": "boom"})
+    unwritable = tmp_path / "exports"
+    with patch("pathlib.Path.mkdir", side_effect=OSError("permission denied")):
+        _write_failure_report(unwritable, "r1", "test", {"error": "boom"})
     captured = capsys.readouterr()
     assert "FAILED to write failure report" in captured.err
 
 
+@_no_symlink
 def test_daily_release_reuses_same_day_finalized(tmp_path: Path, monkeypatch) -> None:
     """Phase 2.1: if latest points to a finalized release for today, the
     release is reused (status=reused) with no network calls."""
@@ -167,6 +186,7 @@ def test_daily_release_reuses_same_day_finalized(tmp_path: Path, monkeypatch) ->
     assert result["reason"] == "same_day_finalized_release_exists"
 
 
+@_no_symlink
 def test_run_daily_release_reuses_when_release_id_empty(tmp_path: Path, monkeypatch) -> None:
     """Empty release_id (CLI default) must trigger same-day reuse — not ``is None`` only."""
     monkeypatch.setenv("FRED_API_KEY", "test")
@@ -193,6 +213,7 @@ def test_run_daily_release_reuses_when_release_id_empty(tmp_path: Path, monkeypa
     assert result["release_id"] == "2026-07-18-r1"
 
 
+@_no_symlink
 def test_daily_release_reuses_dashed_release_id_without_catalog_as_of(tmp_path: Path) -> None:
     """Reuse must match YYYY-MM-DD-rN even when catalog omits as_of_date."""
     from harvester.ops import _check_same_day_reuse
@@ -212,6 +233,7 @@ def test_daily_release_reuses_dashed_release_id_without_catalog_as_of(tmp_path: 
     assert result["status"] == "reused"
 
 
+@_no_symlink
 def test_daily_release_does_not_reuse_stale_day(tmp_path: Path) -> None:
     """A finalized release for a DIFFERENT day must not be reused."""
     from harvester.ops import _check_same_day_reuse
@@ -229,6 +251,7 @@ def test_daily_release_does_not_reuse_stale_day(tmp_path: Path) -> None:
     assert _check_same_day_reuse(exports, "2026-07-18") is None
 
 
+@_no_symlink
 def test_daily_release_does_not_reuse_unfinalized(tmp_path: Path) -> None:
     """An unfinalized same-day release must not be reused."""
     from harvester.ops import _check_same_day_reuse
@@ -246,6 +269,7 @@ def test_daily_release_does_not_reuse_unfinalized(tmp_path: Path) -> None:
     assert _check_same_day_reuse(exports, "2026-07-18") is None
 
 
+@_no_symlink
 def test_monitor_latest_reports_healthy_release(tmp_path: Path) -> None:
     exports = tmp_path / "exports"
     release_dir = create_release(exports)

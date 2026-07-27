@@ -33,8 +33,9 @@ _paths_to_add = [
 ]
 
 for _p in _paths_to_add:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+    if _p in sys.path:
+        sys.path.remove(_p)
+    sys.path.insert(0, _p)
 
 
 def _dir_fingerprint(path: Path, *, limit: int = 200) -> str:

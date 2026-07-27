@@ -51,7 +51,7 @@ EXTERNAL_DOWNLOADS = SRC / "_legacy" / "data" / "external_downloads.py"
 
 
 def rel(path: Path) -> str:
-    return str(path.relative_to(PROJECT))
+    return path.relative_to(PROJECT).as_posix()
 
 
 def iter_python_files():

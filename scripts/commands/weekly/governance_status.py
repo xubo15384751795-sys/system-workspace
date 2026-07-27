@@ -467,8 +467,8 @@ def write_outputs(report: dict[str, Any], root: Path = ROOT) -> dict[str, str]:
     write_json(json_path, report)
     md_path.write_text(generate_markdown(report), encoding="utf-8")
     return {
-        "json": str(json_path.relative_to(root)),
-        "markdown": str(md_path.relative_to(root)),
+        "json": json_path.relative_to(root).as_posix(),
+        "markdown": md_path.relative_to(root).as_posix(),
     }
 
 

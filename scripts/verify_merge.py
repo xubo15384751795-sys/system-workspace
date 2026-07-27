@@ -84,7 +84,7 @@ def _run_step(
     # command having to sys.path.insert (which the security audit forbids).
     env = {
         **os.environ,
-        "PYTHONPATH": ".:packages/framework/src:packages/workbench/src:scripts",
+        "PYTHONPATH": os.pathsep.join([".", "packages/framework/src", "packages/workbench/src", "scripts"]),
     }
     try:
         out = subprocess.run(

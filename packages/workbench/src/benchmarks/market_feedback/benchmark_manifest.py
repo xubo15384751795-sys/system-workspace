@@ -53,11 +53,11 @@ def create_benchmark_manifest(
         "frequency": frequency,
         "experiments": experiments,
         "allowed_read_paths": [
-            str(benchmark_dir / "sandbox_input"),
+            (benchmark_dir / "sandbox_input").as_posix(),
         ],
         "allowed_write_paths": [
-            str(benchmark_dir / "qlib_workspace"),
-            str(benchmark_dir / "qlib_output"),
+            (benchmark_dir / "qlib_workspace").as_posix(),
+            (benchmark_dir / "qlib_output").as_posix(),
         ],
         "forbidden_paths": FORBIDDEN_PATHS,
         "created_by": created_by,

@@ -346,7 +346,10 @@ def _make_release_root(root: Path) -> tuple[Path, Path]:
     release_dir = root / "exports" / "2026-04-26-r1"
     release_dir.mkdir(parents=True)
     latest = root / "exports" / "latest"
-    latest.symlink_to("2026-04-26-r1")
+    try:
+        latest.symlink_to("2026-04-26-r1")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink not available on this platform")
     return root, release_dir
 
 
@@ -431,7 +434,10 @@ def _write_bundle_release(root: Path, status: str = "finalized") -> tuple[Path, 
     release_dir = root / "exports" / "2026-04-26-r1"
     data_dir = release_dir / "data"
     data_dir.mkdir(parents=True)
-    (root / "exports" / "latest").symlink_to("2026-04-26-r1")
+    try:
+        (root / "exports" / "latest").symlink_to("2026-04-26-r1")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink not available on this platform")
 
     frames = {
         "benchmark_panel": pd.DataFrame(
