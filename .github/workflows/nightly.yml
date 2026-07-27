@@ -143,11 +143,11 @@ jobs:
         run: python scripts/commands/weekly/architecture_reality_audit.py --json
       - name: Operator registry audit (offline)
         run: python scripts/commands/weekly/operator_registry_audit.py --json
-      - name: Schema validation (require artifacts)
-        run: python -m scripts.commands.ci.validate_current_schemas --require-artifacts
+      - name: Schema validation (clean runner N/A; never fake PASS)
+        run: python -m scripts.commands.ci.validate_current_schemas --ci-clean-checkout
       - name: Experiment → core judgment check
         run: python scripts/verify_experiment_core_judgment.py
-      - name: Output freshness check (require artifacts)
-        run: python scripts/check_output_freshness.py --require-artifacts --json
+      - name: Output freshness check (clean runner N/A; never fake PASS)
+        run: python scripts/check_output_freshness.py --ci-clean-checkout --json
       - name: Type check
         run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary

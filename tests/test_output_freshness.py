@@ -110,3 +110,67 @@ def test_missing_artifact(tmp_path):
     result = check_artifact_freshness(p, 48, time.time())
     assert result is not None
     assert result["status"] == "MISSING"
+
+
+def test_require_artifacts_fails_when_current_missing():
+    """Scheduled fail-closed mode must not exit 0 when Output/current is absent."""
+    import check_output_freshness as cof
+
+    findings = [
+        {
+            "severity": "ERROR",
+            "status": "MISSING_DIR",
+            "message": "Output/current/ does not exist",
+        }
+    ]
+    verdict, code = cof._verdict_for(
+        findings,
+        require_artifacts=True,
+        ci_clean_checkout=False,
+        missing_required=[],
+    )
+    assert verdict == "FAIL"
+    assert code == 1
+    verdict_na, code_na = cof._verdict_for(
+        findings,
+        require_artifacts=False,
+        ci_clean_checkout=True,
+        missing_required=[],
+    )
+    assert verdict_na == "NOT_APPLICABLE"
+    assert code_na == 0
+
+
+def test_validate_current_schemas_modes():
+    """Schema helper: require fails closed; clean-checkout is NOT_APPLICABLE."""
+    import subprocess
+    import sys
+
+    py = sys.executable
+    env = {
+        **os.environ,
+        "PYTHONPATH": (
+            f".{os.pathsep}packages/framework/src{os.pathsep}"
+            f"packages/workbench/src{os.pathsep}scripts"
+        ),
+    }
+    require = subprocess.run(
+        [py, "-m", "scripts.commands.ci.validate_current_schemas", "--require-artifacts"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    clean = subprocess.run(
+        [py, "-m", "scripts.commands.ci.validate_current_schemas", "--ci-clean-checkout"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    if not (ROOT / "Output" / "current" / "framework_output.json").exists():
+        assert require.returncode == 1
+        assert clean.returncode == 0
+        assert "NOT_APPLICABLE" in clean.stdout
+    else:
+        assert clean.returncode in (0, 1)
