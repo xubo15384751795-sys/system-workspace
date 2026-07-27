@@ -1,0 +1,57 @@
+# runtime_status_contract.v1 — single source for runtime status / judgment enums.
+#
+# Authority:
+#   - framework_output.status mirrors governance/framework_output.schema.json
+#   - judgment.decision lists values the judgment producer may emit, plus
+#     legacy reader-facing trade labels that may appear in older artifacts
+#   - Tests and schemas must load from this file (or the schema it mirrors),
+#     not from ad-hoc hardcoded sets.
+#
+# P0-2: closes enum drift called out in SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+
+schema_version: runtime_status_contract.v1
+
+framework_output_status:
+  # Canonical (framework_output.schema.json)
+  canonical:
+    - active_full
+    - active_partial
+    - degraded_partial
+    - degraded
+    - missing_output
+    - full
+    - partial
+    - missing
+    - stale
+  # Legacy uppercase / transitional labels still seen in older readers
+  legacy_aliases:
+    - ACTIVE
+    - DEGRADED
+    - BLOCKED
+    - SHADOW
+    - RESEARCH_ONLY
+    - active_degraded
+    - blocked
+    - shadow
+
+judgment_decision:
+  # Emitted by packages/workbench/.../judgment/layer.py::_decision
+  producer:
+    - WATCH_ONLY
+    - RESEARCH_REVIEW
+    - ACTIVE_WATCH
+  # Legacy / reader-facing labels retained for artifact compatibility
+  legacy_reader:
+    - STRONG_BUY
+    - BUY
+    - HOLD
+    - NO_TRADE
+    - RESEARCH_ONLY
+    - STRONG_SELL
+    - SELL
+
+judgment_confidence:
+  - low
+  - medium
+  - high
+  - none

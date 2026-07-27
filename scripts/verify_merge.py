@@ -43,7 +43,7 @@ STATEFUL_ROOT_TESTS = (
     "tests/test_caselab_mcp.py",
     "tests/test_caselab_state_machine.py",
     "tests/test_caselab_world_model.py",
-    "tests/test_current_artifact_chain.py",
+    # test_current_artifact_chain.py hermeticized in P0-2 (fixture-backed)
     "tests/test_current_refresh_bundle.py",
     "tests/test_daily_pipeline_callable_e2e.py",
     "tests/test_freshness_governance.py",

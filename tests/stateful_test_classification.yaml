@@ -1,0 +1,95 @@
+# P0-2 classification of scripts/verify_merge.py STATEFUL_ROOT_TESTS.
+# Categories:
+#   hermetic              — safe on clean checkout / sandbox fixtures
+#   split_candidate       — mix of source-independent + operator-stateful
+#   operator_workspace    — still requires initialized Data/Output / Paper / etc.
+#
+# Update this file when a suite is hermeticized and removed from STATEFUL_ROOT_TESTS.
+
+schema_version: stateful_test_classification.v1
+updated: "2026-07-27"
+
+items:
+  - path: tests/test_admission_gate.py
+    class: operator_workspace
+    reason: Touches live admission / promotion artifacts under Output/
+
+  - path: tests/test_caselab_context.py
+    class: operator_workspace
+    reason: Requires CaseLab paper/context trees outside clean checkout
+
+  - path: tests/test_caselab_embeddings.py
+    class: operator_workspace
+    reason: Requires embedding models / CaseLab stores
+
+  - path: tests/test_caselab_graph.py
+    class: operator_workspace
+    reason: Requires CaseLab graph store
+
+  - path: tests/test_caselab_mcp.py
+    class: operator_workspace
+    reason: Requires MCP server + CaseLab runtime
+
+  - path: tests/test_caselab_state_machine.py
+    class: operator_workspace
+    reason: Requires CaseLab runtime state
+
+  - path: tests/test_caselab_world_model.py
+    class: operator_workspace
+    reason: Requires CaseLab world-model artifacts
+
+  - path: tests/test_current_artifact_chain.py
+    class: hermetic
+    reason: Uses committed tests/fixtures/current_chain when Output/current absent
+
+  - path: tests/test_current_refresh_bundle.py
+    class: split_candidate
+    reason: Refresh orchestration; needs sandbox workspace root (P0-2 follow-up)
+
+  - path: tests/test_daily_pipeline_callable_e2e.py
+    class: split_candidate
+    reason: Callable E2E is P0-3; keep ignored until hermetic fixtures land
+
+  - path: tests/test_freshness_governance.py
+    class: operator_workspace
+    reason: Asserts against live Output freshness clocks
+
+  - path: tests/test_harvester_bundle_contract.py
+    class: split_candidate
+    reason: Mostly schema; some paths assume Harvester release on disk
+
+  - path: tests/test_home_page_consistency.py
+    class: operator_workspace
+    reason: Reads live home/current surfaces
+
+  - path: tests/test_golden_samples.py
+    class: operator_workspace
+    reason: Compares against local golden run artifacts
+
+  - path: tests/test_mechanism_tiers.py
+    class: operator_workspace
+    reason: Depends on mechanism tier outputs in Output/
+
+  - path: tests/test_modules_paths_exist.py
+    class: hermetic
+    reason: Path existence only; should not need operator state (candidate for early removal)
+
+  - path: tests/test_output_current.py
+    class: split_candidate
+    reason: Invokes sys refresh against real roots; needs sandbox (follow-up)
+
+  - path: tests/test_sys_entrypoints.py
+    class: split_candidate
+    reason: CLI entrypoints; needs sandbox workspace/output roots
+
+  - path: tests/test_task_router.py
+    class: split_candidate
+    reason: Tool runs touch live paths; split verify vs run modes
+
+  - path: tests/test_workbench_nlp.py
+    class: operator_workspace
+    reason: Requires refreshed current + NLP corpora
+
+  - path: tests/test_workbench_tools.py
+    class: split_candidate
+    reason: Mix of contract validation and refresh-dependent tools

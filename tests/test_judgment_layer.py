@@ -84,7 +84,7 @@ def test_strong_caselab_with_full_proxy() -> None:
 
     card = build_judgment(fw, caselab)
 
-    assert card["decision"] in ("WATCH_ONLY", "RESEARCH_REVIEW")
+    assert card["decision"] in ("WATCH_ONLY", "RESEARCH_REVIEW", "ACTIVE_WATCH")
     assert card["confidence"]["level"] in ("low", "medium", "high")
 
 

@@ -1,0 +1,11 @@
+{
+  "status": "FAIL",
+  "error_count": 1,
+  "issues": ["fixture intentional FAIL for gate_summary checks"],
+  "gate_summary": {
+    "K_gate": "SKIP",
+    "X_gate": "SKIP",
+    "caselab_gate": "SKIP",
+    "hmm_gate": "NOT_EVALUATED"
+  }
+}

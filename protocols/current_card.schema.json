@@ -11,7 +11,22 @@
       "type": "object",
       "required": ["decision", "confidence"],
       "properties": {
-        "decision": {"type": "string"},
+        "decision": {
+          "type": "string",
+          "enum": [
+            "WATCH_ONLY",
+            "RESEARCH_REVIEW",
+            "ACTIVE_WATCH",
+            "STRONG_BUY",
+            "BUY",
+            "HOLD",
+            "NO_TRADE",
+            "RESEARCH_ONLY",
+            "STRONG_SELL",
+            "SELL"
+          ],
+          "description": "Authority: governance/runtime_status_contract.yaml judgment_decision"
+        },
         "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
         "claim_ceiling": {"type": "string"}
       },
