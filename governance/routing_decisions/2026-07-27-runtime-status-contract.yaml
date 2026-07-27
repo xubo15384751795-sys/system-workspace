@@ -1,0 +1,44 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-2-runtime-status-contract
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-2 wave 1 from SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md: close status-enum
+  drift between producers, schemas, and tests for framework_output.status and
+  judgment.decision; hermeticize current-artifact-chain checks with committed
+  fixtures; classify remaining STATEFUL_ROOT_TESTS.
+decision: >
+  Introduce governance/runtime_status_contract.yaml as the shared enum authority
+  (canonical statuses mirror framework_output.schema.json; judgment producer
+  decisions include ACTIVE_WATCH). Tests and current_card.schema.json must load
+  or enumerate from that contract rather than ad-hoc sets. Fixture-backed
+  tests/test_current_artifact_chain.py is removed from merge-gate ignores.
+  Remaining stateful suites stay classified in tests/stateful_test_classification.yaml
+  for follow-up hermeticization. Operator Data/Output fingerprint guard in
+  tests/conftest.py fails the session if pre-existing trees are mutated.
+preregistered_expectation: >
+  CI Minimal Gate / merge-gate accept degraded_partial and ACTIVE_WATCH when
+  present; artifact-chain suite passes on clean checkout via fixtures.
+observation_window: "single PR CI run on codex/hermetic-stateful-tests"
+rollback: >
+  Revert this branch/PR; restore prior hardcoded enum sets and re-add
+  test_current_artifact_chain.py to STATEFUL_ROOT_TESTS.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: true
+acceptance:
+  - runtime_status_contract lists degraded_partial and ACTIVE_WATCH
+  - framework schema canonical statuses equal contract canonical set
+  - test_current_artifact_chain removed from STATEFUL_ROOT_TESTS
+  - governance freeze approves runtime_status_contract.yaml
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  files:
+    - governance/runtime_status_contract.yaml
+    - protocols/current_card.schema.json
+    - tests/test_current_artifact_chain.py
+    - tests/stateful_test_classification.yaml
