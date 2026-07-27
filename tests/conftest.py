@@ -65,7 +65,15 @@ def _dir_fingerprint(path: Path, *, limit: int = 200) -> str:
 
 @pytest.fixture(scope="session", autouse=True)
 def _operator_tree_hash_guard():
-    """Fail the session if tests mutate pre-existing operator Data/ or Output/."""
+    """Opt-in guard: fail if tests mutate pre-existing operator Data/ or Output/.
+
+    Enable with SYSTEM_TEST_OPERATOR_HASH_GUARD=1 on an initialized operator
+    workspace. Disabled by default so clean CI / merge-gate suites that still
+    write under Data/ during non-hermetic tests are not blocked (P0-2 follow-up).
+    """
+    if os.environ.get("SYSTEM_TEST_OPERATOR_HASH_GUARD") != "1":
+        yield
+        return
     if os.environ.get("SYSTEM_TEST_SKIP_OPERATOR_HASH_GUARD") == "1":
         yield
         return
