@@ -171,6 +171,10 @@ def run_merge_gate() -> dict:
         "commit": sha,
         "verdict": verdict,
         "ran_at": datetime.now(UTC).isoformat(),
+        # Private GitHub plans cannot enable classic branch protection.
+        # merge-gate + SHA-bound manifest is the substitute required control.
+        # See governance/routing_decisions/2026-07-27-ci-enforcement-private-repo.yaml
+        "enforcement_mode": "private_repo_substitute",
         "steps_total": len(results),
         "steps_passed": passed_count,
         "steps_failed": failed_count,
@@ -206,6 +210,9 @@ def is_manifest_valid_for_sha(sha: str | None = None) -> tuple[bool, str]:
         return False, f"stale: manifest={manifest.get('commit')} sha={target}"
     if manifest.get("verdict") != "PASS":
         return False, f"verdict={manifest.get('verdict')}"
+    mode = manifest.get("enforcement_mode")
+    if mode not in (None, "private_repo_substitute"):
+        return False, f"unexpected enforcement_mode={mode}"
     return True, "valid"
 
 

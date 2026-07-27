@@ -6,11 +6,13 @@
 #   - Full daily pipeline dry-run (33+ steps)
 #   - Architecture boundary audit
 #   - Operator registry audit
-#   - Schema validation
+#   - Schema validation (fail-closed when current artifacts missing)
 #
 # This is the safety net that catches drift between modules.
 #
 # 2026-07-07: Submodules consolidated into packages/ — no submodule checkout needed.
+# 2026-07-27: P0-1 — repair migrated weekly script paths; unify install/PYTHONPATH;
+#             schema/freshness fail-closed for scheduled depth checks.
 
 name: Nightly Full Pipeline
 
@@ -18,6 +20,9 @@ on:
   schedule:
     - cron: "0 5 * * *"  # 05:00 UTC daily
   workflow_dispatch:
+
+env:
+  PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
 
 jobs:
   # ── Per-module tests (parallel) ─────────────────────────────────────────
@@ -33,6 +38,7 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/workbench[dev]"
       - name: Run Workbench tests
         working-directory: packages/workbench
@@ -49,6 +55,7 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/framework[dev]"
       - name: Run deformation-framework tests
         working-directory: packages/framework
@@ -65,6 +72,7 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/harvester[dev]"
       - name: Run harvester tests
         working-directory: packages/harvester
@@ -81,6 +89,7 @@ jobs:
           cache-dependency-path: "**/pyproject.toml"
       - run: |
           pip install --upgrade pip
+          pip install -e .
           pip install -e "packages/learning_hub[dev]"
       - name: Run learning-hub tests
         working-directory: packages/learning_hub
@@ -106,81 +115,39 @@ jobs:
       - name: Install all dependencies
         run: |
           pip install --upgrade pip
+          pip install -r requirements-dev.txt
           pip install -e ".[dev]"
           pip install -e "packages/workbench[dev]"
           pip install -e "packages/framework[dev]"
           pip install -e "packages/harvester[dev]"
           pip install -e "packages/learning_hub[dev]"
+      - name: Path existence smoke
+        run: |
+          set -euo pipefail
+          for path in \
+            scripts/commands/weekly/architecture_reality_audit.py \
+            scripts/commands/weekly/operator_registry_audit.py \
+            scripts/daily_run.py \
+            scripts/verify_merge.py \
+            scripts/check_output_freshness.py \
+            scripts/commands/ci/validate_current_schemas.py
+          do
+            test -f "$path" || { echo "MISSING: $path"; exit 1; }
+            echo "OK: $path"
+          done
       - name: Root contract tests
         run: python -m pytest tests/ -q --tb=short
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Daily pipeline dry-run
         run: python scripts/daily_run.py --dry-run
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
       - name: Architecture boundary audit
-        run: python scripts/architecture_reality_audit.py --json
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+        run: python scripts/commands/weekly/architecture_reality_audit.py --json
       - name: Operator registry audit (offline)
-        run: python scripts/operator_registry_audit.py --json
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
-      - name: Schema validation
-        run: |
-          python -c "
-          import json
-          from pathlib import Path
-          try:
-              import jsonschema
-          except ImportError:
-              print('ERROR: jsonschema not installed — cannot validate schemas')
-              exit(1)
-
-          root = Path('.')
-          errors = []
-
-          fw_path = root / 'Output' / 'current' / 'framework_output.json'
-          schema_path = root / 'governance' / 'framework_output.schema.json'
-          if fw_path.exists() and schema_path.exists():
-              data = json.loads(fw_path.read_text())
-              schema = json.loads(schema_path.read_text())
-              try:
-                  jsonschema.validate(data, schema)
-                  print('framework_output.json: PASS')
-              except jsonschema.ValidationError as e:
-                  errors.append(f'framework_output.json: {e.message}')
-                  print(f'framework_output.json: FAIL — {e.message}')
-
-          status_path = root / 'Output' / 'current' / 'status.json'
-          card_schema_path = root / 'protocols' / 'current_card.schema.json'
-          if status_path.exists() and card_schema_path.exists():
-              data = json.loads(status_path.read_text())
-              schema = json.loads(card_schema_path.read_text())
-              try:
-                  jsonschema.validate(data, schema)
-                  print('status.json: PASS')
-              except jsonschema.ValidationError as e:
-                  errors.append(f'status.json: {e.message}')
-                  print(f'status.json: FAIL — {e.message}')
-
-          if errors:
-              print(f'Schema validation failed: {len(errors)} error(s)')
-              exit(1)
-          print('All schema validations passed.')
-          "
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+        run: python scripts/commands/weekly/operator_registry_audit.py --json
+      - name: Schema validation (require artifacts)
+        run: python -m scripts.commands.ci.validate_current_schemas --require-artifacts
       - name: Experiment → core judgment check
         run: python scripts/verify_experiment_core_judgment.py
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
-      - name: Output freshness check
-        run: python scripts/check_output_freshness.py
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"
+      - name: Output freshness check (require artifacts)
+        run: python scripts/check_output_freshness.py --require-artifacts --json
       - name: Type check
         run: python -m mypy scripts/ --ignore-missing-imports --no-error-summary
-        env:
-          PYTHONPATH: "packages/workbench/src:scripts"

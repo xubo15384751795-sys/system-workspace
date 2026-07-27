@@ -8,6 +8,8 @@
 #   - Operator registry audit
 #
 # 2026-07-07: Submodules consolidated into packages/ — no submodule checkout needed.
+# 2026-07-27: P0-1 — repair migrated weekly script paths; unify install/PYTHONPATH;
+#             schema/freshness fail-closed for scheduled depth checks.
 
 name: Weekly Governance Check
 
@@ -15,6 +17,9 @@ on:
   schedule:
     - cron: "0 3 * * 1"  # Monday 03:00 UTC
   workflow_dispatch:
+
+env:
+  PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
 
 jobs:
   governance-weekly:
@@ -36,58 +41,76 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
+          python -m pip install -e ".[dev]"
           python -m pip install -e "packages/workbench[dev]"
+          python -m pip install -e "packages/framework[dev]"
+          python -m pip install -e "packages/harvester[dev]"
           python -m pip install -e "packages/learning_hub[dev]"
 
-      - name: Check governance freeze
+      - name: Path existence smoke
         run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/check_governance_freeze.py
+          set -euo pipefail
+          for path in \
+            scripts/commands/weekly/architecture_reality_audit.py \
+            scripts/commands/weekly/operator_registry_audit.py \
+            scripts/commands/weekly/build_authority_graph.py \
+            scripts/daily_run.py \
+            scripts/verify_merge.py \
+            scripts/check_output_freshness.py \
+            scripts/commands/ci/validate_current_schemas.py \
+            scripts/build_entrypoint_registry.py \
+            scripts/check_governance_freeze.py
+          do
+            test -f "$path" || { echo "MISSING: $path"; exit 1; }
+            echo "OK: $path"
+          done
+
+      - name: Check governance freeze
+        run: python scripts/check_governance_freeze.py
 
       - name: Build derived governance artifacts
         run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/build_authority_graph.py --fail-on-invariant
+          # build_incentive_review.py is archived (entrypoint_registry) and removed;
+          # do not resurrect a missing required step as a silent skip.
+          python scripts/commands/weekly/build_authority_graph.py --fail-on-invariant
           python scripts/build_entrypoint_registry.py
-          python scripts/build_incentive_review.py
 
       - name: Governance and pipeline contract tests
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python -m pytest tests/test_daily_run_sequence.py tests/test_governance_runtime_contracts.py tests/test_authority_graph.py tests/test_governance_freeze.py tests/test_incentive_engine.py -q --tb=short
+        run: >
+          python -m pytest
+          tests/test_daily_run_sequence.py
+          tests/test_governance_runtime_contracts.py
+          tests/test_authority_graph.py
+          tests/test_governance_freeze.py
+          tests/test_incentive_engine.py
+          -q --tb=short
 
       - name: Daily pipeline dry-run
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/daily_run.py --dry-run
+        run: python scripts/daily_run.py --dry-run
 
       - name: Architecture reality audit
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/architecture_reality_audit.py --json
+        run: python scripts/commands/weekly/architecture_reality_audit.py --json
 
       - name: Operator registry audit (offline)
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/operator_registry_audit.py --json
+        run: python scripts/commands/weekly/operator_registry_audit.py --json
+
+      - name: Schema validation (require artifacts)
+        run: python -m scripts.commands.ci.validate_current_schemas --require-artifacts
 
       - name: Experiment → core judgment check
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/verify_experiment_core_judgment.py
+        run: python scripts/verify_experiment_core_judgment.py
 
-      - name: Output freshness check
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python scripts/check_output_freshness.py
+      - name: Output freshness check (require artifacts)
+        run: python scripts/check_output_freshness.py --require-artifacts --json
 
       - name: Learning Hub ingest and monitoring blind-spot audit
+        env:
+          PYTHONPATH: ".:packages/learning_hub/src:packages/framework/src:packages/workbench/src:scripts"
         run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/learning_hub/src:${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
           python scripts/run_learning_hub_ingest.py
           python scripts/artifact_monitoring_audit.py --strict
 
       - name: Learning Hub variation inlet health
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/packages/learning_hub/src:${{ github.workspace }}/packages/workbench/src:${{ github.workspace }}/scripts:${{ github.workspace }}"
-          python -m system_learning variation-health --system-root "${{ github.workspace }}"
+        env:
+          PYTHONPATH: ".:packages/learning_hub/src:packages/framework/src:packages/workbench/src:scripts"
+        run: python -m system_learning variation-health --system-root "${{ github.workspace }}"
