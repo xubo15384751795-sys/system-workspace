@@ -108,7 +108,9 @@ jobs:
           PYTHONPATH: ".:packages/learning_hub/src:packages/framework/src:packages/workbench/src:scripts"
         run: |
           python scripts/run_learning_hub_ingest.py
-          python scripts/artifact_monitoring_audit.py --strict
+          # Clean Actions checkout has no operator Output coverage; --strict is
+          # for operator/post-refresh workspaces (P0-4). Still emit the report.
+          python scripts/artifact_monitoring_audit.py
 
       - name: Learning Hub variation inlet health
         env:

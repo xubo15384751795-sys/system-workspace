@@ -135,8 +135,20 @@ jobs:
             test -f "$path" || { echo "MISSING: $path"; exit 1; }
             echo "OK: $path"
           done
-      - name: Root contract tests
-        run: python -m pytest tests/ -q --tb=short
+      - name: Root contract tests (clean-checkout; ignore stateful operator suites)
+        run: |
+          # Same ignore set as scripts/verify_merge.py STATEFUL_ROOT_TESTS.
+          # Hermeticizing those suites is P0-2; Nightly must not require operator Data/Output.
+          python - <<'PY'
+          import subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path("scripts").resolve().parent))
+          from scripts.verify_merge import STATEFUL_ROOT_TESTS
+          cmd = [sys.executable, "-m", "pytest", "tests/", "-q", "--tb=short"]
+          for path in STATEFUL_ROOT_TESTS:
+              cmd.extend(["--ignore", path])
+          raise SystemExit(subprocess.call(cmd))
+          PY
       - name: Daily pipeline dry-run
         run: python scripts/daily_run.py --dry-run
       - name: Architecture boundary audit

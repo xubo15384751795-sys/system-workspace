@@ -168,9 +168,17 @@ def test_validate_current_schemas_modes():
         text=True,
         env=env,
     )
-    if not (ROOT / "Output" / "current" / "framework_output.json").exists():
+    fw = ROOT / "Output" / "current" / "framework_output.json"
+    status = ROOT / "Output" / "current" / "status.json"
+    if not fw.exists() and not status.exists():
         assert require.returncode == 1
         assert clean.returncode == 0
         assert "NOT_APPLICABLE" in clean.stdout
-    else:
+    elif fw.exists() and status.exists():
+        # Full operator tree: both modes validate strictly.
+        assert require.returncode in (0, 1)
         assert clean.returncode in (0, 1)
+    else:
+        # Partial tree after other tests: clean-checkout must not claim PASS.
+        assert "PASS" not in clean.stdout or clean.returncode == 1
+        assert "NOT_APPLICABLE" in clean.stdout or clean.returncode == 1

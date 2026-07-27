@@ -1149,6 +1149,14 @@ check_pace_routing:
   description: Enforce PACE routing declarations for staged changes
   allowed_use:
   - commit_routing_validation
+validate_current_schemas:
+  script: scripts/commands/ci/validate_current_schemas.py
+  status: governance_active
+  owner: Governance
+  description: Validate Output/current against schema contracts with clean-checkout and require-artifacts modes
+  allowed_use:
+  - ci_schema_check
+  - scheduled_depth_check
 run_learning_hub_ingest:
   script: scripts/run_learning_hub_ingest.py
   status: tool_active
