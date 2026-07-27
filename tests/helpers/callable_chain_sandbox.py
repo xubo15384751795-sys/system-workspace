@@ -118,6 +118,19 @@ def seed_callable_chain_workspace(target: Path) -> Path:
             etf_rows.append({"date": day, "symbol": symbol, "close": 100.0 + i * 0.01})
     pd.DataFrame(etf_rows).to_parquet(data_dir / "cross_asset_daily_panel.parquet")
 
+    panels_dir = sandbox / "Data" / "panels"
+    panels_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(
+        data_dir / "cross_asset_daily_panel.parquet",
+        panels_dir / "cross_asset_daily_panel.parquet",
+    )
+    fixtures_dir = sandbox / "Data" / "fixtures"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(
+        data_dir / "benchmark_panel.parquet", fixtures_dir / "official_panel.parquet"
+    )
+    (sandbox / "Data" / "features").mkdir(parents=True, exist_ok=True)
+
     index_dir = sandbox / "Data" / "system_index"
     index_dir.mkdir(parents=True, exist_ok=True)
     (index_dir / "latest.json").write_text(
@@ -153,6 +166,7 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     import scripts.freshness_validator as freshness
     import scripts.judgment_layer as jl_script
     import scripts.pending_evaluation as pe
+    import scripts.refresh_etf_panel as etf_refresh
     import scripts.trade_decision_layer as trade_decision
     import scripts.x_measurement_gate as x_gate
 
@@ -358,8 +372,20 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     )
     monkeypatch.setattr(x_gate, "OUTPUT_DIR", out / "x_measurement")
 
+    monkeypatch.setattr(etf_refresh, "ROOT", sandbox)
+    monkeypatch.setattr(
+        etf_refresh,
+        "PANEL_PATH",
+        sandbox / "Data" / "panels" / "cross_asset_daily_panel.parquet",
+    )
+    monkeypatch.setattr(
+        etf_refresh,
+        "K_FEATURES_PATH",
+        sandbox / "Data" / "features" / "k_features_daily.csv",
+    )
+
     monkeypatch.setenv("SYSTEM_WORKSPACE_ROOT", str(sandbox))
     monkeypatch.setenv("SYSTEM_ROOT", str(sandbox))
     monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(current))
     monkeypatch.setenv("DAILY_OUTPUT_ROOT", str(out))
-    monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "p0_3_wave4_fixture_run")
+    monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "p0_3_wave6_fixture_run")
