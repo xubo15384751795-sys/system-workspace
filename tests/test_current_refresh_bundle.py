@@ -1,24 +1,10 @@
 """Current refresh bundle — verify atomicity of Output/current artifacts.
 
-The "current refresh bundle" is the set of scripts that write into
-Output/current/ and Output/judgment/.  After any refresh, these files
-must share the same date — they cannot drift independently.
-
-Bundle scripts:
-  bridge_replay_to_current.py      → framework_output.json
-  quality_field_validator.py       → quality_validation.json
-  judgment_layer.py                → judgment/latest.json
-  judgment_promotion_gate.py       → judgment/promotion_gate.json
-  build_next_actions.py            → NEXT_ACTIONS.md
-  build_current_status.py          → status.json
-  build_readme_first.py            → 00_READ_ME_FIRST.md
-
-Invariant:
-  All bundle artifacts must have the same date (within 1 day tolerance
-  for cross-midnight runs).  If any file is >1 day older than the
-  newest, the bundle is not atomic — something was refreshed alone.
+Hermetic: uses sandbox workspace seeded from tests/fixtures/current_chain.
+Does not touch operator Output/.
 
 See: governance/daily_pipeline_registry.yaml
+     SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md P0-2
 """
 from __future__ import annotations
 
@@ -28,21 +14,27 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-CURRENT = ROOT / "Output" / "current"
-JUDGMENT = ROOT / "Output" / "judgment"
+from tests.helpers.sandbox_workspace import build_sandbox_workspace
 
-# ---------------------------------------------------------------------------
-# Bundle artifact definitions
-# ---------------------------------------------------------------------------
 
-BUNDLE_ARTIFACTS: list[tuple[str, Path, str]] = [
-    # (label, path, date_field)
-    ("framework_output", CURRENT / "framework_output.json", "as_of"),
-    ("status", CURRENT / "status.json", "date"),
-    ("quality_validation", CURRENT / "quality_validation.json", "as_of"),
-    ("judgment", JUDGMENT / "latest.json", "as_of"),
-]
+@pytest.fixture()
+def current(tmp_path: Path) -> Path:
+    sandbox = build_sandbox_workspace(tmp_path / "workspace")
+    return sandbox / "Output" / "current"
+
+
+@pytest.fixture()
+def judgment(current: Path) -> Path:
+    return current.parent / "judgment"
+
+
+def _bundle_paths(current: Path, judgment: Path) -> list[tuple[str, Path, str]]:
+    return [
+        ("framework_output", current / "framework_output.json", "as_of"),
+        ("status", current / "status.json", "date"),
+        ("quality_validation", current / "quality_validation.json", "as_of"),
+        ("judgment", judgment / "latest.json", "as_of"),
+    ]
 
 
 def _extract_date(path: Path, field: str) -> str | None:
@@ -54,44 +46,32 @@ def _extract_date(path: Path, field: str) -> str | None:
         raw = data.get(field, "")
         if not raw:
             return None
-        return raw[:10]  # Normalize to date-only
+        return raw[:10]
     except Exception:
         return None
 
 
 def _extract_mtime_date(path: Path) -> str | None:
-    """Extract YYYY-MM-DD from file modification time."""
     if not path.exists():
         return None
     mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
     return mtime.strftime("%Y-%m-%d")
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-def test_bundle_artifacts_exist() -> None:
-    """All bundle artifacts must exist on disk."""
-    missing = []
-    for label, path, _ in BUNDLE_ARTIFACTS:
-        if not path.exists():
-            missing.append(label)
+def test_bundle_artifacts_exist(current: Path, judgment: Path) -> None:
+    missing = [label for label, path, _ in _bundle_paths(current, judgment) if not path.exists()]
     assert not missing, f"Bundle artifacts missing: {missing}"
 
 
-def test_bundle_dates_consistent() -> None:
-    """All bundle artifacts must have the same date (1-day tolerance)."""
+def test_bundle_dates_consistent(current: Path, judgment: Path) -> None:
     dates: dict[str, str] = {}
-    for label, path, field in BUNDLE_ARTIFACTS:
+    for label, path, field in _bundle_paths(current, judgment):
         d = _extract_date(path, field)
         if d:
             dates[label] = d
 
-    if len(dates) < 2:
-        pytest.skip("Not enough dated artifacts to compare")
+    assert len(dates) >= 2, f"Not enough dated artifacts to compare: {dates}"
 
-    # Parse all dates and check max delta
     parsed = {k: datetime.strptime(v, "%Y-%m-%d") for k, v in dates.items()}
     newest = max(parsed.values())
     stale = {}
@@ -107,68 +87,41 @@ def test_bundle_dates_consistent() -> None:
     )
 
 
-def test_bundle_dates_match_judgment() -> None:
-    """status.json date must match judgment as_of (same pipeline run)."""
-    status_d = _extract_date(CURRENT / "status.json", "date")
-    judgment_d = _extract_date(JUDGMENT / "latest.json", "as_of")
-    if not status_d or not judgment_d:
-        pytest.skip("Missing status or judgment date")
-    assert status_d == judgment_d, (
-        f"Bundle mismatch: status={status_d}, judgment={judgment_d}"
-    )
+def test_bundle_dates_match_judgment(current: Path, judgment: Path) -> None:
+    status_d = _extract_date(current / "status.json", "date")
+    judgment_d = _extract_date(judgment / "latest.json", "as_of")
+    assert status_d and judgment_d
+    assert status_d == judgment_d, f"Bundle mismatch: status={status_d}, judgment={judgment_d}"
 
 
-def test_readme_first_mtime_matches_bundle() -> None:
-    """00_READ_ME_FIRST.md mtime should be same day as bundle artifacts."""
-    readme = CURRENT / "00_READ_ME_FIRST.md"
-    if not readme.exists():
-        pytest.skip("00_READ_ME_FIRST.md not found")
-
+def test_readme_first_mtime_matches_bundle(current: Path) -> None:
+    readme = current / "00_READ_ME_FIRST.md"
+    assert readme.exists()
     readme_date = _extract_mtime_date(readme)
-    generated_date = _extract_date(CURRENT / "status.json", "generated_at")
-    if not readme_date or not generated_date:
-        pytest.skip("Missing dates")
-
+    generated_date = _extract_date(current / "status.json", "generated_at")
+    assert readme_date and generated_date
     assert readme_date == generated_date, (
-        f"README mtime={readme_date} != status generated_at={generated_date} — "
-        f"README was not regenerated with the last bundle refresh"
+        f"README mtime={readme_date} != status generated_at={generated_date}"
     )
 
 
-def test_bundle_no_na_placeholders() -> None:
-    """Bundle artifacts should not contain N/A in value positions."""
+def test_bundle_no_na_placeholders(current: Path, judgment: Path) -> None:
     na_found = []
-    for label, path, _ in BUNDLE_ARTIFACTS:
-        if not path.exists():
-            continue
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            text = json.dumps(data)
-            # Check for N/A in string values (not in keys)
-            if '"N/A"' in text:
-                na_found.append(label)
-        except Exception:
-            pass
-    assert not na_found, (
-        f"Bundle artifacts contain N/A values: {na_found}"
-    )
+    for label, path, _ in _bundle_paths(current, judgment):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if '"N/A"' in json.dumps(data):
+            na_found.append(label)
+    assert not na_found, f"Bundle artifacts contain N/A values: {na_found}"
 
 
-def test_bundle_gate_status_consistent() -> None:
-    """quality_validation gate in status.json must match judgment gate_status."""
-    try:
-        status = json.loads((CURRENT / "status.json").read_text(encoding="utf-8"))
-        judgment = json.loads((JUDGMENT / "latest.json").read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        pytest.skip("Missing status or judgment file")
+def test_bundle_gate_status_consistent(current: Path, judgment: Path) -> None:
+    status = json.loads((current / "status.json").read_text(encoding="utf-8"))
+    judgment_data = json.loads((judgment / "latest.json").read_text(encoding="utf-8"))
 
     s_quality = status.get("promotion_gate", {}).get("blocked_gates", [])
-    j_quality = judgment.get("gate_status", {}).get("quality_validation", "")
+    j_quality = judgment_data.get("gate_status", {}).get("quality_validation", "")
+    assert j_quality, "fixture judgment must include gate_status.quality_validation"
 
-    if not j_quality:
-        pytest.skip("Missing quality_validation in judgment gate_status")
-
-    # If quality_validation is FAIL, caselab should be in blocked_gates
     if j_quality == "FAIL":
         assert "caselab" in s_quality or "quality" in str(s_quality).lower(), (
             f"quality_validation=FAIL in judgment but not blocked in status: "

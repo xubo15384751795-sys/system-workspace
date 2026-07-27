@@ -23,6 +23,13 @@ MODULES_MD = ROOT / "MODULES.md"
 # audited - every entry is a place where MODULES.md can lie without CI red.
 ALLOWED_MISSING: set[str] = set()
 
+# Gitignored operator/runtime trees cited in MODULES.md as destinations.
+# Clean checkouts intentionally lack these; they are not "stale submodule" lies.
+RUNTIME_DESTINATION_PREFIXES: tuple[str, ...] = (
+    "Output/",
+    "Data/",
+)
+
 
 def _extract_paths(text: str) -> list[str]:
     """Extract backtick-quoted relative paths from MODULES.md text."""
@@ -90,6 +97,8 @@ def test_modules_paths_exist(modules_text: str) -> None:
     missing = []
     for rel in paths:
         if rel in ALLOWED_MISSING:
+            continue
+        if any(rel == prefix.rstrip("/") or rel.startswith(prefix) for prefix in RUNTIME_DESTINATION_PREFIXES):
             continue
         # Try as a path under ROOT
         p = ROOT / rel

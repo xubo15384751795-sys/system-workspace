@@ -53,3 +53,7 @@ def test_stateful_classification_covers_ignored_suites() -> None:
     assert "tests/test_sys_entrypoints.py" not in ignored
     assert "tests/test_output_current.py" in hermetic
     assert "tests/test_output_current.py" not in ignored
+    assert "tests/test_current_refresh_bundle.py" in hermetic
+    assert "tests/test_current_refresh_bundle.py" not in ignored
+    assert "tests/test_modules_paths_exist.py" in hermetic
+    assert "tests/test_modules_paths_exist.py" not in ignored

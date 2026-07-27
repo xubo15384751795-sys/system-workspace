@@ -1,0 +1,28 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-2-wave3-refresh-bundle-modules-paths
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-2 wave 3: hermeticize refresh-bundle atomicity tests and MODULES.md path
+  existence checks for clean-checkout merge-gate.
+decision: >
+  Rewrite tests/test_current_refresh_bundle.py onto sandbox fixtures with
+  aligned as_of/date/gate_status fields and synchronized mtimes. Teach
+  tests/test_modules_paths_exist.py to allow gitignored Output/Data destination
+  prefixes. Remove both suites from STATEFUL_ROOT_TESTS.
+preregistered_expectation: >
+  Clean-checkout merge-gate runs both suites without operator Output/Data trees.
+observation_window: "single PR CI run on codex/hermetic-refresh-bundle-wave3"
+rollback: >
+  Revert this branch; restore prior operator-bound tests and re-add them to
+  STATEFUL_ROOT_TESTS.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - both suites absent from STATEFUL_ROOT_TESTS
+  - local pytest of both suites plus current_chain/sys/output passes
+  - merge-gate green on the PR
