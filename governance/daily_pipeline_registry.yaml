@@ -71,6 +71,105 @@ content_freshness:
     owner_step: harvester
     decision_critical: true
 
+# P0-4 wave 2: every monitoring blind spot must land in one class with an owner.
+# authoritative + decision_adjacent_shadow cannot remain uncovered.
+# First matching rule wins — keep specific prefixes above catch-alls.
+monitoring_classification:
+  required_coverage_classes:
+    - authoritative
+    - decision_adjacent_shadow
+  classes:
+    - authoritative
+    - decision_adjacent_shadow
+    - research
+    - manual_on_demand
+    - archived_retire
+  rules:
+    - pattern: Output/current/*
+      class: authoritative
+      owner: Workbench
+    - pattern: Data/harvester/exports/*
+      class: authoritative
+      owner: Harvester
+    - pattern: Data/panels/*
+      class: authoritative
+      owner: Harvester
+    - pattern: Data/features/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/k_measurement/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/x_measurement/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/judgment/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/quality/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/system_learning/*
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+    - pattern: Data/system_learning/*
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+    - pattern: Data/paper_world_model/*
+      class: decision_adjacent_shadow
+      owner: Harvester
+    - pattern: Output/runs/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/sandbox/*
+      class: research
+      owner: Workbench
+    - pattern: Output/research/*
+      class: research
+      owner: Workbench
+    - pattern: Output/validation/*
+      class: research
+      owner: ML Signals
+    - pattern: Output/strategy_lab/*
+      class: research
+      owner: ML Signals
+    - pattern: Output/benchmarks/*
+      class: research
+      owner: Workbench
+    - pattern: Output/caselab/*
+      class: research
+      owner: CaseLab
+    - pattern: Output/workbench/*
+      class: research
+      owner: Workbench
+    - pattern: Data/fixtures/*
+      class: research
+      owner: Workbench
+    - pattern: Output/archive/*
+      class: archived_retire
+      owner: Workbench
+    - pattern: Data/archive/*
+      class: archived_retire
+      owner: Harvester
+    - pattern: Data/structural_lab/*
+      class: archived_retire
+      owner: Framework
+    - pattern: Data/merged_data/*
+      class: archived_retire
+      owner: Harvester
+    - pattern: Output/deformation_runs/*
+      class: archived_retire
+      owner: Framework
+    - pattern: Output/reports/*
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Output/*
+      class: research
+      owner: Workbench
+    - pattern: Data/*
+      class: manual_on_demand
+      owner: System
+
 steps:
   harvester:
     order: 1
