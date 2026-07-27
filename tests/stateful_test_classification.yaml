@@ -43,8 +43,8 @@ items:
     reason: Uses committed tests/fixtures/current_chain when Output/current absent
 
   - path: tests/test_current_refresh_bundle.py
-    class: split_candidate
-    reason: Refresh orchestration; needs sandbox workspace root (P0-2 follow-up)
+    class: hermetic
+    reason: Sandbox fixture bundle atomicity; no operator Output mutation
 
   - path: tests/test_daily_pipeline_callable_e2e.py
     class: split_candidate
@@ -72,7 +72,7 @@ items:
 
   - path: tests/test_modules_paths_exist.py
     class: hermetic
-    reason: Path existence only; should not need operator state (candidate for early removal)
+    reason: Path existence only; gitignored Output/Data destinations explicitly allowed
 
   - path: tests/test_output_current.py
     class: hermetic

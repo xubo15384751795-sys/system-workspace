@@ -8,7 +8,7 @@
   },
   "promotion_gate": {
     "status": "BLOCKED",
-    "blocked_gates": ["fixture_gate"]
+    "blocked_gates": ["fixture_gate", "caselab"]
   },
   "signals": {
     "k_gate": {"status": "SKIP"},

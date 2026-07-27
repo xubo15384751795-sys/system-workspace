@@ -44,14 +44,14 @@ STATEFUL_ROOT_TESTS = (
     "tests/test_caselab_state_machine.py",
     "tests/test_caselab_world_model.py",
     # test_current_artifact_chain.py hermeticized in P0-2 wave 1
-    "tests/test_current_refresh_bundle.py",
+    # test_current_refresh_bundle.py hermeticized in P0-2 wave 3
     "tests/test_daily_pipeline_callable_e2e.py",
     "tests/test_freshness_governance.py",
     "tests/test_harvester_bundle_contract.py",
     "tests/test_home_page_consistency.py",
     "tests/test_golden_samples.py",
     "tests/test_mechanism_tiers.py",
-    "tests/test_modules_paths_exist.py",
+    # test_modules_paths_exist.py hermeticized in P0-2 wave 3
     # test_output_current.py hermeticized in P0-2 wave 2
     # test_sys_entrypoints.py hermeticized in P0-2 wave 2
     "tests/test_task_router.py",

@@ -1,10 +1,17 @@
 {
   "decision": "ACTIVE_WATCH",
+  "as_of": "2026-07-26T00:00:00+00:00",
   "confidence": {
     "level": "low",
     "reasons": ["fixture"]
   },
   "claim_ceiling": "diagnostic_watch_only",
+  "gate_status": {
+    "hmm_stability": "SKIP",
+    "k_gate": "SKIP",
+    "x_gate": "SKIP",
+    "quality_validation": "FAIL"
+  },
   "actionability": {
     "forbidden": ["Do not use this output as a trading signal."]
   }
