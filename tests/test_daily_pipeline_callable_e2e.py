@@ -5,14 +5,17 @@ P0-3:
   wave 2 — degraded measurement scenario, operator-current isolation, shared run_id,
            and callable/subprocess mode agreement for a light step
   wave 3 — judgment → promotion → evidence/readme/artifact callables under a seeded
-           sandbox fixture chain (still no live structural_replay)
-  wave 4 — trade_decision / next_actions / freshness_validator on the same sandbox;
-           operator isolation for trade_decision; still no live etf_refresh /
-           structural_replay / k|x_measurement_gate panel execution
-  wave 5 — k_measurement_gate / x_measurement_gate under seeded panel fixtures;
-           still no live etf_refresh / structural_replay
+           sandbox fixture chain
+  wave 4 — trade_decision / next_actions / freshness_validator on the same sandbox
+  wave 5 — k_measurement_gate / x_measurement_gate under seeded panel fixtures
+  wave 6 — etf_refresh + structural_replay (archived reproduction) hermetic execute;
+           assert 100% MAIN_CHAIN_STEPS have an executable coverage set
 
 Failure propagation remains covered by tests/test_failure_propagation.py.
+
+Still out of scope for this file (roadmap acceptance remaining):
+  14-day callable shadow evidence, default-mode routing decision, full schema/
+  lineage gate on every artifact, dry-run/quick/standard/full mode matrix.
 """
 
 from __future__ import annotations
@@ -75,6 +78,20 @@ EXECUTABLE_POST_JUDGMENT_STEPS = (
 EXECUTABLE_GATE_STEPS = (
     "k_measurement_gate",
     "x_measurement_gate",
+)
+
+# Heavy / archived callables (wave 6).
+EXECUTABLE_HEAVY_STEPS = (
+    "etf_refresh",
+    "structural_replay",
+)
+
+EXECUTABLE_ALL_STEPS = (
+    EXECUTABLE_LIGHT_STEPS
+    + EXECUTABLE_CHAIN_STEPS
+    + EXECUTABLE_POST_JUDGMENT_STEPS
+    + EXECUTABLE_GATE_STEPS
+    + EXECUTABLE_HEAVY_STEPS
 )
 
 
@@ -425,3 +442,80 @@ def test_measurement_gates_write_sandbox_only(tmp_path: Path, monkeypatch) -> No
     assert before_x == _fingerprint(operator_x)
     assert (sandbox / "Output" / "k_measurement" / "k_measurement_gate.json").exists()
     assert (sandbox / "Output" / "x_measurement" / "x_measurement_gate.json").exists()
+
+
+def test_main_chain_executable_coverage_is_complete() -> None:
+    """P0-3 wave 6: every MAIN_CHAIN_STEPS id must belong to an execute set."""
+    covered = set(EXECUTABLE_ALL_STEPS)
+    missing = [step for step in MAIN_CHAIN_STEPS if step not in covered]
+    assert not missing, f"main-chain steps lack execute coverage: {missing}"
+    assert len(MAIN_CHAIN_STEPS) == len(set(MAIN_CHAIN_STEPS))
+
+
+def test_etf_refresh_callable_executes(tmp_path: Path, monkeypatch) -> None:
+    """P0-3 wave 6: etf_refresh boundary check runs under sandbox panel fixtures."""
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    patch_callable_chain_paths(monkeypatch, sandbox)
+
+    result = run_registry_step("etf_refresh", mode="callable")
+    assert result["mode"] == "callable"
+    assert result["status"] == "success", result
+    assert result["returncode"] == 0
+    assert (sandbox / "Data" / "panels" / "cross_asset_daily_panel.parquet").exists()
+
+
+def test_structural_replay_callable_executes(tmp_path: Path, monkeypatch) -> None:
+    """P0-3 wave 6: archived structural_replay runs in isolated sandbox reproduction."""
+    pytest.importorskip("omegaconf")
+
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    patch_callable_chain_paths(monkeypatch, sandbox)
+    # Archive guard forbids daily-bundle run ids; clear after path patch.
+    monkeypatch.delenv("ZCODE_BUNDLE_RUN_ID", raising=False)
+    monkeypatch.setenv("ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION", "1")
+    monkeypatch.setenv("STRUCTURAL_PROJECT", str(sandbox))
+
+    panel = sandbox / "Data" / "fixtures" / "official_panel.parquet"
+    out = sandbox / "Output" / "sandbox" / "structural_replay_v2"
+    argv = [
+        f"panel.path={panel.as_posix()}",
+        f"output.dir={out.as_posix()}",
+        "panel.release_id=fixture",
+        "run.tag=p0_3_wave6",
+        "run.pre_event_warmup_days=30",
+    ]
+    result = run_registry_step("structural_replay", mode="callable", argv=argv)
+    assert result["mode"] == "callable"
+    assert result["status"] in {"success", "failed", "error"}, result
+    assert result["status"] != "error", result
+    assert (out / "config_snapshot.json").exists()
+    assert (out / "results.json").exists()
+    assert (out / "evaluation_report.md").exists()
+
+
+def test_structural_replay_writes_sandbox_only(tmp_path: Path, monkeypatch) -> None:
+    """structural_replay must not mutate operator Output/sandbox tree."""
+    pytest.importorskip("omegaconf")
+
+    operator_replay = ROOT / "Output" / "sandbox" / "structural_replay_v2"
+    before = _fingerprint(operator_replay)
+
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    patch_callable_chain_paths(monkeypatch, sandbox)
+    monkeypatch.delenv("ZCODE_BUNDLE_RUN_ID", raising=False)
+    monkeypatch.setenv("ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION", "1")
+
+    panel = sandbox / "Data" / "fixtures" / "official_panel.parquet"
+    out = sandbox / "Output" / "sandbox" / "structural_replay_v2"
+    argv = [
+        f"panel.path={panel.as_posix()}",
+        f"output.dir={out.as_posix()}",
+        "panel.release_id=fixture",
+        "run.tag=p0_3_wave6_iso",
+        "run.pre_event_warmup_days=30",
+    ]
+    result = run_registry_step("structural_replay", mode="callable", argv=argv)
+    assert result["status"] in {"success", "failed"}
+
+    assert before == _fingerprint(operator_replay)
+    assert (out / "results.json").exists()

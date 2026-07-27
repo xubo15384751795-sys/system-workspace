@@ -1018,11 +1018,13 @@ def generate_report(
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def main(cfg: DictConfig) -> None:
+def main(cfg: DictConfig | None = None) -> None:
     # Resolve paths from cfg, then write config_snapshot.json BEFORE any work
     # begins. This closes the governance gap recorded for 2026-04-22_WEEKLY:
     # the snapshot now reflects the resolved config at run start, not a
     # backfill.
+    if cfg is None:
+        cfg = load_cfg()
     output_dir = Path(cfg.output.dir)
     event_dir = output_dir / cfg.output.event_subdir
     panel_path = Path(cfg.panel.path)
@@ -1231,7 +1233,7 @@ def main(cfg: DictConfig) -> None:
 
     report = generate_report(results, bundle, thresholds, contamination)
     report_path = output_dir / "evaluation_report.md"
-    report_path.write_text(report)
+    report_path.write_text(report, encoding="utf-8")
     validate_report_verdict(report_path)
 
     # JSON results
