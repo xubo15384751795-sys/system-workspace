@@ -21,19 +21,28 @@ from pathlib import Path
 from typing import Any
 
 from scripts._data_paths import (
-    HARVESTER_LATEST,
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, write_json
+from scripts._runtime_io import current_dir, ensure_dir, load_json, write_json
+import scripts._data_paths as _dp
+import scripts._runtime_io as _rio
 
-K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
-X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
-OUTPUT_PATH = current_dir() / "measurement_quality.json"
+
+def _k_gate_path() -> Path:
+    return _rio.ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
+
+
+def _x_gate_path() -> Path:
+    return _rio.ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
+
+
+def _output_path() -> Path:
+    return current_dir() / "measurement_quality.json"
 
 
 def _harvester_release() -> dict[str, Any]:
-    catalog_path = HARVESTER_LATEST / "catalog.json"
+    catalog_path = _dp.HARVESTER_LATEST / "catalog.json"
     if not catalog_path.exists():
         return {"release_id": None, "catalog_present": False}
     try:
@@ -67,15 +76,15 @@ def _gate_summary(path: Path, channel: str) -> dict[str, Any]:
 
 def _rel(path: Path) -> str:
     try:
-        return str(path.relative_to(ROOT))
+        return str(path.relative_to(_rio.ROOT))
     except ValueError:
         return str(path)
 
 
 def build_report() -> dict[str, Any]:
     harvester = _harvester_release()
-    k_summary = _gate_summary(K_GATE_PATH, "K")
-    x_summary = _gate_summary(X_GATE_PATH, "X_agg")
+    k_summary = _gate_summary(_k_gate_path(), "K")
+    x_summary = _gate_summary(_x_gate_path(), "X_agg")
     cross_asset = resolve_cross_asset_panel_path()
     benchmark = resolve_benchmark_panel_path()
 
@@ -115,8 +124,9 @@ def main() -> None:
     args = parser.parse_args()
 
     report = build_report()
-    ensure_dir(OUTPUT_PATH.parent)
-    write_json(OUTPUT_PATH, report)
+    output_path = _output_path()
+    ensure_dir(output_path.parent)
+    write_json(output_path, report)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
@@ -124,7 +134,7 @@ def main() -> None:
         print(f"Measurement quality: {report['overall_status']}")
         print(f"  K: {report['channels']['K']['gate_verdict']}")
         print(f"  X_agg: {report['channels']['X_agg']['gate_verdict']}")
-        print(f"  Wrote: {OUTPUT_PATH.relative_to(ROOT)}")
+        print(f"  Wrote: {output_path.relative_to(_rio.ROOT)}")
 
 
 if __name__ == "__main__":
