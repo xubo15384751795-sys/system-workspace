@@ -1,0 +1,62 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: ci-enforcement-private-repo-p0-1
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-1 from SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md: repair scheduled
+  Nightly/Weekly depth CI paths, stop schema/freshness missing-artifact
+  pseudo-PASS, and record the merge-enforcement substitute for a private
+  repository that cannot enable classic branch protection.
+decision: >
+  Keep merge-gate (scripts/verify_merge.py --merge) as the single authoritative
+  green light. A merge is only allowed when Output/verification/merge_gate_manifest.json
+  exists for the exact HEAD commit SHA with verdict=PASS and
+  enforcement_mode=private_repo_substitute. Local/CI compensation is
+  python scripts/verify_merge.py --check. Nightly and Weekly use migrated
+  scripts under scripts/commands/weekly/, unified install/PYTHONPATH. Bare
+  GitHub Actions checkouts have no operator Output/current, so scheduled
+  schema/freshness steps use --ci-clean-checkout (verdict NOT_APPLICABLE,
+  never PASS). --require-artifacts remains the fail-closed operator/post-refresh
+  mode and is covered by tests; it is not expected to pass on empty Actions
+  workspaces. Push/PR CI also uses --ci-clean-checkout. Required workflow
+  paths must not use continue-on-error or shell true-masks. Scheduled
+  failures are owned by System: open/triage an issue or Learning Hub event;
+  do not delete or downgrade failing required steps to force green.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+acceptance:
+  - Nightly and Weekly reference scripts/commands/weekly/* paths that exist
+  - Path-existence smoke fails if those scripts are missing
+  - Weekly no longer invokes archived missing scripts/build_incentive_review.py
+  - Three workflows share install-editable root + four packages and PYTHONPATH
+  - Schema/freshness --require-artifacts exits non-zero when current artifacts missing
+  - Schema/freshness --ci-clean-checkout reports NOT_APPLICABLE, not PASS
+  - merge_gate_manifest includes enforcement_mode=private_repo_substitute
+  - No required path uses continue-on-error or shell true-masks
+rollback: >
+  Revert the P0-1 commit on codex/repair-scheduled-ci; restore prior workflow
+  path strings only if accompanied by restoring the deleted root scripts
+  (not preferred). Prefer keeping weekly/ paths.
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  workflows:
+    - .github/workflows/ci.yml
+    - .github/workflows/nightly.yml
+    - .github/workflows/weekly-governance.yml
+  controls:
+    - scripts/verify_merge.py
+    - scripts/check_output_freshness.py
+    - scripts/commands/ci/validate_current_schemas.py
+failure_handling:
+  owner: System
+  on_nightly_or_weekly_fail: >
+    Inspect Actions run for the failing SHA; file issue or Learning Hub event;
+    fix forward. Do not remove required steps or mark them continue-on-error.
+  bypass_forbidden:
+    - continue-on-error on required jobs/steps
+    - shell true-masks on required commands
+    - labeling clean-checkout absence as runtime freshness PASS

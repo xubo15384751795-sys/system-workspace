@@ -188,49 +188,8 @@ jobs:
         run: python scripts/daily_run.py --dry-run
         env:
           PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
-      - name: Schema validation
-        run: |
-          python -c "
-          import json
-          from pathlib import Path
-          try:
-              import jsonschema
-          except ImportError:
-              print('ERROR: jsonschema not installed — cannot validate schemas')
-              exit(1)
-
-          root = Path('.')
-          errors = []
-
-          fw_path = root / 'Output' / 'current' / 'framework_output.json'
-          schema_path = root / 'governance' / 'framework_output.schema.json'
-          if fw_path.exists() and schema_path.exists():
-              data = json.loads(fw_path.read_text())
-              schema = json.loads(schema_path.read_text())
-              try:
-                  jsonschema.validate(data, schema)
-                  print('framework_output.json: PASS')
-              except jsonschema.ValidationError as e:
-                  errors.append(f'framework_output.json: {e.message}')
-                  print(f'framework_output.json: FAIL — {e.message}')
-
-          status_path = root / 'Output' / 'current' / 'status.json'
-          card_schema_path = root / 'protocols' / 'current_card.schema.json'
-          if status_path.exists() and card_schema_path.exists():
-              data = json.loads(status_path.read_text())
-              schema = json.loads(card_schema_path.read_text())
-              try:
-                  jsonschema.validate(data, schema)
-                  print('status.json: PASS')
-              except jsonschema.ValidationError as e:
-                  errors.append(f'status.json: {e.message}')
-                  print(f'status.json: FAIL — {e.message}')
-
-          if errors:
-              print(f'Schema validation failed: {len(errors)} error(s)')
-              exit(1)
-          print('All schema validations passed.')
-          "
+      - name: Schema validation (clean-checkout N/A, never fake PASS)
+        run: python -m scripts.commands.ci.validate_current_schemas --ci-clean-checkout
         env:
           PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Entrypoint registry completeness
@@ -241,8 +200,8 @@ jobs:
         run: python scripts/verify_experiment_core_judgment.py
         env:
           PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
-      - name: Output freshness check
-        run: python scripts/check_output_freshness.py
+      - name: Output freshness check (clean-checkout N/A, never fake PASS)
+        run: python scripts/check_output_freshness.py --ci-clean-checkout --json
         env:
           PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
       - name: Governance boundary type check
