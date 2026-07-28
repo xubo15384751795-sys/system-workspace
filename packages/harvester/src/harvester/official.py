@@ -833,6 +833,7 @@ def stage_complete_release(
             benchmark,
             as_of_date=as_of_date,
             required_columns=["date", "series_id", "source_id", "source_series_id", "value"],
+            series_col="series_id",
         ),
         release_dir,
         "benchmark_panel",
@@ -893,6 +894,7 @@ def stage_complete_release(
             as_of_date=as_of_date,
             required_columns=["date", "series_id", "source_id", "source_series_id", "value"],
             allow_empty=True,
+            series_col="series_id",
         ),
         release_dir,
         "proxy_candidate_panel",
@@ -999,11 +1001,24 @@ def stage_complete_release(
     from harvester.promotion import run_promotion_gate, write_gate_report
 
     panel_ids = panel_identity_set(benchmark)
+
+    # Detect future vintage dates in the benchmark panel (P1-1: PIT certification).
+    # vintage_date is set uniformly to today; if any data row has a date beyond
+    # as_of + per-series tolerance, flag it for the promotion gate.
+    has_future_vintage = False
+    if not benchmark.empty and "vintage_date" in benchmark.columns:
+        vintage_dates = pd.to_datetime(benchmark["vintage_date"], errors="coerce")
+        as_of_dt = pd.to_datetime(as_of_date)
+        # Any vintage_date more than 7 days after as_of is a future-vintage violation
+        max_allowed = as_of_dt + pd.Timedelta(days=7)
+        has_future_vintage = bool((vintage_dates > max_allowed).any())
+
     gate_result = run_promotion_gate(
         release_dir,
         registry,
         panel_series_ids=panel_ids,
         sha256_verified=True,
+        has_future_vintage=has_future_vintage,
         empty_panels=["corpus_index"] if proxy_row_count == 0 else [],
         cross_asset_row_count=int(cross_asset_info.get("row_count", 0)),
         cross_asset_symbol_count=int(cross_asset_info.get("symbol_count", 0)),

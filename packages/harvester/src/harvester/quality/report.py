@@ -6,6 +6,16 @@ from typing import Any
 
 import pandas as pd
 
+# Per-series future-date tolerance policy.
+# Most series must not have dates after as_of. IORB (Interest Rate on
+# Reserve Balances) is published with forward effective dates by FRED.
+# The tolerance is the maximum number of days a series date may exceed
+# as_of_date without triggering a no_future_dates failure.
+SERIES_FUTURE_DATE_TOLERANCE: dict[str, int] = {
+    "IORB": 7,  # IORB publishes effective dates up to ~7 days forward
+}
+DEFAULT_FUTURE_DATE_TOLERANCE = 0  # all other series: no future dates allowed
+
 
 def build_quality_report(
     dataset_id: str,
@@ -15,6 +25,8 @@ def build_quality_report(
     time_col: str = "date",
     required_columns: list[str] | None = None,
     allow_empty: bool = False,
+    series_col: str = "",
+    future_date_tolerance: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     blockers: list[str] = []
@@ -46,15 +58,43 @@ def build_quality_report(
             max_date = dates.max().date()
             min_date = dates.min().date()
             as_of = date.fromisoformat(as_of_date[:10])
-            # Allow 5-day buffer for series with future effective dates (e.g. IORB)
-            future_threshold = as_of + timedelta(days=5)
-            _record_check(
-                checks,
-                "no_future_dates",
-                max_date <= future_threshold,
-                f"max_date={max_date}, as_of={as_of}",
-                blockers,
-            )
+
+            # Per-series future-date check: use series_col to look up tolerance.
+            # Falls back to the flat tolerance map for the whole panel.
+            tolerance_map = future_date_tolerance or SERIES_FUTURE_DATE_TOLERANCE
+            if series_col and series_col in df.columns:
+                # Per-series: each series gets its own tolerance
+                future_violations: list[str] = []
+                for sid, group in df.groupby(series_col):
+                    sid_str = str(sid)
+                    tol = tolerance_map.get(sid_str, DEFAULT_FUTURE_DATE_TOLERANCE)
+                    sid_max = pd.to_datetime(group[time_col], errors="coerce").max()
+                    if sid_max is not pd.NaT:
+                        sid_max_date = sid_max.date()
+                        threshold = as_of + timedelta(days=tol)
+                        if sid_max_date > threshold:
+                            future_violations.append(
+                                f"{sid_str}: max_date={sid_max_date}, tolerance=+{tol}d"
+                            )
+                _record_check(
+                    checks,
+                    "no_future_dates",
+                    not future_violations,
+                    f"violations={future_violations[:5]}" if future_violations
+                    else f"max_date={max_date}, as_of={as_of}",
+                    blockers,
+                )
+            else:
+                # Panel-level: use the max tolerance across all series
+                max_tol = max(tolerance_map.values()) if tolerance_map else DEFAULT_FUTURE_DATE_TOLERANCE
+                threshold = as_of + timedelta(days=max_tol)
+                _record_check(
+                    checks,
+                    "no_future_dates",
+                    max_date <= threshold,
+                    f"max_date={max_date}, as_of={as_of}, tolerance=+{max_tol}d",
+                    blockers,
+                )
             _record_check(
                 checks,
                 "time_monotonic_by_dataset_order",
