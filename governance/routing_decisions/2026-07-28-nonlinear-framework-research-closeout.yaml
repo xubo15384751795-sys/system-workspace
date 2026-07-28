@@ -1,0 +1,84 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-28"
+task_id: nonlinear-framework-research-closeout
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P2-1 from SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md: close out the
+  research/nonlinear-framework research line. The four research commits
+  (ef5d47a, bdac149, f7a161d, 611a164) were developed on a separate device
+  (macOS, user a1) and are not present in this clone. The research branch
+  was never pushed to origin. This decision records what survives on main,
+  what is stranded, and the closeout disposition for each open thread.
+decision: >
+  KEEP RESEARCH-ONLY. The four commits and their routing decisions
+  (2026-07-12-t6-adjudication-and-freeze.yaml, 2026-07-12-g1-contrast-and-
+  freshness-fix.yaml) remain research-only evidence on the original device.
+  They will NOT be merged to main. The host-theory falsification is already
+  complete on main via the estate settlement (2026-07-18-deformation-v1-
+  estate-settlement.yaml) and the capability_registry ARCHIVED_FALSIFIED
+  entry. The surviving governance records on main are sufficient to satisfy
+  the P2-1 acceptance criteria: negative conclusions are preserved, no
+  research code gains default execution/judgment/promotion authority, and
+  all permanent prohibitions (patch-to-revive, publish-to-current, promote,
+  delete-evidence) are recorded.
+
+  Three open_threads.yaml entries are closed:
+  1. nonlinear-adjudication-closeout -> CLOSED: governance evidence on main
+     is sufficient; research branch commits stay research-only.
+  2. f2-signflip-prereg -> CLOSED: f2_forced_sale wrong-sign finding is
+     recorded in open_threads reason text. A re-test requires a new dated
+     prereg amendment; no opportunistic re-testing.
+  3. shadow-nav-degradation-annotation -> CLOSED: the degradation facts
+     (2026-05-05..07-03, NFCI-only, 0.14 bias, 15% sizing error) are
+     recorded in this decision as the source-of-record. The 90-day
+     acceptance window reader must annotate this period.
+
+  The duckdb_snapshot_store_migration deferred item is marked completed:
+  all three migration_steps (freeze/move/seal) completed 2026-07-07, but
+  the item status remained in_progress. This is the anti-pattern the
+  roadmap flags; it is now reconciled.
+preregistered_expectation: >
+  open_threads.yaml updated with status: closed for all three threads.
+  deferred_work_register.yaml duckdb_snapshot_store_migration status set
+  to completed. No code changes to default path; no research code merged.
+observation_window: "single PR review on codex/p0-4-freshness-monitoring-closure"
+rollback: >
+  Revert this commit to re-open the three threads. The research branch
+  commits remain on the original device regardless.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: false
+acceptance:
+  - open_threads.yaml: all three nonlinear threads status: closed
+  - deferred_work_register.yaml: duckdb_snapshot_store_migration status: completed
+  - No research code merged to main
+  - No research authority granted to default path
+  - Shadow NAV degradation period documented in this decision
+  - f2_forced_sale wrong-sign finding preserved (PENDING_PREREGISTRATION)
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  governance_records:
+    - governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+    - governance/routing_decisions/2026-07-18-deformation-v1-estate-settlement.yaml
+    - governance/capability_registry.yaml
+    - governance/open_threads.yaml
+    - governance/deferred_work_register.yaml
+  stranded_research_branch_files:
+    - governance/routing_decisions/2026-07-12-t6-adjudication-and-freeze.yaml
+    - governance/routing_decisions/2026-07-12-g1-contrast-and-freshness-fix.yaml
+  shadow_nav_degradation:
+    period: "2026-05-05 to 2026-07-03"
+    cause: "P_public silently degraded to NFCI-only for ~9 weeks"
+    bias: 0.14
+    sizing_error: "~15%"
+    action: "annotate 90-day acceptance window reader; no NAV back-correction (append-only)"
+  f2_signflip:
+    finding: "f2_forced_sale significant but wrong-sign"
+    coef: -0.186
+    p_value: 0.0375
+    status: PENDING_PREREGISTRATION
+    rule: "re-test requires new dated prereg amendment; no opportunistic re-testing"

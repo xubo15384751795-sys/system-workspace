@@ -52,7 +52,7 @@ items:
   - id: duckdb_snapshot_store_migration
     title: "Migrate DuckDBSnapshotStore from structural_lab/runtime/ to Harvester-backed store"
     owner: Deformation Framework
-    status: in_progress
+    status: completed
     reason: >
       DuckDBSnapshotStore (46MB) is actively used by runtime. Migration to a
       greenfield Harvester-backed Parquet store (HarvesterSnapshotStore) follows

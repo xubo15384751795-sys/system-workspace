@@ -1,5 +1,5 @@
 schema_version: open_threads.v1
-updated: '2026-07-12'
+updated: '2026-07-28'
 threads:
 - id: nonlinear-adjudication-closeout
   priority: HIGH
@@ -13,7 +13,12 @@ threads:
     '
   command: git log --oneline f9a1ea9..research/nonlinear-framework
   module: governance/routing_decisions/
-  status: open
+  status: closed
+  closed_by: 2026-07-28-nonlinear-framework-research-closeout.yaml
+  closed_reason: >
+    Governance evidence on main (estate settlement + capability_registry
+    ARCHIVED_FALSIFIED) is sufficient. Research branch commits stay
+    research-only. No merge to main.
 - id: f2-signflip-prereg
   priority: MEDIUM
   action: 'f2_forced_sale sign-flip hypothesis: if pursued, file a new dated prereg
@@ -25,7 +30,11 @@ threads:
     '
   command: grep -A5 f2_forced_sale governance/routing_decisions/2026-07-12-g1-contrast-and-freshness-fix.yaml
   module: governance/routing_decisions/
-  status: open
+  status: closed
+  closed_by: 2026-07-28-nonlinear-framework-research-closeout.yaml
+  closed_reason: >
+    Finding preserved in closeout decision. PENDING_PREREGISTRATION
+    status maintained. Re-test requires new dated prereg.
 - id: shadow-nav-degradation-annotation
   priority: MEDIUM
   action: Annotate shadow NAV 2026-05-05..07-03 as NFCI-only P_public in the 90-day
@@ -37,4 +46,8 @@ threads:
     '
   command: see honesty_notes in 2026-07-12-t6-adjudication-and-freeze.yaml
   module: Output/position/
-  status: open
+  status: closed
+  closed_by: 2026-07-28-nonlinear-framework-research-closeout.yaml
+  closed_reason: >
+    Degradation facts recorded in closeout decision shadow_nav_degradation
+    block. The 90-day acceptance window reader must annotate this period.
