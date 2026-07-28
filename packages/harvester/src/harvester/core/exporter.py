@@ -203,14 +203,13 @@ def _write_release_digest(release_dir: Path) -> None:
 
 def _point_latest(latest_path: Path, release_id: str) -> None:
     temporary = latest_path.with_name(".latest.tmp")
-    if temporary.exists() or temporary.is_symlink():
-        temporary.unlink()
+    _remove_latest_pointer(temporary)
     try:
         temporary.symlink_to(release_id)
     except (OSError, NotImplementedError):
         # Windows without symlink privileges: fall back to directory junction
         # (mklink /J) which does not require elevated privileges for directories.
-        temporary.unlink(missing_ok=True)
+        _remove_latest_pointer(temporary)
         import subprocess
         target = latest_path.parent / release_id
         try:
@@ -220,12 +219,47 @@ def _point_latest(latest_path: Path, release_id: str) -> None:
             )
         except (subprocess.CalledProcessError, OSError):
             # Last resort: marker file with release_id
-            temporary.unlink(missing_ok=True)
+            _remove_latest_pointer(temporary)
             latest_path.with_suffix(".latest.txt").write_text(release_id, encoding="utf-8")
-            if latest_path.exists() or latest_path.is_symlink():
-                latest_path.unlink()
+            _remove_latest_pointer(latest_path)
             return
+    # os.replace on Windows cannot atomically replace an existing directory or
+    # junction; the target must be non-existent or a file. Remove first, then
+    # rename. This is not atomic but is the standard workaround on Windows.
+    _remove_latest_pointer(latest_path)
     os.replace(temporary, latest_path)
+
+
+def _remove_latest_pointer(path: Path) -> None:
+    """Remove a symlink, junction, directory-marker, or file at ``path``.
+
+    On Windows, ``latest`` may be a directory junction (created by ``mklink /J``)
+    which requires ``os.rmdir``/``Path.rmdir`` to remove, while POSIX symlinks
+    use ``os.unlink``. This helper handles both without leaking permission
+    errors for common cases.
+    """
+    if not (path.exists() or path.is_symlink()):
+        return
+    try:
+        # Symlinks (POSIX and Windows symlinks) unlink cleanly.
+        if path.is_symlink():
+            path.unlink()
+            return
+        # On Windows, directory junctions look like directories but rmdir works.
+        if path.is_dir():
+            path.rmdir()
+            return
+        path.unlink()
+    except OSError:
+        # Read-only bit on Windows can block unlink/rmdir. Clear and retry once.
+        try:
+            path.chmod(0o777)
+        except OSError:
+            pass
+        if path.is_symlink() or not path.is_dir():
+            path.unlink(missing_ok=True)
+        else:
+            path.rmdir()
 
 
 def _make_read_only(release_dir: Path) -> None:
