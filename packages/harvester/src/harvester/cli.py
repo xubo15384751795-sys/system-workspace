@@ -8,8 +8,8 @@ from pathlib import Path
 # Load .env from project root and user home if python-dotenv is available
 try:
     from dotenv import load_dotenv
-    # Project-level .env
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+    # Project-level .env (packages/harvester/src/harvester/cli.py -> root is 5 levels up)
+    load_dotenv(Path(__file__).resolve().parents[4] / ".env", override=False)
     # User-level .env
     load_dotenv(Path.home() / ".hermes" / ".env", override=False)
 except ImportError:

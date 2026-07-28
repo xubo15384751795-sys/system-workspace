@@ -96,11 +96,23 @@ class EtfYfinanceProvider(OfficialProvider):
         by_id = self._fetch_batch(series_ids)
         missing = [ticker for ticker in series_ids if by_id.get(ticker) is None or by_id[ticker].empty()]
         if missing:
-            logger.warning("ETF batch incomplete; retrying %d tickers individually", len(missing))
-            for index, ticker in enumerate(missing):
-                if index:
-                    time.sleep(_INTER_TICKER_SLEEP_S)
-                by_id[ticker] = self._fetch_one(ticker)
+            # Detect rate-limiting: if batch returned nothing, Yahoo is likely
+            # rate-limiting. Don't hammer with 34 serial retries (each 30s timeout).
+            if not by_id or all(r.frame is None or r.frame.empty for r in by_id.values()):
+                logger.warning(
+                    "ETF batch returned no data for %d tickers; skipping serial retries "
+                    "(likely Yahoo rate-limit)", len(missing),
+                )
+                for ticker in missing:
+                    by_id[ticker] = self._build_error_result(
+                        ticker, "yfinance rate-limited (batch empty)", "rate_limited"
+                    )
+            else:
+                logger.warning("ETF batch incomplete; retrying %d tickers individually", len(missing))
+                for index, ticker in enumerate(missing):
+                    if index:
+                        time.sleep(_INTER_TICKER_SLEEP_S)
+                    by_id[ticker] = self._fetch_one(ticker)
 
         return [by_id[ticker] for ticker in series_ids]
 

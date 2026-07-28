@@ -48,21 +48,21 @@ def build_readme_from_index(
         output_source = run_id
 
     # Extract key sections
-    measurement = index.get("measurement_state", {})
-    judgment = measurement.get("judgment", {}).get("summary", {})
-    promotion_gate = measurement.get("promotion_gate", {}).get("summary", {})
-    signals = measurement.get("signals", {})
-    hmm = signals.get("hmm", {}).get("summary", {})
-    k_gate = signals.get("k_gate", {}).get("summary", {})
-    x_gate = signals.get("x_gate", {}).get("summary", {})
+    measurement = index.get("measurement_state", {}) or {}
+    judgment = (measurement.get("judgment", {}) or {}).get("summary", {}) or {}
+    promotion_gate = (measurement.get("promotion_gate", {}) or {}).get("summary", {}) or {}
+    signals = measurement.get("signals", {}) or {}
+    hmm = (signals.get("hmm", {}) or {}).get("summary", {}) or {}
+    k_gate = (signals.get("k_gate", {}) or {}).get("summary", {}) or {}
+    x_gate = (signals.get("x_gate", {}) or {}).get("summary", {}) or {}
 
-    trade_decision = index.get("trade_decision", {}).get("summary", {})
-    risk_gate = index.get("risk_gate", {}).get("summary", {})
+    trade_decision = index.get("trade_decision", {}).get("summary", {}) or {}
+    risk_gate = (index.get("risk_gate", {}) or {}).get("summary", {}) or {}
 
-    paper = index.get("paper_world_model", {})
-    horizon = index.get("horizon_events", {})
-    prob_context = measurement.get("probabilistic_context", {})
-    market_feedback = index.get("market_feedback", {}).get("latest", {})
+    paper = index.get("paper_world_model", {}) or {}
+    horizon = index.get("horizon_events", {}) or {}
+    prob_context = measurement.get("probabilistic_context", {}) or {}
+    market_feedback = (index.get("market_feedback", {}) or {}).get("latest", {}) or {}
 
     # Determine availability
     paper_available = paper.get("cases", {}).get("exists", False)
@@ -88,12 +88,12 @@ def build_readme_from_index(
         grade_note = " (structural vs trade differ — see evidence_grade_report.json)"
 
     # Check if HMM regime is forbidden
-    forbidden = promotion_gate.get("forbidden_language", [])
-    hmm_regime = hmm.get("current_regime", "N/A")
+    forbidden = promotion_gate.get("forbidden_language", []) if promotion_gate else []
+    hmm_regime = (hmm or {}).get("current_regime", "N/A")
     if hmm_regime.lower() in [f.lower() for f in forbidden]:
         hmm_display = "withheld (diagnostic-only)"
     else:
-        hmm_display = f"{hmm_regime} (stability: {hmm.get('stability_grade', 'N/A')})"
+        hmm_display = f"{hmm_regime} (stability: {(hmm or {}).get('stability_grade', 'N/A')})"
 
     # Position intent - now derived from trade_decision.v3 in build_system_index
     # (stance x effective_size x velocity_gate_state). Single decision dialect.
@@ -122,7 +122,7 @@ def build_readme_from_index(
         "WATCH": "market structure pressure is neutral; the system is watching",
     }.get(stance_value, "market structure pressure is in an unspecified state")
 
-    hmm_regime_raw = hmm.get("current_regime", "unknown")
+    hmm_regime_raw = (hmm or {}).get("current_regime", "unknown")
     regime_plain = {
         "compression": "compressed (low dispersion)",
         "expansion": "expanding (rising dispersion)",

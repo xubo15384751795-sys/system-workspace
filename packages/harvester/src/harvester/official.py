@@ -315,6 +315,10 @@ def make_manifest(
 
     prov_path = provenance_path or f"provenance/{dataset_id}.provenance.json"
 
+    date_start = _date_min(data_path)
+    if not date_start:
+        date_start = as_of_date
+
     return build_manifest(
         dataset_id=dataset_id,
         release_id=release_id,
@@ -335,7 +339,7 @@ def make_manifest(
         },
         columns=columns,
         time_coverage={
-            "start": _date_min(data_path),
+            "start": date_start,
             "end": as_of_date,
             "frequency": "irregular",
             "time_column": "date",
@@ -471,7 +475,11 @@ def _default_columns() -> list[dict[str, Any]]:
 def _date_min(path: Path) -> str:
     try:
         df = pd.read_parquet(path)
+        if df.empty:
+            return ""
         dates = pd.to_datetime(df["date"])
+        if dates.empty:
+            return ""
         return dates.min().strftime("%Y-%m-%d")
     except Exception:
         return ""

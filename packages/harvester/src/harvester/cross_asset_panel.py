@@ -169,12 +169,13 @@ def build_cross_asset_panel(
     except RuntimeError as exc:
         # Yahoo often rate-limits the full universe mid-pipeline. Keep the
         # workspace mirror so harvester/refresh do not hard-fail the release.
-        if existing.empty:
-            raise
+        # On first run (no history), return empty panel so the release can
+        # still finalize with FRED data; cross-asset is a supplementary panel.
         logger.warning(
-            "ETF fetch failed entirely (%s); retaining existing panel (%d rows)",
+            "ETF fetch failed entirely (%s); %s",
             exc,
-            len(existing),
+            "retaining existing panel (%d rows)" % len(existing) if not existing.empty
+            else "no existing panel - cross_asset_daily_panel will be empty",
         )
         fresh = pd.DataFrame(
             columns=["date", "symbol", "open", "high", "low", "close", "volume"]
@@ -307,7 +308,7 @@ def stage_cross_asset_panel(
             panel,
             as_of_date=as_of_date,
             required_columns=["date", "symbol", "close"],
-            allow_empty=False,
+            allow_empty=True,
         ),
         release_dir,
         DATASET_ID,

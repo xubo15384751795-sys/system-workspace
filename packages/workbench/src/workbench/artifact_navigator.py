@@ -37,7 +37,12 @@ def _link_current(target: Path, name: str) -> None:
     CURRENT.mkdir(parents=True, exist_ok=True)
     link = CURRENT / name
     _safe_unlink(link)
-    link.symlink_to(Path("..") / "workbench" / "artifacts" / target.name)
+    try:
+        link.symlink_to(Path("..") / "workbench" / "artifacts" / target.name)
+    except (OSError, NotImplementedError):
+        # Windows without symlink privileges: copy the file as a fallback.
+        import shutil
+        shutil.copy2(target, link)
 
 
 def _artifact(name: str, rel_path: str, kind: str, open_first: bool = False) -> dict[str, Any]:

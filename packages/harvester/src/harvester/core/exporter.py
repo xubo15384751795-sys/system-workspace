@@ -205,7 +205,26 @@ def _point_latest(latest_path: Path, release_id: str) -> None:
     temporary = latest_path.with_name(".latest.tmp")
     if temporary.exists() or temporary.is_symlink():
         temporary.unlink()
-    temporary.symlink_to(release_id)
+    try:
+        temporary.symlink_to(release_id)
+    except (OSError, NotImplementedError):
+        # Windows without symlink privileges: fall back to directory junction
+        # (mklink /J) which does not require elevated privileges for directories.
+        temporary.unlink(missing_ok=True)
+        import subprocess
+        target = latest_path.parent / release_id
+        try:
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(temporary), str(target.resolve())],
+                check=True, capture_output=True,
+            )
+        except (subprocess.CalledProcessError, OSError):
+            # Last resort: marker file with release_id
+            temporary.unlink(missing_ok=True)
+            latest_path.with_suffix(".latest.txt").write_text(release_id, encoding="utf-8")
+            if latest_path.exists() or latest_path.is_symlink():
+                latest_path.unlink()
+            return
     os.replace(temporary, latest_path)
 
 
