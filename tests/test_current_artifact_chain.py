@@ -1,11 +1,12 @@
 """Current artifact semantic chain — verify outputs explain each other.
 
-Hermetic mode (default on clean checkout):
+Hermetic mode (default everywhere):
   Reads committed fixtures under tests/fixtures/current_chain/.
 
 Operator mode:
-  If Output/current/framework_output.json exists, prefer live artifacts
-  (still must obey runtime_status_contract enums).
+  Set SYSTEM_TEST_USE_LIVE_ARTIFACTS=1 explicitly. Live operator checks belong
+  in test_current_artifact_chain_operator.py and are excluded from merge
+  evidence on clean checkouts.
 
 See: governance/daily_pipeline_registry.yaml
      governance/runtime_status_contract.yaml
@@ -31,9 +32,7 @@ FIXTURE_ROOT = ROOT / "tests" / "fixtures" / "current_chain"
 
 
 def _prefer_live() -> bool:
-    if os.environ.get("SYSTEM_TEST_FORCE_FIXTURES") == "1":
-        return False
-    return (ROOT / "Output" / "current" / "framework_output.json").exists()
+    return os.environ.get("SYSTEM_TEST_USE_LIVE_ARTIFACTS") == "1"
 
 
 def _base() -> Path:

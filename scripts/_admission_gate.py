@@ -1,9 +1,10 @@
 """Pre-consumption admission gate.
 
 Phase A: turns freshness from a post-run report into a *pre-consumption*
-authorization. A consumer (paper_portfolio, ...) calls ``admit_for_consumption``
-before reading its inputs; if any required public component is stale or
-missing, the consumer is blocked rather than silently degrading.
+authorization. A consumer (refresh_current, paper_portfolio, ...) calls
+``admit_for_consumption`` before reading its inputs; if any required public
+component is stale or missing, the consumer is blocked rather than silently
+degrading.
 
 This thin wrapper reconciles the two freshness systems in the repo:
 
@@ -36,7 +37,9 @@ _PUBLIC_CONTENT_CHECKS = ("ofr_fsi_cache", "ciss_cache", "benchmark_panel")
 
 # Consumers known to depend on fresh public components. Admission is currently
 # uniform across these; the consumer name is recorded for the audit trail.
-_PUBLIC_DEPENDENT_CONSUMERS = frozenset({"paper_portfolio", "shadow_outcomes_90d"})
+_PUBLIC_DEPENDENT_CONSUMERS = frozenset(
+    {"refresh_current", "paper_portfolio", "shadow_outcomes_90d"}
+)
 
 
 @dataclass
