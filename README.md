@@ -17,9 +17,12 @@ cd /Users/a1/System
 ./sys check
 ./sys open
 ./sys next
+./sys roadmap
 ```
 
 Daily users do not need to understand the internal framework first.
+`./sys roadmap` shows the evidence-derived project completion, blockers, and
+next acceptance gate shared through Git.
 
 For IDE and agent work, route the task first; read only the returned module
 context before inspecting source:

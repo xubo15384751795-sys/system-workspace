@@ -186,6 +186,8 @@ def _legacy_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
         return _run(paths, "scripts/daily_run.py", args.arguments)
     if command == "report":
         return _show(current / "latest_report.html", lines=20)
+    if command == "roadmap":
+        return _run(paths, "scripts/roadmap_progress.py", args.arguments)
     raise ValueError(command)
 
 
@@ -250,6 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
         "verify": "Run merge/control verification",
         "run-daily": "Run the daily pipeline",
         "report": "Display the current report path/content",
+        "roadmap": "Show evidence-derived validation roadmap progress",
     }
     for name, help_text in aliases.items():
         command = sub.add_parser(name, help=help_text)

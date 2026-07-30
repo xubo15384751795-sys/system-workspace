@@ -1118,6 +1118,14 @@ artifact_monitoring_audit:
   description: Verify that authoritative artifacts have monitoring coverage
   allowed_use:
   - governance_audit
+roadmap_progress:
+  script: scripts/roadmap_progress.py
+  status: governance_active
+  owner: Governance
+  description: Validate append-only roadmap transitions and render evidence-derived project progress
+  allowed_use:
+  - roadmap_progress_readout
+  - roadmap_transition_validation
 backward_pass:
   script: scripts/commands/weekly/backward_pass.py
   status: experimental

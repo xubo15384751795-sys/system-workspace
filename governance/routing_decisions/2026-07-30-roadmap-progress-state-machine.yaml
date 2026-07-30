@@ -1,0 +1,44 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-30"
+task_id: roadmap-progress-state-machine
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Replace manually estimated project-completion percentages with a cross-device,
+  machine-validated roadmap state machine and append-only evidence ledger.
+decision: >
+  Keep task definitions and criterion weights in
+  governance/progress/validation_roadmap.yaml. Keep reviewed progress events in
+  governance/progress/validation_progress_events.jsonl so Git, rather than an
+  unshared local database, is the cross-device authority. Derive current state,
+  phase completion and PROJECT_PROGRESS.md from those sources. A local
+  Parquet/DuckDB view may query the events later but cannot override them.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+acceptance:
+  - every task and criterion has explicit weights
+  - task weights and per-task criterion weights each sum to 100
+  - the transition engine rejects unknown tasks, criteria, states and illegal transitions
+  - event ids are unique and events are chronological
+  - completion percentages are derived from criterion evidence states
+  - ./sys roadmap displays the same snapshot as the canonical script
+  - generated Markdown identifies blockers and next gates
+non_goals:
+  - no server database
+  - no automatic promotion or research authority
+  - no manual editing of generated percentages
+  - no inference that CI green equals operational verification
+rollback: >
+  Revert this branch. Existing roadmap prose and validation workflows remain
+  unchanged; this tracker does not control runtime judgment or promotion.
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  files:
+    - governance/progress/validation_roadmap.yaml
+    - governance/progress/validation_progress_events.jsonl
+    - scripts/roadmap_progress.py
+    - PROJECT_PROGRESS.md
+    - tests/test_roadmap_progress.py
