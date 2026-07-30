@@ -20,6 +20,14 @@ IMMUTABLE_PARTS = {"runs", "releases", "snapshots", "archive", "raw", "history"}
 TIME_KEYS = ("generated_at", "completed_at", "recorded_at", "updated_at", "timestamp", "as_of_date", "date")
 NON_DAILY_SCHEDULES = {"weekly", "monthly", "quarterly", "manual", "on_demand"}
 MINIMUM_CADENCE_HOURS = {"weekly": 168, "monthly": 28 * 24, "quarterly": 90 * 24}
+MONITORING_CLASSES = {
+    "authoritative",
+    "decision_adjacent_shadow",
+    "research",
+    "manual_on_demand",
+    "archived_retire",
+}
+DEFAULT_REQUIRED_COVERAGE_CLASSES = {"authoritative", "decision_adjacent_shadow"}
 
 
 def load_registry(root: Path) -> dict[str, Any]:
@@ -162,6 +170,69 @@ def blind_spot_families(paths: list[str]) -> list[dict[str, Any]]:
     ]
 
 
+def monitoring_classification_config(registry: dict[str, Any]) -> dict[str, Any]:
+    config = registry.get("monitoring_classification", {}) or {}
+    required = {
+        str(item)
+        for item in (config.get("required_coverage_classes") or sorted(DEFAULT_REQUIRED_COVERAGE_CLASSES))
+    }
+    rules = [dict(rule) for rule in (config.get("rules") or []) if isinstance(rule, dict)]
+    return {"required_coverage_classes": required, "rules": rules}
+
+
+def classify_monitoring_path(path: str, registry: dict[str, Any]) -> dict[str, Any]:
+    """Assign a P0-4 monitoring class + owner. First matching rule wins."""
+    config = monitoring_classification_config(registry)
+    for rule in config["rules"]:
+        pattern = str(rule.get("pattern") or "")
+        if not pattern or not matches_pattern(path, pattern):
+            continue
+        klass = str(rule.get("class") or "unclassified")
+        owner = rule.get("owner")
+        return {
+            "path": path,
+            "class": klass if klass in MONITORING_CLASSES else "unclassified",
+            "owner": str(owner) if owner else None,
+            "matched_rule": pattern,
+        }
+    return {
+        "path": path,
+        "class": "unclassified",
+        "owner": None,
+        "matched_rule": None,
+    }
+
+
+def classify_blind_spots(paths: list[str], registry: dict[str, Any]) -> list[dict[str, Any]]:
+    return [classify_monitoring_path(path, registry) for path in paths]
+
+
+def required_coverage_gaps(
+    classified: list[dict[str, Any]],
+    registry: dict[str, Any],
+) -> list[dict[str, Any]]:
+    required = monitoring_classification_config(registry)["required_coverage_classes"]
+    return [
+        {
+            "path": row["path"],
+            "class": row["class"],
+            "owner": row["owner"],
+            "kind": "required_coverage_gap",
+        }
+        for row in classified
+        if row["class"] in required
+    ]
+
+
+def unresolved_blind_spots(classified: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Blind spots that lack a valid class or owner."""
+    return [
+        row
+        for row in classified
+        if row["class"] == "unclassified" or not row.get("owner")
+    ]
+
+
 def resolve_artifact(root: Path, pattern: str) -> Path | None:
     clean = pattern.rstrip("/")
     matches = [path for path in root.glob(clean) if path.is_file()]
@@ -288,23 +359,31 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
     contracts = non_daily_contract_violations(registry)
     blind_spot_paths = monitoring_blind_spots(root, registry)
     blind_spots = blind_spot_families(blind_spot_paths)
+    classified = classify_blind_spots(blind_spot_paths, registry)
+    coverage_gaps = required_coverage_gaps(classified, registry)
+    unresolved = unresolved_blind_spots(classified)
     content = non_daily_content_checks(root, registry, now)
     matrix = monitoring_matrix(root, registry)
     source_lag = learning_hub_source_lag(root)
     stale_or_missing = sum(row["status"] in {"MISSING", "STALE_CONTENT"} for row in content)
     no_content_clock = sum(row["status"] == "NO_CONTENT_CLOCK" for row in content)
+    classification_fail = bool(coverage_gaps or unresolved)
     report = {
-        "schema_version": "artifact_monitoring_audit.v2",
+        "schema_version": "artifact_monitoring_audit.v3",
         "generated_at": now.isoformat(),
         "status": "FAIL"
         if contracts
         or stale_or_missing
         or no_content_clock
+        or classification_fail
         or source_lag.get("status") in {"MISSING_LEDGER", "SOURCE_AHEAD_OF_LEDGER"}
         else "PASS",
         "weekly_contract_violations": contracts,
         "weekly_content_checks": content,
         "monitoring_blind_spots": blind_spots,
+        "monitoring_blind_spot_classifications": classified,
+        "required_coverage_gaps": coverage_gaps,
+        "unresolved_monitoring_blind_spots": unresolved,
         "artifact_monitoring_matrix": matrix,
         "learning_hub_source_lag": source_lag,
         "summary": {
@@ -318,6 +397,9 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
             "monitoring_blind_spot_count": len(blind_spot_paths),
             "monitoring_blind_spot_family_count": len(blind_spots),
             "monitoring_matrix_row_count": len(matrix),
+            "required_coverage_gap_count": len(coverage_gaps),
+            "unresolved_monitoring_blind_spot_count": len(unresolved),
+            "classified_monitoring_blind_spot_count": len(classified),
         },
     }
     if report["status"] == "PASS" and (
@@ -341,6 +423,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Non-daily stale or missing artifacts: {summary['non_daily_stale_or_missing_count']}",
         f"- Non-daily artifacts without a content clock: {summary['non_daily_no_content_clock_count']}",
         f"- Unmonitored current/durable artifacts: {summary['monitoring_blind_spot_count']}",
+        f"- Required coverage gaps (authoritative / decision-adjacent): {summary.get('required_coverage_gap_count', 0)}",
+        f"- Unresolved (unclassified / ownerless) blind spots: {summary.get('unresolved_monitoring_blind_spot_count', 0)}",
         "",
         "## Monitoring blind spots",
         "",
@@ -352,6 +436,16 @@ def render_markdown(report: dict[str, Any]) -> str:
     )
     if not report["monitoring_blind_spots"]:
         lines.append("- None")
+    lines.extend(["", "## Blind spot classifications", ""])
+    classifications = report.get("monitoring_blind_spot_classifications") or []
+    lines.extend(
+        f"- `{row['path']}` → `{row['class']}` (owner: {row.get('owner') or 'none'})"
+        for row in classifications[:40]
+    )
+    if not classifications:
+        lines.append("- None")
+    elif len(classifications) > 40:
+        lines.append(f"- … {len(classifications) - 40} more")
     return "\n".join(lines) + "\n"
 
 

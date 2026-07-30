@@ -1,5 +1,5 @@
 schema_version: daily_pipeline_registry.v3
-updated_at: '2026-07-17'
+updated_at: '2026-07-30'
 generated_views:
   - governance/daily_run_sequence.yaml
 # Known external inputs — paths consumed by steps but not produced by any
@@ -70,6 +70,125 @@ content_freshness:
     max_trading_days_behind: 5
     owner_step: harvester
     decision_critical: true
+
+# P0-4 wave 2: every monitoring blind spot must land in one class with an owner.
+# authoritative + decision_adjacent_shadow cannot remain uncovered.
+# First matching rule wins — keep specific prefixes above catch-alls.
+monitoring_classification:
+  required_coverage_classes:
+    - authoritative
+    - decision_adjacent_shadow
+  classes:
+    - authoritative
+    - decision_adjacent_shadow
+    - research
+    - manual_on_demand
+    - archived_retire
+  rules:
+    # These files are convenience views produced only by explicit Workbench
+    # tools.  Their presence under Output/current does not make them part of
+    # the authoritative daily readout.
+    - pattern: Output/current/artifact_navigator.*
+      class: manual_on_demand
+      owner: Workbench
+    - pattern: Output/current/benchmark_evidence_dashboard.*
+      class: manual_on_demand
+      owner: Workbench
+    # These are retained compatibility artifacts from producers that are no
+    # longer on the default refresh path.
+    - pattern: Output/current/latest_summary.md
+      class: archived_retire
+      owner: Workbench
+    - pattern: Output/current/model_run.json
+      class: manual_on_demand
+      owner: Workbench
+    - pattern: Output/current/operator_activations.json
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Output/current/*
+      class: authoritative
+      owner: Workbench
+    - pattern: Data/harvester/exports/*
+      class: authoritative
+      owner: Harvester
+    - pattern: Data/panels/*
+      class: authoritative
+      owner: Harvester
+    - pattern: Data/features/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/k_measurement/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/x_measurement/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/judgment/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/quality/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/system_learning/*
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+    - pattern: Data/system_learning/*
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+    - pattern: Data/paper_world_model/*
+      class: decision_adjacent_shadow
+      owner: Harvester
+    - pattern: Output/runs/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/sandbox/*
+      class: research
+      owner: Workbench
+    - pattern: Output/research/*
+      class: research
+      owner: Workbench
+    - pattern: Output/validation/*
+      class: research
+      owner: ML Signals
+    - pattern: Output/strategy_lab/*
+      class: research
+      owner: ML Signals
+    - pattern: Output/benchmarks/*
+      class: research
+      owner: Workbench
+    - pattern: Output/caselab/*
+      class: research
+      owner: CaseLab
+    - pattern: Output/workbench/*
+      class: research
+      owner: Workbench
+    - pattern: Data/fixtures/*
+      class: research
+      owner: Workbench
+    - pattern: Output/archive/*
+      class: archived_retire
+      owner: Workbench
+    - pattern: Data/archive/*
+      class: archived_retire
+      owner: Harvester
+    - pattern: Data/structural_lab/*
+      class: archived_retire
+      owner: Framework
+    - pattern: Data/merged_data/*
+      class: archived_retire
+      owner: Harvester
+    - pattern: Output/deformation_runs/*
+      class: archived_retire
+      owner: Framework
+    - pattern: Output/reports/*
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Output/*
+      class: research
+      owner: Workbench
+    - pattern: Data/*
+      class: manual_on_demand
+      owner: System
 
 steps:
   harvester:
@@ -456,7 +575,7 @@ steps:
     - Output/hmm_stability/hmm_stability_audit.json
     - Output/hmm_stability/hmm_stability_audit.md
     artifact_path: Output/hmm_stability/hmm_stability_audit.json
-    ttl_hours: 48
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -540,7 +659,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_measurement_quality_report.py
-    schedule: weekly
+    schedule: daily
     input: &id020mq
     - Output/k_measurement/k_measurement_gate.json
     - Output/x_measurement/x_measurement_gate.json
@@ -906,7 +1025,7 @@ steps:
     - Output/current/data_gaps.json
     - Output/current/data_gaps.md
     artifact_path: Output/current/data_gaps.json
-    ttl_hours: 48
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1122,7 +1241,7 @@ steps:
     produces: &id038
     - Output/system_learning/latest/comprehensive_summary.md
     artifact_path: Output/system_learning/latest/comprehensive_summary.md
-    ttl_hours: 72
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1210,7 +1329,7 @@ steps:
     - Output/quality/operator_registry_audit.json
     - Output/quality/operator_registry_audit.md
     artifact_path: Output/quality/operator_registry_audit.json
-    ttl_hours: 72
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1315,13 +1434,13 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
-    schedule: weekly
+    schedule: daily
   evidence_grade_report:
     order: 59
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_evidence_grade_report.py
-    schedule: weekly
+    schedule: daily
     input: &id050_5
     - Output/judgment/latest.json
     - Output/judgment/promotion_gate.json
@@ -1355,7 +1474,7 @@ steps:
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_artifact_registry.py
-    schedule: weekly
+    schedule: daily
     input: &id050_55
     - governance/output_routing_policy.yaml
     - governance/daily_pipeline_registry.yaml
@@ -1432,7 +1551,7 @@ steps:
     - Output/system_learning/latest/summary.json
     - Output/system_learning/latest/improvement_queue.md
     artifact_path: Data/system_learning/ledgers/system_event_ledger.parquet
-    ttl_hours: 36
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1490,8 +1609,8 @@ steps:
     input: &id049
     - Output/system_learning/latest/
     produces: &id050
-    - Output/current/next_actions.md
-    artifact_path: Output/current/next_actions.md
+    - Output/current/NEXT_ACTIONS.md
+    artifact_path: Output/current/NEXT_ACTIONS.md
     ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -1510,7 +1629,7 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Learning Hub
-    schedule: weekly
+    schedule: daily
   freshness_validator:
     order: 36
     status: active
@@ -1905,7 +2024,7 @@ steps:
     produces: &id084_out
     - Output/system_learning/latest/authority_graph.json
     artifact_path: Output/system_learning/latest/authority_graph.json
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -1945,7 +2064,7 @@ steps:
     - Output/system_learning/latest/governance_status.md
     - Output/system_learning/latest/governance_status.json
     artifact_path: Output/system_learning/latest/governance_status.md
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2034,7 +2153,7 @@ steps:
     produces:
     - caselab_runtime/policies/agent_policy.yml
     artifact_path: caselab_runtime/policies/agent_policy.yml
-    ttl_hours: 72
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2314,7 +2433,7 @@ steps:
       - Output/current/change_analysis.json
       - Output/current/change_analysis.md
     artifact_path: Output/current/change_analysis.json
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
@@ -2381,7 +2500,7 @@ steps:
       - Output/sandbox/structural_replay_v2/all_signals.parquet
     produces:
       - Output/system_learning/latest/judgment_accuracy_report.json
-    ttl_hours: 24
+    ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning

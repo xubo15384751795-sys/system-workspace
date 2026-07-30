@@ -607,3 +607,55 @@ codex/nonlinear-research-closeout
 - 所有默认路径变更均有人工批准和可执行回滚。
 
 在此之前，系统应继续保持 research-only / paper / shadow 的现有限权边界。
+
+## 16. 2026-07-30 执行进度（P0-4 独立分支）
+
+当前分支：`codex/p0-4-freshness-core`。
+
+### 已完成的源码闭环
+
+- weekly schedule 与 TTL 的契约冲突已清零；真实 weekly 任务使用 168 小时
+  TTL，实际属于每日 current 链的任务改为 daily；
+- 监控盲区已经全部进入五类分类并绑定 owner，手工/研究/归档产物不再
+  混入权威 current freshness；
+- current freshness 使用真实生产路径，`promotion_gate` 与 `system_index`
+  不再被错误地要求出现在 `Output/current/`；
+- 默认 `sys refresh` 在任何生产者之前执行 OFR/CISS/benchmark
+  pre-consumption admission，阻断时不执行任何后代；
+- 默认刷新链补入 `measurement_quality`、`signal_card`、
+  `signal_consensus`、`work_brief` 与 `freshness_validator`；
+- 刷新步骤失败后停止继续写后代，`sys refresh --dry-run` 参数可真实透传；
+- current-chain 测试默认使用 hermetic fixture，真实操作态检查拆为显式
+  operator test。
+
+### 当前验证证据
+
+- P0-4、admission、failure closure、callable E2E 等聚焦测试：
+  `165 passed, 2 skipped`；
+- 变更文件 ruff、编译检查、generated pipeline view：通过；
+- 真实 `sys refresh`：按设计在第 1/19 步阻断，后代执行数为 0；
+- 当前阻断项：OFR FSI release/cache 过期、CISS release/cache 过期；
+- operator current-chain：2/3 通过；freshness 项因 12 个真实 stale 产物失败；
+- monitoring audit：TTL/schedule violation 为 0、未分类盲区为 0，但仍有
+  55 个 authoritative/decision-adjacent required coverage gap，因此整体仍为
+  `FAIL`。
+
+以上证据只表示源码控制已接通，不表示 P0-4 通过验收；尚未运行这台机器
+不适合承担的完整测试、Harvester 长刷新、CI 调度或长期证据窗口。
+
+### 下一台设备的严格执行顺序
+
+1. 从干净 checkout 运行完整 Harvester daily release，真实更新 OFR/CISS
+   cache 和 release；不得改 TTL、mtime 或手工复制旧 release。
+2. 确认 admission PASS 后运行 `sys refresh`，验证 19 步全链同源完成。
+3. 单独运行 weekly `build_data_gaps.py` 与 `build_change_analysis.py`，不得把
+   两者伪装成 daily。
+4. 重跑 operator current-chain 与 full freshness，要求 12 个 stale 项清零、
+   ordering/closure issue 为 0。
+5. 逐项处理 monitoring audit 的 55 个 required coverage gap；只能增加真实
+   content clock/producer contract，或用有证据的 routing decision 改类，不得
+   用 catch-all 分类隐藏。
+6. 运行根套件、四包套件和 `verify_merge.py --merge`，确认临时 workspace
+   外的 `Data/Output` 哈希不变。
+7. 推送独立 PR，等待 push/PR/Nightly/Weekly 全绿；之后才开始连续 14 天
+   P0-4 运行证据窗口。

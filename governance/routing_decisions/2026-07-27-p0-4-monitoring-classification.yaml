@@ -1,0 +1,44 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-27"
+task_id: p0-4-monitoring-classification
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-4 wave 2 from SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md: classify monitoring
+  blind spots into authoritative / decision_adjacent_shadow / research /
+  manual_on_demand / archived_retire with owners, and fail when required-coverage
+  classes remain uncovered or when a blind spot is unclassified / ownerless.
+decision: >
+  Add monitoring_classification rules to governance/daily_pipeline_registry.yaml.
+  artifact_monitoring_audit compiles classifications into the coverage report
+  (schema v3), treats authoritative and decision_adjacent_shadow uncovered
+  paths as required_coverage_gaps (FAIL), and treats research/manual/archived
+  uncovered paths with owners as WARN-only. Also assert content clocks are
+  independent of file mtime for non-daily registered outputs.
+preregistered_expectation: >
+  Hermetic tests pass; live registry classifies Output/current as authoritative
+  and Output/sandbox as research; required coverage gaps fail the audit.
+observation_window: >
+  Focused tests plus the repository merge gate on the isolated
+  codex/p0-4-freshness-core branch; operational debt remains visible until
+  live required-coverage gaps and stale content are actually cleared.
+rollback: >
+  Revert this commit; drop monitoring_classification from the registry and
+  restore artifact_monitoring_audit.v2 report fields.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: false
+acceptance:
+  - blind spots emit class + owner
+  - authoritative / decision_adjacent_shadow uncovered => FAIL
+  - research uncovered with owner => WARN (not required gap)
+  - content clock STALE cannot be rescued by fresh mtime
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  files:
+    - governance/daily_pipeline_registry.yaml
+    - scripts/artifact_monitoring_audit.py
+    - tests/test_artifact_monitoring_audit.py

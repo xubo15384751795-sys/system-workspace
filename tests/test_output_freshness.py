@@ -9,7 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from check_output_freshness import (
+from check_output_freshness import (  # noqa: E402
+    _missing_required_artifacts,
+    _registry_ttl_for_current_artifact,
+    _resolve_required_artifact,
     check_artifact_freshness,
     check_symlink_freshness,
     get_freshness_rules,
@@ -110,6 +113,66 @@ def test_missing_artifact(tmp_path):
     result = check_artifact_freshness(p, 48, time.time())
     assert result is not None
     assert result["status"] == "MISSING"
+
+
+def test_required_artifact_paths_follow_real_producers(tmp_path):
+    """Promotion gate and system index live outside Output/current."""
+    current = tmp_path / "Output" / "current"
+    judgment = tmp_path / "Output" / "judgment"
+    system_index = tmp_path / "Data" / "system_index"
+    current.mkdir(parents=True)
+    judgment.mkdir(parents=True)
+    system_index.mkdir(parents=True)
+
+    for name in (
+        "framework_output.json",
+        "signal_card.md",
+        "signal_consensus.json",
+        "work_brief.md",
+        "00_READ_ME_FIRST.md",
+    ):
+        (current / name).write_text("fresh\n", encoding="utf-8")
+    (judgment / "promotion_gate.json").write_text("{}\n", encoding="utf-8")
+    (system_index / "latest.json").write_text("{}\n", encoding="utf-8")
+
+    assert _missing_required_artifacts(tmp_path) == []
+    assert _resolve_required_artifact(tmp_path, "promotion_gate") == (
+        judgment / "promotion_gate.json"
+    )
+    assert _resolve_required_artifact(tmp_path, "system_index") == (
+        system_index / "latest.json"
+    )
+
+
+def test_required_artifact_paths_do_not_accept_wrong_current_aliases(tmp_path):
+    current = tmp_path / "Output" / "current"
+    current.mkdir(parents=True)
+    (current / "promotion_gate.json").write_text("{}\n", encoding="utf-8")
+    (current / "system_index.json").write_text("{}\n", encoding="utf-8")
+
+    missing = _missing_required_artifacts(tmp_path)
+
+    assert "promotion_gate" in missing
+    assert "system_index" in missing
+
+
+def test_registry_ttl_uses_real_current_producer_contract():
+    import yaml
+
+    registry = yaml.safe_load(
+        (ROOT / "governance" / "daily_pipeline_registry.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert _registry_ttl_for_current_artifact(
+        "Output/current/change_analysis.json",
+        registry,
+    ) == 168
+    assert _registry_ttl_for_current_artifact(
+        "Output/current/NEXT_ACTIONS.md",
+        registry,
+    ) == 24
 
 
 def test_require_artifacts_fails_when_current_missing():

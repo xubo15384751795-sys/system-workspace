@@ -7,7 +7,7 @@
 # Update this file when a suite is hermeticized and removed from STATEFUL_ROOT_TESTS.
 
 schema_version: stateful_test_classification.v1
-updated: "2026-07-27"
+updated: "2026-07-30"
 
 items:
   - path: tests/test_admission_gate.py
@@ -40,7 +40,11 @@ items:
 
   - path: tests/test_current_artifact_chain.py
     class: hermetic
-    reason: Uses committed tests/fixtures/current_chain when Output/current absent
+    reason: Uses committed tests/fixtures/current_chain unless live mode is explicitly requested
+
+  - path: tests/test_current_artifact_chain_operator.py
+    class: operator_workspace
+    reason: Explicitly validates generated Output/current and canonical external readout paths
 
   - path: tests/test_current_refresh_bundle.py
     class: hermetic

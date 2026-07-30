@@ -123,13 +123,17 @@ def _legacy_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
     if command in {"check", "current"}:
         return _show(current / "00_READ_ME_FIRST.md", lines=55)
     if command == "refresh":
-        for script in (
-            "scripts/refresh_output_current.py",
-            "scripts/build_artifact_navigator.py",
-        ):
-            code = _run(paths, script)
-            if code:
-                return code
+        refresh_args = list(args.arguments)
+        if args.dry_run:
+            refresh_args.append("--dry-run")
+        if args.skip_measurement:
+            refresh_args.append("--skip-measurement")
+        code = _run(paths, "scripts/refresh_output_current.py", refresh_args)
+        if code or "--dry-run" in refresh_args:
+            return code
+        code = _run(paths, "scripts/build_artifact_navigator.py")
+        if code:
+            return code
         return 0
     if command in {"next", "learning"}:
         return _show(current / "next_actions.md", lines=80)
@@ -253,6 +257,9 @@ def build_parser() -> argparse.ArgumentParser:
     }
     for name, help_text in aliases.items():
         command = sub.add_parser(name, help=help_text)
+        if name == "refresh":
+            command.add_argument("--dry-run", action="store_true")
+            command.add_argument("--skip-measurement", action="store_true")
         command.add_argument("arguments", nargs=argparse.REMAINDER)
     return parser
 

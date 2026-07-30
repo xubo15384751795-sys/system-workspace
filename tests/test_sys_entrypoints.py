@@ -88,25 +88,10 @@ def test_sys_governance_reads_sandbox_surface(sandbox: Path) -> None:
 
 def test_sys_refresh_dry_run_exits_cleanly(sandbox: Path) -> None:
     """Full refresh needs operator data; dry-run proves the entrypoint wiring."""
-    env = {
-        **os.environ,
-        "SYSTEM_WORKSPACE_ROOT": str(sandbox),
-        "PYTHONPATH": (
-            f"{ROOT}{os.pathsep}{ROOT / 'packages' / 'framework' / 'src'}"
-            f"{os.pathsep}{ROOT / 'packages' / 'workbench' / 'src'}"
-            f"{os.pathsep}{ROOT / 'scripts'}"
-        ),
-    }
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "refresh_output_current.py"), "--dry-run"],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        cwd=str(ROOT),
-        env=env,
-    )
+    result = _cli(sandbox, "refresh", "--dry-run")
     assert result.returncode == 0, f"refresh --dry-run failed: {result.stderr}"
     assert "DRY RUN" in result.stdout
+    assert "pre-consumption admission (hard gate)" in result.stdout
 
 
 def test_sys_check_output_contains_status(sandbox: Path) -> None:
