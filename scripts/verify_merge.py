@@ -48,6 +48,7 @@ STATEFUL_ROOT_TESTS = (
     # resolve+light-execute coverage is hermetic in test_daily_pipeline_callable_e2e.py
     # "tests/test_daily_pipeline_callable_e2e.py",
     # Operator residuals (P0-2 waves 4–5 splits)
+    "tests/test_current_artifact_chain_operator.py",
     "tests/test_freshness_governance_operator.py",
     "tests/test_harvester_bundle_operator.py",
     "tests/test_home_page_consistency_operator.py",

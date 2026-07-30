@@ -42,23 +42,68 @@ ARTIFACT_CATEGORY_MAP = {
     "system_index.json": "system_index",
 }
 
-# Critical current artifacts that scheduled depth checks must see.
-REQUIRED_ARTIFACTS = (
-    "framework_output.json",
-    "signal_card.md",
-    "signal_consensus.json",
-    "work_brief.md",
-    "promotion_gate.json",
-    "system_index.json",
-)
+# Critical readout-chain artifacts that scheduled depth checks must see.
+# Keep the real producer paths here: promotion_gate and system_index are not
+# published inside Output/current.
+REQUIRED_ARTIFACT_PATHS = {
+    "framework_output": ("Output/current/framework_output.json",),
+    "signal_card": ("Output/current/signal_card.md",),
+    "signal_consensus": ("Output/current/signal_consensus.json",),
+    "work_brief": ("Output/current/work_brief.md",),
+    "promotion_gate": ("Output/judgment/promotion_gate.json",),
+    "system_index": ("Data/system_index/latest.json",),
+    "readme_first": (
+        "Output/current/00_READ_ME_FIRST.md",
+        "Output/current/readme.md",
+    ),
+}
+
+EXTERNAL_REQUIRED_ARTIFACTS = {
+    "promotion_gate",
+    "system_index",
+}
 
 DEFAULT_MAX_AGE_HOURS = 48
+NON_REQUIRED_MONITORING_CLASSES = {
+    "research",
+    "manual_on_demand",
+    "archived_retire",
+}
 
 
 def get_freshness_rules(constitution: dict) -> dict[str, int]:
     """Extract max_age_hours from constitution freshness_rules."""
     rules = constitution.get("freshness_rules", {})
     return rules.get("max_age_hours", {})
+
+
+def _load_pipeline_registry(root: Path) -> dict:
+    return load_yaml(root / "governance" / "daily_pipeline_registry.yaml") or {}
+
+
+def _registry_ttl_for_current_artifact(
+    relative_path: str,
+    registry: dict,
+) -> int | None:
+    """Return the strictest registered producer TTL for a current artifact."""
+    from scripts.artifact_monitoring_audit import declared_outputs, matches_pattern
+
+    ttls = [
+        int(row["ttl_hours"])
+        for row in declared_outputs(registry)
+        if matches_pattern(relative_path, row["pattern"])
+        and isinstance(row.get("ttl_hours"), (int, float))
+        and row["ttl_hours"] > 0
+    ]
+    return min(ttls) if ttls else None
+
+
+def _is_required_monitoring_class(relative_path: str, registry: dict) -> bool:
+    """Fail closed unless a path is explicitly classified as non-required."""
+    from scripts.artifact_monitoring_audit import classify_monitoring_path
+
+    classification = classify_monitoring_path(relative_path, registry)
+    return classification["class"] not in NON_REQUIRED_MONITORING_CLASSES
 
 
 def check_artifact_freshness(
@@ -114,14 +159,43 @@ def check_symlink_freshness(
         }
 
 
-def _missing_required_artifacts(output_current: Path) -> list[str]:
-    missing = [name for name in REQUIRED_ARTIFACTS if not (output_current / name).exists()]
-    readme_ok = (output_current / "00_READ_ME_FIRST.md").exists() or (
-        output_current / "readme.md"
-    ).exists()
-    if not readme_ok:
-        missing.append("00_READ_ME_FIRST.md|readme.md")
-    return missing
+def _resolve_required_artifact(root: Path, artifact: str) -> Path | None:
+    for relative in REQUIRED_ARTIFACT_PATHS[artifact]:
+        candidate = root / relative
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _missing_required_artifacts(root: Path) -> list[str]:
+    return [
+        artifact
+        for artifact in REQUIRED_ARTIFACT_PATHS
+        if _resolve_required_artifact(root, artifact) is None
+    ]
+
+
+def _external_required_freshness(
+    root: Path,
+    max_age_map: dict[str, int],
+    now: float,
+) -> list[dict]:
+    """Check required artifacts whose producers publish outside Output/current."""
+    findings = []
+    for artifact in sorted(EXTERNAL_REQUIRED_ARTIFACTS):
+        path = _resolve_required_artifact(root, artifact)
+        if path is None:
+            continue
+        finding = check_artifact_freshness(
+            path,
+            max_age_map.get(artifact, DEFAULT_MAX_AGE_HOURS),
+            now,
+        )
+        if finding:
+            finding["artifact"] = artifact
+            finding["severity"] = "WARN"
+            findings.append(finding)
+    return findings
 
 
 def run_freshness_check(root: Path) -> list[dict]:
@@ -141,6 +215,7 @@ def run_freshness_check(root: Path) -> list[dict]:
         ]
 
     max_age_map = get_freshness_rules(constitution)
+    registry = _load_pipeline_registry(root)
     now = time.time()
     findings = []
 
@@ -148,13 +223,19 @@ def run_freshness_check(root: Path) -> list[dict]:
         # Skip directories and hidden files
         if item.is_dir() or item.name.startswith("."):
             continue
+        relative_path = item.relative_to(root).as_posix()
+        if not _is_required_monitoring_class(relative_path, registry):
+            continue
 
         # Determine max age for this artifact
         category = ARTIFACT_CATEGORY_MAP.get(item.name)
         if category:
             max_age = max_age_map.get(category, DEFAULT_MAX_AGE_HOURS)
         else:
-            max_age = DEFAULT_MAX_AGE_HOURS
+            max_age = (
+                _registry_ttl_for_current_artifact(relative_path, registry)
+                or DEFAULT_MAX_AGE_HOURS
+            )
 
         if item.is_symlink():
             finding = check_symlink_freshness(item, max_age, now)
@@ -165,6 +246,7 @@ def run_freshness_check(root: Path) -> list[dict]:
             finding["severity"] = "WARN"
             findings.append(finding)
 
+    findings.extend(_external_required_freshness(root, max_age_map, now))
     return findings
 
 
@@ -221,7 +303,7 @@ def main() -> int:
     output_current = ROOT / "Output" / "current"
     missing_required: list[str] = []
     if output_current.exists():
-        missing_required = _missing_required_artifacts(output_current)
+        missing_required = _missing_required_artifacts(ROOT)
         if missing_required and (args.require_artifacts or args.ci_clean_checkout):
             for name in missing_required:
                 findings.append(

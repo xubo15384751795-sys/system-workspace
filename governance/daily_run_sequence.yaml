@@ -16,7 +16,6 @@ steps:
 - id: regime_detection
 - id: archive_hmm_calibration_snapshot
 - id: measurement_quality_report
-  schedule: weekly
 - id: caselab_signal
 - id: judgment_layer
 - id: judgment_promotion_gate
@@ -83,14 +82,10 @@ steps:
 - id: current_status
 - id: work_brief
 - id: evidence_grade_report
-  schedule: weekly
 - id: build_artifact_registry
-  schedule: weekly
 - id: record_daily_run_event
 - id: readme_first
-  schedule: weekly
 - id: next_actions
-  schedule: weekly
 - id: change_analysis
   schedule: weekly
 - id: strategy_lab_shadow

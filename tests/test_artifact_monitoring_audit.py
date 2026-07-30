@@ -12,10 +12,14 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from artifact_monitoring_audit import (  # noqa: E402
     build_report,
+    classify_blind_spots,
+    classify_monitoring_path,
     learning_hub_source_lag,
     monitoring_blind_spots,
     monitoring_matrix,
+    non_daily_content_checks,
     non_daily_contract_violations,
+    required_coverage_gaps,
 )
 
 
@@ -149,3 +153,139 @@ def test_report_fails_when_weekly_contract_is_unmonitored(tmp_path: Path) -> Non
     report = build_report(tmp_path, now=datetime(2026, 7, 17, tzinfo=UTC))
 
     assert report["status"] == "FAIL"
+
+
+def test_live_registry_has_no_non_daily_ttl_schedule_violations() -> None:
+    """P0-4 wave 1: weekly TTL must not be shorter than weekly cadence."""
+    registry = yaml.safe_load(
+        (ROOT / "governance" / "daily_pipeline_registry.yaml").read_text(encoding="utf-8")
+    )
+    findings = non_daily_contract_violations(registry or {})
+    assert findings == []
+
+
+def test_content_clock_ignores_fresh_mtime_when_payload_is_stale(tmp_path: Path) -> None:
+    """P0-4: mtime and content clock are separate; fresh touch cannot hide stale payload."""
+    registry = _write_registry(
+        tmp_path,
+        {
+            "weekly_report": {
+                "status": "active",
+                "schedule": "weekly",
+                "ttl_hours": 168,
+                "produces": ["Output/current/weekly_report.json"],
+            }
+        },
+    )
+    artifact = tmp_path / "Output" / "current" / "weekly_report.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"generated_at":"2026-01-01T00:00:00Z"}', encoding="utf-8")
+    os.utime(artifact, None)  # fresh mtime
+
+    checks = non_daily_content_checks(
+        tmp_path,
+        registry,
+        now=datetime(2026, 7, 17, tzinfo=UTC),
+    )
+
+    assert len(checks) == 1
+    assert checks[0]["status"] == "STALE_CONTENT"
+    assert checks[0]["content_age_hours"] is not None
+    assert checks[0]["content_age_hours"] > 168
+
+
+def test_blind_spots_are_classified_with_owner(tmp_path: Path) -> None:
+    """P0-4 wave 2: uncovered artifacts get class + owner from registry rules."""
+    registry = {
+        "steps": {
+            "covered": {
+                "status": "active",
+                "schedule": "weekly",
+                "ttl_hours": 168,
+                "produces": ["Output/current/covered.json"],
+            }
+        },
+        "monitoring_classification": {
+            "required_coverage_classes": ["authoritative", "decision_adjacent_shadow"],
+            "rules": [
+                {
+                    "pattern": "Output/current/*",
+                    "class": "authoritative",
+                    "owner": "Workbench",
+                },
+                {
+                    "pattern": "Output/sandbox/*",
+                    "class": "research",
+                    "owner": "Workbench",
+                },
+            ],
+        },
+    }
+    path = tmp_path / "governance" / "daily_pipeline_registry.yaml"
+    path.parent.mkdir(parents=True)
+    path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+
+    current = tmp_path / "Output" / "current"
+    sandbox = tmp_path / "Output" / "sandbox"
+    current.mkdir(parents=True)
+    sandbox.mkdir(parents=True)
+    (current / "covered.json").write_text('{"generated_at":"2026-07-17T00:00:00Z"}', encoding="utf-8")
+    (current / "blind.json").write_text('{"generated_at":"2026-07-17T00:00:00Z"}', encoding="utf-8")
+    (sandbox / "probe.json").write_text('{"generated_at":"2026-07-17T00:00:00Z"}', encoding="utf-8")
+
+    classified = classify_blind_spots(monitoring_blind_spots(tmp_path, registry), registry)
+    by_path = {row["path"]: row for row in classified}
+
+    assert by_path["Output/current/blind.json"]["class"] == "authoritative"
+    assert by_path["Output/current/blind.json"]["owner"] == "Workbench"
+    assert by_path["Output/sandbox/probe.json"]["class"] == "research"
+    assert "Output/current/covered.json" not in by_path
+
+    gaps = required_coverage_gaps(classified, registry)
+    assert {row["path"] for row in gaps} == {"Output/current/blind.json"}
+
+    report = build_report(tmp_path, now=datetime(2026, 7, 17, tzinfo=UTC))
+    assert report["status"] == "FAIL"
+    assert report["summary"]["required_coverage_gap_count"] == 1
+
+
+def test_research_blind_spot_with_owner_is_warn_not_required_gap(tmp_path: Path) -> None:
+    registry = {
+        "steps": {},
+        "monitoring_classification": {
+            "required_coverage_classes": ["authoritative", "decision_adjacent_shadow"],
+            "rules": [
+                {
+                    "pattern": "Output/sandbox/*",
+                    "class": "research",
+                    "owner": "Workbench",
+                }
+            ],
+        },
+    }
+    path = tmp_path / "governance" / "daily_pipeline_registry.yaml"
+    path.parent.mkdir(parents=True)
+    path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+    sandbox = tmp_path / "Output" / "sandbox"
+    sandbox.mkdir(parents=True)
+    (sandbox / "probe.json").write_text('{"generated_at":"2026-07-17T00:00:00Z"}', encoding="utf-8")
+
+    report = build_report(tmp_path, now=datetime(2026, 7, 17, tzinfo=UTC))
+
+    assert report["summary"]["required_coverage_gap_count"] == 0
+    assert report["summary"]["unresolved_monitoring_blind_spot_count"] == 0
+    assert report["status"] == "WARN"
+
+
+def test_live_registry_classifies_authority_paths() -> None:
+    """P0-4 wave 2: live classification rules cover current + sandbox prefixes."""
+    registry = yaml.safe_load(
+        (ROOT / "governance" / "daily_pipeline_registry.yaml").read_text(encoding="utf-8")
+    )
+    current = classify_monitoring_path("Output/current/signal_consensus.json", registry or {})
+    sandbox = classify_monitoring_path("Output/sandbox/probe.json", registry or {})
+    assert current["class"] == "authoritative"
+    assert current["owner"]
+    assert sandbox["class"] == "research"
+    assert sandbox["owner"]
+    assert registry["monitoring_classification"]["rules"]
