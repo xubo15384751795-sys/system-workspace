@@ -27,6 +27,10 @@ from system_runtime.events import payload_of
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
 FRAMEWORK_PATH = rio.ROOT / "Output" / "current" / "framework_output.json"
 
+# The four co-equal channels. A channel absent from the signal frame is
+# reported as missing, never as a zero reading.
+CHANNELS = ["M", "D", "K", "X"]
+
 
 def generate_shadow_card(
     as_of: str | None = None,
@@ -50,21 +54,31 @@ def generate_shadow_card(
     latest = signals.iloc[-1]
     latest_date = signals.index[-1]
 
+    # load_signals() only carries the channels that are actually resolved
+    # (K/X are unresolved research candidates and are absent). Missing
+    # channels stay NaN/None rather than collapsing to 0 — a channel with no
+    # observation is not a channel reading "no stress".
+    available = [
+        ch for ch in CHANNELS if ch in signals.columns and pd.notna(latest[ch])
+    ]
+    missing = [ch for ch in CHANNELS if ch not in available]
+    readings = {
+        ch: float(latest[ch]) if ch in available else float("nan") for ch in CHANNELS
+    }
+
     # Evaluate risk gate (regime gate for interpretability)
-    risk = evaluate_day(latest["M"], latest["D"], latest["K"], latest["X"])
+    risk = evaluate_day(readings["M"], readings["D"], readings["K"], readings["X"])
 
     # Evaluate velocity gate (production gate)
     velocity_gate = compute_velocity_gate(signals)
     velocity_position = float(velocity_gate.iloc[-1])
 
     # Compute channel velocities (20-day change)
-    velocity_20d = {}
+    velocity_20d: dict[str, float | None] = {ch: None for ch in CHANNELS}
     if len(signals) >= 20:
-        for ch in ["M", "D", "K", "X"]:
-            velocity_20d[ch] = float(round(signals[ch].iloc[-1] - signals[ch].iloc[-20], 4))
-    else:
-        for ch in ["M", "D", "K", "X"]:
-            velocity_20d[ch] = None
+        for ch in available:
+            delta = signals[ch].iloc[-1] - signals[ch].iloc[-20]
+            velocity_20d[ch] = None if pd.isna(delta) else float(round(delta, 4))
 
     # Load SPY recent data for context
     try:
@@ -102,10 +116,13 @@ def generate_shadow_card(
             "primary_market_space": primary_market_space,
         },
         "channel_readings": {
-            "M": float(round(latest["M"], 4)),
-            "D": float(round(latest["D"], 4)),
-            "K": float(round(latest["K"], 4)),
-            "X": float(round(latest["X"], 4)),
+            ch: (float(round(readings[ch], 4)) if ch in available else None)
+            for ch in CHANNELS
+        },
+        "channel_coverage": {
+            "available": available,
+            "missing": missing,
+            "complete": not missing,
         },
         "risk_gate": {
             "position_size": float(risk.position_size),

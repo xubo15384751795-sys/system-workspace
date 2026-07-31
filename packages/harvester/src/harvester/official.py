@@ -756,7 +756,9 @@ def stage_complete_release(
                 cache_dir = data_root() / "raw" / "external_indicators"
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 try:
-                    result = fetch_external_indicator(indicator, cache_dir=cache_dir, refresh=False, timeout_sec=30)
+                    result = fetch_external_indicator(
+                        indicator, cache_dir=cache_dir, refresh=not cache, timeout_sec=30
+                    )
                 except ManualDownloadRequired as exc:
                     logger.warning("external indicator unavailable: %s", exc)
                     continue

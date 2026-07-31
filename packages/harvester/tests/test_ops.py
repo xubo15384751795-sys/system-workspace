@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -269,3 +270,19 @@ def test_monitor_latest_reports_missing_latest(tmp_path: Path) -> None:
 
     assert result["status"] == "unhealthy"
     assert any(check["name"] == "latest_exists" and not check["passed"] for check in result["checks"])
+
+
+def test_cli_daily_release_exits_zero_on_same_day_reuse(monkeypatch) -> None:
+    """The same-day short-circuit is a successful no-op. Exiting non-zero made
+    the 2nd/3rd nightly schedules report a hard failure and block every
+    downstream pipeline step."""
+    # Importing harvester.cli calls load_dotenv() at import time; swap in a
+    # copy of the environment so those credentials cannot leak into tests that
+    # assert on a missing API key.
+    monkeypatch.setattr(os, "environ", dict(os.environ))
+
+    from harvester.cli import main
+
+    for status, expected in [("finalized", 0), ("reused", 0), ("failed", 1)]:
+        with patch("harvester.cli.run_daily_release", return_value={"status": status}):
+            assert main(["daily-release"]) == expected, status

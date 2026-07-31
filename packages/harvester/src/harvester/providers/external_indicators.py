@@ -10,6 +10,13 @@ import pandas as pd
 import requests
 
 
+# Calendar-day budget before a cached series is considered stale enough to
+# re-download. Wide enough that a healthy daily feed (published T+1/T+2) is
+# served from cache, tight enough that a stalled feed is retried long before
+# the 10-trading-day content_freshness alarm in the pipeline registry.
+DEFAULT_MAX_CACHE_AGE_DAYS = 2
+
+
 @dataclass(frozen=True)
 class ExternalIndicator:
     name: str
@@ -190,12 +197,44 @@ def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Seri
         pass
 
 
+def _cache_is_stale(series: pd.Series, *, max_age_days: int) -> bool:
+    """True when the newest cached observation is older than the budget.
+
+    Without this the cache branch below returns unconditionally, so a cache
+    written once is served forever and the feed silently freezes.
+    """
+    if series.empty:
+        return True
+    last = pd.Timestamp(series.index.max())
+    if pd.isna(last):
+        return True
+    return (pd.Timestamp.today().normalize() - last.normalize()).days > max_age_days
+
+
+def _merge_cached_history(
+    cache_path: Path, parser: Callable[[str], pd.Series], fresh: pd.Series
+) -> pd.Series:
+    """Extend, never shorten: publishers that serve only a rolling window must
+    not truncate the history already archived on disk."""
+    if fresh.empty or not cache_path.exists():
+        return fresh
+    try:
+        cached = parser(cache_path.read_text(encoding="utf-8"))
+    except Exception:
+        return fresh
+    if cached.empty:
+        return fresh
+    kept = cached[~cached.index.isin(fresh.index)]
+    return pd.concat([kept, fresh]).sort_index()
+
+
 def fetch_external_indicator(
     indicator: ExternalIndicator,
     *,
     cache_dir: Path | str,
     refresh: bool = False,
     timeout_sec: int = 90,
+    max_cache_age_days: int = DEFAULT_MAX_CACHE_AGE_DAYS,
 ) -> pd.Series:
     cache_path = _resolve_cache(cache_dir, indicator)
     parser = _PARSERS[indicator.name]
@@ -210,13 +249,17 @@ def fetch_external_indicator(
             )
             if needs_normalize and not series.empty:
                 _normalize_cache_file(cache_path, indicator.name, series)
-            return series
+            # Only a cache inside its freshness budget short-circuits the
+            # download; a stale one falls through and is re-fetched. The
+            # handler below still falls back to it if the publisher is down.
+            if not _cache_is_stale(series, max_age_days=max_cache_age_days):
+                return series
         except Exception:
             pass
 
     try:
         text = _download(indicator.publisher_url, timeout_sec=timeout_sec)
-        series = parser(text)
+        series = _merge_cached_history(cache_path, parser, parser(text))
         _normalize_cache_file(cache_path, indicator.name, series)
         return series
     except Exception as exc:
