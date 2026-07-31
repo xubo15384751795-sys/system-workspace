@@ -30,6 +30,16 @@
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/a1/System</string>
+    <!--
+      launchd does not inherit the login shell's PATH, so `gh` (Homebrew) is
+      not found without this. Verified: without it the job reports
+      state=unavailable rather than falsely claiming main is red.
+    -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
     <!-- Twice a day: after the morning routine and after the evening runs. -->
     <key>StartCalendarInterval</key>
     <array>
