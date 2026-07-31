@@ -59,7 +59,7 @@ baseline_hashes:
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: f3a586a1690f758d
+  daily_pipeline_registry.yaml: ffdba9c41b149c58
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
   deferred_work_register.yaml: f8de885dccaa8ba0
@@ -613,6 +613,16 @@ baseline_updates:
     change, so the budget was unsatisfiable and the panel froze on 2026-07-20.
     Restores the daily cadence already recorded in pipeline_schedule.md
     (2026-07-11). Operator-approved 2026-07-31.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-31'
+  old_hash: f3a586a1690f758d
+  new_hash: ffdba9c41b149c58
+  reason: >-
+    Declare Output/research/ as an external input. output_routing_audit
+    (added in 0e3b9c2) consumes it, but it is a routing destination declared
+    in output_routing_policy.yaml routes.research, not a pipeline product, so
+    test_consumes_traceable_to_upstream failed and merge-gate has been red on
+    main since 3f022d2. Classified alongside Output/runs/ and governance/.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

@@ -56,8 +56,29 @@ def _notify_webhook(title: str, message: str) -> bool:
         return False
 
 
+def _suppression_reason() -> str | None:
+    """Why a real notification must not leave this process, or None to send.
+
+    The pipeline steps are exercised against sandbox fixtures in the test
+    suite. Those tests isolate their *outputs* correctly, but without this
+    guard the notification itself escapes the sandbox into the operator's
+    real notification centre carrying fixture dates (etf_panel behind=1118d),
+    which buries genuine alerts among alarming-looking fakes.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return "pytest"
+    if os.environ.get("NOTIFY_DISABLE", "").strip().lower() not in ("", "0", "false"):
+        return "NOTIFY_DISABLE"
+    return None
+
+
 def notify_failure(title: str, message: str) -> bool:
     """Show notification via all available channels. Returns True if any ran."""
+    suppressed = _suppression_reason()
+    if suppressed:
+        # Still visible to whoever is running, just not as a desktop alert.
+        print(f"NOTIFY[suppressed:{suppressed}]: {title} — {message}", file=sys.stderr)
+        return False
     desktop_ok = _notify_desktop(title, message)
     webhook_ok = _notify_webhook(title, message)
     return desktop_ok or webhook_ok

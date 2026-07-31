@@ -79,6 +79,32 @@ acceptance:
   - admission gate reports OFR_FSI under degradations, not blockers
   - a source declared blocked does not wave through an undeclared one
   - full tests/ suite shows no new failures against the pre-change baseline
+follow_on_fixes:
+  - id: output-research-external-input
+    scope: >
+      merge-gate has been failing on main since 3f022d2 because
+      output_routing_audit (introduced in 0e3b9c2) consumes Output/research/,
+      which no pipeline step produces, tripping
+      test_consumes_traceable_to_upstream. It is a routing destination
+      declared in governance/output_routing_policy.yaml under routes.research.
+    decision: >
+      Declare Output/research/ in the registry's external_inputs, alongside the
+      other scan roots already listed there (Output/runs/, governance/,
+      scripts/). No producer is invented and no test is relaxed.
+    owner: Governance
+  - id: notification-sandbox-guard
+    scope: >
+      tests/test_daily_pipeline_callable_e2e.py ran freshness_validator against
+      sandbox fixtures, and scripts/_notify.py had no guard, so every full test
+      run fired two real macOS alerts reading "Content freshness STALE /
+      etf_panel behind=1118d". Fixture dates reached the operator's real
+      notification centre and buried genuine alerts.
+    decision: >
+      Suppress desktop and webhook delivery when PYTEST_CURRENT_TEST is set or
+      NOTIFY_DISABLE is truthy, printing to stderr instead so nothing is
+      swallowed. Operator notifications are unaffected and covered by a test.
+    owner: Data/Output
+
 unresolved_risks:
   - >
     OFR_FSI remains unacquirable from this host; the declaration is bounded by
