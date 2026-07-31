@@ -51,6 +51,20 @@ authority_boundary:
   research_verdict_change: false
   promotion_change: false
   ci_enforcement_change: false
+declared_asset_downgrade:
+  asset: OFR_FSI
+  owner: Harvester
+  accountable: xubo15384751795-sys
+  scope: operator_host_daily_admission_gate
+  satisfies_validation_criteria: false
+  note: >
+    P0_4_COMPUTE_DEVICE_HANDOFF.md prohibits classifying a required asset
+    without a specific reviewed routing decision and an accountable owner;
+    this record is that decision. The declaration is scoped to the operator
+    host's daily admission gate and satisfies no validation-roadmap criterion.
+    P0-4 criterion 1 still requires real, freshly acquired OFR FSI data on the
+    compute device, which does have network access to the publisher.
+  review_by: "2026-08-31"
 notes: >
   evaluate_day is the legacy regime gate; compute_position_series defaults to
   mode="velocity", so production position sizing is unchanged. The coverage

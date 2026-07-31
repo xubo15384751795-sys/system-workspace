@@ -48,10 +48,29 @@ evidence_release:
 # look complete; it only stops one unreachable feed from halting the whole
 # pipeline indefinitely.
 #
+# SCOPE — READ BEFORE RELYING ON THIS BLOCK:
+#
+#   This block applies ONLY to the daily pipeline's pre-consumption admission
+#   gate on the operator (authoring) host. It is NOT a freshness claim and it
+#   satisfies NO validation-roadmap success criterion.
+#
+#   In particular it does NOT satisfy P0-4 criterion 1 ("the Harvester release
+#   is finalized and OFR FSI/CISS are fresh or within their governed
+#   publication lag"). P0_4_COMPUTE_DEVICE_HANDOFF.md §3 is explicit: if OFR
+#   FSI or CISS is unavailable, failed, empty, or older than its governed
+#   content clock, STOP — a finalized release alone is not freshness evidence.
+#   P0-4 must be run on the compute device against real, freshly acquired
+#   data. A declared entry here must never be read as that evidence.
+#
 # Remove the entry the moment the source becomes reachable again.
 environmentally_blocked:
   OFR_FSI:
     since: "2026-07-12"
+    scope: operator_host_daily_admission_gate
+    satisfies_validation_criteria: false
+    owner: Harvester
+    accountable: xubo15384751795-sys
+    routing_decision: governance/routing_decisions/2026-07-31-daily-run-recurring-failures.yaml
     reason: >
       www.financialresearch.gov fails the TLS handshake from this host
       (SSL_ERROR_SYSCALL / UNEXPECTED_EOF_WHILE_READING). Verified 2026-07-31

@@ -50,10 +50,35 @@ Do not:
   reviewed routing decision and an accountable owner;
 - commit `Data/`, `Output/`, credentials, provider responses, or proprietary
   market/house data;
-- edit `PROJECT_PROGRESS.md` percentages by hand.
+- edit `PROJECT_PROGRESS.md` percentages by hand;
+- treat an `environmentally_blocked:` entry in `configs/freshness_policy.yaml`
+  as freshness evidence (see the warning below).
 
 Any command failure is a stop condition. Preserve its output and diagnose the
 cause before continuing.
+
+### `environmentally_blocked` does not satisfy criterion 1
+
+`configs/freshness_policy.yaml` carries an `environmentally_blocked:` block.
+As of 2026-07-31 it declares `OFR_FSI`, because `www.financialresearch.gov`
+fails the TLS handshake from the **operator (Mac) host** in an SNI-scoped way
+— the same CloudFront IP serves 200 under a different SNI, and port 80 still
+answers 301.
+
+That declaration exists only so one unreachable feed cannot halt the operator's
+daily pipeline indefinitely. Its scope is `operator_host_daily_admission_gate`
+and it carries `satisfies_validation_criteria: false`.
+
+On the compute device this block must change nothing. The admission gate will
+report a declared source under `degradations` rather than `blockers`, so **a
+passing admission gate is not by itself evidence for criterion 2 either** when
+a declared source is involved. Check `decision.degradations` is empty, not just
+that `decision.allowed` is true.
+
+The compute device has network access to the publisher, so acquire OFR FSI
+for real and confirm its content date against the governed clock. If you find
+yourself relying on the declaration to get past section 3, stop: that is the
+prohibited shortcut above, and P0-4 is not complete.
 
 ## 1. Prepare a clean, pinned workspace
 
