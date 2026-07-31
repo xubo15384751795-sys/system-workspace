@@ -43,6 +43,8 @@ steps:
 - id: hmm_stability_audit
   schedule: weekly
 - id: freshness_validator
+- id: data_retention_audit
+  schedule: weekly
 - id: architecture_reality_audit
   schedule: weekly
 - id: operator_registry_audit

@@ -1,0 +1,60 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-01"
+task_id: data-retention-visibility
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  governance/data_retention_policy.yaml has declared
+  harvester_exports.keep_last_n_daily: 7 since 2026-06-17, but
+  apply_data_retention_policy.py never evaluated that rule — it checked debug
+  releases, structural_lab runtime, merged_data and csv exports only. The
+  script is also absent from every pipeline and launchd schedule, and its
+  --apply mode is unimplemented. Result: Data/harvester/exports reached 883MB
+  across 146 directories, Data/ reached 1038MB against a declared 300MB
+  budget, and the policy's own current_size_mb still read 205.
+decision: >
+  Close the visibility half only. Implement the missing
+  harvester_exports check and register the script as a weekly
+  data_retention_audit step. The check reports two separately actionable
+  classes: same-day releases superseded by a later rN (97 dirs / 511MB) and
+  whole days outside keep_last_n_daily (136 dirs / 780MB).
+  Deliberately NOT implemented: deletion. Finalized releases are evidence,
+  and reclaiming them is an operator decision, not a scheduled side effect.
+preregistered_expectation: >
+  The weekly step reports the two classes with non-zero counts until an
+  operator acts, and never changes anything on disk.
+observation_window: >
+  Verified inline: the check reports 97 superseded / 511MB and 136 outside /
+  780MB against the live tree, and a test asserts the exports directory is
+  byte-identical before and after the check runs.
+rollback: >
+  Remove the data_retention_audit step from the registry, regenerate the
+  sequence view, and delete _check_harvester_release_retention with its
+  tests. Nothing consumes the report yet.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+notes: >
+  No run bundle pins a release_id — input_snapshot.json records
+  harvester_latest_catalog via the `latest` symlink plus file SHAs — so no
+  recorded run reference breaks if old releases are later removed. That same
+  fact is a separate weakness worth its own decision: the evidence chain
+  binds to whatever `latest` pointed at rather than to a pinned release,
+  which is looser than P0-4's same-run/release-lineage requirement.
+acceptance:
+  - harvester_release_retention appears in run_retention_check()["checks"]
+  - the check never mutates Data/harvester/exports
+  - non-release entries (.failures, legacy timestamp dirs, the latest
+    symlink) are excluded so reclaimable size is not overstated
+  - data_retention_audit present in daily_run_sequence.yaml as weekly
+unresolved_risks:
+  - >
+    Reporting alone does not reduce 1038MB. Data/ stays 3.5x over its
+    declared budget until an operator decides what to reclaim; the step makes
+    the overage visible weekly rather than fixing it.
+  - >
+    data_retention_policy.yaml still records current_size_mb: 205, which is
+    stale by a factor of five. It is documentation rather than an enforced
+    input, but it misleads anyone reading the policy for current state.

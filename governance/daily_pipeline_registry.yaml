@@ -1662,6 +1662,42 @@ steps:
       affects_core_judgment: true
       failure_behavior: block_core_judgment
       owner: Data/Output
+  data_retention_audit:
+    order: 36.5
+    status: active
+    owner: Data/Output
+    # Reporting only — never deletes. The policy has declared
+    # harvester_exports.keep_last_n_daily since 2026-06-17, but nothing
+    # evaluated it, so exports grew to 883MB across 146 directories while
+    # data_retention_policy.yaml still recorded current_size_mb: 205.
+    # Acting on the findings stays an operator decision: releases are
+    # finalized evidence.
+    schedule: weekly
+    command: python scripts/apply_data_retention_policy.py
+    input: &id_data_retention_in
+    - governance/data_retention_policy.yaml
+    produces: &id_data_retention_out
+    - Output/system_learning/latest/data_retention_report.md
+    - Output/system_learning/latest/data_retention_report.json
+    artifact_path: Output/system_learning/latest/data_retention_report.md
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/apply_data_retention_policy.py
+      future_callable: scripts.apply_data_retention_policy:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_data_retention_in
+      outputs: *id_data_retention_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Data/Output
   architecture_reality_audit:
     order: 37
     status: active

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,70 @@ def _check_harvester_debug_releases(policy: dict) -> list[dict[str, str]]:
                 "status": "debug_release_should_archive",
                 "target": config.get("debug_release_archive_path", "Data/archive/harvester_debug/"),
             })
+    return findings
+
+
+def _check_harvester_release_retention(policy: dict) -> list[dict[str, str]]:
+    """Check finalized releases against ``keep_last_n_daily``.
+
+    The policy has declared this rule since 2026-06-17 but nothing evaluated
+    it, so exports grew unbounded to 883MB across 146 directories while the
+    policy's own ``current_size_mb`` still read 205. Findings are split by
+    how safe they are to act on: same-day releases superseded by a later
+    ``rN`` are a different proposition from whole days outside the window.
+
+    Reporting only — this never deletes. Releases are finalized evidence and
+    removing them is an operator decision.
+    """
+    findings: list[dict[str, str]] = []
+    config = policy.get("harvester_exports", {})
+    keep_n = config.get("keep_last_n_daily")
+    if not keep_n:
+        return findings
+
+    exports_dir = ROOT / "Data" / "harvester" / "exports"
+    if not exports_dir.exists():
+        return findings
+
+    by_day: dict[str, list[tuple[int, Path]]] = {}
+    for item in exports_dir.iterdir():
+        if not item.is_dir() or item.is_symlink():
+            continue
+        match = re.match(r"(\d{4}-\d{2}-\d{2})-r(\d+)$", item.name)
+        if match:
+            by_day.setdefault(match.group(1), []).append((int(match.group(2)), item))
+
+    if not by_day:
+        return findings
+
+    superseded = [
+        path
+        for releases in by_day.values()
+        for _, path in sorted(releases)[:-1]
+    ]
+    if superseded:
+        findings.append({
+            "path": "Data/harvester/exports",
+            "status": "superseded_same_day_releases",
+            "count": str(len(superseded)),
+            "size_mb": f"{sum(_dir_size_mb(p) for p in superseded):.1f}",
+            "note": (
+                "Same-day releases superseded by a later rN. No run bundle "
+                "pins a release_id, so none of these are referenced."
+            ),
+        })
+
+    kept_days = set(sorted(by_day)[-int(keep_n):])
+    outside = [p for day, rs in by_day.items() if day not in kept_days for _, p in rs]
+    if outside:
+        findings.append({
+            "path": "Data/harvester/exports",
+            "status": "outside_keep_last_n_daily",
+            "count": str(len(outside)),
+            "days": str(len(by_day) - len(kept_days)),
+            "size_mb": f"{sum(_dir_size_mb(p) for p in outside):.1f}",
+            "note": f"Older than keep_last_n_daily={keep_n}; excludes monthly checkpoints.",
+        })
     return findings
 
 
@@ -189,6 +254,7 @@ def run_retention_check() -> dict[str, Any]:
 
     checks = {
         "harvester_debug_releases": _check_harvester_debug_releases(policy),
+        "harvester_release_retention": _check_harvester_release_retention(policy),
         "structural_lab_runtime": _check_structural_lab_runtime(policy),
         "merged_data": _check_merged_data(policy),
         "panels_csv_exports": _check_panels_csv(policy),
