@@ -34,11 +34,17 @@ def registry_steps() -> dict:
     return _load_registry_steps()
 
 
-def test_daily_step_count_is_31():
+def test_daily_step_count_is_32():
     ids = _daily_step_ids()
-    assert len(ids) == 31
-    assert "refresh_cross_asset_panel" not in ids
-    assert _load_registry_steps()["refresh_cross_asset_panel"]["schedule"] == "on_demand"
+    assert len(ids) == 32
+    # refresh_cross_asset_panel is the declared owner_step of the etf_panel
+    # content_freshness check (3 trading days, decision_critical). Commit
+    # 10acc44 added that check and set this step to on_demand in one change,
+    # so the check could never be satisfied and the panel froze two days
+    # later. governance/pipeline_schedule.md records it as daily since
+    # 2026-07-11; keep the schedule and its owned check consistent.
+    assert "refresh_cross_asset_panel" in ids
+    assert _load_registry_steps()["refresh_cross_asset_panel"]["schedule"] == "daily"
     assert "strategy_lab_shadow" in ids
     assert "shadow_outcomes_90d" in ids
     assert "evaluate_pending" in ids

@@ -21,7 +21,11 @@ import pandas as pd
 
 from scripts import _runtime_io as rio
 from scripts.strategy_lab.data_loader import load_aligned, load_signals
-from scripts.strategy_lab.risk_gate import compute_velocity_gate, evaluate_day
+from scripts.strategy_lab.risk_gate import (
+    CONSENSUS_MIN,
+    compute_velocity_gate,
+    evaluate_day,
+)
 from system_runtime.events import payload_of
 
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
@@ -138,16 +142,31 @@ def generate_shadow_card(
             "trigger": velocity_position < 1.0,
             "trigger_reason": _velocity_trigger_reason(velocity_20d),
         },
-        "recommendation": {
-            "allow_open": velocity_position > 0,
-            "suggested_size": velocity_position,
-            "sizing_label": "FULL" if velocity_position >= 1.0 else "EXIT",
-            "primary_reason": (
-                _velocity_trigger_reason(velocity_20d)
-                if velocity_position < 1.0
-                else "No structural stress detected"
-            ),
-        },
+        "recommendation": (
+            {
+                # Thin coverage must not read as a clean full-size call. The
+                # raw velocity reading stays visible under "velocity_gate"
+                # for the audit trail; it is just not presented as actionable.
+                "allow_open": False,
+                "suggested_size": 0.0,
+                "sizing_label": "INSUFFICIENT_COVERAGE",
+                "primary_reason": (
+                    f"Insufficient channel coverage: {len(available)}/{len(CHANNELS)} "
+                    f"observed (missing {', '.join(missing)}); need >={CONSENSUS_MIN}"
+                ),
+            }
+            if len(available) < CONSENSUS_MIN
+            else {
+                "allow_open": velocity_position > 0,
+                "suggested_size": velocity_position,
+                "sizing_label": "FULL" if velocity_position >= 1.0 else "EXIT",
+                "primary_reason": (
+                    _velocity_trigger_reason(velocity_20d)
+                    if velocity_position < 1.0
+                    else "No structural stress detected"
+                ),
+            }
+        ),
         "outcome_backfill": {
             "forward_5d_return": None,
             "forward_20d_return": None,

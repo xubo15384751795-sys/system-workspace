@@ -59,7 +59,7 @@ baseline_hashes:
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: 14d45cbe7cc4eabc
+  daily_pipeline_registry.yaml: f3a586a1690f758d
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
   deferred_work_register.yaml: f8de885dccaa8ba0
@@ -602,6 +602,17 @@ baseline_updates:
   old_hash: 6b1c355c59deb295
   new_hash: f32ad3bc798aac2e
   reason: Update submodule paths to packages/ (workbench, framework, harvester, learning_hub)
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-07-31'
+  old_hash: 14d45cbe7cc4eabc
+  new_hash: f3a586a1690f758d
+  reason: >-
+    refresh_cross_asset_panel on_demand -> daily. It is the declared owner_step
+    of the etf_panel content_freshness check (3 trading days, decision_critical);
+    commit 10acc44 added that check and set the step on_demand in the same
+    change, so the budget was unsatisfiable and the panel froze on 2026-07-20.
+    Restores the daily cadence already recorded in pipeline_schedule.md
+    (2026-07-11). Operator-approved 2026-07-31.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

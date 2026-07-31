@@ -5,6 +5,7 @@ steps:
   skip_flag: skip_harvester
 - id: etf_refresh
   skip_flag: skip_etf
+- id: refresh_cross_asset_panel
 - id: paper_sync
 - id: caselab_index
 - id: build_policy_from_paper

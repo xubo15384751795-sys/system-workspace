@@ -123,6 +123,11 @@ class TestScenario3OfrCissStale:
         }), encoding="utf-8")
         monkeypatch.setattr("freshness_validator.check_content_freshness",
                             lambda **kw: {"name": kw["name"], "status": "FRESH"})
+        # Assert the general staleness rule, independent of whichever sources
+        # configs/freshness_policy.yaml currently declares environmentally
+        # blocked (a declared source degrades instead of blocking; see
+        # tests/test_admission_gate.py::TestEnvironmentallyBlockedSources).
+        monkeypatch.setattr("_admission_gate._environmentally_blocked", dict)
 
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
                                           now=pd.Timestamp("2026-07-17"))
