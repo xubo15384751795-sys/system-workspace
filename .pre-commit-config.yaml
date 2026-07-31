@@ -47,3 +47,25 @@ repos:
         # misclassifying the entire repository as one change.
         pass_filenames: false
         always_run: false
+
+      # Pre-push only. Branch protection is unavailable on this repo (private
+      # on a free plan: the branch-protection API returns 403), so nothing
+      # server-side can stop a red commit reaching main — as happened with
+      # 0e3b9c2, which broke test_consumes_traceable_to_upstream and left
+      # merge-gate red on main for a day before anyone noticed.
+      #
+      # This subset is the cheap half of merge-gate: the registry/sequence
+      # contract checks that catch that class of break in ~1.5s. It is not a
+      # substitute for merge-gate, which still runs the full suite in CI.
+      - id: contract-gate
+        name: contract gate (registry/sequence/freeze)
+        entry: >-
+          python3 -m pytest -q -p no:randomly
+          tests/test_daily_pipeline_io_contract.py
+          tests/test_daily_pipeline_contract.py
+          tests/test_pipeline_sequence_sync.py
+          tests/test_governance_freeze.py
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

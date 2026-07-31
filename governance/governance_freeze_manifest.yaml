@@ -63,7 +63,7 @@ baseline_hashes:
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
   deferred_work_register.yaml: f8de885dccaa8ba0
-  entrypoint_registry.yaml: 754d701935f61519
+  entrypoint_registry.yaml: a1f2f061b62cbbf5
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: 7378891650ab5040
   git_workspace_policy.md: 4dab5f4a7e64d803
@@ -623,6 +623,18 @@ baseline_updates:
     in output_routing_policy.yaml routes.research, not a pipeline product, so
     test_consumes_traceable_to_upstream failed and merge-gate has been red on
     main since 3f022d2. Classified alongside Output/runs/ and governance/.
+- file: entrypoint_registry.yaml
+  approved_at: '2026-07-31'
+  old_hash: 754d701935f61519
+  new_hash: a1f2f061b62cbbf5
+  reason: >-
+    Register scripts/commands/ci/check_main_ci_status.py, which notifies when
+    the default branch's CI is red. Branch protection is unavailable on this
+    repository (private on a free plan; the API returns 403), so nothing
+    server-side keeps a red commit off main — merge-gate was red there for a
+    day after 3f022d2. Read-only gh query; placed under commands/ci beside
+    check_pace_routing rather than at root, so the root_scripts budget is
+    untouched.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

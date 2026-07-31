@@ -1150,6 +1150,16 @@ run_e3_three_replication:
   description: Execute the preregistered three-replication E3 protocol
   allowed_use:
   - preregistered_replication
+check_main_ci_status:
+  script: scripts/commands/ci/check_main_ci_status.py
+  status: governance_active
+  owner: Governance
+  description: >-
+    Notify when the default branch's CI is red. Branch protection is
+    unavailable on this repo (private, free plan), so nothing server-side
+    keeps a red commit off main; read-only GitHub Actions query via gh.
+  allowed_use:
+  - default_branch_ci_visibility
 check_pace_routing:
   script: scripts/commands/ci/check_pace_routing.py
   status: governance_active

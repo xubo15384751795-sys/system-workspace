@@ -1,0 +1,67 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-31"
+task_id: local-ci-guardrails
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  ci.yml states that merge-gate is "the ONE required status for branch
+  protection. Configure branch protection to require ONLY merge-gate." That
+  instruction cannot be followed: the repository is private on a free plan and
+  GET /repos/:owner/:repo/branches/main/protection returns 403 ("Upgrade to
+  GitHub Pro or make this repository public"). Nothing server-side keeps a red
+  commit off the default branch, and nothing reports one. 0e3b9c2 was pushed
+  directly to main, broke test_consumes_traceable_to_upstream, and left
+  merge-gate red for a full day before it was noticed — during which the
+  breakage was invisible to the operator.
+decision: >
+  Close both halves locally rather than change how the operator works.
+  (1) A pre-push pre-commit hook running the registry/sequence/freeze contract
+  tests — the cheap half of merge-gate, ~1.5s — so this class of break cannot
+  be pushed. It does not replace merge-gate, which still runs the full suite
+  in CI on every PR. (2) scripts/commands/ci/check_main_ci_status.py, a
+  read-only `gh run list` query that notifies through the existing _notify
+  channel when the default branch's latest CI run failed, with a launchd plist
+  provided but not installed.
+preregistered_expectation: >
+  Reverting the Output/research/ external-input fix turns the pre-push gate red
+  on test_consumes_traceable_to_upstream within ~2s, and check_main_ci_status
+  reports state=failing for main while it is red at 3f022d2 and state=ok once
+  this branch merges.
+observation_window: >
+  Verified inline: the revert experiment produced "2 failed, 19 passed in
+  1.53s", and check_main_ci_status returned state=failing / head_sha=3f022d2d
+  against live main. Ongoing observation is the next direct push to main.
+rollback: >
+  Remove the contract-gate hook from .pre-commit-config.yaml and run
+  `pre-commit uninstall --hook-type pre-push`; delete the script, its test, the
+  plist, and the entrypoint_registry entry. Nothing else depends on them.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+notes: >
+  ci_enforcement_change is true: this adds a local push-time gate. It only
+  adds enforcement — no existing check is relaxed, no budget is raised, and no
+  assertion is weakened. check_main_ci_status was placed under
+  scripts/commands/ci beside check_pace_routing specifically so the
+  root_scripts redundancy budget (95, currently at capacity) is not spent, and
+  is not raised merely to let a new guard pass. The launchd plist is
+  deliberately left uninstalled; creating a standing scheduled job is the
+  operator's decision.
+acceptance:
+  - pre-push gate fails within ~2s when the registry contract is broken
+  - check_main_ci_status distinguishes failing / running / cancelled /
+    unavailable / no_runs, each covered by a test
+  - root_scripts redundancy budget unchanged at 95
+  - governance freeze passes with recorded approval for entrypoint_registry
+unresolved_risks:
+  - >
+    A pre-push hook is bypassable with --no-verify and is per-clone: it must be
+    installed by `pre-commit install --hook-type pre-push` in each working
+    copy. It is a backstop, not an enforcement boundary. The real fix remains
+    branch protection, which needs GitHub Pro or a public repository.
+  - >
+    check_main_ci_status only inspects the most recent run for the branch. A
+    branch that is red on an older commit but green on a newer one reads as ok,
+    which is the intended semantics but is not a full history audit.
