@@ -35,7 +35,7 @@ CURRENT = OUTPUT / "current"
 DEFORMATION_LATEST = OUTPUT / "deformation_runs" / "latest"
 LEARNING_LATEST = OUTPUT / "system_learning" / "latest"
 
-LEARNING_LINKS = {"next_actions.md"}
+LEARNING_LINKS = {"NEXT_ACTIONS.md"}
 
 
 # -- file helpers ------------------------------------------------------------
@@ -495,7 +495,7 @@ def render_read_me(manifest: dict[str, Any], main_signal: list[str], top_actions
         "- Evidence dashboard: `Output/current/benchmark_evidence_dashboard.md`",
         "- Freshness manifest: `Output/current/freshness_manifest.json`",
         "- Dashboard JSON: `Output/current/latest_dashboard.json`",
-        "- Next actions: `Output/current/next_actions.md`",
+        "- Next actions: `Output/current/NEXT_ACTIONS.md`",
         "- System health: `Output/system_learning/latest/system_health_report.md`",
         "",
     ])
@@ -567,7 +567,7 @@ def _write_model_run(manifest: dict[str, Any], main_signal: list[str]) -> None:
                 # These now live in Output/deformation_runs/latest/reports/.
                 # See governance/architecture_cleanup_decisions.md D5.
                 "next_actions": {
-                    "path": "next_actions.md",
+                    "path": "NEXT_ACTIONS.md",
                     "kind": "markdown",
                     "description": "Governance next actions.",
                 },
@@ -627,18 +627,12 @@ def refresh_current() -> None:
     if not summary_path.exists():
         raise FileNotFoundError(f"Missing latest executive_summary.md: {summary_path}")
 
-    links = {
-        "next_actions.md": CURRENT / "NEXT_ACTIONS.md",
-    }
-    for name, target in links.items():
-        link = CURRENT / name
-        if target.exists():
-            make_relative_symlink(target, link)
-        elif name in LEARNING_LINKS:
-            safe_unlink(link)
-            link.write_text(f"# Missing\n\nSource file not found: `{target}`\n", encoding="utf-8")
-        else:
-            raise FileNotFoundError(f"Required target missing: {target}")
+    next_actions = CURRENT / "NEXT_ACTIONS.md"
+    if not next_actions.exists():
+        next_actions.write_text(
+            "# Missing\n\nSource file not found: `Output/current/NEXT_ACTIONS.md`\n",
+            encoding="utf-8",
+        )
 
     manifest = read_json(manifest_path)
     # freshness_manifest symlink REMOVED — freshness is now in status.json.
@@ -675,7 +669,7 @@ def main() -> None:
     print("  Summary:      Output/current/latest_summary.md")
     print("  HTML report:  Output/current/latest_report.html")
     print("  Dashboard:    Output/current/latest_dashboard.json")
-    print("  Next actions: Output/current/next_actions.md")
+    print("  Next actions: Output/current/NEXT_ACTIONS.md")
     print("Commands:")
     print("  ./sys check")
     print("  ./sys open")

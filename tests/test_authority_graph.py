@@ -37,6 +37,10 @@ def test_build_authority_graph_from_real_pipeline() -> None:
     assert "quality_validation" in core_steps
     assert "judgment_layer" in core_steps
     assert graph["metrics"]["drift_count"] == 0
+    exemptions = graph["drift"]["exempt_mismatches"]
+    assert exemptions
+    assert all(item["exemption"]["owner"] for item in exemptions)
+    assert all(item["exemption"]["review_after"] for item in exemptions)
 
 
 def test_bridge_is_only_sandbox_to_current_writer() -> None:

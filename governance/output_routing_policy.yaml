@@ -14,7 +14,7 @@ groups:
       - framework_output.json
       - neutral_pressure_snapshot.json
       - status.json
-      - next_actions.md
+      - NEXT_ACTIONS.md
       - artifact_navigator.md
       - artifact_navigator.json
       - benchmark_evidence_dashboard.md

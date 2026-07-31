@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,7 @@ def _write_text(path: Path, text: str) -> None:
 
 def _minimal_root(tmp_path: Path) -> Path:
     run_id = "work_cycle_quick_20260618_000000_test"
+    fresh_at = datetime.now(UTC).isoformat()
     _write_text(tmp_path / "Output/current/latest_run_id.txt", run_id + "\n")
     run_dir = tmp_path / "Output/runs" / run_id
     _write_json(
@@ -66,15 +68,21 @@ def _minimal_root(tmp_path: Path) -> Path:
     )
     _write_json(
         tmp_path / "Output/system_learning/latest/supervisor_check.json",
-        {"overall_status": "PASS", "review_queue": []},
+        {"timestamp": fresh_at, "overall_status": "PASS", "review_queue": []},
     )
     _write_json(
         tmp_path / "Output/system_learning/latest/architecture_reality_audit.json",
-        {"summary": {"overall_status": "PASS", "total_findings": 0}},
+        {
+            "audit_timestamp": fresh_at,
+            "summary": {"overall_status": "PASS", "total_findings": 0},
+        },
     )
     _write_json(
         tmp_path / "Output/system_learning/latest/output_routing_report.json",
-        {"summary": {"overall_status": "CLEAN", "total_findings": 0}},
+        {
+            "timestamp": fresh_at,
+            "summary": {"overall_status": "CLEAN", "total_findings": 0},
+        },
     )
     _write_text(
         tmp_path / "governance/incentive_policy.yaml",
@@ -178,6 +186,37 @@ review_schedule:
     assert report["exceptions"]["open_count"] == 1
     assert report["exceptions"]["overdue_count"] == 1
     assert any(item["source"] == "experimental_submission" for item in report["review_queue"])
+
+
+def test_governance_status_rejects_stale_contract_report(tmp_path: Path) -> None:
+    module = _load_module()
+    root = _minimal_root(tmp_path)
+    stale_at = (datetime.now(UTC) - timedelta(days=8)).isoformat()
+    _write_json(
+        root / "Output/system_learning/latest/supervisor_check.json",
+        {"generated_at": stale_at, "overall_status": "PASS", "review_queue": []},
+    )
+
+    report = module.run_governance_status(root)
+
+    assert report["overall_status"] == "BLOCKED"
+    assert report["contracts"]["supervisor_status"] == "STALE"
+    assert report["contracts"]["freshness"]["supervisor"]["status"] == "STALE"
+    assert any(item["source"] == "supervisor" for item in report["review_queue"])
+
+
+def test_governance_status_rejects_previous_run_contract_report(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_module()
+    root = _minimal_root(tmp_path)
+    monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "current_weekly_run")
+
+    report = module.run_governance_status(root)
+
+    assert report["overall_status"] == "BLOCKED"
+    assert report["contracts"]["supervisor_status"] == "RUN_MISMATCH"
+    assert report["contracts"]["freshness"]["supervisor"]["same_run"] is False
 
 
 def test_governance_status_writes_outputs(tmp_path: Path) -> None:

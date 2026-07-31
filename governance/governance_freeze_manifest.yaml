@@ -1,5 +1,5 @@
 schema_version: governance_freeze_manifest.v2
-updated_at: '2026-06-20'
+updated_at: '2026-07-31'
 freeze_commit: 06e91e906d0f8ce6562240b27db556366edb3e2b
 freeze_date: '2026-06-17'
 review_after: '2026-08-15'
@@ -11,6 +11,14 @@ purpose: 'Machine-checkable governance freeze baseline. Root-level governance fi
 approved_additions_budget:
   max_files: 17
   reason: Cap post-freeze additions; +1 for P0-2 runtime_status_contract.yaml (enum authority)
+blocking_hash_files:
+- authority_registry.yaml
+- capability_registry.yaml
+- daily_pipeline_registry.yaml
+- entrypoint_registry.yaml
+- incentive_policy.yaml
+- output_routing_policy.yaml
+- system_constitution.yaml
 ignore_patterns:
 - '*.generated.yaml'
 - .DS_Store
@@ -45,33 +53,57 @@ baseline_root_files:
 - submodule_commit_plan.md
 - system_constitution.yaml
 baseline_hashes:
-  architecture_cleanup_decisions.md: 446262635117bdf3
-  architecture_reality_decisions.md: 648dc6c8bd00eaec
-  authority_registry.yaml: 0058aae04a6ce7ea
+  architecture_cleanup_decisions.md: daae955ec8d5ce78
+  architecture_reality_decisions.md: eb49fbd165f8cdc2
+  authority_registry.yaml: b385ac07c0aa16b8
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
-  capability_registry.schema.json: 36a5be75b05d591e
-  capability_registry.yaml: 77843d47b8a6f6fd
-  daily_pipeline_registry.yaml: 1462397fbc06859c
+  capability_registry.schema.json: 27a6da6088423b3d
+  capability_registry.yaml: 82a6a1f7665dd814
+  daily_pipeline_registry.yaml: 14d45cbe7cc4eabc
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
-  deferred_work_register.yaml: 66323b7fc6d1643a
-  entrypoint_registry.yaml: f32ad3bc798aac2e
+  deferred_work_register.yaml: f8de885dccaa8ba0
+  entrypoint_registry.yaml: 754d701935f61519
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: 7378891650ab5040
-  git_workspace_policy.md: d812b4ed4f0371bd
-  incentive_policy.yaml: eae916244754e015
-  opencode_supervisor_policy.yaml: 822ecdea6cb684da
+  git_workspace_policy.md: 4dab5f4a7e64d803
+  incentive_policy.yaml: 8d2c92e89a5f803c
+  opencode_supervisor_policy.yaml: 15cb87cbd163e6c8
   operator_registry.yaml: 52406a8a279176c1
-  output_routing_policy.yaml: 24dfa5eb2762d163
+  output_routing_policy.yaml: 3bbdaa96f0b57671
   pipeline_test_baseline.yaml: d476abebd64035a6
-  proxy_quality_rules.yaml: 09bf85c19edc4c85
-  redundancy_budget.yaml: 2a5d2451addaec3c
-  repo_layout_map.md: 45c81234ae0a728f
+  proxy_quality_rules.yaml: 07de97481688210c
+  redundancy_budget.yaml: 56b2b16c01033365
+  repo_layout_map.md: 15f2d85e93e4f91c
   run_mode_registry.yaml: a0aa12f41ec3f33a
   run_observability_summary.template.md: 69bb81c0d223cf9e
-  semantic_registry.json: d72f277e4d56e813
+  semantic_registry.json: 5b24fdeafa56fe1b
   submodule_commit_plan.md: 164a0f9110fba6d5
-  system_constitution.yaml: 923166d5bd7e467e
+  system_constitution.yaml: c8157834e02e1666
+baseline_revision_history:
+- approved_at: '2026-07-31'
+  approval: user_requested_governance_closure
+  reason: >
+    Reconcile accumulated approved governance changes, then make critical
+    authority files and all missing baseline files blocking going forward.
+  files:
+  - architecture_cleanup_decisions.md
+  - architecture_reality_decisions.md
+  - authority_registry.yaml
+  - capability_registry.schema.json
+  - capability_registry.yaml
+  - daily_pipeline_registry.yaml
+  - deferred_work_register.yaml
+  - entrypoint_registry.yaml
+  - git_workspace_policy.md
+  - incentive_policy.yaml
+  - opencode_supervisor_policy.yaml
+  - output_routing_policy.yaml
+  - proxy_quality_rules.yaml
+  - redundancy_budget.yaml
+  - repo_layout_map.md
+  - semantic_registry.json
+  - system_constitution.yaml
 approved_additions:
 - file: governance_tiers.yaml
   approved_at: '2026-06-18'

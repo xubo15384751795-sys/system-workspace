@@ -195,6 +195,7 @@ def check_governance_freeze(root: Path = ROOT) -> dict[str, Any]:
 
     # ── Check 5: File hash integrity ───────────────────────────
     baseline_hashes = manifest.get("baseline_hashes", {})
+    blocking_hash_files = set(manifest.get("blocking_hash_files", []) or [])
     if baseline_hashes:
         for name, expected_hash in baseline_hashes.items():
             path = gov_dir / name
@@ -203,25 +204,26 @@ def check_governance_freeze(root: Path = ROOT) -> dict[str, Any]:
                 violations.append(
                     {
                         "id": "baseline_file_missing",
-                        "severity": "medium",
+                        "severity": "high",
                         "message": (
                             f"Baseline governance file '{name}' is missing (expected hash {expected_hash}). "
-                            "WARNING: hash mismatch is advisory, not blocking. Update manifest or revert."
+                            "Missing baseline files are blocking. Restore the file or explicitly revise the baseline."
                         ),
                     }
                 )
             else:
                 actual_hash = _file_hash(path)
                 if actual_hash != expected_hash:
+                    severity = "high" if name in blocking_hash_files else "medium"
                     hash_mismatches.append({"file": name, "expected": expected_hash, "actual": actual_hash})
                     violations.append(
                         {
                             "id": "baseline_file_modified",
-                            "severity": "medium",
+                            "severity": severity,
                             "message": (
                                 f"Baseline governance file '{name}' content changed since freeze "
                                 f"(expected {expected_hash}, got {actual_hash}). "
-                                "WARNING: hash mismatch is advisory, not blocking. "
+                                f"Severity is {severity}. "
                                 "Update baseline_hashes in manifest with explicit approval or revert."
                             ),
                         }

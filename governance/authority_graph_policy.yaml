@@ -140,6 +140,11 @@ canonical_data_prefixes:
   - prefix: Data/horizon_events/
 
 drift_exempt:
+  owner: Governance
+  reason: >
+    These steps assemble or display already-governed evidence. Reaching a
+    current/core path does not grant them independent judgment authority.
+  review_after: "2026-08-15"
   output_assembly_node_types:
     - output_assembly
     - diagnostic_readout

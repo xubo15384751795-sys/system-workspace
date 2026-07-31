@@ -231,11 +231,22 @@ def test_tool_coverage_audit_marks_replay_evaluation_covered() -> None:
     replay = next(
         item
         for item in audit["surfaces"]
-        if item["script"] == "scripts/structural_replay_evaluation.py"
+        if item["script"] == "packages/workbench/agents/harness/tools/deformation_tools.py"
     )
     assert replay["priority"] == "high"
+    assert replay["exists"] is True
     assert replay["coverage"] == "covered"
     assert "deformation.evaluate_replay" in replay["matched_tool_ids"]
+
+
+def test_tool_coverage_audit_resolves_workspace_root() -> None:
+    audit = audit_tool_coverage()
+
+    promotion = next(
+        item for item in audit["surfaces"] if item["script"] == "scripts/promote_snapshot.py"
+    )
+    assert promotion["exists"] is True
+    assert audit["stale_surface_count"] == 0
 
 
 def test_create_task_plan_binds_protocol_validation_tasks_to_toolspec() -> None:

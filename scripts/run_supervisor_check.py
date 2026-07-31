@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -137,7 +138,10 @@ def _check_deferred_work_overdue() -> dict[str, Any]:
     today = datetime.now(UTC)
     overdue = []
     approaching = []
+    terminal_statuses = {"completed", "completed_sealed", "cancelled", "archived"}
     for item in reg.get("items", []):
+        if str(item.get("status", "")).lower() in terminal_statuses:
+            continue
         hard_dl = item.get("hard_deadline")
         if not hard_dl:
             continue
@@ -482,6 +486,7 @@ def run_supervisor_check() -> dict[str, Any]:
 
     return {
         "timestamp": now.isoformat(),
+        "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "overall_status": overall,
         "checks": checks,
         "review_queue": review_queue,

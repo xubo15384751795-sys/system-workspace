@@ -153,18 +153,44 @@ def _collect_input_paths(step: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(_normalize_path(v) for v in values if v))
 
 
-def _drift_exempt(step_id: str, node: dict[str, Any], declared: bool, derived: bool, policy: dict[str, Any]) -> bool:
+def _drift_exemption(
+    step_id: str,
+    node: dict[str, Any],
+    declared: bool,
+    derived: bool,
+    policy: dict[str, Any],
+) -> dict[str, Any] | None:
     if declared == derived:
-        return True
+        return None
     exempt = policy.get("drift_exempt", {}) or {}
+    review_after = exempt.get("review_after")
+    if review_after:
+        try:
+            if datetime.now(UTC).date() > datetime.fromisoformat(str(review_after)).date():
+                return None
+        except ValueError:
+            return None
     if not declared and derived:
         node_type = str(node.get("node_type", ""))
         if node_type in set(exempt.get("output_assembly_node_types", [])):
-            return True
-        for pattern in exempt.get("output_assembly_step_patterns", []):
-            if fnmatch.fnmatch(step_id, pattern):
-                return True
-    return False
+            matched_by = f"node_type:{node_type}"
+        else:
+            matched_by = next(
+                (
+                    f"step_pattern:{pattern}"
+                    for pattern in exempt.get("output_assembly_step_patterns", [])
+                    if fnmatch.fnmatch(step_id, pattern)
+                ),
+                None,
+            )
+        if matched_by:
+            return {
+                "matched_by": matched_by,
+                "reason": exempt.get("reason", "output assembly is not judgment authority"),
+                "owner": exempt.get("owner", "Governance"),
+                "review_after": review_after,
+            }
+    return None
 
 
 def build_step_id_index(root: Path) -> dict[str, str]:
@@ -325,7 +351,9 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
                 "graph_derived_affects_core": derived_core,
                 "graph_reaches_current_surface": reaches_surface,
             }
-            if _drift_exempt(step_id, node, declared, derived_core, policy):
+            exemption = _drift_exemption(step_id, node, declared, derived_core, policy)
+            if exemption:
+                item["exemption"] = exemption
                 exempt_drift.append(item)
             else:
                 drift.append(item)

@@ -307,7 +307,7 @@ def _h_evaluate_replay(input: dict, dry_run: bool) -> ToolResult:
         },
         "errors": errors,
         "warnings": warnings,
-        "legacy_script_surface": "scripts/structural_replay_evaluation.py",
+        "governed_surface": "packages/workbench/agents/harness/tools/deformation_tools.py",
     }
     return ToolResult(
         ok=not errors,

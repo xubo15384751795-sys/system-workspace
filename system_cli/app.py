@@ -136,7 +136,7 @@ def _legacy_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
             return code
         return 0
     if command in {"next", "learning"}:
-        return _show(current / "next_actions.md", lines=80)
+        return _show(current / "NEXT_ACTIONS.md", lines=80)
     if command == "explain":
         path = current / "00_READ_ME_FIRST.md"
         if not path.exists():

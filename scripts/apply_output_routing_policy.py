@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -169,6 +170,7 @@ def run_routing_check() -> dict[str, Any]:
 
     return {
         "timestamp": datetime.now(UTC).isoformat(),
+        "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "policy": str(POLICY_PATH.relative_to(ROOT)),
         "mode": "dry-run",
         "checks": {k: {"count": len(v), "findings": v} for k, v in checks.items()},

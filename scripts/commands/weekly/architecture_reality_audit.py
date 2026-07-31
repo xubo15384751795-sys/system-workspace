@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
@@ -467,6 +468,7 @@ def run_audit() -> dict[str, Any]:
     """Run all architecture reality checks."""
     results: dict[str, Any] = {
         "audit_timestamp": datetime.now(UTC).isoformat(),
+        "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "audit_version": "1.0.0",
         "checks": {},
     }

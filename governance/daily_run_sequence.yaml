@@ -48,8 +48,6 @@ steps:
   schedule: weekly
 - id: build_authority_graph
   schedule: weekly
-- id: governance_status
-  schedule: weekly
 - id: learning_hub_feedback
   schedule: weekly
 - id: mechanism_calibration
@@ -105,4 +103,10 @@ steps:
 - id: learning_hub_ingest
   schedule: weekly
 - id: monitoring_coverage_audit
+  schedule: weekly
+- id: output_routing_audit
+  schedule: weekly
+- id: supervisor_check
+  schedule: weekly
+- id: governance_status
   schedule: weekly

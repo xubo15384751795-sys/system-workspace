@@ -2012,6 +2012,72 @@ steps:
       affects_core_judgment: false
       failure_behavior: continue_with_warning
       owner: Workbench
+  output_routing_audit:
+    order: 76
+    status: active
+    owner: Governance
+    schedule: weekly
+    command: python scripts/apply_output_routing_policy.py
+    input: &id_output_routing_audit_in
+    - governance/output_routing_policy.yaml
+    - Output/current/
+    - Output/sandbox/
+    - Output/research/
+    produces: &id_output_routing_audit_out
+    - Output/system_learning/latest/output_routing_report.json
+    - Output/system_learning/latest/output_routing_report.md
+    artifact_path: Output/system_learning/latest/output_routing_report.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/apply_output_routing_policy.py
+      future_callable: scripts.apply_output_routing_policy:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_output_routing_audit_in
+      outputs: *id_output_routing_audit_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Governance
+  supervisor_check:
+    order: 77
+    status: active
+    owner: Governance
+    schedule: weekly
+    command: python scripts/run_supervisor_check.py
+    input: &id_supervisor_check_in
+    - governance/
+    - Output/current/
+    - Output/system_learning/latest/monitoring_coverage.json
+    - Output/system_learning/latest/output_routing_report.json
+    produces: &id_supervisor_check_out
+    - Output/system_learning/latest/supervisor_check.json
+    - Output/system_learning/latest/supervisor_check.md
+    artifact_path: Output/system_learning/latest/supervisor_check.json
+    ttl_hours: 168
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    failure_behavior: continue_with_warning
+    execution:
+      mode: subprocess
+      current_command: python scripts/run_supervisor_check.py
+      future_callable: scripts.run_supervisor_check:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    contracts:
+      inputs: *id_supervisor_check_in
+      outputs: *id_supervisor_check_out
+      emits_run_event: true
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Governance
   build_authority_graph:
     order: 39
     status: active
@@ -2044,7 +2110,7 @@ steps:
       owner: Learning Hub
     schedule: weekly
   governance_status:
-    order: 40
+    order: 78
     status: active
     owner: Learning Hub
     command: python scripts/commands/weekly/governance_status.py --exceptions-only

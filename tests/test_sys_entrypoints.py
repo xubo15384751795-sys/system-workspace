@@ -62,6 +62,12 @@ def test_sys_next_exits_cleanly(sandbox: Path) -> None:
     assert "Next Actions" in (result.stdout + result.stderr)
 
 
+def test_next_actions_uses_one_canonical_case(sandbox: Path) -> None:
+    names = {path.name for path in (sandbox / "Output/current").iterdir()}
+    assert "NEXT_ACTIONS.md" in names
+    assert "next_actions.md" not in names
+
+
 def test_sys_status_exits_cleanly(sandbox: Path) -> None:
     result = _cli(sandbox, "status", timeout=90)
     assert result.returncode in (0, 1), f"status crashed: {result.stderr}"

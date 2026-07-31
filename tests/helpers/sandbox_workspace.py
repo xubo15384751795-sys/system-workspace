@@ -63,9 +63,8 @@ def build_sandbox_workspace(target: Path) -> Path:
         shutil.copy2(FIXTURE_CURRENT / name, current / name)
 
     # Extra surfaces required by doctor / next / readme contract tests.
-    # Note: Windows FS is case-insensitive — do not also write NEXT_ACTIONS.md.
     (current / "latest_run_id.txt").write_text("fixture_run_p0_2_wave2\n", encoding="utf-8")
-    (current / "next_actions.md").write_text(
+    (current / "NEXT_ACTIONS.md").write_text(
         "# Next Actions (fixture)\n\n- Keep monitoring ACTIVE_WATCH fixture channel.\n",
         encoding="utf-8",
     )

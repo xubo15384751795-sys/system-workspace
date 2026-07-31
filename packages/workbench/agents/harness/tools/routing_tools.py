@@ -139,17 +139,19 @@ def _h_tool_coverage_audit(input: dict, dry_run: bool) -> ToolResult:
 
     audit = audit_tool_coverage()
     missing_count = audit["missing_count"]
+    stale_count = audit["stale_surface_count"]
     return ToolResult(
         ok=True,
         tool_id="routing.tool_coverage_audit",
         summary=(
-            f"ToolSpec coverage: {audit['covered_count']}/{audit['surface_count']} "
-            f"surfaces covered; {missing_count} missing"
+            f"ToolSpec coverage: {audit['covered_count']}/{audit['active_surface_count']} "
+            f"active surfaces covered; {missing_count} missing; {stale_count} stale rules"
         ),
         evidence={"tool_coverage_audit": audit},
-        warnings=[
-            f"{missing_count} governed surface(s) still need ToolSpec coverage"
-        ] if missing_count else [],
+        warnings=(
+            ([f"{missing_count} governed surface(s) still need ToolSpec coverage"] if missing_count else [])
+            + ([f"{stale_count} coverage rule(s) point to removed scripts"] if stale_count else [])
+        ),
     )
 
 

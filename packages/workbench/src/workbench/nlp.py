@@ -79,7 +79,7 @@ def collect_current_chunks(*, chunk_window_chars: int | None = None) -> list[Evi
         CURRENT / "00_READ_ME_FIRST.md",
         CURRENT / "latest_summary.md",
         CURRENT / "benchmark_evidence_dashboard.md",
-        CURRENT / "next_actions.md",
+        CURRENT / "NEXT_ACTIONS.md",
         OUTPUT / "system_learning" / "latest" / "system_health_report.md",
         CURRENT / "framework_output.json",
         CURRENT / "model_run.json",

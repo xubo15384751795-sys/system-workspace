@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ from scripts._runtime_io import load_json as _load_json
 from scripts._runtime_io import load_yaml as _load_yaml
 
 OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+CONTRACT_REPORT_TTL_HOURS = 168
 
 
 def _latest_run_dir(root: Path) -> Path | None:
@@ -131,21 +133,102 @@ def _gate_status(root: Path, authority_graph: dict[str, Any], run_trace: dict[st
     }
 
 
-def _contract_status(root: Path) -> dict[str, Any]:
-    supervisor = _load_json(root / "Output" / "system_learning" / "latest" / "supervisor_check.json") or {}
-    architecture = _load_json(root / "Output" / "system_learning" / "latest" / "architecture_reality_audit.json") or {}
-    routing = _load_json(root / "Output" / "system_learning" / "latest" / "output_routing_report.json") or {}
+def _parse_report_time(payload: dict[str, Any], path: Path) -> tuple[datetime | None, str]:
+    for key in ("generated_at", "timestamp", "audit_timestamp"):
+        raw = payload.get(key)
+        if not raw:
+            continue
+        try:
+            parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC), key
+    return None, "content_clock_missing" if path.exists() else "missing"
+
+
+def _load_contract_report(
+    path: Path,
+    *,
+    now: datetime,
+    ttl_hours: int = CONTRACT_REPORT_TTL_HOURS,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    payload = _load_json(path) or {}
+    report_time, clock_source = _parse_report_time(payload, path)
+    age_hours = None
+    if report_time is not None:
+        age_hours = max(0.0, (now - report_time).total_seconds() / 3600)
+    if not path.exists() or not payload:
+        freshness_status = "MISSING"
+    elif age_hours is None:
+        freshness_status = "NO_CONTENT_CLOCK"
+    elif age_hours > ttl_hours:
+        freshness_status = "STALE"
+    else:
+        freshness_status = "FRESH"
+    freshness = {
+        "path": str(path),
+        "status": freshness_status,
+        "generated_at": report_time.isoformat() if report_time else None,
+        "clock_source": clock_source,
+        "age_hours": round(age_hours, 2) if age_hours is not None else None,
+        "ttl_hours": ttl_hours,
+        "source_run_id": payload.get("run_id") or payload.get("source_run_id"),
+        "source_sha": payload.get("source_sha") or payload.get("git_sha"),
+    }
+    return payload, freshness
+
+
+def _contract_status(root: Path, *, now: datetime | None = None) -> dict[str, Any]:
+    checked_at = now or datetime.now(UTC)
+    expected_run_id = os.environ.get("ZCODE_BUNDLE_RUN_ID")
+    latest = root / "Output" / "system_learning" / "latest"
+    supervisor, supervisor_freshness = _load_contract_report(
+        latest / "supervisor_check.json", now=checked_at
+    )
+    architecture, architecture_freshness = _load_contract_report(
+        latest / "architecture_reality_audit.json", now=checked_at
+    )
+    routing, routing_freshness = _load_contract_report(
+        latest / "output_routing_report.json", now=checked_at
+    )
 
     arch_summary = architecture.get("summary", {}) if isinstance(architecture, dict) else {}
     routing_summary = routing.get("summary", {}) if isinstance(routing, dict) else {}
+    freshness = {
+        "supervisor": supervisor_freshness,
+        "architecture_reality": architecture_freshness,
+        "output_routing": routing_freshness,
+    }
+    if expected_run_id:
+        for item in freshness.values():
+            item["expected_run_id"] = expected_run_id
+            item["same_run"] = item.get("source_run_id") == expected_run_id
+            if item["status"] == "FRESH" and not item["same_run"]:
+                item["status"] = "RUN_MISMATCH"
+
+    def effective_status(raw_status: str, report_freshness: dict[str, Any]) -> str:
+        state = report_freshness["status"]
+        return raw_status if state == "FRESH" else state
 
     return {
-        "supervisor_status": supervisor.get("overall_status", "NO_DATA"),
+        "supervisor_status": effective_status(
+            supervisor.get("overall_status", "NO_DATA"), supervisor_freshness
+        ),
         "supervisor_review_items": len(supervisor.get("review_queue", []) or []),
-        "architecture_status": arch_summary.get("overall_status", "NO_DATA"),
+        "architecture_status": effective_status(
+            arch_summary.get("overall_status", "NO_DATA"), architecture_freshness
+        ),
         "architecture_findings": arch_summary.get("total_findings", 0),
-        "output_routing_status": routing_summary.get("overall_status", "NO_DATA"),
+        "output_routing_status": effective_status(
+            routing_summary.get("overall_status", "NO_DATA"), routing_freshness
+        ),
         "output_routing_findings": routing_summary.get("total_findings", 0),
+        "freshness": freshness,
+        "stale_or_missing_count": sum(
+            item["status"] != "FRESH" for item in freshness.values()
+        ),
     }
 
 
@@ -269,7 +352,14 @@ def _overall_status(
     hard_contract_states = {contracts.get("supervisor_status"), contracts.get("architecture_status")}
     if gates.get("promotion_gate") == "BLOCKED" or gates.get("blocked_gates"):
         return "BLOCKED"
-    if "OVERDUE" in hard_contract_states or "INCOMPLETE" in hard_contract_states:
+    if hard_contract_states & {
+        "OVERDUE",
+        "INCOMPLETE",
+        "STALE",
+        "MISSING",
+        "NO_CONTENT_CLOCK",
+        "RUN_MISMATCH",
+    }:
         return "BLOCKED"
     if run_trace.get("status") == "MISSING":
         return "BLOCKED"
@@ -277,6 +367,8 @@ def _overall_status(
         gates.get("promotion_gate") == "WATCH"
         or contracts.get("architecture_findings", 0)
         or contracts.get("output_routing_findings", 0)
+        or contracts.get("output_routing_status")
+        in {"STALE", "MISSING", "NO_CONTENT_CLOCK", "RUN_MISMATCH"}
         or exceptions.get("open_count", 0)
         or authority_graph.get("drift_count", 0)
         or not authority_graph.get("invariants_valid", True)
@@ -315,6 +407,17 @@ def _review_queue(
             "source": "output_routing_policy",
             "severity": "medium",
             "action": f"{contracts['output_routing_findings']} output routing finding(s) need review.",
+        })
+    for name, freshness in contracts.get("freshness", {}).items():
+        if freshness.get("status") == "FRESH":
+            continue
+        queue.append({
+            "source": name,
+            "severity": "high" if name in {"supervisor", "architecture_reality"} else "medium",
+            "action": (
+                f"Contract report is {freshness.get('status')}; "
+                f"age={freshness.get('age_hours')}h, ttl={freshness.get('ttl_hours')}h."
+            ),
         })
     for item in exceptions.get("overdue_items", []):
         queue.append({
@@ -371,6 +474,7 @@ def run_governance_status(root: Path = ROOT) -> dict[str, Any]:
     return {
         "schema_version": "system.governance_status.v2",
         "generated_at": datetime.now(UTC).isoformat(),
+        "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "overall_status": overall,
         "run_trace": run_trace,
         "authority_graph": _authority_graph_summary(authority_graph),
@@ -431,6 +535,7 @@ def generate_markdown(report: dict[str, Any]) -> str:
         f"- Supervisor: {contracts['supervisor_status']}",
         f"- Architecture reality: {contracts['architecture_status']} ({contracts['architecture_findings']} findings)",
         f"- Output routing: {contracts['output_routing_status']} ({contracts['output_routing_findings']} findings)",
+        f"- Stale or missing contract reports: {contracts.get('stale_or_missing_count', 0)}",
         "",
         "## Exceptions",
         "",

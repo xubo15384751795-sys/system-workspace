@@ -229,9 +229,32 @@ classification.
 After the runtime checks pass, run the repository's authoritative merge gate:
 
 ```bash
+.venv/bin/python scripts/daily_run.py --force-weekly
+.venv/bin/python scripts/check_governance_freeze.py
 ./sys verify --merge
 ./sys verify --check
 ```
+
+The forced weekly run must finish its governance tail in this order:
+
+1. `learning_hub_ingest`
+2. `monitoring_coverage_audit`
+3. `output_routing_audit`
+4. `supervisor_check`
+5. `governance_status`
+
+Then verify `Output/system_learning/latest/governance_status.json`:
+
+- all three contract reports have freshness status `FRESH`;
+- `stale_or_missing_count` is zero;
+- supervisor and output-routing timestamps come from this weekly run window;
+- no lowercase `Output/current/next_actions.md` directory entry exists;
+- `Output/current/NEXT_ACTIONS.md` exists;
+- Learning Hub ledger watermark is not behind the newest source event.
+
+The governance-freeze check must pass with zero hash mismatches. Critical
+authority-file modification and deletion are blocking; do not rebaseline on
+the compute device merely to make the check green.
 
 The generated manifest is
 `Output/verification/merge_gate_manifest.json`. It must:
@@ -261,6 +284,9 @@ Retain a concise, non-sensitive run record containing:
 | full freshness | PASS; stale count 0 |
 | ordering/closure | 0 / 0 |
 | monitoring | required gaps 0; unclassified 0 |
+| governance reports | fresh 3/3; stale or missing 0 |
+| governance tail | ingest → monitoring → routing → supervisor → status |
+| Learning Hub watermark | ledger at or ahead of newest source event |
 | operator tests | all pass |
 | merge verification | PASS and SHA match |
 | exceptions | none, or explicit blocker with owner |

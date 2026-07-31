@@ -10,7 +10,16 @@ from tools.registry import list_tools
 
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
-WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
+
+
+def _find_workspace_root(start: Path) -> Path:
+    for candidate in (start, *start.parents):
+        if (candidate / "governance").is_dir() and (candidate / "scripts").is_dir():
+            return candidate
+    raise RuntimeError(f"Cannot locate workspace root from {start}")
+
+
+WORKSPACE_ROOT = _find_workspace_root(HARNESS_ROOT)
 
 
 @dataclass(frozen=True)
@@ -89,7 +98,7 @@ SURFACE_RULES: list[SurfaceRule] = [
         rationale="Status inspection should be available as a governed read-only tool.",
     ),
     SurfaceRule(
-        script="scripts/openbb_secondary_audit.py",
+        script="packages/workbench/src/workbench/openbb_secondary_audit.py",
         expected_tool_ids=["learning_hub.openbb_secondary_audit"],
         subsystem="learning_hub",
         risk_category="read_only",
@@ -97,7 +106,7 @@ SURFACE_RULES: list[SurfaceRule] = [
         rationale="OpenBB observe-only audit should emit governed Learning Hub evidence.",
     ),
     SurfaceRule(
-        script="scripts/structural_replay_evaluation.py",
+        script="packages/workbench/agents/harness/tools/deformation_tools.py",
         expected_tool_ids=["deformation.evaluate_replay"],
         subsystem="deformation",
         risk_category="read_only",
@@ -139,11 +148,18 @@ def audit_tool_coverage() -> dict[str, Any]:
     surfaces: list[dict[str, Any]] = []
     missing: list[dict[str, Any]] = []
     covered: list[dict[str, Any]] = []
+    stale: list[dict[str, Any]] = []
 
     for rule in SURFACE_RULES:
-        path = WORKBENCH_ROOT / rule.script
+        path = WORKSPACE_ROOT / rule.script
         exists = path.is_file()
         matched = sorted(tool_id for tool_id in rule.expected_tool_ids if tool_id in registered)
+        if not exists:
+            coverage = "stale_surface"
+        elif matched:
+            coverage = "covered"
+        else:
+            coverage = "missing_tool_spec"
         item = {
             "script": rule.script,
             "exists": exists,
@@ -152,14 +168,16 @@ def audit_tool_coverage() -> dict[str, Any]:
             "priority": rule.priority,
             "expected_tool_ids": rule.expected_tool_ids,
             "matched_tool_ids": matched,
-            "coverage": "covered" if matched else "missing_tool_spec",
+            "coverage": coverage,
             "rationale": rule.rationale,
         }
         surfaces.append(item)
-        if matched:
+        if coverage == "covered":
             covered.append(item)
-        else:
+        elif coverage == "missing_tool_spec":
             missing.append(item)
+        else:
+            stale.append(item)
 
     by_priority: dict[str, int] = {}
     for item in missing:
@@ -169,11 +187,14 @@ def audit_tool_coverage() -> dict[str, Any]:
         "registered_tool_count": len(registered),
         "registered_tool_ids": sorted(registered),
         "surface_count": len(surfaces),
+        "active_surface_count": len(surfaces) - len(stale),
         "covered_count": len(covered),
         "missing_count": len(missing),
+        "stale_surface_count": len(stale),
         "missing_by_priority": by_priority,
         "surfaces": surfaces,
         "missing_surfaces": missing,
+        "stale_surfaces": stale,
         "covered_surfaces": covered,
         "policy": (
             "Critical or high-priority missing_tool_spec surfaces should be wrapped "

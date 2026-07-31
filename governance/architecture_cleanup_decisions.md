@@ -76,7 +76,7 @@ framework_output.json
 status.json
 quality_validation.json
 freshness_manifest.json
-next_actions.md
+NEXT_ACTIONS.md
 artifact_navigator.*
 learning_summary.md
 system_health.md

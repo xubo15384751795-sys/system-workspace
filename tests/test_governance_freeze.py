@@ -53,7 +53,7 @@ def test_unapproved_file_detected(tmp_path: Path) -> None:
 
 
 def test_baseline_hash_integrity_detects_modification(tmp_path: Path) -> None:
-    """Tampering with a baseline file must be detected (advisory, not blocking)."""
+    """Tampering with a critical baseline file must block."""
     module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
     # Copy real governance dir to tmp
     gov_tmp = tmp_path / "governance"
@@ -65,14 +65,13 @@ def test_baseline_hash_integrity_detects_modification(tmp_path: Path) -> None:
     target.write_text(target.read_text() + "\n# TAMPERED\n", encoding="utf-8")
 
     report = module.check_governance_freeze(tmp_path)
-    # Hash mismatches are advisory (medium severity) — valid stays True
-    assert report["valid"] is True
+    assert report["valid"] is False
     assert any("incentive_policy.yaml" in m["file"] for m in report["hash_mismatches"])
-    assert any(v["id"] == "baseline_file_modified" and v["severity"] == "medium" for v in report["violations"])
+    assert any(v["id"] == "baseline_file_modified" and v["severity"] == "high" for v in report["violations"])
 
 
 def test_baseline_hash_integrity_detects_missing_file(tmp_path: Path) -> None:
-    """Deleting a baseline file must be detected (advisory, not blocking)."""
+    """Deleting any baseline file must block."""
     module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
@@ -82,10 +81,9 @@ def test_baseline_hash_integrity_detects_missing_file(tmp_path: Path) -> None:
     (gov_tmp / "redundancy_budget.yaml").unlink()
 
     report = module.check_governance_freeze(tmp_path)
-    # Missing baseline is advisory (medium severity) — valid stays True
-    assert report["valid"] is True
+    assert report["valid"] is False
     assert any("redundancy_budget.yaml" in m["file"] for m in report["hash_mismatches"])
-    assert any(v["id"] == "baseline_file_missing" and v["severity"] == "medium" for v in report["violations"])
+    assert any(v["id"] == "baseline_file_missing" and v["severity"] == "high" for v in report["violations"])
 
 
 def test_review_after_enforcement(tmp_path: Path) -> None:

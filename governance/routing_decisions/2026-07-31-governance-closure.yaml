@@ -1,0 +1,32 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-31"
+task_id: governance-closure-monitoring-contracts
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Reconcile the accumulated approved governance changes with the freeze
+  manifest, register weekly monitoring and output-routing checks, enforce
+  contract-report freshness and same-run identity, and align runtime helpers
+  with their canonical workspace paths.
+decision: >
+  Commit the governance registry, freeze-manifest, runtime, and focused-test
+  changes together. Keep all changes fail-closed for stale, missing, or
+  mismatched contract evidence; do not alter core judgment or promotion
+  authority.
+preregistered_expectation: >
+  Focused governance, entrypoint, supervisor, and task-router tests pass;
+  pre-commit checks remain green; no current-authority output is promoted by
+  this change.
+observation_window: "focused pytest suite and local pre-commit run"
+rollback: "Revert this commit and restore the prior governance freeze baseline."
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: false
+acceptance:
+  - focused governance and runtime tests pass
+  - stale or mismatched contract reports remain BLOCKED
+  - critical governance baseline drift remains blocking
+  - pre-commit checks pass without bypass
