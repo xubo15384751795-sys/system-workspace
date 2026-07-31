@@ -11,6 +11,19 @@ if ! command -v fswatch >/dev/null 2>&1; then
   exit 1
 fi
 
+# This check passes because it runs in a login shell, whose PATH includes
+# Homebrew. launchd's does not. Without exporting a PATH into the plist the
+# watcher exits 1 on every start and KeepAlive restarts it forever — an
+# invisible crash loop, found at ~98,000 restarts with the Paper sync having
+# never run once. Derive the directory from where fswatch actually is rather
+# than hardcoding a Homebrew prefix.
+FSWATCH_DIR="$(cd "$(dirname "$(command -v fswatch)")" && pwd)"
+LAUNCHD_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+case ":${LAUNCHD_PATH}:" in
+  *":${FSWATCH_DIR}:"*) ;;
+  *) LAUNCHD_PATH="${FSWATCH_DIR}:${LAUNCHD_PATH}" ;;
+esac
+
 mkdir -p "${HOME}/Library/LaunchAgents" "${SYSTEM_ROOT}/Output/runs"
 chmod +x "${SYSTEM_ROOT}/scripts/watch_paper_sync.sh"
 
@@ -30,6 +43,10 @@ cat > "${PLIST_DST}" <<EOF
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <!-- Bound a restart loop if the watcher ever fails to start again: without
+       this, KeepAlive plus an immediate exit spins as fast as launchd allows. -->
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
   <key>StandardOutPath</key>
   <string>${SYSTEM_ROOT}/Output/runs/launchd-paper-watch.log</string>
   <key>StandardErrorPath</key>
@@ -40,6 +57,8 @@ cat > "${PLIST_DST}" <<EOF
     <string>${SYSTEM_ROOT}</string>
     <key>PAPER_ROOT</key>
     <string>${PAPER_ROOT}</string>
+    <key>PATH</key>
+    <string>${LAUNCHD_PATH}</string>
   </dict>
 </dict>
 </plist>
