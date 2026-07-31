@@ -19,6 +19,14 @@ sys.path.insert(0, str(ROOT / "packages" / "workbench" / "src"))
 from _admission_gate import admit_for_consumption, require_admission  # noqa: E402
 
 
+@pytest.fixture
+def no_declared_blocks(monkeypatch):
+    """Evaluate the general blocking rules with no environmentally-blocked
+    sources declared, so these tests do not silently change meaning when
+    configs/freshness_policy.yaml declares one."""
+    monkeypatch.setattr("_admission_gate._environmentally_blocked", dict)
+
+
 def _write_release(release: Path, *, ofr=True, nfci=True, ciss=True,
                    as_of="2026-07-17", ofr_stale=False, nfci_stale=False):
     """Build a release with controllable public-component freshness."""
@@ -64,7 +72,7 @@ def _write_release(release: Path, *, ofr=True, nfci=True, ciss=True,
 
 
 class TestAdmitForConsumption:
-    def test_missing_ofr_blocks(self, tmp_path, monkeypatch):
+    def test_missing_ofr_blocks(self, tmp_path, monkeypatch, no_declared_blocks):
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
@@ -116,7 +124,7 @@ class TestAdmitForConsumption:
 
 
 class TestRequireAdmission:
-    def test_blocks_exit_nonzero(self, tmp_path, monkeypatch):
+    def test_blocks_exit_nonzero(self, tmp_path, monkeypatch, no_declared_blocks):
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
@@ -138,3 +146,65 @@ class TestRequireAdmission:
         decision = require_admission("paper_portfolio", release_dir=release,
                                      now=pd.Timestamp("2026-07-17"))
         assert decision.allowed is True
+
+
+class TestEnvironmentallyBlockedSources:
+    """A source declared unreachable in configs/freshness_policy.yaml stops
+    halting the pipeline, but is still reported — never silently dropped."""
+
+    def test_declared_source_degrades_instead_of_blocking(self, tmp_path, monkeypatch):
+        release = tmp_path / "release"
+        _write_release(release, ofr=False)
+        monkeypatch.setattr(
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
+        )
+        monkeypatch.setattr(
+            "_admission_gate._environmentally_blocked",
+            lambda: {"OFR_FSI": {"reason": "host unreachable from this network"}},
+        )
+        decision = admit_for_consumption("paper_portfolio", release_dir=release,
+                                         now=pd.Timestamp("2026-07-17"))
+        assert decision.allowed is True
+        assert decision.blockers == []
+        # Reported, not hidden.
+        assert any("OFR_FSI" in d for d in decision.degradations)
+        assert any("host unreachable" in d for d in decision.degradations)
+
+    def test_undeclared_source_still_blocks_alongside_declared_one(
+        self, tmp_path, monkeypatch
+    ):
+        """Declaring one source must not wave through a different failure."""
+        release = tmp_path / "release"
+        _write_release(release, ofr=False, nfci_stale=True)
+        monkeypatch.setattr(
+            "_admission_gate._content_level_blockers",
+            lambda now: ([], []),
+        )
+        monkeypatch.setattr(
+            "_admission_gate._environmentally_blocked",
+            lambda: {"OFR_FSI": {"reason": "host unreachable"}},
+        )
+        decision = admit_for_consumption("paper_portfolio", release_dir=release,
+                                         now=pd.Timestamp("2026-07-17"))
+        assert decision.allowed is False
+        assert any("NFCI" in b for b in decision.blockers)
+        assert not any("NFCI" in d for d in decision.degradations)
+
+    def test_content_level_check_maps_to_declared_indicator(self, tmp_path, monkeypatch):
+        """Content checks are named ofr_fsi_cache, not OFR_FSI; the mapping
+        must resolve or the declaration silently fails to apply."""
+        release = tmp_path / "release"
+        _write_release(release)
+        monkeypatch.setattr(
+            "_admission_gate._content_level_blockers",
+            lambda now: (["ofr_fsi_cache:stale (behind=17d)"], []),
+        )
+        monkeypatch.setattr(
+            "_admission_gate._environmentally_blocked",
+            lambda: {"OFR_FSI": {"reason": "host unreachable"}},
+        )
+        decision = admit_for_consumption("paper_portfolio", release_dir=release,
+                                         now=pd.Timestamp("2026-07-17"))
+        assert decision.allowed is True
+        assert any("ofr_fsi_cache" in d for d in decision.degradations)

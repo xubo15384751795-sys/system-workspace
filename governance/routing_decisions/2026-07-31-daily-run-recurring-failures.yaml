@@ -1,0 +1,118 @@
+schema_version: routing_decision_record.v1
+date: "2026-07-31"
+task_id: daily-run-recurring-failures
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Three independent causes behind the recurring "System daily_run failed" and
+  "Content freshness STALE" notifications: (1) the harvester CLI mapped the
+  Phase 2.1 same-day "reused" status to exit 1, so the 2nd and 3rd nightly
+  schedules hard-failed and blocked 15 downstream steps; (2) external
+  indicator caches were never refreshed (official.py hardcoded refresh=False),
+  freezing ofr_fsi.csv and ciss.csv on 2026-07-12; (3) refresh_cross_asset_panel
+  was set to schedule: on_demand while owning a 3-trading-day decision_critical
+  freshness check, so etf_panel froze on 2026-07-20. Cause (1) and (2) shipped
+  in 3f022d2; this record covers the governance-layer remainder.
+decision: >
+  Restore refresh_cross_asset_panel to schedule: daily in
+  daily_pipeline_registry.yaml, matching the cadence already recorded in
+  governance/pipeline_schedule.md since 2026-07-11, and regenerate the
+  daily_run_sequence.yaml view. Commit 10acc44 introduced the etf_panel check
+  and the on_demand schedule in the same change, making the budget
+  unsatisfiable. Update the governance freeze baseline hash with an approval
+  record. Declare OFR_FSI under a new environmentally_blocked: block in
+  configs/freshness_policy.yaml: www.financialresearch.gov fails the TLS
+  handshake from this host in an SNI-scoped way (the same CloudFront IP
+  serves 200 under a different SNI; port 80 still answers 301), so the source
+  cannot be acquired here and an indefinite hard block serves no one. The
+  admission gate reports declared sources as degradations rather than
+  blockers. Gate evaluate_day on CONSENSUS_MIN observed channels, returning
+  INSUFFICIENT_COVERAGE/NO_TRADE below it.
+preregistered_expectation: >
+  The 22:30 harvester cascade disappears entirely. etf_panel and ciss_cache
+  report FRESH. paper_portfolio is no longer blocked by OFR_FSI, and once the
+  next evidence release is built from the refreshed CISS cache it clears its
+  last release-level blocker, letting a full run republish Output/current and
+  resolve the readme_first/system_index ordering violation that is the actual
+  cause of the freshness_validator FAIL. The "Content freshness STALE"
+  notification continues to fire for ofr_fsi_cache alone until that source is
+  refreshed manually.
+observation_window: >
+  The first daily_run after 2026-08-01 that rebuilds the evidence release
+  (today's runs hit same-day reuse and will not rebuild).
+rollback: >
+  Revert this commit. The freeze manifest approval record and the
+  environmentally_blocked declaration are self-contained; deleting the
+  OFR_FSI entry restores hard blocking immediately, and setting
+  refresh_cross_asset_panel back to on_demand plus regenerating the sequence
+  view restores the previous schedule.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+declared_asset_downgrade:
+  asset: OFR_FSI
+  owner: Harvester
+  accountable: xubo15384751795-sys
+  scope: operator_host_daily_admission_gate
+  satisfies_validation_criteria: false
+  note: >
+    P0_4_COMPUTE_DEVICE_HANDOFF.md prohibits classifying a required asset
+    without a specific reviewed routing decision and an accountable owner;
+    this record is that decision. The declaration is scoped to the operator
+    host's daily admission gate and satisfies no validation-roadmap criterion.
+    P0-4 criterion 1 still requires real, freshly acquired OFR FSI data on the
+    compute device, which does have network access to the publisher.
+  review_by: "2026-08-31"
+notes: >
+  evaluate_day is the legacy regime gate; compute_position_series defaults to
+  mode="velocity", so production position sizing is unchanged. The coverage
+  floor degrades 38.7% of historical days (mean regime position 0.624 ->
+  0.408) because 9210 of the 14589 days previously classified NEUTRAL/FULL
+  had fewer than two channels observed. Declaring OFR_FSI does not fake
+  coverage: P_public stays NaN and paper_portfolio still books the day
+  HOLD_DEGRADED.
+acceptance:
+  - refresh_cross_asset_panel present in daily_run_sequence.yaml with schedule daily
+  - governance freeze check passes with the recorded approval
+  - admission gate reports OFR_FSI under degradations, not blockers
+  - a source declared blocked does not wave through an undeclared one
+  - full tests/ suite shows no new failures against the pre-change baseline
+follow_on_fixes:
+  - id: output-research-external-input
+    scope: >
+      merge-gate has been failing on main since 3f022d2 because
+      output_routing_audit (introduced in 0e3b9c2) consumes Output/research/,
+      which no pipeline step produces, tripping
+      test_consumes_traceable_to_upstream. It is a routing destination
+      declared in governance/output_routing_policy.yaml under routes.research.
+    decision: >
+      Declare Output/research/ in the registry's external_inputs, alongside the
+      other scan roots already listed there (Output/runs/, governance/,
+      scripts/). No producer is invented and no test is relaxed.
+    owner: Governance
+  - id: notification-sandbox-guard
+    scope: >
+      tests/test_daily_pipeline_callable_e2e.py ran freshness_validator against
+      sandbox fixtures, and scripts/_notify.py had no guard, so every full test
+      run fired two real macOS alerts reading "Content freshness STALE /
+      etf_panel behind=1118d". Fixture dates reached the operator's real
+      notification centre and buried genuine alerts.
+    decision: >
+      Suppress desktop and webhook delivery when PYTEST_CURRENT_TEST is set or
+      NOTIFY_DISABLE is truthy, printing to stderr instead so nothing is
+      swallowed. Operator notifications are unaffected and covered by a test.
+    owner: Data/Output
+
+unresolved_risks:
+  - >
+    OFR_FSI remains unacquirable from this host; the declaration is bounded by
+    review_by 2026-08-31 in configs/freshness_policy.yaml and must be removed
+    once a VPN/proxy path or an alternative source is in place.
+  - >
+    The shadow card's INSUFFICIENT_COVERAGE label does not propagate into
+    latest_velocity_gate_state, which coerces unknown labels back to FULL for
+    the trade-decision recording path. Changing that state vocabulary touches
+    trade_decision_layer, record_trade_decision, build_signal_card and
+    build_system_index, and is deliberately out of scope here.

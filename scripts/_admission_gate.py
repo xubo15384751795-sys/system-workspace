@@ -42,6 +42,14 @@ _PUBLIC_DEPENDENT_CONSUMERS = frozenset(
 )
 
 
+# Content checks whose underlying indicator is declared environmentally
+# blocked in configs/freshness_policy.yaml. Maps check name -> indicator name.
+_CONTENT_CHECK_INDICATORS = {
+    "ofr_fsi_cache": "OFR_FSI",
+    "ciss_cache": "CISS",
+}
+
+
 @dataclass
 class AdmissionDecision:
     """Result of a pre-consumption admission check."""
@@ -52,6 +60,7 @@ class AdmissionDecision:
     release_manifest: dict[str, Any] | None = None
     content_checks: list[dict[str, Any]] = field(default_factory=list)
     checked_at: str = ""
+    degradations: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.checked_at:
@@ -99,6 +108,57 @@ def _content_level_blockers(now: datetime) -> tuple[list[str], list[dict[str, An
     return blockers, checks
 
 
+def _environmentally_blocked() -> dict[str, dict[str, Any]]:
+    """Sources declared unreachable from this host in freshness_policy.yaml.
+
+    These stop contributing admission blockers, but never stop being reported:
+    the caller records them as degradations, and the consumer's own
+    fail-closed path (P_public NaN -> HOLD_DEGRADED) still applies.
+    """
+    import yaml
+
+    path = ROOT / "configs" / "freshness_policy.yaml"
+    try:
+        policy = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    declared = policy.get("environmentally_blocked") or {}
+    return declared if isinstance(declared, dict) else {}
+
+
+def _split_declared_blockers(
+    blockers: list[str],
+) -> tuple[list[str], list[str]]:
+    """Partition blockers into (still blocking, declared-degraded)."""
+    declared = _environmentally_blocked()
+    if not declared:
+        return blockers, []
+
+    import re
+
+    still_blocking: list[str] = []
+    degraded: list[str] = []
+    for blocker in blockers:
+        # Content-level blockers are "<check_name>:<status> (...)".
+        indicator = _CONTENT_CHECK_INDICATORS.get(blocker.split(":", 1)[0])
+        if indicator is None:
+            # Release-level blockers are free-form sentences that name the
+            # indicator, e.g. "OFR_FSI is required but stale".
+            indicator = next(
+                (n for n in declared if re.search(rf"\b{re.escape(n)}\b", blocker)),
+                None,
+            )
+        if indicator is not None and indicator in declared:
+            # YAML folds the reason into one long line; keep the log readable.
+            reason = " ".join((declared[indicator].get("reason") or "").split())
+            if len(reason) > 90:
+                reason = reason[:87].rstrip() + "..."
+            degraded.append(f"{blocker} [declared environmentally blocked: {reason}]")
+        else:
+            still_blocking.append(blocker)
+    return still_blocking, degraded
+
+
 def admit_for_consumption(
     consumer: str,
     *,
@@ -128,12 +188,14 @@ def admit_for_consumption(
     content_blockers, content_checks = _content_level_blockers(resolved_now)
 
     all_blockers = release_blockers + content_blockers
+    still_blocking, degradations = _split_declared_blockers(all_blockers)
     return AdmissionDecision(
         consumer=consumer,
-        allowed=not all_blockers,
-        blockers=all_blockers,
+        allowed=not still_blocking,
+        blockers=still_blocking,
         release_manifest=manifest,
         content_checks=content_checks,
+        degradations=degradations,
     )
 
 
@@ -158,6 +220,16 @@ def require_admission(
     import sys
 
     decision = admit_for_consumption(consumer, release_dir=release_dir, now=now)
+    if decision.degradations:
+        # Admitted, but with known-missing components. Surface it at WARNING on
+        # every run: a degraded admission must never read as a clean one.
+        logging.getLogger(__name__).warning(
+            "admission degraded for %s: %s", consumer, "; ".join(decision.degradations)
+        )
+        print(
+            f"WARNING: admission degraded for {consumer}: {decision.degradations}",
+            file=sys.stderr,
+        )
     if not decision.allowed:
         logging.getLogger(__name__).error(
             "admission blocked for %s: %s", consumer, "; ".join(decision.blockers)

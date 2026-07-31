@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Notify when main's CI is red.
+
+  Branch protection is unavailable on this repository (private on a free
+  plan), so nothing server-side keeps a red commit off main. 0e3b9c2 left
+  merge-gate red on main for a full day before anyone noticed.
+
+  Install:
+    cp Config/launchd/com.system.main-ci-watch.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.system.main-ci-watch.plist
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.system.main-ci-watch.plist
+    rm ~/Library/LaunchAgents/com.system.main-ci-watch.plist
+
+  Read-only: the script queries the GitHub Actions API through `gh` and
+  notifies. It never pushes, reverts, or edits anything.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.system.main-ci-watch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>-m</string>
+        <string>scripts.commands.ci.check_main_ci_status</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/a1/System</string>
+    <!-- Twice a day: after the morning routine and after the evening runs. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>9</integer>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>23</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/Users/a1/System/Output/logs/launchd/main_ci_watch.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/a1/System/Output/logs/launchd/main_ci_watch.log</string>
+</dict>
+</plist>

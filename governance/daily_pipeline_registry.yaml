@@ -23,6 +23,10 @@ external_inputs:
   - Output/system_learning/latest/threshold_review_candidates.json
   - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
   - Output/strategy_lab/backtest_result.json
+  # Routing destination declared in governance/output_routing_policy.yaml
+  # (routes.research). output_routing_audit scans it; no pipeline step
+  # produces it, so it is a root input like Output/runs/ above.
+  - Output/research/
 
 # Step defaults — individual steps override only when they differ.
 # NOTE: This block is documentation for human readers. The merge logic
@@ -2528,7 +2532,11 @@ steps:
     order: 2.5
     status: active
     owner: Harvester
-    schedule: on_demand
+    # Daily, not on_demand: this step is the declared owner_step of the
+    # etf_panel content_freshness check (budget 3 trading days,
+    # decision_critical). An on_demand owner can never satisfy a 3-day budget,
+    # so the alarm fired every run while the panel sat frozen.
+    schedule: daily
     command: python scripts/refresh_cross_asset_panel.py
     input:
       - Data/panels/cross_asset_daily_panel.parquet

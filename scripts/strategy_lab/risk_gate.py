@@ -65,20 +65,47 @@ def classify_channel(value: float | None) -> str:
     return "neutral"
 
 
-def evaluate_day(M: float, D: float, K: float, X: float) -> RiskState:
+def evaluate_day(
+    M: float | None, D: float | None, K: float | None, X: float | None
+) -> RiskState:
     """Evaluate structural risk for a single day (regime gate v1).
 
     Kept for backward compatibility and interpretability.
     For production backtesting, use compute_position_series() which
     defaults to the velocity gate.
     """
-    signals = {"M": M, "D": D, "K": K, "X": X}
+    # Normalize the "no observation" spellings to NaN up front: the regime
+    # comparisons below use np.isnan and would raise on None.
+    signals = {
+        ch: (np.nan if v is None else float(v))
+        for ch, v in (("M", M), ("D", D), ("K", K), ("X", X))
+    }
+    M, D, K, X = signals["M"], signals["D"], signals["K"], signals["X"]
     classifications = {ch: classify_channel(v) for ch, v in signals.items()}
 
     n_stress = sum(1 for c in classifications.values() if c == "stress")
     n_relief = sum(1 for c in classifications.values() if c == "relief")
 
     risk_flags: list[str] = []
+
+    # Fail-closed on thin coverage. An unobserved channel is not a channel
+    # reading "no stress": with fewer than CONSENSUS_MIN observations the
+    # regime rules below (n_stress/n_relief counts) cannot distinguish "calm"
+    # from "unmeasured", and every such day fell through to FULL.
+    n_observed = sum(1 for c in classifications.values() if c != "unknown")
+    if n_observed < CONSENSUS_MIN:
+        unobserved = [ch for ch, c in classifications.items() if c == "unknown"]
+        return RiskState(
+            position_size=0.0,
+            regime="INSUFFICIENT_COVERAGE",
+            action_gate="NO_TRADE",
+            n_stress=n_stress,
+            n_relief=n_relief,
+            risk_flags=[
+                f"Insufficient channel coverage: {n_observed}/{len(signals)} observed "
+                f"(missing {', '.join(unobserved)}); need >={CONSENSUS_MIN}"
+            ],
+        )
 
     x_stress = not np.isnan(X) and X > X_STRESS_BLOCK
     k_stress = not np.isnan(K) and K > STRESS_THRESHOLD
