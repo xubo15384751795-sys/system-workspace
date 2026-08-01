@@ -82,3 +82,38 @@ def test_signal_blocking_steps_documented(registry_steps):
     assert "judgment_promotion_gate" in blocking
     assert "judgment_layer" in _daily_step_ids()
     assert len(blocking) >= 3
+
+
+def test_etf_refresh_declares_its_artifact_is_unmaintained(registry_steps):
+    """etf_refresh must not read as a healthy producer while it cannot produce.
+
+    Its command, scripts/refresh_etf_panel.py, exists — but the generator that
+    command invokes, scripts/k_features_from_etf.py, was archived in 878bca4
+    and is not in scripts/archive/ either, so update_k_features() logs and
+    returns False every run. The registry still declares artifact_path
+    Data/features/k_features_daily.csv, and the blocker text used to claim the
+    script "may recompute features only".
+
+    Delete this test if the generator is ever restored — at that point the
+    step really does produce the artifact and artifact_status should go.
+    """
+    entry = registry_steps["etf_refresh"]
+    generator = ROOT / "scripts" / "k_features_from_etf.py"
+
+    if generator.exists():
+        assert not entry.get("artifact_status"), (
+            "k_features_from_etf.py is back; drop etf_refresh.artifact_status "
+            "and this test."
+        )
+        return
+
+    assert entry.get("artifact_status"), (
+        "etf_refresh declares artifact_path "
+        f"{entry.get('artifact_path')} but {generator.name} is missing, so it "
+        "produces nothing. Record artifact_status rather than reading healthy."
+    )
+    blocker = str(entry.get("blocker", ""))
+    assert "k_features_from_etf.py" in blocker, (
+        "the blocker text must name the missing generator; it previously "
+        "claimed the script 'may recompute features only'"
+    )

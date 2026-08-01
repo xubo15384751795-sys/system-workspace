@@ -244,7 +244,20 @@ steps:
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: research_only
-    blocker: ETF acquisition is not yet published as a Harvester evidence release; root script may recompute features only.
+    # Both halves of this step are blocked, not just acquisition. The
+    # previous text said the script "may recompute features only", which
+    # implied feature recomputation worked; it does not. Corrected 2026-08-01.
+    blocker: >-
+      Two independent gaps. (1) ETF acquisition is not yet published as a
+      Harvester evidence release. (2) Feature recomputation cannot run:
+      scripts/k_features_from_etf.py was archived in 878bca4 as an
+      experimental/archive_candidate script and is not in scripts/archive/
+      either, so update_k_features() logs and returns False on every run.
+      The declared artifact Data/features/k_features_daily.csv is therefore
+      unmaintained — frozen at 2026-06-17 — and this step currently produces
+      nothing. Panel freshness is covered separately by
+      refresh_cross_asset_panel, which owns the etf_panel content check.
+    artifact_status: unmaintained_since_2026-06-17
     execution:
       mode: callable
       current_command: python scripts/refresh_etf_panel.py

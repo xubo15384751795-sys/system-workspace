@@ -1,0 +1,67 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-01"
+task_id: etf-refresh-artifact-honesty
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  etf_refresh declares produces and artifact_path
+  Data/features/k_features_daily.csv, with a blocker reading "ETF acquisition
+  is not yet published as a Harvester evidence release; root script may
+  recompute features only". The second clause was false: the generator that
+  clause refers to, scripts/k_features_from_etf.py, was archived in 878bca4
+  ("archive 25 experimental/archive_candidate scripts") and is not present in
+  scripts/archive/ either, so update_k_features() logs a warning and returns
+  False on every run. The artifact has been frozen since 2026-06-17 while the
+  registry read as a healthy producer.
+decision: >
+  Make the registry honest rather than revive an archived experimental
+  script. Rewrite the blocker to name both gaps and the missing generator,
+  and add artifact_status: unmaintained_since_2026-06-17. Add a targeted
+  regression test that fails if artifact_status is dropped while the
+  generator is still absent, and that tells whoever restores the generator to
+  delete both the field and the test.
+  Deliberately NOT done: reimplementing k_features_from_etf.py. The script was
+  archived on purpose as an experimental candidate; reviving it is a product
+  decision, and the feature set it would need to emit is larger than what the
+  frozen CSV contains.
+preregistered_expectation: >
+  The registry no longer claims working feature recomputation, and the guard
+  fires if that claim returns.
+observation_window: >
+  Verified inline: removing artifact_status turns the new test red with the
+  exact condition named; restoring it passes. Full suite 1193 passed, same
+  seven pre-existing operator failures.
+rollback: >
+  Restore the previous blocker string, drop artifact_status, and delete
+  test_etf_refresh_declares_its_artifact_is_unmaintained.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+notes: >
+  A first attempt at this guard checked whether each step's own command script
+  exists. It passed, but would never have caught this case — etf_refresh's
+  command, refresh_etf_panel.py, does exist; the missing file is the generator
+  that command invokes. It was replaced with a targeted test that was then
+  verified to fail when the condition it guards is violated. A test that looks
+  like a guard but never fires is worse than no test.
+  Panel freshness is unaffected: refresh_cross_asset_panel owns the etf_panel
+  content check and has been daily since 2026-08-01.
+acceptance:
+  - etf_refresh.blocker names scripts/k_features_from_etf.py
+  - etf_refresh carries artifact_status while the generator is absent
+  - the guard fails when artifact_status is removed
+unresolved_risks:
+  - >
+    packages/workbench/src/nlp/caselab/converter.py maps CaseLab mechanisms to
+    24 k_features_daily.csv columns, of which only 6 exist — the 18 missing
+    are correlations (corr_*_60d), drawdown velocities (dd_vel_*) and several
+    ratios that were never generated. The converter is an on-demand CLI, not
+    part of the daily pipeline, but any training data it emits references
+    feature names that cannot be resolved. Needs an owner decision: regenerate
+    the full feature set, or trim the mechanism map to what exists.
+  - >
+    With the generator gone, etf_refresh now produces nothing at all — its
+    acquisition half is also blocked. Whether the step should remain active is
+    a separate call not made here.
