@@ -1,0 +1,68 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-01"
+task_id: dependency-lock-closure
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  requirements.lock.txt held eight pins produced by
+  `pip freeze | grep -iE "^(pyyaml|jsonschema|pandas|numpy|scikit-learn
+  |hmmlearn|ruff|pytest)"` — a hand-written name list. It omitted omegaconf,
+  mcp and mypy, which requirements-dev.txt declares directly, and every
+  transitive dependency: eight pins standing in for a 461-package
+  interpreter. The deferred_work_register item dependency_locking
+  (hard_deadline 2026-08-15) had a trigger condition of "when CI is set up",
+  which fired at PR #15. P0-2's clean-checkout reproduction evidence depends
+  on the environment actually being reproducible.
+decision: >
+  Generate the lock from the declared dependency closure instead of a name
+  list. scripts/commands/ci/generate_dependency_lock.py starts from
+  requirements-dev.txt plus each pyproject's dependencies and `dev` extra,
+  walks requires_dist through installed metadata with environment markers
+  evaluated, and pins everything reached — 58 packages. Deliberately not a
+  `pip freeze`: that pins the whole interpreter as if the project required
+  it. Optional extras CI does not install (torch, jax, openbb, streamlit)
+  are excluded for the same reason, and a test asserts they stay out.
+  Delivered as one closure lock rather than the register's four per-module
+  constraints files: that split predates the packages/ consolidation, so
+  Workbench/, Harvester/ and Learning Hub/ are symlinks into packages/ and
+  four files would pin one shared interpreter four times and drift.
+preregistered_expectation: >
+  The generator is idempotent, the lock covers every declared direct
+  dependency, and running it in check mode leaves the file untouched.
+observation_window: >
+  Verified inline: 8 pins -> 58, generator reports "lock is current" on a
+  second run, 8 tests pass. The register's own 30-day cross-environment
+  reproducibility window remains open and is what P0-2 consumes.
+rollback: >
+  Restore the previous eight-line requirements.lock.txt and delete the
+  generator, its test, and the entrypoint_registry entry. Nothing imports the
+  generator at runtime.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+notes: >
+  The tests assert coverage of the declared surface, not byte equality with a
+  regenerated file. CI runs Linux and the operator runs macOS, so resolved
+  closures legitimately differ; a byte-equality check would be flaky and
+  would train people to ignore it. Generating the lock also surfaced that
+  pytest-cov and pytest-mock were declared in `dev` extras but absent from
+  the operator interpreter — the local environment did not match its own
+  declaration.
+acceptance:
+  - every requirements-dev.txt entry appears in the lock
+  - every pyproject core dependency appears in the lock
+  - uninstalled optional extras (torch, jax, openbb) are absent
+  - check mode does not write
+unresolved_risks:
+  - >
+    omegaconf resolves to 2.4.0.dev10, a pre-release. Dev builds can be
+    withdrawn from PyPI, so a pin on one is not durably reproducible. The
+    declaration is `omegaconf>=2.3`; installing a stable release and
+    regenerating would remove the risk, but changing an installed version is
+    an operator decision.
+  - >
+    The lock records this interpreter's resolution. Until the register's
+    30-day cross-environment window is run, it is untested whether a clean
+    Linux checkout resolves to the same versions.

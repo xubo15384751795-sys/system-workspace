@@ -62,8 +62,8 @@ baseline_hashes:
   daily_pipeline_registry.yaml: ef936cb5e6de5e81
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
-  deferred_work_register.yaml: f8de885dccaa8ba0
-  entrypoint_registry.yaml: a1f2f061b62cbbf5
+  deferred_work_register.yaml: 1fde357f8e240193
+  entrypoint_registry.yaml: 7624a54763831a62
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: 7378891650ab5040
   git_workspace_policy.md: 4dab5f4a7e64d803
@@ -656,6 +656,28 @@ baseline_updates:
     test_proxy_quality_scorer.py targeted a scorer archived in 7023b75 on
     2026-06-18 and had been skipping silently since. No rule, criterion,
     threshold or tier changed.
+- file: entrypoint_registry.yaml
+  approved_at: '2026-08-01'
+  old_hash: a1f2f061b62cbbf5
+  new_hash: 7624a54763831a62
+  reason: >-
+    Register scripts/commands/ci/generate_dependency_lock.py. The lock was
+    previously a hand-written `pip freeze | grep` of eight names that missed
+    omegaconf, mcp and mypy — all declared in requirements-dev.txt — plus
+    every transitive dependency. Closes the dependency_locking deferred item
+    (hard_deadline 2026-08-15) whose trigger condition "when CI is set up"
+    had already fired.
+- file: deferred_work_register.yaml
+  approved_at: '2026-08-01'
+  old_hash: f8de885dccaa8ba0
+  new_hash: 1fde357f8e240193
+  reason: >-
+    Record that dependency_locking's trigger condition ("when CI is set up")
+    had already fired, and that a single generated closure lock was delivered
+    instead of four per-module constraints files — the per-module split
+    predates the packages/ consolidation, so those paths are now symlinks and
+    would pin one shared interpreter four times. The 30-day cross-environment
+    evidence window remains open.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

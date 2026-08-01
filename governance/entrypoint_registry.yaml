@@ -1150,6 +1150,18 @@ run_e3_three_replication:
   description: Execute the preregistered three-replication E3 protocol
   allowed_use:
   - preregistered_replication
+generate_dependency_lock:
+  script: scripts/commands/ci/generate_dependency_lock.py
+  status: governance_active
+  owner: Governance
+  description: >-
+    Regenerate requirements.lock.txt from the declared dependency closure.
+    Replaces a hand-written `pip freeze | grep` of eight names that missed
+    omegaconf, mcp, mypy and every transitive dependency. Default mode is a
+    read-only staleness check; --write rewrites.
+  allowed_use:
+  - dependency_lock_generation
+  - dependency_lock_verification
 check_main_ci_status:
   script: scripts/commands/ci/check_main_ci_status.py
   status: governance_active
