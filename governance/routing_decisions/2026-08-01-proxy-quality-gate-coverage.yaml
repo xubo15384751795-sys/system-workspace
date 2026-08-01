@@ -1,0 +1,62 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-01"
+task_id: proxy-quality-gate-coverage
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  tests/governance/test_proxy_quality_scorer.py held ten tests locking the
+  proxy quality gate's governance behaviour. All ten had been skipping since
+  2026-06-18, when 7023b75 archived scripts/proxy_quality_scorer.py as one of
+  eight dead scripts (it is not in scripts/archive/ either). The skip reason
+  read "replay.scoring not available", naming a module that does exist at
+  packages/framework/src/replay/scoring.py, so the gap presented as an
+  environment problem rather than as absent coverage. The behaviour the tests
+  guarded — the operational form of "high-quality proxies only, stop stuffing
+  low-quality proxies into core" — was therefore unverified for six weeks.
+decision: >
+  Delete the dead file and port its still-valid expectations onto the live
+  builder, scripts/commands/weekly/build_proxy_quality_report.py. Every
+  expectation was evaluated against the live report before being written:
+  quarantined drift, extension-beyond-canonical and awaiting-data reject; the
+  Pi_t observable stays BACKGROUND_ONLY; a quarterly voting proxy cannot reach
+  core; a canonical daily multi-family proxy is CORE_ELIGIBLE; the OAS credit
+  surface wired into K is rejected as drifted. Added two shape guards the
+  legacy file lacked — rejected proxies must score 0.0, and the gate must
+  neither admit nor reject everything.
+preregistered_expectation: >
+  Twelve tests run rather than skip, and the suite's skip count falls from 12
+  to 2.
+observation_window: >
+  Verified inline: 12 passed, 0 skipped in the new file; full suite went from
+  1172 passed / 12 skipped to 1184 passed / 2 skipped with the same seven
+  pre-existing operator failures.
+rollback: >
+  Restore tests/governance/test_proxy_quality_scorer.py from 7023b75~1 and
+  delete test_proxy_quality_gate.py. Note this restores a permanently
+  skipping file, not coverage.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+notes: >
+  The proxy_quality_rules.yaml change is comment-only — the CONSUMERS section
+  pointed at the deleted test. No rule, criterion, threshold or tier changed,
+  and the tier outcomes for all eight named proxies are unchanged from what
+  the legacy tests asserted.
+acceptance:
+  - test_proxy_quality_gate.py runs 12 tests with no skips
+  - suite skip count drops from 12 to 2
+  - no proxy tier outcome changes
+unresolved_risks:
+  - >
+    Two capabilities the legacy scorer had are absent from the live builder
+    and were deliberately NOT reimplemented here, because adding them is new
+    functionality rather than restoring coverage:
+    (1) declared_core_conflict — a proxy declared "core" but canonically
+    excluded is currently REJECTED with reason drifted_from_canonical, which
+    is the right outcome but does not distinguish "someone declared this core
+    and was wrong" from ordinary drift;
+    (2) scan_legacy — the proxy-first drift scan that flagged K=FRED:VIXCLS,
+    X=H41:primary_credit and M=FRED:T10Y2Y in compute_proxies.py has no
+    equivalent. Both need an owner decision on whether they should return.

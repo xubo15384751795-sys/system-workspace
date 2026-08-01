@@ -72,7 +72,7 @@ baseline_hashes:
   operator_registry.yaml: 52406a8a279176c1
   output_routing_policy.yaml: 3bbdaa96f0b57671
   pipeline_test_baseline.yaml: d476abebd64035a6
-  proxy_quality_rules.yaml: 07de97481688210c
+  proxy_quality_rules.yaml: 9398c8068f839cbf
   redundancy_budget.yaml: 56b2b16c01033365
   repo_layout_map.md: 15f2d85e93e4f91c
   run_mode_registry.yaml: a0aa12f41ec3f33a
@@ -646,6 +646,16 @@ baseline_updates:
     policy still recorded current_size_mb: 205. The step never deletes;
     acting on findings stays an operator decision because releases are
     finalized evidence.
+- file: proxy_quality_rules.yaml
+  approved_at: '2026-08-01'
+  old_hash: 07de97481688210c
+  new_hash: 9398c8068f839cbf
+  reason: >-
+    Comment-only: repoint the CONSUMERS section at
+    tests/governance/test_proxy_quality_gate.py. The referenced
+    test_proxy_quality_scorer.py targeted a scorer archived in 7023b75 on
+    2026-06-18 and had been skipping silently since. No rule, criterion,
+    threshold or tier changed.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

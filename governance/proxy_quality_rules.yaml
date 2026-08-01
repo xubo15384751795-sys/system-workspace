@@ -13,7 +13,9 @@
 # CONSUMERS
 #   scripts/commands/weekly/build_proxy_quality_report.py — computes scores + tiers from this rubric.
 #   tests/test_content_freshness_and_proxy_quality.py — locks nonempty extraction.
-#   tests/governance/test_proxy_quality_scorer.py — locks the gate behaviour (legacy scorer).
+#   tests/governance/test_proxy_quality_gate.py — locks the gate behaviour.
+#     (Replaced test_proxy_quality_scorer.py, which targeted the scorer
+#      archived in 7023b75 on 2026-06-18 and had been silently skipping since.)
 #
 # HONESTY RULE
 #   Criteria that need price/return history (regime coverage, discrimination
