@@ -9,8 +9,8 @@ purpose: 'Machine-checkable governance freeze baseline. Root-level governance fi
 
   '
 approved_additions_budget:
-  max_files: 17
-  reason: Cap post-freeze additions; +1 for P0-2 runtime_status_contract.yaml (enum authority)
+  max_files: 18
+  reason: Cap post-freeze additions; +1 for monitoring_coverage_debt_baseline.yaml (P0-4 soft-fail debt)
 blocking_hash_files:
 - authority_registry.yaml
 - capability_registry.yaml
@@ -179,6 +179,11 @@ approved_additions:
   commit: hermetic-stateful-tests
   reason: 'P0-2: single enum authority for framework_output.status and judgment.decision
     (closes degraded_partial / ACTIVE_WATCH drift between producers, schemas, and tests).'
+- file: monitoring_coverage_debt_baseline.yaml
+  approved_at: '2026-08-03'
+  commit: daily-run-false-alarm-eradication
+  reason: 'P0-4: known required_coverage_gaps accepted as monitoring debt so --strict
+    fails only on new gaps / contracts / unresolved blind spots / ledger lag.'
 baseline_updates:
 - file: system_constitution.yaml
   approved_at: '2026-06-18'

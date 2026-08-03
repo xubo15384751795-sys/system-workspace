@@ -29,9 +29,46 @@ import sys
 
 from scripts._constants import TIMEOUT_SHORT
 from scripts._notify import notify_failure
+from scripts._runtime_io import ROOT, ensure_dir
 
 # Conclusions that mean "someone should look at this".
 _FAILING = {"failure", "timed_out", "startup_failure"}
+_NOTIFY_STATE = ROOT / "Output" / "logs" / "launchd" / "main_ci_watch_notified.json"
+
+
+def _load_notify_state() -> dict:
+    try:
+        return json.loads(_NOTIFY_STATE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_notify_state(payload: dict) -> None:
+    ensure_dir(_NOTIFY_STATE.parent)
+    _NOTIFY_STATE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def should_notify_failure(head_sha: str | None) -> bool:
+    """Notify once per failing head SHA; re-notify when SHA changes or after green."""
+    if not head_sha:
+        return True
+    state = _load_notify_state()
+    return state.get("last_notified_sha") != head_sha
+
+
+def record_notified_failure(head_sha: str | None) -> None:
+    if not head_sha:
+        return
+    _save_notify_state({"last_notified_sha": head_sha, "state": "failing"})
+
+
+def clear_notified_failure() -> None:
+    """Clear dedupe state when main is green so the next red pages again."""
+    if _NOTIFY_STATE.exists():
+        try:
+            _NOTIFY_STATE.unlink()
+        except OSError:
+            pass
 
 
 def _gh_run_list(branch: str, workflow: str) -> list[dict] | None:
@@ -109,11 +146,18 @@ def main(argv: list[str] | None = None) -> int:
         print("gh unavailable or not authenticated", file=sys.stderr)
         return 2
     if result["state"] == "failing":
-        notify_failure(
-            f"{args.branch} CI is red",
-            f"{result.get('head_sha')} {result.get('title') or ''} — {result.get('url')}",
-        )
+        sha = result.get("head_sha")
+        if should_notify_failure(sha):
+            notify_failure(
+                f"{args.branch} CI is red",
+                f"{sha} {result.get('title') or ''} — {result.get('url')}",
+            )
+            record_notified_failure(sha)
+        else:
+            print(f"already notified for failing sha {sha}; skipping push", file=sys.stderr)
         return 1
+    if result["state"] == "ok":
+        clear_notified_failure()
     return 0
 
 

@@ -40,10 +40,33 @@ class TestCurrentDirRedirect:
     def test_no_direct_output_current_hardcode_in_writers(self):
         """The known direct-writer scripts must not hardcode
         ROOT/Output/current anymore - they must use current_dir()."""
-        for script in ("build_work_brief.py", "build_signal_card.py"):
+        for script in (
+            "build_work_brief.py",
+            "build_signal_card.py",
+            "commands/weekly/build_readme_first.py",
+        ):
             src = (ROOT / "scripts" / script).read_text(encoding="utf-8")
             # current_dir() must be imported and used; the old hardcode gone.
             assert "current_dir" in src, f"{script} must import current_dir"
-            assert 'CURRENT = ROOT / "Output" / "current"' not in src, (
-                f"{script} must not hardcode CURRENT = ROOT/Output/current"
+            assert 'OUTPUT_PATH = ROOT / "Output" / "current"' not in src, (
+                f"{script} must not hardcode OUTPUT_PATH under Output/current"
             )
+            assert 'ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"' not in src, (
+                f"{script} must write 00_READ_ME_FIRST.md via current_dir()"
+            )
+
+    def test_build_readme_first_honors_candidate_env(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setattr(sys, "argv", ["build_readme_first.py"])
+        # Seed minimal inputs the builder reads from current/.
+        (tmp_path / "framework_output.json").write_text("{}", encoding="utf-8")
+        (tmp_path / "evidence_grade_report.json").write_text("{}", encoding="utf-8")
+        index = ROOT / "Data" / "system_index" / "latest.json"
+        if not index.exists():
+            import pytest
+
+            pytest.skip("no system index")
+        from scripts.commands.weekly import build_readme_first
+
+        build_readme_first.main()
+        assert (tmp_path / "00_READ_ME_FIRST.md").exists()

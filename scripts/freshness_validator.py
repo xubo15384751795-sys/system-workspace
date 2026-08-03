@@ -244,7 +244,27 @@ def check_content_freshness(
     }
 
 
-def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
+def resolve_freshness_gate(explicit: str | None = None) -> str:
+    """Return ``midrun`` or ``publish``.
+
+    Mid-run (candidate redirect) must not hard-fail on an incomplete chain.
+    The publish boundary re-runs with ``publish`` after the chain is closed.
+    """
+    if explicit in ("midrun", "publish"):
+        return explicit
+    env = (os.environ.get("FRESHNESS_GATE") or "").strip().lower()
+    if env in ("midrun", "publish"):
+        return env
+    if os.environ.get("CURRENT_OUTPUT_DIR"):
+        return "midrun"
+    return "publish"
+
+
+def check_closure_chain(
+    now: datetime,
+    *,
+    gate: str | None = None,
+) -> list[dict[str, Any]]:
     """Check that all current outputs are from the same run (closure chain).
 
     If any current output is significantly older than the others, it means
@@ -253,6 +273,9 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
     The "current output chain" consists of: readme_first, signal_card,
     work_brief, system_index. These should all be generated within a
     short window (< 5 minutes) of each other during a full pipeline run.
+
+    Under ``gate=midrun``, gaps are ADVISORY_EXPECTED so the in-pipeline step
+    cannot deadlock publish. ``gate=publish`` hard-fails the same gaps.
     """
     issues = []
     chain_paths = {
@@ -280,6 +303,8 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
     # 30-minute tolerance: accounts for re-runs that update some artifacts
     # but not all within the same pipeline session
     max_gap_minutes = 30
+    resolved_gate = resolve_freshness_gate(gate)
+    advisory = resolved_gate == "midrun"
 
     for name, mtime in mtimes.items():
         gap_minutes = (newest_time - mtime).total_seconds() / 60
@@ -290,11 +315,15 @@ def check_closure_chain(now: datetime) -> list[dict[str, Any]]:
                 "earlier_time": mtime.isoformat(),
                 "later": newest_name,
                 "later_time": newest_time.isoformat(),
-                "status": "CLOSURE_VIOLATION",
+                "status": "ADVISORY_EXPECTED" if advisory else "CLOSURE_VIOLATION",
                 "hint": (
-                    f"Partial refresh detected: {name} was not updated in the same run "
-                    f"as {newest_name}. Re-run the full pipeline to close the chain, "
-                    f"or run: python3 scripts/build_{name}.py"
+                    "Mid-run candidate: closure is enforced at the publish boundary."
+                    if advisory
+                    else (
+                        f"Partial refresh detected: {name} was not updated in the same run "
+                        f"as {newest_name}. Re-run the full pipeline to close the chain, "
+                        f"or run: python3 scripts/build_{name}.py"
+                    )
                 ),
             })
 
@@ -409,8 +438,14 @@ def check_temporal_ordering(now: datetime, *, mode: str = "standard") -> list[di
     return issues
 
 
-def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str, Any]:
+def build_freshness_report(
+    now: datetime,
+    *,
+    mode: str = "standard",
+    gate: str | None = None,
+) -> dict[str, Any]:
     """Build complete freshness report."""
+    resolved_gate = resolve_freshness_gate(gate)
     # Check artifact freshness
     artifacts = [
         ("harvester", ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json", MAX_AGE_HOURS["harvester"]),
@@ -456,7 +491,7 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
     ordering_issues = check_temporal_ordering(now, mode=mode)
 
     # Check closure chain — all current outputs must be from the same run
-    closure_issues = check_closure_chain(now)
+    closure_issues = check_closure_chain(now, gate=resolved_gate)
 
     # Determine overall verdict
     stale_artifacts = [a for a in freshness_checks if a["status"] == "STALE"]
@@ -464,7 +499,8 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
 
     # Only hard violations count toward FAIL; ADVISORY_EXPECTED is informational
     hard_ordering = [i for i in ordering_issues if i["status"] != "ADVISORY_EXPECTED"]
-    if hard_ordering or closure_issues:
+    hard_closure = [i for i in closure_issues if i["status"] != "ADVISORY_EXPECTED"]
+    if hard_ordering or hard_closure:
         verdict = "FAIL"
     elif stale_artifacts:
         verdict = "WARN"
@@ -476,6 +512,7 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
     return {
         "schema_version": "freshness_validator.v3",
         "generated_at": now.isoformat(),
+        "gate": resolved_gate,
         "verdict": verdict,
         "stale_artifacts": [a["name"] for a in stale_artifacts],
         "missing_artifacts": [a["name"] for a in missing_artifacts],
@@ -596,12 +633,13 @@ def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
 def main() -> int:
     """Run freshness validator.
 
-    Returns 0 on PASS/WARN, 1 on FAIL (hard ordering/closure violations).
-    A nonzero return propagates to the pipeline runner as status="failed"
-    and to the publish gate (should_publish) as a block. Note: stale/missing
-    content is WARN here (advisory at the validator level); the pre-consumption
-    admission gate in _admission_gate.py enforces hard blocking for the
-    specific consumers (paper_portfolio) that depend on fresh public components.
+    Gates:
+      - midrun: in-pipeline candidate check. Closure gaps are advisory; always
+        exits 0 so downstream steps are not blocked_upstream. Content STALE is
+        recorded in the report but not pushed (daily_run aggregates HARD alerts).
+      - publish: post-chain / CLI check. Hard FAIL exits 1 for the publish gate.
+        Standalone CLI may notify content STALE; daily_run suppresses that and
+        merges into one System daily_run alert.
     """
     parser = argparse.ArgumentParser(description="Run freshness validator.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
@@ -609,17 +647,36 @@ def main() -> int:
         "--mode", choices=["quick", "standard", "full"], default="standard",
         help="Validation mode: quick marks full-chain ordering as advisory.",
     )
+    parser.add_argument(
+        "--gate",
+        choices=["midrun", "publish"],
+        default=None,
+        help="midrun=advisory in-pipeline; publish=hard boundary (default by env).",
+    )
+    parser.add_argument(
+        "--notify-content-stale",
+        action="store_true",
+        help="Push Content freshness STALE (default: only for standalone publish CLI).",
+    )
     args = parser.parse_args()
 
+    gate = resolve_freshness_gate(args.gate)
     now = datetime.now(UTC)
-    report = build_freshness_report(now, mode=args.mode)
+    report = build_freshness_report(now, mode=args.mode, gate=gate)
     paths = write_outputs(report)
 
     content_stale = [
         c for c in report.get("content_freshness", [])
         if c.get("status") == "STALE"
     ]
-    if content_stale:
+    # Never push from inside daily_run (bundle id and/or candidate redirect).
+    # daily_run aggregates content STALE into one HARD alert. Standalone CLI
+    # (operator runs freshness by hand) may still push unless disabled.
+    in_pipeline = bool(
+        os.environ.get("ZCODE_BUNDLE_RUN_ID") or os.environ.get("CURRENT_OUTPUT_DIR")
+    )
+    standalone_cli = gate == "publish" and not in_pipeline
+    if content_stale and (args.notify_content_stale or standalone_cli):
         from scripts._notify import notify_failure
 
         details = ", ".join(
@@ -635,6 +692,7 @@ def main() -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print(f"Freshness report: {paths['markdown']}")
+        print(f"Gate: {gate}")
         print(f"Verdict: {report['verdict']}")
         print(f"Stale: {len(report['stale_artifacts'])}")
         print(f"Missing: {len(report['missing_artifacts'])}")
@@ -646,8 +704,9 @@ def main() -> int:
                     f"(max={c.get('max_date')}, behind={c.get('trading_days_behind')})"
                 )
 
-    # Hard FAIL (ordering/closure violations) must be a non-zero exit so the
-    # pipeline runner records status="failed" and the publish gate blocks.
+    # Mid-run is advisory: never fail the pipeline step. Publish gate hard-fails.
+    if gate == "midrun":
+        return 0
     return 1 if report.get("verdict") == "FAIL" else 0
 
 

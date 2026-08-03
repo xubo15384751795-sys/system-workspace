@@ -181,8 +181,8 @@ def _position_scale_for_day(
 
 
 def _load_public_levels(index: pd.DatetimeIndex, panel_path: Path) -> pd.DataFrame:
-    from public_residual_stress import extract_public_levels
-    from run_professional_methodology import load_benchmark_panel
+    from scripts.public_residual_stress import extract_public_levels
+    from scripts.run_professional_methodology import load_benchmark_panel
 
     if not panel_path.exists():
         return pd.DataFrame(index=index)
@@ -225,8 +225,8 @@ def _compute_target_series(
 
     stress_frame columns: p_public, p_onset, position (continuous weight).
     """
-    from professional_methods import causal_pit, continuous_position
-    from public_residual_stress import build_public_residual_bundle
+    from scripts.professional_methods import causal_pit, continuous_position
+    from scripts.public_residual_stress import build_public_residual_bundle
 
     close = data["close"]
     # M/D are compatibility keys for the two neutral gauges. K/X are excluded

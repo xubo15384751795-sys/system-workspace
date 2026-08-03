@@ -80,8 +80,9 @@ OFR_FSI = ExternalIndicator(
     name="OFR_FSI",
     series_id="OFR_FSI",
     description="OFR Financial Stress Index (daily, 33 indicators, positive = above-avg stress).",
+    # Direct CSV export (the chart page HTML is not parseable as FSI data).
     publisher_url=(
-        "https://www.financialresearch.gov/financial-stress-index/"
+        "https://www.financialresearch.gov/financial-stress-index/data/fsi.csv"
     ),
     instructions=(
         "Manual fallback: visit https://www.financialresearch.gov/financial-stress-index/, "
@@ -183,6 +184,11 @@ def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
     if indicator_name == "CISS":
         frame.columns = ["TIME_PERIOD", "OBS_VALUE"]
         frame["TIME_PERIOD"] = pd.to_datetime(frame["TIME_PERIOD"]).dt.strftime("%Y-%m-%d")
+    elif indicator_name == "OFR_FSI":
+        # Keep the registry / freshness_validator date_column ("date") and the
+        # historical ofr_fsi.csv schema so content clocks do not KeyError.
+        frame.columns = ["date", "OFR_FSI"]
+        frame["date"] = pd.to_datetime(frame["date"]).dt.strftime("%Y-%m-%d")
     else:
         frame.columns = ["Date", "value"]
         frame["Date"] = pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d")

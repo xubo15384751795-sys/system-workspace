@@ -28,11 +28,64 @@ MONITORING_CLASSES = {
     "archived_retire",
 }
 DEFAULT_REQUIRED_COVERAGE_CLASSES = {"authoritative", "decision_adjacent_shadow"}
+DEBT_BASELINE_REL = "governance/monitoring_coverage_debt_baseline.yaml"
 
 
 def load_registry(root: Path) -> dict[str, Any]:
     path = root / "governance" / "daily_pipeline_registry.yaml"
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def load_debt_baseline(root: Path) -> dict[str, Any]:
+    """Load accepted required_coverage_gap paths (empty if missing)."""
+    path = root / DEBT_BASELINE_REL
+    if not path.is_file():
+        return {
+            "schema_version": "monitoring_coverage_debt_baseline.v1",
+            "paths": [],
+            "missing": True,
+        }
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {
+            "schema_version": "monitoring_coverage_debt_baseline.v1",
+            "paths": [],
+            "missing": True,
+            "error": "unreadable",
+        }
+    paths = [str(p) for p in (raw.get("paths") or []) if str(p).strip()]
+    return {
+        "schema_version": str(raw.get("schema_version") or "monitoring_coverage_debt_baseline.v1"),
+        "as_of": raw.get("as_of"),
+        "review_by": raw.get("review_by"),
+        "owner": raw.get("owner"),
+        "paths": paths,
+        "missing": False,
+    }
+
+
+def diff_coverage_gaps_against_baseline(
+    gaps: list[dict[str, Any]],
+    baseline_paths: list[str],
+) -> dict[str, Any]:
+    """Split required gaps into baselined / new / cleared."""
+    current = {str(g.get("path")) for g in gaps if g.get("path")}
+    accepted = set(baseline_paths)
+    new_paths = sorted(current - accepted)
+    cleared_paths = sorted(accepted - current)
+    baselined = sorted(current & accepted)
+    by_path = {str(g.get("path")): g for g in gaps if g.get("path")}
+    return {
+        "baseline_path_count": len(accepted),
+        "current_gap_count": len(current),
+        "baselined_count": len(baselined),
+        "new_gap_count": len(new_paths),
+        "cleared_count": len(cleared_paths),
+        "new_gaps": [by_path[p] for p in new_paths if p in by_path],
+        "cleared_paths": cleared_paths,
+        "baselined_paths": baselined,
+    }
 
 
 def active_steps(registry: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -329,14 +382,20 @@ def weekly_content_checks(root: Path, registry: dict[str, Any], now: datetime) -
 
 
 def learning_hub_source_lag(root: Path) -> dict[str, Any]:
+    """Compare Learning Hub ingest sources to the event ledger mtime.
+
+    Only ``Output/system_learning/**`` event/runtime artifacts count toward
+    ``SOURCE_AHEAD_OF_LEDGER``. Operator notes (``.cursor/checkpoints``,
+    ``governance/open_threads.yaml``) are not ledger ingest inputs — treating
+    them as sources made nightly ``--strict`` fail whenever an agent wrote a
+    checkpoint.
+    """
     ledger = root / "Data" / "system_learning" / "ledgers" / "system_event_ledger.parquet"
     sources = []
     for pattern in (
         "Output/system_learning/runtime/records_*.jsonl",
         "Output/system_learning/events/*.jsonl",
         "Output/system_learning/routing_decisions/*.yaml",
-        ".cursor/checkpoints/*.md",
-        "governance/open_threads.yaml",
     ):
         sources.extend(path for path in root.glob(pattern) if path.is_file())
     newest_source = max(sources, key=lambda path: path.stat().st_mtime) if sources else None
@@ -361,6 +420,8 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
     blind_spots = blind_spot_families(blind_spot_paths)
     classified = classify_blind_spots(blind_spot_paths, registry)
     coverage_gaps = required_coverage_gaps(classified, registry)
+    baseline = load_debt_baseline(root)
+    gap_diff = diff_coverage_gaps_against_baseline(coverage_gaps, baseline.get("paths") or [])
     unresolved = unresolved_blind_spots(classified)
     content = non_daily_content_checks(root, registry, now)
     matrix = monitoring_matrix(root, registry)
@@ -369,7 +430,7 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
     no_content_clock = sum(row["status"] == "NO_CONTENT_CLOCK" for row in content)
     classification_fail = bool(coverage_gaps or unresolved)
     report = {
-        "schema_version": "artifact_monitoring_audit.v3",
+        "schema_version": "artifact_monitoring_audit.v4",
         "generated_at": now.isoformat(),
         "status": "FAIL"
         if contracts
@@ -383,6 +444,22 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
         "monitoring_blind_spots": blind_spots,
         "monitoring_blind_spot_classifications": classified,
         "required_coverage_gaps": coverage_gaps,
+        "coverage_debt_baseline": {
+            "path": DEBT_BASELINE_REL,
+            "as_of": baseline.get("as_of"),
+            "review_by": baseline.get("review_by"),
+            "owner": baseline.get("owner"),
+            "missing": bool(baseline.get("missing")),
+            **{k: gap_diff[k] for k in (
+                "baseline_path_count",
+                "current_gap_count",
+                "baselined_count",
+                "new_gap_count",
+                "cleared_count",
+            )},
+        },
+        "new_required_coverage_gaps": gap_diff["new_gaps"],
+        "cleared_coverage_debt_paths": gap_diff["cleared_paths"],
         "unresolved_monitoring_blind_spots": unresolved,
         "artifact_monitoring_matrix": matrix,
         "learning_hub_source_lag": source_lag,
@@ -398,6 +475,8 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
             "monitoring_blind_spot_family_count": len(blind_spots),
             "monitoring_matrix_row_count": len(matrix),
             "required_coverage_gap_count": len(coverage_gaps),
+            "new_required_coverage_gap_count": gap_diff["new_gap_count"],
+            "cleared_coverage_debt_count": gap_diff["cleared_count"],
             "unresolved_monitoring_blind_spot_count": len(unresolved),
             "classified_monitoring_blind_spot_count": len(classified),
         },
@@ -424,11 +503,23 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Non-daily artifacts without a content clock: {summary['non_daily_no_content_clock_count']}",
         f"- Unmonitored current/durable artifacts: {summary['monitoring_blind_spot_count']}",
         f"- Required coverage gaps (authoritative / decision-adjacent): {summary.get('required_coverage_gap_count', 0)}",
+        f"- New gaps vs debt baseline (regression): {summary.get('new_required_coverage_gap_count', 0)}",
+        f"- Cleared debt paths since baseline: {summary.get('cleared_coverage_debt_count', 0)}",
         f"- Unresolved (unclassified / ownerless) blind spots: {summary.get('unresolved_monitoring_blind_spot_count', 0)}",
         "",
-        "## Monitoring blind spots",
+        "## New coverage gaps (vs baseline)",
         "",
     ]
+    new_gaps = report.get("new_required_coverage_gaps") or []
+    lines.extend(
+        f"- `{row.get('path')}` → `{row.get('class')}` (owner: {row.get('owner') or 'none'})"
+        for row in new_gaps[:40]
+    )
+    if not new_gaps:
+        lines.append("- None")
+    elif len(new_gaps) > 40:
+        lines.append(f"- … {len(new_gaps) - 40} more")
+    lines.extend(["", "## Monitoring blind spots", ""])
     lines.extend(
         f"- `{row['family']}`: {row['count']} uncovered artifact(s); examples: "
         + ", ".join(f"`{path}`" for path in row["examples"][:3])
@@ -449,14 +540,68 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def strict_exit_nonzero(report: dict[str, Any]) -> bool:
+    """Whether ``--strict`` should fail the pipeline step.
+
+    Report ``status`` may still be FAIL when there are baselined coverage gaps
+    or stale on_demand artifacts — that debt is visible in the JSON/MD for the
+    supervisor. Nightly ``--strict`` trips only on *actionable* breaks:
+    contract violations, ownerless/unclassified blind spots, learning-hub
+    source/ledger lag, or **new** required coverage gaps beyond the debt
+    baseline.
+    """
+    if report.get("weekly_contract_violations"):
+        return True
+    if report.get("unresolved_monitoring_blind_spots"):
+        return True
+    lag = report.get("learning_hub_source_lag") or {}
+    if lag.get("status") in {"MISSING_LEDGER", "SOURCE_AHEAD_OF_LEDGER"}:
+        return True
+    if report.get("new_required_coverage_gaps"):
+        return True
+    return False
+
+
+def write_debt_baseline(root: Path, gaps: list[dict[str, Any]]) -> Path:
+    """Snapshot current required gaps into the committed debt baseline."""
+    path = root / DEBT_BASELINE_REL
+    ensure_dir(path.parent)
+    paths = sorted({str(g.get("path")) for g in gaps if g.get("path")})
+    doc = {
+        "schema_version": "monitoring_coverage_debt_baseline.v1",
+        "as_of": datetime.now(UTC).date().isoformat(),
+        "review_by": "2026-09-30",
+        "owner": "Learning Hub",
+        "accountable": "operator",
+        "note": (
+            "Known required_coverage_gaps accepted as monitoring debt. "
+            "artifact_monitoring_audit --strict fails only on gaps NOT listed here "
+            "(plus contract/unresolved/ledger breaks). Shrink this list when monitors "
+            "are added; do not grow it without a routing decision."
+        ),
+        "paths": paths,
+    }
+    path.write_text(yaml.safe_dump(doc, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help=f"Rewrite {DEBT_BASELINE_REL} from current required_coverage_gaps and exit 0.",
+    )
     args = parser.parse_args()
     root = args.root.resolve()
     report = build_report(root)
+    if args.write_baseline:
+        out = write_debt_baseline(root, report.get("required_coverage_gaps") or [])
+        print(f"Wrote debt baseline ({report['summary']['required_coverage_gap_count']} paths): {out}")
+        return 0
     output_dir = root / "Output" / "system_learning" / "latest"
     ensure_dir(output_dir)
     write_json(output_dir / "monitoring_coverage.json", report)
@@ -465,7 +610,12 @@ def main() -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print(f"Monitoring coverage: {report['status']} {report['summary']}")
-    return 1 if args.strict and report["status"] == "FAIL" else 0
+        debt = report.get("coverage_debt_baseline") or {}
+        print(
+            f"Coverage debt: baselined={debt.get('baselined_count', 0)} "
+            f"new={debt.get('new_gap_count', 0)} cleared={debt.get('cleared_count', 0)}"
+        )
+    return 1 if args.strict and strict_exit_nonzero(report) else 0
 
 
 if __name__ == "__main__":

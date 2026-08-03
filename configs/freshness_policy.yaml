@@ -62,26 +62,10 @@ evidence_release:
 #   P0-4 must be run on the compute device against real, freshly acquired
 #   data. A declared entry here must never be read as that evidence.
 #
-# Remove the entry the moment the source becomes reachable again.
-environmentally_blocked:
-  OFR_FSI:
-    since: "2026-07-12"
-    scope: operator_host_daily_admission_gate
-    satisfies_validation_criteria: false
-    owner: Harvester
-    accountable: xubo15384751795-sys
-    routing_decision: governance/routing_decisions/2026-07-31-daily-run-recurring-failures.yaml
-    reason: >
-      www.financialresearch.gov fails the TLS handshake from this host
-      (SSL_ERROR_SYSCALL / UNEXPECTED_EOF_WHILE_READING). Verified 2026-07-31
-      as SNI-scoped: the same CloudFront IP returns 200 under a different SNI,
-      and port 80 still answers 301, so the host and the IP are reachable and
-      the block is specific to this hostname. Not a code or URL defect.
-    evidence: "Data/harvester/raw/external_indicators/ofr_fsi.csv frozen at 2026-07-08"
-    manual_refresh: >
-      Download via VPN/proxy from the OFR Financial Stress Index page and save
-      columns ['date','OFR_FSI'] to the cache path above.
-    review_by: "2026-08-31"
+# Remove any entry the moment the source becomes reachable again.
+# Cleared 2026-08-03: OFR CSV at /financial-stress-index/data/fsi.csv is
+# reachable again; publisher_url was corrected off the HTML landing page.
+environmentally_blocked: {}
 
 indicators:
   # Public stress components (OFR/NFCI/CISS) feed P_public in the paper

@@ -86,17 +86,27 @@ def publish_candidate(candidate_dir: Path, *, run_id: str, root: Path = ROOT) ->
     return {"published": published, "count": len(published)}
 
 
-def run_freshness_check(root: Path = ROOT) -> dict[str, Any]:
-    """Run freshness_validator; return parsed JSON if available."""
+def run_freshness_check(
+    root: Path = ROOT,
+    *,
+    gate: str = "publish",
+) -> dict[str, Any]:
+    """Run freshness_validator; return parsed JSON if available.
+
+    ``gate=publish`` is the publish-boundary hard check (complete candidate).
+    """
     script = root / "scripts" / "freshness_validator.py"
     if not script.exists():
         return {"status": "skipped", "reason": "freshness_validator missing"}
+    env = os.environ.copy()
+    env["FRESHNESS_GATE"] = gate
     result = subprocess.run(
-        [sys.executable, str(script), "--json"],
+        [sys.executable, str(script), "--json", "--gate", gate],
         capture_output=True,
         text=True,
         timeout=TIMEOUT_STANDARD,
         cwd=str(root),
+        env=env,
     )
     if result.returncode != 0 and result.stdout.strip():
         try:

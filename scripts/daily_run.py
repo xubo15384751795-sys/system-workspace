@@ -43,6 +43,7 @@ from scripts._current_publish import (
     begin_candidate,
     clear_candidate_env,
     publish_candidate,
+    run_freshness_check,
     should_publish,
 )
 from scripts._daily_run_executor import DailyRunContext, execute_daily_sequence
@@ -52,6 +53,7 @@ from scripts._daily_run_sequence import (
     weekly_step_ids,
 )
 from scripts._notify import notify_daily_run_result
+from scripts._pipeline_dag import classify_step_failures
 from scripts._pipeline_runner import run_registry_step
 from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
 
@@ -114,16 +116,18 @@ def check_warnings() -> list[str]:
     elif freshness["status"] == "missing":
         warnings.append("MISSING: neutral_pressure_snapshot.json does not exist")
 
-    # 2. Coverage status
+    # 2. Coverage status — ACTIVE_PARTIAL / DEGRADED_PARTIAL are normal
+    # research operating modes and must not page every nightly run.
     fw_path = ROOT / "Output" / "current" / "neutral_pressure_snapshot.json"
+    _benign_coverage = {"ACTIVE_FULL", "ACTIVE_PARTIAL", "DEGRADED_PARTIAL"}
     if fw_path.exists():
         try:
             fw = json.loads(fw_path.read_text(encoding="utf-8"))
             overall = fw.get("basic", {}).get("overall", "UNKNOWN")
             quality = fw.get("basic", {}).get("quality_status", "UNKNOWN")
-            if overall != "ACTIVE_FULL":
+            if overall not in _benign_coverage:
                 warnings.append(f"COVERAGE: overall={overall}")
-            if "PROXY_REDUCED" in quality:
+            if "PROXY_REDUCED" in str(quality):
                 warnings.append(f"QUALITY: {quality}")
         except Exception:
             warnings.append("PARSE_ERROR: cannot read neutral_pressure_snapshot.json")
@@ -167,15 +171,27 @@ def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
 
 
 def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None = None) -> None:
-    """Write alert files."""
+    """Write alert files.
+
+    Soft failures (continue_with_warning / research_only) are MEDIUM and listed
+    separately from HARD failed steps so operators are not paged for coverage
+    audits and similar non-blocking steps.
+    """
     alert_dir = output_root / "alerts" if output_root else ALERT_DIR
     ensure_dir(alert_dir)
     now = datetime.now(UTC).isoformat()
-    failed_steps = [s for s in steps if s.get("status") != "success"]
+    hard_failures, soft_failures = classify_step_failures(steps)
+
+    if hard_failures:
+        severity = "HIGH"
+    elif soft_failures or warnings:
+        severity = "MEDIUM"
+    else:
+        severity = "LOW"
 
     alert = {
         "timestamp": now,
-        "severity": "HIGH" if failed_steps else ("MEDIUM" if warnings else "LOW"),
+        "severity": severity,
         "warnings": warnings,
         "failed_steps": [
             {
@@ -183,11 +199,13 @@ def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None
                 "error": (s.get("stdout_tail") or "")[-300:],
                 "duration_s": s.get("duration_s", 0),
             }
-            for s in failed_steps
+            for s in hard_failures
         ],
+        "soft_failed_steps": [s["step"] for s in soft_failures],
         "summary": (
-            f"{len(failed_steps)} steps failed, {len(warnings)} warnings"
-            if failed_steps or warnings
+            f"{len(hard_failures)} hard failures, {len(soft_failures)} soft failures, "
+            f"{len(warnings)} warnings"
+            if hard_failures or soft_failures or warnings
             else "All steps succeeded, no warnings"
         ),
     }
@@ -204,9 +222,14 @@ def write_alert(warnings: list[str], steps: list[dict], output_root: Path | None
         f"**Summary:** {alert['summary']}",
         "",
     ]
-    if failed_steps:
-        lines.append("## Failed Steps")
-        for s in failed_steps:
+    if hard_failures:
+        lines.append("## Failed Steps (HARD)")
+        for s in hard_failures:
+            lines.append(f"- {s['step']}: {s.get('status', '?')}")
+        lines.append("")
+    if soft_failures:
+        lines.append("## Soft Failures")
+        for s in soft_failures:
             lines.append(f"- {s['step']}: {s.get('status', '?')}")
         lines.append("")
     if warnings:
@@ -391,12 +414,32 @@ def main() -> None:
     end_time = datetime.now(UTC)
     freshness = check_freshness()
     warnings = check_warnings()
-    run_status = "success" if all(s.get("status") == "success" for s in steps) else "partial_failure"
-    freshness_report = load_json(ROOT / "Output" / "quality" / "freshness_report.json") or {}
+
+    # Soft failures (continue_with_warning / research_only) must not flip the
+    # run red, block publish, or fire HARD alerts. Hard failures do.
+    hard_failures, soft_failures = classify_step_failures(steps)
+    for step in soft_failures:
+        warnings.append(f"soft_fail:{step.get('step')}")
+    run_status = "success" if not hard_failures else "partial_failure"
+
+    # Publish-boundary freshness: candidate chain is complete; hard closure.
+    # Mid-run freshness_validator used --gate midrun (exit 0, no push).
+    freshness_report = run_freshness_check(gate="publish")
+    if not freshness_report.get("verdict"):
+        freshness_report = load_json(ROOT / "Output" / "quality" / "freshness_report.json") or {}
+    content_stale = [
+        f"{c.get('name')} max={c.get('max_date')} behind={c.get('trading_days_behind')}d"
+        for c in freshness_report.get("content_freshness") or []
+        if c.get("status") == "STALE"
+    ]
+
     can_publish, publish_reason = should_publish(run_status, freshness_report)
-    if run_status == "success" and not can_publish:
+    publish_blocked: str | None = None
+    if not can_publish:
+        publish_blocked = publish_reason
         warnings.append(f"PUBLISH_BLOCKED: {publish_reason}")
-        run_status = "partial_failure"
+        if run_status == "success":
+            run_status = "partial_failure"
     event = {
         "run_id": f"daily_{start_time.strftime('%Y%m%d_%H%M')}",
         "bundle_run_id": bundle.run_id,
@@ -412,11 +455,12 @@ def main() -> None:
     write_runtime_event(event, output_root=output_root if args.output_root else None)
     write_alert(warnings, steps, output_root=output_root if args.output_root else None)
 
-    failed_steps = [s["step"] for s in steps if s.get("status") != "success"]
     notify_daily_run_result(
         status=run_status,
-        failed_steps=failed_steps,
+        failed_steps=[str(s.get("step")) for s in hard_failures],
         warnings=warnings,
+        content_stale=content_stale,
+        publish_blocked=publish_blocked,
     )
 
     # Finish run bundle

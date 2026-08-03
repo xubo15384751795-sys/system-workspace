@@ -1,0 +1,57 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-03"
+task_id: monitoring-coverage-debt-baseline
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  P0-4 operational follow-up: artifact_monitoring_audit --strict was failing every
+  nightly run on ~51 known required_coverage_gaps, paging soft failures into
+  operator noise and preventing clean evidence-window days. Also midrun freshness
+  closure and content-STALE notifications were firing inside the pipeline before
+  publish, and Learning Hub ledger lag treated .cursor/checkpoints as ingest sources.
+decision: >
+  Add governance/monitoring_coverage_debt_baseline.yaml listing the known required
+  coverage gap paths (review_by 2026-09-30). artifact_monitoring_audit report v4
+  diffs gaps against that baseline; --strict fails only on new gaps, contract
+  violations, unresolved/ownerless blind spots, or Learning Hub ingest-source
+  ledger lag. Exclude operator checkpoints from ledger-lag sources. Soft pipeline
+  failures (continue_with_warning / research_only) do not flip daily_run status or
+  desktop HARD notify. Freshness uses --gate midrun|publish. Approve the new
+  governance file under freeze budget (+1 to max_files 18) and classify it as
+  executable_invariant / machine_baseline in governance_tiers.yaml.
+preregistered_expectation: >
+  Scheduled daily_run reaches status=success with monitoring_coverage_audit exit 0
+  under --strict when only baselined gaps remain; desktop notify fires only for
+  hard failures, content STALE at publish, or publish block. Full freshness can
+  PASS after OFR FSI CSV URL repair. Debt list shrinks when monitors are added;
+  growth requires a new routing decision.
+observation_window: >
+  Next 14 scheduled daily_run / Nightly cycles after merge; review debt baseline
+  by 2026-09-30.
+rollback: >
+  Revert this commit; remove monitoring_coverage_debt_baseline.yaml from freeze
+  approved_additions and shape_inventory; restore artifact_monitoring_audit
+  --strict to fail on all required_coverage_gaps.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+  contract_enum_change: false
+acceptance:
+  - --strict exit 0 when new_required_coverage_gap_count == 0
+  - checkpoint mtime does not trip SOURCE_AHEAD_OF_LEDGER
+  - soft failures do not desktop HARD notify
+  - freeze + shape inventory classify the debt baseline
+evidence:
+  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  files:
+    - governance/monitoring_coverage_debt_baseline.yaml
+    - governance/governance_freeze_manifest.yaml
+    - governance/governance_tiers.yaml
+    - scripts/artifact_monitoring_audit.py
+    - scripts/daily_run.py
+    - scripts/freshness_validator.py
+    - scripts/_notify.py
+    - tests/test_artifact_monitoring_audit.py
+    - tests/test_daily_run_hardening.py

@@ -54,8 +54,10 @@ class TestCheckState:
 
 
 class TestMainExitCodesAndNotification:
-    def test_failing_notifies_and_exits_one(self, monkeypatch, capsys):
+    def test_failing_notifies_and_exits_one(self, monkeypatch, tmp_path, capsys):
         sent: list[tuple[str, str]] = []
+        state = tmp_path / "main_ci_watch_notified.json"
+        monkeypatch.setattr(mod, "_NOTIFY_STATE", state)
         _stub_gh(monkeypatch, [{"conclusion": "failure", "status": "completed",
                                 "headSha": "abcdef1234", "displayTitle": "broke it",
                                 "url": "https://example/run", "createdAt": "x"}])
@@ -66,13 +68,31 @@ class TestMainExitCodesAndNotification:
         assert "main CI is red" in sent[0][0]
         assert "abcdef12" in sent[0][1]
 
-    def test_ok_is_silent_and_exits_zero(self, monkeypatch):
+    def test_failing_same_sha_does_not_renotify(self, monkeypatch, tmp_path, capsys):
         sent: list[tuple[str, str]] = []
+        state = tmp_path / "main_ci_watch_notified.json"
+        monkeypatch.setattr(mod, "_NOTIFY_STATE", state)
+        _stub_gh(monkeypatch, [{"conclusion": "failure", "status": "completed",
+                                "headSha": "abcdef1234", "displayTitle": "broke it",
+                                "url": "https://example/run", "createdAt": "x"}])
+        monkeypatch.setattr(mod, "notify_failure",
+                            lambda t, m: sent.append((t, m)) or True)
+        assert mod.main([]) == 1
+        assert mod.main([]) == 1
+        assert len(sent) == 1
+        assert "already notified" in capsys.readouterr().err
+
+    def test_ok_clears_dedupe_and_is_silent(self, monkeypatch, tmp_path):
+        sent: list[tuple[str, str]] = []
+        state = tmp_path / "main_ci_watch_notified.json"
+        state.write_text('{"last_notified_sha": "abcdef12", "state": "failing"}\n')
+        monkeypatch.setattr(mod, "_NOTIFY_STATE", state)
         _stub_gh(monkeypatch, [{"conclusion": "success", "status": "completed"}])
         monkeypatch.setattr(mod, "notify_failure",
                             lambda t, m: sent.append((t, m)) or True)
         assert mod.main([]) == 0
         assert sent == []
+        assert not state.exists()
 
     def test_unavailable_exits_two_without_notifying(self, monkeypatch):
         sent: list[tuple[str, str]] = []

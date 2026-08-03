@@ -129,17 +129,32 @@ def notify_daily_run_result(
     status: str,
     failed_steps: list[str],
     warnings: list[str],
+    content_stale: list[str] | None = None,
+    publish_blocked: str | None = None,
 ) -> None:
-    if status == "success" and not warnings:
+    """Desktop/webhook push only for HARD failures, content STALE, or publish block.
+
+    Soft failures (monitoring_coverage_audit, COVERAGE=ACTIVE_PARTIAL, etc.)
+    stay in ``Output/alerts/latest_alert.md`` — they must not page the operator
+    every nightly run. Content STALE / publish-block are merged into one HARD
+    title so they do not fire a second "Content freshness STALE" notification.
+    """
+    hard: list[str] = [f"failed step: {step}" for step in failed_steps if step]
+    for item in content_stale or []:
+        text = str(item).strip()
+        if text:
+            hard.append(f"content stale: {text}")
+    if publish_blocked:
+        hard.append(f"publish blocked: {publish_blocked}")
+    if hard:
+        notify_deviations("System daily_run failed", hard)
         return
-    if failed_steps:
-        notify_deviations(
-            "System daily_run failed",
-            [f"failed step: {step}" for step in failed_steps],
-        )
-        return
+    # Warnings-only: log for local runs, never push.
     if warnings:
-        notify_deviations(
-            "System daily_run warnings",
-            [*warnings, "details: Output/alerts/latest_alert.md"],
+        print(
+            f"NOTIFY[soft]: System daily_run warnings — "
+            f"{'; '.join(str(w) for w in warnings[:4])}"
+            f"{'; +…' if len(warnings) > 4 else ''} "
+            f"(see Output/alerts/latest_alert.md)",
+            file=sys.stderr,
         )

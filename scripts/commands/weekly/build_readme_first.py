@@ -21,9 +21,12 @@ from typing import Any
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
 
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
-FRAMEWORK_OUTPUT_PATH = current_dir() / "framework_output.json"
-EVIDENCE_REPORT_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
-OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
+# Honor CURRENT_OUTPUT_DIR so daily_run candidate → publish does not wipe a
+# direct write into live Output/current/.
+CURRENT = current_dir()
+FRAMEWORK_OUTPUT_PATH = CURRENT / "framework_output.json"
+EVIDENCE_REPORT_PATH = CURRENT / "evidence_grade_report.json"
+OUTPUT_PATH = CURRENT / "00_READ_ME_FIRST.md"
 
 
 def build_readme_from_index(
@@ -277,21 +280,25 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Print index context as JSON.")
     args = parser.parse_args()
 
+    # Re-resolve at call time — module-level CURRENT can be stale if the env
+    # was set after import (callable runner).
+    current = current_dir()
+    output_path = current / "00_READ_ME_FIRST.md"
+    framework_output = load_json(current / "framework_output.json")
+    evidence_report = load_json(current / "evidence_grade_report.json")
+
     index = load_json(INDEX_PATH)
     if not index:
         print("No System Index found. Run: python3 scripts/build_system_index.py")
         return
 
-    framework_output = load_json(FRAMEWORK_OUTPUT_PATH)
-    evidence_report = load_json(EVIDENCE_REPORT_PATH)
-
     if args.json:
         print(json.dumps(index, indent=2, ensure_ascii=False))
     else:
         md = build_readme_from_index(index, framework_output, evidence_report)
-        ensure_dir(OUTPUT_PATH.parent)
-        OUTPUT_PATH.write_text(md, encoding="utf-8")
-        print(f"Wrote: {OUTPUT_PATH}")
+        ensure_dir(output_path.parent)
+        output_path.write_text(md, encoding="utf-8")
+        print(f"Wrote: {output_path}")
 
 
 if __name__ == "__main__":
