@@ -1,0 +1,24 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-10-dvc-ge-hardening
+date: "2026-08-10"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Harden DVC promote for no-scm local remotes (seed configs/dvc/config with
+  no_scm, relative remote URL, pointer JSON always); keep content-clock suite
+  Pandera-authoritative with optional GE annotation; optional Pandera panel
+  shape check in workbench freshness; move GE optional extra off Python 3.14+.
+authority_changes:
+  - module: packages/orchestration/orchestration/dvc_promote.py
+    claim: no-scm DVC pointer promote for releases and snapshots
+  - module: packages/orchestration/orchestration/quality/ge_suite.py
+    claim: Pandera clocks authoritative; GE package optional
+references:
+  - configs/dvc/config
+  - .dvcignore
+  - packages/workbench/src/workbench/freshness.py
+  - packages/orchestration/tests/test_dvc_promote.py
+  - packages/orchestration/tests/test_ge_suite.py
+non_goals:
+  - Replace Output/current atomic publish with DVC
+  - Require great_expectations on Python >=3.14

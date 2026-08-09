@@ -47,7 +47,7 @@ ExternalTools/qlib_benchmark_runner/__pycache__/
 /Data/.dvc_cache/
 /.dvc/
 *.dvc
-/great_expectations/.cache/
+/configs/great_expectations/.cache/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────
 # Qlib workspace and output are large intermediate artifacts — never commit
@@ -74,6 +74,7 @@ __pycache__/
 
 # Virtual environments
 .venv/
+.venv-orchestration/
 venv/
 .env/
 *.venv

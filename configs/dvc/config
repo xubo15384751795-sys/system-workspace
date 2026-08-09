@@ -1,4 +1,5 @@
 [core]
+    no_scm = true
     remote = localcache
     autostage = true
 ['remote "localcache"']

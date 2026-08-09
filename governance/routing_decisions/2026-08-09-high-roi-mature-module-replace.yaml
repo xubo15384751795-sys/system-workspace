@@ -1,6 +1,7 @@
 schema_version: routing_decision.v1
 decision_id: 2026-08-09-high-roi-mature-module-replace
 date: "2026-08-09"
+cynefin_domain: complicated
 status: adopted
 summary: >
   In-place cutover of daily/refresh orchestration to Dagster; Pandera+GE for
@@ -10,7 +11,7 @@ summary: >
 authority_changes:
   - module: packages/orchestration
     claim: owns default-path daily_job and refresh_current_job execution
-  - module: scripts/_legacy_daily_run_executor.py
+  - module: scripts/archive/_legacy_daily_run_executor.py
     claim: emergency only via SYSTEM_USE_LEGACY_DAILY_RUN=1
   - module: governance/archive/research_terminal
     claim: archived; not a live operator surface

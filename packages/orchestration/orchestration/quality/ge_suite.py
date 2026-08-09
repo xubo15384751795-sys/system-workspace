@@ -1,7 +1,10 @@
-"""Thin Great Expectations runner for publish-gate content clocks.
+"""Publish-gate content-clock suite (GE-shaped payload).
 
-Emits a GE-shaped validation payload consumed by freshness_validator without
-requiring a full Data Context scaffolding in CI.
+Uses Pandera as the evaluation engine. The checked-in expectation document
+``configs/great_expectations/expectations/content_freshness_suite.json``
+records the suite contract. The ``great_expectations`` pip package is optional
+and currently unavailable on Python >=3.14; when importable, results are
+annotated but the Pandera clocks remain authoritative for hard-fail decisions.
 """
 from __future__ import annotations
 
@@ -10,6 +13,19 @@ from pathlib import Path
 from typing import Any
 
 from orchestration.quality.pandera_checks import evaluate_all_content_clocks
+
+
+def _ge_available() -> bool:
+    """True only for the real pip package (not a local docs directory)."""
+    try:
+        import great_expectations as ge
+    except ImportError:
+        return False
+    # Repo used to keep suites under ./great_expectations/, which shadowed imports.
+    module_file = getattr(ge, "__file__", None) or ""
+    if not module_file:
+        return False
+    return "site-packages" in Path(module_file).parts or "dist-packages" in Path(module_file).parts
 
 
 def run_content_freshness_suite(*, root: Path | None = None) -> dict[str, Any]:
@@ -21,9 +37,12 @@ def run_content_freshness_suite(*, root: Path | None = None) -> dict[str, Any]:
     critical_failures = [
         row for row in results if row.get("decision_critical") and row.get("status") != "fresh"
     ]
+    suite_doc = root / "configs" / "great_expectations" / "expectations" / "content_freshness_suite.json"
     return {
-        "engine": "great_expectations+pandera",
+        "engine": "great_expectations+pandera" if _ge_available() else "pandera",
         "suite": "content_freshness_v1",
+        "suite_document": str(suite_doc) if suite_doc.exists() else None,
+        "ge_package_available": _ge_available(),
         "evaluated_at": datetime.now(UTC).isoformat(),
         "success": success,
         "critical_failures": critical_failures,

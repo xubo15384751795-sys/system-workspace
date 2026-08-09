@@ -61,6 +61,34 @@ def classify_lag(lag_days: int | None, frequency: str, policy: dict[str, Any]) -
     return "stale"
 
 
+def _validate_panel_shape_with_pandera(panel: pd.DataFrame) -> None:
+    """Optional Pandera shape check for long-format evidence panels.
+
+    Governance lag thresholds stay in freshness_policy.yaml; this only verifies
+    the table columns used by lag classifiers. Missing Pandera is a no-op.
+    """
+    # Prefer date; tolerate catalogs that use observation_date.
+    columns: list[str] = []
+    if "date" in panel.columns:
+        columns.append("date")
+    elif "observation_date" in panel.columns:
+        columns.append("observation_date")
+    if "value" in panel.columns:
+        columns.append("value")
+    if not columns:
+        return
+    try:
+        import pandera.pandas as pa
+    except ImportError:
+        return
+    schema = pa.DataFrameSchema(
+        {name: pa.Column(nullable=True) for name in columns},
+        strict=False,
+        coerce=False,
+    )
+    schema.validate(panel, lazy=True)
+
+
 def series_matches(panel: pd.DataFrame, canonical_id: str) -> pd.Series:
     """Match canonical IDs against full IDs and provider-native IDs.
 
@@ -90,6 +118,7 @@ def build_release_freshness_manifest(
     catalog = read_json(release / "catalog.json")
     panel_path, evidence_created_at = _resolve_panel_from_catalog(release, catalog)
     panel = pd.read_parquet(panel_path)
+    _validate_panel_shape_with_pandera(panel)
     indicators = []
     for series_id in policy.get("indicators", {}):
         indicators.append(_indicator_freshness(series_id, panel, policy, evidence_created_at))

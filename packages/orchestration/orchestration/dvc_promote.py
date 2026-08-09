@@ -35,42 +35,60 @@ def _run_dvc(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
 
 
 def ensure_local_remote(*, root: Path = ROOT) -> Path:
-    """Ensure a local DVC remote under Data/.dvc_cache exists."""
+    """Ensure a local DVC remote under Data/.dvc_cache exists.
+
+    Seeds a no-scm ``.dvc/config`` from ``configs/dvc/config`` so promote works
+    even when ``dvc init`` cannot touch the parent git repository.
+    """
     cache = root / "Data" / ".dvc_cache"
     cache.mkdir(parents=True, exist_ok=True)
-    # Seed committed template config when present (no-scm friendly).
     template = root / "configs" / "dvc" / "config"
     dvc_dir = root / ".dvc"
-    if not dvc_dir.exists():
-        init = _run_dvc(["init", "--no-scm", "-q"], cwd=root)
-        if init.returncode != 0:
-            logger.warning("dvc init failed: %s", init.stderr.strip())
-            return cache
-    if template.exists():
-        target = dvc_dir / "config"
-        if not target.exists():
-            shutil.copy2(template, target)
+    dvc_dir.mkdir(parents=True, exist_ok=True)
+    (dvc_dir / "tmp").mkdir(parents=True, exist_ok=True)
+    gitignore = dvc_dir / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text("/config.local\n/tmp\n/cache\n", encoding="utf-8")
+    target = dvc_dir / "config"
+    if template.exists() and (not target.exists() or "core" not in target.read_text(encoding="utf-8")):
+        shutil.copy2(template, target)
+    # Prefer relative remote URL so the workspace stays portable.
+    rel_cache = os.path.relpath(cache, start=dvc_dir)
     remote = _run_dvc(
-        ["remote", "add", "-d", "localcache", str(cache), "-f"],
+        ["remote", "add", "-d", "localcache", rel_cache, "-f"],
         cwd=root,
     )
     if remote.returncode != 0:
-        logger.debug("dvc remote add: %s", remote.stderr.strip())
+        # Fall back to writing remote into config without CLI.
+        config_text = target.read_text(encoding="utf-8") if target.exists() else ""
+        if 'remote "localcache"' not in config_text:
+            with target.open("a", encoding="utf-8") as handle:
+                handle.write(f'\n[\'remote "localcache"\']\n    url = {rel_cache}\n')
+        logger.debug("dvc remote add: %s", (remote.stderr or remote.stdout or "").strip())
     return cache
 
 
 def _dvc_add_paths(paths: list[Path], *, root: Path) -> dict[str, Any]:
     tracked: list[str] = []
     errors: list[str] = []
+    root_resolved = root.resolve()
     for path in paths:
         if not path.exists():
             errors.append(f"missing:{path}")
             continue
-        add = _run_dvc(["add", str(path), "-q"], cwd=root)
+        try:
+            rel = str(path.resolve().relative_to(root_resolved))
+        except ValueError:
+            errors.append(f"outside_workspace:{path}")
+            continue
+        add = _run_dvc(["add", rel, "-q", "--no-commit"], cwd=root)
+        if add.returncode != 0:
+            # Older DVC builds may not support --no-commit; retry plain add.
+            add = _run_dvc(["add", rel, "-q"], cwd=root)
         if add.returncode == 0:
-            tracked.append(str(path))
+            tracked.append(rel)
         else:
-            errors.append((add.stderr or add.stdout or str(path)).strip()[:300])
+            errors.append((add.stderr or add.stdout or rel).strip()[:300])
     return {"tracked": tracked, "errors": errors}
 
 
