@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError

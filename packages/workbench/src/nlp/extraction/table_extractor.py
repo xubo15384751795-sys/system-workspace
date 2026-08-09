@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from nlp.chunking.chunk_schema import TextChunk
 from nlp.extraction.schemas import ExtractedEntity
-from nlp.parsing.table_parser import DetectedTable
 
 
 class TableRowEntity(BaseModel):

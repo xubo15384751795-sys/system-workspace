@@ -6,7 +6,7 @@ and surfaced in governance observability summaries.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path

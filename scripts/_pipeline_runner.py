@@ -6,19 +6,49 @@ Registry metadata lives in governance/daily_pipeline_registry.yaml.
 from __future__ import annotations
 
 import inspect
+import json
 import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from typing import Any, Callable
 
-from scripts._constants import TIMEOUT_LONG
+from scripts._constants import TIMEOUT_HARVESTER, TIMEOUT_LONG
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import resolve_callable as _resolve_installed_callable
 
 ROOT = WorkspacePaths.discover().root
 
 REGISTRY_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
+
+
+def _harvester_release_metadata(stdout: str) -> dict[str, Any]:
+    """Extract the Harvester's domain outcome from its JSON stdout.
+
+    Process success alone cannot distinguish a newly finalized release from a
+    market-closed no-op or a same-day reuse. Preserve that distinction in the
+    run bundle without changing the pipeline's execution status semantics.
+    """
+    try:
+        payload = json.loads((stdout or "").strip())
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    metadata: dict[str, Any] = {}
+    field_names = {
+        "status": "release_status",
+        "reason": "release_reason",
+        "release_id": "release_id",
+        "session_date": "release_session_date",
+        "requested_date": "release_requested_date",
+    }
+    for key, field_name in field_names.items():
+        value = payload.get(key)
+        if value not in (None, ""):
+            metadata[field_name] = value
+    return metadata
 
 
 def resolve_callable(callable_spec: str) -> Callable[..., Any]:
@@ -40,63 +70,84 @@ def _build_argv_for_callable(target: Callable[..., Any], argv: list[str] | None)
     return argv
 
 
+@contextmanager
+def _temporary_environment(env: dict[str, str] | None):
+    """Apply a step environment for a callable and restore the parent process."""
+    if not env:
+        yield
+        return
+
+    previous = {key: os.environ.get(key) for key in env}
+    os.environ.update({str(key): str(value) for key, value in env.items()})
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def run_callable_step(
     name: str,
     callable_spec: str,
     argv: list[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute a pipeline step via direct import."""
     start = time.time()
-    try:
-        target = resolve_callable(callable_spec)
-        signature = inspect.signature(target)
-        params = [
-            p
-            for p in signature.parameters.values()
-            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        ]
-        if argv and (not params or params[0].name not in {"argv", "args"}):
-            old_argv = sys.argv[:]
-            module_name = callable_spec.split(":", 1)[0]
-            sys.argv = [module_name.rsplit(".", 1)[-1]] + list(argv)
-            try:
-                result = target()
-            finally:
-                sys.argv = old_argv
-        elif argv:
-            result = target(argv)
-        else:
-            old_argv = sys.argv[:]
-            module_name = callable_spec.split(":", 1)[0]
-            sys.argv = [module_name.rsplit(".", 1)[-1]]
-            try:
-                result = target()
-            finally:
-                sys.argv = old_argv
-        duration = time.time() - start
-        returncode = 0
-        if isinstance(result, int):
-            returncode = result
-        status = "success" if returncode == 0 else "failed"
-        return {
-            "step": name,
-            "status": status,
-            "mode": "callable",
-            "callable": callable_spec,
-            "returncode": returncode,
-            "duration_s": round(duration, 1),
-            "stdout_tail": "",
-            "stderr_tail": "",
-        }
-    except Exception as exc:
-        return {
-            "step": name,
-            "status": "error",
-            "mode": "callable",
-            "callable": callable_spec,
-            "error": str(exc),
-            "duration_s": round(time.time() - start, 1),
-        }
+    with _temporary_environment(env):
+        try:
+            target = resolve_callable(callable_spec)
+            signature = inspect.signature(target)
+            params = [
+                p
+                for p in signature.parameters.values()
+                if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            ]
+            if argv and (not params or params[0].name not in {"argv", "args"}):
+                old_argv = sys.argv[:]
+                module_name = callable_spec.split(":", 1)[0]
+                sys.argv = [module_name.rsplit(".", 1)[-1]] + list(argv)
+                try:
+                    result = target()
+                finally:
+                    sys.argv = old_argv
+            elif argv:
+                result = target(argv)
+            else:
+                old_argv = sys.argv[:]
+                module_name = callable_spec.split(":", 1)[0]
+                sys.argv = [module_name.rsplit(".", 1)[-1]]
+                try:
+                    result = target()
+                finally:
+                    sys.argv = old_argv
+            duration = time.time() - start
+            returncode = 0
+            if isinstance(result, int):
+                returncode = result
+            status = "success" if returncode == 0 else "failed"
+            return {
+                "step": name,
+                "status": status,
+                "mode": "callable",
+                "callable": callable_spec,
+                "returncode": returncode,
+                "duration_s": round(duration, 1),
+                "stdout_tail": "",
+                "stderr_tail": "",
+            }
+        except Exception as exc:
+            return {
+                "step": name,
+                "status": "error",
+                "mode": "callable",
+                "callable": callable_spec,
+                "error": str(exc),
+                "duration_s": round(time.time() - start, 1),
+            }
 
 
 def run_subprocess_step(
@@ -106,33 +157,37 @@ def run_subprocess_step(
 ) -> dict[str, Any]:
     """Execute a pipeline step via subprocess (legacy default)."""
     start = time.time()
+    timeout = TIMEOUT_HARVESTER if name == "harvester" else TIMEOUT_LONG
     merged_env = {**os.environ, **(env or {})}
     for key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"]:
         merged_env.pop(key, None)
     try:
-        result = subprocess.run(
+        completed = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=TIMEOUT_LONG,
+            timeout=timeout,
             cwd=str(ROOT),
             env=merged_env,
         )
         duration = time.time() - start
-        return {
+        result = {
             "step": name,
-            "status": "success" if result.returncode == 0 else "failed",
+            "status": "success" if completed.returncode == 0 else "failed",
             "mode": "subprocess",
-            "returncode": result.returncode,
+            "returncode": completed.returncode,
             "duration_s": round(duration, 1),
-            "stdout_tail": result.stdout[-500:] if result.stdout else "",
-            "stderr_tail": result.stderr[-500:] if result.stderr else "",
+            "stdout_tail": completed.stdout[-500:] if completed.stdout else "",
+            "stderr_tail": completed.stderr[-500:] if completed.stderr else "",
             # Full stderr for failed-step log persistence (Phase 0.1). Capped
             # at 256KB by record_step when writing step_logs/<step>.stderr.log.
-            "full_stderr": result.stderr or "",
+            "full_stderr": completed.stderr or "",
         }
+        if name == "harvester":
+            result.update(_harvester_release_metadata(completed.stdout))
+        return result
     except subprocess.TimeoutExpired:
-        return {"step": name, "status": "timeout", "mode": "subprocess", "duration_s": TIMEOUT_LONG}
+        return {"step": name, "status": "timeout", "mode": "subprocess", "duration_s": timeout}
     except Exception as exc:
         return {"step": name, "status": "error", "mode": "subprocess", "error": str(exc), "duration_s": 0}
 
@@ -215,7 +270,7 @@ def run_registry_step(
         callable_spec = execution.get("future_callable", "")
         if not callable_spec:
             raise ValueError(f"{step_id} missing execution.future_callable")
-        return run_callable_step(step_id, callable_spec, argv=argv)
+        return run_callable_step(step_id, callable_spec, argv=argv, env=env)
 
     cmd = command
     if cmd is None:

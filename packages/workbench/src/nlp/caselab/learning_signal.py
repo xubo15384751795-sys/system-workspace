@@ -12,17 +12,13 @@ from __future__ import annotations
 from system_runtime.paths import WorkspacePaths
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from nlp.caselab.causal_graph import (
-    RELATION_WEIGHTS,
-    VARIABLE_MDX_SENSITIVITY,
     resolve_event_causal,
 )
 

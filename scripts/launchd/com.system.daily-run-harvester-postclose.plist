@@ -3,7 +3,7 @@
 <!-- Phase 0.3 + 2.3 staged plist.
      Apply via: bash scripts/install_launchd_plists.sh (pass apply flag).
      Changes vs older installed agent:
-       0.3: 21:30 run uses skip-harvester (no Yahoo re-fetch; 22:30 is authoritative).
+       0.3: 21:30 run uses skip-harvester (no provider acquisition; 06:30 is the warm-up).
        2.3: logs under Output/logs/launchd/ (monthly truncate by daily_run). -->
 <plist version="1.0">
 <dict>
@@ -22,7 +22,7 @@
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
-        <!-- 21:30 local: US market close; downstream-only (skip harvester) -->
+        <!-- 21:30 local: optional downstream-only run; never acquire data -->
         <key>Hour</key>
         <integer>21</integer>
         <key>Minute</key>

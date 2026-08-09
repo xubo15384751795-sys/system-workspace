@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 from pathlib import Path
 from workbench.paths import workbench_root as _workbench_root
 from typing import Any

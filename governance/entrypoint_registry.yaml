@@ -438,7 +438,7 @@ install_paper_sync_hook:
   - paper_model_sync
 ask_evidence:
   script: scripts/ask_evidence.py
-  status: archived
+  status: tool_active
   owner: Workbench
   description: Moved to archive 2026-06-20
   allowed_use: []

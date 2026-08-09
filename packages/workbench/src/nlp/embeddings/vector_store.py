@@ -116,7 +116,7 @@ class VectorStore:
             self._index = self._create_index(vectors)
             return
         try:
-            import faiss
+            import faiss  # noqa: F401  # availability gate for the FAISS index
             import numpy as np
             arr = np.array(vectors, dtype=np.float32)
             self._index.add(arr)
@@ -126,7 +126,7 @@ class VectorStore:
 
     def _search_index(self, query_vector: list[float], *, top_k: int) -> list[tuple[int, float]]:
         try:
-            import faiss
+            import faiss  # noqa: F401  # availability gate for the FAISS index
             import numpy as np
             q = np.array([query_vector], dtype=np.float32)
             scores, indices = self._index.search(q, min(top_k, self._index.ntotal))

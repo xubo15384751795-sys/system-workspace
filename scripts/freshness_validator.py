@@ -27,6 +27,15 @@ import yaml
 
 from scripts._runtime_io import ROOT, current_dir, ensure_dir
 
+try:
+    from harvester.trading_calendar import (
+        is_us_equity_session,
+        us_equity_sessions_between,
+    )
+except ImportError:  # pragma: no cover - clean minimal installs use weekdays.
+    is_us_equity_session = None
+    us_equity_sessions_between = None
+
 OUTPUT_DIR = ROOT / "Output"
 CURRENT = current_dir()
 QUALITY_DIR = OUTPUT_DIR / "quality"
@@ -156,9 +165,13 @@ def check_artifact_freshness(
 
 
 def _last_trading_day(on: date) -> date:
-    """Roll calendar date back to the most recent Mon–Fri session."""
+    """Roll calendar date back to the most recent US equity session."""
     d = on
-    while d.weekday() >= 5:
+    while (
+        not is_us_equity_session(d)
+        if is_us_equity_session is not None
+        else d.weekday() >= 5
+    ):
         d -= timedelta(days=1)
     return d
 
@@ -168,6 +181,8 @@ def trading_days_behind(content_max: date, as_of: date) -> int:
     expected = _last_trading_day(as_of)
     if content_max >= expected:
         return 0
+    if us_equity_sessions_between is not None:
+        return us_equity_sessions_between(content_max, expected)
     return int(np.busday_count(content_max, expected))
 
 

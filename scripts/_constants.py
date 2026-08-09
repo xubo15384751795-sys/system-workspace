@@ -52,6 +52,10 @@ TIMEOUT_MEDIUM = 60
 TIMEOUT_STANDARD = 120
 # Harvester daily-release regularly exceeds 10m (FRED + ETF universe).
 TIMEOUT_LONG = 1800
+# A network-bound Harvester must not occupy a scheduled launchd slot for
+# hours. Provider-level timeouts remain responsible for individual requests;
+# this is the final subprocess circuit breaker.
+TIMEOUT_HARVESTER = 900
 
 # ─── M/D/K/X stress direction thresholds ────────────────────────────
 # Used by: caselab_daily_signal, evaluate_proxy_lifecycle

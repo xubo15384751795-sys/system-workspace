@@ -3,16 +3,21 @@ from __future__ import annotations
 import json
 import os
 import sys
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from harvester.core.catalog import load_catalog
 from harvester.core.exporter import (
     default_exports_root,
     finalize_release,
     list_releases,
+)
+from harvester.trading_calendar import (
+    is_us_equity_session,
+    latest_completed_us_equity_session,
 )
 
 
@@ -112,74 +117,153 @@ def run_daily_release(
     from harvester.official import stage_complete_release
 
     root = Path(exports_root) if exports_root is not None else default_exports_root()
-    resolved_release_id = release_id or next_release_id(root)
-    resolved_as_of = as_of_date or datetime.now(UTC).date().isoformat()
-    resolved_vintage = vintage_date or resolved_as_of
+    with _daily_release_lock(root) as lock_acquired:
+        if not lock_acquired:
+            return {
+                "release_id": "",
+                "status": "reused",
+                "reason": "another_release_in_progress",
+            }
 
-    # Phase 2.1: same-day reuse. If the caller did not explicitly request a
-    # new release_id, and ``latest`` already points to a finalized release
-    # whose as_of_date is today, return ``reused`` without any network calls.
-    # This makes the three nightly schedules (21:30/22:30/07:00) idempotent:
-    # whichever succeeds first, the others short-circuit - immune to Yahoo
-    # rate-limiting from duplicate runs.
-    # NOTE: default release_id is "" (not None); empty means "auto-assign".
-    if not release_id:
-        reused = _check_same_day_reuse(root, resolved_as_of)
-        if reused is not None:
-            return reused
+        # Empty release_id + empty as_of_date is the automatic scheduled path.
+        # Explicit dates remain available for historical/backfill work.
+        automatic = not release_id and not as_of_date
+        now_utc = datetime.now(UTC)
+        requested_day = date.fromisoformat(as_of_date) if as_of_date else now_utc.date()
+        session_day = (
+            latest_completed_us_equity_session(now_utc)
+            if automatic
+            else requested_day
+        )
+        if automatic and session_day != requested_day:
+            reused = _check_same_day_reuse(root, session_day.isoformat())
+            if reused is None:
+                return {
+                    "release_id": "",
+                    "status": "failed",
+                    "reason": (
+                        "market_closed_no_latest_release"
+                        if not is_us_equity_session(requested_day)
+                        else "session_incomplete_no_latest_release"
+                    ),
+                    "requested_date": requested_day.isoformat(),
+                    "session_date": session_day.isoformat(),
+                }
+            market_closed = not is_us_equity_session(requested_day)
+            return {
+                **reused,
+                "status": "market_closed" if market_closed else "session_incomplete",
+                "reason": (
+                    "market_closed_reused_latest"
+                    if market_closed
+                    else "session_incomplete_reused_latest"
+                ),
+                "requested_date": requested_day.isoformat(),
+                "session_date": session_day.isoformat(),
+            }
 
-    if preflight:
-        preflight_result = run_preflight(exports_root=root, providers=providers)
-        if not preflight_result.passed:
-            report = _write_failure_report(
-                root,
-                resolved_release_id,
-                "preflight_failed",
-                {"preflight": _preflight_to_dict(preflight_result)},
+        resolved_as_of = as_of_date or requested_day.isoformat()
+        resolved_release_id = release_id or next_release_id(
+            root, release_date=date.fromisoformat(resolved_as_of)
+        )
+        resolved_vintage = vintage_date or resolved_as_of
+
+        # Phase 2.1: same-day reuse. If the caller did not explicitly request a
+        # new release_id, and ``latest`` already points to a finalized release
+        # whose as_of_date is today, return ``reused`` without network calls.
+        if not release_id:
+            reused = _check_same_day_reuse(root, resolved_as_of)
+            if reused is not None:
+                return reused
+
+        if preflight:
+            preflight_result = run_preflight(exports_root=root, providers=providers)
+            if not preflight_result.passed:
+                report = _write_failure_report(
+                    root,
+                    resolved_release_id,
+                    "preflight_failed",
+                    {"preflight": _preflight_to_dict(preflight_result)},
+                )
+                return {
+                    "release_id": resolved_release_id,
+                    "status": "failed",
+                    "reason": "preflight_failed",
+                    "failure_report": str(report),
+                    "preflight": _preflight_to_dict(preflight_result),
+                }
+
+        try:
+            staged = stage_complete_release(
+                release_id=resolved_release_id,
+                as_of_date=resolved_as_of,
+                vintage_date=resolved_vintage,
+                exports_root=str(root),
+                providers=providers,
+                cache=cache,
+                include_external=include_external,
+                notes=notes,
             )
+            finalized = finalize_release(resolved_release_id, exports_root=root, dry_run=False)
+        except KeyboardInterrupt:
+            raise
+        except BaseException as exc:
+            # Phase 0.2: catch BaseException (not just Exception) so SystemExit-style
+            # failures also leave a failure report. KeyboardInterrupt is re-raised so
+            # Ctrl-C still interrupts cleanly.
+            report = _write_failure_report(root, resolved_release_id, "release_failed", {"error": repr(exc)})
             return {
                 "release_id": resolved_release_id,
                 "status": "failed",
-                "reason": "preflight_failed",
+                "reason": "release_failed",
                 "failure_report": str(report),
-                "preflight": _preflight_to_dict(preflight_result),
+                "error": repr(exc),
             }
 
-    try:
-        staged = stage_complete_release(
-            release_id=resolved_release_id,
-            as_of_date=resolved_as_of,
-            vintage_date=resolved_vintage,
-            exports_root=str(root),
-            providers=providers,
-            cache=cache,
-            include_external=include_external,
-            notes=notes,
-        )
-        finalized = finalize_release(resolved_release_id, exports_root=root, dry_run=False)
-    except KeyboardInterrupt:
-        raise
-    except BaseException as exc:
-        # Phase 0.2: catch BaseException (not just Exception) so SystemExit-style
-        # failures also leave a failure report. KeyboardInterrupt is re-raised so
-        # Ctrl-C still interrupts cleanly.
-        report = _write_failure_report(root, resolved_release_id, "release_failed", {"error": repr(exc)})
         return {
             "release_id": resolved_release_id,
-            "status": "failed",
-            "reason": "release_failed",
-            "failure_report": str(report),
-            "error": repr(exc),
+            "status": "finalized",
+            "release_dir": str(finalized.release_dir),
+            "verified_datasets": finalized.verified_datasets,
+            "latest_path": str(finalized.latest_path),
+            "staged": staged,
         }
 
-    return {
-        "release_id": resolved_release_id,
-        "status": "finalized",
-        "release_dir": str(finalized.release_dir),
-        "verified_datasets": finalized.verified_datasets,
-        "latest_path": str(finalized.latest_path),
-        "staged": staged,
-    }
+
+@contextmanager
+def _daily_release_lock(exports_root: Path) -> Iterator[bool]:
+    """Serialize automatic/manual release attempts in the same export root."""
+    lock_path = exports_root / ".daily_release.lock"
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        handle = lock_path.open("a+", encoding="utf-8")
+    except OSError:
+        # The regular preflight will report a non-writable export root. Do not
+        # turn lock setup into an opaque exception before that diagnostic runs.
+        yield True
+        return
+
+    try:
+        try:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        except (ImportError, OSError):
+            # macOS/Linux have fcntl; keep the helper portable for local tests.
+            yield True
+            return
+        yield True
+    finally:
+        try:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        except (ImportError, OSError):
+            pass
+        handle.close()
 
 
 def monitor_latest(
@@ -254,10 +338,13 @@ def _is_writable_dir(path: Path) -> bool:
 
 def _check_same_day_reuse(exports_root: Path, as_of_date: str) -> dict[str, Any] | None:
     """Phase 2.1: return a ``reused`` result if ``latest`` already points to a
-    finalized release for ``as_of_date``, else None.
+    finalized release for ``as_of_date`` with current ETF content, else None.
 
     A release counts as same-day if its catalog's as_of_date (or release_id
-    date prefix) matches today. No network calls are made.
+    date prefix) matches today. When the ETF manifest is present, its actual
+    time coverage must be no more than three calendar days behind as_of_date;
+    this prevents a failed acquisition from being hidden by same-day reuse.
+    No network calls are made.
     """
     latest = exports_root / "latest"
     if not (latest.exists() or latest.is_symlink()):
@@ -285,6 +372,33 @@ def _check_same_day_reuse(exports_root: Path, as_of_date: str) -> dict[str, Any]
     )
     if not same_day:
         return None
+    panel_manifest = release_dir / "manifests" / "cross_asset_daily_panel.manifest.json"
+    if panel_manifest.exists():
+        try:
+            panel = json.loads(panel_manifest.read_text(encoding="utf-8"))
+            coverage_end = str((panel.get("time_coverage") or {}).get("end") or "")
+            if not coverage_end:
+                return None
+            lag_days = (date.fromisoformat(as_of_date) - date.fromisoformat(coverage_end)).days
+            if lag_days > 3:
+                return None
+
+            # Do not trust the manifest's declared coverage alone. A failed
+            # fetch can leave the previous parquet in a newly labeled release
+            # while the metadata still says ``as_of_date`` is today.
+            panel_path = release_dir / "data" / "cross_asset_daily_panel.parquet"
+            if not panel_path.exists():
+                return None
+            import pandas as pd
+
+            actual_dates = pd.read_parquet(panel_path, columns=["date"])["date"]
+            if actual_dates.empty:
+                return None
+            actual_end = pd.to_datetime(actual_dates).max().date()
+            if (date.fromisoformat(as_of_date) - actual_end).days > 3:
+                return None
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            return None
     return {
         "release_id": release_id,
         "status": "reused",

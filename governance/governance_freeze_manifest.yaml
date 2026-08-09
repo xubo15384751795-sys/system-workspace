@@ -1,5 +1,5 @@
 schema_version: governance_freeze_manifest.v2
-updated_at: '2026-07-31'
+updated_at: '2026-08-09'
 freeze_commit: 06e91e906d0f8ce6562240b27db556366edb3e2b
 freeze_date: '2026-06-17'
 review_after: '2026-08-15'
@@ -59,11 +59,11 @@ baseline_hashes:
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: f653df283d9a43b0
+  daily_pipeline_registry.yaml: 5880f51886dad0b4
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
-  deferred_work_register.yaml: 1fde357f8e240193
-  entrypoint_registry.yaml: 7624a54763831a62
+  deferred_work_register.yaml: f0633e56c80e255b
+  entrypoint_registry.yaml: ea4e7c11b7a32cfd
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: 7378891650ab5040
   git_workspace_policy.md: 4dab5f4a7e64d803
@@ -694,6 +694,53 @@ baseline_updates:
     878bca4 and is not in scripts/archive/, so update_k_features() returns
     False every run and the declared artifact has been frozen since
     2026-06-17. Documentation only — no schedule, authority or output changed.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-08-07'
+  old_hash: f653df283d9a43b0
+  new_hash: 54767aeb29c34a10
+  reason: >-
+    Close the recurring ETF stale-panel loop: Harvester is the sole scheduled
+    ETF acquisition owner; refresh_cross_asset_panel is manual/on-demand;
+    scheduled release acquisition fails closed instead of packaging the prior
+    panel; and the registry/sequence are regenerated from that authority.
+    Operator-approved as part of the 2026-08-07 daily_run reliability repair.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-08-09'
+  old_hash: 54767aeb29c34a10
+  new_hash: 09daf4715a5b91c0
+  reason: >-
+    Move the unmaintained etf_refresh compatibility check to on-demand only.
+    Its K-feature generator is absent, so removing it from the daily path
+    eliminates one zero-output step without removing the explicit diagnostic
+    entrypoint or changing core judgment dependencies.
+- file: entrypoint_registry.yaml
+  approved_at: '2026-08-09'
+  old_hash: 7624a54763831a62
+  new_hash: ea4e7c11b7a32cfd
+  reason: >-
+    Correct ask_evidence from archived to tool_active because ./sys ask still
+    dispatches scripts/ask_evidence.py. This is a registry-status correction;
+    no command path or runtime behavior changed.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-08-09'
+  old_hash: 09daf4715a5b91c0
+  new_hash: 5880f51886dad0b4
+  reason: >-
+    Execute the deadline plan's bounded callable pilot: signal_card,
+    signal_consensus, and work_brief are non-authoritative readout builders and
+    now use their registered future_callable. Correct risk_gate's future
+    callable metadata to the live scripts.trade_risk_gate:main entrypoint;
+    risk_gate itself remains subprocess because it affects core judgment.
+- file: deferred_work_register.yaml
+  approved_at: '2026-08-09'
+  old_hash: 1fde357f8e240193
+  new_hash: f0633e56c80e255b
+  reason: >-
+    Close the 2026-08-15 deadline plan with explicit boundaries: seal the
+    callable runner/E2E pilot, accept the structural root-script fallback, and
+    seal the DuckDB migration with its legacy runtime fallback. Keep dependency
+    locking evidence_pending and extend its 30-day cross-environment review to
+    2026-09-01. No authority, judgment, or promotion rule changed.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

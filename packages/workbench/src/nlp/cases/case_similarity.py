@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from nlp.cases.case_registry import CaseProfile, CaseRegistry, STRUCTURAL_VARIABLES
-from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder
-from nlp.embeddings.vector_store import VectorStore
+from nlp.cases.case_registry import CaseRegistry, STRUCTURAL_VARIABLES
+from nlp.embeddings.embedder import Embedder
 
 if TYPE_CHECKING:
     from ml.graph_embed import GraphEmbedder

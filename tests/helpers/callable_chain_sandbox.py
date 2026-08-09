@@ -82,6 +82,10 @@ def seed_callable_chain_workspace(target: Path) -> Path:
         json.dumps(_PRESSURE_SNAPSHOT, indent=2) + "\n",
         encoding="utf-8",
     )
+    (current / "framework_output.json").write_text(
+        json.dumps(_PRESSURE_SNAPSHOT, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     (sandbox / "Output" / "k_measurement").mkdir(parents=True, exist_ok=True)
     (sandbox / "Output" / "x_measurement").mkdir(parents=True, exist_ok=True)
@@ -159,6 +163,8 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     import scripts._data_paths as dp
     import scripts._runtime_io as rio
     import scripts.build_current_status as current_status
+    import scripts.build_signal_card as signal_card
+    import scripts.build_work_brief as work_brief
     import scripts.commands.weekly.build_artifact_registry as artifact_reg
     import scripts.commands.weekly.build_evidence_grade_report as evidence_grade
     import scripts.commands.weekly.build_next_actions as next_actions
@@ -167,6 +173,7 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     import scripts.judgment_layer as jl_script
     import scripts.pending_evaluation as pe
     import scripts.refresh_etf_panel as etf_refresh
+    import scripts.signal_consensus as signal_consensus
     import scripts.trade_decision_layer as trade_decision
     import scripts.x_measurement_gate as x_gate
 
@@ -343,6 +350,37 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     )
     monkeypatch.setattr(current_status, "CASELAB_DIR", out / "caselab")
     monkeypatch.setattr(current_status, "OUTPUT_DIR", current)
+
+    monkeypatch.setattr(signal_card, "ROOT", sandbox)
+    monkeypatch.setattr(signal_card, "CURRENT", current)
+    monkeypatch.setattr(signal_card, "JUDGMENT", judgment)
+    monkeypatch.setattr(signal_card, "TRADE_DECISION", trade_out)
+    monkeypatch.setattr(signal_card, "CASELAB", out / "caselab")
+    monkeypatch.setattr(signal_card, "HMM", out / "ml_signals" / "latest")
+    monkeypatch.setattr(signal_card, "VALIDATION", out / "validation")
+    monkeypatch.setattr(
+        signal_card, "SHADOW_OUTCOMES", out / "strategy_lab" / "shadow_outcomes_90d.json"
+    )
+    monkeypatch.setattr(
+        signal_card, "SHADOW_CARD_LATEST", out / "strategy_lab" / "shadow_cards" / "latest.json"
+    )
+
+    monkeypatch.setattr(signal_consensus, "ROOT", sandbox)
+    monkeypatch.setattr(signal_consensus, "OUTPUT_CURRENT", current)
+    monkeypatch.setattr(signal_consensus, "FRAMEWORK_OUTPUT", current / "framework_output.json")
+    monkeypatch.setattr(signal_consensus, "JUDGMENT_PATH", judgment / "latest.json")
+    monkeypatch.setattr(signal_consensus, "PROMOTION_GATE_PATH", judgment / "promotion_gate.json")
+    monkeypatch.setattr(signal_consensus, "HMM_PATH", out / "ml_signals" / "daily" / "regime_hmm.json")
+    monkeypatch.setattr(signal_consensus, "K_GATE_PATH", out / "k_measurement" / "k_measurement_gate.json")
+    monkeypatch.setattr(signal_consensus, "X_GATE_PATH", out / "x_measurement" / "x_measurement_gate.json")
+    monkeypatch.setattr(signal_consensus, "PROB_CONTEXT_PATH", out / "probabilistic_context" / "latest.json")
+    monkeypatch.setattr(signal_consensus, "CASELAB_DIR", out / "caselab")
+
+    monkeypatch.setattr(work_brief, "ROOT", sandbox)
+    monkeypatch.setattr(work_brief, "CURRENT", current)
+    monkeypatch.setattr(work_brief, "JUDGMENT", judgment)
+    monkeypatch.setattr(work_brief, "TRADE", trade_out)
+    monkeypatch.setattr(work_brief, "ML_SIGNALS", out / "ml_signals")
 
     monkeypatch.setattr(next_actions, "ROOT", sandbox)
     monkeypatch.setattr(next_actions, "OUTPUT_DIR", current)

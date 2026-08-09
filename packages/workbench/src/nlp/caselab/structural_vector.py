@@ -10,7 +10,6 @@ tau = Time pressure (urgency / maturity mismatch / speed of events)
 from __future__ import annotations
 
 import re
-from typing import Any
 
 
 # ── Mechanism → vector delta mapping ──────────────────────────────────────

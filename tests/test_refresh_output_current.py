@@ -57,9 +57,17 @@ def test_dry_run_lists_admission_and_complete_daily_chain(capsys) -> None:
     assert "pre-consumption admission (hard gate)" in output
     for script in (
         "build_measurement_quality_report.py",
+        "trade_risk_gate.py",
+        "record_trade_decision.py",
         "build_signal_card.py",
         "signal_consensus.py",
         "build_work_brief.py",
+        "build_system_index.py",
+        "build_readme_first.py",
         "freshness_validator.py",
     ):
         assert script in output
+
+    assert output.index("trade_risk_gate.py") < output.index("build_system_index.py")
+    assert output.index("build_system_index.py") < output.index("build_readme_first.py")
+    assert output.index("build_readme_first.py") < output.index("freshness_validator.py --gate publish")

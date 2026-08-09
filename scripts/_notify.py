@@ -14,6 +14,7 @@ Configure:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -21,8 +22,16 @@ import subprocess
 import sys
 import urllib.request
 from datetime import UTC, datetime
+from pathlib import Path
 
 from scripts._constants import TIMEOUT_SHORT
+
+_DAILY_NOTIFICATION_STATE = (
+    Path(__file__).resolve().parents[1]
+    / "Output"
+    / "alerts"
+    / "daily_run_notification_state.json"
+)
 
 
 def _notify_webhook(title: str, message: str) -> bool:
@@ -100,6 +109,57 @@ def notify_deviations(title: str, deviations: list[str]) -> bool:
     return notify_failure(title, preview)
 
 
+def _daily_notification_fingerprint(title: str, deviations: list[str]) -> str:
+    payload = json.dumps(
+        {"title": title, "deviations": deviations},
+        ensure_ascii=False,
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _daily_notification_is_new(title: str, deviations: list[str]) -> bool:
+    """Return whether an unchanged daily-run condition should page again."""
+    fingerprint = _daily_notification_fingerprint(title, deviations)
+    try:
+        previous = json.loads(_DAILY_NOTIFICATION_STATE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        previous = {}
+    if previous.get("fingerprint") == fingerprint:
+        return False
+    try:
+        _DAILY_NOTIFICATION_STATE.parent.mkdir(parents=True, exist_ok=True)
+        temporary = _DAILY_NOTIFICATION_STATE.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(
+                {
+                    "fingerprint": fingerprint,
+                    "title": title,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, _DAILY_NOTIFICATION_STATE)
+    except OSError:
+        # Notification delivery must remain best-effort; a state-file failure
+        # must never turn a pipeline result into a new pipeline failure.
+        pass
+    return True
+
+
+def _clear_daily_notification_state() -> None:
+    try:
+        _DAILY_NOTIFICATION_STATE.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        pass
+
+
 def _notify_desktop(title: str, message: str) -> bool:
     """Show a macOS desktop notification. Returns True if a notifier ran."""
     if platform.system() != "Darwin":
@@ -131,6 +191,7 @@ def notify_daily_run_result(
     warnings: list[str],
     content_stale: list[str] | None = None,
     publish_blocked: str | None = None,
+    harvester_completed: bool = False,
 ) -> None:
     """Desktop/webhook push only for HARD failures, content STALE, or publish block.
 
@@ -147,9 +208,21 @@ def notify_daily_run_result(
     if publish_blocked:
         hard.append(f"publish blocked: {publish_blocked}")
     if hard:
-        notify_deviations("System daily_run failed", hard)
+        title = "System daily_run failed"
+        if _daily_notification_is_new(title, hard):
+            notify_deviations(title, hard)
+        else:
+            print(
+                "NOTIFY[deduplicated]: unchanged daily_run hard condition "
+                "(see Output/alerts/latest_alert.md)",
+                file=sys.stderr,
+            )
         return
-    # Warnings-only: log for local runs, never push.
+    # Warnings-only: log for local runs, never push. Clear a previous hard
+    # alert only after the full Harvester step actually ran to completion.
+    # Downstream-only ``--skip-harvester`` runs must not masquerade as recovery.
+    if harvester_completed:
+        _clear_daily_notification_state()
     if warnings:
         print(
             f"NOTIFY[soft]: System daily_run warnings — "

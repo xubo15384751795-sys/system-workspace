@@ -68,3 +68,65 @@ class TestNotificationSandboxGuard:
         monkeypatch.delenv("NOTIFY_DISABLE", raising=False)
         assert _notify.notify_failure("real alert", "ofr_fsi behind=17d") is True
         assert sent == [("real alert", "ofr_fsi behind=17d")]
+
+
+def test_daily_run_hard_alert_is_deduplicated_until_recovery(monkeypatch, tmp_path, capsys) -> None:
+    state = tmp_path / "daily_notification_state.json"
+    sent: list[tuple[str, str]] = []
+    monkeypatch.setattr(_notify, "_DAILY_NOTIFICATION_STATE", state)
+    monkeypatch.setattr(
+        _notify,
+        "notify_deviations",
+        lambda title, deviations: sent.append((title, "; ".join(deviations))) or True,
+    )
+
+    kwargs = {
+        "status": "partial_failure",
+        "failed_steps": [],
+        "warnings": ["PUBLISH_BLOCKED: stale_artifacts=1"],
+        "content_stale": ["etf_panel max=2026-08-03 behind=4d"],
+        "publish_blocked": "stale_artifacts=1",
+    }
+    _notify.notify_daily_run_result(**kwargs)
+    _notify.notify_daily_run_result(**kwargs)
+    assert len(sent) == 1
+    assert "deduplicated" in capsys.readouterr().err
+
+    _notify.notify_daily_run_result(
+        status="success",
+        failed_steps=[],
+        warnings=[],
+        harvester_completed=True,
+    )
+    _notify.notify_daily_run_result(**kwargs)
+    assert len(sent) == 2
+
+
+def test_downstream_only_run_does_not_clear_hard_alert(monkeypatch, tmp_path) -> None:
+    state = tmp_path / "daily_notification_state.json"
+    monkeypatch.setattr(_notify, "_DAILY_NOTIFICATION_STATE", state)
+    monkeypatch.setattr(_notify, "notify_deviations", lambda *_args: True)
+    kwargs = {
+        "status": "partial_failure",
+        "failed_steps": ["harvester"],
+        "warnings": [],
+    }
+
+    _notify.notify_daily_run_result(**kwargs)
+    assert state.exists()
+
+    _notify.notify_daily_run_result(
+        status="success",
+        failed_steps=[],
+        warnings=["soft_fail:monitoring"],
+        harvester_completed=False,
+    )
+    assert state.exists()
+
+    _notify.notify_daily_run_result(
+        status="success",
+        failed_steps=[],
+        warnings=[],
+        harvester_completed=True,
+    )
+    assert not state.exists()

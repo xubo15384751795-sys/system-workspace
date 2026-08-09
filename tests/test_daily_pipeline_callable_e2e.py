@@ -86,12 +86,22 @@ EXECUTABLE_HEAVY_STEPS = (
     "structural_replay",
 )
 
+# Readout builders migrated from subprocess to callable mode on 2026-08-09.
+# They are non-authoritative explanation artifacts and can be hermetically
+# exercised after the judgment/promotion fixture is seeded.
+EXECUTABLE_READOUT_STEPS = (
+    "signal_card",
+    "signal_consensus",
+    "work_brief",
+)
+
 EXECUTABLE_ALL_STEPS = (
     EXECUTABLE_LIGHT_STEPS
     + EXECUTABLE_CHAIN_STEPS
     + EXECUTABLE_POST_JUDGMENT_STEPS
     + EXECUTABLE_GATE_STEPS
     + EXECUTABLE_HEAVY_STEPS
+    + EXECUTABLE_READOUT_STEPS
 )
 
 
@@ -401,6 +411,28 @@ def test_freshness_validator_writes_sandbox_report(tmp_path: Path, monkeypatch) 
     assert report.exists()
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert "verdict" in payload or "overall" in payload or isinstance(payload, dict)
+
+
+@pytest.mark.parametrize("step_id", EXECUTABLE_READOUT_STEPS)
+def test_readout_callable_steps_execute_in_sandbox(
+    step_id: str, tmp_path: Path, monkeypatch
+) -> None:
+    """Migrated explanation builders must stay off operator Output/current."""
+    operator_current = ROOT / "Output" / "current"
+    before = _fingerprint(operator_current)
+
+    sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
+    _seed_judgment_through_promotion(sandbox, monkeypatch)
+    result = run_registry_step(step_id, mode="callable")
+
+    assert result["mode"] == "callable"
+    assert result["status"] == "success", result
+    assert before == _fingerprint(operator_current)
+    assert (sandbox / "Output" / "current" / {
+        "signal_card": "signal_card.json",
+        "signal_consensus": "signal_consensus.json",
+        "work_brief": "work_brief.json",
+    }[step_id]).exists()
 
 
 @pytest.mark.parametrize("step_id", EXECUTABLE_GATE_STEPS)

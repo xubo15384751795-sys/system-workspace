@@ -20,12 +20,11 @@ from pathlib import Path
 from typing import Any
 
 from workbench.paths import workspace_root as _workspace_root
-from workbench.freshness import banner_lines, write_model_run_freshness_manifest
+from workbench.freshness import banner_lines
 from workbench.framework_registry import (
     load_registry,
     active_frameworks,
     resolve_value,
-    framework_for_output,
     framework_evidence_requirements,
 )
 
@@ -634,7 +633,6 @@ def refresh_current() -> None:
             encoding="utf-8",
         )
 
-    manifest = read_json(manifest_path)
     # freshness_manifest symlink REMOVED — freshness is now in status.json.
     manifest = read_json(manifest_path)
     summary_text = summary_path.read_text(encoding="utf-8")

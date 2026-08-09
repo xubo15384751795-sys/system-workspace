@@ -18,7 +18,6 @@ Usage:
 """
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -26,12 +25,11 @@ from typing import Any
 import numpy as np
 
 from nlp.caselab.text_match import (
-    extract_structural_keywords,
     keyword_cosine_similarity,
     top_shared_concepts,
 )
 from nlp.cases.case_registry import CaseProfile, CaseRegistry
-from nlp.cases.case_similarity import CaseSimilarityEngine, CaseSimilarityResult
+from nlp.cases.case_similarity import CaseSimilarityEngine
 
 
 

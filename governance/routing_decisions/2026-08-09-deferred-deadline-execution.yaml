@@ -1,0 +1,71 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-09"
+task_id: deferred-deadline-execution
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Execute the five deferred items approaching the 2026-08-15 deadline without
+  deleting compatibility surfaces, claiming compute-device evidence from the
+  operator Mac, or switching core judgment steps to direct imports without parity.
+decision: >
+  Close execution where the registered fallback is now the correct architecture:
+  seal the callable runner as a bounded pilot, seal the DuckDB migration behind
+  the Harvester Parquet target with an explicit legacy fallback, seal callable E2E
+  at the hermetic fixture ceiling, and accept the structural root-script fallback.
+  Keep dependency_locking evidence_pending until its 30-day cross-environment
+  window completes; extend that evidence deadline to 2026-09-01.
+implemented_changes:
+  pipeline_runner_import_migration:
+    status: completed_sealed
+    evidence:
+      - scripts/_pipeline_runner.py applies and restores per-step environments
+      - governance/daily_pipeline_registry.yaml migrates signal_card, signal_consensus, work_brief
+      - tests/test_pipeline_runner.py and tests/test_daily_pipeline_callable_e2e.py pass
+    boundary: core and stateful steps remain subprocess by default
+  duckdb_snapshot_store_migration:
+    status: completed_sealed
+    evidence:
+      - HarvesterSnapshotStore and DualWriteSnapshotStore contract tests pass
+      - DuckDB freeze and production-construction boundary tests pass
+    boundary: compute-device compatibility remains pending; DuckDB stays sealed legacy runtime fallback
+  callable_e2e_pipeline_tests:
+    status: completed_sealed
+    evidence:
+      - 54 callable runner/E2E tests pass
+      - operator Output/current fingerprint remains unchanged in readout pilot tests
+    boundary: live provider and authority-writing callable rewrites are out of scope
+  root_scripts_pipeline_refactoring:
+    status: completed_sealed
+    evidence:
+      - registered root surface is within the 95-file visibility budget
+      - architecture role/registry/path-surgery checks pass
+    boundary: no deletion to satisfy the obsolete <=35 count target
+  dependency_locking:
+    status: evidence_pending
+    evidence:
+      - generated closure lock is current at 58 pins
+      - dependency lock tests pass
+    boundary: 30-day cross-environment reproducibility evidence is still open
+preregistered_expectation: >
+  The deadline audit has no unowned overdue item; every closed item names its
+  accepted boundary and every evidence-pending item names the next evidence date.
+observation_window: "local targeted tests and governance/architecture audits on 2026-08-09"
+rollback: >
+  Restore the prior registry modes and deferred statuses, remove this routing
+  decision, and reconcile governance/governance_freeze_manifest.yaml. No data
+  release, judgment artifact, or published authority is changed by this record.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_acquisition_change: false
+  compute_evidence_claim: false
+acceptance:
+  - callable runner pilot tests pass with environment restoration
+  - snapshot store boundary and freeze tests pass
+  - dependency lock check mode reports current
+  - root-script structural budget and registry checks pass
+  - architecture reality audit has no deadline countdown findings
+unresolved_risks:
+  - Cross-environment dependency reproduction still needs the CI/compute evidence window.
+  - DuckDB/Parquet compatibility across the compute device remains pending and is reviewed by 2026-10-15.

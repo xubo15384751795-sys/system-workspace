@@ -13,7 +13,6 @@ from tools.registry import ToolResult, ToolSpec, _register
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
-WORKBENCH_SRC = WORKBENCH_ROOT / "src"
 def _resolve_system_root(workbench_root: Path) -> Path:
     """Repo root for both legacy `Workbench/` and `packages/workbench` layouts."""
     parent = workbench_root.parent
@@ -22,14 +21,7 @@ def _resolve_system_root(workbench_root: Path) -> Path:
     return parent
 
 SYSTEM_ROOT = _resolve_system_root(WORKBENCH_ROOT)
-
-
-def _current_module():
-    if str(WORKBENCH_SRC) not in sys.path:
-        sys.path.insert(0, str(WORKBENCH_SRC))
-    from workbench import current
-
-    return current
+CURRENT_OUTPUT = SYSTEM_ROOT / "Output" / "current"
 
 
 def _rel(path: Path) -> str:
@@ -76,8 +68,7 @@ def _change_summary(
 
 
 def _h_refresh_current(input: dict, dry_run: bool) -> ToolResult:
-    current = _current_module()
-    before = _snapshot_current(current.CURRENT)
+    before = _snapshot_current(CURRENT_OUTPUT)
     refresh_script = SYSTEM_ROOT / "scripts" / "refresh_output_current.py"
     proc = subprocess.run(
         [sys.executable, str(refresh_script)],
@@ -95,7 +86,7 @@ def _h_refresh_current(input: dict, dry_run: bool) -> ToolResult:
             evidence={"current_refresh": {"current_path": "Output/current"}},
             errors=[proc.stderr[-1000:] or proc.stdout[-1000:] or "refresh_output_current failed"],
         )
-    after = _snapshot_current(current.CURRENT)
+    after = _snapshot_current(CURRENT_OUTPUT)
     changes = _change_summary(before, after)
 
     required = [

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from nlp.evaluation.golden_set import GoldenVariableMapping, read_golden_variable_mappings
 from nlp.extraction.schemas import VariableMapping

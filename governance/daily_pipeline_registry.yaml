@@ -54,7 +54,7 @@ content_freshness:
     path: Data/panels/cross_asset_daily_panel.parquet
     date_column: date
     max_trading_days_behind: 3
-    owner_step: refresh_cross_asset_panel
+    owner_step: harvester
     decision_critical: true
   ofr_fsi_cache:
     path: Data/harvester/raw/external_indicators/ofr_fsi.csv
@@ -230,6 +230,10 @@ steps:
     order: 2
     status: active
     owner: Harvester
+    # The legacy K-feature generator is absent, so this compatibility check
+    # must not run on every daily pipeline. Keep it available for explicit
+    # diagnostics until the feature path is either restored or retired.
+    schedule: on_demand
     command: python scripts/refresh_etf_panel.py
     input: &id003
     - Data/panels/cross_asset_daily_panel.parquet
@@ -895,7 +899,7 @@ steps:
     execution:
       mode: subprocess
       current_command: python scripts/trade_risk_gate.py
-      future_callable: workbench.judgment.risk_gate:run
+      future_callable: scripts.trade_risk_gate:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1760,7 +1764,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_signal_card.py
       future_callable: scripts.build_signal_card:main
       cwd_policy: workspace_root
@@ -1795,7 +1799,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/signal_consensus.py
       future_callable: scripts.signal_consensus:main
       cwd_policy: workspace_root
@@ -2052,7 +2056,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_work_brief.py
       future_callable: scripts.build_work_brief:main
       cwd_policy: workspace_root
@@ -2581,11 +2585,10 @@ steps:
     order: 2.5
     status: active
     owner: Harvester
-    # Daily, not on_demand: this step is the declared owner_step of the
-    # etf_panel content_freshness check (budget 3 trading days,
-    # decision_critical). An on_demand owner can never satisfy a 3-day budget,
-    # so the alarm fired every run while the panel sat frozen.
-    schedule: daily
+    # Harvester is the sole scheduled ETF owner. This command remains as a
+    # bounded manual recovery path; running it beside harvester caused the
+    # 21:30/22:30/07:00 schedules to hit Yahoo repeatedly and trigger limits.
+    schedule: on_demand
     command: python scripts/refresh_cross_asset_panel.py
     input:
       - Data/panels/cross_asset_daily_panel.parquet

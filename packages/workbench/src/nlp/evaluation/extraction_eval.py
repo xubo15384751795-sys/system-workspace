@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from nlp.evaluation.golden_set import (
     GoldenEventCard,
     read_golden_event_cards,
 )
-from nlp.extraction.schemas import ExtractedEntity, StructuralEventCard
+from nlp.extraction.schemas import StructuralEventCard
 
 
 @dataclass

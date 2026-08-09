@@ -14,9 +14,8 @@ from system_runtime.paths import WorkspacePaths
 
 import json
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from itertools import combinations
-from pathlib import Path
 from typing import Any
 
 import numpy as np

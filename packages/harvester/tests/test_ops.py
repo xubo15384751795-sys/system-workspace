@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
+
 from harvester.core.exporter import finalize_release
 from harvester.ops import (
     monitor_latest,
@@ -168,6 +170,75 @@ def test_daily_release_reuses_same_day_finalized(tmp_path: Path, monkeypatch) ->
     assert result["reason"] == "same_day_finalized_release_exists"
 
 
+def test_automatic_daily_release_reuses_last_session_on_market_closed_day(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Scheduled Sunday runs must not create an empty Sunday release."""
+    from datetime import datetime
+
+    from harvester import ops
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "2026-08-07-r1"
+    release_dir.mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(
+        json.dumps({"release_id": "2026-08-07-r1"}),
+        encoding="utf-8",
+    )
+    (exports / "latest").symlink_to(release_dir)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 8, 9, tzinfo=tz)
+
+    monkeypatch.setattr(ops, "datetime", FrozenDateTime)
+    with patch("harvester.official.stage_complete_release") as stage:
+        result = ops.run_daily_release(exports_root=exports, preflight=False)
+
+    stage.assert_not_called()
+    assert result["status"] == "market_closed"
+    assert result["reason"] == "market_closed_reused_latest"
+    assert result["session_date"] == "2026-08-07"
+    assert result["release_id"] == "2026-08-07-r1"
+
+
+def test_automatic_daily_release_does_not_label_an_open_us_session(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A run before the US close must not create a partial-date release."""
+    from datetime import UTC, datetime
+
+    from harvester import ops
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "2026-07-31-r1"
+    release_dir.mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(
+        json.dumps({"release_id": "2026-07-31-r1", "as_of_date": "2026-07-31"}),
+        encoding="utf-8",
+    )
+    (exports / "latest").symlink_to(release_dir)
+
+    frozen = datetime(2026, 8, 3, 14, 30, tzinfo=UTC)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen
+
+    monkeypatch.setattr(ops, "datetime", FrozenDateTime)
+    with patch("harvester.official.stage_complete_release") as stage:
+        result = ops.run_daily_release(exports_root=exports, preflight=False)
+
+    stage.assert_not_called()
+    assert result["status"] == "session_incomplete"
+    assert result["reason"] == "session_incomplete_reused_latest"
+    assert result["session_date"] == "2026-07-31"
+
+
 def test_run_daily_release_reuses_when_release_id_empty(tmp_path: Path, monkeypatch) -> None:
     """Empty release_id (CLI default) must trigger same-day reuse — not ``is None`` only."""
     monkeypatch.setenv("FRED_API_KEY", "test")
@@ -211,6 +282,31 @@ def test_daily_release_reuses_dashed_release_id_without_catalog_as_of(tmp_path: 
     result = _check_same_day_reuse(exports, "2026-07-18")
     assert result is not None
     assert result["status"] == "reused"
+
+
+def test_daily_release_does_not_reuse_same_day_release_with_stale_etf_panel(tmp_path: Path) -> None:
+    """Same-day metadata must not hide a stale cross-asset data file."""
+    from harvester.ops import _check_same_day_reuse
+
+    exports = tmp_path / "exports"
+    release_dir = exports / "2026-08-07-r1"
+    (release_dir / "manifests").mkdir(parents=True)
+    (release_dir / ".finalized").write_text("ok", encoding="utf-8")
+    (release_dir / "catalog.json").write_text(
+        json.dumps({"release_id": "2026-08-07-r1", "as_of_date": "2026-08-07"}),
+        encoding="utf-8",
+    )
+    (release_dir / "manifests" / "cross_asset_daily_panel.manifest.json").write_text(
+        json.dumps({"time_coverage": {"end": "2026-08-07"}}),
+        encoding="utf-8",
+    )
+    (release_dir / "data").mkdir()
+    pd.DataFrame({"date": ["2026-08-03"]}).to_parquet(
+        release_dir / "data" / "cross_asset_daily_panel.parquet", index=False
+    )
+    (exports / "latest").symlink_to(release_dir)
+
+    assert _check_same_day_reuse(exports, "2026-08-07") is None
 
 
 def test_daily_release_does_not_reuse_stale_day(tmp_path: Path) -> None:
@@ -283,6 +379,12 @@ def test_cli_daily_release_exits_zero_on_same_day_reuse(monkeypatch) -> None:
 
     from harvester.cli import main
 
-    for status, expected in [("finalized", 0), ("reused", 0), ("failed", 1)]:
+    for status, expected in [
+        ("finalized", 0),
+        ("reused", 0),
+        ("market_closed", 0),
+        ("session_incomplete", 0),
+        ("failed", 1),
+    ]:
         with patch("harvester.cli.run_daily_release", return_value={"status": status}):
             assert main(["daily-release"]) == expected, status

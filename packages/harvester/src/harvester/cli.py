@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 
 # Load .env from project root and user home if python-dotenv is available
@@ -154,11 +153,14 @@ def main(argv: list[str] | None = None) -> int:
             preflight=not args.no_preflight,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
-        # "reused" is the Phase 2.1 same-day short-circuit: today's release is
-        # already finalized, so the run is a successful no-op. Exiting 1 here
-        # made the 2nd and 3rd nightly schedules report a hard failure and
-        # block every downstream step.
-        return 0 if result.get("status") in {"finalized", "reused"} else 1
+        # These are successful no-op outcomes: no network acquisition was
+        # needed and latest remains the last valid release.
+        return 0 if result.get("status") in {
+            "finalized",
+            "reused",
+            "market_closed",
+            "session_incomplete",
+        } else 1
     if args.command == "monitor":
         result = monitor_latest(exports_root=args.exports_root, max_age_days=args.max_age_days)
         print(json.dumps(result, indent=2, sort_keys=True))

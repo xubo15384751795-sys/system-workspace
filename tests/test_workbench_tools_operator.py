@@ -51,15 +51,28 @@ def test_artifact_navigator_builds_from_current() -> None:
     assert names["Framework output"]["exists"] is True
 
 
-def test_current_model_run_contract_validates() -> None:
+def test_current_framework_output_matches_active_contract() -> None:
     subprocess.run([str(ROOT / "sys"), "refresh"], check=True, cwd=str(ROOT))
-    subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts" / "validate_workbench_contract.py"),
-            "model-run",
-            str(ROOT / "Output" / "current" / "model_run.json"),
-        ],
-        check=True,
-        cwd=str(ROOT),
+    payload = json.loads(
+        (ROOT / "Output" / "current" / "framework_output.json").read_text(
+            encoding="utf-8"
+        )
     )
+    # Deformation v1 is archived; the active Workbench contract is the
+    # neutral macro-pressure measurement framework. The old test validated
+    # Output/current/model_run.json, an artifact produced only by the retired
+    # framework bridge and no longer emitted by the canonical refresh path.
+    assert payload["schema_version"] == "workbench.framework_output.v3"
+    assert payload["framework_id"] == "macro_pressure_measurement"
+    assert payload["status"] in {
+        "active_full",
+        "active_partial",
+        "degraded_partial",
+        "degraded",
+        "full",
+        "partial",
+        "missing",
+        "stale",
+    }
+    assert isinstance(payload.get("basic"), dict)
+    assert isinstance(payload.get("advanced"), dict)

@@ -4,9 +4,9 @@
 # Default is DRY-RUN: prints the diff of what would change. Pass --apply to
 # actually install (overwrites ~/Library/LaunchAgents/ and reloads via launchctl).
 #
-# These are persistent config changes (⚠️): the 21:30 run gains --skip-harvester,
-# and both runs' logs move from /tmp/ to Output/logs/launchd/. Review the staged
-# plists in scripts/launchd/ before applying.
+# These are persistent config changes (⚠️): the 21:30 job remains downstream-only,
+# the 06:30 job is Harvester-only, and both logs move from /tmp/ to
+# Output/logs/launchd/. Review the staged plists in scripts/launchd/ before applying.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AGENTS="$HOME/Library/LaunchAgents"
@@ -14,6 +14,7 @@ APPLY=0
 if [ "${1:-}" = "--apply" ]; then APPLY=1; fi
 
 mkdir -p "$ROOT/Output/logs/launchd"
+chmod +x "$ROOT/scripts/run_harvester_scheduled.sh" 2>/dev/null || true
 
 for plist in com.system.daily-run-harvester-postclose com.system.daily-run-harvester; do
     src="$ROOT/scripts/launchd/$plist.plist"

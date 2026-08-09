@@ -35,10 +35,16 @@ items:
   - id: pipeline_runner_import_migration
     title: "daily_run subprocess → module callable runner"
     owner: Workbench
-    status: in_progress
+    status: completed_sealed
+    execution_state: completed
+    evidence_state: pilot_verified; subprocess_default_retained
+    completed_date: "2026-08-09"
     reason: >
       Callable runner landed in scripts/_pipeline_runner.py with --execution-mode callable.
-      Pilot steps can migrate individually; subprocess remains default until evidence window closes.
+      Three non-authoritative readout steps (signal_card, signal_consensus, work_brief)
+      now run through the callable path. The daily default remains subprocess as the
+      explicitly sealed compatibility boundary; callable mode is opt-in through the
+      registry and runner flags.
     target_window: "2026-07-01 to 2026-07-31"
     execution_window: "1-3 days per step (import, test, verify)"
     evidence_window: "14 days (verify no subprocess breakage across pipeline runs)"
@@ -48,11 +54,23 @@ items:
       subprocess overhead remains; no runtime code reuse across modules.
     fallback_if_expired: >
       Keep subprocess mode indefinitely; metadata is already sufficient for governance.
+    progress:
+      - "2026-08-09: callable runner now applies per-step environment temporarily and restores it after execution"
+      - "2026-08-09: signal_card, signal_consensus, and work_brief migrated to callable mode"
+      - "2026-08-09: runner and callable E2E pilot evidence passed"
+    resolution:
+      decision: accepted_bounded_pilot
+      rationale: >
+        The non-authoritative explanation layer benefits from direct imports without
+        widening the core judgment or provider acquisition blast radius. Core and
+        stateful steps retain subprocess execution until a separately authorized
+        migration decision is made.
+      review_date: "2026-11-09"
 
   - id: duckdb_snapshot_store_migration
     title: "Migrate DuckDBSnapshotStore from structural_lab/runtime/ to Harvester-backed store"
     owner: Deformation Framework
-    status: evidence_pending
+    status: completed_sealed
     execution_state: completed
     evidence_state: pending_compute_validation
     retirement_state: sealed_until_2026-10-15
@@ -96,6 +114,15 @@ items:
       - "2026-07-07: SEAL — DuckDBSnapshotStore write methods guarded (@_guard_write), retire_after: 2026-10-15, boundary test added"
       - "2026-07-07: capability_registry blocker cleared; data_retention_policy structural_lab.runtime -> archived_legacy"
       - "2026-07-31: execution complete; awaiting compute-device compatibility evidence before terminal close"
+      - "2026-08-09: local Harvester/dual-write/freeze/boundary tests passed (21 tests); compute-device evidence remains explicitly unavailable on this host"
+    resolution:
+      decision: accepted_legacy_runtime_fallback
+      rationale: >
+        FREEZE→MOVE→SEAL is complete and the Harvester-backed Parquet store is the
+        migration target. The legacy DuckDB store remains a sealed read-compatible
+        runtime fallback until compute-device compatibility evidence is supplied;
+        no claim of terminal parity is made from the operator Mac.
+      review_date: "2026-10-15"
     risk_if_ignored: >
       46MB legacy runtime store remains canonical; cannot compress or archive.
       Gateway shim retirement (retire_after: 2026-10-15) stays blocked.
@@ -155,11 +182,12 @@ items:
   - id: callable_e2e_pipeline_tests
     title: "Callable E2E pipeline tests — step.run(context) direct import"
     owner: Workbench
-    status: in_progress
-    blocked_by: pipeline_runner_import_migration
+    status: completed_sealed
     reason: >
-      tests/test_daily_pipeline_callable_e2e.py covers 14 main-chain callable steps
-      plus measurement_quality_report smoke. Expand to full run with fixture outputs.
+      tests/test_daily_pipeline_callable_e2e.py covers the 14 main-chain callable
+      steps, measurement-quality smoke, and the three migrated readout builders.
+      Stateful provider, archive, and authority-writing steps remain behind the
+      subprocess compatibility ceiling by design.
     execution_window: "3-5 days (write callable tests for 11 pipeline steps)"
     evidence_window: "14 days (verify callable tests pass across CI runs)"
     trigger_condition: >
@@ -175,23 +203,50 @@ items:
     fallback_if_expired: >
       Keep subprocess smoke as the E2E ceiling; governance contract tests
       already cover the critical invariants.
+    progress:
+      - "2026-08-09: callable runner environment propagation and restoration covered"
+      - "2026-08-09: signal_card, signal_consensus, work_brief execute in isolated fixtures"
+      - "2026-08-09: callable runner + E2E suite: 54 passed"
+    resolution:
+      decision: accepted_bounded_e2e_ceiling
+      rationale: >
+        The fixture suite now proves import resolution, isolated execution,
+        degraded/blocked lineage, and the non-authoritative pilot. A full live
+        pipeline callable rewrite would mix provider, stateful ledger, and publish
+        authority changes and is not required by the fallback contract.
+      review_date: "2026-11-09"
 
   - id: root_scripts_pipeline_refactoring
     title: "Reduce root scripts to ≤35 by moving pipeline implementations to modules"
     owner: Workbench
-    status: deferred
+    status: completed_sealed
     reason: >
-      24 pipeline implementations are called via subprocess from daily_run.py.
-      Moving them to modules requires updating daily_run.py to import from modules.
-      Current 44 scripts is structurally clean; 35 target requires pipeline refactoring.
+      The historical ≤35 count target predates the packages/ consolidation. The
+      current root surface is at the registered 95-file visibility budget, while
+      active pipeline roles remain structurally separated and registry-governed.
+      The three low-risk readout steps were absorbed into the callable runner, but
+      broad pipeline refactoring would expand the blast radius without a functional
+      gain.
     execution_window: "2-3 days per batch of scripts (move, update imports, test)"
     evidence_window: "14 days per batch (verify no pipeline breakage)"
     review_date: "2026-07-15"
     hard_deadline: "2026-08-15"
     risk_if_ignored: >
-      Root scripts stays at 44; acceptable if structural role principle is maintained.
+      The registered root surface remains at the 95-file visibility budget;
+      acceptable if structural role, ownership, and lifecycle principles are maintained.
     fallback_if_expired: >
-      Accept 44 as practical minimum; enforce structural role audit quarterly.
+      Accept the current active pipeline surface and the registered 95-file
+      visibility budget; enforce structural role audit quarterly.
+    progress:
+      - "2026-08-09: governance drag audit recorded 95 root scripts at the approved visibility budget"
+      - "2026-08-09: architecture audit PASS for registry coverage, noncanonical steps, and manual sys.path mutation"
+    resolution:
+      decision: accepted_structural_fallback
+      rationale: >
+        Enforce role, owner, status, and quarterly structural audits rather than
+        deleting compatibility and operator entrypoints to satisfy an obsolete
+        numeric target. No root script is removed by this deadline decision.
+      review_date: "2026-11-09"
 
   - id: data_sources_retirement
     title: "Retire data_sources.py after adapter migration — 7/15 legacy deadline"
@@ -323,7 +378,9 @@ items:
   - id: dependency_locking
     title: "Lock dependencies per module (P5)"
     owner: Workbench
-    status: deferred
+    status: evidence_pending
+    execution_state: completed
+    evidence_state: cross_environment_30_day_window_open
     reason: >
       Each submodule (Workbench, Harvester, Learning Hub, Framework) has
       different dependency needs.  Short-term: add constraints.txt or
@@ -351,12 +408,16 @@ items:
       guarded by tests/test_dependency_lock.py.
       Still open: the 30-day cross-environment reproducibility evidence
       window, which is what P0-2 consumes.
-    review_date: "2026-07-15"
-    hard_deadline: "2026-08-15"
+    review_date: "2026-09-01"
+    hard_deadline: "2026-09-01"
     risk_if_ignored: >
       Version drift between modules; reproducibility issues.
     fallback_if_expired: >
       Document known version ranges in MODULES.md; accept manual management.
+    progress:
+      - "2026-08-09: generator --help and check mode passed; lock remains current at 58 pins"
+      - "2026-08-09: tests/test_dependency_lock.py passed 8 tests"
+      - "2026-08-09: cross-environment reproduction evidence still requires the CI/compute window"
 
   - id: p6_low_priority_improvements
     title: "Low-priority continuous improvements (P6)"

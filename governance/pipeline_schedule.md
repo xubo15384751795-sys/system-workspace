@@ -40,7 +40,16 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 | 29 | work_brief | Work brief |
 | 30 | record_daily_run_event | Hub run event + calibration snapshot |
 
-**Automation:** macOS `com.system.daily-run` launchd → `scripts/orchestrate.sh daily` (default 07:00 local).
+**Automation:** macOS `com.system.daily-run` launchd → `scripts/orchestrate.sh daily` (default 07:00 local). The separate `com.system.daily-run-harvester` job is a Harvester-only warm-up at 06:30 local; it never starts a second full `daily_run`.
+
+**Provider pacing and failure balance:** the 06:30 Harvester release is reused by
+the 07:00 full pipeline for the same US session, while the 21:30 downstream-only
+run skips acquisition. A yfinance rate-limit response opens a six-hour cooldown;
+the provider makes no probe or per-ticker fan-out during that window and reports
+`provider_reasons=rate_limited`. Complete releases remain fail-closed: partial ETF
+symbol coverage cannot be published as a successful release. The cooldown can be
+tuned with `YFINANCE_RATE_LIMIT_COOLDOWN_SECONDS` when operating conditions justify
+it; setting it to zero disables the protection and is not the production default.
 
 ## Weekly (44 steps) — Monday UTC or `--force-weekly`
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import json
 import os
+import signal
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import pandas as pd
 
@@ -474,12 +476,18 @@ class OpenBBProvider(OfficialProvider):
         cache: bool = True,
         user_agent: str = "StructuralRiskHarvester/0.1.0",
         settings_env: str | Path | None = None,
+        timeout_sec: float | None = None,
         **_: Any,
     ) -> None:
         super().__init__(data_root=data_root, cache=cache, user_agent=user_agent)
         self.openbb_provider = openbb_provider
         self._route_map = route_map or _routes_for_provider(openbb_provider)
         self._obb_client = obb_client
+        configured_timeout = os.environ.get("HARVESTER_OPENBB_TIMEOUT_SEC", "45")
+        try:
+            self._timeout_sec = float(timeout_sec if timeout_sec is not None else configured_timeout)
+        except (TypeError, ValueError):
+            self._timeout_sec = 45.0
         _load_env_file(settings_env)
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
@@ -500,9 +508,16 @@ class OpenBBProvider(OfficialProvider):
             params.setdefault("provider", route.provider)
             if "symbol" not in params:
                 params["symbol"] = route.source_series_id
-            result = endpoint(**params)
+            with _operation_timeout(self._timeout_sec):
+                result = endpoint(**params)
             frame = _to_frame(result)
             panel = _normalize_frame(frame, route)
+        except TimeoutError:
+            return self._build_error_result(
+                route.series_id,
+                f"OpenBB fetch timed out after {self._timeout_sec:g}s",
+                "timeout",
+            )
         except Exception as exc:  # OpenBB providers raise several package-specific errors.
             return self._build_error_result(route.series_id, f"OpenBB fetch failed: {exc}", "openbb_error")
 
@@ -537,6 +552,37 @@ class OpenBBProvider(OfficialProvider):
             ) from exc
         self._obb_client = obb
         return obb
+
+
+@contextmanager
+def _operation_timeout(seconds: float) -> Iterator[None]:
+    """Bound one OpenBB call when running in the Harvester main process.
+
+    OpenBB's endpoint wrappers do not expose a consistent requests timeout.
+    The daily Harvester runs in a dedicated subprocess on macOS/Linux, so a
+    process-local alarm is a safer boundary than allowing one endpoint to hold
+    the entire release indefinitely. Calls made from worker threads simply
+    rely on the outer Harvester subprocess timeout.
+    """
+    if seconds <= 0 or threading.current_thread() is not threading.main_thread() or not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer = signal.setitimer(signal.ITIMER_REAL, 0)
+
+    def _raise_timeout(_signum: int, _frame: Any) -> None:
+        raise TimeoutError
+
+    signal.signal(signal.SIGALRM, _raise_timeout)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_timer[0] > 0:
+            signal.setitimer(signal.ITIMER_REAL, *previous_timer)
 
 
 def _routes_for_provider(openbb_provider: str) -> dict[str, OpenBBSeriesRoute]:

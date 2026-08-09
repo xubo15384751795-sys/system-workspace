@@ -699,9 +699,7 @@ def stage_complete_release(
     Returns a dict with release metadata suitable for finalization.
     """
     from harvester.derived import (
-        build_derived_manifest,
         build_derived_panel,
-        build_derived_provenance,
     )
     from harvester.quality import build_quality_report, write_quality_report
     from harvester.registry import load_registry

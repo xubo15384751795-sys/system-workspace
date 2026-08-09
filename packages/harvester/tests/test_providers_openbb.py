@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 
 import pandas as pd
 
@@ -70,6 +71,17 @@ class FakeOBB:
             historical = FakeEquityHistorical()
 
 
+class SlowFredSeries:
+    def __call__(self, **kwargs):
+        time.sleep(0.15)
+        return FakeOBBResult(pd.DataFrame({kwargs["symbol"]: [18.5]}))
+
+
+class SlowOBB:
+    class economy:
+        fred_series = SlowFredSeries()
+
+
 def test_openbb_fred_provider_normalizes_to_provider_native_identity(tmp_path) -> None:
     provider = OpenBBProvider(openbb_provider="fred", obb_client=FakeOBB(), data_root=tmp_path, cache=False)
 
@@ -93,6 +105,22 @@ def test_openbb_fred_provider_normalizes_to_provider_native_identity(tmp_path) -
     assert result.frame["source_series_id"].unique().tolist() == ["VIXCLS"]
     assert result.frame["series_id"].unique().tolist() == ["FRED:VIXCLS"]
     assert result.frame["value"].tolist() == [18.5, 19.0]
+
+
+def test_openbb_endpoint_timeout_is_reported_as_provider_error(tmp_path) -> None:
+    provider = OpenBBProvider(
+        openbb_provider="fred",
+        obb_client=SlowOBB(),
+        data_root=tmp_path,
+        cache=False,
+        timeout_sec=0.02,
+    )
+
+    result = provider.fetch_series(["VIXCLS"])[0]
+
+    assert result.frame.empty
+    assert result.fetch_fallback_reason == "timeout"
+    assert "timed out" in (result.fetch_error or "")
 
 
 def test_openbb_yfinance_move_route_uses_close_value(tmp_path) -> None:

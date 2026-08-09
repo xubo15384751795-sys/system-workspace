@@ -12,7 +12,6 @@ from workbench.freshness import (
     banner_lines,
     build_release_freshness_manifest,
     series_matches,
-    write_release_freshness_manifest,
 )
 
 ROOT = _workspace_root()

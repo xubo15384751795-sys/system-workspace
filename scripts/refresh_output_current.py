@@ -101,23 +101,25 @@ def main(argv: list[str] | None = None) -> int:
         print("  5. judgment_layer.py")
         print("  6. judgment_promotion_gate.py")
         print("  7. trade_decision_layer.py")
-        print("  8. build_signal_card.py")
-        print("  9. signal_consensus.py")
-        print("  10. build_current_status.py")
-        print("  11. build_system_index.py")
-        print("  12. build_work_brief.py")
-        print("  13. build_next_actions.py")
-        print("  14. refresh_improvement_queue_report.py")
-        print("  15. freshness_validator.py")
+        print("  8. trade_risk_gate.py")
+        print("  9. record_trade_decision.py")
+        print("  10. build_signal_card.py")
+        print("  11. signal_consensus.py")
+        print("  12. build_current_status.py")
+        print("  13. build_work_brief.py")
+        print("  14. build_next_actions.py")
+        print("  15. refresh_improvement_queue_report.py")
         print("  16. build_evidence_grade_report.py")
         print("  17. build_artifact_registry.py")
-        print("  18. record_daily_run_event.py")
-        print("  19. build_readme_first.py")
+        print("  18. build_system_index.py")
+        print("  19. record_daily_run_event.py")
+        print("  20. build_readme_first.py")
+        print("  21. freshness_validator.py --gate publish")
         return 0
 
     steps: list[dict] = []
     skip_measurement = args.skip_measurement or args.skip_bridge
-    total = 19
+    total = 21
     step_no = 1
 
     print(f"[{step_no}/{total}] Checking pre-consumption admission...")
@@ -155,16 +157,22 @@ def main(argv: list[str] | None = None) -> int:
         ("judgment_layer", "judgment_layer.py"),
         ("promotion_gate", "judgment_promotion_gate.py"),
         ("trade_decision", "trade_decision_layer.py"),
+        # The risk gate and ledger are direct consumers of trade_decision. They
+        # must be refreshed before system_index/readme/freshness can close the
+        # current-output chain.
+        ("risk_gate", "trade_risk_gate.py"),
+        ("record_trade_decision", "record_trade_decision.py"),
         ("signal_card", "build_signal_card.py"),
         ("signal_consensus", "signal_consensus.py"),
         ("current_status", "build_current_status.py"),
-        ("system_index", "build_system_index.py"),
         ("work_brief", "build_work_brief.py"),
         ("next_actions", "commands/weekly/build_next_actions.py"),
         ("improvement_queue_report", "refresh_improvement_queue_report.py"),
-        ("freshness_validator", "freshness_validator.py"),
         ("evidence_grade", "commands/weekly/build_evidence_grade_report.py"),
         ("artifact_registry", "commands/weekly/build_artifact_registry.py"),
+        # system_index consumes the freshly generated evidence report and risk
+        # gate; readme_first consumes the resulting index.
+        ("system_index", "build_system_index.py"),
     ]
     for label, script in producer_steps:
         if not _run(label, script):
@@ -185,6 +193,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if not _run("readme_first", "commands/weekly/build_readme_first.py"):
         _print_summary(steps, start_time)
+        return 1
+
+    # Publish freshness is intentionally last: all producers and the visible
+    # readout must be from this refresh before the hard ordering/closure gate.
+    if not _run("freshness_validator", "freshness_validator.py", "--gate", "publish"):
+        _print_summary(steps, start_time)
+        print("\nRefresh stopped after blocking step: freshness_validator.")
         return 1
 
     _print_summary(steps, start_time)

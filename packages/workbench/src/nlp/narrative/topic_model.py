@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from nlp.chunking.chunk_schema import TextChunk
-from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder
+from nlp.embeddings.embedder import Embedder
 
 ROOT = _workspace_root()
 

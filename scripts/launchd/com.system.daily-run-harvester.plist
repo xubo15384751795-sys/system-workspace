@@ -2,27 +2,29 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Phase 2.3 staged plist.
      Apply via: bash scripts/install_launchd_plists.sh (pass apply flag).
-     Logs under Output/logs/launchd/. Authoritative harvester run at 22:30;
-     21:30 postclose job skips harvester. -->
+     Logs under Output/logs/launchd/. Harvester-only warm-up at 06:30; the
+     morning job is the only full daily consumer run. -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.system.daily-run-harvester</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
-        <string>/Users/a1/System/scripts/daily_run.py</string>
+        <string>/bin/bash</string>
+        <string>/Users/a1/System/scripts/run_harvester_scheduled.sh</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>PYTHONPATH</key>
-        <string>/Users/a1/System/system-learning-hub/src</string>
+        <key>SYSTEM_ROOT</key>
+        <string>/Users/a1/System</string>
+        <key>PYTHON</key>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
-        <!-- 22:30 local: authoritative daily harvester fetch -->
+        <!-- 06:30 local: Harvester warm-up before the 07:00 full run -->
         <key>Hour</key>
-        <integer>22</integer>
+        <integer>6</integer>
         <key>Minute</key>
         <integer>30</integer>
     </dict>

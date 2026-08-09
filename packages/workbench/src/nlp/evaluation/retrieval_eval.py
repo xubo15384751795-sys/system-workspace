@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from nlp.evaluation.golden_set import GoldenQuery, read_golden_queries
 from nlp.embeddings.semantic_search import SearchResult

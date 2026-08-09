@@ -40,12 +40,13 @@ def _panel_max_date(path: Path) -> pd.Timestamp | None:
 def _harvester_build(*, fetch_period: str) -> pd.DataFrame:
     from harvester.cross_asset_panel import (  # noqa: I001
         build_cross_asset_panel,
-        sync_panel_to_workspace,
     )
 
-    panel = build_cross_asset_panel(workspace=ROOT, fetch_period=fetch_period)
-    sync_panel_to_workspace(panel, ROOT)
-    return panel
+    return build_cross_asset_panel(
+        workspace=ROOT,
+        fetch_period=fetch_period,
+        strict_fetch=True,
+    )
 
 
 def main() -> None:
@@ -74,10 +75,14 @@ def main() -> None:
         print(f"SPY: through {spy['date'].max().date()}, latest return_1d={spy['return_1d'].iloc[-1]:.4f}")
 
     if prior_max is not None and new_max <= prior_max:
-        print(
-            f"WARNING: panel did not advance (still through {new_max.date()}); "
-            "check yfinance rate limits / fetch errors"
+        raise SystemExit(
+            f"Panel did not advance (still through {new_max.date()}); "
+            "check yfinance availability and retry later"
         )
+
+    from harvester.cross_asset_panel import sync_panel_to_workspace
+
+    sync_panel_to_workspace(merged, ROOT)
 
 
 if __name__ == "__main__":

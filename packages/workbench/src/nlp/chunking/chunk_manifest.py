@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 

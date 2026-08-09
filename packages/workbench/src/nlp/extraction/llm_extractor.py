@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import Optional
 

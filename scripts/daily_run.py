@@ -28,14 +28,7 @@ import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from system_runtime.events import EventEnvelope, JsonlEventStore
-
-logger = logging.getLogger(__name__)
-
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
-
-RUNTIME_DIR = ROOT / "Output" / "runtime_events"
-ALERT_DIR = ROOT / "Output" / "alerts"
+from harvester.trading_calendar import us_equity_sessions_between
 from run_bundle import RunBundle
 
 from scripts._constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
@@ -56,6 +49,13 @@ from scripts._notify import notify_daily_run_result
 from scripts._pipeline_dag import classify_step_failures
 from scripts._pipeline_runner import run_registry_step
 from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
+from system_runtime.events import EventEnvelope, JsonlEventStore
+
+logger = logging.getLogger(__name__)
+
+RUNTIME_DIR = ROOT / "Output" / "runtime_events"
+ALERT_DIR = ROOT / "Output" / "alerts"
 
 # Numbered user-facing stages in the pipeline
 TOTAL_STEPS = len(load_daily_run_sequence()) or 33
@@ -90,7 +90,7 @@ def run_step(name: str, cmd: list[str], env: dict | None = None, *, registry_ste
     mode = _resolve_execution_mode(registry_step or name)
     if mode == "callable":
         argv = cmd[2:] if len(cmd) > 2 and str(cmd[1]).endswith(".py") else cmd[1:]
-        return run_registry_step(registry_step or name, mode="callable", argv=argv)
+        return run_registry_step(registry_step or name, mode="callable", argv=argv, env=env)
     return _run_subprocess_step(name, cmd, env)
 
 
@@ -141,9 +141,12 @@ def check_warnings() -> list[str]:
                 cat = json.loads(catalog.read_text(encoding="utf-8"))
                 release_date = cat.get("finalized_at", "")[:10]
                 if release_date:
-                    age = (datetime.now(UTC).date() - datetime.fromisoformat(release_date).date()).days
+                    age = us_equity_sessions_between(
+                        datetime.fromisoformat(release_date).date(),
+                        datetime.now(UTC).date(),
+                    )
                     if age > 2:
-                        warnings.append(f"HARVESTER_STALE: release is {age} days old ({release_date})")
+                        warnings.append(f"HARVESTER_STALE: release is {age} sessions old ({release_date})")
             except Exception:
                 logger.debug("Failed to parse Harvester catalog for freshness check", exc_info=True)
     else:
@@ -461,6 +464,10 @@ def main() -> None:
         warnings=warnings,
         content_stale=content_stale,
         publish_blocked=publish_blocked,
+        harvester_completed=any(
+            s.get("step") == "harvester" and s.get("status") == "success"
+            for s in steps
+        ) and not args.skip_harvester,
     )
 
     # Finish run bundle

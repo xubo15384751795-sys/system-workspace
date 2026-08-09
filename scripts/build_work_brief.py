@@ -20,9 +20,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from scripts._runtime_io import ROOT, current_dir, ensure_dir
+
+logger = logging.getLogger(__name__)
 
 CURRENT = current_dir()  # Phase 1.1: honor CURRENT_OUTPUT_DIR candidate redirect
 JUDGMENT = ROOT / "Output" / "judgment"
@@ -64,7 +64,13 @@ def _why(status: dict, judgment: dict, quality: dict | None) -> list[str]:
     # From quality validation
     if quality and quality.get("status") == "FAIL":
         for issue in quality.get("issues", []):
-            reasons.append(f"Quality: {issue.get('message', issue.get('rule', 'unknown'))}")
+            if isinstance(issue, dict):
+                detail = issue.get("message", issue.get("rule", "unknown"))
+            else:
+                # Quality fixtures and older validators may emit a compact
+                # string instead of the newer structured issue object.
+                detail = str(issue)
+            reasons.append(f"Quality: {detail}")
     return reasons
 
 

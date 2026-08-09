@@ -27,7 +27,6 @@ def _softmax(x: np.ndarray) -> np.ndarray:
 
 
 def _build_feature_matrix(panel: Any, feature_cols: list[str] | None = None) -> tuple[np.ndarray, list[str]]:
-    import pandas as pd
 
     numeric = panel.select_dtypes(include=[np.number])
     if feature_cols:

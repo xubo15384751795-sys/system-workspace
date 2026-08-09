@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from harvester.registry import RegistrySeries, SeriesRegistry
+from harvester.registry import SeriesRegistry
 
 
 # ---------------------------------------------------------------------------

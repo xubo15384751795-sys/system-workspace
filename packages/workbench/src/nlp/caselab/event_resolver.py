@@ -16,7 +16,6 @@ from __future__ import annotations
 from system_runtime.paths import WorkspacePaths
 
 import json
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any

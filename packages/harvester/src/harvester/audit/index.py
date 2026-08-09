@@ -12,7 +12,6 @@ reconstructed by re-reading the frozen release directories.
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime

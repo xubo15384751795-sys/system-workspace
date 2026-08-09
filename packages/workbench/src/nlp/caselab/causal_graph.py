@@ -11,10 +11,7 @@ from __future__ import annotations
 
 from system_runtime.paths import WorkspacePaths
 
-import json
-import math
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "causal"

@@ -78,7 +78,8 @@ def classify_step_failures(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split non-success steps into (hard_failures, soft_failures).
 
-    - ``continue_with_warning`` / ``research_only`` / unset → soft
+    - ``continue_with_warning`` / ``research_only`` → soft
+    - unregistered or unknown steps → hard (fail closed)
     - ``blocked_upstream`` → omitted (cascade noise; upstream is the root)
     - blocking failure_behavior with status failed → hard
     """
@@ -90,8 +91,10 @@ def classify_step_failures(
             continue
         step_id = str(step.get("step") or "")
         fb = failure_behavior_of(step_id)
-        # Unset defaults to continue_with_warning in registry docs.
-        if not fb or fb in _SOFT_FAILURE_BEHAVIORS:
+        # A runtime step absent from the registry has no declared permission
+        # to continue. Treat it as hard so a new/typoed step cannot silently
+        # publish a partial result.
+        if fb in _SOFT_FAILURE_BEHAVIORS:
             soft.append(step)
         else:
             hard.append(step)

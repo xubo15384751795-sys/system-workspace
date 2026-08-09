@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from nlp.chunking.chunk_schema import TextChunk
 from nlp.extraction.schemas import ExtractedEntity

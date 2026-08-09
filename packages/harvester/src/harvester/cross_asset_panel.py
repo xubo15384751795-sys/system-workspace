@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +83,9 @@ def load_existing_panel(workspace: Path | None = None) -> pd.DataFrame:
     return _drop_invalid_quotes(frame)
 
 
-def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFrame:
+def fetch_recent_ohlcv(
+    symbols: list[str], *, period: str = "5d", strict: bool = False
+) -> pd.DataFrame:
     from harvester.providers.etf_yfinance import EtfYfinanceProvider
 
     tickers = {symbol: symbol for symbol in symbols}
@@ -113,10 +114,18 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
                     "volume": float(row.get("volume", 0)),
                 }
             )
+    reasons = sorted(
+        {
+            str(result.fetch_fallback_reason)
+            for result in results
+            if result.fetch_fallback_reason
+        }
+    )
+    reason_suffix = f"; provider_reasons={','.join(reasons)}" if reasons else ""
     if symbols and not rows:
         raise RuntimeError(
             f"ETF fetch produced no usable rows for {len(symbols)} symbols "
-            f"({n_failed} failed/empty)"
+            f"({n_failed} failed/empty){reason_suffix}"
         )
     if n_failed:
         logger.warning("ETF fetch incomplete: %d/%d symbols failed or empty", n_failed, len(symbols))
@@ -124,7 +133,16 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
         return pd.DataFrame(columns=PANEL_COLUMNS)
     frame = pd.DataFrame(rows)
     frame["date"] = pd.to_datetime(frame["date"])
-    return _drop_invalid_quotes(frame)
+    frame = _drop_invalid_quotes(frame)
+    if strict:
+        available_symbols = set(frame["symbol"].astype(str)) if not frame.empty else set()
+        missing_symbols = sorted(set(symbols) - available_symbols)
+        if missing_symbols:
+            raise RuntimeError(
+                f"ETF fetch incomplete: {len(missing_symbols)} symbols missing "
+                f"(missing_symbols={','.join(missing_symbols)}){reason_suffix}"
+            )
+    return frame
 
 
 def compute_derived_columns(frame: pd.DataFrame) -> pd.DataFrame:
@@ -153,8 +171,15 @@ def build_cross_asset_panel(
     *,
     workspace: Path | None = None,
     fetch_period: str = "5d",
+    strict_fetch: bool = False,
 ) -> pd.DataFrame:
-    """Merge workspace history with a fresh provider fetch and derived columns."""
+    """Merge workspace history with a fresh provider fetch and derived columns.
+
+    strict_fetch is used by complete Harvester releases. A failed ETF
+    acquisition must not be disguised as a successful release containing the
+    previous panel; on-demand research refreshes retain the historical
+    best-effort behavior by default.
+    """
     root = workspace or workspace_root()
     existing = load_existing_panel(root)
     symbols = sorted(set(resolve_etf_universe(root)))
@@ -165,8 +190,25 @@ def build_cross_asset_panel(
         symbols = sorted(existing["symbol"].astype(str).unique())
 
     try:
-        fresh = fetch_recent_ohlcv(symbols, period=fetch_period)
+        fetch_kwargs: dict[str, Any] = {"period": fetch_period}
+        if strict_fetch:
+            fetch_kwargs["strict"] = True
+        fresh = fetch_recent_ohlcv(symbols, **fetch_kwargs)
+        if strict_fetch:
+            available_symbols = (
+                set(fresh["symbol"].astype(str))
+                if "symbol" in fresh.columns
+                else set()
+            )
+            missing_symbols = sorted(set(symbols) - available_symbols)
+            if missing_symbols:
+                raise RuntimeError(
+                    f"ETF fetch incomplete: {len(missing_symbols)} symbols missing "
+                    f"(missing_symbols={','.join(missing_symbols)})"
+                )
     except RuntimeError as exc:
+        if strict_fetch:
+            raise
         # Yahoo often rate-limits the full universe mid-pipeline. Keep the
         # workspace mirror so harvester/refresh do not hard-fail the release.
         if existing.empty:
@@ -240,9 +282,14 @@ def stage_cross_asset_panel(
     vintage_date: str,
     workspace: Path | None = None,
     fetch_period: str = "5d",
+    strict_fetch: bool = True,
 ) -> dict[str, Any]:
     """Build and stage cross_asset_daily_panel into an in-progress release directory."""
-    panel = build_cross_asset_panel(workspace=workspace, fetch_period=fetch_period)
+    panel = build_cross_asset_panel(
+        workspace=workspace,
+        fetch_period=fetch_period,
+        strict_fetch=strict_fetch,
+    )
     data_dir = release_dir / "data"
     manifests_dir = release_dir / "manifests"
     provenance_dir = release_dir / "provenance"

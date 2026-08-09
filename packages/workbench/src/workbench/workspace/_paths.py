@@ -6,7 +6,6 @@ meaningful regardless of cwd.
 """
 from __future__ import annotations
 
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 
 WORKSPACE_ROOT = _workspace_root()
