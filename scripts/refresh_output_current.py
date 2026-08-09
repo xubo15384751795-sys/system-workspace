@@ -178,9 +178,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Print plan, don't execute.")
     args = parser.parse_args(argv)
 
-    if os.environ.get("SYSTEM_USE_LEGACY_DAILY_RUN", "").strip() in {"1", "true", "TRUE", "yes", "YES"}:
+    legacy = os.environ.get("SYSTEM_USE_LEGACY_DAILY_RUN", "").strip() in {
+        "1",
+        "true",
+        "TRUE",
+        "yes",
+        "YES",
+    }
+    try:
+        import dagster  # noqa: F401
+
+        dagster_ok = True
+    except ImportError:
+        dagster_ok = False
+
+    if legacy or not dagster_ok:
         if args.dry_run:
-            print("DRY RUN — legacy refresh chain")
+            print("DRY RUN — legacy refresh chain" + ("" if legacy else " (dagster not installed)"))
             return 0
         return _legacy_main(args)
 

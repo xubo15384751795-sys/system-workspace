@@ -56,12 +56,28 @@ from scripts._daily_run_sequence import (
     load_daily_run_sequence,
     weekly_step_ids,
 )
-from orchestration.runner import (
-    DailyRunPayload,
-    run_daily_sequence_via_dagster,
-    use_legacy_daily_run,
-)
 from scripts._notify import notify_daily_run_result
+
+
+def use_legacy_daily_run() -> bool:
+    return os.environ.get("SYSTEM_USE_LEGACY_DAILY_RUN", "").strip() in {
+        "1",
+        "true",
+        "TRUE",
+        "yes",
+        "YES",
+    }
+
+
+def _dagster_available() -> bool:
+    try:
+        import dagster  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 from scripts._pipeline_runner import run_registry_step
 from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
 
@@ -377,20 +393,17 @@ def run_daily(args: argparse.Namespace) -> None:
         )
 
     bp_path = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
-    payload = DailyRunPayload(
-        args=args,
-        start_time=start_time,
-        total_steps=TOTAL_STEPS,
-        run_step_fn=run_step,
-        record_fn=_record,
-        benchmark_panel_path=bp_path,
-        run_id=bundle.run_id,
-    )
-    if use_legacy_daily_run():
-        logger.warning(
-            "SYSTEM_USE_LEGACY_DAILY_RUN=1 — using archived legacy executor "
-            "(Dagster default path bypassed)"
-        )
+    if use_legacy_daily_run() or not _dagster_available():
+        if not use_legacy_daily_run():
+            logger.warning(
+                "dagster not installed — falling back to archived legacy executor. "
+                "Install with: pip install -e '.[orchestration]'"
+            )
+        else:
+            logger.warning(
+                "SYSTEM_USE_LEGACY_DAILY_RUN=1 — using archived legacy executor "
+                "(Dagster default path bypassed)"
+            )
         from scripts.archive._legacy_daily_run_executor import (
             DailyRunContext,
             execute_daily_sequence,
@@ -407,6 +420,17 @@ def run_daily(args: argparse.Namespace) -> None:
         )
         execute_daily_sequence(ctx)
     else:
+        from orchestration.runner import DailyRunPayload, run_daily_sequence_via_dagster
+
+        payload = DailyRunPayload(
+            args=args,
+            start_time=start_time,
+            total_steps=TOTAL_STEPS,
+            run_step_fn=run_step,
+            record_fn=_record,
+            benchmark_panel_path=bp_path,
+            run_id=bundle.run_id,
+        )
         logger.info("Executing daily sequence via Dagster op (in-process)")
         run_daily_sequence_via_dagster(payload)
 
@@ -759,6 +783,7 @@ def main(argv: list[str] | None = None) -> None:
         os.environ.get("SYSTEM_ORCHESTRATOR", "").strip().lower() == "dagster"
         and os.environ.get("SYSTEM_INSIDE_DAGSTER_DAILY_JOB", "").strip() not in {"1", "true", "TRUE"}
         and not use_legacy_daily_run()
+        and _dagster_available()
     ):
         from orchestration.cli import cmd_daily
 

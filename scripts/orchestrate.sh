@@ -57,12 +57,17 @@ case "${cmd}" in
     run_horizon
     cd "${SYSTEM_ROOT}"
     # Default path: Dagster daily_job (launchd → orchestrate → orchestration.cli).
-    # Escape hatch: SYSTEM_USE_LEGACY_DAILY_RUN=1 falls back to scripts/daily_run.py
-    # which loads the archived legacy executor.
+    # Escape hatch: SYSTEM_USE_LEGACY_DAILY_RUN=1, or automatic fallback when
+    # dagster / orchestration package is not installed.
     export SYSTEM_ORCHESTRATOR="${SYSTEM_ORCHESTRATOR:-dagster}"
     export PYTHONPATH="${SYSTEM_ROOT}:${SYSTEM_ROOT}/packages/orchestration:${PYTHONPATH:-}"
     if [[ "${SYSTEM_USE_LEGACY_DAILY_RUN:-}" == "1" ]]; then
       echo "[orchestrate] SYSTEM_USE_LEGACY_DAILY_RUN=1 — bypassing Dagster CLI"
+      exec "${PY}" scripts/daily_run.py "${@:2}"
+    fi
+    if ! "${PY}" -c "import dagster, orchestration.cli" >/dev/null 2>&1; then
+      echo "[orchestrate] dagster/orchestration unavailable — falling back to scripts/daily_run.py"
+      echo "[orchestrate] install with: pip install -e '.[orchestration]'"
       exec "${PY}" scripts/daily_run.py "${@:2}"
     fi
     exec "${PY}" -m orchestration.cli daily -- "${@:2}"
