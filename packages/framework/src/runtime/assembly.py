@@ -26,7 +26,7 @@ from src.derivation.singular_detector import ThresholdSingularDetector
 from src.dynamics.ode_engine import ScipyODEEngine
 from src.mechanisms.default_mechanisms import build_default_mechanism_registry
 from src.ml.detector_factory import build_all_detectors
-from src.nlp.event_translator import NLPEventTranslator
+from src.framework_nlp.event_translator import NLPEventTranslator
 from src.operators.operator_registry import build_default_operator_registry
 from src.output.output_exporter import export_snapshot_artifacts
 from src.runtime.evidence_store import RuntimeEvidenceStore

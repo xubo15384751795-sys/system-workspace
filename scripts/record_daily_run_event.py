@@ -163,6 +163,28 @@ def record_event(event: dict[str, Any], *, force: bool = False, skip_if_unchange
     JsonlEventStore(event_path).append(envelope)
     JsonlEventStore(hub_path).append(envelope)
 
+    # Authoritative Learning Hub runtime log (sole peer-write API).
+    # events/*.jsonl remains the dual-write projection for collectors.
+    try:
+        from system_learning.runtime.record import append_runtime_record
+
+        append_runtime_record(
+            ROOT,
+            {
+                "subsystem": "daily_pipeline",
+                "event_type": "pipeline_run",
+                "severity": "info",
+                "source_tool": "record_daily_run_event",
+                "run_id": envelope.run_id,
+                "event_id": envelope.event_id,
+                "payload": event,
+            },
+            source_path=event_path,
+        )
+    except Exception:
+        # Never fail the operator projection if Hub runtime append is unavailable.
+        pass
+
     return event_path
 
 

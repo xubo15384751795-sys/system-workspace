@@ -1,0 +1,27 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-10-nlp-learning-hub-hardening
+date: "2026-08-10"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Fix workbench/framework nlp package collision by renaming framework translator
+  to framework_nlp; restore Learning Hub runtime append from daily run events
+  and collect Output/runtime_events; add structural NLP e2e+golden smoke and
+  optional LanceDB backend for NLP VectorStore. No SaaS replacement of Hub/NLP
+  domain semantics.
+authority_changes:
+  - module: packages/framework/src/framework_nlp
+    claim: framework NLPEventTranslator (renamed from src.nlp)
+  - module: packages/workbench/src/nlp
+    claim: sole top-level nlp package for structural NLP
+  - module: scripts/record_daily_run_event.py
+    claim: dual-writes Hub runtime log via append_runtime_record
+  - module: scripts/record_runtime_event.py
+    claim: peer entrypoint for system_learning record
+references:
+  - tests/test_nlp_structural_e2e.py
+  - tests/test_learning_hub_runtime_bridge.py
+  - packages/workbench/src/nlp/embeddings/vector_store.py
+non_goals:
+  - Replace Learning Hub governance memory with SaaS
+  - Replace structural NLP event-card semantics with LangChain

@@ -28,14 +28,30 @@ _paths_to_add = [
     str(_ROOT / "packages" / "framework" / "src"),
     str(_ROOT / "packages" / "harvester" / "src"),
     str(_ROOT / "packages" / "learning_hub" / "src"),
-    # workbench/src last so it wins path priority (richer nlp/workbench packages
-    # must not be shadowed by framework's slimmer nlp/event_translator package).
     str(_ROOT / "packages" / "workbench" / "src"),
 ]
 
 for _p in _paths_to_add:
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+# Structural NLP lives under workbench as top-level ``nlp``. Framework's former
+# ``src.nlp`` package was renamed to ``src.framework_nlp``; still force
+# workbench/src to the front in case PYTHONPATH already contained framework/src.
+_WORKBENCH_SRC = str(_ROOT / "packages" / "workbench" / "src")
+if _WORKBENCH_SRC in sys.path:
+    sys.path.remove(_WORKBENCH_SRC)
+sys.path.insert(0, _WORKBENCH_SRC)
+_stale = [
+    name
+    for name, mod in list(sys.modules.items())
+    if name == "nlp" or name.startswith("nlp.")
+]
+for name in _stale:
+    mod = sys.modules.get(name)
+    origin = getattr(mod, "__file__", "") or ""
+    if "framework" in origin.replace("\\", "/"):
+        del sys.modules[name]
 
 
 def _dir_fingerprint(path: Path, *, limit: int = 200) -> str:

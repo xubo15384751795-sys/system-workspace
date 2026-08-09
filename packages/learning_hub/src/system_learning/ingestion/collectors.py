@@ -40,6 +40,8 @@ def event_file_paths(system_root: Path) -> list[Path]:
     patterns = [
         "Output/system_learning/runtime/records_*.jsonl",
         "Output/system_learning/events/*.jsonl",
+        # Daily operator envelopes (write_runtime_event / dual-write projection).
+        "Output/runtime_events/*.jsonl",
         "Output/deformation_runs/*/system_events.jsonl",
         "Data/harvester/exports/*/system_events.jsonl",
         "System Learning Hub/reports/codebase/latest/system_events.jsonl",

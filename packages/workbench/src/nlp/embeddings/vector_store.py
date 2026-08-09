@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import Optional
@@ -10,13 +11,29 @@ from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder, EmbeddingRecord
 
 ROOT = _workspace_root()
 DEFAULT_INDEX_DIR = ROOT / "Data" / "nlp" / "embeddings"
+LANCEDB_TABLE = "nlp_chunks"
+
+
+def _prefer_lancedb() -> bool:
+    raw = os.environ.get("NLP_USE_LANCEDB", "auto").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    try:
+        import lancedb  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 class VectorStore:
-    """FAISS-backed vector index for NLP chunks.
+    """Vector index for NLP chunks.
 
-    Stores embeddings and provides nearest-neighbour lookup.
-    Falls back to a brute-force numpy index if FAISS is not installed.
+    Preference order when saving/searching:
+      1. LanceDB when available (``NLP_USE_LANCEDB=auto|1``)
+      2. FAISS when installed
+      3. Brute-force numpy fallback
     """
 
     def __init__(
@@ -30,6 +47,7 @@ class VectorStore:
         self._index: Optional[object] = None
         self._records: list[EmbeddingRecord] = []
         self._chunk_texts: dict[str, str] = {}
+        self._backend: str = "memory"
 
     def add(self, records: list[EmbeddingRecord], chunks: list[TextChunk]) -> None:
         if not records:
@@ -63,12 +81,17 @@ class VectorStore:
 
     def save(self, name: str = "nlp_chunks") -> Path:
         self.index_dir.mkdir(parents=True, exist_ok=True)
-        if self._index is not None:
+        if _prefer_lancedb() and self._records:
+            if self._save_lancedb(name):
+                self._backend = "lancedb"
+        elif self._index is not None:
             self._save_index(self.index_dir / name)
+            self._backend = "faiss_or_numpy"
         meta_path = self.index_dir / f"{name}_meta.json"
         meta = {
             "model_name": self.model_name,
             "num_records": len(self._records),
+            "backend": self._backend,
             "records": [
                 {"chunk_id": r.chunk_id, "document_id": r.document_id, "text_hash": r.text_hash}
                 for r in self._records
@@ -84,11 +107,89 @@ class VectorStore:
             return False
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         self._chunk_texts = meta.get("chunk_texts", {})
+        self.model_name = meta.get("model_name", self.model_name)
+        if meta.get("backend") == "lancedb" or _prefer_lancedb():
+            if self._load_lancedb(name):
+                self._backend = "lancedb"
+                return True
         index_path = self.index_dir / name
         if self._index_exists(index_path):
             self._index = self._load_index(index_path)
-        self.model_name = meta.get("model_name", self.model_name)
+            self._backend = "faiss_or_numpy"
         return True
+
+    def _lancedb_dir(self, name: str) -> Path:
+        return self.index_dir / f"{name}_lancedb"
+
+    def _save_lancedb(self, name: str) -> bool:
+        try:
+            import lancedb
+        except ImportError:
+            return False
+        rows = []
+        for record in self._records:
+            rows.append(
+                {
+                    "chunk_id": record.chunk_id,
+                    "document_id": record.document_id,
+                    "text_hash": record.text_hash,
+                    "text": self._chunk_texts.get(record.chunk_id, ""),
+                    "vector": list(map(float, record.embedding)),
+                }
+            )
+        if not rows:
+            return False
+        db_path = self._lancedb_dir(name)
+        db_path.mkdir(parents=True, exist_ok=True)
+        db = lancedb.connect(str(db_path))
+        db.create_table(LANCEDB_TABLE, data=rows, mode="overwrite")
+        return True
+
+    def _load_lancedb(self, name: str) -> bool:
+        try:
+            import lancedb
+        except ImportError:
+            return False
+        db_path = self._lancedb_dir(name)
+        if not db_path.exists():
+            return False
+        db = lancedb.connect(str(db_path))
+        list_tables = getattr(db, "list_tables", None)
+        raw = list_tables() if callable(list_tables) else getattr(db, "table_names", lambda: [])()
+        if hasattr(raw, "tables"):
+            raw_tables = list(raw.tables or [])
+        elif isinstance(raw, (list, tuple, set)):
+            raw_tables = list(raw)
+        else:
+            raw_tables = list(raw or [])
+        names = {
+            item if isinstance(item, str) else str(getattr(item, "name", item))
+            for item in raw_tables
+        }
+        if LANCEDB_TABLE not in names:
+            return False
+        table = db.open_table(LANCEDB_TABLE)
+        rows = table.to_pandas().to_dict(orient="records")
+        self._records = []
+        for row in rows:
+            vector = row.get("vector")
+            if vector is None:
+                embedding: list[float] = []
+            else:
+                embedding = [float(x) for x in list(vector)]
+            self._records.append(
+                EmbeddingRecord(
+                    chunk_id=str(row.get("chunk_id") or ""),
+                    document_id=str(row.get("document_id") or ""),
+                    text_hash=str(row.get("text_hash") or ""),
+                    embedding=embedding,
+                )
+            )
+            if row.get("text"):
+                self._chunk_texts[str(row["chunk_id"])] = str(row["text"])
+        if self._records:
+            self._index = self._create_index([r.embedding for r in self._records])
+        return bool(self._records)
 
     @property
     def size(self) -> int:

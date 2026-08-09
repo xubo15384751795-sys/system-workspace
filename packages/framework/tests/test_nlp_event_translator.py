@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 from system_runtime.paths import WorkspacePaths
 
-from src.nlp.event_translator import NLPEventTranslator
+from src.framework_nlp.event_translator import NLPEventTranslator
 
 _NLP_DATA = WorkspacePaths.discover().data / "structural_lab" / "nlp"
 _CASE_LIBRARY = _NLP_DATA / "case_library"

@@ -30,7 +30,7 @@ owner, paths, and allowed communication points.
 | Learning Hub | `ACTIVE_PARTIAL` | Governance memory, events, routing decisions, improvement queue | `packages/learning_hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` | 7 |
 | Agent Routing | `ACTIVE_PARTIAL` | Sparse activation, expert routing, workflow guards; diagnostics only | `packages/workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
 | CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval (LanceDB ANN) | `caselab_context/`, `caselab_runtime/`, Paper `/90_Admin/Context/` (external, under paper_root) | `module_contexts/caselab-context.md` | — |
-| NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift | `packages/workbench/src/nlp/` | — | 3 |
+| NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift (top-level `nlp`; framework translator is `framework_nlp`) | `packages/workbench/src/nlp/` | — | 3 |
 | ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `packages/workbench/src/ml/` | — | 3 |
 | Funding Endogenous Boundary v2 | `REAL_EXPERIMENTAL` | X stock, absorption capacity, non-commutativity candidates under preregistration | `scripts/`, `Output/validation/` | — | validation-only |
 | Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/`, `packages/framework/scripts/run_historical_replay.py` | — | — |
