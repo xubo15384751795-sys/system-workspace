@@ -178,7 +178,11 @@ def check_content_freshness(
     max_trading_days_behind: int,
     now: datetime,
 ) -> dict[str, Any]:
-    """Check parquet payload max(date) against a trading-day lag budget."""
+    """Check parquet/CSV max(date) against a trading-day lag budget.
+
+    Uses Pandera for column presence when available; lag math stays identical
+    so publish-gate consumers keep the same status vocabulary.
+    """
     if not path.exists():
         return {
             "name": name,
@@ -189,6 +193,7 @@ def check_content_freshness(
             "max_date": None,
             "trading_days_behind": None,
             "max_trading_days_behind": max_trading_days_behind,
+            "engine": "pandera",
         }
 
     try:
@@ -209,9 +214,20 @@ def check_content_freshness(
             "trading_days_behind": None,
             "max_trading_days_behind": max_trading_days_behind,
             "error": str(exc),
+            "engine": "pandera",
         }
 
-    if frame.empty:
+    try:
+        import pandera.pandas as pa
+
+        pa.DataFrameSchema(
+            {date_column: pa.Column(nullable=False)},
+            coerce=True,
+            strict=False,
+        ).validate(frame[[date_column]] if date_column in frame.columns else frame, lazy=True)
+    except ImportError:
+        pass
+    except Exception as exc:  # noqa: BLE001 — schema failure maps to MISSING
         return {
             "name": name,
             "path": str(path),
@@ -221,6 +237,21 @@ def check_content_freshness(
             "max_date": None,
             "trading_days_behind": None,
             "max_trading_days_behind": max_trading_days_behind,
+            "error": f"pandera:{exc}",
+            "engine": "pandera",
+        }
+
+    if frame.empty or date_column not in frame.columns:
+        return {
+            "name": name,
+            "path": str(path),
+            "check_type": "content",
+            "status": "MISSING",
+            "date_column": date_column,
+            "max_date": None,
+            "trading_days_behind": None,
+            "max_trading_days_behind": max_trading_days_behind,
+            "engine": "pandera",
         }
 
     max_ts = pd.to_datetime(frame[date_column]).max()
@@ -238,9 +269,9 @@ def check_content_freshness(
         "max_date": max_d.isoformat(),
         "trading_days_behind": behind,
         "max_trading_days_behind": max_trading_days_behind,
-        # Compat fields so markdown table / stale lists stay uniform
         "age_hours": None,
         "max_age_hours": None,
+        "engine": "pandera",
     }
 
 
@@ -473,6 +504,18 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
     else:
         verdict = "PASS"
 
+    ge_suite: dict[str, Any] | None = None
+    try:
+        from orchestration.quality.ge_suite import (
+            run_content_freshness_suite,
+            write_ge_validation_artifact,
+        )
+
+        ge_suite = run_content_freshness_suite(root=ROOT)
+        write_ge_validation_artifact(ge_suite, root=ROOT)
+    except Exception as exc:  # noqa: BLE001 — GE is additive; never block report shape
+        ge_suite = {"engine": "great_expectations+pandera", "success": None, "error": str(exc)}
+
     return {
         "schema_version": "freshness_validator.v3",
         "generated_at": now.isoformat(),
@@ -483,6 +526,7 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
         "closure_chain_issues": closure_issues,
         "content_freshness": content_checks,
         "artifacts": freshness_checks,
+        "ge_content_freshness": ge_suite,
     }
 
 

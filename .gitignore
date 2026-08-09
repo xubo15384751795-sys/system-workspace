@@ -38,10 +38,16 @@ ExternalTools/qlib_benchmark_runner/__pycache__/
 /Output/
 
 # Nested generated artifacts (keep similarly named source packages trackable)
-/Visualization/data/
-/Visualization/output/
+/governance/archive/Visualization/data/
+/governance/archive/Visualization/output/
 /packages/Output/
 /paper-empirical-interface/output/
+
+# DVC local cache / workspace metadata (pointer JSON under Data/ may be local-only)
+/Data/.dvc_cache/
+/.dvc/
+*.dvc
+/great_expectations/.cache/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────
 # Qlib workspace and output are large intermediate artifacts — never commit

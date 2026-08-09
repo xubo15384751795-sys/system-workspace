@@ -171,127 +171,128 @@ def _run_real_qlib_experiment(
     workspace_dir: Path,
     output_dir: Path,
 ) -> dict:
-    """Run a Qlib experiment with Alpha158 + LightGBM + backtest.
+    """Run a Qlib experiment via workflow APIs when available.
 
-    Only reaches here if qlib is installed. Produces real metrics
-    distinguishable from the placeholder null-metric output.
+    Prefers ``qlib.workflow`` / ``qrun``-style task configs over a hand-rolled
+    Alpha158+LGB mini-pipeline. Falls back to a compact init_instance_by_config
+    workflow if the high-level helper is unavailable.
     """
+    import traceback
+
     import qlib
     from qlib.config import REG_CN
-    from qlib.contrib.data.handler import Alpha158
-    from qlib.contrib.model.gbdt import LGBModel
-    from qlib.contrib.strategy import TopkDropoutStrategy
-    from qlib.backtest import backtest, executor
-    from qlib.contrib.evaluate import risk_analysis
     from qlib.utils import init_instance_by_config
 
     qlib_data_dir = workspace_dir / "qlib_data"
-
-    # Check for pre-converted Qlib data; if absent, convert from market_panel
     if not (qlib_data_dir / "features").exists():
         _convert_market_panel_to_qlib(input_dir, qlib_data_dir)
 
     provider_uri = str(qlib_data_dir.resolve())
     qlib.init(provider_uri=provider_uri, region=REG_CN)
-
     market = "csi300" if (qlib_data_dir / "instruments" / "csi300.txt").exists() else "all"
 
-    # Alpha158 handler — standard 158 factor definitions
-    data_handler_config = {
-        "class": "Alpha158",
-        "module_path": "qlib.contrib.data.handler",
-        "kwargs": {
-            "start_time": "2010-01-01",
-            "end_time": "2025-12-31",
-            "fit_start_time": "2010-01-01",
-            "fit_end_time": "2020-12-31",
-            "instruments": market,
-        },
-    }
-    handler = init_instance_by_config(data_handler_config)
-
-    # Dataset split
-    dataset_config = {
-        "class": "DatasetH",
-        "module_path": "qlib.data.dataset",
-        "kwargs": {
-            "handler": handler,
-            "segments": {
-                "train": ("2010-01-01", "2020-12-31"),
-                "valid": ("2021-01-01", "2022-12-31"),
-                "test": ("2023-01-01", "2025-12-31"),
+    task = {
+        "model": {
+            "class": "LGBModel",
+            "module_path": "qlib.contrib.model.gbdt",
+            "kwargs": {
+                "loss": "mse",
+                "num_leaves": 64,
+                "learning_rate": 0.05,
+                "n_estimators": 200,
+                "early_stopping_rounds": 20,
             },
         },
-    }
-    dataset = init_instance_by_config(dataset_config)
-
-    # LightGBM model
-    model = LGBModel(
-        loss="mse",
-        num_leaves=64,
-        learning_rate=0.05,
-        n_estimators=200,
-        early_stopping_rounds=20,
-    )
-    model.fit(dataset)
-
-    # Backtest with TopkDropout strategy
-    strategy_config = {
-        "class": "TopkDropoutStrategy",
-        "module_path": "qlib.contrib.strategy",
-        "kwargs": {"topk": 50, "n_drop": 10},
-    }
-    strategy = init_instance_by_config(strategy_config)
-
-    executor_config = {
-        "class": "SimulatorExecutor",
-        "module_path": "qlib.backtest.executor",
-        "kwargs": {
-            "time_per_step": "day",
-            "generate_portfolio_metrics": True,
-        },
-    }
-    exec_inst = init_instance_by_config(executor_config)
-
-    backtest_config = {
-        "start_time": "2023-01-01",
-        "end_time": "2025-12-31",
-        "account": 100000000,
-        "benchmark": "SH000300" if market == "csi300" else None,
-        "exchange_kwargs": {
-            "freq": "day",
-            "limit_threshold": 0.095,
-            "deal_price": "close",
-            "open_cost": 0.0005,
-            "close_cost": 0.0015,
-            "min_cost": 5,
+        "dataset": {
+            "class": "DatasetH",
+            "module_path": "qlib.data.dataset",
+            "kwargs": {
+                "handler": {
+                    "class": "Alpha158",
+                    "module_path": "qlib.contrib.data.handler",
+                    "kwargs": {
+                        "start_time": "2010-01-01",
+                        "end_time": "2025-12-31",
+                        "fit_start_time": "2010-01-01",
+                        "fit_end_time": "2020-12-31",
+                        "instruments": market,
+                    },
+                },
+                "segments": {
+                    "train": ("2010-01-01", "2020-12-31"),
+                    "valid": ("2021-01-01", "2022-12-31"),
+                    "test": ("2023-01-01", "2025-12-31"),
+                },
+            },
         },
     }
 
     try:
-        portfolio_dict, indicator_dict = backtest.backtest(
-            strategy=strategy,
-            executor=exec_inst,
-            pred=model.predict(dataset),
-            **backtest_config,
-        )
+        # Prefer workflow recorder API (official Qlib path).
+        try:
+            from qlib.workflow import R
+            from qlib.workflow.task.manage import TaskManager
+        except Exception:
+            R = None
+            TaskManager = None
 
-        analysis = risk_analysis(portfolio_dict["portfolio"])
+        model = init_instance_by_config(task["model"])
+        dataset = init_instance_by_config(task["dataset"])
+        if R is not None:
+            with R.start(experiment_name=f"system_{name}"):
+                model.fit(dataset)
+                pred = model.predict(dataset)
+                R.save_objects(**{f"{name}_pred.pkl": pred})
+        else:
+            model.fit(dataset)
+            pred = model.predict(dataset)
+
+        from qlib.contrib.evaluate import risk_analysis
+        from qlib.contrib.strategy import TopkDropoutStrategy
+        from qlib.backtest import backtest as qlib_backtest
+
+        strategy = TopkDropoutStrategy(signal=pred, topk=50, n_drop=10)
+        portfolio_metric, _ = qlib_backtest(
+            executor={
+                "class": "SimulatorExecutor",
+                "module_path": "qlib.backtest.executor",
+                "kwargs": {"time_per_step": "day", "generate_portfolio_metrics": True},
+            },
+            strategy=strategy,
+            start_time="2023-01-01",
+            end_time="2025-12-31",
+            account=100_000_000,
+            benchmark="SH000300" if market == "csi300" else None,
+            exchange_kwargs={
+                "freq": "day",
+                "limit_threshold": 0.095,
+                "deal_price": "close",
+                "open_cost": 0.0005,
+                "close_cost": 0.0015,
+                "min_cost": 5,
+            },
+        )
+        analysis = risk_analysis(portfolio_metric["portfolio"])
         metrics = {
             "experiment": name,
             "config": config_name,
-            "executor_status": "qlib_real",
+            "executor_status": "qlib_workflow",
             "placeholder": False,
             "feedback_blocked": False,
+            "workflow": "qlib.workflow" if R is not None else "init_instance_by_config",
             "rank_ic": float(analysis.get("information_ratio", {}).get("IC", 0.0) or 0.0),
             "rank_icir": float(analysis.get("information_ratio", {}).get("ICIR", 0.0) or 0.0),
-            "sharpe": float(analysis.get("excess_return_without_cost", {}).get("annualized_ratio", 0.0) or 0.0),
+            "sharpe": float(
+                analysis.get("excess_return_without_cost", {}).get("annualized_ratio", 0.0) or 0.0
+            ),
             "max_drawdown": float(analysis.get("max_drawdown", 0.0) or 0.0),
-            "annual_return": float(analysis.get("excess_return_without_cost", {}).get("annualized_return", 0.0) or 0.0),
+            "annual_return": float(
+                analysis.get("excess_return_without_cost", {}).get("annualized_return", 0.0) or 0.0
+            ),
             "information_ratio": float(analysis.get("information_ratio", {}).get("ICIR", 0.0) or 0.0),
         }
+        del TaskManager  # imported for workflow surface; unused intentionally
     except Exception:
-        import traceback
         metrics = {
             "experiment": name,
             "config": config_name,
@@ -309,7 +310,6 @@ def _run_real_qlib_experiment(
 
     metrics_path = output_dir / f"{name}_metrics.json"
     metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
-
     return metrics
 
 

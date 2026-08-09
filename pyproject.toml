@@ -27,6 +27,15 @@ ml = [
     "hmmlearn>=0.3",
     "mcp>=1.23,<2",
 ]
+orchestration = [
+    "dagster>=1.9",
+    "dagster-webserver>=1.9",
+    "pandera>=0.20",
+    "great_expectations>=1.0",
+    "dvc>=3.50",
+    "streamlit>=1.32",
+    "lancedb>=0.12",
+]
 dev = [
     "pytest>=8.0",
     "mypy>=1.10",
@@ -39,7 +48,7 @@ dev = [
     "hmmlearn>=0.3",
 ]
 full = [
-    "structural-deformation-system[ml,dev]",
+    "structural-deformation-system[ml,dev,orchestration]",
 ]
 
 [tool.setuptools.packages.find]
@@ -49,7 +58,6 @@ include = [
     "system_runtime*",
     "caselab_context*",
     "caselab_runtime*",
-    "research_terminal*",
     "scripts*",
 ]
 
@@ -62,6 +70,7 @@ members = [
     "packages/harvester",
     "packages/learning_hub",
     "packages/workbench",
+    "packages/orchestration",
 ]
 
 [tool.pytest.ini_options]

@@ -20,21 +20,23 @@ owner, paths, and allowed communication points.
 
 | Thread | Status | Owns | Primary location | Context file | Tests |
 |---|---|---|---|---|---|
-| Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views | `packages/workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
+| Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views, Streamlit UI | `packages/workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
+| Orchestration | `CANONICAL` | Dagster daily/refresh jobs, Pandera/GE quality adapters, DVC promote helpers | `packages/orchestration/`, `scripts/daily_run.py` | `module_contexts/orchestration.md` | 1 |
 | Deformation v1 evidence archive | `ARCHIVED_FALSIFIED` | Falsified host-theory evidence, reproducibility, postmortem | `packages/framework/` | `module_contexts/framework.md` | archive-only |
 | Neutral Macro Pressure | `ACTIVE_PARTIAL` | Funding-mismatch and market-constraint gauges | `scripts/neutral_pressure_measurement.py`, `docs/measurements/` | `module_contexts/workbench.md` | requalification |
 | Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `packages/harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
 | Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `packages/workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
-| Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
+| Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary, DVC pointers | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
 | Learning Hub | `ACTIVE_PARTIAL` | Governance memory, events, routing decisions, improvement queue | `packages/learning_hub/`, `Data/system_learning/`, `Output/system_learning/` | `module_contexts/learning-hub.md` | 7 |
 | Agent Routing | `ACTIVE_PARTIAL` | Sparse activation, expert routing, workflow guards; diagnostics only | `packages/workbench/agents/harness/`, `ROUTING_CONSTITUTION.md` | `module_contexts/agent-routing.md` | — |
-| CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval | `caselab_context/`, `caselab_runtime/`, Paper `/90_Admin/Context/` (external, under paper_root) | `module_contexts/caselab-context.md` | — |
+| CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval (LanceDB ANN) | `caselab_context/`, `caselab_runtime/`, Paper `/90_Admin/Context/` (external, under paper_root) | `module_contexts/caselab-context.md` | — |
 | NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift | `packages/workbench/src/nlp/` | — | 3 |
 | ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `packages/workbench/src/ml/` | — | 3 |
 | Funding Endogenous Boundary v2 | `REAL_EXPERIMENTAL` | X stock, absorption capacity, non-commutativity candidates under preregistration | `scripts/`, `Output/validation/` | — | validation-only |
 | Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/`, `packages/framework/scripts/run_historical_replay.py` | — | — |
-| Qlib Benchmark | `REAL_EXPERIMENTAL` | Isolated benchmark runner, alpha metrics | `ExternalTools/qlib_benchmark_runner/` | — | 1 |
-| Research Terminal | `PAPER_RETAIN` | Embedded research terminal | `research_terminal/` | — | — |
+| Qlib Benchmark | `REAL_EXPERIMENTAL` | Isolated benchmark runner (workflow API), alpha metrics | `ExternalTools/qlib_benchmark_runner/` | — | 1 |
+| Research Terminal | `ARCHIVED` | Legacy HTML research terminal (replaced by Streamlit) | `governance/archive/research_terminal/` | — | — |
+| Visualization demos | `ARCHIVED` | Legacy Plotly/ECharts demos (replaced by Streamlit) | `governance/archive/Visualization/` | — | — |
 
 ## Dependency Rule
 

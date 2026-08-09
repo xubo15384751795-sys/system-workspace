@@ -138,6 +138,16 @@ def build_embeddings(
 def save_embeddings(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Mirror into LanceDB when available (ANN store); JSON remains compatibility export.
+    try:
+        from caselab_context.lancedb_store import lancedb_dir, migrate_payload_to_lancedb
+
+        root = path.resolve().parents[1] if path.name == "embeddings.json" else path.parent
+        # Data/caselab_context/embeddings.json -> parents[1] is Data/; use workspace root.
+        workspace = path.resolve().parents[2] if "caselab_context" in path.parts else path.parent
+        migrate_payload_to_lancedb(payload, db_path=lancedb_dir(workspace))
+    except Exception:
+        pass
 
 
 def load_embeddings(path: Path) -> dict[str, Any]:
@@ -153,6 +163,22 @@ def search(
 ) -> list[dict[str, Any]]:
     docs = payload.get("docs") or []
     backend = payload.get("backend", "tfidf")
+
+    # Prefer LanceDB ANN when dense vectors / query embedding are available.
+    if backend in {"hybrid", "dense"} and payload.get("dense_vectors"):
+        provider = embed_fn or default_embed_fn()
+        if provider is not None:
+            try:
+                from caselab_context.lancedb_store import lancedb_dir, search_lancedb
+
+                workspace = Path(__file__).resolve().parents[1]
+                query_vec = provider([query])[0]
+                lance_hits = search_lancedb(query_vec, db_path=lancedb_dir(workspace), top_k=top_k)
+                if lance_hits:
+                    return lance_hits
+            except Exception:
+                pass
+
     sparse_scores = _score_sparse(payload, query)
     dense_scores = None
     if backend in {"hybrid", "dense"} and payload.get("dense_vectors"):

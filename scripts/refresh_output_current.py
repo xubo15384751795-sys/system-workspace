@@ -1,35 +1,20 @@
 #!/usr/bin/env python3
 """Refresh Output/current — unified authority entry point.
 
-This is the ONLY script that should refresh Output/current/.
-It runs the new judgment chain, not the old Workbench fallback.
-
-The chain begins with a hard pre-consumption admission check. If admission or
-any producer fails, descendants are not executed.
-
-Usage:
-    python3 scripts/refresh_output_current.py
-    python3 scripts/refresh_output_current.py --skip-measurement
-    python3 scripts/refresh_output_current.py --dry-run
-
-Output:
-    Output/current/neutral_pressure_snapshot.json
-    Output/current/00_READ_ME_FIRST.md
-    Output/judgment/latest.json
-    Output/judgment/latest.md
-    Output/judgment/promotion_gate.json
-    Output/judgment/promotion_gate.md
+Default path: Dagster ``refresh_current_job`` (in-process via orchestration.runner).
+Emergency: ``SYSTEM_USE_LEGACY_DAILY_RUN=1`` restores the pre-Dagster linear chain.
 """
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 
 from scripts._admission_gate import AdmissionDecision, admit_for_consumption
-from scripts._constants import TIMEOUT_STANDARD  # noqa: E402
+from scripts._constants import TIMEOUT_STANDARD
 from scripts._runtime_io import ROOT
 
 CURRENT = ROOT / "Output" / "current"
@@ -82,39 +67,9 @@ def _print_summary(steps: list[dict], start_time: datetime) -> None:
             print(f"      blocker: {blocker}")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Refresh Output/current with new judgment chain.")
-    parser.add_argument("--skip-measurement", action="store_true", help="Skip neutral measurement step.")
-    parser.add_argument("--skip-bridge", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--dry-run", action="store_true", help="Print plan, don't execute.")
-    args = parser.parse_args(argv)
-
+def _legacy_main(args: argparse.Namespace) -> int:
+    """Pre-Dagster linear chain retained for emergency escape hatch."""
     start_time = datetime.now(UTC)
-
-    if args.dry_run:
-        print("DRY RUN — would execute:")
-        print("  1. pre-consumption admission (hard gate)")
-        if not (args.skip_measurement or args.skip_bridge):
-            print("  2. neutral_pressure_measurement.py")
-        print("  3. quality_field_validator.py")
-        print("  4. build_measurement_quality_report.py")
-        print("  5. judgment_layer.py")
-        print("  6. judgment_promotion_gate.py")
-        print("  7. trade_decision_layer.py")
-        print("  8. build_signal_card.py")
-        print("  9. signal_consensus.py")
-        print("  10. build_current_status.py")
-        print("  11. build_system_index.py")
-        print("  12. build_work_brief.py")
-        print("  13. build_next_actions.py")
-        print("  14. refresh_improvement_queue_report.py")
-        print("  15. freshness_validator.py")
-        print("  16. build_evidence_grade_report.py")
-        print("  17. build_artifact_registry.py")
-        print("  18. record_daily_run_event.py")
-        print("  19. build_readme_first.py")
-        return 0
-
     steps: list[dict] = []
     skip_measurement = args.skip_measurement or args.skip_bridge
     total = 19
@@ -140,7 +95,6 @@ def main(argv: list[str] | None = None) -> int:
         step_no += 1
         return result["status"] == "success"
 
-    # Active theory-independent measurement (unless explicitly skipped).
     if not skip_measurement:
         if not _run("neutral_pressure_measurement", "neutral_pressure_measurement.py"):
             _print_summary(steps, start_time)
@@ -188,8 +142,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     _print_summary(steps, start_time)
-
-    # Verify outputs exist
     required = [
         CURRENT / "neutral_pressure_snapshot.json",
         CURRENT / "framework_output.json",
@@ -215,9 +167,29 @@ def main(argv: list[str] | None = None) -> int:
     if missing:
         print(f"\nWARNING: Missing outputs: {[str(p) for p in missing]}")
         return 1
-
     print("\nAll outputs verified.")
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Refresh Output/current with new judgment chain.")
+    parser.add_argument("--skip-measurement", action="store_true", help="Skip neutral measurement step.")
+    parser.add_argument("--skip-bridge", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--dry-run", action="store_true", help="Print plan, don't execute.")
+    args = parser.parse_args(argv)
+
+    if os.environ.get("SYSTEM_USE_LEGACY_DAILY_RUN", "").strip() in {"1", "true", "TRUE", "yes", "YES"}:
+        if args.dry_run:
+            print("DRY RUN — legacy refresh chain")
+            return 0
+        return _legacy_main(args)
+
+    from orchestration.runner import run_refresh_via_dagster
+
+    return run_refresh_via_dagster(
+        skip_measurement=bool(args.skip_measurement or args.skip_bridge),
+        dry_run=bool(args.dry_run),
+    )
 
 
 if __name__ == "__main__":

@@ -30,6 +30,8 @@ related, but they are not interchangeable.
 - `scripts/list_latest.py`
 - `scripts/promote_snapshot.py`
 - `scripts/build_system_index.py`
+- `packages/orchestration/orchestration/dvc_promote.py` (DVC pointer sidecars)
+- `Data/.dvc_cache/` (local DVC remote; gitignored)
 
 ## Reads
 

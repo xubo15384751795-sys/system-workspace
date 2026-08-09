@@ -102,6 +102,13 @@ def finalize_release(
         encoding="utf-8",
     )
     _point_latest(latest_path, release_id)
+    try:
+        from orchestration.dvc_promote import record_release_pointer
+
+        record_release_pointer(exports_root=root, release_id=release_id)
+    except Exception:
+        # DVC tracking must never block a finalized release pointer.
+        pass
     _make_read_only(release_dir)
     return result
 

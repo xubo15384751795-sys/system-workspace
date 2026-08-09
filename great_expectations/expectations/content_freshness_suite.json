@@ -1,0 +1,24 @@
+{
+  "expectation_suite_name": "content_freshness_v1",
+  "meta": {
+    "notes": "Authoritative paths live in governance/daily_pipeline_registry.yaml content_freshness. Runtime evaluation uses orchestration.quality.ge_suite."
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_content_clock_fresh",
+      "kwargs": {"clock": "etf_panel"}
+    },
+    {
+      "expectation_type": "expect_content_clock_fresh",
+      "kwargs": {"clock": "ofr_fsi_cache"}
+    },
+    {
+      "expectation_type": "expect_content_clock_fresh",
+      "kwargs": {"clock": "ciss_cache"}
+    },
+    {
+      "expectation_type": "expect_content_clock_fresh",
+      "kwargs": {"clock": "benchmark_panel"}
+    }
+  ]
+}

@@ -38,6 +38,30 @@ def build_quality_report(
         blockers,
     )
 
+    # Pandera shape check when available (additive; does not replace blockers).
+    if required and not missing_columns:
+        try:
+            import pandera.pandas as pa
+
+            schema = pa.DataFrameSchema(
+                {column: pa.Column(nullable=True) for column in required},
+                strict=False,
+                coerce=False,
+            )
+            schema.validate(df, lazy=True)
+            _record_check(checks, "pandera_required_columns", True, "ok", warnings, severity="warn")
+        except ImportError:
+            pass
+        except Exception as exc:  # noqa: BLE001
+            _record_check(
+                checks,
+                "pandera_required_columns",
+                False,
+                str(exc)[:200],
+                warnings,
+                severity="warn",
+            )
+
     if time_col in df.columns and not df.empty:
         dates = pd.to_datetime(df[time_col], errors="coerce")
         null_dates = int(dates.isna().sum())

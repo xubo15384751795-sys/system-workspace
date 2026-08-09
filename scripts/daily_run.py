@@ -45,11 +45,15 @@ from scripts._current_publish import (
     publish_candidate,
     should_publish,
 )
-from scripts._daily_run_executor import DailyRunContext, execute_daily_sequence
 from scripts._daily_run_sequence import (
     dry_run_labels,
     load_daily_run_sequence,
     weekly_step_ids,
+)
+from orchestration.runner import (
+    DailyRunPayload,
+    run_daily_sequence_via_dagster,
+    use_legacy_daily_run,
 )
 from scripts._notify import notify_daily_run_result
 from scripts._pipeline_runner import run_registry_step
@@ -363,7 +367,7 @@ def main() -> None:
         )
 
     bp_path = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
-    ctx = DailyRunContext(
+    payload = DailyRunPayload(
         args=args,
         start_time=start_time,
         total_steps=TOTAL_STEPS,
@@ -372,7 +376,26 @@ def main() -> None:
         benchmark_panel_path=bp_path,
         run_id=bundle.run_id,
     )
-    execute_daily_sequence(ctx)
+    if use_legacy_daily_run():
+        logger.warning(
+            "SYSTEM_USE_LEGACY_DAILY_RUN=1 — using scripts/_legacy_daily_run_executor "
+            "(Dagster default path bypassed)"
+        )
+        from scripts._legacy_daily_run_executor import DailyRunContext, execute_daily_sequence
+
+        ctx = DailyRunContext(
+            args=args,
+            start_time=start_time,
+            total_steps=TOTAL_STEPS,
+            run_step_fn=run_step,
+            record_fn=_record,
+            benchmark_panel_path=bp_path,
+            run_id=bundle.run_id,
+        )
+        execute_daily_sequence(ctx)
+    else:
+        logger.info("Executing daily sequence via Dagster op (in-process)")
+        run_daily_sequence_via_dagster(payload)
 
     _capture_traces(bundle)
 

@@ -23,6 +23,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 
 _paths_to_add = [
     str(_ROOT / "scripts"),
+    str(_ROOT / "packages" / "orchestration"),
     str(_ROOT / "packages" / "framework"),
     str(_ROOT / "packages" / "framework" / "src"),
     str(_ROOT / "packages" / "harvester" / "src"),

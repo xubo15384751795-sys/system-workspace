@@ -188,6 +188,21 @@ def _legacy_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
         return _run(paths, "scripts/verify_merge.py", arguments)
     if command == "run-daily":
         return _run(paths, "scripts/daily_run.py", args.arguments)
+    if command == "ui":
+        app = (
+            _code_root()
+            / "packages"
+            / "workbench"
+            / "src"
+            / "workbench"
+            / "ui"
+            / "streamlit_app.py"
+        )
+        result = subprocess.run(
+            [sys.executable, "-m", "streamlit", "run", str(app), *args.arguments],
+            cwd=paths.root,
+        )
+        return result.returncode
     if command == "report":
         return _show(current / "latest_report.html", lines=20)
     if command == "roadmap":
@@ -255,6 +270,7 @@ def build_parser() -> argparse.ArgumentParser:
         "doctor": "Validate current pointers",
         "verify": "Run merge/control verification",
         "run-daily": "Run the daily pipeline",
+        "ui": "Open the Streamlit research UI for Output/current",
         "report": "Display the current report path/content",
         "roadmap": "Show evidence-derived validation roadmap progress",
     }

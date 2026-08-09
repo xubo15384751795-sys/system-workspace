@@ -258,6 +258,18 @@ def _write_snapshot_index(idx: dict[str, Any], entry: dict[str, Any]) -> None:
         else:
             idx["latest"] = None
     CANONICAL_SNAPSHOT_INDEX.write_text(json.dumps(idx, indent=2) + "\n")
+    if entry.get("status") == "canonical":
+        try:
+            from orchestration.dvc_promote import record_snapshot_pointer
+
+            target = CANONICAL_SNAPSHOTS / f"{snapshot_id}.json"
+            record_snapshot_pointer(
+                snapshot_id=snapshot_id,
+                snapshot_path=target,
+                index_path=CANONICAL_SNAPSHOT_INDEX,
+            )
+        except Exception:
+            pass
 
 
 def _append_system_event(event: dict[str, Any]) -> Path:
