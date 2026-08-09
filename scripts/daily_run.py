@@ -28,6 +28,12 @@ import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+# Ensure workspace + scripts/ are importable when launched via Dagster/CLI.
+_ROOT_BOOT = Path(__file__).resolve().parents[1]
+for _p in (str(_ROOT_BOOT), str(_ROOT_BOOT / "scripts"), str(_ROOT_BOOT / "packages" / "orchestration")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from system_runtime.events import EventEnvelope, JsonlEventStore
 
 logger = logging.getLogger(__name__)
