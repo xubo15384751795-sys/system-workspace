@@ -20,10 +20,17 @@ remains the authority for step order, schedules, and failure behavior.
 
 ## Escape hatch
 
-`SYSTEM_USE_LEGACY_DAILY_RUN=1` bypasses Dagster and uses the legacy executor.
+`SYSTEM_USE_LEGACY_DAILY_RUN=1` bypasses Dagster and uses
+`scripts/archive/_legacy_daily_run_executor.py` (archived; not on the default path).
+
+## Launchd
+
+`com.system.daily-run` → `run_daily_scheduled.sh` → `run_dagster_daily.sh` →
+`orchestrate.sh daily` → `python -m orchestration.cli daily` → Dagster `daily_job`.
 
 ## Do not
 
 - Duplicate step lists in Python
 - Import claim-ladder / Learning Hub semantics into Dagster graphs
 - Replace `Output/current` atomic publish with DVC (display layer stays custom)
+- Import `scripts/archive/_legacy_daily_run_executor` outside the escape hatch

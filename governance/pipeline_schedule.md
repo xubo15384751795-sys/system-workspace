@@ -40,7 +40,7 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 | 29 | work_brief | Work brief |
 | 30 | record_daily_run_event | Hub run event + calibration snapshot |
 
-**Automation:** macOS `com.system.daily-run` launchd → `scripts/orchestrate.sh daily` (default 07:00 local).
+**Automation:** macOS `com.system.daily-run` launchd → `scripts/run_daily_scheduled.sh` → `scripts/run_dagster_daily.sh` → `orchestrate.sh daily` → `python -m orchestration.cli daily` (Dagster `daily_job`, default 07:00 local). Escape hatch: `SYSTEM_USE_LEGACY_DAILY_RUN=1`.
 
 ## Weekly (44 steps) — Monday UTC or `--force-weekly`
 

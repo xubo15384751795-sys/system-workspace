@@ -28,6 +28,10 @@
     <string>__PAPER_ROOT__</string>
     <key>HORIZON_ROOT</key>
     <string>__HORIZON_ROOT__</string>
+    <key>SYSTEM_ORCHESTRATOR</key>
+    <string>dagster</string>
+    <key>PYTHONPATH</key>
+    <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>PYTHON</key>
     <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
   </dict>

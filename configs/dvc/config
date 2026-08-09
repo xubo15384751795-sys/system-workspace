@@ -1,0 +1,5 @@
+[core]
+    remote = localcache
+    autostage = true
+['remote "localcache"']
+    url = ../Data/.dvc_cache

@@ -1,0 +1,18 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-09-dagster-launchd-dvc-hardening
+date: "2026-08-09"
+status: adopted
+summary: >
+  Harden high-ROI cutover: launchd default path executes Dagster daily_job via
+  orchestration.cli; legacy executor moved under scripts/archive/; DVC tracks
+  Harvester release manifests/digests and snapshot JSON/index (not giant panels).
+authority_changes:
+  - module: packages/orchestration/orchestration/cli.py
+    claim: launchd/orchestrate daily entry
+  - module: scripts/archive/_legacy_daily_run_executor.py
+    claim: emergency only via SYSTEM_USE_LEGACY_DAILY_RUN=1
+references:
+  - scripts/orchestrate.sh
+  - scripts/run_dagster_daily.sh
+  - scripts/launchd/com.system.daily-run.plist
+  - packages/orchestration/orchestration/dvc_promote.py

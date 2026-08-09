@@ -2,7 +2,7 @@
 
 Default path: Dagster jobs import ``orchestration.sequence_executor``.
 Emergency path: ``SYSTEM_USE_LEGACY_DAILY_RUN=1`` uses
-``scripts/_legacy_daily_run_executor.py``.
+``scripts/archive/_legacy_daily_run_executor.py``.
 
 Tests that ``patch.object`` this module's ``execute_step`` continue to work:
 ``execute_daily_sequence`` temporarily rebinds the canonical module global.

@@ -62,7 +62,19 @@ def search_lancedb(
         return None
     db = lancedb.connect(str(db_path))
     list_tables = getattr(db, "list_tables", None)
-    names = set(list_tables() if callable(list_tables) else db.table_names())
+    raw = list_tables() if callable(list_tables) else db.table_names()
+    if hasattr(raw, "tables"):
+        raw_tables = list(raw.tables or [])
+    elif isinstance(raw, (list, tuple, set)):
+        raw_tables = list(raw)
+    else:
+        raw_tables = list(raw or [])
+    names: set[str] = set()
+    for item in raw_tables:
+        if isinstance(item, str):
+            names.add(item)
+        else:
+            names.add(str(getattr(item, "name", item)))
     if DEFAULT_TABLE not in names:
         return None
     table = db.open_table(DEFAULT_TABLE)

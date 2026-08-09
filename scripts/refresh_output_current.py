@@ -184,6 +184,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return _legacy_main(args)
 
+    # Prefer orchestration.cli when SYSTEM_ORCHESTRATOR=dagster (aligned with launchd).
+    if os.environ.get("SYSTEM_ORCHESTRATOR", "").strip().lower() == "dagster":
+        from orchestration.cli import cmd_refresh
+
+        refresh_argv: list[str] = []
+        if args.skip_measurement or args.skip_bridge:
+            refresh_argv.append("--skip-measurement")
+        if args.dry_run:
+            refresh_argv.append("--dry-run")
+        return cmd_refresh(refresh_argv)
+
     from orchestration.runner import run_refresh_via_dagster
 
     return run_refresh_via_dagster(

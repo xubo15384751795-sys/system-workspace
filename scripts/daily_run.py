@@ -274,7 +274,7 @@ def _raise_open_file_limit(target: int = 65536) -> None:
         logger.warning("Could not raise RLIMIT_NOFILE: %s", exc)
 
 
-def main() -> None:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Scheduled Batch Monitor")
     parser.add_argument("--skip-harvester", action="store_true")
     parser.add_argument("--skip-etf", action="store_true", help="Skip ETF panel refresh step")
@@ -305,7 +305,11 @@ def main() -> None:
         default=os.environ.get("DAILY_RUN_EXECUTION_MODE", "subprocess"),
         help="Pipeline step execution mode (subprocess default; callable uses registry future_callable).",
     )
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def run_daily(args: argparse.Namespace) -> None:
+    """Execute the full daily batch (called by CLI and Dagster daily_job)."""
     set_pipeline_execution_mode(args.execution_mode)
 
     # Configure logging: process steps go to log, CLI summary stays as print
@@ -378,10 +382,13 @@ def main() -> None:
     )
     if use_legacy_daily_run():
         logger.warning(
-            "SYSTEM_USE_LEGACY_DAILY_RUN=1 — using scripts/_legacy_daily_run_executor "
+            "SYSTEM_USE_LEGACY_DAILY_RUN=1 — using archived legacy executor "
             "(Dagster default path bypassed)"
         )
-        from scripts._legacy_daily_run_executor import DailyRunContext, execute_daily_sequence
+        from scripts.archive._legacy_daily_run_executor import (
+            DailyRunContext,
+            execute_daily_sequence,
+        )
 
         ctx = DailyRunContext(
             args=args,
@@ -736,6 +743,21 @@ def _capture_traces(bundle: RunBundle) -> None:
             })
         except Exception:
             logger.debug("Failed to capture HMM regime trace", exc_info=True)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """CLI entry. Prefer ``python -m orchestration.cli daily`` for launchd."""
+    args = parse_args(argv)
+    # Optional outer Dagster entry when not already inside daily_job.
+    if (
+        os.environ.get("SYSTEM_ORCHESTRATOR", "").strip().lower() == "dagster"
+        and os.environ.get("SYSTEM_INSIDE_DAGSTER_DAILY_JOB", "").strip() not in {"1", "true", "TRUE"}
+        and not use_legacy_daily_run()
+    ):
+        from orchestration.cli import cmd_daily
+
+        raise SystemExit(cmd_daily(list(argv) if argv is not None else sys.argv[1:]))
+    run_daily(args)
 
 
 if __name__ == "__main__":
