@@ -38,12 +38,16 @@ def _run_script(label: str, script: str, *extra_args: str) -> dict[str, Any]:
         return {"step": label, "status": "error", "error": str(exc), "duration_s": 0}
 
 
+# Order matters for freshness closure: risk_gate + readme_first must be written
+# before freshness_validator runs, otherwise ordering/closure hard-FAIL.
 REFRESH_PRODUCER_STEPS: list[tuple[str, str]] = [
     ("quality_validation", "quality_field_validator.py"),
     ("measurement_quality", "commands/weekly/build_measurement_quality_report.py"),
     ("judgment_layer", "judgment_layer.py"),
     ("promotion_gate", "judgment_promotion_gate.py"),
     ("trade_decision", "trade_decision_layer.py"),
+    ("trade_risk_gate", "trade_risk_gate.py"),
+    ("record_trade_decision", "record_trade_decision.py"),
     ("signal_card", "build_signal_card.py"),
     ("signal_consensus", "signal_consensus.py"),
     ("current_status", "build_current_status.py"),
@@ -51,11 +55,11 @@ REFRESH_PRODUCER_STEPS: list[tuple[str, str]] = [
     ("work_brief", "build_work_brief.py"),
     ("next_actions", "commands/weekly/build_next_actions.py"),
     ("improvement_queue_report", "refresh_improvement_queue_report.py"),
-    ("freshness_validator", "freshness_validator.py"),
     ("evidence_grade", "commands/weekly/build_evidence_grade_report.py"),
     ("artifact_registry", "commands/weekly/build_artifact_registry.py"),
     ("run_event", "record_daily_run_event.py"),
     ("readme_first", "commands/weekly/build_readme_first.py"),
+    ("freshness_validator", "freshness_validator.py"),
 ]
 
 
