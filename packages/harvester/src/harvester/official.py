@@ -156,6 +156,36 @@ DEFAULT_OFFICIAL_PROVIDERS = [
 ]
 
 
+def prefer_openbb() -> bool:
+    """Whether registry routing should try OpenBB providers before direct FRED.
+
+    Env ``HARVESTER_PREFER_OPENBB``:
+      auto (default) — True when the ``openbb`` package imports
+      1/true/on      — force prefer
+      0/false/off    — force direct-provider order from YAML
+    """
+    raw = os.environ.get("HARVESTER_PREFER_OPENBB", "auto").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    try:
+        import openbb  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def order_provider_priority(priority: list[str] | tuple[str, ...]) -> list[str]:
+    """Put openbb_* providers first when prefer_openbb() is active."""
+    items = list(priority)
+    if not prefer_openbb():
+        return items
+    openbb_first = [p for p in items if str(p).startswith("openbb")]
+    rest = [p for p in items if not str(p).startswith("openbb")]
+    return openbb_first + rest
+
+
 def data_root() -> Path:
     return Path(__file__).resolve().parents[2] / "data"
 
@@ -517,7 +547,7 @@ def fetch_official_series_from_registry(
     for s in registry.active_series():
         if s.is_derived:
             continue
-        for p in s.provider_priority:
+        for p in order_provider_priority(s.provider_priority):
             if p in enabled:
                 provider_series.setdefault(p, []).append(s)
                 break

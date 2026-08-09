@@ -21,6 +21,10 @@ dependencies = [
 openbb = [
     "openbb>=4.7,<5",
 ]
+sdk = [
+    "openbb>=4.7,<5",
+    "fredapi>=0.5",
+]
 dev = [
     "pytest>=8.0",
 ]

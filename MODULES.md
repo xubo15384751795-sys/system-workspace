@@ -21,7 +21,7 @@ owner, paths, and allowed communication points.
 | Thread | Status | Owns | Primary location | Context file | Tests |
 |---|---|---|---|---|---|
 | Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views, Streamlit UI | `packages/workbench/`, `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
-| Orchestration | `CANONICAL` | Dagster daily/refresh jobs, Pandera/GE quality adapters, DVC promote helpers | `packages/orchestration/`, `scripts/daily_run.py` | `module_contexts/orchestration.md` | 1 |
+| Orchestration | `CANONICAL` | Dagster daily/refresh jobs, Pandera/GE quality adapters, DVC promote helpers, optional Sentry/Datadog notify sinks | `packages/orchestration/`, `scripts/daily_run.py`, `system_runtime/observability.py` | `module_contexts/orchestration.md` | 8 |
 | Deformation v1 evidence archive | `ARCHIVED_FALSIFIED` | Falsified host-theory evidence, reproducibility, postmortem | `packages/framework/` | `module_contexts/framework.md` | archive-only |
 | Neutral Macro Pressure | `ACTIVE_PARTIAL` | Funding-mismatch and market-constraint gauges | `scripts/neutral_pressure_measurement.py`, `docs/measurements/` | `module_contexts/workbench.md` | requalification |
 | Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `packages/harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |

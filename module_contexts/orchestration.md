@@ -7,16 +7,20 @@ remains the authority for step order, schedules, and failure behavior.
 
 - `packages/orchestration/` Dagster definitions, ops, quality adapters, DVC helpers
 - in-process cutover for `scripts/daily_run.py` and `scripts/refresh_output_current.py`
-- Pandera / Great Expectations content-clock evaluation
+- Pandera content-clock evaluation (GE-shaped artifacts; optional GE pip extra)
 - DVC pointer recording for Harvester releases and snapshot promotes
+- Optional operator observability via `system_runtime/observability.py` (Sentry DSN /
+  Datadog `DD_API_KEY`), fanned out from `scripts/_notify.py`
 
 ## Primary Paths
 
 - `packages/orchestration/orchestration/`
 - `governance/daily_pipeline_registry.yaml`
+- `configs/great_expectations/expectations/` (suite contract docs)
+- `configs/dvc/config` (local no-scm DVC remote template)
 - `scripts/daily_run.py`
 - `scripts/refresh_output_current.py`
-- `scripts/_legacy_daily_run_executor.py` (emergency only)
+- `scripts/archive/_legacy_daily_run_executor.py` (emergency only)
 
 ## Escape hatch
 

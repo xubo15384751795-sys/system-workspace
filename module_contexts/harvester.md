@@ -43,6 +43,9 @@ That nested path appears in older docs only.
 - We publish immutable releases with provenance, checksums, source identity and freshness state.
 - Provider shape, completeness and date assertions live in this package's tests and quality code.
 - A failed release check produces no admitted evidence side effect.
+- When OpenBB is installed, registry routing prefers `openbb_*` providers
+  (`HARVESTER_PREFER_OPENBB=auto|1|0`). Direct FRED may use `fredapi` when present;
+  downstream `source_id` stays provider-native.
 
 ## Relies On
 

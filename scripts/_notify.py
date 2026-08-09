@@ -11,6 +11,11 @@ Configure:
   export NOTIFY_WEBHOOK_URL="https://hooks.slack.com/services/..."   # Slack
   export NOTIFY_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/..."  # Feishu
   export NOTIFY_WEBHOOK_URL="https://your-server.com/webhook"        # Generic
+
+Observability (optional; see system_runtime.observability):
+  export SENTRY_DSN="https://...@sentry.io/..."
+  export DD_API_KEY="..."
+  export DD_SITE="datadoghq.com"   # or datadoghq.eu
 """
 from __future__ import annotations
 
@@ -72,8 +77,27 @@ def _suppression_reason() -> str | None:
     return None
 
 
-def notify_failure(title: str, message: str) -> bool:
+def _notify_observability(title: str, message: str, *, severity: str = "error") -> None:
+    """Fan-out to Sentry/Datadog when configured (independent of desktop/webhook)."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    try:
+        from system_runtime.observability import emit_alert
+
+        emit_alert(
+            title,
+            message,
+            severity=severity,
+            tags={"source": "scripts._notify"},
+        )
+    except Exception:
+        # Observability must never break the daily path.
+        pass
+
+
+def notify_failure(title: str, message: str, *, severity: str = "error") -> bool:
     """Show notification via all available channels. Returns True if any ran."""
+    _notify_observability(title, message, severity=severity)
     suppressed = _suppression_reason()
     if suppressed:
         # Still visible to whoever is running, just not as a desktop alert.
@@ -89,7 +113,7 @@ def notify_alert(title: str, message: str) -> bool:
     return notify_failure(title, message)
 
 
-def notify_deviations(title: str, deviations: list[str]) -> bool:
+def notify_deviations(title: str, deviations: list[str], *, severity: str = "error") -> bool:
     """Notify only when deviations exist; normal state has zero output."""
     compact = [str(item).strip() for item in deviations if str(item).strip()]
     if not compact:
@@ -97,7 +121,7 @@ def notify_deviations(title: str, deviations: list[str]) -> bool:
     preview = "; ".join(compact[:3])
     if len(compact) > 3:
         preview += f"; +{len(compact) - 3} more"
-    return notify_failure(title, preview)
+    return notify_failure(title, preview, severity=severity)
 
 
 def _notify_desktop(title: str, message: str) -> bool:
@@ -142,4 +166,5 @@ def notify_daily_run_result(
         notify_deviations(
             "System daily_run warnings",
             [*warnings, "details: Output/alerts/latest_alert.md"],
+            severity="warning",
         )

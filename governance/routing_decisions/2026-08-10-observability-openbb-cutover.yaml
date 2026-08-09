@@ -1,0 +1,33 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-10-observability-openbb-cutover
+date: "2026-08-10"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Wire optional Sentry + Datadog event sinks into operator notify paths
+  (daily/refresh failure and freshness STALE). Prefer OpenBB providers in
+  Harvester registry routing when openbb is importable (HARVESTER_PREFER_OPENBB=auto);
+  FredProvider uses fredapi when installed, else raw HTTP. Release/provenance
+  ownership stays in Harvester.
+authority_changes:
+  - module: system_runtime/observability.py
+    claim: optional Sentry/Datadog alert fan-out
+  - module: scripts/_notify.py
+    claim: calls observability on failure/warning alerts
+  - module: packages/harvester/src/harvester/official.py
+    claim: prefer_openbb registry provider ordering
+  - module: packages/harvester/src/harvester/providers/fred.py
+    claim: fredapi-first acquisition with HTTP fallback
+references:
+  - system_runtime/observability.py
+  - packages/harvester/pyproject.toml
+  - configs/series_registry.yaml
+env:
+  - SENTRY_DSN
+  - DD_API_KEY
+  - DD_SITE
+  - HARVESTER_PREFER_OPENBB
+  - OBSERVABILITY_DISABLE
+non_goals:
+  - Replace claim ladder / Learning Hub / judgment logic with SaaS
+  - Require Datadog MCP or live credentials for local runs

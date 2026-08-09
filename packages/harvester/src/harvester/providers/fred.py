@@ -47,6 +47,55 @@ class FredProvider(OfficialProvider):
         return results
 
     def _fetch_one(self, series_id: str) -> ProviderResult:
+        # Prefer official fredapi client when installed; fall back to raw HTTP.
+        sdk_result = self._fetch_one_fredapi(series_id)
+        if sdk_result is not None:
+            return sdk_result
+        return self._fetch_one_http(series_id)
+
+    def _fetch_one_fredapi(self, series_id: str) -> ProviderResult | None:
+        try:
+            from fredapi import Fred
+        except ImportError:
+            return None
+        try:
+            fred = Fred(api_key=self._api_key)
+            series = fred.get_series(series_id)
+        except Exception as exc:  # noqa: BLE001 — provider boundary
+            logger.warning("fredapi failed for %s (%s); falling back to HTTP", series_id, exc)
+            return None
+        if series is None or len(series) == 0:
+            return self._build_error_result(series_id, "no observations returned", "empty")
+        rows: list[dict[str, Any]] = []
+        for ts, val in series.items():
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                continue
+            try:
+                numeric = float(val)
+            except (ValueError, TypeError):
+                continue
+            date_val = ts.date().isoformat() if hasattr(ts, "date") else str(ts)[:10]
+            rows.append({
+                "date": date_val,
+                "value": numeric,
+                "unit": "",
+                "frequency": "",
+            })
+        if not rows:
+            return self._build_error_result(series_id, "all values unparseable", "empty")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date"])
+        if self._cache:
+            self._write_raw(series_id, df.to_csv(index=False).encode("utf-8"))
+        return ProviderResult(
+            provider=self.source_id,
+            series_id=series_id,
+            frame=df,
+            source_url=f"{FRED_BASE}/series/observations",
+            source_params={"series_id": series_id, "client": "fredapi"},
+        )
+
+    def _fetch_one_http(self, series_id: str) -> ProviderResult:
         url = f"{FRED_BASE}/series/observations"
         params = {
             "series_id": series_id,

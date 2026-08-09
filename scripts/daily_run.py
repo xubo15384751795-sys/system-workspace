@@ -777,6 +777,12 @@ def _capture_traces(bundle: RunBundle) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     """CLI entry. Prefer ``python -m orchestration.cli daily`` for launchd."""
+    try:
+        from system_runtime.observability import init_sentry
+
+        init_sentry()
+    except Exception:
+        pass
     args = parse_args(argv)
     # Optional outer Dagster entry when not already inside daily_job.
     if (
