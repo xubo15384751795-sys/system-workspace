@@ -30,6 +30,8 @@ OFFICIAL_SERIES_MAP: dict[str, dict[str, Any]] = {
             "STLFSI4",
             # NFCI sub-indices
             "NFCIRISK", "NFCICREDIT", "NFCILEVERAGE",
+            # Shadow leverage / liquidity (proxy catalog)
+            "RRPONTSYD", "WRESBAL", "WTREGEN",
         ],
         "desc": {
             "T10Y2Y": "10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity",
@@ -51,6 +53,9 @@ OFFICIAL_SERIES_MAP: dict[str, dict[str, Any]] = {
             "NFCIRISK": "Chicago Fed NFCI Risk Subindex",
             "NFCICREDIT": "Chicago Fed NFCI Credit Subindex",
             "NFCILEVERAGE": "Chicago Fed NFCI Leverage Subindex",
+            "RRPONTSYD": "Overnight Reverse Repurchase Agreements",
+            "WRESBAL": "Reserve Balances with Federal Reserve Banks",
+            "WTREGEN": "Treasury General Account balance",
         },
     },
     "h41": {
@@ -542,73 +547,101 @@ def fetch_official_series_from_registry(
     else:
         enabled = set(DEFAULT_OFFICIAL_PROVIDERS)
 
-    # Build provider → series mapping from registry
-    provider_series: dict[str, list[RegistrySeries]] = {}
+    # Per-series provider attempts (ordered); fall back when preferred provider fails.
+    all_results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    provider_cache: dict[str, Any] = {}
+
+    def _provider(name: str):
+        if name in provider_cache:
+            return provider_cache[name]
+        provider_kwargs: dict[str, Any] = {
+            "api_key": keys.get(name, ""),
+            "data_root": str(dr) if dr else "",
+            "cache": cache,
+        }
+        if name.startswith("openbb"):
+            provider_kwargs["settings_env"] = keys.get("openbb_settings_env", "")
+        prov = build_provider(name, **provider_kwargs)
+        provider_cache[name] = prov
+        return prov
+
+    def _normalize_result(r: Any, prov: Any) -> pd.DataFrame | None:
+        if r.frame is None or r.frame.empty:
+            return None
+        df = r.frame.copy()
+        if "source_id" not in df.columns:
+            df["source_id"] = r.provider or prov.source_id
+        if "source_series_id" not in df.columns:
+            df["source_series_id"] = r.series_id
+        if "series_id" not in df.columns:
+            df["series_id"] = (
+                df["source_id"].astype(str).str.upper()
+                + ":"
+                + df["source_series_id"].astype(str)
+            )
+        for col in ["unit", "frequency"]:
+            if col not in df.columns:
+                df[col] = ""
+        df["vintage_date"] = vintage
+        qf = 0
+        if r.fetch_error:
+            qf = 2
+        elif r.fetch_fallback_reason:
+            qf = 1
+        df["quality_flag"] = qf
+        needed = [
+            c
+            for c in [
+                "date",
+                "series_id",
+                "source_id",
+                "source_series_id",
+                "value",
+                "unit",
+                "frequency",
+                "vintage_date",
+                "quality_flag",
+            ]
+            if c in df.columns
+        ]
+        return df[needed]
+
     for s in registry.active_series():
         if s.is_derived:
             continue
-        for p in order_provider_priority(s.provider_priority):
-            if p in enabled:
-                provider_series.setdefault(p, []).append(s)
-                break
-
-    all_results: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
-
-    for provider_name in sorted(provider_series.keys()):
-        series_list = provider_series[provider_name]
-        try:
-            provider_kwargs: dict[str, Any] = {
-                "api_key": keys.get(provider_name, ""),
-                "data_root": str(dr) if dr else "",
-                "cache": cache,
-            }
-            if provider_name.startswith("openbb"):
-                provider_kwargs["settings_env"] = keys.get("openbb_settings_env", "")
-            prov = build_provider(provider_name, **provider_kwargs)
-        except ProviderError as exc:
-            errors.append({"provider": provider_name, "error": str(exc)})
-            continue
-
-        source_series_ids = [s.source_series_id or s.canonical_id for s in series_list]
-        results = prov.fetch_series(source_series_ids)
-        for r in results:
-            if r.frame is not None and not r.frame.empty:
-                df = r.frame.copy()
-                if "source_id" not in df.columns:
-                    df["source_id"] = r.provider or prov.source_id
-                if "source_series_id" not in df.columns:
-                    df["source_series_id"] = r.series_id
-                if "series_id" not in df.columns:
-                    df["series_id"] = (
-                        df["source_id"].astype(str).str.upper()
-                        + ":"
-                        + df["source_series_id"].astype(str)
-                    )
-                for col in ["unit", "frequency"]:
-                    if col not in df.columns:
-                        df[col] = ""
-                df["vintage_date"] = vintage
-                qf = 0
-                if r.fetch_error:
-                    qf = 2
-                elif r.fetch_fallback_reason:
-                    qf = 1
-                df["quality_flag"] = qf
-                needed = [
-                    c for c in
-                    ["date", "series_id", "source_id", "source_series_id",
-                     "value", "unit", "frequency", "vintage_date", "quality_flag"]
-                    if c in df.columns
-                ]
-                all_results.append(df[needed])
-            else:
+        source_id = s.source_series_id or s.canonical_id
+        got = False
+        for provider_name in order_provider_priority(s.provider_priority):
+            if provider_name not in enabled:
+                continue
+            try:
+                prov = _provider(provider_name)
+            except ProviderError as exc:
+                errors.append({"provider": provider_name, "series_id": source_id, "error": str(exc)})
+                continue
+            results = prov.fetch_series([source_id])
+            result = results[0] if results else None
+            if result is None:
                 errors.append({
                     "provider": provider_name,
-                    "series_id": r.series_id,
-                    "error": r.fetch_error or "unknown",
-                    "fallback_reason": r.fetch_fallback_reason,
+                    "series_id": source_id,
+                    "error": "empty_provider_result",
                 })
+                continue
+            normalized = _normalize_result(result, prov)
+            if normalized is not None:
+                all_results.append(normalized)
+                got = True
+                break
+            errors.append({
+                "provider": provider_name,
+                "series_id": source_id,
+                "error": result.fetch_error or "unknown",
+                "fallback_reason": result.fetch_fallback_reason,
+            })
+        if not got:
+            logger.debug("no provider succeeded for %s", source_id)
 
     if not all_results:
         logger.warning("fetch_official_series_from_registry: no data returned")
@@ -705,6 +738,90 @@ def panel_identity_set(panel: pd.DataFrame) -> set[str]:
     return identifiers
 
 
+def _release_panel_candidates(exports_root: Path, *, exclude_release_id: str = "") -> list[Path]:
+    """Ordered candidate benchmark panels (newest first), optionally skipping one release."""
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    latest = exports_root / "latest"
+    if latest.exists():
+        try:
+            resolved = latest.resolve()
+            if not exclude_release_id or resolved.name != exclude_release_id:
+                ordered.append(resolved / "data" / "benchmark_panel.parquet")
+        except OSError:
+            pass
+    for path in sorted(exports_root.glob("*/data/benchmark_panel.parquet"), reverse=True):
+        if exclude_release_id and path.parent.parent.name == exclude_release_id:
+            continue
+        if path not in seen:
+            ordered.append(path)
+            seen.add(path)
+    return ordered
+
+
+def _carry_forward_missing_series(
+    panel: pd.DataFrame,
+    *,
+    exports_root: Path,
+    exclude_release_id: str = "",
+) -> pd.DataFrame:
+    """Fill gaps from a prior release when a preferred provider fails.
+
+    Prevents OpenBB-first routing (or transient provider errors) from dropping
+    previously admitted series such as FRED:RRPONTSYD from a new release.
+    """
+    from harvester.registry import load_registry
+
+    registry = load_registry()
+    expected: set[str] = set()
+    for series in registry.active_series():
+        if series.is_derived:
+            continue
+        cid = series.canonical_id
+        expected.add(cid)
+        expected.add(f"FRED:{cid}")
+        expected.add(f"fred:{cid}")
+    present = panel_identity_set(panel)
+    missing = {item for item in expected if item not in present}
+    if not missing:
+        return panel
+    bare = {m.split(":", 1)[1] if ":" in m else m for m in missing}
+    carried = pd.DataFrame()
+    for path in _release_panel_candidates(exports_root, exclude_release_id=exclude_release_id):
+        if not path.exists():
+            continue
+        try:
+            previous = pd.read_parquet(path)
+        except Exception:
+            continue
+        if previous.empty or "series_id" not in previous.columns:
+            continue
+        prev_ids = previous["series_id"].astype(str)
+        mask = prev_ids.isin(missing) | prev_ids.map(
+            lambda value: value.split(":", 1)[1] if ":" in value else value
+        ).isin(bare)
+        candidate = previous.loc[mask].copy()
+        if candidate.empty:
+            continue
+        carried = candidate
+        break
+    if carried.empty:
+        return panel
+    if not panel.empty and "series_id" in panel.columns:
+        have = set(panel["series_id"].astype(str))
+        carried = carried[~carried["series_id"].astype(str).isin(have)]
+    if carried.empty:
+        return panel
+    logger.warning(
+        "carry-forward %d rows / %d series from previous release",
+        len(carried),
+        carried["series_id"].nunique(),
+    )
+    if panel.empty:
+        return carried.reset_index(drop=True)
+    return pd.concat([panel, carried], ignore_index=True)
+
+
 def stage_complete_release(
     *,
     release_id: str,
@@ -756,6 +873,11 @@ def stage_complete_release(
         providers=providers,
         cache=cache,
         api_keys=api_keys,
+    )
+    panel = _carry_forward_missing_series(
+        panel,
+        exports_root=ex_root,
+        exclude_release_id=release_id,
     )
 
     # ------------------------------------------------------------------

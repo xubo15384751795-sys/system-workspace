@@ -40,8 +40,12 @@ steps:
   schedule: weekly
 - id: claim_ladder_tracker
   schedule: weekly
+- id: system_index
+- id: current_status
 - id: hmm_stability_audit
   schedule: weekly
+- id: work_brief
+- id: readme_first
 - id: freshness_validator
 - id: data_retention_audit
   schedule: weekly
@@ -79,13 +83,9 @@ steps:
   schedule: weekly
 - id: threshold_review_bridge
   schedule: weekly
-- id: system_index
-- id: current_status
-- id: work_brief
 - id: evidence_grade_report
 - id: build_artifact_registry
 - id: record_daily_run_event
-- id: readme_first
 - id: next_actions
 - id: change_analysis
   schedule: weekly

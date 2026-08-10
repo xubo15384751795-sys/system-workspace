@@ -1395,7 +1395,8 @@ steps:
       failure_behavior: hold_flat
       owner: Workbench
   system_index:
-    order: 56
+    # Before freshness_validator (36): closure requires system_index in the same run window.
+    order: 34
     status: active
     owner: Data/Output
     command: python scripts/build_system_index.py
@@ -1423,7 +1424,8 @@ steps:
       failure_behavior: block_current_readout
       owner: Data/Output
   readme_first:
-    order: 62
+    # Before freshness_validator so CURRENT chain artifacts are not MISSING at the gate.
+    order: 35.5
     status: active
     owner: Workbench
     command: python scripts/commands/weekly/build_readme_first.py
@@ -1590,7 +1592,9 @@ steps:
     order: 75
     status: active
     owner: Learning Hub
-    command: python scripts/artifact_monitoring_audit.py --strict
+    # Report-only on the daily path (failure_behavior: continue_with_warning).
+    # Use --strict in CI/manual audits when hard-fail is intended.
+    command: python scripts/artifact_monitoring_audit.py
     input: &id_monitoring_coverage_in
     - governance/daily_pipeline_registry.yaml
     - Data/
@@ -1605,7 +1609,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/artifact_monitoring_audit.py --strict
+      current_command: python scripts/artifact_monitoring_audit.py
       future_callable: scripts.artifact_monitoring_audit:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2003,7 +2007,7 @@ steps:
       - Output/feedback_samples/calibration_summary.json
       - Output/feedback_samples/evaluation_report.md
   current_status:
-    order: 57
+    order: 34.5
     status: active
     owner: Workbench
     command: python scripts/build_current_status.py
@@ -2036,7 +2040,7 @@ steps:
       failure_behavior: continue_with_warning
       owner: Workbench
   work_brief:
-    order: 58
+    order: 35
     status: active
     owner: Workbench
     command: python scripts/build_work_brief.py

@@ -12,12 +12,19 @@ Design (capability pivot):
 from __future__ import annotations
 
 import logging
+import sys
 from math import sqrt
+from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from professional_methods import (
+
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from professional_methods import (  # noqa: E402
     TRADING_DAYS,
     build_forward_stress_events,
     causal_pit,

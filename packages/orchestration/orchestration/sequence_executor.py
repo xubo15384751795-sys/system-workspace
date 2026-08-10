@@ -58,10 +58,25 @@ def _policy_env() -> dict[str, str]:
     return {"PYTHONPATH": f"{ROOT}:{ROOT / 'Workbench' / 'src'}:{ROOT / 'scripts'}"}
 
 
+def _scripts_env() -> dict[str, str]:
+    """Root + scripts/ so sibling modules like professional_methods import cleanly."""
+    return {
+        "PYTHONPATH": os.pathsep.join(
+            [
+                str(ROOT),
+                str(ROOT / "scripts"),
+                str(ROOT / "packages" / "harvester" / "src"),
+                str(ROOT / "packages" / "workbench" / "src"),
+            ]
+        ),
+    }
+
+
 STEP_ENV: dict[str, Callable[[], dict[str, str]]] = {
     "harvester": _harvester_env,
     "regime_detection": _workbench_env,
     "build_policy_from_paper": _policy_env,
+    "paper_portfolio": _scripts_env,
 }
 
 STEP_INPUT_ARTIFACTS: dict[str, Callable[["DailyRunContext"], list[str]]] = {

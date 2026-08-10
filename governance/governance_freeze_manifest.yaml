@@ -59,7 +59,7 @@ baseline_hashes:
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: f653df283d9a43b0
+  daily_pipeline_registry.yaml: 6ef4e5dfd4e5bb31
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
   deferred_work_register.yaml: 1fde357f8e240193
@@ -689,6 +689,14 @@ baseline_updates:
     878bca4 and is not in scripts/archive/, so update_k_features() returns
     False every run and the declared artifact has been frozen since
     2026-06-17. Documentation only — no schedule, authority or output changed.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-08-10'
+  old_hash: f653df283d9a43b0
+  new_hash: 6ef4e5dfd4e5bb31
+  reason: >-
+    Reorder system_index / current_status / work_brief / readme_first before
+    freshness_validator so the CURRENT closure chain is closed in-run; drop
+    --strict from monitoring_coverage_audit to match continue_with_warning.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

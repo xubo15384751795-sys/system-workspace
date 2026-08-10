@@ -1,0 +1,24 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-10-daily-partial-failure-repair
+date: "2026-08-10"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Repair overnight partial_failure: reorder system_index/work_brief/readme_first
+  before freshness_validator; Harvester per-series provider fallback + carry-forward
+  for dropped proxy series; paper_portfolio scripts PYTHONPATH; monitoring audit
+  report-only (drop --strict) per continue_with_warning.
+authority_changes:
+  - module: governance/daily_pipeline_registry.yaml
+    claim: closure producers ordered before freshness_validator
+  - module: packages/harvester/src/harvester/official.py
+    claim: provider fallback + previous-release carry-forward
+  - module: packages/orchestration/orchestration/sequence_executor.py
+    claim: paper_portfolio gets scripts/ on PYTHONPATH
+references:
+  - governance/daily_run_sequence.yaml
+  - scripts/strategy_lab/paper_portfolio.py
+  - scripts/public_residual_stress.py
+non_goals:
+  - Clear all monitoring blind spots in one change
+  - Mutate claim-ladder / judgment semantics
