@@ -422,8 +422,18 @@ def check_temporal_ordering(now: datetime, *, mode: str = "standard") -> list[di
 
             if later_time < earlier_time:
                 chain = rule.get("chain", "full")
-                # Cross-day ordering issues are advisory (weekly vs daily mix)
-                is_advisory = (mode == "quick" and chain == "full") or earlier_time.date() != later_time.date()
+                weekly_mix = (
+                    _ARTIFACT_CADENCE.get(earlier_name) == "weekly"
+                    or _ARTIFACT_CADENCE.get(later_name) == "weekly"
+                )
+                # Cross-day / weekly-vs-daily ordering issues are advisory.
+                # Same-day refresh must not hard-FAIL solely because a weekly
+                # learning_summary was not regenerated after trade_decision.
+                is_advisory = (
+                    (mode == "quick" and chain == "full")
+                    or earlier_time.date() != later_time.date()
+                    or weekly_mix
+                )
                 issues.append({
                     "rule": rule["rule"],
                     "earlier": earlier_name,
@@ -433,7 +443,7 @@ def check_temporal_ordering(now: datetime, *, mode: str = "standard") -> list[di
                     "status": "ADVISORY_EXPECTED" if is_advisory else "VIOLATION",
                     "hint": (
                         f"Ordering violation: {later_name} is older than {earlier_name}. "
-                        f"Re-run: python3 scripts/run_work_cycle.py --mode standard"
+                        f"Re-run the owning step (weekly artifacts: force-weekly daily path)."
                     ),
                 })
 

@@ -12,6 +12,13 @@ import subprocess
 import sys
 import time
 from datetime import UTC, datetime
+from pathlib import Path
+
+# Ensure workspace + orchestration package are importable for ./sys refresh.
+_ROOT_BOOT = Path(__file__).resolve().parents[1]
+for _p in (str(_ROOT_BOOT), str(_ROOT_BOOT / "scripts"), str(_ROOT_BOOT / "packages" / "orchestration")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from scripts._admission_gate import AdmissionDecision, admit_for_consumption
 from scripts._constants import TIMEOUT_STANDARD

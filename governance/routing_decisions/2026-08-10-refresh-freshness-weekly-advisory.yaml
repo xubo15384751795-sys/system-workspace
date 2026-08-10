@@ -1,0 +1,19 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-10-refresh-freshness-weekly-advisory
+date: "2026-08-10"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Bootstrap orchestration on sys.path for ./sys refresh; treat temporal
+  ordering rules that involve weekly-cadence artifacts (e.g. learning_summary)
+  as ADVISORY_EXPECTED so same-day refresh/daily paths are not hard-failed
+  when weekly steps were not regenerated.
+authority_changes:
+  - module: scripts/refresh_output_current.py
+    claim: path bootstrap for packages/orchestration
+  - module: scripts/freshness_validator.py
+    claim: weekly-vs-daily ordering is advisory
+references:
+  - governance/daily_pipeline_registry.yaml
+non_goals:
+  - Skip freshness closure checks for daily CURRENT chain artifacts
