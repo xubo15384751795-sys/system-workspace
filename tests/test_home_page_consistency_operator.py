@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.operator
+
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
 

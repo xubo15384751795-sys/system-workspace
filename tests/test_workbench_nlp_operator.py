@@ -6,7 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft202012Validator
+
+pytestmark = pytest.mark.operator
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"

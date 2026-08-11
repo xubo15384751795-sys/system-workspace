@@ -11,7 +11,7 @@
 #   make work-standard  Standard work cycle (re-judge, no data fetch)
 #   make work-full      Full daily pipeline
 
-.PHONY: install-dev test test-verbose audit freshness dry-run status \
+.PHONY: install-dev test test-operator test-verbose audit freshness dry-run status \
        work-quick work-standard work-full clean
 
 PYTHON ?= python3
@@ -25,6 +25,9 @@ install-dev:
 
 test:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -q
+
+test-operator:
+	PYTHONPATH=$(PYTHONPATH) SYSTEM_OPERATOR_TESTS=1 $(PYTHON) -m pytest tests -q -m "operator"
 
 test-verbose:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -v

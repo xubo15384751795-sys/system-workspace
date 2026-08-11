@@ -1,0 +1,38 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-12-system-stabilization
+date: "2026-08-12"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Freeze baseline at 27117d5 for system stabilization. Establish hermetic test
+  classification so default pytest/make test excludes operator/network/external_repo/slow
+  suites and fails if tests create repo-root Data/ or Output/. Close the /hub/series
+  SSRF vector by rejecting raw URL fields (resource, metadata.url) at the HTTP boundary
+  and validating every outbound URL before urlopen. Add acceptance-test skeletons for
+  RunOutcome, single pipeline compiler, publish transaction, and publish admission as
+  xfail contracts that activate when each feature lands.
+authority_changes:
+  - module: pytest.ini
+    claim: default test collection excludes operator/network/external_repo/slow; strict markers
+  - module: tests/conftest.py
+    claim: hermetic workspace guard fails if tests create repo-root Data/ or Output/
+  - module: packages/framework/src/api/app.py
+    claim: /hub/series, /hub/events, /hub/filings, /hub/positions reject raw URL fields
+  - module: packages/framework/src/api/security.py
+    claim: validate_outbound_url rejects non-https, loopback, private, link-local, file schemes
+  - module: packages/framework/src/_legacy/data/data_sources.py
+    claim: HTTPClient.get_text validates outbound URL before urlopen
+references:
+  - tests/conftest.py
+  - tests/test_run_outcome.py
+  - tests/test_pipeline_compiler.py
+  - tests/test_publish_transaction.py
+  - tests/test_publish_admission.py
+  - packages/framework/tests/test_ssrf_boundary.py
+  - Output/verification/stabilization_baseline.json
+non_goals:
+  - Mutate launchd plists or switch the scheduler
+  - Refresh Data/ or rewrite Output/
+  - Change model thresholds, positions, or trade conclusions
+  - Implement RunOutcome, compiler, transaction, or admission (skeletons only)
+  - Unify Python version or dependency lock

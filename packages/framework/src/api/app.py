@@ -31,6 +31,31 @@ def create_app(
     resolved_api_key = api_key if api_key is not None else resolve_api_key(config)
     install_api_key_middleware(app, api_key=resolved_api_key)
 
+    def _reject_raw_url_fields(requests: list[dict[str, Any]]) -> None:
+        """Fail-closed: reject raw URL fields (``resource``, ``metadata.url``).
+
+        These fields flow through the legacy adapter chain to ``HTTPClient`` /
+        ``urlopen`` with no host validation.  Until the endpoint-registry
+        redesign (WP6B), the HTTP boundary refuses them outright so callers
+        must use provider/dataset/series identifiers instead.
+        """
+        for i, req in enumerate(requests):
+            if not isinstance(req, dict):
+                continue
+            if "resource" in req:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"request[{i}]: 'resource' field is not accepted; "
+                    "use provider/dataset/series_id instead",
+                )
+            metadata = req.get("metadata")
+            if isinstance(metadata, dict) and "url" in metadata:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"request[{i}]: 'metadata.url' field is not accepted; "
+                    "use provider/dataset/series_id instead",
+                )
+
     @app.get("/health")
     def health():
         return service.health()
@@ -96,6 +121,7 @@ def create_app(
         start: str = "2026-01-01",
         end: str = "2026-04-20",
     ):
+        _reject_raw_url_fields(requests)
         return service.fetch_series(requests=requests, start=start, end=end)
 
     @app.post("/hub/events")
@@ -104,6 +130,7 @@ def create_app(
         start: str = "2026-01-01",
         end: str = "2026-04-20",
     ):
+        _reject_raw_url_fields(requests)
         return service.fetch_events(requests=requests, start=start, end=end)
 
     @app.post("/hub/filings")
@@ -112,6 +139,7 @@ def create_app(
         start: str = "2026-01-01",
         end: str = "2026-04-20",
     ):
+        _reject_raw_url_fields(requests)
         return service.fetch_filings(requests=requests, start=start, end=end)
 
     @app.post("/hub/positions")
@@ -120,6 +148,7 @@ def create_app(
         start: str = "2026-01-01",
         end: str = "2026-04-20",
     ):
+        _reject_raw_url_fields(requests)
         return service.fetch_positions(requests=requests, start=start, end=end)
 
     # ------------------------------------------------------------------

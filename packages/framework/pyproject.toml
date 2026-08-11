@@ -37,6 +37,9 @@ markers = [
     "report: report verdict gate",
     "governance_loop: ledger, escalation, incident",
     "slow: tests that take >10s",
+    "operator: tests requiring an initialized operator workspace; excluded by default",
+    "network: tests that make live network calls; excluded by default",
+    "external_repo: tests requiring external repositories; excluded by default",
 ]
 
 # ── Typed Boundary: strict on architecture layers, relaxed on UI/scripts ──

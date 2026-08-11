@@ -14,6 +14,8 @@ from scripts.check_output_freshness import (
     run_freshness_check,
 )
 
+pytestmark = pytest.mark.operator
+
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT = ROOT / "Output" / "current"
 

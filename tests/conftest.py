@@ -81,6 +81,36 @@ def _dir_fingerprint(path: Path, *, limit: int = 200) -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _hermetic_workspace_guard():
+    """Always-on guard: fail if a hermetic test session creates repo-root Data/ or Output/.
+
+    Snapshots whether ``Data`` and ``Output`` exist at the repo root before the
+    session.  If either was absent and appeared after the session, the session
+    failed hermeticity.  This catches tests that write to real operator state
+    instead of ``tmp_path``.
+
+    When the dirs already exist (operator workspace), this guard defers to the
+    opt-in ``_operator_tree_hash_guard`` below - it does not duplicate that
+    check.
+    """
+    data_path = _ROOT / "Data"
+    output_path = _ROOT / "Output"
+    data_existed = data_path.exists()
+    output_existed = output_path.exists()
+    yield
+    violations = []
+    if not data_existed and data_path.exists():
+        violations.append(str(data_path))
+    if not output_existed and output_path.exists():
+        violations.append(str(output_path))
+    if violations:
+        pytest.fail(
+            "Hermetic violation: test session created repo-root "
+            f"directory(s) that did not exist before: {violations}"
+        )
+
+
+@pytest.fixture(scope="session", autouse=True)
 def _operator_tree_hash_guard():
     """Opt-in guard: fail if tests mutate pre-existing operator Data/ or Output/.
 

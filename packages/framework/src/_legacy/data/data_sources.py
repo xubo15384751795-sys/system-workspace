@@ -36,6 +36,7 @@ import pandas as pd
 
 from src.core.interfaces import DataSource
 from src.data.paths import resolve_fred_cache_dir
+from src.api.security import SSRFBlockedError, validate_outbound_url
 
 
 DEFAULT_PROXY_SERIES_MAP: dict[str, list[str]] = {
@@ -166,6 +167,7 @@ class HTTPClient:
         return json.loads(self.get_text(url=url, headers=headers))
 
     def get_text(self, url: str, headers: dict[str, str] | None = None) -> str:
+        validate_outbound_url(url)
         all_headers = dict(self.default_headers)
         if headers:
             all_headers.update(headers)

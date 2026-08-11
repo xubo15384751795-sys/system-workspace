@@ -2,11 +2,85 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import socket
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 DEFAULT_API_KEY_ENV = "TERMINAL_API_KEY"
 LOCAL_BIND_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+class SSRFBlockedError(Exception):
+    """Raised when an outbound URL targets a forbidden host/scheme."""
+
+
+def validate_outbound_url(url: str) -> str:
+    """Validate that *url* is safe for outbound HTTP egress.
+
+    Rejects non-HTTPS schemes (including ``file://``), loopback / private /
+    link-local / multicast / reserved IP addresses (after DNS resolution),
+    userinfo, fragments, and empty hosts.  Returns the URL on success;
+    raises :class:`SSRFBlockedError` on any violation.
+    """
+    if not url or not isinstance(url, str):
+        raise SSRFBlockedError("empty URL")
+
+    parsed = urlparse(url)
+
+    if parsed.scheme.lower() != "https":
+        raise SSRFBlockedError(f"non-https scheme: {parsed.scheme!r}")
+
+    if "@" in (parsed.netloc or ""):
+        raise SSRFBlockedError("userinfo not allowed in URL")
+
+    if parsed.fragment:
+        raise SSRFBlockedError("fragment not allowed in URL")
+
+    host = parsed.hostname
+    if not host:
+        raise SSRFBlockedError("missing host")
+
+    # Reject obvious textual loopback/private before DNS.
+    host_lower = host.strip().lower()
+    if host_lower in LOCAL_BIND_HOSTS:
+        raise SSRFBlockedError(f"loopback host: {host}")
+    # Bracket-less IPv6 literal e.g. [::1] is parsed by .hostname as ::1
+    try:
+        addr = ipaddress.ip_address(host_lower)
+    except ValueError:
+        addr = None
+    if addr is not None and _is_forbidden_ip(addr):
+        raise SSRFBlockedError(f"forbidden IP literal: {host}")
+
+    # DNS-resolve and check every returned address (catches DNS rebinding).
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise SSRFBlockedError(f"DNS resolution failed for {host}: {exc}") from exc
+
+    for family, _stype, _proto, _canon, sockaddr in infos:
+        ip_str = sockaddr[0]
+        try:
+            ip_addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if _is_forbidden_ip(ip_addr):
+            raise SSRFBlockedError(f"host {host} resolves to forbidden IP: {ip_str}")
+
+    return url
+
+
+def _is_forbidden_ip(addr: ipaddress._BaseAddress) -> bool:
+    """Return True for loopback, private, link-local, multicast, or reserved IPs."""
+    return bool(
+        addr.is_loopback
+        or addr.is_private
+        or addr.is_link_local
+        or addr.is_multicast
+        or addr.is_reserved
+        or addr.is_unspecified
+    )
 
 
 def is_loopback_host(host: str) -> bool:
