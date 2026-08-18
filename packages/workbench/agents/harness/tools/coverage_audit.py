@@ -181,7 +181,8 @@ def audit_tool_coverage() -> dict[str, Any]:
 
     by_priority: dict[str, int] = {}
     for item in missing:
-        by_priority[item["priority"]] = by_priority.get(item["priority"], 0) + 1
+        priority = str(item.get("priority", "unknown"))
+        by_priority[priority] = by_priority.get(priority, 0) + 1
 
     return {
         "registered_tool_count": len(registered),

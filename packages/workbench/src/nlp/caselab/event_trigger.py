@@ -10,16 +10,19 @@ continuous market features.
 """
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import json
+import logging
 import operator
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
+
+from system_runtime.paths import WorkspacePaths
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
 OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "event_triggers"
@@ -76,7 +79,7 @@ def _parse_value(token: str, observables: dict[str, Any]) -> Any:
             return float(token)
         return int(token)
     except ValueError:
-        pass
+        logger.debug("Condition token is not numeric; resolving as observable: %s", token)
     # Look up in observables
     return observables.get(token, 0)
 
@@ -232,7 +235,7 @@ class EventTriggerEngine:
     @property
     def event_mechanisms(self) -> dict[str, dict[str, Any]]:
         """All event-triggered mechanism definitions."""
-        return self._tiers.get("event_triggered", {})
+        return cast(dict[str, dict[str, Any]], self._tiers.get("event_triggered", {}))
 
     def evaluate(self, observables: dict[str, Any]) -> TriggerResult:
         """Evaluate all event triggers against observables.
@@ -317,7 +320,7 @@ class EventTriggerEngine:
         path = OUTPUT_DIR / "trigger_result.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
-        return path
+        return cast(Path, path)
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────

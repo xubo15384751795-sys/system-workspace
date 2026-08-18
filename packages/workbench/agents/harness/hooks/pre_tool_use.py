@@ -25,14 +25,15 @@ Also provides specialized sub-hooks:
 
 from __future__ import annotations
 
-import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
-
 from hooks.risk_classifier import RiskClassification, classify
+
+logger = logging.getLogger(__name__)
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 POLICIES_DIR = HARNESS_ROOT / "policies"
@@ -71,7 +72,7 @@ def _load_yaml(filename: str) -> dict:
     if not path.is_file():
         return {}
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        return cast(dict, yaml.safe_load(f) or {})
 
 
 def _load_boundary_rules() -> dict:
@@ -84,7 +85,7 @@ def _load_permissions() -> dict:
 
 def _load_feature_flags() -> dict:
     raw = _load_yaml("feature_flags.yaml")
-    return raw.get("flags", raw)  # v0.2 nests flags under "flags" key; v0.1 has them flat
+    return cast(dict, raw.get("flags", raw))  # v0.2 nests flags under "flags" key; v0.1 has them flat
 
 
 # ── core evaluation ─────────────────────────────────────────────────────
@@ -336,7 +337,7 @@ def _check_feature_gates(
     if not target_output:
         # No explicit target_output: still gate if feature is disabled or denied_for_release
         try:
-            from policies.feature_flags import is_enabled, get_feature
+            from policies.feature_flags import get_feature
             feat = get_feature(feature_name)
             if feat is None:
                 return None
@@ -355,13 +356,15 @@ def _check_feature_gates(
                     by_hook="feature_flags",
                 )
         except ImportError:
-            pass
+            logger.debug("Output gate dependency unavailable", exc_info=True)
         return None
 
     # Full gate evaluation
     try:
         from policies.feature_flags import (
             evaluate_output_gate,
+        )
+        from policies.feature_flags import (
             get_feature as ff_get_feature,
         )
 
@@ -379,9 +382,9 @@ def _check_feature_gates(
         context = {"mode": mode, "release_context": mode in ("release", "publish", "finalize")}
         decision = evaluate_output_gate(feature_name, target_output, context)
         if decision.decision != "allow":
-            return decision
+            return cast(PolicyDecision, decision)
     except ImportError:
-        pass
+        logger.debug("Optional output gate unavailable", exc_info=True)
 
     return None
 
@@ -432,7 +435,7 @@ def pre_edit(
 
 def pre_finalize_release(
     tool_spec: Any, input: dict, classification: RiskClassification
-) -> PolicyDecision:
+) -> PolicyDecision | None:
     """Pre-finalize-release gate: always require manual review for releases."""
     flags = _load_feature_flags()
     if not flags.get("require_manual_review_for_finalize", {}).get("default", True):
@@ -461,7 +464,7 @@ def pre_finalize_release(
 
 def pre_publish_snapshot(
     tool_spec: Any, input: dict, classification: RiskClassification
-) -> PolicyDecision:
+) -> PolicyDecision | None:
     """Pre-publish-snapshot gate: require manual review + boundary checks."""
     flags = _load_feature_flags()
 
@@ -486,7 +489,7 @@ def pre_publish_snapshot(
                 reason="Simulated fallback runs must not enter production publication flows",
             )
         except Exception:
-            pass
+            logger.warning("Boundary simulation gate failed closed", exc_info=True)
         return PolicyDecision(
             decision="deny",
             reason="Simulated fallback runs must not enter production publication flows",

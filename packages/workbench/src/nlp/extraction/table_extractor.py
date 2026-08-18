@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from nlp.chunking.chunk_schema import TextChunk
 from nlp.extraction.schemas import ExtractedEntity
-from nlp.parsing.table_parser import DetectedTable
 
 
 class TableRowEntity(BaseModel):
@@ -85,7 +84,7 @@ def extract_table_entities(
 
 def _parse_table_chunk(chunk: TextChunk) -> Optional[ExtractedTable]:
     text = chunk.text.strip()
-    lines = [l.strip() for l in text.split("\n") if l.strip() and "|" in l]
+    lines = [line.strip() for line in text.split("\n") if line.strip() and "|" in line]
     if len(lines) < 2:
         return None
 

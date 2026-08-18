@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 
+from nlp.canonical_compat import attach_event_card_claim, event_card_payload
 from nlp.candidate_ledger import record_candidate_export
 from nlp.extraction.schemas import StructuralEventCard
 
@@ -34,8 +36,9 @@ def write_event_card(
     target_dir = out_dir or DATA_NLP / "event_cards" / card_status
     target_dir.mkdir(parents=True, exist_ok=True)
     card.status = card_status
+    attach_event_card_claim(card)
     out_path = target_dir / f"{card.event_id}.json"
-    out_path.write_text(card.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    out_path.write_text(json.dumps(event_card_payload(card), indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     if write_ledger and card_status == "candidate":
         effective_ledger_path = ledger_path
         if effective_ledger_path is None and out_dir is not None:

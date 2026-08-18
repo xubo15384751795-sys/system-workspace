@@ -80,9 +80,9 @@ def _guess_event_name(chunks: list[TextChunk]) -> str:
     for chunk in chunks[:2]:
         heading = chunk.metadata.get("heading", "")
         if heading:
-            return heading
+            return str(heading)
     if chunks:
-        return chunks[0].text[:80].strip()
+        return str(chunks[0].text[:80].strip())
     return "Untitled Event"
 
 

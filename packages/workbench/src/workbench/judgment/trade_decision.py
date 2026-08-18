@@ -92,7 +92,7 @@ def determine_stance(
             if float(position) < 1.0:
                 return "RISK_OFF"
         except (TypeError, ValueError):
-            pass
+            return "RISK_OFF"
 
     n_det = vg.get("n_deteriorating")
     if n_det is None and isinstance(sigma_vector, dict):

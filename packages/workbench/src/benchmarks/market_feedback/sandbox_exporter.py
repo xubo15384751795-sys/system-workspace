@@ -12,7 +12,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
+from typing import Any, Optional, cast
 
 BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
 
@@ -105,7 +105,7 @@ def export_sandbox_input(
     # Lock input directory as read-only
     _make_read_only(sandbox_dir)
 
-    return sandbox_dir
+    return cast(Path, sandbox_dir)
 
 
 def _build_joined_features(sandbox_dir: Path) -> None:
@@ -176,6 +176,6 @@ def _make_read_only(directory: Path) -> None:
             f.chmod(current & ~0o222)
 
 
-def load_sandbox_input_manifest(benchmark_id: str) -> dict:
+def load_sandbox_input_manifest(benchmark_id: str) -> dict[str, Any]:
     path = BENCHMARKS_ROOT / benchmark_id / "sandbox_input" / "sandbox_input_manifest.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from workbench.workspace._paths import DEFORMATION_RUNS, REPORTS_DIR, WORKSPACE_ROOT
+from system_runtime.canonical_ids import build_claim
 
 
 C005_TEXT = "The same broad stress benchmark level can hide different structural morphologies."
@@ -93,9 +94,12 @@ def write_report(evidence: C005Evidence, output_dir: Path | None = None) -> Path
 
 
 def evidence_payload(evidence: C005Evidence) -> dict[str, Any]:
+    canonical_claim = _canonical_c005_claim(evidence)
     return {
         "schema_version": "claim_evidence.c005_morphology.v1",
         "claim_id": "C005",
+        "canonical_claim_id": canonical_claim["claim_id"],
+        "canonical_claim": canonical_claim,
         "claim": C005_TEXT,
         "run_id": evidence.run_id,
         "claim_verdict": evidence.claim_verdict,
@@ -114,6 +118,40 @@ def evidence_payload(evidence: C005Evidence) -> dict[str, Any]:
             "global benchmark dominance",
         ],
     }
+
+
+def _canonical_c005_claim(evidence: C005Evidence) -> dict[str, Any]:
+    """Expose C005 as a conservative standalone canonical Claim.
+
+    The historical C005 replay is deliberately blocked from canonical
+    promotion.  Its benchmark/residual artifacts are not yet Observation /
+    Measurement / Evidence records, so this compatibility slice carries an
+    empty evidence list and a diagnostic ceiling instead of fabricating links.
+    """
+    status = {
+        "SUPPORTED": "WATCH",
+        "WEAKENED": "WEAKLY_SUPPORTED",
+        "REJECTED": "CONFLICTED",
+        "INSUFFICIENT_DATA": "INSUFFICIENT_DATA",
+    }[evidence.claim_verdict]
+    return build_claim(
+        claim_text=C005_TEXT,
+        subject="C005",
+        predicate="separates_structural_morphology",
+        policy_version="claim_evidence.c005_morphology.v1",
+        evidence_ids=[],
+        status=status,
+        confidence=None,
+        provenance={
+            "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "producer": "workbench.c005_morphology_report",
+            "run_id": evidence.run_id,
+            "legacy_claim_id": "C005",
+            "claim_ceiling": "diagnostic_watch_only",
+            "promotion_allowed": False,
+            "historical_evidence_only": True,
+        },
+    )
 
 
 def render_report(evidence: C005Evidence) -> str:
@@ -139,7 +177,7 @@ def render_report(evidence: C005Evidence) -> str:
             f"- Required Action: {evidence.required_action}",
             "",
             "## Claim",
-            f"- ID: C005",
+            "- ID: C005",
             f"- Statement: {C005_TEXT}",
             f"- Claim Verdict: {evidence.claim_verdict}",
             "",

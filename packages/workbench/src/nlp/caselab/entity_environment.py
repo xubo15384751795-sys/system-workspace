@@ -161,7 +161,6 @@ def build_entity_environment(entity: dict) -> dict[str, Any]:
     non_transferable = entity.get("non_transferable", "")
     mechanisms = entity.get("related_mechanisms", [])
     cases = entity.get("related_cases", [])
-    positioning = entity.get("positioning", "")
     vector = entity.get("variable_vector", {})
 
     # 1. Environment variables (from template + mechanisms)

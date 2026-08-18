@@ -15,10 +15,8 @@ Also triggered when `deformation.benchmark_dominance` feature is invoked.
 
 ## Read First
 - `Output/deformation_runs/<run_id>/` — target snapshot and manifest
-- `deformation-framework/prompts/referee/benchmark_dominance_audit.md`
-- `deformation-framework/prompts/codex/no_lookahead_tests.md`
-- `policies/boundary_rules.yaml` — `boundary.deny.benchmark-silent-proxy-entry`
-- `policies/feature_flags.yaml` — `deformation.benchmark_dominance: engineering_required`
+- `packages/workbench/agents/harness/policies/boundary_rules.yaml` — `boundary.deny.benchmark-silent-proxy-entry`
+- `packages/workbench/agents/harness/policies/feature_flags.yaml` — `deformation.benchmark_dominance: engineering_required`
 - `ROUTING_CONSTITUTION.md` — `benchmark_proxy_separation`
 - Control data from finalized Harvester releases
 
@@ -56,7 +54,7 @@ Separate benchmark runs from live proxy-core runs.
 
 ### Step 6: Feature Gate Compliance
 ```python
-from policies.feature_flags import can_promote, explain_gate
+from packages.workbench.agents.harness.policies.feature_flags import can_promote, explain_gate
 result = can_promote("deformation.benchmark_dominance", "paper/main_output")
 assert not result.allowed  # engineering_required → denied to paper
 print(explain_gate("deformation.benchmark_dominance", "paper/main_output"))

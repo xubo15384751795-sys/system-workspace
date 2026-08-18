@@ -10,8 +10,6 @@ Usage:
 """
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 
 
@@ -24,7 +22,7 @@ CASELAB_ROOT = Path("/Users/a1/Paper")
 def main():
     print("=== CaseLab Emergence Experiments ===")
     print(f"Vault: {CASELAB_ROOT}")
-    print(f"Output: Data/nlp/caselab_experiments/")
+    print("Output: Data/nlp/caselab_experiments/")
     print()
 
     # Load data
@@ -72,7 +70,7 @@ def main():
         mechs = ", ".join(c["mechanisms"][:4])
         print(f"    {c['label']}: [{mechs}] (density={c['density']:.3f})")
     if mech_result["bridge_mechanisms"]:
-        print(f"  Bridge mechanisms:")
+        print("  Bridge mechanisms:")
         for b in mech_result["bridge_mechanisms"][:3]:
             print(f"    {b['mechanism']}: bridges {b['bridges_clusters']} clusters")
     print()
@@ -87,7 +85,7 @@ def main():
         ents = ", ".join(r["entities"][:3])
         print(f"    {r['role']}: [{ents}] (size={r['size']})")
     if ent_result["bridge_entities"]:
-        print(f"  Bridge entities:")
+        print("  Bridge entities:")
         for b in ent_result["bridge_entities"][:3]:
             print(f"    {b['entity_id']}: bridges {b['bridges_clusters']} roles → {b['cluster_roles']}")
     print()

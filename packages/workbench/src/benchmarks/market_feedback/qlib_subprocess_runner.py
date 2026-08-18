@@ -79,7 +79,7 @@ def run_external_executor(benchmark_id: str) -> dict:
             "error": f"Job spec not found: {job_spec_path}",
         }
 
-    spec = json.loads(job_spec_path.read_text(encoding="utf-8"))
+    json.loads(job_spec_path.read_text(encoding="utf-8"))
 
     # Check if Qlib runner script exists
     if not QLIB_RUNNER_SCRIPT.exists():

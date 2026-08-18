@@ -13,21 +13,21 @@ Usage:
 """
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
+from system_runtime.paths import WorkspacePaths, output_surface
 
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ROOT = WorkspacePaths.discover().root
-JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
+JUDGMENT_PATH = output_surface(ROOT, "judgment") / "latest.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
-OUTPUT_DIR = ROOT / "Output" / "judgment"
+OUTPUT_DIR = output_surface(ROOT, "judgment")
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -35,7 +35,7 @@ def load_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -63,7 +63,6 @@ def check_confidence(judgment: dict[str, Any]) -> dict[str, Any]:
     if confidence == "low":
         # Check if mechanism confidence is sufficient for mechanism claims
         mech_conf = layered.get("mechanism_confidence", confidence)
-        diag_conf = layered.get("diagnostic_confidence", confidence)
 
         if mech_conf in ("medium_low", "medium", "medium_high", "high"):
             return {

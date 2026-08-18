@@ -169,7 +169,6 @@ def _check_caselab_for_tier1(caselab: dict | None) -> tuple[bool, float, str]:
         return False, 0.0, "no CaseLab output"
     mq = caselab.get("match_quality", {})
     top_score = _as_float(mq.get("top_score", 0))
-    label = mq.get("label", "unknown")
     if top_score >= _CASELAB_TIER1_THRESHOLD:
         return True, top_score, f"CaseLab score {top_score:.3f} >= {_CASELAB_TIER1_THRESHOLD}"
     return False, top_score, f"CaseLab score {top_score:.3f} < {_CASELAB_TIER1_THRESHOLD}"
@@ -455,7 +454,7 @@ def evaluate_claim_tier(
         )
     if direction in ("stress_relief", "stress_building"):
         demotion_risks.append(
-            f"M/D direction reversal would demote to Tier 0"
+            "M/D direction reversal would demote to Tier 0"
         )
     if not demotion_risks:
         demotion_risks.append("No immediate demotion risk")

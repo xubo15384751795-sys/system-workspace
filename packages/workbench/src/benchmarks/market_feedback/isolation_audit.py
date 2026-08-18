@@ -7,14 +7,17 @@ checked by benchmark_gate before allowing Learning Hub events.
 from __future__ import annotations
 
 import json
+import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
+
 from workbench.paths import workspace_root as _workspace_root
 
 BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
 MAIN_SRC_ROOT = _workspace_root() / "Workbench" / "src"
 
-import re
+logger = logging.getLogger(__name__)
 
 QLIB_IMPORT_RE = re.compile(r'^\s*(import\s+qlib\b|from\s+qlib\b)', re.MULTILINE)
 
@@ -74,7 +77,7 @@ def _check_no_qlib_imports() -> dict:
                 if QLIB_IMPORT_RE.search(text):
                     offenders.append(str(path))
             except Exception:
-                pass
+                logger.warning("Unable to inspect benchmark source for Qlib imports: %s", path, exc_info=True)
 
     if offenders:
         return {"status": "failed", "detail": f"Qlib imports found in: {offenders}"}

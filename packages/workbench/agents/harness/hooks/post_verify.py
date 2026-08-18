@@ -11,7 +11,6 @@ for the Learning Hub's recurrence analysis.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
 from hooks.post_tool_use import PostHookResult
@@ -70,7 +69,7 @@ def post_verify(
     # Emit to Learning Hub event writer
     try:
         from events.system_event_writer import write_verification_result
-        write_verification_result(
+        event_written = bool(write_verification_result(
             tool_id=tool_id,
             subsystem=subsystem,
             mode="verify",
@@ -80,10 +79,17 @@ def post_verify(
             summary=event["summary"],
             blockers=event["blockers"],
             residual_risks=event["residual_risks"],
-        )
-        event["event_written"] = True
+        ))
+        event["event_written"] = event_written
+        if not event_written:
+            event["degraded"] = True
+            event["degradation_reason"] = "VERIFICATION_EVENT_WRITE_FAILED"
+            hook_result.warnings.append("verification event write failed; verdict is not durable")
     except Exception:
         event["event_written"] = False
+        event["degraded"] = True
+        event["degradation_reason"] = "VERIFICATION_EVENT_WRITE_FAILED"
+        hook_result.warnings.append("verification event write failed; verdict is not durable")
 
     hook_result.events.append(event)
     hook_result.events_emitted = 1
@@ -97,15 +103,15 @@ def _now_iso() -> str:
 
 def _get_id(spec: Any) -> str:
     if hasattr(spec, "id"):
-        return spec.id
+        return str(spec.id)
     if isinstance(spec, dict):
-        return spec.get("id", "unknown")
+        return str(spec.get("id", "unknown"))
     return "unknown"
 
 
 def _get_attr(spec: Any, key: str, default: str = "unknown") -> str:
     if hasattr(spec, key):
-        return getattr(spec, key)
+        return str(getattr(spec, key))
     if isinstance(spec, dict):
-        return spec.get(key, default)
+        return str(spec.get(key, default))
     return default

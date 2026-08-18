@@ -23,17 +23,19 @@ Usage:
 
 from __future__ import annotations
 
-import json
+import logging
+import re
 import shlex
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
+logger = logging.getLogger(__name__)
 
 
 # ── data structures ─────────────────────────────────────────────────────
@@ -42,8 +44,8 @@ WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
 class CheckSpec:
     """Specification for a single verification check."""
     check_id: str
-    check_type: str          # command, yaml_parse, link_check, import_check, tool_run
-    command: str = ""        # shell command or tool invocation
+    check_type: str          # command, link_check, manual_required, tool_run
+    command: str = ""        # shell command, path, or tool invocation
     expected_exit_code: int = 0
     description: str = ""
 
@@ -162,9 +164,12 @@ class CheckSelector:
                       command="deformation.validate_snapshot", description="No-lookahead validation"),
             CheckSpec("proxy_boundary", "tool_run",
                       command="deformation.inspect_operator_trace", description="Benchmark leakage check"),
-            CheckSpec("baseline_rank", "command",
-                      command="python3 -c \"print('baseline rank check: PASS')\"",
-                      description="Baseline rank comparison"),
+            CheckSpec(
+                "baseline_rank",
+                "manual_required",
+                command="baseline_rank_evidence",
+                description="Baseline rank comparison requires a real evidence artifact",
+            ),
         ]
 
     def _python_checks(self, files: list[str]) -> list[CheckSpec]:
@@ -200,9 +205,12 @@ class CheckSelector:
                 cmd = "python3 -c \"import json; json.load(open('" + f + "'))\""
                 checks.append(CheckSpec(f"json_parse_{Path(f).stem}", "command", command=cmd, description=f"JSON parse: {f}"))
             elif ext in (".md",):
-                checks.append(CheckSpec(f"link_check_{Path(f).stem}", "command",
-                                        command="python3 -c \"print('link check for " + f + ": PASS')\"",
-                                        description=f"Link check: {f}"))
+                checks.append(CheckSpec(
+                    f"link_check_{Path(f).stem}",
+                    "link_check",
+                    command=f,
+                    description=f"Link check: {f}",
+                ))
         return checks
 
     def _common_checks(self, files: list[str], target: str) -> list[CheckSpec]:
@@ -286,8 +294,15 @@ class VerificationRunner:
             commands_executed=len(results),
         )
 
-        # Write verification event
-        self._write_verification_event(verdict_obj)
+        # A verification PASS is not durable unless its evidence event was
+        # accepted by the Learning Hub writer. Keep the local verdict
+        # fail-closed when the mandatory audit sink is missing or fails.
+        event_written = self._write_verification_event(verdict_obj)
+        verdict_obj.evidence["verification_event_written"] = event_written
+        if not event_written:
+            verdict_obj.verdict = "FAIL"
+            verdict_obj.blockers.append("verification_event_write_failed")
+            verdict_obj.residual_risks.append("verification evidence is not durable")
 
         return verdict_obj
 
@@ -295,8 +310,63 @@ class VerificationRunner:
         """Execute a single check.  Tool runs go through the registry."""
         if check.check_type == "tool_run":
             return self._execute_tool(check, mode)
-        else:
-            return self._execute_command(check)
+        if check.check_type == "link_check":
+            return self._execute_link_check(check)
+        if check.check_type == "manual_required":
+            return self._execute_manual_required(check)
+        return self._execute_command(check)
+
+    def _execute_manual_required(self, check: CheckSpec) -> CheckResult:
+        """Fail explicitly when a required evidence-producing check is absent."""
+        observed = f"NOT_IMPLEMENTED: {check.description}"
+        return CheckResult(
+            check_id=check.check_id,
+            command=check.command,
+            exit_code=2,
+            observed=observed,
+            passed=False,
+            detail=observed,
+        )
+
+    def _execute_link_check(self, check: CheckSpec) -> CheckResult:
+        """Validate local Markdown links without performing network requests."""
+        document = Path(check.command)
+        if not document.is_absolute():
+            document = WORKBENCH_ROOT / document
+        if not document.is_file():
+            observed = f"Markdown file does not exist: {document}"
+            return CheckResult(check.check_id, check.command, 1, observed, False, observed)
+
+        try:
+            text = document.read_text(encoding="utf-8")
+        except OSError as exc:
+            observed = f"Unable to read Markdown file: {type(exc).__name__}"
+            return CheckResult(check.check_id, check.command, 1, observed, False, observed)
+
+        missing: list[str] = []
+        link_count = 0
+        pattern = re.compile(r"(?<!!)\[[^\]]*\]\((<[^>]+>|[^)\s]+)(?:\s+\"[^\"]*\")?\)")
+        for match in pattern.finditer(text):
+            raw_target = match.group(1)
+            target = raw_target[1:-1] if raw_target.startswith("<") else raw_target
+            if not target or target.startswith(("#", "http://", "https://", "mailto:")):
+                continue
+            link_count += 1
+            target = unquote(target.split("#", 1)[0].split("?", 1)[0])
+            if not target:
+                continue
+            linked_path = Path(target)
+            if not linked_path.is_absolute():
+                linked_path = document.parent / linked_path
+            if not linked_path.exists():
+                missing.append(target)
+
+        if missing:
+            observed = f"missing local links ({len(missing)}): {', '.join(missing[:10])}"
+            return CheckResult(check.check_id, check.command, 1, observed, False, observed)
+
+        observed = f"validated {link_count} local Markdown link(s); external links not fetched"
+        return CheckResult(check.check_id, check.command, 0, observed, True, observed)
 
     def _execute_tool(self, check: CheckSpec, mode: str) -> CheckResult:
         """Execute a tool via the system registry."""
@@ -375,10 +445,10 @@ class VerificationRunner:
 
         return "FAIL"  # fallthrough
 
-    def _write_verification_event(self, verdict: VerificationVerdict) -> None:
+    def _write_verification_event(self, verdict: VerificationVerdict) -> bool:
         try:
             from events.system_event_writer import write_verification_result
-            write_verification_result(
+            return bool(write_verification_result(
                 tool_id="workflow.verify_only",
                 subsystem="harness",
                 mode="verify",
@@ -388,9 +458,10 @@ class VerificationRunner:
                 summary=f"Verification {verdict.verdict} for {verdict.target}",
                 blockers=verdict.blockers,
                 residual_risks=verdict.residual_risks,
-            )
+            ))
         except Exception:
-            pass
+            logger.warning("Unable to record verification evidence", exc_info=True)
+            return False
 
 
 # ── public API ──────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -12,10 +12,9 @@ from workbench.freshness import (
     banner_lines,
     build_release_freshness_manifest,
     series_matches,
-    write_release_freshness_manifest,
 )
 
-ROOT = _workspace_root()
+ROOT = cast(Path, _workspace_root())
 OUTPUT = ROOT / "Output"
 WORKBENCH = OUTPUT / "workbench" / "benchmark_evidence"
 CURRENT = OUTPUT / "current"
@@ -37,7 +36,10 @@ def _now() -> str:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON document must be an object: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -76,11 +78,11 @@ def _resolve_catalog_panel(catalog: dict[str, Any], release: Path) -> Path:
     # New format: datasets[].dataset_id == "benchmark_panel"
     for ds in catalog.get("datasets", []) or []:
         if ds.get("dataset_id") == "benchmark_panel":
-            return release / ds["data_path"]
+            return release / str(ds["data_path"])
     # Old format: files[].role == "benchmark_panel"
     for item in catalog.get("files", []) or []:
         if item.get("role") == "benchmark_panel":
-            return release / item["path"]
+            return release / str(item["path"])
     raise FileNotFoundError("No benchmark_panel found in Harvester catalog")
 
 

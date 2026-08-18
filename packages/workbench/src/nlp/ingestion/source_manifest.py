@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Any
+from typing import Any, cast
 
 
-ROOT = _workspace_root()
+ROOT = cast(Path, _workspace_root())
 DATA_NLP = ROOT / "Data" / "nlp"
 
 

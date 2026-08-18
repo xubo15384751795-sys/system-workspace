@@ -30,7 +30,9 @@ Workbench is a standalone tool. It communicates with other modules solely throug
 | ML signal | `ml_signal.schema.json` | ML signal output |
 | Report artifact | `report_artifact.schema.json` | Report output |
 
-Sibling repos (`structural-risk-harvester`, `system-learning-hub`, etc.) are independent — they live alongside Workbench, not inside it.
+The Harvester, Learning Hub, Framework, and orchestration projects are
+workspace members under `packages/`; they are independently installable but
+share the root workspace lock and are not sibling submodules.
 
 ## Structural NLP
 
@@ -48,7 +50,6 @@ and uses cross-module schemas at the workspace `protocols/` layer.
 ## Quick start
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .[dev]
-pytest
+uv sync --locked --all-packages
+uv run --locked python -m pytest packages/workbench/tests -q
 ```

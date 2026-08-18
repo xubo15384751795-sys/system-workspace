@@ -9,7 +9,6 @@ from ml.graph_embed import (
     NodeEmbeddings,
     _cosine,
     _ppmi,
-    _random_walk,
     _truncated_svd,
     embed_graph,
     graph_cosine_similarity,

@@ -10,9 +10,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
+from typing import cast
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = cast(Path, _workspace_root() / "Output" / "benchmarks" / "market_feedback")
 
 
 def write_comparison_report(benchmark_id: str) -> Path:
@@ -33,17 +33,17 @@ def write_comparison_report(benchmark_id: str) -> Path:
         decision = json.loads(decision_path.read_text(encoding="utf-8"))
 
     lines = [
-        f"# Market Feedback Benchmark Report",
-        f"",
+        "# Market Feedback Benchmark Report",
+        "",
         f"**Benchmark ID:** `{benchmark_id}`",
         f"**Generated:** {datetime.now(timezone.utc).isoformat()}",
-        f"",
-        f"## Feedback Classification",
-        f"",
+        "",
+        "## Feedback Classification",
+        "",
         f"**Type:** `{decision.get('feedback_type', 'unknown')}`",
-        f"",
+        "",
         f"**Summary:** {decision.get('summary', 'N/A')}",
-        f"",
+        "",
     ]
 
     # Metric deltas table

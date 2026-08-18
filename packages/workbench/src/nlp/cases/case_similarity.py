@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+import logging
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from nlp.cases.case_registry import CaseProfile, CaseRegistry, STRUCTURAL_VARIABLES
-from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder
-from nlp.embeddings.vector_store import VectorStore
+from nlp.cases.case_registry import STRUCTURAL_VARIABLES, CaseRegistry
+from nlp.embeddings.embedder import Embedder
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ml.graph_embed import GraphEmbedder
+
     from nlp.narrative.graph_builder import StructuralGraph
 
 
@@ -60,6 +62,15 @@ class CaseSimilarityEngine:
         self.tag_weight = tag_weight
         self.text_weight = text_weight
         self.graph_weight = graph_weight
+        self._backend_status: dict[str, dict[str, object]] = {
+            "text": {"backend": "disabled", "fallback": False, "error": None},
+            "graph": {"backend": "disabled", "fallback": False, "error": None},
+        }
+
+    @property
+    def backend_status(self) -> dict[str, dict[str, object]]:
+        """Return optional signal backend outcomes without exception details."""
+        return {name: dict(status) for name, status in self._backend_status.items()}
 
     def find_similar(
         self,
@@ -99,6 +110,17 @@ class CaseSimilarityEngine:
             and query_graph is not None
             and bool(case_graphs)
         )
+        self._backend_status["text"] = (
+            {"backend": "pending", "fallback": False, "error": None}
+            if event_text.strip()
+            else {"backend": "disabled", "fallback": False, "error": None}
+        )
+        self._backend_status["graph"] = (
+            {"backend": "pending", "fallback": False, "error": None}
+            if use_graph
+            else {"backend": "disabled", "fallback": False, "error": None}
+        )
+        graph_error: str | None = None
         results: list[CaseSimilarityResult] = []
 
         for case_id, profile in self.registry._cases.items():
@@ -120,7 +142,9 @@ class CaseSimilarityEngine:
                     graph_score = self.graph_embedder.graph_similarity(  # type: ignore[union-attr]
                         query_graph, case_graphs[case_id]  # type: ignore[index]
                     )
-                except Exception:
+                except Exception as exc:  # noqa: BLE001 - optional signal has explicit fallback
+                    graph_error = type(exc).__name__
+                    logger.warning("Graph similarity backend failed; omitting graph signal: %s", graph_error)
                     graph_score = None
 
             combined = _blend(
@@ -159,6 +183,18 @@ class CaseSimilarityEngine:
                 )
             )
 
+        if graph_error is not None:
+            self._backend_status["graph"] = {
+                "backend": "graph_embedder",
+                "fallback": True,
+                "error": graph_error,
+            }
+        elif use_graph:
+            self._backend_status["graph"] = {
+                "backend": "graph_embedder",
+                "fallback": False,
+                "error": None,
+            }
         results.sort(key=lambda r: r.score, reverse=True)
         return results[:top_k]
 
@@ -167,8 +203,28 @@ class CaseSimilarityEngine:
             return 0.0
         try:
             vecs = self.embedder.embed([text_a[:2000], text_b[:2000]])
+            embedder_status = getattr(self.embedder, "backend_status", None)
+            if isinstance(embedder_status, dict):
+                self._backend_status["text"] = {
+                    "backend": str(embedder_status.get("backend") or "unknown"),
+                    "fallback": bool(embedder_status.get("fallback", False)),
+                    "error": embedder_status.get("error"),
+                }
+            else:
+                self._backend_status["text"] = {
+                    "backend": "embedder",
+                    "fallback": False,
+                    "error": None,
+                }
             return float(_cosine_similarity(vecs[0], vecs[1]))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - optional signal has explicit fallback
+            error = type(exc).__name__
+            self._backend_status["text"] = {
+                "backend": "embedder",
+                "fallback": True,
+                "error": error,
+            }
+            logger.warning("Text similarity backend failed; omitting text signal: %s", error)
             return 0.0
 
 
@@ -203,7 +259,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     denom = norm_a * norm_b
     if denom < 1e-10:
         return 0.0
-    return max(0.0, min(1.0, dot / denom))
+    return float(max(0.0, min(1.0, dot / denom)))
 
 
 def _jaccard_similarity(a: set[str], b: set[str]) -> float:

@@ -10,7 +10,6 @@ Verifies all three modules produce consistent output.
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
 import pandas as pd

@@ -16,7 +16,9 @@ def fmt_value(value: object) -> str:
     try:
         if value is None:
             return "n/a"
-        return f"{float(value):.3f}"
+        if isinstance(value, (int, float, str)):
+            return f"{float(value):.3f}"
+        return str(value)
     except (TypeError, ValueError):
         return str(value)
 
@@ -44,7 +46,7 @@ def generate_summary(fw_output: dict) -> str:
         f"- Singular regime: {'yes' if adv.get('measurement_blind_spot') else 'no'}",
         f"- Primary market space: {primary_readout.get('state', 'PRIMARY_READOUT_UNAVAILABLE')}",
         f"- Legacy leading channel: {sv.get('dominant_channel', 'N/A')} (diagnostic only)",
-        f"- Escalation: no",
+        "- Escalation: no",
         "",
         "## Interpretation",
         basic["summary"],
@@ -65,7 +67,7 @@ def generate_summary(fw_output: dict) -> str:
     lines += [
         "",
         "## Data And Reproducibility",
-        f"- Data backend: harvester",
+        "- Data backend: harvester",
         f"- Harvester release: {adv.get('harvester_release', 'unknown')}",
         f"- Generated at: {fw_output['as_of']}",
         "",

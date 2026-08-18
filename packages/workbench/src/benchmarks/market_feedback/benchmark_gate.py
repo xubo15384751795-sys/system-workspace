@@ -9,10 +9,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = cast(Path, _workspace_root() / "Output" / "benchmarks" / "market_feedback")
 
 REQUIRED_ARTIFACTS = [
     "benchmark_manifest.json",
@@ -41,9 +41,8 @@ def check_benchmark_gate(benchmark_id: str) -> dict:
     # Check for failure marker
     failure_marker = benchmark_dir / "qlib_output" / "failure_marker.json"
     has_failed = failure_marker.exists()
-    failure_info = None
     if has_failed:
-        failure_info = json.loads(failure_marker.read_text(encoding="utf-8"))
+        json.loads(failure_marker.read_text(encoding="utf-8"))
 
     # Check isolation audit
     audit_path = benchmark_dir / "isolation_audit.json"
@@ -70,4 +69,4 @@ def check_benchmark_gate(benchmark_id: str) -> dict:
 
 
 def gate_allows_learning_hub(gate_result: dict) -> bool:
-    return gate_result.get("gate_passed", False)
+    return bool(gate_result.get("gate_passed", False))

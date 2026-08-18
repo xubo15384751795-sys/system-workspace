@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 
+from nlp.canonical_compat import build_event_card_claim
 from nlp.extraction.schemas import StructuralEventCard
 
 
@@ -45,8 +46,13 @@ def build_hard_case_record(
     review_decision: str,
     failure_reason: str,
 ) -> dict:
+    canonical_claim = build_event_card_claim(card, legacy_status=review_decision)
     return {
         "candidate_id": card.candidate_id or card.event_id,
+        "canonical_claim_id": canonical_claim["claim_id"],
+        "canonical_claim_status": canonical_claim["status"],
+        "canonical_claim_ceiling": canonical_claim["provenance"]["claim_ceiling"],
+        "canonical_evidence_ids": canonical_claim["evidence_ids"],
         "source_text_quote": card.source_text_quote or (card.evidence_quotes[0] if card.evidence_quotes else ""),
         "predicted_variables": _candidate_variables(card),
         "event_type": _infer_event_type(card),

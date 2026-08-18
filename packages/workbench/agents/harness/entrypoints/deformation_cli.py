@@ -7,12 +7,14 @@ fetch / run / analyze              dynamically import deformation packages (JAX/
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
 RUNS_ROOT = WORKBENCH_ROOT / "Output" / "deformation_runs"
+logger = logging.getLogger(__name__)
 
 HELP = """system deformation — deformation-framework commands
 
@@ -96,7 +98,7 @@ def _list_snapshots(*, json_output: bool = False) -> int:
                     info["status"] = m.get("status", "")
                     info["generated_at"] = m.get("generated_at", "")
                 except (OSError, json.JSONDecodeError):
-                    pass
+                    logger.warning("Unable to read deformation run manifest: %s", manifest_path, exc_info=True)
             result.append(info)
         print(json.dumps({"status": "ok", "snapshots": result}, indent=2))
         return 0
@@ -118,7 +120,7 @@ def _list_snapshots(*, json_output: bool = False) -> int:
                 run_type = m.get("run_type", "-")
                 status = m.get("status", "-")
             except (OSError, json.JSONDecodeError):
-                pass
+                logger.warning("Unable to read deformation run manifest: %s", manifest_path, exc_info=True)
         print(f"{rd.name:<24} {run_date:<12} {run_type:<10} {status:<10}")
     return 0
 
@@ -135,7 +137,7 @@ def _inspect_snapshot(snapshot_id: str, *, json_output: bool = False) -> int:
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            pass
+            logger.warning("Unable to read deformation run manifest: %s", manifest_path, exc_info=True)
 
     snapshot_path = _snapshot_json_path(run_dir)
     snapshot = {}
@@ -143,7 +145,7 @@ def _inspect_snapshot(snapshot_id: str, *, json_output: bool = False) -> int:
         try:
             snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            pass
+            logger.warning("Unable to read deformation snapshot: %s", snapshot_path, exc_info=True)
 
     if json_output:
         print(json.dumps({

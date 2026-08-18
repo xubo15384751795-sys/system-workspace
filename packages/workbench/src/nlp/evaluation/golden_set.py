@@ -4,7 +4,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from pydantic import BaseModel, Field
 

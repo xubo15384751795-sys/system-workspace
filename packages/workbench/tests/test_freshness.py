@@ -53,7 +53,6 @@ class TestClassifyLag:
     def test_zero_lag_is_fresh(self):
         assert freshness.classify_lag(0, "weekly", self.POLICY) == "fresh"
 
-
 # ---------------------------------------------------------------------------
 # parse_timestamp / parse_date
 # ---------------------------------------------------------------------------
@@ -213,6 +212,43 @@ class TestBuildReleaseFreshnessManifest:
 
         return release, policy_path
 
+    def test_exchange_calendar_lag_matches_content_clock(self, tmp_path, sample_policy, sample_panel):
+        sample_policy["indicators"]["CISS"] = {
+            "frequency": "daily",
+            "required": True,
+            "calendar": "XNYS",
+            "stale_required_severity": "block",
+            "missing_required_severity": "block",
+        }
+        ciss = pd.DataFrame([
+            {
+                "series_id": "CISS",
+                "date": "2026-08-04",
+                "value": 0.12,
+                "vintage_date": "2026-08-17",
+                "unit": "index",
+                "frequency": "daily",
+                "source_id": "external_public",
+                "source_series_id": "CISS",
+                "quality_flag": "ok",
+            }
+        ])
+        panel = pd.concat([sample_panel, ciss], ignore_index=True)
+        release, policy_path = self._write_release(tmp_path, sample_policy, panel)
+        catalog = json.loads((release / "catalog.json").read_text())
+        catalog["created_at"] = "2026-08-17T18:00:00Z"
+        (release / "catalog.json").write_text(json.dumps(catalog))
+
+        manifest = freshness.build_release_freshness_manifest(release, policy_path=policy_path)
+        item = next(row for row in manifest["indicators"] if row["series_id"] == "CISS")
+
+        assert item["lag_basis"] == "exchange_session"
+        assert item["calendar"] == "XNYS"
+        assert item["lag_days"] == 9
+        assert item["freshness_status"] == "acceptable_lag"
+        assert item["gate_severity"] == "none"
+        assert not any("CISS" in blocker for blocker in manifest["gate_result"]["blockers"])
+
     def test_manifest_has_required_keys(self, tmp_path, sample_policy, sample_panel):
         release, policy_path = self._write_release(tmp_path, sample_policy, sample_panel)
         manifest = freshness.build_release_freshness_manifest(release, policy_path=policy_path)
@@ -265,6 +301,84 @@ class TestBuildReleaseFreshnessManifest:
         policy_path.write_text(yaml.dump(sample_policy))
         with pytest.raises(FileNotFoundError):
             freshness.build_release_freshness_manifest(release, policy_path=policy_path)
+
+    def test_cross_asset_missing_provider_outcome_blocks_freshness(
+        self, tmp_path, sample_policy, sample_panel
+    ):
+        release, policy_path = self._write_release(tmp_path, sample_policy, sample_panel)
+        manifest_dir = release / "manifests"
+        manifest_dir.mkdir()
+        (manifest_dir / "cross_asset_daily_panel.manifest.json").write_text(
+            json.dumps({"dataset_id": "cross_asset_daily_panel"}), encoding="utf-8"
+        )
+
+        manifest = freshness.build_release_freshness_manifest(release, policy_path=policy_path)
+
+        assert manifest["provider_gate"]["status"] == "BLOCKED"
+        assert manifest["gate_result"]["promotion_allowed"] is False
+        assert any("cross_asset_daily_panel" in item for item in manifest["gate_result"]["blockers"])
+
+    def test_cross_asset_reuse_after_provider_failure_blocks_freshness(
+        self, tmp_path, sample_policy, sample_panel
+    ):
+        release, policy_path = self._write_release(tmp_path, sample_policy, sample_panel)
+        manifest_dir = release / "manifests"
+        manifest_dir.mkdir()
+        (manifest_dir / "cross_asset_daily_panel.manifest.json").write_text(
+            json.dumps(
+                {
+                    "dataset_id": "cross_asset_daily_panel",
+                    "provider_outcome": {
+                        "status": "reused_after_provider_failure",
+                        "failed_count": 33,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        manifest = freshness.build_release_freshness_manifest(release, policy_path=policy_path)
+
+        assert manifest["provider_gate"]["status"] == "BLOCKED"
+        assert any("reused_after_provider_failure" in item for item in manifest["gate_result"]["blockers"])
+
+    def test_complete_release_requires_benchmark_provider_outcome(
+        self, tmp_path, sample_policy, sample_panel
+    ):
+        release, policy_path = self._write_release(tmp_path, sample_policy, sample_panel)
+        catalog = json.loads((release / "catalog.json").read_text())
+        catalog["datasets"] = [
+            {
+                "dataset_id": "benchmark_panel",
+                "manifest_path": "manifests/benchmark_panel.manifest.json",
+            },
+            {
+                "dataset_id": "cross_asset_daily_panel",
+                "manifest_path": "manifests/cross_asset_daily_panel.manifest.json",
+            },
+        ]
+        (release / "catalog.json").write_text(json.dumps(catalog))
+        manifest_dir = release / "manifests"
+        manifest_dir.mkdir(exist_ok=True)
+        for dataset_id in ("benchmark_panel", "cross_asset_daily_panel"):
+            (manifest_dir / f"{dataset_id}.manifest.json").write_text(
+                json.dumps({"dataset_id": dataset_id}), encoding="utf-8"
+            )
+
+        freshness_manifest = freshness.build_release_freshness_manifest(
+            release, policy_path=policy_path
+        )
+
+        outcomes = freshness_manifest["provider_gate"]["outcomes"]
+        assert {item["dataset_id"] for item in outcomes} == {
+            "benchmark_panel",
+            "cross_asset_daily_panel",
+        }
+        assert freshness_manifest["provider_gate"]["status"] == "BLOCKED"
+        assert any(
+            "benchmark_panel provider outcome is unknown" in item
+            for item in freshness_manifest["gate_result"]["blockers"]
+        )
 
 
 # ---------------------------------------------------------------------------

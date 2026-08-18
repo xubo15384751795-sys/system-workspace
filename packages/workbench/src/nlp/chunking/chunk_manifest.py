@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import cast
 from workbench.paths import workspace_root as _workspace_root
 
 from nlp.chunking.chunk_schema import ChunkManifest, TextChunk
 
-ROOT = _workspace_root()
+ROOT = cast(Path, _workspace_root())
 DATA_NLP = ROOT / "Data" / "nlp"
 
 

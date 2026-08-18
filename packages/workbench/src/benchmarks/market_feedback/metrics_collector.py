@@ -10,7 +10,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
 

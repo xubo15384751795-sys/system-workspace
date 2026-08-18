@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
-from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
+import logging
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
+from workbench.paths import workspace_root as _workspace_root
 
 from nlp.chunking.chunk_schema import TextChunk
 
 ROOT = _workspace_root()
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingRecord(BaseModel):
@@ -41,17 +42,39 @@ class Embedder:
     def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
         self.model_name = model_name
         self._model: Optional[object] = None
+        self._backend_status: dict[str, object] = {
+            "backend": "uninitialized",
+            "fallback": False,
+            "error": None,
+        }
+
+    @property
+    def backend_status(self) -> dict[str, object]:
+        """Return the last embedding backend outcome without exception details."""
+        return dict(self._backend_status)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         if self._model is None:
             self._model = self._load_model()
         if self._model is None:
+            self._set_fallback_status("model_unavailable")
             return _fallback_embed(texts)
-        embeddings = self._model.encode(
-            texts,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
+        try:
+            model = cast(Any, self._model)
+            embeddings = model.encode(
+                texts,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+        except Exception as exc:  # noqa: BLE001 - optional backend has explicit fallback
+            self._set_fallback_status(type(exc).__name__)
+            logger.warning("Embedding backend failed; using hash fallback: %s", type(exc).__name__)
+            return _fallback_embed(texts)
+        self._backend_status = {
+            "backend": "sentence_transformers",
+            "fallback": False,
+            "error": None,
+        }
         return [vec.tolist() for vec in embeddings]
 
     def embed_chunks(self, chunks: list[TextChunk]) -> list[EmbeddingRecord]:
@@ -75,11 +98,20 @@ class Embedder:
     def _load_model(self) -> Optional[object]:
         try:
             from sentence_transformers import SentenceTransformer
-            return SentenceTransformer(self.model_name)
+            return cast(object, SentenceTransformer(self.model_name))
         except ImportError:
+            logger.info("Embedding backend unavailable; using hash fallback: dependency_missing")
             return None
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - optional backend has explicit fallback
+            logger.warning("Embedding backend load failed; using hash fallback: %s", type(exc).__name__)
             return None
+
+    def _set_fallback_status(self, error: str) -> None:
+        self._backend_status = {
+            "backend": "hash_fallback",
+            "fallback": True,
+            "error": error,
+        }
 
 
 def embed_chunks(

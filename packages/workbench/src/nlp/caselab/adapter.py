@@ -259,6 +259,9 @@ class CaseLabCase:
             "narrative_summary": self.narrative_summary,
             "event_patterns": self.event_patterns,
             "source_documents": self.source_documents,
+            "artifact_class": "historical_case_profile",
+            "claim_ceiling": "historical_reference_only",
+            "promotion_allowed": False,
         }
 
 
@@ -467,12 +470,7 @@ class CaseLabAdapter:
         city = _clean_bracket_link(meta.get("city", ""))
         sector = str(meta.get("sector") or "")
 
-        # role_in_system can be string or list
         role = meta.get("role_in_system", "")
-        if isinstance(role, list):
-            role_text = " ".join(str(r) for r in role)
-        else:
-            role_text = str(role)
 
         related_mechanisms = [_clean_bracket_link(m) for m in (meta.get("related_mechanisms") or [])]
         related_cases = [_clean_bracket_link(c) for c in (meta.get("related_cases") or [])]

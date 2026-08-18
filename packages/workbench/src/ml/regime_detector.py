@@ -27,12 +27,15 @@ Isolation:
 """
 from __future__ import annotations
 
-import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 _STATE_LABELS = ["compression", "volatile", "crisis"]
 _N_STATES = 3
@@ -61,7 +64,7 @@ def _apply_posterior_epistemic_floor(
 ) -> dict[str, float]:
     """Dirichlet-style smoothing: add floor mass per state, then renormalize."""
     labels = list(state_probs.keys())
-    raw = np.array([state_probs[l] for l in labels], dtype=float)
+    raw = np.array([state_probs[label] for label in labels], dtype=float)
     smoothed = raw + floor
     smoothed /= smoothed.sum()
     return {labels[i]: round(float(smoothed[i]), 6) for i in range(len(labels))}
@@ -202,8 +205,6 @@ def _pivot_panel(panel: "pd.DataFrame") -> "pd.DataFrame":
     If the panel is already wide (no series_id column), returns as-is after
     setting date as index.
     """
-    import pandas as pd
-
     if "series_id" not in panel.columns:
         # Already wide — just set date index if present
         if "date" in panel.columns:
@@ -358,8 +359,8 @@ def _engineer_features(wide: "pd.DataFrame") -> "pd.DataFrame":
             mask = ~np.isnan(arr)
             if mask.sum() < 5:
                 return np.nan
-            slope = np.polyfit(x[mask], arr[mask], 1)[0]
-            return slope / (np.nanstd(arr) + 1e-10)
+            slope = float(np.polyfit(x[mask], arr[mask], 1)[0])
+            return slope / (float(np.nanstd(arr)) + 1e-10)
 
         feats[f"{col}_trend_20"] = s.rolling(20, min_periods=10).apply(_slope, raw=True)
 
@@ -554,7 +555,7 @@ def detect_regime(
                 "end": str(wide.index.max())[:10],
             }
         except Exception:
-            pass
+            logger.warning("Unable to derive HMM training date range", exc_info=True)
 
     window_note = f"last {sample_days} dates from {date_range.get('start', '?')} to {date_range.get('end', '?')}"
 

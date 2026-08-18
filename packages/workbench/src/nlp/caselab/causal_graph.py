@@ -11,10 +11,7 @@ from __future__ import annotations
 
 from system_runtime.paths import WorkspacePaths
 
-import json
-import math
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "causal"
@@ -165,7 +162,6 @@ def inertia_modifier(k_level: float, entity_type: str, dna_keywords: list[str]) 
 
     # Entity type adjustments
     if entity_type == "company":
-        sector_mod = 1.0
         if any(kw in dna_keywords for kw in ["杠杆", "资产负债表", "风险定价"]):
             # Financial entities amplify stress more in crisis
             if regime in ("elevated", "crisis"):

@@ -27,8 +27,8 @@ Usage::
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -71,8 +71,8 @@ class NodeEmbeddings:
     def graph_vector(self) -> np.ndarray:
         """Mean-pooled graph-level embedding (shape: ``(dim,)``)."""
         if len(self.vectors) == 0:
-            return np.zeros(self.dim)
-        return self.vectors.mean(axis=0)
+            return cast(np.ndarray, np.zeros(self.dim))
+        return cast(np.ndarray, self.vectors.mean(axis=0))
 
     @property
     def dim(self) -> int:
@@ -156,7 +156,7 @@ class GraphEmbedder:
         idx = {nid: i for i, nid in enumerate(node_ids)}
 
         # Confidence-weighted symmetric adjacency matrix
-        adj = np.zeros((n, n), dtype=float)
+        adj: np.ndarray = np.zeros((n, n), dtype=float)
         for edge in graph.edges:
             si = idx.get(edge.source)
             ti = idx.get(edge.target)
@@ -225,7 +225,7 @@ class GraphEmbedder:
 
         edges = np.argwhere(adj > 0)
         if len(edges) == 0:
-            return np.zeros((n, self.dim))
+            return cast(np.ndarray, np.zeros((n, self.dim)))
 
         edge_index = torch.tensor(edges.T, dtype=torch.long)
         context = min(self.window_size, self.walk_length)
@@ -258,7 +258,7 @@ class GraphEmbedder:
                 loss.backward()
                 optimizer.step()
 
-        return model().detach().cpu().numpy()
+        return cast(np.ndarray, model().detach().cpu().numpy())
 
     # ------------------------------------------------------------------
     # SVD fallback (numpy-only)
@@ -272,7 +272,7 @@ class GraphEmbedder:
         trans = np.where(row_sum > 1e-12, adj / row_sum, 0.0)
 
         # Random walks → co-occurrence matrix
-        cooc = np.zeros((n, n), dtype=float)
+        cooc: np.ndarray = np.zeros((n, n), dtype=float)
         for start in range(n):
             for _ in range(self.num_walks):
                 walk = _random_walk(start, n, trans, self.walk_length, rng)
@@ -358,24 +358,24 @@ def _ppmi(cooc: np.ndarray) -> np.ndarray:
     with np.errstate(divide="ignore", invalid="ignore"):
         pmi = np.log((cooc * total) / (row_s * col_s))
     pmi = np.nan_to_num(pmi, nan=0.0, posinf=0.0, neginf=0.0)
-    return np.maximum(pmi, 0.0)
+    return cast(np.ndarray, np.maximum(pmi, 0.0))
 
 
 def _truncated_svd(matrix: np.ndarray, dim: int) -> np.ndarray:
     n = matrix.shape[0]
     if matrix.sum() < 1e-12 or n < 2:
-        return np.zeros((n, dim))
+        return cast(np.ndarray, np.zeros((n, dim)))
     try:
         U, S, _ = np.linalg.svd(matrix, full_matrices=False)
         k = min(dim, len(S))
         vectors = U[:, :k] * S[:k]
     except np.linalg.LinAlgError:
-        return np.zeros((n, dim))
+        return cast(np.ndarray, np.zeros((n, dim)))
     # Pad to `dim` if fewer singular values than requested
     if vectors.shape[1] < dim:
         pad = np.zeros((n, dim - vectors.shape[1]))
         vectors = np.concatenate([vectors, pad], axis=1)
-    return vectors
+    return cast(np.ndarray, vectors)
 
 
 def _require_torch() -> None:

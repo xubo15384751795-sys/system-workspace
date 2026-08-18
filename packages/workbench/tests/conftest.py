@@ -5,8 +5,6 @@ so that workspace_root() returns a controlled, isolated directory for every test
 """
 from __future__ import annotations
 
-import json
-import os
 import shutil
 from pathlib import Path
 

@@ -55,7 +55,6 @@ def classify_feedback(benchmark_id: str) -> dict:
     ic_delta = deltas.get("rank_ic_delta", 0)
     sharpe_delta = deltas.get("sharpe_delta", 0)
     drawdown_delta = deltas.get("max_drawdown_delta", 0)
-    ir_delta = deltas.get("information_ratio_delta", 0)
 
     if ic_delta > 0.005 and sharpe_delta > 0.05:
         feedback_type = "positive_increment"

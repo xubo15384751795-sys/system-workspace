@@ -1,12 +1,11 @@
 """system run — execute a single daily pipeline registry step."""
 from __future__ import annotations
 
-import argparse
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
-
 
 HARNESS_ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,6 +18,7 @@ def _resolve_system_root_from_harness(harness_root: Path) -> Path:
 
 SYSTEM_ROOT = _resolve_system_root_from_harness(HARNESS_ROOT)
 RUN_SCRIPT = SYSTEM_ROOT / "scripts" / "run_pipeline_step.py"
+logger = logging.getLogger(__name__)
 
 
 def _print_help(file=None) -> None:
@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
             if payload.get("status") not in (None, "success") and head not in ("list", "describe"):
                 return 1
         except json.JSONDecodeError:
-            pass
+            logger.warning("Pipeline step returned non-JSON output", exc_info=True)
     return proc.returncode
 
 

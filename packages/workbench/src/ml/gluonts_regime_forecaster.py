@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -142,7 +142,7 @@ def _residual_bootstrap_samples(
 
     rng = np.random.default_rng(7)
     noise = rng.choice(residuals, size=(num_samples, len(baseline)), replace=True)
-    return baseline.reshape(1, -1) + noise
+    return cast(np.ndarray, np.asarray(baseline.reshape(1, -1) + noise, dtype=float))
 
 
 def _gluonts_forecast_regime(
@@ -193,7 +193,7 @@ def _gluonts_forecast_regime(
     current_val = float(df["value"].iloc[-1])
 
     # Forecast intervals at each horizon step
-    intervals: dict[str, list[float]] = {}
+    intervals: dict[str, dict[str, list[float]]] = {}
     for pct in [50, 80, 95]:
         low = np.percentile(samples, (100 - pct) / 2, axis=0).tolist()
         high = np.percentile(samples, 100 - (100 - pct) / 2, axis=0).tolist()
@@ -268,7 +268,7 @@ def detect_regime_gluonts(
         if cols:
             target_col = cols[0]
         else:
-            raise ValueError(f"No numeric columns found in panel; cannot run GluonTS forecaster.")
+            raise ValueError("No numeric columns found in panel; cannot run GluonTS forecaster.")
 
     used_cols: list[str] = [target_col] if feature_cols is None else feature_cols
 

@@ -16,7 +16,8 @@ Cursor-based tracking prevents re-processing already-consumed events.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ SYSTEM_ROOT = _resolve_system_root(WORKBENCH_ROOT)
 RUNTIME_DIR = SYSTEM_ROOT / "Output" / "system_learning" / "runtime"
 CURSOR_DIR = RUNTIME_DIR / ".cursor"
 CURSOR_FILE = CURSOR_DIR / "cursor.json"
+logger = logging.getLogger(__name__)
 
 
 # ── Protocol definition ─────────────────────────────────────────────────
@@ -69,7 +71,7 @@ def _read_cursor(events_dir: Path | None = None) -> dict[str, int]:
         if isinstance(data, dict):
             return {k: int(v) for k, v in data.items()}
     except (json.JSONDecodeError, ValueError, OSError):
-        pass
+        logger.warning("Unable to load event-consumer cursor: %s", path, exc_info=True)
     return {}
 
 

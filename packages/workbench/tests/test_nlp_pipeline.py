@@ -1,14 +1,12 @@
 """Tests for the NLP pipeline — pure text processing and schema validation."""
 from __future__ import annotations
 
-import json
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from nlp.parsing.text_cleaner import clean_text, strip_references
-from nlp.chunking.chunk_schema import TextChunk, ChunkManifest
+from nlp.chunking.chunk_schema import TextChunk
 from nlp.extraction.schemas import ExtractedEntity, VariableMapping
 from nlp.mapping.confidence_rules import ConfidenceRules
 
@@ -191,9 +189,7 @@ from nlp.promotion import (
     STATUSES,
     _normalize_preconditions,
     _require_canonical_preconditions,
-    build_promotion_log_entry,
 )
-from nlp.extraction.schemas import StructuralEventCard
 
 
 class TestPromotionStateMachine:

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
-import pytest
 
 from ml.governance_signal import (
     _concept_score,
@@ -17,7 +17,7 @@ from ml.governance_signal import (
 # Sample registry data
 # ---------------------------------------------------------------------------
 
-SAMPLE_SEMANTIC = {
+SAMPLE_SEMANTIC: dict[str, dict[str, Any]] = {
     "M": {
         "implemented_status": "IMPLEMENTED",
         "proxy_status": "DIRECT_PROXY",

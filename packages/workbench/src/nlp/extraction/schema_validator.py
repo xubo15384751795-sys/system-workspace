@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
 from nlp.extraction.schemas import StructuralEventCard
+from system_runtime.canonical_ids import validate_claim
 
 ROOT = _workspace_root()
 PROTOCOLS = ROOT / "protocols"
@@ -39,6 +39,16 @@ def validate_event_card(card: StructuralEventCard, *, source_text: str = "") -> 
             result["errors"].extend(str(e) for e in errors)
     except Exception as exc:
         result["warnings"].append(f"jsonschema validation failed: {exc}")
+
+    if card.canonical_claim:
+        try:
+            validate_claim(card.canonical_claim)
+            if card.canonical_claim_id != card.canonical_claim.get("claim_id"):
+                result["valid"] = False
+                result["errors"].append("canonical_claim_id does not match canonical_claim.claim_id")
+        except Exception as exc:
+            result["valid"] = False
+            result["errors"].append(f"canonical_claim invalid: {exc}")
 
     if not card.evidence_quotes:
         result["valid"] = False

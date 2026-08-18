@@ -12,7 +12,6 @@ state until their measurement gates pass.
 
 from __future__ import annotations
 
-import math
 
 from workbench.governance.semantic import CANONICAL_CHANNELS, build_sigma_vector
 

@@ -10,7 +10,6 @@ tau = Time pressure (urgency / maturity mismatch / speed of events)
 from __future__ import annotations
 
 import re
-from typing import Any
 
 
 # ── Mechanism → vector delta mapping ──────────────────────────────────────
@@ -90,8 +89,6 @@ MECHANISM_DELTAS: dict[str, dict[str, float]] = {
     "Novation":                 {"S": -0.05, "A": -0.10, "L": 0.00, "V": 0.00, "P": 0.00, "tau": 0.00},
     "Settlement":               {"S": -0.10, "A": 0.00, "L": 0.00, "V": 0.00, "P": 0.00, "tau": -0.10},
     "Authorized Participant":   {"S": -0.05, "A": 0.00, "L": 0.00, "V": -0.05, "P": 0.05, "tau": 0.00},
-    "Margin Call":              {"S": 0.20, "A": 0.05, "L": 0.10, "V": 0.20, "P": 0.15, "tau": 0.25},
-
     # ── Ecosystem / talent ──
     "Developer Ecosystem":      {"S": 0.00, "A": -0.05, "L": 0.00, "V": 0.00, "P": 0.05, "tau": 0.00},
     "Open Source Ecosystem":    {"S": 0.00, "A": -0.10, "L": 0.00, "V": 0.00, "P": 0.05, "tau": 0.00},
@@ -187,7 +184,6 @@ def compute_entity_structural_vector(
 
     et = (entity_type or "").lower().strip()
     roles = role_in_system if isinstance(role_in_system, list) else [role_in_system] if role_in_system else []
-    roles_text = " ".join(str(r).lower() for r in roles)
     sector_text = (sector or "").lower()
 
     # Entity type adjustments

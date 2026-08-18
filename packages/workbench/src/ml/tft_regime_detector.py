@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -23,11 +23,10 @@ _STATE_LABELS = ["compression", "volatile", "crisis"]
 def _softmax(x: np.ndarray) -> np.ndarray:
     x = x - np.max(x)
     e = np.exp(x)
-    return e / (e.sum() + 1e-9)
+    return cast(np.ndarray, e / (e.sum() + 1e-9))
 
 
 def _build_feature_matrix(panel: Any, feature_cols: list[str] | None = None) -> tuple[np.ndarray, list[str]]:
-    import pandas as pd
 
     numeric = panel.select_dtypes(include=[np.number])
     if feature_cols:

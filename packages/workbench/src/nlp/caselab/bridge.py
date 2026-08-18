@@ -15,7 +15,6 @@ from system_runtime.paths import WorkspacePaths
 
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import yaml
@@ -204,8 +203,6 @@ def build_narrative_baseline() -> dict[str, Any]:
 
     for t in templates:
         case_id = t["case_id"]
-        case_type = t.get("case_type", "unknown")
-
         # Extract meaningful keywords from loop steps
         exp_steps = t.get("expansion_loop", [])
         rev_steps = t.get("reversal_loop", [])

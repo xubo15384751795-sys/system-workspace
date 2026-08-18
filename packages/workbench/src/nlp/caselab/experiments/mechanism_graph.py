@@ -15,7 +15,6 @@ from system_runtime.paths import WorkspacePaths
 import json
 from collections import Counter, defaultdict
 from itertools import combinations
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -94,7 +93,7 @@ def discover_communities(cooc_data: dict, min_cluster_size: int = 2) -> list[dic
     # Simple hierarchical clustering via threshold
     # Find connected components at different thresholds
     thresholds = [0.6, 0.5, 0.4, 0.3, 0.2]
-    best_clusters = []
+    best_clusters: list[dict[str, Any]] = []
 
     for threshold in thresholds:
         # Build adjacency at this threshold
@@ -103,7 +102,7 @@ def discover_communities(cooc_data: dict, min_cluster_size: int = 2) -> list[dic
 
         # Find connected components (BFS)
         visited = set()
-        clusters = []
+        clusters: list[dict[str, Any]] = []
         for i in range(n):
             if i in visited:
                 continue
@@ -194,8 +193,6 @@ def discover_bridge_mechanisms(cooc_data: dict, clusters: list[dict]) -> list[di
     for mech in names:
         clusters_connected = mech_to_clusters.get(mech, set())
         if len(clusters_connected) >= 2:
-            # How many clusters does this mechanism bridge?
-            bridge_score = len(clusters_connected)
             # Average similarity to mechanisms in each bridged cluster
             avg_sims = []
             for ci in clusters_connected:

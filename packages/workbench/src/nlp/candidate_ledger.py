@@ -6,6 +6,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from uuid import uuid4
 
+from nlp.canonical_compat import attach_event_card_claim
 from nlp.extraction.schema_validator import validate_event_card
 from nlp.extraction.schemas import StructuralEventCard
 from nlp.rule_fingerprint import text_sha256
@@ -30,6 +31,7 @@ def build_candidate_ledger_entry(
     chunk_hash: str = "",
     event_type: str = "",
 ) -> dict:
+    canonical_claim = attach_event_card_claim(card)
     validation_result = validation or validate_event_card(card, source_text=source_text)
     quote_grounded = _quote_grounded(validation_result, card, source_text)
     variables = _candidate_variables(card)
@@ -42,6 +44,10 @@ def build_candidate_ledger_entry(
         "ledger_entry_id": f"led_{created_at.replace('-', '').replace(':', '').replace('+', 'Z')}_{uuid4().hex[:8]}",
         "candidate_id": card.candidate_id or card.event_id,
         "status": card.status,
+        "canonical_claim_id": canonical_claim["claim_id"],
+        "canonical_claim_status": canonical_claim["status"],
+        "canonical_claim_ceiling": canonical_claim["provenance"]["claim_ceiling"],
+        "canonical_evidence_ids": canonical_claim["evidence_ids"],
         "corpus_id": corpus_id,
         "release_id": release_id,
         "source_path": source_path,

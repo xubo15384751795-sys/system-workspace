@@ -5,7 +5,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 ROOT = _workspace_root()
 DEFAULT_CASE_DIR = ROOT / "Data" / "nlp" / "case_library"
@@ -24,6 +24,30 @@ class CaseProfile(BaseModel):
     canonical_event_card_path: str = ""
     source_documents: list[str] = Field(default_factory=list)
     event_patterns: list[str] = Field(default_factory=list)
+    artifact_class: str = "historical_case_profile"
+    claim_ceiling: str = "historical_reference_only"
+    promotion_allowed: bool = False
+
+    @field_validator("artifact_class")
+    @classmethod
+    def _historical_artifact_only(cls, value: str) -> str:
+        if value != "historical_case_profile":
+            raise ValueError("case profiles must remain historical_case_profile artifacts")
+        return value
+
+    @field_validator("claim_ceiling")
+    @classmethod
+    def _historical_claim_ceiling(cls, value: str) -> str:
+        if value != "historical_reference_only":
+            raise ValueError("case profiles must remain historical_reference_only")
+        return value
+
+    @field_validator("promotion_allowed")
+    @classmethod
+    def _never_promotable(cls, value: bool) -> bool:
+        if value:
+            raise ValueError("historical case profiles cannot authorize promotion")
+        return value
 
 
 class CaseRegistry:

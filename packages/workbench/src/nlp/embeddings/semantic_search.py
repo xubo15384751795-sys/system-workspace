@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
+
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from nlp.chunking.chunk_schema import TextChunk
-from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder, EmbeddingRecord
-from nlp.embeddings.vector_store import DEFAULT_INDEX_DIR, VectorStore, build_index
+from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder
+from nlp.embeddings.vector_store import VectorStore
 
-ROOT = _workspace_root()
+ROOT = cast(Path, _workspace_root())
 
 
 class SearchResult(BaseModel):
@@ -78,11 +79,11 @@ class SemanticSearcher:
         return {q: self.search(q, top_k=top_k, min_score=min_score) for q in queries}
 
     def load_index(self, name: str = "nlp_chunks") -> bool:
-        return self.store.load(name)
+        return bool(self.store.load(name))
 
     @property
     def index_size(self) -> int:
-        return self.store.size
+        return int(self.store.size)
 
 
 def search_similar(

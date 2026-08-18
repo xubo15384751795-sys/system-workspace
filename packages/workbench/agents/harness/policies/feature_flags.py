@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -128,7 +128,7 @@ def _load_raw() -> dict:
     if not CONFIG_PATH.is_file():
         return {}
     with open(CONFIG_PATH, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        return cast(dict, yaml.safe_load(f) or {})
 
 
 def _ensure_loaded():
@@ -158,6 +158,7 @@ def _ensure_loaded():
 
 def _get_feature(name: str) -> FeatureSpec | None:
     _ensure_loaded()
+    assert _features_cache is not None
     return _features_cache.get(name)
 
 
@@ -358,6 +359,7 @@ def evaluate_output_gate(
 def list_features(subsystem: str | None = None) -> list[FeatureSpec]:
     """List all registered features, optionally filtered by subsystem."""
     _ensure_loaded()
+    assert _features_cache is not None
     result = list(_features_cache.values())
     if subsystem:
         result = [f for f in result if f.subsystem == subsystem]

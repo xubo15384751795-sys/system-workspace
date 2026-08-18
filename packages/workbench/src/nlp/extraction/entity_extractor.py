@@ -42,7 +42,7 @@ VALUATION_GAP_PATTERNS = [
     r"discount|premium|NAV|basis point|spread)\b",
 ]
 
-ENTITY_RULES: list[tuple[str, str, list[str]]] = [
+ENTITY_RULES: list[tuple[str, list[str], list[str]]] = [
     ("institution", INSTITUTION_PATTERNS, ["S", "P"]),
     ("regulator", REGULATOR_PATTERNS, ["S", "P", "V"]),
     ("asset", ASSET_PATTERNS, ["A", "L"]),

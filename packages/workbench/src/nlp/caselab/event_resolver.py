@@ -16,10 +16,9 @@ from __future__ import annotations
 from system_runtime.paths import WorkspacePaths
 
 import json
-import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ENV_INDEX = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_environments"
 OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "events"
@@ -107,6 +106,12 @@ class EventResolver:
             "historical_precedent": precedent,
         }
 
+        from nlp.canonical_compat import build_event_resolution_claim
+
+        canonical_claim = build_event_resolution_claim(result)
+        result["canonical_claim_id"] = canonical_claim["claim_id"]
+        result["canonical_claim"] = canonical_claim
+
         # Save
         self._save_result(result)
         return result
@@ -174,7 +179,7 @@ class EventResolver:
         for eid, env in self._environments.items():
             ename = env["entity_name"].lower()
             if ename in text_lower or eid.replace("_", " ") in text_lower:
-                return env["entity_name"]
+                return cast(str, env["entity_name"])
         return None
 
     def _analyze_event(self, text: str, env: dict) -> dict[str, Any]:

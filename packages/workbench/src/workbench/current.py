@@ -17,19 +17,18 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from workbench.paths import workspace_root as _workspace_root
-from workbench.freshness import banner_lines, write_model_run_freshness_manifest
+from workbench.freshness import banner_lines
 from workbench.framework_registry import (
     load_registry,
     active_frameworks,
     resolve_value,
-    framework_for_output,
     framework_evidence_requirements,
 )
 
-ROOT = _workspace_root()
+ROOT = cast(Path, _workspace_root())
 OUTPUT = ROOT / "Output"
 CURRENT = OUTPUT / "current"
 DEFORMATION_LATEST = OUTPUT / "deformation_runs" / "latest"
@@ -115,12 +114,12 @@ def _resolve_framework_output_root(fw_entry: dict[str, Any]) -> Path:
     fw_output_rel = outputs.get("framework_output")
     run_rel = outputs.get("latest_run")
     if fw_output_rel:
-        fw_output_abs = ROOT / fw_output_rel
+        fw_output_abs = ROOT / str(fw_output_rel)
         if fw_output_abs.is_dir():
-            return fw_output_abs
-        return fw_output_abs.parent
+            return cast(Path, fw_output_abs)
+        return cast(Path, fw_output_abs.parent)
     if run_rel:
-        return ROOT / run_rel
+        return cast(Path, ROOT / str(run_rel))
     return DEFORMATION_LATEST
 
 

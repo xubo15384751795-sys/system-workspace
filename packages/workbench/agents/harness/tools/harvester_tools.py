@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from tools.registry import ToolResult, ToolSpec, _register, _registry
 
@@ -45,18 +45,18 @@ def _release_dirs() -> list[Path]:
     return dirs
 
 
-def _read_catalog(release_dir: Path) -> dict | None:
+def _read_catalog(release_dir: Path) -> dict[str, Any] | None:
     path = release_dir / "catalog.json"
     if not path.is_file():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError):
         return None
 
 
 def _to_dict(result: ToolResult) -> dict[str, Any]:
-    return result.to_dict()
+    return cast(dict[str, Any], result.to_dict())
 
 
 # ── handlers ────────────────────────────────────────────────────────────
@@ -213,8 +213,17 @@ def _h_diff_releases(input: dict, dry_run: bool) -> ToolResult:
     if errors:
         return ToolResult(ok=False, tool_id="harvester.diff_releases", errors=errors)
 
+    assert dir_a is not None and dir_b is not None
+
     cat_a = _read_catalog(dir_a)
     cat_b = _read_catalog(dir_b)
+
+    if cat_a is None or cat_b is None:
+        return ToolResult(
+            ok=False,
+            tool_id="harvester.diff_releases",
+            errors=["Both releases must contain readable catalog.json files"],
+        )
 
     diffs: list[dict] = []
 

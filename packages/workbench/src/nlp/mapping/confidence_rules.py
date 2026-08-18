@@ -62,7 +62,9 @@ def score_confidence(
     if isinstance(item, list):
         return rules.score_entities(item)
     if isinstance(item, Mapping):
-        quote_grounding = _quote_grounding_score([str(q) for q in item.get("evidence_quotes", []) or []])
+        raw_quotes = item.get("evidence_quotes", [])
+        quotes = raw_quotes if isinstance(raw_quotes, (list, tuple)) else []
+        quote_grounding = _quote_grounding_score([str(q) for q in quotes])
         return {"quote_grounding": quote_grounding}
     raise TypeError(f"Unsupported confidence item: {type(item)!r}")
 

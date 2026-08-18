@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
+from typing import Any, Optional, cast
 
 BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
 
@@ -95,6 +95,6 @@ def write_job_spec(spec: dict, target_path: Optional[Path] = None) -> Path:
     return out_path
 
 
-def load_job_spec(benchmark_id: str) -> dict:
+def load_job_spec(benchmark_id: str) -> dict[str, Any]:
     path = BENCHMARKS_ROOT / benchmark_id / "qlib_job_spec.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))

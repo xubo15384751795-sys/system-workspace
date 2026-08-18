@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from ._paths import (
     CANONICAL_SNAPSHOT_INDEX,
@@ -45,11 +46,11 @@ def _ws_rel(p: Path) -> str:
         return str(p)
 
 
-def _read_json(p: Path) -> dict | None:
+def _read_json(p: Path) -> dict[str, Any] | None:
     if not p.exists():
         return None
     try:
-        return json.loads(p.read_text())
+        return cast(dict[str, Any], json.loads(p.read_text()))
     except json.JSONDecodeError:
         return None
 

@@ -7,13 +7,15 @@ fetch / run / analyze            dynamically import harvester packages.
 from __future__ import annotations
 
 import json
+import logging
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
 EXPORTS_ROOT = WORKBENCH_ROOT / "Data" / "harvester" / "exports"
+logger = logging.getLogger(__name__)
 
 HELP = """system harvester — Structural Risk Harvester commands
 
@@ -73,17 +75,17 @@ def _release_dirs() -> list[Path]:
 def _list_releases(*, json_output: bool = False) -> int:
     releases = _release_dirs()
     if json_output:
-        result = []
+        result: list[dict[str, Any]] = []
         for rd in releases:
-            info = {"release_id": rd.name}
+            info: dict[str, Any] = {"release_id": rd.name}
             catalog_path = rd / "catalog.json"
             if catalog_path.is_file():
                 try:
-                    cat = json.loads(catalog_path.read_text(encoding="utf-8"))
+                    cat = cast(dict[str, Any], json.loads(catalog_path.read_text(encoding="utf-8")))
                     info["created_at"] = cat.get("created_at", "")
                     info["file_count"] = len(cat.get("files", []))
                 except (OSError, json.JSONDecodeError):
-                    pass
+                    logger.warning("Unable to read Harvester release catalog: %s", catalog_path, exc_info=True)
             result.append(info)
         print(json.dumps({"status": "ok", "releases": result}, indent=2))
         return 0
@@ -103,7 +105,7 @@ def _list_releases(*, json_output: bool = False) -> int:
                 created = cat.get("created_at", "")[:19]
                 file_count = str(len(cat.get("files", [])))
             except (OSError, json.JSONDecodeError):
-                pass
+                logger.warning("Unable to read Harvester release catalog: %s", catalog_path, exc_info=True)
         print(f"{rd.name:<22} {created:<28} {file_count:>6}")
     return 0
 
@@ -145,7 +147,7 @@ def _inspect_release(release_id: str, *, json_output: bool = False) -> int:
             size = _human_size(f.get("byte_size", 0))
             print(f"  {path:<40} {fmt:<10} {rows:>8} {size:>10}")
     else:
-        print(f"Files:      (not a list — see raw catalog)")
+        print("Files:      (not a list — see raw catalog)")
     return 0
 
 

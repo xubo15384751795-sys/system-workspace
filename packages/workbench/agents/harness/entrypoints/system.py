@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import cast
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 VERSION_PATH = HARNESS_ROOT / "VERSION"
@@ -214,19 +215,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if head == "harvester":
         from entrypoints.harvester_cli import main as sub
-        return sub(tail)
+        return cast(int, sub(tail))
 
     if head == "deformation":
         from entrypoints.deformation_cli import main as sub
-        return sub(tail)
+        return cast(int, sub(tail))
 
     if head == "learning-hub":
         from entrypoints.learning_hub_cli import main as sub
-        return sub(tail)
+        return cast(int, sub(tail))
 
     if head == "run":
         from entrypoints.run_cli import main as sub
-        return sub(tail)
+        return cast(int, sub(tail))
 
     if head == "tools":
         return _cmd_tools(tail)

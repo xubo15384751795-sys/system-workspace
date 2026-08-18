@@ -20,7 +20,7 @@ from system_runtime.paths import WorkspacePaths
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -415,7 +415,7 @@ class MechanismResolver:
         path = OUTPUT_DIR / "resolver_result.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
-        return path
+        return cast(Path, path)
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────

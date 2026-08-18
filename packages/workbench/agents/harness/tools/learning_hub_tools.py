@@ -181,9 +181,10 @@ def _collect_verifications(verifications_dir: Path | None = None) -> list[dict[s
     _ = verifications_dir
     records: list[dict[str, Any]] = []
     for event in _collect_events():
-        payload = event.get("payload") if isinstance(event.get("payload"), dict) else event
+        raw_payload = event.get("payload")
+        payload: dict[str, Any] = raw_payload if isinstance(raw_payload, dict) else event
         if event.get("event_type") == "verification_record" or payload.get("schema_version") == "workbench.verification_record.v1":
-            records.append(payload if payload is not event else event)
+            records.append(payload)
     return records
 
 

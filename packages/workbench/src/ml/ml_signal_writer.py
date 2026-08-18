@@ -10,12 +10,15 @@ Data/, Harvester exports, or any path that feeds back into the pipeline.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from workbench.paths import workbench_root, workspace_root
+
+logger = logging.getLogger(__name__)
 
 _WB_ROOT = workbench_root()
 _CONTRACTS = _WB_ROOT / "contracts" / "workbench"
@@ -29,7 +32,7 @@ _MANIFEST_SCHEMA_FILE = _CONTRACTS / "ml_signal_manifest.schema.json"
 # ---------------------------------------------------------------------------
 
 def _load_schema(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _validate_signal(payload: dict[str, Any]) -> list[str]:
@@ -153,7 +156,7 @@ def _update_latest_symlink(root: Path, target: Path) -> None:
             latest.unlink()
         latest.symlink_to(target.name)
     except OSError:
-        pass
+        logger.warning("Failed to update ML signal latest symlink: %s", latest, exc_info=True)
 
 
 def _append_provenance(root: Path, payload: dict[str, Any], signal_path: Path) -> None:
@@ -170,7 +173,7 @@ def _append_provenance(root: Path, payload: dict[str, Any], signal_path: Path) -
         with prov_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
     except OSError:
-        pass
+        logger.warning("Failed to append ML signal provenance: %s", prov_file, exc_info=True)
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Any
 
 import numpy as np
 
@@ -169,9 +168,9 @@ def top_shared_concepts(text_a: str, text_b: str, n: int = 5) -> list[tuple[str,
     kw_a = extract_structural_keywords(text_a)
     kw_b = extract_structural_keywords(text_b)
 
-    shared = []
+    shared: list[tuple[str, float]] = []
     for concept in set(kw_a.keys()) & set(kw_b.keys()):
-        score = min(kw_a[concept], kw_b[concept])
+        score = float(min(kw_a[concept], kw_b[concept]))
         shared.append((concept, score))
 
     shared.sort(key=lambda x: x[1], reverse=True)

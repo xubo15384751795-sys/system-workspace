@@ -26,15 +26,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
+from system_runtime.paths import output_surface
 from workbench.governance.authority import write_authority_event
 from workbench.governance.config_audit import audit_config
 from workbench.governance.decision_trace import record_decision
@@ -50,9 +52,11 @@ from ._paths import (
     WORKSPACE_ROOT,
 )
 
-ROUTING_DECISIONS = WORKSPACE_ROOT / "Output" / "system_learning" / "routing_decisions"
+logger = logging.getLogger(__name__)
+
+ROUTING_DECISIONS = output_surface(WORKSPACE_ROOT, "system_learning") / "routing_decisions"
 RECORD_RUNTIME_SCRIPT = WORKSPACE_ROOT / "scripts" / "record_runtime_event.py"
-RUNTIME_LOG_DIR = WORKSPACE_ROOT / "Output" / "system_learning" / "runtime"
+RUNTIME_LOG_DIR = output_surface(WORKSPACE_ROOT, "system_learning") / "runtime"
 CONFIG_AUTHORITY_REGISTRY = WORKSPACE_ROOT / "governance" / "config_authority_registry.yaml"
 AUTHORITY_TRACE = WORKSPACE_ROOT / "Output" / "governance" / "traces" / "authority_trace.jsonl"
 GOVERNANCE_EVENTS = WORKSPACE_ROOT / "Output" / "governance" / "events"
@@ -263,18 +267,24 @@ def _write_snapshot_index(idx: dict[str, Any], entry: dict[str, Any]) -> None:
             from orchestration.dvc_promote import record_snapshot_pointer
 
             target = CANONICAL_SNAPSHOTS / f"{snapshot_id}.json"
-            record_snapshot_pointer(
+            dvc_result = record_snapshot_pointer(
                 snapshot_id=snapshot_id,
                 snapshot_path=target,
                 index_path=CANONICAL_SNAPSHOT_INDEX,
             )
+            if dvc_result.get("dvc_commit_status") != "PASS":
+                logger.warning(
+                    "DVC pointer not committed for snapshot %s: %s",
+                    snapshot_id,
+                    dvc_result.get("dvc_error", "DVC_COMMIT_BLOCKED"),
+                )
         except Exception:
-            pass
+            logger.warning("Unable to record DVC snapshot pointer for %s", snapshot_id, exc_info=True)
 
 
 def _append_system_event(event: dict[str, Any]) -> Path:
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    path = RUNTIME_LOG_DIR / f"records_{day}.jsonl"
+    path = cast(Path, RUNTIME_LOG_DIR / f"records_{day}.jsonl")
     payload = {
         "event_id": f"snapshot_promotion_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -356,7 +366,7 @@ def _audit_force_promotion(run_id: str, force: bool) -> list[dict[str, Any]]:
             severity=event["severity"],
             reason=event["reason"],
         )
-    return events
+    return cast(list[dict[str, Any]], events)
 
 
 def _latest_promotion_routing_decision(decisions_dir: Path | None = None) -> tuple[Path | None, dict[str, Any]]:
@@ -463,8 +473,37 @@ def _enforce_routing_decision(run_id: str, snapshot_id: str) -> dict[str, Any]:
                     reason=reason,
                 )
                 raise PromotionError(reason)
-        except (ValueError, TypeError):
-            pass  # Can't parse timestamp — let it through but don't skip the check silently
+        except (ValueError, TypeError) as exc:
+            reason = (
+                "Routing decision timestamp could not be parsed "
+                f"({type(exc).__name__}); promotion is blocked."
+            )
+            artifact = (
+                str(decision_path.relative_to(WORKSPACE_ROOT))
+                if decision_path.is_relative_to(WORKSPACE_ROOT)
+                else str(decision_path)
+            )
+            record_decision(
+                _decision_trace_path(),
+                run_id=run_id,
+                artifact=artifact,
+                artifact_type="ROUTING_DECISION",
+                finding="ROUTING_DECISION_INVALID_TIMESTAMP",
+                decision_impact="BLOCK",
+                consumer="promotion_gate",
+                severity="HIGH",
+                reason=reason,
+            )
+            write_authority_event(
+                AUTHORITY_TRACE,
+                run_id=run_id,
+                module="promotion_gate",
+                operation="routing",
+                authority="PROMOTE",
+                allowed=False,
+                reason=reason,
+            )
+            raise PromotionError(reason) from exc
 
     record_decision(
         _decision_trace_path(),
@@ -495,10 +534,13 @@ def _enforce_routing_decision(run_id: str, snapshot_id: str) -> dict[str, Any]:
     raise PromotionError("Promotion blocked: routing gate returned an invalid allow payload.")
 
 
-def _read_json(path: Path) -> dict:
+def _read_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    payload = json.loads(path.read_text())
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON document must be an object: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def _provenance_status(run_dir: Path, manifest: dict) -> dict[str, str]:
@@ -552,6 +594,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", required=True, help="run_id under Output/deformation_runs/")
     parser.add_argument("--snapshot-id", default=None, help="defaults to snapshot_<run_id>")
+    # nosemgrep: semgrep_rules.force-promotion-without-accountability
+    # The runtime gate immediately below requires both accountability fields.
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--authorized-by", default=None, help="REQUIRED when --force: who authorized this override")
     parser.add_argument("--reason", default=None, help="REQUIRED when --force: why the override is necessary")

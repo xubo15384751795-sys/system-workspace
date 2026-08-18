@@ -6,6 +6,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from uuid import uuid4
 
+from nlp.canonical_compat import attach_event_card_claim, event_card_payload
 from nlp.evaluation.hard_cases import append_hard_case
 from nlp.extraction.schemas import StructuralEventCard
 
@@ -51,11 +52,12 @@ def promote_event_card(
         _require_canonical_preconditions(checked, reviewer=reviewer, reason=reason)
 
     card.status = new_status
+    attach_event_card_claim(card)
     root = event_cards_root or DEFAULT_EVENT_CARDS_ROOT
     target_dir = root / new_status
     target_dir.mkdir(parents=True, exist_ok=True)
     to_path = target_dir / from_path.name
-    to_path.write_text(card.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    to_path.write_text(json.dumps(event_card_payload(card), indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     if from_path.resolve() != to_path.resolve() and from_path.exists():
         from_path.unlink()
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -71,7 +71,7 @@ def get_framework(registry: dict[str, Any], framework_id: str) -> dict[str, Any]
     """Find a framework entry by framework_id."""
     for fw in registry.get("frameworks", []):
         if fw.get("framework_id") == framework_id:
-            return fw
+            return cast(dict[str, Any], fw)
     return None
 
 

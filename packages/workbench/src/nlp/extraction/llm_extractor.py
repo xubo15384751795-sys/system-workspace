@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
-from pathlib import Path
+from typing import Any, Optional, cast
+from urllib.parse import urlparse
+
+from workbench.external_http import (
+    ExternalEndpointSpec,
+    ExternalGatewayError,
+    ExternalGatewayPolicyError,
+    OwnedExternalHTTPGateway,
+)
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from nlp.chunking.chunk_schema import TextChunk
 from nlp.extraction.schemas import ExtractedEntity, StructuralEventCard, VariableMapping
 
 ROOT = _workspace_root()
+logger = logging.getLogger(__name__)
+LLM_RESPONSE_MAX_BYTES = 2_000_000
 EXTRACTION_PROMPT = """You are an extraction agent for a structural NLP system. Your job is to read the text below and extract a structured event card as JSON. Do not interpret, do not analyze — only extract what is explicitly stated in the text.
 
 Return a JSON object with these fields:
@@ -50,12 +61,17 @@ def _try_llm_extract(text: str, *, model: str = "") -> Optional[dict]:
     result = _try_anthropic(prompt, model=model)
     if result is not None:
         return result
-    return _try_openai_compatible(prompt, model=model)
+    logger.info("LLM extraction fallback: trying openai-compatible backend")
+    result = _try_openai_compatible(prompt, model=model)
+    if result is None:
+        logger.warning("LLM extraction unavailable; returning no candidate")
+    return result
 
 
 def _try_anthropic(prompt: str, *, model: str) -> Optional[dict]:
     import os
     if not os.environ.get("ANTHROPIC_API_KEY"):
+        logger.info("LLM extraction backend anthropic skipped: API key not configured")
         return None
     try:
         import anthropic
@@ -68,37 +84,62 @@ def _try_anthropic(prompt: str, *, model: str) -> Optional[dict]:
         )
         text = response.content[0].text if response.content else ""
         return _parse_json(text)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - optional backend must not break extraction
+        logger.warning("LLM extraction backend anthropic failed: %s", type(exc).__name__)
         return None
 
 
 def _try_openai_compatible(prompt: str, *, model: str) -> Optional[dict]:
-    import os
     api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY")
     base_url = os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1")
     if not api_key:
+        logger.info("LLM extraction backend openai-compatible skipped: API key not configured")
         return None
     try:
-        import urllib.request
+        parsed_base_url = urlparse(base_url)
+        host = parsed_base_url.hostname or ""
+        configured_hosts = {
+            item.strip().casefold()
+            for item in os.environ.get("LLM_ALLOWED_HOSTS", "api.openai.com").split(",")
+            if item.strip()
+        }
+        if host.casefold() not in configured_hosts:
+            raise ValueError("LLM endpoint host is not allowlisted")
+        endpoint_url = f"{base_url.rstrip('/')}/chat/completions"
+        endpoint = ExternalEndpointSpec(
+            endpoint_id="llm_chat_completions",
+            url=endpoint_url,
+            allowed_hosts=frozenset({host}),
+        )
         payload = json.dumps({
             "model": model or "gpt-4o",
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.0,
             "max_tokens": 2048,
         }).encode("utf-8")
-        req = urllib.request.Request(
-            f"{base_url}/chat/completions",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
+        with OwnedExternalHTTPGateway(
+            {"llm_chat_completions": endpoint},
+            max_request_bytes=LLM_RESPONSE_MAX_BYTES,
+            max_response_bytes=LLM_RESPONSE_MAX_BYTES,
+        ) as gateway:
+            response = gateway.post(
+                "llm_chat_completions",
+                payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
+                timeout_sec=120,
+            )
+            if not 200 <= response.status_code < 300:
+                raise ExternalGatewayError("LLM endpoint returned a non-success status")
+            body = json.loads(response.content.decode("utf-8"))
             content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
             return _parse_json(content)
-    except Exception:
+    except (ExternalGatewayError, ExternalGatewayPolicyError, ValueError) as exc:
+        # Optional backend failures must remain visible without exposing the
+        # configured URL, API key, prompt, or provider response.
+        logger.warning("LLM extraction backend openai-compatible failed: %s", type(exc).__name__)
         return None
 
 
@@ -110,7 +151,7 @@ def _parse_json(text: str) -> Optional[dict]:
     if m:
         text = m.group(0)
     try:
-        return json.loads(text)
+        return cast(dict[str, Any], json.loads(text))
     except json.JSONDecodeError:
         return None
 
@@ -187,7 +228,11 @@ def llm_extract_event_card(
             },
         )
         return card
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - optional backend remains candidate-only
+        logger.warning(
+            "LLM extraction response validation failed: %s",
+            type(exc).__name__,
+        )
         return None
 
 

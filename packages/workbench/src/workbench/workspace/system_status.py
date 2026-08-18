@@ -16,15 +16,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from ._paths import LEARNING_SUMMARY, SYSTEM_LATEST
 
 
-def _read_json(p: Path) -> dict | None:
+def _read_json(p: Path) -> dict[str, Any] | None:
     if not p.exists():
         return None
     try:
-        return json.loads(p.read_text())
+        return cast(dict[str, Any], json.loads(p.read_text()))
     except json.JSONDecodeError:
         return None
 
@@ -45,7 +46,7 @@ def main() -> int:
     h = latest.get("harvester_release") or latest.get("harvester") or {}
     d = latest.get("deformation_run") or latest.get("structural_replay") or {}
     s = latest.get("deformation_snapshot") or {}
-    l = latest.get("learning_report") or latest.get("learning_hub") or {}
+    learning = latest.get("learning_report") or latest.get("learning_hub") or {}
     sb = latest.get("sandbox") or {}
 
     rows: list[tuple[str, str, str]] = []
@@ -78,7 +79,7 @@ def main() -> int:
         s.get("status", "<none>"),
         s.get("id") or "-",
     ))
-    band = (l.get("band") or "<unknown>")
+    band = (learning.get("band") or "<unknown>")
     open_imp = (summary.get("improvement_queue") or {}).get("proposed", 0)
     crit = (summary.get("overall") or {}).get("critical_subsystems", 0)
     rows.append((

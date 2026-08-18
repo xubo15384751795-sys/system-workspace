@@ -40,9 +40,10 @@ def _concept_score(meta: dict[str, Any]) -> float:
     distance = meta.get("semantic_distance")
     if distance is None:
         return 0.5
-    if distance >= 4:
+    distance_value = float(distance)
+    if distance_value >= 4:
         return 0.1
-    return max(0.0, 1.0 - distance * 0.25)
+    return max(0.0, 1.0 - distance_value * 0.25)
 
 
 def _severity_to_regime(severity: str) -> str:

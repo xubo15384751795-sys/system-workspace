@@ -18,9 +18,8 @@ Mandatory when snapshot contains `singular_flag=true`, `sigma_t > 0.9`, or `seve
 - `Output/deformation_runs/<run_id>/run_manifest.json`
 - `Output/deformation_runs/<run_id>/<run_date>_<run_type>.json` (snapshot JSON)
 - `Output/deformation_runs/<run_id>/data/snapshot.json` (fallback path)
-- `deformation-framework/prompts/policy/proxy_boundary.md`
-- `policies/boundary_rules.yaml` — rules for benchmark/exploratory/fallback
-- `policies/feature_flags.yaml` — all `deformation.*` features
+- `packages/workbench/agents/harness/policies/boundary_rules.yaml` — rules for benchmark/exploratory/fallback
+- `packages/workbench/agents/harness/policies/feature_flags.yaml` — all `deformation.*` features
 - `ROUTING_CONSTITUTION.md` — `benchmark_proxy_separation`, `deformation_downscope`
 
 ## Steps
@@ -50,7 +49,7 @@ Verify: operator trace is non-empty, trace length reasonable, channel coupling p
 
 ### Step 4: Feature Gate Audit
 ```python
-from policies.feature_flags import can_promote, explain_gate
+from packages.workbench.agents.harness.policies.feature_flags import can_promote, explain_gate
 features = {
     "deformation.operator_noncommutativity": "paper_aligned",
     "deformation.shadow_maturity_profile": "paper_aligned",

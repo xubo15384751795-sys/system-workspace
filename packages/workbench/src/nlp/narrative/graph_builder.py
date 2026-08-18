@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -198,10 +197,11 @@ def build_institution_asset_risk_graph(
 def export_graph_mermaid(graph: StructuralGraph) -> str:
     """Export a StructuralGraph as a Mermaid flowchart diagram."""
     lines: list[str] = ["graph TD"]
-    safe_id = lambda s: s.replace("-", "_").replace(" ", "_").replace(".", "_")
+
+    def safe_id(value: str) -> str:
+        return value.replace("-", "_").replace(" ", "_").replace(".", "_")
 
     for node in graph.nodes:
-        shape = _node_shape(node.node_type)
         sid = safe_id(node.id)
         lines.append(f'    {sid}["{node.label}"]')
 

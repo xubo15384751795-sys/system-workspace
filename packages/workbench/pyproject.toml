@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==84.0.0", "wheel==0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "structural-workbench"
 version = "0.2.0"
 description = "Structural-risk research workbench: evidence ingestion, NLP pipeline, and risk cockpit."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     # data & serialisation
     "pandas>=2.0",
@@ -15,6 +15,8 @@ dependencies = [
     "pydantic>=2.0",
     "PyYAML>=6.0",
     "jsonschema>=4.20",
+    "httpcore>=1.0,<2",
+    "httpx>=0.27,<1",
 ]
 
 [project.optional-dependencies]
@@ -69,8 +71,3 @@ wb-demo     = "workbench.demo:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src", "."]
-testpaths  = ["tests"]
-python_files = ["test_*.py"]

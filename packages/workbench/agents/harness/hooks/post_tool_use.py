@@ -115,15 +115,15 @@ def post_verify(
 
 def _get_id(spec: Any) -> str:
     if hasattr(spec, "id"):
-        return spec.id
+        return str(spec.id)
     if isinstance(spec, dict):
-        return spec.get("id", "unknown")
+        return str(spec.get("id", "unknown"))
     return "unknown"
 
 
 def _get_attr(spec: Any, key: str, default: str = "unknown") -> str:
     if hasattr(spec, key):
-        return getattr(spec, key)
+        return str(getattr(spec, key))
     if isinstance(spec, dict):
-        return spec.get(key, default)
+        return str(spec.get(key, default))
     return default

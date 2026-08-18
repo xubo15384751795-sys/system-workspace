@@ -22,6 +22,7 @@ See ``docs/TOOL_EXECUTION_PIPELINE.md`` for the full staged pipeline.
 
 from __future__ import annotations
 
+import logging
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -29,6 +30,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
+logger = logging.getLogger(__name__)
 
 # ── data structures ─────────────────────────────────────────────────────
 
@@ -172,7 +174,7 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
                 reason=f"Tool '{tool_id}' not allowed in mode '{mode}'",
             )
         except Exception:
-            pass
+            logger.warning("Tool precheck failed while evaluating %s", tool_id, exc_info=True)
         return ToolResult(
             ok=False,
             tool_id=tool_id,
@@ -197,8 +199,8 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
     # ── 3.5 HOOK: policy evaluation ──────────────────────────────────
     _ensure_path()
     try:
-        from hooks.risk_classifier import classify
         from hooks.pre_tool_use import evaluate as policy_evaluate
+        from hooks.risk_classifier import classify
 
         classification = classify(spec, input, mode)
         decision = policy_evaluate(spec, input, mode, dry_run=dry_run)
@@ -230,7 +232,7 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
                         rule_id=decision.rule_id, reason=decision.reason,
                     )
             except Exception:
-                pass
+                logger.warning("Tool boundary hook failed for %s", tool_id, exc_info=True)
 
             return ToolResult(
                 ok=False,
@@ -258,7 +260,7 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
                     rule_id=decision.rule_id, reason=decision.reason,
                 )
             except Exception:
-                pass
+                logger.warning("Tool feature-flag hook failed for %s", tool_id, exc_info=True)
 
             return ToolResult(
                 ok=False,
@@ -284,7 +286,7 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
                     reason=decision.reason,
                 )
             except Exception:
-                pass
+                logger.warning("Tool permission hook failed for %s", tool_id, exc_info=True)
             return _approval_required_result(
                 tool_id,
                 rule_id=decision.rule_id,
@@ -300,10 +302,11 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
                     reason=decision.reason,
                 )
             except Exception:
-                pass
+                logger.warning("Tool manual-review hook failed for %s", tool_id, exc_info=True)
     except ImportError:
         classification = None
         decision = None
+        logger.debug("Optional tool risk classifier unavailable", exc_info=True)
 
     if spec.requires_approval and not _is_approved(input):
         return _approval_required_result(
@@ -334,7 +337,7 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
             from hooks.post_tool_use import post_tool_failure
             post_tool_failure(spec, input, error_text, mode, classification)
         except Exception:
-            pass
+            logger.warning("Tool post-failure hook failed for %s", tool_id, exc_info=True)
         # ── write failure event ─────────────────────────────────────
         try:
             from events.system_event_writer import write_tool_failure
@@ -348,7 +351,7 @@ def run_tool(tool_id: str, input: dict, mode: str, *, dry_run: bool = False) -> 
                 } if classification else None,
             )
         except Exception:
-            pass
+            logger.warning("Tool failure event write failed for %s", tool_id, exc_info=True)
         return ToolResult(
             ok=False,
             tool_id=tool_id,
@@ -395,7 +398,7 @@ def _postcheck_write_event(
         from hooks.post_tool_use import post_tool_use
         post_tool_use(spec, input, result if isinstance(result, dict) else {}, mode, classification)
     except Exception:
-        pass
+        logger.warning("Tool post-use hook failed for %s", spec.id, exc_info=True)
 
     # Also write structured event for Learning Hub ingestion
     try:
@@ -419,7 +422,7 @@ def _postcheck_write_event(
             rule_id=getattr(decision, "rule_id", "") if decision else "",
         )
     except Exception:
-        pass
+        logger.warning("Tool event write failed for %s", spec.id, exc_info=True)
 
 
 def _postcheck_post_verify(
@@ -429,4 +432,4 @@ def _postcheck_post_verify(
         from hooks.post_tool_use import post_verify
         post_verify(spec, input, result if isinstance(result, dict) else {}, mode)
     except Exception:
-        pass
+        logger.warning("Tool post-verify hook failed for %s", spec.id, exc_info=True)

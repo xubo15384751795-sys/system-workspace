@@ -11,23 +11,26 @@ Usage:
 """
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+from system_runtime.paths import WorkspacePaths, output_surface
+
+logger = logging.getLogger(__name__)
 
 ROOT = WorkspacePaths.discover().root
-PRESSURE_PATH = ROOT / "Output" / "current" / "neutral_pressure_snapshot.json"
+PRESSURE_PATH = output_surface(ROOT, "current") / "neutral_pressure_snapshot.json"
 # Compatibility export for callers that have not yet renamed the constant.
 FW_PATH = PRESSURE_PATH
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
-VALIDATION_PATH = ROOT / "Output" / "current" / "quality_validation.json"
-OUTPUT_DIR = ROOT / "Output" / "judgment"
+VALIDATION_PATH = output_surface(ROOT, "current") / "quality_validation.json"
+OUTPUT_DIR = output_surface(ROOT, "judgment")
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -35,7 +38,7 @@ def load_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -119,22 +122,22 @@ def _hmm_stability_grade(hmm: dict[str, Any] | None) -> tuple[str, list[str]]:
                 model_health_grade = audit.get("model_health", {}).get("grade", "UNKNOWN")
                 cal_status = audit.get("calibration_status", {}).get("status", "UNKNOWN")
             except Exception:
-                pass
+                logger.warning("Unable to parse HMM stability audit: %s", hmm_audit_path, exc_info=True)
 
     # Model health failures are always WEAK
     if model_health_grade == "FAIL":
-        reasons.append(f"HMM model health: FAIL")
+        reasons.append("HMM model health: FAIL")
         for issue in hmm.get("model_health", {}).get("issues", []):
             reasons.append(f"Model: {issue}")
         return "WEAK", reasons
 
     # Calibration status determines grade
     if cal_status == "INSUFFICIENT_HISTORY":
-        reasons.append(f"HMM calibration: INSUFFICIENT_HISTORY — regime claims blocked, mechanism hypothesis allowed")
+        reasons.append("HMM calibration: INSUFFICIENT_HISTORY — regime claims blocked, mechanism hypothesis allowed")
         return "ADEQUATE", reasons
 
     if cal_status == "CALIBRATING":
-        reasons.append(f"HMM calibration: CALIBRATING — regime hint available, not fully calibrated")
+        reasons.append("HMM calibration: CALIBRATING — regime hint available, not fully calibrated")
         for issue in hmm.get("calibration_status", {}).get("issues", []):
             reasons.append(f"Calibration: {issue}")
         return "ADEQUATE", reasons
@@ -499,7 +502,12 @@ def _load_run_history(max_runs: int = 5) -> list[dict[str, Any]]:
                 "decision": j.get("decision", "unknown"),
                 "claim_ladder": j.get("claim_ladder", {}),
             })
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Unable to read prior judgment history for %s: %s",
+                run_dir,
+                type(exc).__name__,
+            )
             continue
     return history
 

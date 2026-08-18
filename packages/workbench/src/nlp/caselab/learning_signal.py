@@ -12,17 +12,13 @@ from __future__ import annotations
 from system_runtime.paths import WorkspacePaths
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from nlp.caselab.causal_graph import (
-    RELATION_WEIGHTS,
-    VARIABLE_MDX_SENSITIVITY,
     resolve_event_causal,
 )
 
@@ -339,7 +335,7 @@ def calibrate_all(
     avg_dir_acc = round(np.mean([r.direction_accuracy for r in results]), 2)
 
     # Per-dimension error analysis
-    dim_errors = {dim: [] for dim in ("M", "K", "D", "X")}
+    dim_errors: dict[str, list[float]] = {dim: [] for dim in ("M", "K", "D", "X")}
     for r in results:
         for dim in dim_errors:
             dim_errors[dim].append(r.error[dim])
@@ -414,7 +410,7 @@ def _generate_recommendations(
             actual_magnitudes.append(actual_mag)
 
     if pred_magnitudes and actual_magnitudes:
-        scale_factor = np.mean(actual_magnitudes) / max(np.mean(pred_magnitudes), 0.001)
+        scale_factor = float(np.mean(actual_magnitudes)) / max(float(np.mean(pred_magnitudes)), 0.001)
         recs.append({
             "type": "scale_factor",
             "description": f"Predicted deltas are {scale_factor:.1f}x too small vs actual. Apply scale multiplier to VARIABLE_MDX_SENSITIVITY.",

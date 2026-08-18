@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 
 from nlp.chunking.chunk_schema import TextChunk

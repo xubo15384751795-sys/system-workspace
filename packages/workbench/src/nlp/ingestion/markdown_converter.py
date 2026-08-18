@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from typing import cast
+
 from workbench.paths import workspace_root as _workspace_root
 
-ROOT = _workspace_root()
+logger = logging.getLogger(__name__)
+
+ROOT = cast(Path, _workspace_root())
 DATA_NLP = ROOT / "Data" / "nlp"
 OUTPUT_NLP = ROOT / "Output" / "nlp"
 
@@ -58,7 +63,7 @@ class MarkdownConverter:
             dest.write_text(result.text_content, encoding="utf-8")
             return dest
         except Exception:
-            pass
+            logger.debug("MarkItDown PDF conversion unavailable for %s", source_path, exc_info=True)
 
         try:
             import pdfplumber
@@ -90,7 +95,7 @@ class MarkdownConverter:
             dest.write_text(result.text_content, encoding="utf-8")
             return dest
         except Exception:
-            pass
+            logger.debug("MarkItDown DOCX conversion unavailable for %s", source_path, exc_info=True)
 
         try:
             import docx
@@ -140,7 +145,7 @@ class MarkdownConverter:
             dest.write_text(result.text_content, encoding="utf-8")
             return dest
         except Exception:
-            pass
+            logger.debug("MarkItDown HTML conversion unavailable for %s", source_path, exc_info=True)
 
         try:
             from bs4 import BeautifulSoup

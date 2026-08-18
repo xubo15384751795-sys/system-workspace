@@ -117,7 +117,6 @@ def extract_factors(
     latest_scores = scores[-1] if len(scores) > 0 else scores[0]
     factors = []
     for i in range(n_comp):
-        loading_norm = float(np.linalg.norm(loadings[i]))
         factors.append({
             "id": f"pc{i + 1}",
             "label": _label_factor(i),

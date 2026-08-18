@@ -8,11 +8,12 @@ and reads back from `Output/system_learning/runtime/` when needed.
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import sys
 import uuid
 from collections import Counter
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ def _resolve_system_root(workbench_root: Path) -> Path:
 SYSTEM_ROOT = _resolve_system_root(WORKBENCH_ROOT)
 RUNTIME_DIR = SYSTEM_ROOT / "Output" / "system_learning" / "runtime"
 RECORD_SCRIPT = SYSTEM_ROOT / "scripts" / "record_runtime_event.py"
+logger = logging.getLogger(__name__)
 
 
 # ── data structures ─────────────────────────────────────────────────────
@@ -79,7 +81,8 @@ def _now() -> str:
 
 
 def _s(v: Any) -> str:
-    if v is None: return ""
+    if v is None:
+        return ""
     s = str(v) if not isinstance(v, str) else v
     return s[:2000]
 
@@ -94,13 +97,14 @@ def _d(v: Any) -> dict:
 
 # ── internal write ──────────────────────────────────────────────────────
 
-def _write(event: SystemEvent) -> None:
+def _write(event: SystemEvent) -> bool:
     if not RECORD_SCRIPT.is_file():
-        return
+        logger.warning("Runtime event writer is missing: %s", RECORD_SCRIPT)
+        return False
     payload = event.to_dict()
     payload.setdefault("subsystem", payload.get("subsystem") or "harness")
     try:
-        subprocess.run(
+        process = subprocess.run(
             [
                 sys.executable,
                 str(RECORD_SCRIPT),
@@ -121,8 +125,13 @@ def _write(event: SystemEvent) -> None:
             capture_output=True,
             text=True,
         )
+        if process.returncode != 0:
+            logger.warning("Runtime event writer failed with exit_code=%s", process.returncode)
+            return False
+        return True
     except OSError:
-        pass
+        logger.warning("Unable to invoke runtime event writer: %s", RECORD_SCRIPT, exc_info=True)
+        return False
 
 
 # ── public API: event emitters ──────────────────────────────────────────
@@ -216,9 +225,9 @@ def write_verification_result(
     verdict: str = "", evidence: dict | None = None,
     summary: str = "", blockers: list | None = None,
     residual_risks: list | None = None,
-) -> None:
+) -> bool:
     v = verdict or ("PASS" if ok else "FAIL")
-    _write(_event("verification_result",
+    return _write(_event("verification_result",
         "info" if ok else "error",
         subsystem=subsystem, tool_id=tool_id, mode=mode,
         decision="verify",
@@ -374,7 +383,7 @@ def list_recent_events(limit: int = 50, hours: float = 24.0) -> list[dict]:
                     if t < cutoff:
                         continue
                 except ValueError:
-                    pass
+                    logger.warning("Unable to parse runtime event timestamp: %s", ts, exc_info=True)
             events.append(ev)
             if len(events) >= limit * 3:
                 break

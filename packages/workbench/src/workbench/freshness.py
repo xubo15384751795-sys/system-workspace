@@ -1,22 +1,44 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from workbench.paths import workspace_root as _workspace_root
 from typing import Any
 
 import pandas as pd
 import yaml
 
+from system_runtime.paths import output_surface
+from workbench.paths import workspace_root as _workspace_root
 
 ROOT = _workspace_root()
 POLICY_PATH = ROOT / "configs" / "freshness_policy.yaml"
 HARVESTER_LATEST = ROOT / "Data" / "harvester" / "exports" / "latest"
 DEFORMATION_LATEST = ROOT / "Output" / "deformation_runs" / "latest"
-CURRENT = ROOT / "Output" / "current"
+CURRENT = output_surface(ROOT, "current")
 
 STATUSES = {"fresh", "acceptable_lag", "stale", "missing", "retired_or_unavailable"}
+
+# A content clock cannot prove that the bytes were acquired successfully.  A
+# release-level provider outcome is therefore an independent freshness gate.
+# In particular, reusing an old panel after a provider outage must never look
+# like a fresh release merely because the carried-forward rows are recent
+# relative to the release timestamp.
+_PROVIDER_BLOCKING_STATUSES = frozenset(
+    {
+        "unknown",
+        "all_failed",
+        "provider_failed_no_acceptable_fallback",
+        "reused_after_provider_failure",
+        "environmentally_blocked",
+    }
+)
+_PROVIDER_WARNING_STATUSES = frozenset(
+    {"partial_provider_success", "reused_same_content"}
+)
+_PROVIDER_PASS_STATUSES = frozenset(
+    {"refreshed", "success", "accepted", "finalized", "no_release_expected"}
+)
 
 
 def utc_now() -> str:
@@ -25,11 +47,17 @@ def utc_now() -> str:
 
 def read_json(path: Path) -> dict[str, Any]:
     """Load a JSON file, raising on missing or invalid."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON document must be an object: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Freshness policy must be a mapping: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def parse_timestamp(value: Any) -> pd.Timestamp | None:
@@ -119,11 +147,13 @@ def build_release_freshness_manifest(
     panel_path, evidence_created_at = _resolve_panel_from_catalog(release, catalog)
     panel = pd.read_parquet(panel_path)
     _validate_panel_shape_with_pandera(panel)
+    provider_outcomes = _resolve_provider_outcomes(release, catalog)
     indicators = []
     for series_id in policy.get("indicators", {}):
         indicators.append(_indicator_freshness(series_id, panel, policy, evidence_created_at))
 
     model_input_validity = _model_input_validity(indicators)
+    provider_gate = _provider_gate(provider_outcomes)
     manifest = {
         "schema_version": "workbench.freshness_manifest.v1",
         "generated_at": utc_now(),
@@ -139,10 +169,123 @@ def build_release_freshness_manifest(
         "evidence_created_at": evidence_created_at,
         "run_generated_at": run_generated_at,
         "model_input_validity": model_input_validity,
-        "gate_result": _gate_result(indicators, policy, model_input_validity),
+        "provider_outcomes": provider_outcomes,
+        "provider_gate": provider_gate,
+        "gate_result": _gate_result(
+            indicators,
+            policy,
+            model_input_validity,
+            provider_outcomes=provider_outcomes,
+        ),
         "indicators": indicators,
     }
     return manifest
+
+
+def _resolve_provider_outcomes(
+    release: Path,
+    catalog: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Read provider outcomes without deriving acquisition success from dates.
+
+    Complete Harvester releases expose benchmark and cross-asset datasets
+    whose provider outcomes are decision-relevant.  If either manifest lacks
+    the outcome, return an explicit ``unknown`` record so freshness cannot
+    report PASS from carried-forward bytes.  Lightweight historical fixtures
+    that do not contain the cross-asset manifest remain date-only fixtures.
+    """
+    records: list[dict[str, Any]] = []
+    datasets = catalog.get("datasets") if isinstance(catalog.get("datasets"), list) else []
+    dataset_entries = [item for item in datasets if isinstance(item, dict)]
+    if not dataset_entries:
+        dataset_entries = [
+            item
+            for item in catalog.get("files", [])
+            if isinstance(item, dict) and item.get("dataset_id")
+        ]
+    if not any(
+        str(item.get("dataset_id") or "") == "cross_asset_daily_panel"
+        for item in dataset_entries
+    ):
+        cross_asset_manifest = release / "manifests" / "cross_asset_daily_panel.manifest.json"
+        if cross_asset_manifest.exists():
+            dataset_entries.append(
+                {
+                    "dataset_id": "cross_asset_daily_panel",
+                    "manifest_path": "manifests/cross_asset_daily_panel.manifest.json",
+                }
+            )
+
+    complete_release = any(
+        str(item.get("dataset_id") or "") == "cross_asset_daily_panel"
+        for item in dataset_entries
+    )
+    required_provider_datasets = {"cross_asset_daily_panel"}
+    if complete_release:
+        required_provider_datasets.add("benchmark_panel")
+
+    for entry in dataset_entries:
+        dataset_id = str(entry.get("dataset_id") or "")
+        manifest_ref = entry.get("manifest_path")
+        if not dataset_id or not isinstance(manifest_ref, str):
+            continue
+        manifest_path = release / manifest_ref
+        payload = read_json(manifest_path) if manifest_path.is_file() else {}
+        outcome = payload.get("provider_outcome")
+        if isinstance(outcome, dict) and outcome.get("status"):
+            records.append(
+                {
+                    "dataset_id": dataset_id,
+                    "status": str(outcome["status"]).strip().lower(),
+                    "source": str(manifest_path.relative_to(release)),
+                    "details": outcome,
+                }
+            )
+        elif dataset_id in required_provider_datasets:
+            records.append(
+                {
+                    "dataset_id": dataset_id,
+                    "status": "unknown",
+                    "reason_code": "UNKNOWN_PROVIDER_OUTCOME",
+                    "source": str(manifest_path.relative_to(release)),
+                }
+            )
+
+    # Bundle-style or release-level provider evidence may live directly in the
+    # catalog.  Keep it in the same gate rather than creating a second rule.
+    catalog_outcome = catalog.get("provider_outcome")
+    if isinstance(catalog_outcome, dict) and catalog_outcome.get("status"):
+        records.append(
+            {
+                "dataset_id": str(catalog.get("release_id") or "release"),
+                "status": str(catalog_outcome["status"]).strip().lower(),
+                "source": "catalog.json",
+                "details": catalog_outcome,
+            }
+        )
+    return records
+
+
+def _provider_gate(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
+    blockers: list[str] = []
+    warnings: list[str] = []
+    for outcome in outcomes:
+        status = str(outcome.get("status") or "unknown").strip().lower()
+        dataset_id = str(outcome.get("dataset_id") or "release")
+        message = f"{dataset_id} provider outcome is {status}"
+        if status in _PROVIDER_BLOCKING_STATUSES or status not in (
+            _PROVIDER_PASS_STATUSES | _PROVIDER_WARNING_STATUSES
+        ):
+            blockers.append(message)
+        elif status in _PROVIDER_WARNING_STATUSES:
+            warnings.append(message)
+    status = "BLOCKED" if blockers else "WARN" if warnings else "PASS"
+    return {
+        "status": status,
+        "blockers": blockers,
+        "warnings": warnings,
+        "outcomes": outcomes,
+    }
 
 
 def _resolve_panel_from_catalog(release: Path, catalog: dict[str, Any]) -> tuple[Path, str | None]:
@@ -217,12 +360,13 @@ def _indicator_freshness(
 ) -> dict[str, Any]:
     indicator_policy = policy.get("indicators", {}).get(series_id, {})
     frequency = str(indicator_policy.get("frequency") or "unknown")
+    calendar_name = str(indicator_policy.get("calendar") or "").strip() or None
     required = bool(indicator_policy.get("required", False))
     override = indicator_policy.get("status_override")
     evidence_ts = parse_timestamp(evidence_created_at)
     part = panel[series_matches(panel, series_id)].copy()
 
-    base = {
+    base: dict[str, Any] = {
         "series_id": series_id,
         "required": required,
         "frequency": frequency,
@@ -230,6 +374,8 @@ def _indicator_freshness(
         "vintage_date": None,
         "evidence_created_at": evidence_created_at,
         "lag_days": None,
+        "lag_basis": "exchange_session" if calendar_name else "calendar_day",
+        "calendar": calendar_name,
         "freshness_status": "missing",
         "missing_reason": None,
         "retired_reason": None,
@@ -259,7 +405,7 @@ def _indicator_freshness(
         return base
 
     latest = _latest_observation(part)
-    base.update(_latest_dates(latest, evidence_ts))
+    base.update(_latest_dates(latest, evidence_ts, calendar_name=calendar_name))
     status = classify_lag(base["lag_days"], frequency, policy)
     base["freshness_status"] = status
     base["gate_severity"] = _indicator_gate_severity(status, indicator_policy, policy, required)
@@ -273,12 +419,49 @@ def _latest_observation(part: pd.DataFrame) -> pd.Series:
     return part.iloc[-1] if not part.empty else pd.Series(dtype=object)
 
 
-def _latest_dates(latest: pd.Series, evidence_ts: pd.Timestamp | None) -> dict[str, Any]:
+def _session_lag_days(content_date: date, as_of: date, calendar_name: str) -> int:
+    """Count exchange sessions between an observation and evidence timestamp.
+
+    ``scripts.freshness_validator`` already uses exchange-calendars for the
+    governed content clock.  Release-level freshness must use the same clock
+    for indicators whose publication cadence is tied to a market calendar;
+    otherwise a Friday-to-Monday/weekend gap is counted as if it were a data
+    outage.  A configured calendar is fail-closed if the dependency or query
+    is unavailable rather than silently falling back to weekdays.
+    """
+    try:
+        import exchange_calendars as xcals
+
+        calendar = xcals.get_calendar(calendar_name)
+        expected = calendar.date_to_session(pd.Timestamp(as_of), direction="previous").date()
+        if content_date >= expected:
+            return 0
+        start = pd.Timestamp(content_date + timedelta(days=1))
+        end = pd.Timestamp(expected)
+        return int(len(calendar.sessions_in_range(start, end)))
+    except Exception as exc:  # noqa: BLE001 - normalize calendar failures
+        raise RuntimeError(
+            f"exchange-session freshness unavailable: calendar={calendar_name} "
+            f"content_max={content_date} as_of={as_of}"
+        ) from exc
+
+
+def _latest_dates(
+    latest: pd.Series,
+    evidence_ts: pd.Timestamp | None,
+    *,
+    calendar_name: str | None = None,
+) -> dict[str, Any]:
     observation = parse_date(latest.get("date"))
     vintage = parse_date(latest.get("vintage_date"))
     lag_days = None
     if evidence_ts is not None and observation is not None:
-        lag_days = int((evidence_ts.normalize().tz_localize(None) - observation).days)
+        evidence_date = evidence_ts.normalize().tz_localize(None).date()
+        observation_date = observation.date()
+        if calendar_name:
+            lag_days = _session_lag_days(observation_date, evidence_date, calendar_name)
+        else:
+            lag_days = int((evidence_ts.normalize().tz_localize(None) - observation).days)
     return {
         "observation_date": observation.date().isoformat() if observation is not None else None,
         "vintage_date": vintage.date().isoformat() if vintage is not None else None,
@@ -308,9 +491,15 @@ def _model_input_validity(indicators: list[dict[str, Any]]) -> str:
     return "usable"
 
 
-def _gate_result(indicators: list[dict[str, Any]], policy: dict[str, Any], model_input_validity: str) -> dict[str, Any]:
-    warnings = []
-    blockers = []
+def _gate_result(
+    indicators: list[dict[str, Any]],
+    policy: dict[str, Any],
+    model_input_validity: str,
+    *,
+    provider_outcomes: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    warnings: list[str] = []
+    blockers: list[str] = []
     for item in indicators:
         status = item["freshness_status"]
         severity = item.get("gate_severity")
@@ -319,10 +508,14 @@ def _gate_result(indicators: list[dict[str, Any]], policy: dict[str, Any], model
             (blockers if severity == "block" else warnings).append(message)
         if status == "retired_or_unavailable" and item.get("used_in_current_diagnostics"):
             blockers.append(f"{item['series_id']} is retired_or_unavailable but marked as used in current diagnostics")
+    provider_gate = _provider_gate(provider_outcomes or [])
+    blockers.extend(provider_gate["blockers"])
+    warnings.extend(provider_gate["warnings"])
     return {
         "promotion_allowed": not blockers,
         "canonical_promotion_severity": "block" if blockers else "warn" if warnings else "pass",
         "model_input_validity": model_input_validity,
+        "provider_gate": provider_gate,
         "warnings": warnings,
         "blockers": blockers,
     }

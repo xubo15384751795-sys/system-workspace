@@ -77,6 +77,10 @@ class StructuralEventCard(BaseModel):
     status: str = "candidate"
     extraction_notes: str = ""
     extraction: dict[str, Any] = Field(default_factory=dict)
+    # Excluded from the legacy Pydantic dump; event_card_payload() adds these
+    # fields only after the diagnostic claim is built.
+    canonical_claim_id: str = Field(default="", exclude=True)
+    canonical_claim: dict[str, Any] = Field(default_factory=dict, exclude=True)
 
     @field_validator("status")
     @classmethod

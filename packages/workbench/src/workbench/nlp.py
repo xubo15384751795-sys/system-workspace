@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from system_runtime.paths import output_surface
+from system_runtime.canonical_ids import canonical_id
 from workbench.context_budget import load_context_budget
 from workbench.paths import workspace_root as _workspace_root
 from workbench.prompt_assembly import assemble_full_prompt, build_prompt_sections
 
-
 ROOT = _workspace_root()
-CURRENT = ROOT / "Output" / "current"
-OUTPUT = ROOT / "Output"
-NLP_OUT = ROOT / "Output" / "workbench" / "nlp"
+CURRENT = output_surface(ROOT, "current")
+OUTPUT = output_surface(ROOT, "")
+NLP_OUT = OUTPUT / "workbench" / "nlp"
+RETRIEVAL_CITATION_KIND = "RETRIEVAL_CITATION"
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class EvidenceChunk:
     title: str
     text: str
     release_id: str = ""
+    evidence_kind: str = RETRIEVAL_CITATION_KIND
 
 
 def answer_question(
@@ -52,7 +56,9 @@ def answer_question(
             "Answered only from local Workbench current outputs and admitted evidence links.",
             "No external provider acquisition or live web lookup was performed.",
             "This extractive first pass is not a substitute for framework diagnosis.",
+            "Citation IDs are retrieval references, not canonical Evidence objects and cannot be promoted.",
         ],
+        "evidence_boundary": "retrieval_citation_only",
         "context_budget": {
             "chunk_window_chars": budget.chunk_window_chars,
             "excerpt_chars": budget.excerpt_chars,
@@ -172,14 +178,22 @@ def _chunks_for_path(path: Path, *, release_id: str, max_chars: int) -> list[Evi
     if not text.strip():
         return []
     parts = _split_sections(text, max_chars=max_chars)
-    rel = path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else path.as_posix()
     return [
         EvidenceChunk(
-            evidence_id=f"{rel}#{idx}",
+            evidence_id=canonical_id(
+                "evidence",
+                {
+                    "chunk_index": idx,
+                    "title": title or path.name,
+                    "text_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                    "release_id": release_id,
+                },
+            ),
             path=path,
             title=title or path.name,
             text=body,
             release_id=release_id,
+            evidence_kind=RETRIEVAL_CITATION_KIND,
         )
         for idx, (title, body) in enumerate(parts, start=1)
         if body.strip()
@@ -249,6 +263,9 @@ def _citation(chunk: EvidenceChunk, *, excerpt_limit: int) -> dict[str, str]:
     path = chunk.path.relative_to(ROOT).as_posix() if chunk.path.is_relative_to(ROOT) else chunk.path.as_posix()
     return {
         "evidence_id": chunk.evidence_id,
+        "evidence_kind": chunk.evidence_kind,
+        "canonical_evidence": False,
+        "promotion_allowed": False,
         "path": path,
         "title": chunk.title,
         "release_id": chunk.release_id,

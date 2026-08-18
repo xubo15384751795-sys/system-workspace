@@ -18,8 +18,6 @@ import csv
 import json
 import shutil
 import sys
-import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -315,7 +313,7 @@ def run_demo(
     create_output_dirs(root)
     release = create_demo_workspace(root)
     print(f"   Release: {release.relative_to(root)}")
-    print(f"   Series:  VIXCLS (business_daily), NFCI (weekly)")
+    print("   Series:  VIXCLS (business_daily), NFCI (weekly)")
     print(f"   Rows:    {len(SYNTHETIC_DATA)}\n")
 
     # Patch paths to point at the demo workspace

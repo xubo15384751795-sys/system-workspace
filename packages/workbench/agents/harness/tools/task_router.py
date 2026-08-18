@@ -14,7 +14,6 @@ from typing import Any
 
 import yaml
 
-
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
 def _resolve_system_root(workbench_root: Path) -> Path:
@@ -45,7 +44,7 @@ MODULE_RULES: list[ModuleRule] = [
     ModuleRule(
         module="Workbench",
         context_file="module_contexts/workbench.md",
-        primary_paths=["Workbench/", "scripts/", "Output/current/"],
+        primary_paths=["packages/workbench/", "scripts/", "Output/current/"],
         keywords=[
             "sys",
             "dashboard",
@@ -63,14 +62,14 @@ MODULE_RULES: list[ModuleRule] = [
             "报告",
         ],
         forbidden_first_reads=[
-            "deformation-framework/src/core/",
+            "packages/framework/src/core/",
             "provider acquisition internals",
         ],
     ),
     ModuleRule(
         module="Deformation Framework",
         context_file="module_contexts/framework.md",
-        primary_paths=["deformation-framework/"],
+        primary_paths=["packages/framework/"],
         keywords=[
             "deformation",
             "sigma",
@@ -94,15 +93,15 @@ MODULE_RULES: list[ModuleRule] = [
             "声明",
         ],
         forbidden_first_reads=[
-            "Workbench/src/workbench/",
-            "Harvester provider code",
+            "packages/workbench/src/workbench/",
+            "packages/harvester provider code",
         ],
     ),
     ModuleRule(
         module="Harvester",
         context_file="module_contexts/harvester.md",
         primary_paths=[
-            "../structural-risk-harvester/",
+            "packages/harvester/",
             "Data/harvester/exports/",
         ],
         keywords=[
@@ -126,14 +125,14 @@ MODULE_RULES: list[ModuleRule] = [
             "发布包",
         ],
         forbidden_first_reads=[
-            "deformation-framework/src/dynamics/",
-            "Workbench dashboard internals",
+            "packages/framework/src/dynamics/",
+            "packages/workbench dashboard internals",
         ],
     ),
     ModuleRule(
         module="Protocols",
         context_file="module_contexts/protocols.md",
-        primary_paths=["protocols/", "Workbench/contracts/workbench/"],
+        primary_paths=["protocols/", "packages/workbench/contracts/workbench/"],
         keywords=[
             "schema",
             "contract",
@@ -173,7 +172,7 @@ MODULE_RULES: list[ModuleRule] = [
         module="Learning Hub",
         context_file="module_contexts/learning-hub.md",
         primary_paths=[
-            "../system-learning-hub/",
+            "packages/learning_hub/",
             "Output/system_learning/",
         ],
         keywords=[

@@ -7,9 +7,11 @@ meaningful regardless of cwd.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
+
 from workbench.paths import workspace_root as _workspace_root
 
-WORKSPACE_ROOT = _workspace_root()
+WORKSPACE_ROOT = cast(Path, _workspace_root())
 
 DATA_DIR = WORKSPACE_ROOT / "Data"
 OUTPUT_DIR = WORKSPACE_ROOT / "Output"

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
+from typing import Any, Optional, cast
+
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from nlp.chunking.chunk_schema import TextChunk
 from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder, EmbeddingRecord
@@ -12,6 +14,7 @@ from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder, EmbeddingRecord
 ROOT = _workspace_root()
 DEFAULT_INDEX_DIR = ROOT / "Data" / "nlp" / "embeddings"
 LANCEDB_TABLE = "nlp_chunks"
+logger = logging.getLogger(__name__)
 
 
 def _prefer_lancedb() -> bool:
@@ -48,6 +51,16 @@ class VectorStore:
         self._records: list[EmbeddingRecord] = []
         self._chunk_texts: dict[str, str] = {}
         self._backend: str = "memory"
+        self._backend_status: dict[str, object] = {
+            "backend": "memory",
+            "fallback": False,
+            "error": None,
+        }
+
+    @property
+    def backend_status(self) -> dict[str, object]:
+        """Return the last index backend outcome without backend payloads."""
+        return dict(self._backend_status)
 
     def add(self, records: list[EmbeddingRecord], chunks: list[TextChunk]) -> None:
         if not records:
@@ -81,17 +94,33 @@ class VectorStore:
 
     def save(self, name: str = "nlp_chunks") -> Path:
         self.index_dir.mkdir(parents=True, exist_ok=True)
-        if _prefer_lancedb() and self._records:
-            if self._save_lancedb(name):
+        self._backend = "memory"
+        self._backend_status = {"backend": "memory", "fallback": False, "error": None}
+        lancedb_preferred = _prefer_lancedb() and bool(self._records)
+        if lancedb_preferred:
+            try:
+                lancedb_saved = self._save_lancedb(name)
+            except Exception as exc:  # noqa: BLE001 - optional backend has explicit fallback
+                lancedb_saved = False
+                self._backend_status["error"] = type(exc).__name__
+                logger.warning("LanceDB save failed; using local index fallback: %s", type(exc).__name__)
+            if lancedb_saved:
                 self._backend = "lancedb"
-        elif self._index is not None:
+                self._backend_status = {"backend": "lancedb", "fallback": False, "error": None}
+            else:
+                self._backend_status["fallback"] = True
+                self._backend_status["error"] = self._backend_status["error"] or "lancedb_unavailable"
+
+        if self._backend != "lancedb" and self._index is not None:
             self._save_index(self.index_dir / name)
-            self._backend = "faiss_or_numpy"
+            self._backend = "faiss" if not isinstance(self._index, _NumpyIndex) else "numpy"
+            self._backend_status["backend"] = self._backend
         meta_path = self.index_dir / f"{name}_meta.json"
         meta = {
             "model_name": self.model_name,
             "num_records": len(self._records),
             "backend": self._backend,
+            "backend_status": self.backend_status,
             "records": [
                 {"chunk_id": r.chunk_id, "document_id": r.document_id, "text_hash": r.text_hash}
                 for r in self._records
@@ -108,15 +137,52 @@ class VectorStore:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         self._chunk_texts = meta.get("chunk_texts", {})
         self.model_name = meta.get("model_name", self.model_name)
-        if meta.get("backend") == "lancedb" or _prefer_lancedb():
-            if self._load_lancedb(name):
+        self._records = [
+            EmbeddingRecord(
+                chunk_id=str(record.get("chunk_id") or ""),
+                document_id=str(record.get("document_id") or ""),
+                text_hash=str(record.get("text_hash") or ""),
+                model_name=self.model_name,
+            )
+            for record in meta.get("records", [])
+            if isinstance(record, dict)
+        ]
+        persisted_status = meta.get("backend_status")
+        if isinstance(persisted_status, dict):
+            self._backend_status = {
+                "backend": str(persisted_status.get("backend") or "uninitialized"),
+                "fallback": bool(persisted_status.get("fallback", False)),
+                "error": (
+                    str(persisted_status["error"])
+                    if persisted_status.get("error") is not None
+                    else None
+                ),
+            }
+        else:
+            self._backend_status = {"backend": "uninitialized", "fallback": False, "error": None}
+        if meta.get("backend") == "lancedb":
+            try:
+                lancedb_loaded = self._load_lancedb(name)
+            except Exception as exc:  # noqa: BLE001 - optional backend has explicit fallback
+                lancedb_loaded = False
+                self._backend_status["error"] = type(exc).__name__
+                logger.warning("LanceDB load failed; using local index fallback: %s", type(exc).__name__)
+            if lancedb_loaded:
                 self._backend = "lancedb"
+                self._backend_status = {"backend": "lancedb", "fallback": False, "error": None}
                 return True
+            self._backend_status["fallback"] = True
+            self._backend_status["error"] = self._backend_status["error"] or "lancedb_unavailable"
         index_path = self.index_dir / name
         if self._index_exists(index_path):
             self._index = self._load_index(index_path)
-            self._backend = "faiss_or_numpy"
-        return True
+            self._backend = "faiss" if not isinstance(self._index, _NumpyIndex) else "numpy"
+            self._backend_status["backend"] = self._backend
+            return True
+        self._backend = "memory"
+        self._backend_status["backend"] = "memory"
+        self._backend_status["error"] = self._backend_status["error"] or "index_missing"
+        return False
 
     def _lancedb_dir(self, name: str) -> Path:
         return self.index_dir / f"{name}_lancedb"
@@ -217,44 +283,53 @@ class VectorStore:
             self._index = self._create_index(vectors)
             return
         try:
-            import faiss
             import numpy as np
             arr = np.array(vectors, dtype=np.float32)
-            self._index.add(arr)
+            cast(Any, self._index).add(arr)
         except ImportError:
             if isinstance(self._index, _NumpyIndex):
                 self._index.add(vectors)
 
     def _search_index(self, query_vector: list[float], *, top_k: int) -> list[tuple[int, float]]:
+        if isinstance(self._index, _NumpyIndex):
+            return self._index.search(query_vector, top_k=top_k)
         try:
-            import faiss
             import numpy as np
             q = np.array([query_vector], dtype=np.float32)
-            scores, indices = self._index.search(q, min(top_k, self._index.ntotal))
+            index = cast(Any, self._index)
+            scores, indices = index.search(q, min(top_k, int(index.ntotal)))
             return [
                 (int(indices[0][i]), float(scores[0][i]))
                 for i in range(len(indices[0]))
                 if indices[0][i] >= 0
             ]
-        except (ImportError, AttributeError):
-            if isinstance(self._index, _NumpyIndex):
-                return self._index.search(query_vector, top_k=top_k)
+        except (ImportError, AttributeError) as exc:
+            self._backend_status = {
+                "backend": self._backend,
+                "fallback": False,
+                "error": type(exc).__name__,
+            }
+            logger.warning("Vector search backend failed; returning no hits: %s", type(exc).__name__)
             return []
 
     def _save_index(self, path: Path) -> None:
+        if isinstance(self._index, _NumpyIndex):
+            self._index.save(path)
+            return
         try:
             import faiss
             faiss.write_index(self._index, str(path))
-        except (ImportError, AttributeError):
-            if isinstance(self._index, _NumpyIndex):
-                self._index.save(path)
+        except ImportError as exc:
+            raise RuntimeError("FAISS backend is unavailable for a non-NumPy index") from exc
 
     def _load_index(self, path: Path):
+        if not path.exists() and Path(str(path) + ".npz").exists():
+            return _NumpyIndex.load(path)
         try:
             import faiss
             return faiss.read_index(str(path))
-        except ImportError:
-            return _NumpyIndex.load(path)
+        except ImportError as exc:
+            raise RuntimeError("FAISS backend is unavailable for the persisted index") from exc
 
     def _index_exists(self, path: Path) -> bool:
         return path.exists() or Path(str(path) + ".npz").exists()
@@ -286,7 +361,7 @@ class _NumpyIndex:
 
     @property
     def ntotal(self) -> int:
-        return self.vectors.shape[0]
+        return int(self.vectors.shape[0])
 
     def save(self, path: Path) -> None:
         import numpy as np

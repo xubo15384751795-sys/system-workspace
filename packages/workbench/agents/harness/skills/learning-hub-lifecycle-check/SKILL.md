@@ -19,8 +19,8 @@ Also triggered when event ingestion failure rate exceeds 20%.
 - `Output/system_learning/events/events_<date>.jsonl` — recent events
 - `policies/boundary_rules.yaml` — `boundary.deny.learninghub-modifies-peer-source`
 - `policies/feature_flags.yaml` — `learning_hub.auto_approval: disabled`, `learning_hub.llm_issue_classifier: exploratory`
-- `System Learning Hub/src/governance/codebase`
-- `Workbench/agents/harness/tools/task_router.py` — routing and expert activation logic
+- `packages/learning_hub/src/governance/codebase`
+- `packages/workbench/agents/harness/tools/task_router.py` — routing and expert activation logic
 
 ## Steps
 

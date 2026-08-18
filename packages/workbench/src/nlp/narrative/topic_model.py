@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from nlp.chunking.chunk_schema import TextChunk
-from nlp.embeddings.embedder import DEFAULT_MODEL, Embedder
+from nlp.embeddings.embedder import Embedder
 
 ROOT = _workspace_root()
 
@@ -101,11 +98,11 @@ class TopicModel:
             if topic_id == -1:
                 continue
             keywords = _extract_keywords_tfidf(t_texts, top_n=8)
-            label = " ".join(keywords[:3]) if keywords else f"topic_{topic_id}"
+            topic_label = " ".join(keywords[:3]) if keywords else f"topic_{topic_id}"
             results.append(
                 TopicResult(
                     topic_id=topic_id,
-                    label=label,
+                    label=topic_label,
                     keywords=keywords,
                     top_chunk_ids=topic_chunks.get(topic_id, [])[:10],
                     chunk_count=len(t_texts),
@@ -174,8 +171,8 @@ def _extract_keywords_tfidf(texts: list[str], *, top_n: int = 8) -> list[str]:
 
     all_terms: Counter = Counter()
     for text in texts:
-        tokens = re.findall(r"\b[a-z]{3,}\b", text.lower())
-        all_terms.update(t for t in tokens if t not in stopwords)
+        token_list = re.findall(r"\b[a-z]{3,}\b", text.lower())
+        all_terms.update(t for t in token_list if t not in stopwords)
 
     total_docs = len(texts)
     scores: dict[str, float] = {}

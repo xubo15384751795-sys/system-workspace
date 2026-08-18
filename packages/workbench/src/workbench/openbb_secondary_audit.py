@@ -5,10 +5,11 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-UTC = timezone.utc
 from pathlib import Path
+from typing import Any, cast
 from workbench.paths import workspace_root as _workspace_root
-from typing import Any
+
+UTC = timezone.utc
 
 
 SCHEMA_VERSION = "workbench.openbb_secondary_audit.v1"
@@ -170,7 +171,7 @@ def _append_event(events_dir: Path, event: dict[str, Any]) -> Path:
 
 
 def _audit_path(audit: dict[str, Any]) -> Path:
-    return _workspace_root() / "Output" / "workbench" / "openbb_secondary_audits" / f"{audit['audit_id']}.json"
+    return cast(Path, _workspace_root() / "Output" / "workbench" / "openbb_secondary_audits" / f"{audit['audit_id']}.json")
 
 
 def _compared_series(openbb_manifest: dict[str, Any], quality_report: dict[str, Any] | None) -> list[str]:
@@ -230,7 +231,10 @@ def _first_existing(*paths: Path) -> Path | None:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON document must be an object: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def _read_optional_json(path: Path | None) -> dict[str, Any] | None:

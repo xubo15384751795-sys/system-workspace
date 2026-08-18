@@ -14,8 +14,6 @@ from system_runtime.paths import WorkspacePaths
 
 import json
 from collections import Counter, defaultdict
-from itertools import combinations
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -102,7 +100,7 @@ def discover_entity_roles(
     # Simple clustering at threshold
     threshold = 0.3
     visited = set()
-    clusters = []
+    clusters: list[dict[str, Any]] = []
     for i in range(n):
         if i in visited:
             continue

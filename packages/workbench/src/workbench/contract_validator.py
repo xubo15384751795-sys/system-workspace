@@ -3,13 +3,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 from pathlib import Path
 from workbench.paths import workbench_root as _workbench_root
-from typing import Any
+from typing import Any, cast
 
 
-ROOT = _workbench_root()
+ROOT = cast(Path, _workbench_root())
 
 
 def _resolve_contracts() -> Path:

@@ -18,12 +18,12 @@ from system_runtime.paths import WorkspacePaths
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 
-ROOT = WorkspacePaths.discover().root
+ROOT = cast(Path, WorkspacePaths.discover().root)
 BP_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
 
 

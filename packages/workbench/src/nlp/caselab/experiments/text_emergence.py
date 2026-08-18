@@ -14,9 +14,8 @@ from system_runtime.paths import WorkspacePaths
 
 import json
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from itertools import combinations
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -154,7 +153,7 @@ def discover_concept_clusters(concept_data: dict) -> list[dict]:
     # Cluster at threshold
     threshold = 0.4
     visited = set()
-    clusters = []
+    clusters: list[dict[str, Any]] = []
     for i in range(n):
         if i in visited:
             continue
@@ -189,7 +188,10 @@ def discover_concept_clusters(concept_data: dict) -> list[dict]:
                 ),
             })
 
-    clusters.sort(key=lambda c: c["density"] * c["size"], reverse=True)
+    clusters.sort(
+        key=lambda c: float(c.get("density", 0.0)) * int(c.get("size", 0)),
+        reverse=True,
+    )
     return clusters
 
 

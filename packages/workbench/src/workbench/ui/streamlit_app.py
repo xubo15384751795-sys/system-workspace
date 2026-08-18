@@ -7,19 +7,25 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import streamlit as st
 
+from system_runtime.paths import output_surface
+
 ROOT = Path(__file__).resolve().parents[5]
-CURRENT = ROOT / "Output" / "current"
+CURRENT = cast(Path, output_surface(ROOT, "current"))
 
 
-def _load_json(name: str) -> dict | None:
+def _load_json(name: str) -> dict[str, Any] | None:
     path = CURRENT / name
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return None
+        return {str(key): value for key, value in payload.items()}
     except json.JSONDecodeError:
         return None
 
@@ -28,7 +34,7 @@ def _load_text(name: str) -> str | None:
     path = CURRENT / name
     if not path.exists():
         return None
-    return path.read_text(encoding="utf-8")
+    return str(path.read_text(encoding="utf-8"))
 
 
 def main() -> None:
