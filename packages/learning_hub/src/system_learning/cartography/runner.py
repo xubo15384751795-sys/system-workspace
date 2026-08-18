@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import cast
 
 from system_learning.cartography.report import write_cartography_outputs
 from system_learning.cartography.scanner import scan_project
@@ -10,7 +11,7 @@ from system_learning.runtime.paths import resolve_hub_project_root
 
 def run_cartography(*, scan_root: Path, project_root: Path) -> dict[str, Path]:
     scans = scan_project(scan_root)
-    return write_cartography_outputs(project_root, scan_root, scans)
+    return cast(dict[str, Path], write_cartography_outputs(project_root, scan_root, scans))
 
 
 def main(argv: list[str] | None = None) -> int:

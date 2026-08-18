@@ -18,19 +18,26 @@ Rules are grouped:
 """
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
+from system_runtime.paths import WorkspacePaths
+
+logger = logging.getLogger(__name__)
+
 
 class Severity(str, Enum):
     RED = "RED"      # absolute blocker — signal must not be used
     AMBER = "AMBER"  # requires manual review before use
+
+
+class ConstitutionEvaluationError(RuntimeError):
+    """Raised when a constitution rule cannot be evaluated safely."""
 
 
 @dataclass(frozen=True)
@@ -44,8 +51,20 @@ class Rule:
     def evaluate(self, evidence: dict[str, Any]) -> bool:
         try:
             return self.check(evidence)
-        except Exception:
-            return False
+        except Exception as exc:
+            # An unknown rule result is not evidence of compliance. Keep the
+            # diagnostic bounded to the exception type and rule id so a bad
+            # check cannot leak evidence payloads into logs or the raised
+            # governance error.
+            logger.error(
+                "ML integrity rule evaluation failed: rule_id=%s error_type=%s",
+                self.id,
+                type(exc).__name__,
+            )
+            raise ConstitutionEvaluationError(
+                f"ML integrity rule {self.id} could not be evaluated "
+                f"({type(exc).__name__}); signal use is blocked."
+            ) from None
 
 
 @dataclass
@@ -341,4 +360,4 @@ def _emit_event(violation: ConstitutionViolation, events_dir: Path | None) -> No
         }
         event_file.write_text(json.dumps(event, indent=2) + "\n", encoding="utf-8")
     except OSError:
-        pass
+        logger.warning("Unable to write ML integrity constitution event: %s", event_file, exc_info=True)

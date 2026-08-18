@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from dagster import build_op_context
-
 from orchestration.ops.registry_step import execute_registry_sequence_op
 from orchestration.runner import use_legacy_daily_run
 
@@ -21,7 +20,7 @@ def test_legacy_flag_default_off(monkeypatch):
 def test_execute_registry_sequence_op_with_stubbed_steps(monkeypatch):
     executed: list[str] = []
 
-    def fake_sequence(ctx):
+    def fake_sequence(ctx, *, plan=None):
         executed.append(ctx.run_id)
         result = {"step": "stub", "status": "success", "duration_s": 0}
         ctx.record_fn(result)
@@ -43,5 +42,6 @@ def test_execute_registry_sequence_op_with_stubbed_steps(monkeypatch):
     }
     out = execute_registry_sequence_op(build_op_context(), payload)
     assert out["run_id"] == "dagster_hermetic"
+    assert len(out["plan_digest"]) == 64
     assert executed == ["dagster_hermetic"]
     assert recorded and recorded[0]["step"] == "stub"

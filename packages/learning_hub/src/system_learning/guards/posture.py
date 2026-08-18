@@ -48,6 +48,8 @@ def build_posture_digest(registry: Registry, now: datetime | None = None) -> Res
     entries: list[PostureEntry] = []
     for e in registry.with_posture():
         p = e.posture
+        if p is None:
+            continue
         entries.append(
             PostureEntry(
                 entity=e.name,

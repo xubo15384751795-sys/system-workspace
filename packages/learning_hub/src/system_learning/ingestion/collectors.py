@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -170,9 +171,9 @@ def events_from_violations_json(path: Path) -> list[dict]:
     return events
 
 
-def event_from_learning_report(path: Path) -> dict:
+def event_from_learning_report(path: Path) -> dict[str, Any]:
     excerpt = read_excerpt(path)
-    return normalize_event(
+    return cast(dict[str, Any], normalize_event(
         {
             "event_type": "learning_report_available",
             "severity": "info",
@@ -182,12 +183,12 @@ def event_from_learning_report(path: Path) -> dict:
             "requires_manual_review": False,
         },
         path,
-    )
+    ))
 
 
-def event_from_checkpoint(path: Path) -> dict:
+def event_from_checkpoint(path: Path) -> dict[str, Any]:
     excerpt = read_excerpt(path)
-    return normalize_event(
+    return cast(dict[str, Any], normalize_event(
         {
             "event_type": "governance_checkpoint",
             "subsystem": "learning_hub",
@@ -200,10 +201,10 @@ def event_from_checkpoint(path: Path) -> dict:
             "requires_manual_review": "open_thread" in excerpt.lower() or "next_agent_action" in excerpt.lower(),
         },
         path,
-    )
+    ))
 
 
-def event_from_routing_decision(path: Path) -> dict:
+def event_from_routing_decision(path: Path) -> dict[str, Any]:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
@@ -211,7 +212,7 @@ def event_from_routing_decision(path: Path) -> dict:
     if not isinstance(raw, dict):
         raw = {"value": raw}
     status = str(raw.get("status") or "recorded").lower()
-    return normalize_event(
+    return cast(dict[str, Any], normalize_event(
         {
             "timestamp": _dated_document_timestamp(raw.get("date"), path),
             "event_type": f"routing_decision_{status}",
@@ -233,7 +234,7 @@ def event_from_routing_decision(path: Path) -> dict:
             "requires_manual_review": status in {"proposed", "pending", "malformed"},
         },
         path,
-    )
+    ))
 
 
 def events_from_open_threads(path: Path) -> list[dict]:
@@ -283,7 +284,8 @@ def _dated_document_timestamp(value: object, path: Path) -> str:
     text = str(value or "").strip()
     if len(text) == 10 and text[4] == "-" and text[7] == "-":
         return f"{text}T00:00:00Z"
-    return normalize_event({}, path)["timestamp"]
+    normalized = cast(dict[str, Any], normalize_event({}, path))
+    return str(normalized["timestamp"])
 
 
 def read_excerpt(path: Path) -> str:

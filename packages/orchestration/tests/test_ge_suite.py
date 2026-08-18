@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+import orchestration.quality.ge_suite as ge_suite
 from orchestration.quality.ge_suite import _ge_available, run_content_freshness_suite
 
 
@@ -18,8 +21,19 @@ def test_run_content_freshness_suite_shape():
     # File is packages/orchestration/tests/test_ge_suite.py
     # parents[0]=tests, [1]=orchestration project, [2]=packages, [3]=System
     payload = run_content_freshness_suite(root=root)
+    assert payload["schema_version"] == "quality_result.v1"
     assert payload["suite"] == "content_freshness_v1"
     assert "results" in payload
-    assert payload["engine"] in {"pandera", "great_expectations+pandera"}
+    assert payload["engine"] == "pandera"
+    assert payload["great_expectations_ignored"] is True
+    assert payload["calendar_engine"] == "exchange_calendars"
     suite_doc = Path(payload["suite_document"] or "")
     assert suite_doc.exists()
+
+
+def test_gx_availability_cannot_change_quality_engine(monkeypatch: pytest.MonkeyPatch):
+    root = Path(__file__).resolve().parents[3]
+    monkeypatch.setattr(ge_suite, "_ge_available", lambda: True)
+    payload = ge_suite.run_content_freshness_suite(root=root)
+    assert payload["engine"] == "pandera"
+    assert payload["great_expectations_ignored"] is True

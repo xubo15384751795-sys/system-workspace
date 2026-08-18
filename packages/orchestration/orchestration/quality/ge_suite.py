@@ -1,18 +1,17 @@
-"""Publish-gate content-clock suite (GE-shaped payload).
+"""Canonical content-clock quality suite.
 
-Uses Pandera as the evaluation engine. The checked-in expectation document
-``configs/great_expectations/expectations/content_freshness_suite.json``
-records the suite contract. The ``great_expectations`` pip package is optional
-and currently unavailable on Python >=3.14; when importable, results are
-annotated but the Pandera clocks remain authoritative for hard-fail decisions.
+Pandera owns schema/shape checks and this module owns content-clock evaluation.
+Great Expectations is intentionally not claimed or invoked here; it remains a
+future optional integration rather than a label attached to Pandera output.
 """
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from orchestration.quality.pandera_checks import evaluate_all_content_clocks
+from orchestration.quality.content_freshness import evaluate_all_content_clocks
+from orchestration.quality.contracts import QualityResult
 
 
 def _ge_available() -> bool:
@@ -29,7 +28,12 @@ def _ge_available() -> bool:
 
 
 def run_content_freshness_suite(*, root: Path | None = None) -> dict[str, Any]:
-    """Run Pandera-backed clocks and wrap results as a GE-compatible summary."""
+    """Backward-compatible name for :func:`run_content_freshness_quality_suite`."""
+    return run_content_freshness_quality_suite(root=root)
+
+
+def run_content_freshness_quality_suite(*, root: Path | None = None) -> dict[str, Any]:
+    """Run the canonical Pandera-backed content clocks."""
     root = root or Path(__file__).resolve().parents[4]
     results = evaluate_all_content_clocks(root=root)
     success = all(row.get("status") == "fresh" for row in results if row.get("decision_critical"))
@@ -38,24 +42,34 @@ def run_content_freshness_suite(*, root: Path | None = None) -> dict[str, Any]:
         row for row in results if row.get("decision_critical") and row.get("status") != "fresh"
     ]
     suite_doc = root / "configs" / "great_expectations" / "expectations" / "content_freshness_suite.json"
-    return {
-        "engine": "great_expectations+pandera" if _ge_available() else "pandera",
+    payload: QualityResult = {
+        "schema_version": "quality_result.v1",
+        "engine": "pandera",
+        "evaluator": "orchestration.quality.content_freshness",
         "suite": "content_freshness_v1",
         "suite_document": str(suite_doc) if suite_doc.exists() else None,
-        "ge_package_available": _ge_available(),
+        "great_expectations_ignored": True,
+        "status": "PASS" if success else "FAIL",
         "evaluated_at": datetime.now(UTC).isoformat(),
         "success": success,
         "critical_failures": critical_failures,
         "results": results,
+        "calendar_engine": "exchange_calendars",
     }
+    return cast(dict[str, Any], payload)
 
 
 def write_ge_validation_artifact(payload: dict[str, Any], *, root: Path | None = None) -> Path:
+    """Backward-compatible name for the canonical quality artifact writer."""
+    return write_quality_validation_artifact(payload, root=root)
+
+
+def write_quality_validation_artifact(payload: dict[str, Any], *, root: Path | None = None) -> Path:
     import json
 
     root = root or Path(__file__).resolve().parents[4]
     out_dir = root / "Output" / "quality"
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "ge_content_freshness.json"
+    path = out_dir / "quality_content_freshness.json"
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return path

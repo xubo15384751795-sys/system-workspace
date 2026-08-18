@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -45,4 +45,4 @@ def verify_improvement_lifecycle(queue: pd.DataFrame) -> dict[str, Any]:
 def _transition_map() -> dict[str, set[str]]:
     from system_learning.governance.lifecycle import ALLOWED_TRANSITIONS
 
-    return ALLOWED_TRANSITIONS
+    return cast(dict[str, set[str]], ALLOWED_TRANSITIONS)

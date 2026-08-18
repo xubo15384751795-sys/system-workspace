@@ -12,16 +12,15 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
-from scripts._daily_run_sequence import load_daily_run_sequence, weekly_step_ids
-from scripts._pipeline_dag import interpret_failure
-from scripts._pipeline_runner import (
-    load_registry,
-    load_step_execution,
-    run_registry_step,
-)
+from scripts._daily_run_sequence import weekly_step_ids
+from scripts._pipeline_runner import run_callable_step
 from scripts._runtime_io import ROOT, current_dir
+from system_runtime.paths import WorkspacePaths
+from system_runtime.pipeline import CompiledPlan, load_pipeline
+
+from orchestration.canonical_lineage import attach_output_lineage
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +103,7 @@ class DailyRunContext:
     benchmark_panel_path: Path
     step_index: int = 0
     run_id: str = ""
+    plan: CompiledPlan | None = None
 
     @property
     def force_weekly(self) -> bool:
@@ -118,10 +118,6 @@ class DailyRunContext:
         return bool(getattr(self.args, "skip_etf", False))
 
 
-def _registry_step(step_id: str) -> dict[str, Any]:
-    return load_registry().get("steps", {}).get(step_id, {})
-
-
 def should_run_step(step_id: str, step_meta: dict[str, Any], ctx: DailyRunContext) -> tuple[bool, str]:
     skip_flag = step_meta.get("skip_flag")
     if skip_flag == "skip_harvester" and ctx.skip_harvester:
@@ -129,12 +125,11 @@ def should_run_step(step_id: str, step_meta: dict[str, Any], ctx: DailyRunContex
     if skip_flag == "skip_etf" and ctx.skip_etf:
         return False, "skip_etf"
 
-    reg = _registry_step(step_id)
-    status = reg.get("status", "active")
+    status = step_meta.get("status", "active")
     if status in {"archived", "inactive"}:
         return False, f"registry_{status}"
 
-    schedule = step_meta.get("schedule") or reg.get("schedule")
+    schedule = step_meta.get("schedule")
     if schedule == "weekly" and not (ctx.force_weekly or ctx.start_time.weekday() == 0):
         return False, "weekly_schedule"
 
@@ -203,10 +198,11 @@ def _with_archive_pythonpath(
 
 
 def build_step_invocation(
-    step_id: str, ctx: DailyRunContext
+    step_id: str, ctx: DailyRunContext, *, plan: CompiledPlan | None = None
 ) -> tuple[str, list[str] | None, dict[str, str] | None]:
-    execution = load_step_execution(step_id)
-    mode = execution.get("mode", "subprocess")
+    plan = plan or load_pipeline(WorkspacePaths(root=ROOT))
+    step = plan.step(step_id)
+    mode = step.execution_mode
     env_factory = STEP_ENV.get(step_id)
     env = env_factory() if env_factory else None
 
@@ -221,10 +217,7 @@ def build_step_invocation(
     if mode == "callable":
         return "callable", extra_argv or None, env
 
-    current = execution.get("current_command", "")
-    if not current:
-        reg = _registry_step(step_id)
-        current = reg.get("command", "")
+    current = step.command
     if not current:
         raise ValueError(f"{step_id} has no execution command")
 
@@ -237,17 +230,28 @@ def build_step_invocation(
     return "subprocess", cmd, _with_archive_pythonpath(cmd, env)
 
 
-def execute_step(step_id: str, ctx: DailyRunContext) -> dict[str, Any]:
-    mode, cmd_or_argv, env = build_step_invocation(step_id, ctx)
+def execute_step(
+    step_id: str, ctx: DailyRunContext, *, plan: CompiledPlan | None = None
+) -> dict[str, Any]:
+    resolved_plan = plan or ctx.plan
+    mode, cmd_or_argv, env = build_step_invocation(step_id, ctx, plan=resolved_plan)
     if mode == "callable":
-        return run_registry_step(step_id, mode="callable", argv=cmd_or_argv, env=env)
+        compiled_step = (resolved_plan or load_pipeline(WorkspacePaths(root=ROOT))).step(step_id)
+        return cast(
+            dict[str, Any],
+            run_callable_step(step_id, compiled_step.callable_spec, argv=cmd_or_argv),
+        )
     assert cmd_or_argv is not None
     return ctx.run_step_fn(step_id, cmd_or_argv, env=env, registry_step=step_id)
 
 
-def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
+def execute_daily_sequence(
+    ctx: DailyRunContext, plan: CompiledPlan | None = None
+) -> list[dict[str, Any]]:
     """Run all sequence steps that pass schedule/skip/registry gates."""
-    sequence = load_daily_run_sequence()
+    plan = plan or load_pipeline(WorkspacePaths(root=ROOT))
+    ctx.plan = plan
+    sequence = plan.sequence()
     results: list[dict[str, Any]] = []
 
     for index, step_meta in enumerate(sequence, start=1):
@@ -261,7 +265,7 @@ def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
             logger.info("[%d/%d] Skipping %s (%s)", index, ctx.total_steps, step_id, reason)
             continue
 
-        decision = interpret_failure(step_id, results)
+        decision = plan.interpret_failure(step_id, results)
         if decision["action"] == "block":
             blocked_by = decision["blocked_by"]
             logger.warning(
@@ -295,6 +299,9 @@ def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
 
         logger.info("[%d/%d] Running %s...", index, ctx.total_steps, step_id)
         try:
+            # Keep the two-argument hook stable for hermetic/operator tests;
+            # the context carries the immutable compiled plan for the default
+            # implementation.
             result = execute_step(step_id, ctx)
         except ValueError as exc:
             result = {
@@ -308,6 +315,15 @@ def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
             result["degraded"] = True
             result["degraded_by"] = decision.get("degraded_by", [])
 
+        # Shadow migration bridge: expose only a validator-approved chain
+        # stamped with this run ID.  Legacy step fields remain authoritative
+        # until SYS-21 reader migration is complete.
+        attach_output_lineage(
+            result,
+            plan.step(step_id).outputs,
+            run_id=ctx.run_id,
+        )
+
         input_builder = STEP_INPUT_ARTIFACTS.get(step_id)
         input_artifacts = input_builder(ctx) if input_builder else None
         ctx.record_fn(result, input_artifacts=input_artifacts)
@@ -316,12 +332,31 @@ def execute_daily_sequence(ctx: DailyRunContext) -> list[dict[str, Any]]:
     return results
 
 
+class SequenceExecutor:
+    """Typed executor that accepts a :class:`CompiledPlan` (WP1B).
+
+    The executor derives its step sequence from the compiled plan rather than
+    re-reading and sorting raw YAML.  The existing ``execute_daily_sequence``
+    function remains as the internal implementation.
+    """
+
+    def execute(self, plan: CompiledPlan, ctx: DailyRunContext) -> list[dict[str, Any]]:
+        """Execute the compiled plan's sequence within the given context.
+
+        Args:
+            plan: A compiled pipeline (the sole execution authority).
+            ctx: Daily run context (step runner, recorder, etc.).
+        """
+        return execute_daily_sequence(ctx, plan)
+
+
 __all__ = [
     "CUSTOM_COMMAND_BUILDERS",
     "DailyRunContext",
     "STEP_ENV",
     "STEP_EXTRA_ARGV",
     "STEP_INPUT_ARTIFACTS",
+    "SequenceExecutor",
     "WEEKLY_STEPS",
     "build_step_invocation",
     "execute_daily_sequence",

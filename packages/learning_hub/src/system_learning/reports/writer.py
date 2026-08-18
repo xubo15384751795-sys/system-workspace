@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from system_learning.governance.improvement_contract import improvement_queue_contract_violations
 from system_learning.runtime.context import RunContext
 
 _INACTIVE_LIFECYCLE = {"closed", "failed"}
@@ -89,6 +90,12 @@ def build_summary_payload(
         "top_issues": top_issues(violations),
         "improvements": improvements.to_dict(orient="records") if not improvements.empty else [],
     }
+    contract_violations = improvement_queue_contract_violations(improvements)
+    payload["improvement_queue_contract"] = {
+        "status": "PASS" if not contract_violations else "BLOCKED",
+        "violation_count": len(contract_violations),
+        "violations": contract_violations[:100],
+    }
     if run_context:
         payload["run"] = run_context
     return payload
@@ -149,14 +156,28 @@ def render_system_health_report(health: pd.DataFrame, generated_at: str) -> str:
 
 
 def render_improvement_queue_report(improvements: pd.DataFrame, generated_at: str) -> str:
+    contract_violations = improvement_queue_contract_violations(improvements)
     lines = [
         "# Improvement Queue",
         "",
         f"Generated: {generated_at}",
         "",
         f"Active items: {active_improvement_count(improvements)} / {len(improvements)}",
+        f"Metadata contract: {'PASS' if not contract_violations else 'BLOCKED'}",
         "",
     ]
+    if contract_violations:
+        lines.extend(
+            [
+                "## Contract violations",
+                "",
+                *(
+                    f"- `{item['improvement_id']}`: `{item['kind']}`"
+                    for item in contract_violations[:40]
+                ),
+                "",
+            ]
+        )
     if improvements.empty:
         lines.append("No improvement items queued.")
         return "\n".join(lines) + "\n"
@@ -167,10 +188,13 @@ def render_improvement_queue_report(improvements: pd.DataFrame, generated_at: st
                 f"## {index + 1}. {row['subsystem']} — {row['issue_family']}",
                 "",
                 f"- **Lifecycle:** {row['lifecycle_state']}",
+                f"- **Decision:** {row.get('decision', '') or 'missing'}",
                 f"- **Priority:** {row['priority']}",
                 f"- **Severity:** {row['severity']}",
                 f"- **Governance mode:** {row['governance_mode']}",
                 f"- **Proposed action:** {row['proposed_action']}",
+                f"- **Owner:** {row.get('owner', '') or 'missing'}",
+                f"- **Deadline:** {row.get('deadline', '') or 'missing'}",
                 f"- **Verification:** {row['verification_criteria']}",
                 "",
             ]

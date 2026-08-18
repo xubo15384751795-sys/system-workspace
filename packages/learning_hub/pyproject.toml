@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools==84.0.0", "wheel==0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "system-learning-hub"
 version = "0.2.0"
 description = "Cross-system reliability and governance memory for structural risk systems."
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
   "duckdb>=0.10",
   "pandas>=2.0",
@@ -25,7 +25,3 @@ system-learning-hub = "system_learning.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]

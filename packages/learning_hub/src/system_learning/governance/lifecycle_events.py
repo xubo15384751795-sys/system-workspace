@@ -87,6 +87,16 @@ def derive_lifecycle_states(
                 entry["owner"] = str(row["actor"])
             if row.get("notes"):
                 entry["approval_notes"] = str(row["notes"])
+            payload = row.get("payload")
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except json.JSONDecodeError:
+                    payload = {}
+            if isinstance(payload, dict):
+                for field in ("decision", "deadline"):
+                    if payload.get(field):
+                        entry[field] = str(payload[field])
 
     if metadata_cache is not None and not metadata_cache.empty:
         state_column = "lifecycle_state" if "lifecycle_state" in metadata_cache.columns else "approval_state"
@@ -100,7 +110,15 @@ def derive_lifecycle_states(
                     "lifecycle_state",
                     normalize_lifecycle_state(str(row.get(state_column, "proposed"))),
                 )
-            for field in ("owner", "approval_notes", "verification_criteria", "closed_at", "created_at"):
+            for field in (
+                "owner",
+                "approval_notes",
+                "verification_criteria",
+                "closed_at",
+                "created_at",
+                "decision",
+                "deadline",
+            ):
                 if field in metadata_cache.columns and pd.notna(row.get(field)) and str(row.get(field, "")).strip():
                     entry.setdefault(field, str(row[field]))
 

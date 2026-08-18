@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==84.0.0", "wheel==0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "system-orchestration"
 version = "0.1.0"
 description = "Dagster orchestration for the Structural Risk Workbench daily pipeline."
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "dagster>=1.9",
     "pyyaml>=6.0",
@@ -16,9 +16,10 @@ dependencies = [
 quality = [
     "pandera>=0.20",
     "pandas>=2.0",
+    "exchange-calendars>=4.5,<5",
 ]
 ge = [
-    "great_expectations>=0.18.22,<1.0; python_version < '3.14'",
+    "great_expectations>=1.0,<2.0; python_version < '3.14'",
 ]
 ui = [
     "streamlit>=1.32",

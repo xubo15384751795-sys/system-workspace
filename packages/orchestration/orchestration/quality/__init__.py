@@ -1,1 +1,1 @@
-"""Pandera / Great Expectations quality adapters."""
+"""Canonical Pandera-backed quality contracts and domain evaluators."""

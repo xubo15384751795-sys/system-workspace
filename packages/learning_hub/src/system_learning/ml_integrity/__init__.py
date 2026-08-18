@@ -6,11 +6,17 @@ Two components:
 """
 from __future__ import annotations
 
-from .constitution import CONSTITUTION, ConstitutionViolation, enforce
+from .constitution import (
+    CONSTITUTION,
+    ConstitutionEvaluationError,
+    ConstitutionViolation,
+    enforce,
+)
 from .pollution_monitor import PollutionReport, run_pollution_check
 
 __all__ = [
     "CONSTITUTION",
+    "ConstitutionEvaluationError",
     "ConstitutionViolation",
     "enforce",
     "PollutionReport",

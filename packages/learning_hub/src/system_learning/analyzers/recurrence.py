@@ -143,8 +143,10 @@ def improvement_queue(
         "proposed_action",
         "lifecycle_state",
         "approval_status",
+        "decision",
         "approval_notes",
         "owner",
+        "deadline",
         "requires_manual_approval",
         "governance_mode",
         "governance_pressure_score",
@@ -184,8 +186,10 @@ def improvement_queue(
                 "proposed_action": action,
                 "lifecycle_state": lifecycle_state,
                 "approval_status": preserved_values.get("approval_status", approval_status_for(lifecycle_state)),
+                "decision": preserved_values.get("decision", ""),
                 "approval_notes": state_values.get("approval_notes", preserved_values.get("approval_notes", "")),
                 "owner": state_values.get("owner", preserved_values.get("owner", "")),
+                "deadline": state_values.get("deadline", preserved_values.get("deadline", "")),
                 "requires_manual_approval": True,
                 "governance_mode": row.get("governance_mode") or governance_mode_for(row["severity"], int(row["recurrence_count"])),
                 "governance_pressure_score": 0,
@@ -301,8 +305,10 @@ def preserved_improvement_metadata(existing: pd.DataFrame | None) -> dict[str, d
         return {}
     preserve_columns = {
         "approval_status",
+        "decision",
         "approval_notes",
         "owner",
+        "deadline",
         "verification_criteria",
         "created_at",
         "closed_at",
@@ -405,10 +411,12 @@ def current_timestamp() -> str:
 
 def payload_value_text(value: Any) -> str:
     if isinstance(value, str):
+        text = value
         try:
-            value = json.loads(value)
+            decoded = json.loads(text)
         except json.JSONDecodeError:
-            return value
+            return text
+        value = decoded
     if isinstance(value, dict):
         return " ".join(payload_value_text(item) for item in value.values())
     if isinstance(value, (list, tuple, set)):

@@ -1,66 +1,24 @@
 """Dagster ops for the Output/current refresh chain."""
 from __future__ import annotations
 
-import sys
 import time
-from typing import Any
+from typing import cast
 
 from dagster import In, Nothing, op
 
 from scripts._admission_gate import admit_for_consumption
-from scripts._constants import TIMEOUT_STANDARD
+from scripts._pipeline_runner import run_registry_step
 from scripts._runtime_io import ROOT
+from system_runtime.paths import WorkspacePaths
+from system_runtime.pipeline import CompiledStep, load_pipeline
+
+REFRESH_PROFILE = "refresh_current"
 
 
-def _run_script(label: str, script: str, *extra_args: str) -> dict[str, Any]:
-    import subprocess
-
-    start = time.time()
-    try:
-        result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / script), *extra_args],
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT_STANDARD,
-            cwd=str(ROOT),
-        )
-        return {
-            "step": label,
-            "status": "success" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "duration_s": round(time.time() - start, 1),
-            "stdout_tail": (result.stdout or "")[-300:],
-            "stderr_tail": (result.stderr or "")[-300:],
-        }
-    except subprocess.TimeoutExpired:
-        return {"step": label, "status": "timeout", "duration_s": TIMEOUT_STANDARD}
-    except Exception as exc:  # noqa: BLE001 — surface as step error
-        return {"step": label, "status": "error", "error": str(exc), "duration_s": 0}
-
-
-# Order matters for freshness closure: risk_gate + readme_first must be written
-# before freshness_validator runs, otherwise ordering/closure hard-FAIL.
-REFRESH_PRODUCER_STEPS: list[tuple[str, str]] = [
-    ("quality_validation", "quality_field_validator.py"),
-    ("measurement_quality", "commands/weekly/build_measurement_quality_report.py"),
-    ("judgment_layer", "judgment_layer.py"),
-    ("promotion_gate", "judgment_promotion_gate.py"),
-    ("trade_decision", "trade_decision_layer.py"),
-    ("trade_risk_gate", "trade_risk_gate.py"),
-    ("record_trade_decision", "record_trade_decision.py"),
-    ("signal_card", "build_signal_card.py"),
-    ("signal_consensus", "signal_consensus.py"),
-    ("current_status", "build_current_status.py"),
-    ("system_index", "build_system_index.py"),
-    ("work_brief", "build_work_brief.py"),
-    ("next_actions", "commands/weekly/build_next_actions.py"),
-    ("improvement_queue_report", "refresh_improvement_queue_report.py"),
-    ("evidence_grade", "commands/weekly/build_evidence_grade_report.py"),
-    ("artifact_registry", "commands/weekly/build_artifact_registry.py"),
-    ("run_event", "record_daily_run_event.py"),
-    ("readme_first", "commands/weekly/build_readme_first.py"),
-    ("freshness_validator", "freshness_validator.py"),
-]
+def refresh_projection() -> tuple[CompiledStep, ...]:
+    """Return the refresh projection from the canonical compiled plan."""
+    plan = load_pipeline(WorkspacePaths(root=ROOT))
+    return cast(tuple[CompiledStep, ...], plan.projection(REFRESH_PROFILE))
 
 
 @op(name="refresh_admission")
@@ -73,6 +31,8 @@ def refresh_admission_op(context):
         "duration_s": round(time.time() - start, 1),
         "blockers": list(decision.blockers),
         "checked_at": decision.checked_at,
+        "content_result_digests": list(decision.content_result_digests),
+        "freshness_digest": decision.freshness_digest,
     }
     if result["status"] != "success":
         context.log.error("Refresh admission blocked: %s", result["blockers"])
@@ -86,16 +46,13 @@ def refresh_admission_op(context):
 )
 def refresh_producers_op(context, skip_measurement=False):
     steps = []
-    if not skip_measurement:
-        result = _run_script("neutral_pressure_measurement", "neutral_pressure_measurement.py")
+    for compiled_step in refresh_projection():
+        if compiled_step.step_id == "neutral_pressure_measurement" and skip_measurement:
+            context.log.info("Skipping %s", compiled_step.step_id)
+            continue
+        result = run_registry_step(compiled_step.step_id)
         steps.append(result)
+        context.log.info("%s -> %s", compiled_step.step_id, result["status"])
         if result["status"] != "success":
-            raise RuntimeError("neutral_pressure_measurement failed")
-    for label, script in REFRESH_PRODUCER_STEPS:
-        extra = ("--skip-if-unchanged",) if label == "run_event" else ()
-        result = _run_script(label, script, *extra)
-        steps.append(result)
-        context.log.info("%s -> %s", label, result["status"])
-        if result["status"] != "success":
-            raise RuntimeError(f"refresh stopped after {label}")
+            raise RuntimeError(f"refresh stopped after {compiled_step.step_id}")
     return {"steps": steps}

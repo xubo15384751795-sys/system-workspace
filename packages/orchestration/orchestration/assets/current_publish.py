@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from scripts._current_publish import (
     begin_candidate,
@@ -13,7 +13,7 @@ from scripts._current_publish import (
 
 
 def start_candidate(run_dir: Path) -> Path:
-    return begin_candidate(run_dir)
+    return cast(Path, begin_candidate(run_dir))
 
 
 def finish_publish(

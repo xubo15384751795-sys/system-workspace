@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pandas as pd
 
-from system_learning.analyzers.derive import build_derived_ledgers, build_ledgers
+from system_learning.analyzers.derive import build_ledgers
 from system_learning.analyzers.edges import governance_edges
+from system_learning.governance.improvement_contract import improvement_queue_contract_violations
 from system_learning.governance.lifecycle_events import derive_lifecycle_states, lifecycle_event
 from system_learning.ledger.append import (
     append_lifecycle_events,
@@ -36,6 +36,37 @@ def test_append_only_event_log_deduplicates_by_event_id(tmp_path: Path) -> None:
     assert len(log) == 1
     canonical = canonical_events(ledger_dir)
     assert len(canonical) == 1
+
+
+def test_improvement_queue_requires_owner_deadline_evidence_and_explicit_decision() -> None:
+    incomplete = pd.DataFrame(
+        [
+            {
+                "improvement_id": "imp-incomplete",
+                "owner": "",
+                "evidence_paths": "[]",
+                "evidence_event_ids": "[]",
+                "decision": "approved",
+            }
+        ]
+    )
+    kinds = {
+        item["kind"] for item in improvement_queue_contract_violations(incomplete)
+    }
+    assert kinds == {"missing_owner", "missing_deadline", "missing_evidence", "invalid_decision"}
+
+    complete = incomplete.assign(
+        owner="governance-reviewer",
+        deadline="2026-08-19",
+        evidence_paths='["Output/runs/run-1/manifest.json"]',
+        decision="accepted",
+    )
+    assert improvement_queue_contract_violations(complete) == []
+
+    authority_attempt = complete.assign(authority_mode="authoritative")
+    assert {
+        item["kind"] for item in improvement_queue_contract_violations(authority_attempt)
+    } == {"authority_grant_attempt"}
 
 
 def test_lifecycle_state_derived_from_events_not_mutable_queue(tmp_path: Path) -> None:

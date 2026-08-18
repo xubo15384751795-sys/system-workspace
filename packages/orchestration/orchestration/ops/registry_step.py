@@ -7,6 +7,9 @@ from __future__ import annotations
 from dagster import op
 
 from orchestration.sequence_executor import DailyRunContext, execute_daily_sequence
+from scripts._runtime_io import ROOT
+from system_runtime.paths import WorkspacePaths
+from system_runtime.pipeline import load_pipeline
 
 
 @op(name="execute_registry_sequence")
@@ -23,6 +26,11 @@ def execute_registry_sequence_op(context, payload):
         benchmark_panel_path=payload["benchmark_panel_path"],
         run_id=str(payload.get("run_id") or ""),
     )
-    results = execute_daily_sequence(ctx)
-    context.log.info("Registry sequence finished with %d step results", len(results))
-    return {"results": results, "run_id": ctx.run_id}
+    plan = load_pipeline(WorkspacePaths(root=ROOT))
+    results = execute_daily_sequence(ctx, plan=plan)
+    context.log.info(
+        "Registry sequence finished with %d step results (plan_digest=%s)",
+        len(results),
+        plan.plan_digest,
+    )
+    return {"results": results, "run_id": ctx.run_id, "plan_digest": plan.plan_digest}

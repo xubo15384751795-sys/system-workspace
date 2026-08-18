@@ -17,8 +17,6 @@ Integration:
 """
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import json
 import logging
 from dataclasses import dataclass, field
@@ -26,8 +24,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from system_runtime.paths import WorkspacePaths
+
 from .constitution import (
-    CONSTITUTION,
+    ConstitutionEvaluationError,
     ConstitutionViolation,
     Severity,
     enforce,
@@ -119,7 +119,10 @@ def _load_latest_regime(signals_root: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            return None
+        return {str(key): value for key, value in raw.items()}
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -146,7 +149,7 @@ def _load_latest_deformation_sigma(runs_root: Path) -> float | None:
             if key in last and last[key] not in ("", "None", "nan"):
                 return float(last[key])
     except (ValueError, OSError):
-        pass
+        log.warning("Unable to load latest deformation sigma from %s", runs_root, exc_info=True)
     return None
 
 
@@ -207,7 +210,6 @@ def _collect_correlation_evidence(
 
     # We only have the latest sigma, not a time series, so we approximate:
     # Use the variance of probs as a proxy for agreement diversity.
-    import math
     prob_variance = sum((p - sum(probs) / len(probs)) ** 2 for p in probs) / len(probs)
     if prob_variance < 0.001:
         evidence["regime_always_agrees"] = True
@@ -293,10 +295,30 @@ def run_pollution_check(
             report.notes.append(f"check {name!r} skipped: {exc}")
 
     # Evaluate constitution
+    constitution_error: Exception | None = None
     try:
         violations = enforce(evidence, raise_on_red=False, events_dir=ed)
+    except ConstitutionEvaluationError as exc:
+        # A failed rule evaluation is an unknown safety state, never a clean
+        # report. Preserve a bounded reason and let callers see the failure.
+        constitution_error = exc
+        log.error(
+            "pollution_monitor: constitution evaluation failed: error_type=%s",
+            type(exc).__name__,
+        )
+        report.notes.append("constitution evaluation failed; signal use is blocked")
+        report.passed = False
+        violations = []
     except Exception as exc:
-        log.error("pollution_monitor: enforce() raised unexpectedly: %s", exc)
+        # Keep the monitor fail-closed even if the evaluator itself changes or
+        # raises an unexpected implementation error.
+        constitution_error = exc
+        log.error(
+            "pollution_monitor: constitution enforcement failed: error_type=%s",
+            type(exc).__name__,
+        )
+        report.notes.append("constitution enforcement failed; signal use is blocked")
+        report.passed = False
         violations = []
 
     for v in violations:
@@ -321,6 +343,10 @@ def run_pollution_check(
         raise RuntimeError(
             f"ML Integrity: {len(report.red_violations)} RED violation(s):\n{lines}"
         )
+    if raise_on_red and constitution_error is not None:
+        raise RuntimeError(
+            "ML Integrity: constitution evaluation failed; signal use is blocked."
+        ) from constitution_error
 
     return report
 
@@ -345,7 +371,7 @@ def _update_manifest_with_check(signals_root: Path, report: PollutionReport) -> 
         }
         manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     except (json.JSONDecodeError, OSError):
-        pass
+        log.warning("Unable to write pollution monitor manifest: %s", manifest_path, exc_info=True)
 
 
 def _emit_summary_event(report: PollutionReport, events_dir: Path) -> None:
@@ -379,7 +405,7 @@ def _emit_summary_event(report: PollutionReport, events_dir: Path) -> None:
             json.dumps(event, indent=2) + "\n", encoding="utf-8"
         )
     except OSError:
-        pass
+        log.warning("Unable to write pollution monitor summary event", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
