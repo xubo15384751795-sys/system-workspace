@@ -381,7 +381,7 @@ def _real_adapter():
     return HarvesterAdapter(
         exports_root=str(exports),
         release="latest",
-        contract_root=str(_PROJECT_ROOT / "Workbench" / "data_providers" / "structural-risk-harvester" / "contracts"),
+        contract_root=str(_PROJECT_ROOT / "packages" / "harvester" / "contracts"),
         require_finalized=True,
         validate_hashes=False,
         validate_schema=False,

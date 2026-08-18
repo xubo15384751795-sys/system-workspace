@@ -39,7 +39,7 @@ def evaluate_rejection_gates(
         cols = [col for col in ("M", "D", "K", "X") if col in channels.columns]
         if len(cols) >= 2:
             corr = channels[cols].corr().abs()
-            mask = ~np.eye(len(cols), dtype=bool)
+            mask: np.ndarray = ~np.eye(len(cols), dtype=bool)
             out["proxy_blocks_cross_loading_too_high"] = bool((corr.to_numpy()[mask] > 0.90).any())
     if sigma is not None and benchmarks is not None and "NFCI" in benchmarks.columns:
         aligned = pd.concat(

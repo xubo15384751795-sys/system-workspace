@@ -15,7 +15,6 @@ submodule consolidation.
 """
 from __future__ import annotations
 
-import collections as _coll
 from typing import Any
 
 import numpy as np

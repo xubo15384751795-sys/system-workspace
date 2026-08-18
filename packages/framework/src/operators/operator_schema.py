@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Protocol, runtime_checkable
+from typing import Any, Mapping, Optional, Protocol, cast, runtime_checkable
 
 from src.core.models import _freeze_mapping as freeze_mapping, ProxyReading
 
@@ -245,7 +245,7 @@ def _coerce_state(
     if isinstance(state, ProxyReading):
         return StructuralStateOperand.from_proxy(state).as_mapping()
     if isinstance(state, Mapping):
-        return clean_state_fn(state)
+        return cast(dict[str, float], clean_state_fn(state))
     return StructuralStateOperand.from_proxy(state).as_mapping()
 
 

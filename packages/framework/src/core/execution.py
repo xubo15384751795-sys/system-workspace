@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from src.core.models import _freeze_mapping, NarrativeReading
 from src.operators.operator_schema import OperatorDiagnostics

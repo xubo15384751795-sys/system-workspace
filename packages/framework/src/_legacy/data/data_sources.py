@@ -27,16 +27,14 @@ import json
 from pathlib import Path
 import threading
 import time
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
 
 import numpy as np
 import pandas as pd
 
 from src.core.interfaces import DataSource
 from src.data.paths import resolve_fred_cache_dir
-from src.api.security import SSRFBlockedError, validate_outbound_url
 
 
 DEFAULT_PROXY_SERIES_MAP: dict[str, list[str]] = {
@@ -150,6 +148,16 @@ class MockDataSource(DataSource):
         return ["M_PROXY", "D_PROXY", "K_PROXY", "X_PROXY"]
 
 
+class LegacyAcquisitionDisabled(RuntimeError):
+    """Compatibility network entrypoint deliberately disabled.
+
+    External acquisition belongs in Structural Risk Harvester.  Keeping this
+    failure explicit prevents old adapters from silently becoming a second
+    provider/network authority while still allowing tests and compatibility
+    callers to inject a bounded HTTP implementation.
+    """
+
+
 class HTTPClient:
     def __init__(
         self,
@@ -164,29 +172,14 @@ class HTTPClient:
         self.default_headers = default_headers or {}
 
     def get_json(self, url: str, headers: dict[str, str] | None = None) -> dict[str, Any] | list[Any]:
-        return json.loads(self.get_text(url=url, headers=headers))
+        return cast(dict[str, Any] | list[Any], json.loads(self.get_text(url=url, headers=headers)))
 
     def get_text(self, url: str, headers: dict[str, str] | None = None) -> str:
-        validate_outbound_url(url)
-        all_headers = dict(self.default_headers)
-        if headers:
-            all_headers.update(headers)
-        last_error: Exception | None = None
-        for attempt in range(self.retries + 1):
-            req = Request(url=url, headers=all_headers, method="GET")
-            try:
-                with urlopen(req, timeout=self.timeout_sec) as resp:  # nosec B310
-                    return resp.read().decode("utf-8")
-            except Exception as exc:
-                last_error = exc
-                if attempt >= self.retries:
-                    break
-                sleep_for = self.backoff_sec * (2**attempt)
-                if sleep_for > 0:
-                    time.sleep(sleep_for)
-        if last_error is not None:
-            raise last_error
-        raise RuntimeError("HTTP request failed without an explicit error")
+        _ = (url, headers)
+        raise LegacyAcquisitionDisabled(
+            "legacy provider acquisition is disabled; consume an admitted "
+            "Structural Risk Harvester release through src.data_access"
+        )
 
 
 class FREDDataSource(DataSource):

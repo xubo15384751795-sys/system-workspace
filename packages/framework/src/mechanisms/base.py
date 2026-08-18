@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 
@@ -163,13 +163,13 @@ def _driver_value(driver: str, proxy: ProxyReading, context: dict[str, Any]) -> 
 
 def _proxy_value(proxy: ProxyReading, channel: str) -> float | None:
     if channel == "M":
-        return proxy.M
+        return cast(float | None, proxy.M)
     if channel == "D":
-        return proxy.D
+        return cast(float | None, proxy.D)
     if channel == "K":
-        return proxy.K
+        return cast(float | None, proxy.K)
     if channel == "X":
-        return proxy.X
+        return cast(float | None, proxy.X)
     return None
 
 

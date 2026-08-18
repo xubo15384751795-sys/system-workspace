@@ -185,8 +185,8 @@ class ErrorTaxonomyTests(unittest.TestCase):
         for name in dir(errors):
             obj = getattr(errors, name)
             if isinstance(obj, type) and issubclass(obj, errors.SystemError):
-                self.assertIsInstance(obj.severity, str, f"{name}.severity missing")
-                self.assertIsInstance(obj.stage, str, f"{name}.stage missing")
+                self.assertIsInstance(getattr(obj, "severity", None), str, f"{name}.severity missing")
+                self.assertIsInstance(getattr(obj, "stage", None), str, f"{name}.stage missing")
 
     def test_integration_error_is_raised_properly(self) -> None:
         from src.core.errors import IntegrationError

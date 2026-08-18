@@ -61,4 +61,4 @@ def build_public_data_validation_report(**kwargs) -> PublicDataValidationReport:
 def _frame(frame: pd.DataFrame) -> str:
     if frame is None or frame.empty:
         return "Not run or insufficient public data."
-    return frame.to_markdown(index=False)
+    return str(frame.to_markdown(index=False))

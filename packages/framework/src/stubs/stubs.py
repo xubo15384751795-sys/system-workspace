@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -50,7 +51,7 @@ class StubODEEngine:
         d = proxy.D or 0.0
         k = proxy.K or 0.0
         x = proxy.X or 0.0
-        return np.array([m, d, k, x, (m + d) / 2.0, (k + x) / 2.0], dtype=float)
+        return cast(np.ndarray, np.array([m, d, k, x, (m + d) / 2.0, (k + x) / 2.0], dtype=float))
 
 
 @dataclass

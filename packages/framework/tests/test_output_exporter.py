@@ -5,12 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import pytest
-
-pytestmark = pytest.mark.semantic
-
 import numpy as np
-
+import pytest
 from src.core.models import (
     ChannelBeliefState,
     DistributionState,
@@ -21,9 +17,16 @@ from src.core.models import (
     StructuralState,
 )
 from src.data.snapshot_store import DuckDBSnapshotStore
-from src.output.output_exporter import _render_html, export_snapshot_artifacts, snapshot_to_dict
+from src.output.output_exporter import (
+    _render_html,
+    export_snapshot_artifacts,
+    snapshot_to_dict,
+)
 from src.output.result_renderer import render_latest_result
 from src.output.run_package import export_research_run_package
+from system_runtime.canonical_ids import validate_chain
+
+pytestmark = pytest.mark.semantic
 
 
 def _sample_snapshot() -> Snapshot:
@@ -88,6 +91,18 @@ def _sample_snapshot() -> Snapshot:
 
 
 class OutputExporterTests(unittest.TestCase):
+    def test_snapshot_to_dict_adds_watch_only_canonical_lineage(self) -> None:
+        payload = snapshot_to_dict(_sample_snapshot())
+
+        self.assertIn("canonical_chain", payload)
+        self.assertIn("canonical_ids", payload)
+        validate_chain(payload["canonical_chain"])
+        self.assertEqual(payload["canonical_ids"]["claim_id"], payload["canonical_chain"]["claim"]["claim_id"])
+        self.assertEqual(payload["canonical_chain"]["claim"]["status"], "WATCH")
+        self.assertEqual(payload["canonical_chain"]["measurement"]["derivation"], "PROXY_DERIVED")
+        self.assertEqual(payload["canonical_chain"]["claim"]["provenance"]["statement_kind"], "diagnostic_snapshot")
+        self.assertIs(payload["canonical_chain"]["claim"]["provenance"]["promotion_allowed"], False)
+
     def test_export_snapshot_artifacts_writes_html_and_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             artifacts = export_snapshot_artifacts(
@@ -112,6 +127,7 @@ class OutputExporterTests(unittest.TestCase):
                 {
                     "data": {"system_root": str(root), "lab_root": str(lab_root)},
                     "runtime": {"duckdb_path": str(duckdb_path)},
+                    "snapshot_store": {"backend": "duckdb"},
                     "output": {"dir": str(output_root), "export_image": False},
                 }
             )

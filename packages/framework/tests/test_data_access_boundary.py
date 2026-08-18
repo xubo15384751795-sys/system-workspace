@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+from typing import cast
 
 import pytest
 
@@ -556,7 +557,10 @@ def _catalog_file_entry(release_dir: Path, path: Path, role: str, file_format: s
     if file_format == "parquet":
         entry["schema"] = {
             "format": "parquet",
-            "columns": [{"name": str(name), "nullable": True, "type": "string"} for name in columns],
+            "columns": [
+                {"name": str(name), "nullable": True, "type": "string"}
+                for name in cast(list[object], columns)
+            ],
         }
     return entry
 

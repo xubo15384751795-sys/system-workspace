@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from html import escape
+from typing import Any, cast
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -61,7 +62,7 @@ COUPLING_CELL_LABELS = {
     "Self": "Self",
 }
 COUPLING_LEGEND_ORDER = ["Inverse Coupling", "Tension", "Decoupled", "Coupled", "Synchronized"]
-PAIR_STRUCTURAL_CONTEXT = {
+PAIR_STRUCTURAL_CONTEXT: dict[tuple[str, str], str] = {
     ("D", "K"): "Pre-singular deformation channel.",
     ("K", "X"): "Hidden pressure becoming nonlinear.",
     ("M", "D"): "Anchor drift constraining freedom.",
@@ -97,9 +98,9 @@ def render_page_header(title: str, subtitle: str) -> None:
 
 def pair_context(source: str, target: str) -> str:
     if source == target:
-        return COUPLING_BAND_MEANINGS["Self"]
-    pair = tuple(sorted((source, target)))
-    return PAIR_STRUCTURAL_CONTEXT.get(pair, "Cross-channel structural relation.")
+        return str(COUPLING_BAND_MEANINGS["Self"])
+    pair = (min(source, target), max(source, target))
+    return str(PAIR_STRUCTURAL_CONTEXT.get(pair, "Cross-channel structural relation."))
 
 
 def format_corr_value(value: float | None) -> str:
@@ -369,26 +370,26 @@ def render_graph_explorer(ctx) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _selection_points(selection_obj) -> list[dict]:
+def _selection_points(selection_obj: Any) -> list[dict[str, Any]]:
     if selection_obj is None:
         return []
     if isinstance(selection_obj, dict):
-        return selection_obj.get("selection", {}).get("points", [])
+        return cast(list[dict[str, Any]], selection_obj.get("selection", {}).get("points", []))
     selection = getattr(selection_obj, "selection", None)
     if selection is None:
         return []
-    return getattr(selection, "points", []) or []
+    return cast(list[dict[str, Any]], getattr(selection, "points", []) or [])
 
 
-def _selected_row_indexes(selection_obj) -> list[int]:
+def _selected_row_indexes(selection_obj: Any) -> list[int]:
     if selection_obj is None:
         return []
     if isinstance(selection_obj, dict):
-        return selection_obj.get("selection", {}).get("rows", [])
+        return cast(list[int], selection_obj.get("selection", {}).get("rows", []))
     selection = getattr(selection_obj, "selection", None)
     if selection is None:
         return []
-    return getattr(selection, "rows", []) or []
+    return cast(list[int], getattr(selection, "rows", []) or [])
 
 
 def render_structural_history(ctx) -> None:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -108,7 +108,7 @@ class UIContext:
 def get_context() -> UIContext:
     data_mode = str(st.session_state.get("_data_mode", "demo"))
     if "_ui_ctx" in st.session_state and getattr(st.session_state["_ui_ctx"], "data_mode", "demo") == data_mode:
-        return st.session_state["_ui_ctx"]
+        return cast(UIContext, st.session_state["_ui_ctx"])
 
     config = _load_config(CONFIG_PATH)
     pipeline = build_system(config, use_mock=data_mode == "demo")
@@ -190,7 +190,7 @@ def render_workspace_controls(ctx: UIContext, key_prefix: str) -> str:
 
         _render_time_window_control(ctx, key_prefix)
         _render_run_action(ctx, key_prefix)
-    return task
+    return str(task)
 
 
 def _render_run_action(ctx: UIContext, key_prefix: str) -> None:

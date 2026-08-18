@@ -7,17 +7,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-import ssl
-import subprocess
-from urllib.request import Request, urlopen
+from typing import cast
 
 import numpy as np
 import pandas as pd
 
-from src.benchmarks.institutional_risk import DEFAULT_RISK_POLICY, RiskPolicy, action_tier, apply_risk_policy, max_state, rolling_robust_zscore
+from src.benchmarks.institutional_risk import (
+    DEFAULT_RISK_POLICY,
+    RiskPolicy,
+    action_tier,
+    apply_risk_policy,
+    max_state,
+    rolling_robust_zscore,
+)
+from src.data_access.http_gateway import OwnedHTTPGateway
 
-
-FRED_GRAPH_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
 DEFAULT_SERIES = ["VIXCLS", "BAA10Y", "NFCI"]
 CREDIT_SPREAD_CANDIDATES = ("BAMLH0A0HYM2", "BAA10Y", "BAMLC0A0CM", "BAMLC0A4CBBB", "AAA10Y")
 COMPARISON_INDICATORS = [
@@ -112,19 +116,20 @@ def fetch_fred_graph_series(series_id: str, timeout_sec: int = 90, cache_dir: st
 
 
 def _download_fred_graph_csv(series_id: str, timeout_sec: int) -> str:
-    url = FRED_GRAPH_URL.format(series_id=series_id)
-    try:
-        completed = subprocess.run(
-            ["curl", "-fsSL", "--max-time", str(timeout_sec), url],
-            check=True,
-            capture_output=True,
-            text=True,
+    if not series_id or not all(char.isalnum() or char in "_-" for char in series_id):
+        raise ValueError("invalid FRED series identifier")
+    with OwnedHTTPGateway(
+        headers={"User-Agent": "StructuralDeformationResearch/0.1"},
+        max_response_bytes=5_000_000,
+        timeout_sec=timeout_sec,
+    ) as gateway:
+        response = gateway.fetch(
+            "historical_replay",
+            "fred_graph",
+            params={"id": series_id},
         )
-        return completed.stdout
-    except Exception:
-        req = Request(url=url, headers={"User-Agent": "StructuralDeformationResearch/0.1"}, method="GET")
-        with urlopen(req, timeout=timeout_sec, context=_ssl_context()) as resp:  # nosec B310
-            return resp.read().decode("utf-8")
+        response.raise_for_status()
+        return cast(str, response.text)
 
 
 def _parse_fred_graph_csv(series_id: str, csv_text: str) -> pd.Series:
@@ -136,15 +141,6 @@ def _parse_fred_graph_csv(series_id: str, csv_text: str) -> pd.Series:
     series = series[~series.index.isna()].dropna().sort_index()
     series.name = series_id
     return series
-
-
-def _ssl_context() -> ssl.SSLContext | None:
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        return None
 
 
 def fetch_default_fred_frame(series_ids: list[str] | None = None) -> pd.DataFrame:

@@ -135,7 +135,7 @@ class NLPEventTranslator:
                     }
                 )
             elif isinstance(trigger, dict):
-                signal = trigger.get("signal", trigger.get("event_type", ""))
+                signal = str(trigger.get("signal", trigger.get("event_type", "")) or "")
                 operator = self.signal_map.get(signal, signal.upper())
                 rows.append(
                     {
@@ -159,7 +159,7 @@ class NLPEventTranslator:
         rows: list[dict[str, Any]] = []
         for entity in item.get("entities", []):
             if isinstance(entity, dict) and entity.get("type") == "event":
-                signal = entity.get("subtype", entity.get("name", ""))
+                signal = str(entity.get("subtype", entity.get("name", "")) or "")
                 operator = self.signal_map.get(signal, signal.upper())
                 rows.append(
                     {
@@ -185,7 +185,7 @@ class NLPEventTranslator:
                     }
                 )
             elif isinstance(event, dict):
-                signal = event.get("signal", event.get("event_type", ""))
+                signal = str(event.get("signal", event.get("event_type", "")) or "")
                 operator = self.signal_map.get(signal, signal.upper())
                 rows.append(
                     {
@@ -204,7 +204,7 @@ class NLPEventTranslator:
     # ------------------------------------------------------------------
 
     def _primary_actor(self, case: dict) -> str:
-        return case.get("actor", case.get("primary_entity", case.get("case_name", "")))
+        return str(case.get("actor", case.get("primary_entity", case.get("case_name", ""))) or "")
 
     def _primary_channel(
         self, variables: list[str], variable_vector: dict
@@ -260,7 +260,7 @@ class NLPEventTranslator:
     ) -> dict[str, Any]:
         """Fallback when pattern not found in event_rules."""
         if isinstance(pattern, dict):
-            signal = pattern.get("signal", pattern.get("event_type", ""))
+            signal = str(pattern.get("signal", pattern.get("event_type", "")) or "")
             operator = self.signal_map.get(signal, signal.upper())
             return {
                 "date": pattern.get("date", date),

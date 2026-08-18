@@ -6,6 +6,8 @@ Verifies that writes fan out to both backends and reads prefer the primary
 
 from __future__ import annotations
 
+import hashlib
+import json
 import tempfile
 import unittest
 
@@ -158,6 +160,25 @@ class DualWriteSnapshotStoreTests(unittest.TestCase):
             self.assertIsNotNone(latest)
             assert latest is not None
             self.assertEqual(latest.run_date, "2026-04-01")
+
+    def test_roundtrip_snapshot_row_hashes_match_between_backends(self) -> None:
+        """The migration bridge must preserve canonical payload bytes by key."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            primary = HarvesterSnapshotStore(path=f"{tmpdir}/snapshots", data_root=tmpdir)
+            secondary = DuckDBSnapshotStore(path=f"{tmpdir}/system.duckdb", data_root=tmpdir)
+            store = DualWriteSnapshotStore(primary=primary, secondary=secondary)
+            for run_date in ("2026-04-01", "2026-04-08"):
+                store.save(_build_snapshot(run_date))
+
+            def row_hash(backend, snapshot: Snapshot) -> str:
+                payload = backend._snapshot_to_payload(snapshot)
+                canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+                return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+            primary_rows = {snap.run_date: row_hash(primary, snap) for snap in primary.load_range("2026-04-01", "2026-04-30")}
+            secondary_rows = {snap.run_date: row_hash(secondary, snap) for snap in secondary.load_range("2026-04-01", "2026-04-30")}
+
+            self.assertEqual(primary_rows, secondary_rows)
 
 
 if __name__ == "__main__":

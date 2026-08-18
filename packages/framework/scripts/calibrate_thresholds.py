@@ -13,17 +13,18 @@ The script does NOT commit the config change — review the diff before committi
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
-
-ROOT = Path(__file__).resolve().parents[1]
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import yaml
 
+from system_runtime.paths import WorkspacePaths
 
-SNAPSHOTS_DEFAULT = Path("/Users/a1/System/Data/structural_lab/processed/snapshots/snapshots.parquet")
+ROOT = Path(__file__).resolve().parents[1]
+
+SNAPSHOTS_DEFAULT = WorkspacePaths.discover().data / "harvester" / "snapshots" / "snapshots.parquet"
 CONFIG_PATH = ROOT / "config.yaml"
 
 SIGMA_PCT = 90          # sigma_t value at this percentile → threshold
@@ -56,7 +57,7 @@ def load_snapshots(path: str, train_start: str, train_end: str) -> pd.DataFrame:
     return train
 
 
-def compute_thresholds(df: pd.DataFrame, args: argparse.Namespace) -> dict[str, float]:
+def compute_thresholds(df: pd.DataFrame, args: argparse.Namespace) -> dict[str, float | None]:
     def pct(series_name: str, q: float) -> float | None:
         if series_name not in df.columns:
             return None
@@ -88,16 +89,18 @@ def patch_config(thresholds: dict[str, float | None], dry_run: bool) -> None:
         cfg = yaml.safe_load(f)
 
     changed: list[str] = []
-    if thresholds.get("sigma") is not None:
+    sigma = thresholds.get("sigma")
+    if sigma is not None:
         old = cfg.get("thresholds", {}).get("sigma")
-        cfg.setdefault("thresholds", {})["sigma"] = round(float(thresholds["sigma"]), 4)
+        cfg.setdefault("thresholds", {})["sigma"] = round(float(sigma), 4)
         changed.append(f"thresholds.sigma: {old} → {cfg['thresholds']['sigma']}")
 
     jh = cfg.setdefault("thresholds", {}).setdefault("joint_hitting", {})
     for key in ("dof_collapse", "curvature_spike", "forced_realization"):
-        if thresholds.get(key) is not None:
+        threshold = thresholds.get(key)
+        if threshold is not None:
             old = jh.get(key)
-            jh[key] = round(float(thresholds[key]), 4)
+            jh[key] = round(float(threshold), 4)
             changed.append(f"thresholds.joint_hitting.{key}: {old} → {jh[key]}")
 
     proto = cfg.setdefault("thresholds", {}).setdefault("protocol", {})

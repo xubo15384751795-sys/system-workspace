@@ -298,7 +298,7 @@ class TestConfigGuardedSwitch:
             "harvester": {
                 "exports_root": str(PROJECT.parent / "Data" / "harvester" / "exports"),
                 "release": "latest",
-                "contract_root": str(PROJECT.parent / "Workbench" / "data_providers" / "structural-risk-harvester" / "contracts"),
+                "contract_root": str(PROJECT.parent / "packages" / "harvester" / "contracts"),
             },
             "mock_seed": 42,
         }

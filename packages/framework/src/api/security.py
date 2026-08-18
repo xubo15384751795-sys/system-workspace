@@ -3,7 +3,6 @@ from __future__ import annotations
 import ipaddress
 import os
 import socket
-import sys
 from typing import Any
 from urllib.parse import urlparse
 
@@ -15,13 +14,14 @@ class SSRFBlockedError(Exception):
     """Raised when an outbound URL targets a forbidden host/scheme."""
 
 
-def validate_outbound_url(url: str) -> str:
-    """Validate that *url* is safe for outbound HTTP egress.
+def resolve_outbound_url(url: str) -> tuple[str, ...]:
+    """Validate *url* and return the public addresses resolved for it.
 
     Rejects non-HTTPS schemes (including ``file://``), loopback / private /
     link-local / multicast / reserved IP addresses (after DNS resolution),
-    userinfo, fragments, and empty hosts.  Returns the URL on success;
-    raises :class:`SSRFBlockedError` on any violation.
+    userinfo, fragments, and empty hosts.  The returned addresses are the
+    exact DNS results that an outbound transport must use for this request;
+    resolving them again later would re-open a DNS-rebinding window.
     """
     if not url or not isinstance(url, str):
         raise SSRFBlockedError("empty URL")
@@ -52,6 +52,8 @@ def validate_outbound_url(url: str) -> str:
         addr = None
     if addr is not None and _is_forbidden_ip(addr):
         raise SSRFBlockedError(f"forbidden IP literal: {host}")
+    if addr is not None:
+        return (str(addr),)
 
     # DNS-resolve and check every returned address (catches DNS rebinding).
     try:
@@ -59,6 +61,7 @@ def validate_outbound_url(url: str) -> str:
     except socket.gaierror as exc:
         raise SSRFBlockedError(f"DNS resolution failed for {host}: {exc}") from exc
 
+    addresses: list[str] = []
     for family, _stype, _proto, _canon, sockaddr in infos:
         ip_str = sockaddr[0]
         try:
@@ -67,11 +70,25 @@ def validate_outbound_url(url: str) -> str:
             continue
         if _is_forbidden_ip(ip_addr):
             raise SSRFBlockedError(f"host {host} resolves to forbidden IP: {ip_str}")
+        normalized = str(ip_addr)
+        if normalized not in addresses:
+            addresses.append(normalized)
+
+    if not addresses:
+        raise SSRFBlockedError(f"DNS resolution returned no IP addresses for {host}")
+    return tuple(addresses)
+
+
+def validate_outbound_url(url: str) -> str:
+    """Validate that *url* is safe for outbound HTTP egress."""
+    resolve_outbound_url(url)
 
     return url
 
 
-def _is_forbidden_ip(addr: ipaddress._BaseAddress) -> bool:
+def _is_forbidden_ip(
+    addr: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> bool:
     """Return True for loopback, private, link-local, multicast, or reserved IPs."""
     return bool(
         addr.is_loopback
@@ -92,14 +109,15 @@ def is_loopback_host(host: str) -> bool:
         parsed = ipaddress.ip_address(normalized)
     except ValueError:
         return False
-    return parsed.is_loopback
+    return bool(parsed.is_loopback)
 
 
 def resolve_api_key(config: dict[str, Any] | None = None) -> str:
     """Resolve API key from config and environment (config wins over env)."""
     api_cfg = (config or {}).get("api") or {}
-    if isinstance(api_cfg.get("key"), str) and api_cfg["key"].strip():
-        return api_cfg["key"].strip()
+    configured_key = api_cfg.get("key")
+    if isinstance(configured_key, str) and configured_key.strip():
+        return configured_key.strip()
     env_name = str(api_cfg.get("key_env") or DEFAULT_API_KEY_ENV).strip() or DEFAULT_API_KEY_ENV
     return os.environ.get(env_name, "").strip()
 

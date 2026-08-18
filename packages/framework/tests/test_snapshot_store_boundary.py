@@ -11,8 +11,6 @@ Exempt files (legitimate direct references):
   - src/data/snapshot_store.py — the class definition
   - src/data/dual_write_snapshot_store.py — wraps both backends
   - src/data/snapshot_store_freeze.py — freeze guard
-  - src/output/result_renderer.py — read-only renderer (transitional; follow-up
-    to accept a store via dependency injection)
   - scripts/backfill_runtime_snapshots.py — batch migration tool (transitional)
 
 Mirrors tests/test_data_boundary_extended.py::test_production_paths_do_not_import_legacy.
@@ -60,7 +58,6 @@ class SnapshotStoreBoundaryTests(unittest.TestCase):
             framework_src / "data" / "snapshot_store.py",  # class definition
             framework_src / "data" / "dual_write_snapshot_store.py",  # wraps both
             framework_src / "data" / "snapshot_store_freeze.py",  # freeze guard
-            framework_src / "output" / "result_renderer.py",  # read-only renderer (transitional)
         }
 
         violations: list[str] = []
@@ -131,6 +128,7 @@ class SnapshotStoreBoundaryTests(unittest.TestCase):
         for method_name in write_methods:
             method = getattr(DuckDBSnapshotStore, method_name, None)
             self.assertIsNotNone(method, f"{method_name} must exist on DuckDBSnapshotStore")
+            assert method is not None
             # The @guard_method decorator wraps the method; the source should
             # show the @_guard_write decorator applied.
             source = inspect.getsource(method)

@@ -12,12 +12,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src._legacy.data.data_sources import DEFAULT_PROXY_SERIES_MAP
 from src.core.interfaces import DataSource
 from src.data.contracts import (
     StructuralPresetResult,
     build_structural_fetch_plan,
 )
-from src._legacy.data.data_sources import DEFAULT_PROXY_SERIES_MAP
 from src.data.quality.manifest import DataEvidenceManifest, SeriesEvidenceRecord
 
 logger = logging.getLogger(__name__)
@@ -249,7 +249,7 @@ def _parse_component(component: Any) -> tuple[str, float, bool] | None:
             try:
                 weight = float(rhs)
             except ValueError:
-                pass
+                logger.debug("Unweighted legacy component token: %s", token)
             token = lhs
 
     return (token, weight, invert) if token else None

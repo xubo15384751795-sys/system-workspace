@@ -23,19 +23,19 @@ _env = Environment(
 
 
 def render_signal_card(card: SignalCard) -> str:
-    return _env.get_template("signal_card.md.j2").render(card=card).strip() + "\n"
+    return str(_env.get_template("signal_card.md.j2").render(card=card)).strip() + "\n"
 
 
 def render_mismatch_map(mm: MismatchMap) -> str:
-    return _env.get_template("mismatch_map.md.j2").render(mm=mm).strip() + "\n"
+    return str(_env.get_template("mismatch_map.md.j2").render(mm=mm)).strip() + "\n"
 
 
 def render_criticality(cs: CriticalityState) -> str:
-    return _env.get_template("criticality.md.j2").render(cs=cs).strip() + "\n"
+    return str(_env.get_template("criticality.md.j2").render(cs=cs)).strip() + "\n"
 
 
 def render_provider_integrity(pip: ProviderIntegrityPanel) -> str:
-    return _env.get_template("provider_integrity.md.j2").render(pip=pip).strip() + "\n"
+    return str(_env.get_template("provider_integrity.md.j2").render(pip=pip)).strip() + "\n"
 
 
 def render_research_note(note: ResearchNote) -> str:
@@ -44,14 +44,13 @@ def render_research_note(note: ResearchNote) -> str:
     criticality_section = render_criticality(note.criticality)
     provider_section = render_provider_integrity(note.provider_integrity)
     return (
-        _env.get_template("research_note.md.j2")
-        .render(
+        str(_env.get_template("research_note.md.j2").render(
             note=note,
             signal_cards_section=signal_cards_section,
             mismatch_section=mismatch_section,
             criticality_section=criticality_section,
             provider_section=provider_section,
-        )
+        ))
         .strip()
         + "\n"
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 
-from src._legacy.data.data_sources import FREDDataSource
+from src._legacy.data.data_sources import FREDDataSource, HTTPClient, LegacyAcquisitionDisabled
 
 
 class _GraphHTTP:
@@ -24,6 +24,10 @@ class _GraphHTTP:
 
 
 class FREDDataIngestionTests(unittest.TestCase):
+    def test_default_legacy_http_client_fails_closed(self) -> None:
+        with self.assertRaises(LegacyAcquisitionDisabled):
+            HTTPClient().get_text("https://example.com/provider")
+
     def test_fetch_unprefixed_without_api_key_falls_back_to_mock(self) -> None:
         source = FREDDataSource(api_key=None, fallback_seed=21)
         frame = source.fetch(["M_PROXY", "D_PROXY"], "2026-01-01", "2026-02-01")

@@ -1,12 +1,11 @@
 """Runtime assembly — RuntimeWarning for legacy backend path."""
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import json
+import logging
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import yaml
@@ -18,7 +17,6 @@ from src.core.pipeline import ResearchPipeline
 from src.core.runtime_context import RuntimePaths
 from src.data.gateway import DataHubBridge, create_data_hub
 from src.data.paths import resolve_data_root, resolve_snapshot_store_path
-from src.data.snapshot_store import DuckDBSnapshotStore
 from src.data_access.freeze import check_legacy_allowed
 from src.derivation.belief_builder import DefaultBeliefBuilder
 from src.derivation.proxy_builder import DefaultProxyBuilder
@@ -26,6 +24,9 @@ from src.derivation.singular_detector import ThresholdSingularDetector
 from src.dynamics.ode_engine import ScipyODEEngine
 from src.mechanisms.default_mechanisms import build_default_mechanism_registry
 from src.ml.detector_factory import build_all_detectors
+from system_runtime.paths import WorkspacePaths
+
+logger = logging.getLogger(__name__)
 from src.framework_nlp.event_translator import NLPEventTranslator
 from src.operators.operator_registry import build_default_operator_registry
 from src.output.output_exporter import export_snapshot_artifacts
@@ -56,12 +57,42 @@ def _data_root(config: dict[str, Any]) -> str:
     return str(resolve_data_root(config))
 
 
+def _harvester_data_root(config: dict[str, Any]) -> Path:
+    """Resolve the Harvester-owned data root for snapshot persistence.
+
+    The legacy ``data.root`` setting is a test/compatibility root, so it is
+    nested under ``harvester`` when no explicit Harvester root is supplied.
+    Production configuration normally provides ``data.system_root`` or
+    ``harvester.exports_root``; both resolve to ``Data/harvester``.
+    """
+    store_cfg = (config or {}).get("snapshot_store", {}) or {}
+    explicit = store_cfg.get("data_root")
+    if explicit:
+        return Path(str(explicit)).expanduser()
+
+    data_cfg = (config or {}).get("data", {}) or {}
+    configured_root = data_cfg.get("root")
+    if configured_root:
+        return Path(str(configured_root)).expanduser() / "harvester"
+
+    system_root = data_cfg.get("system_root")
+    if system_root:
+        return Path(str(system_root)).expanduser() / "harvester"
+
+    harvester_cfg = (config or {}).get("harvester", {}) or {}
+    exports_root = harvester_cfg.get("exports_root")
+    if exports_root:
+        return Path(str(exports_root)).expanduser().parent
+
+    return cast(Path, WorkspacePaths.discover().data) / "harvester"
+
+
 def _build_snapshot_store(config: dict[str, Any]) -> Any:
     """Build the snapshot store per config["snapshot_store"]["backend"].
 
     Backends:
-      - "duckdb" (default): legacy DuckDBSnapshotStore (sealed writes in SEAL phase)
-      - "harvester": HarvesterSnapshotStore (Parquet under Data/harvester/snapshots/)
+      - "harvester" (default): HarvesterSnapshotStore (Parquet under Data/harvester/snapshots/)
+      - "duckdb": legacy DuckDBSnapshotStore (sealed writes in SEAL phase)
       - "dual": DualWriteSnapshotStore wrapping harvester (primary) + duckdb (secondary)
 
     The duckdb and harvester backends accept an explicit path override via
@@ -69,25 +100,34 @@ def _build_snapshot_store(config: dict[str, Any]) -> Any:
     config["snapshot_store"]["harvester_path"] (harvester).
     """
     store_cfg = (config or {}).get("snapshot_store", {}) or {}
-    backend = str(store_cfg.get("backend", "duckdb")).lower()
+    backend = str(store_cfg.get("backend", "harvester")).lower()
 
     if backend == "harvester":
         from src.data.harvester_snapshot_store import HarvesterSnapshotStore
 
-        harvester_path = store_cfg.get("harvester_path")
-        return HarvesterSnapshotStore(path=harvester_path, data_root=_data_root(config))
+        harvester_root = _harvester_data_root(config)
+        harvester_path = store_cfg.get("harvester_path") or str(harvester_root / "snapshots")
+        return HarvesterSnapshotStore(path=str(harvester_path), data_root=str(harvester_root))
 
     if backend == "dual":
         from src.data.dual_write_snapshot_store import DualWriteSnapshotStore
         from src.data.harvester_snapshot_store import HarvesterSnapshotStore
+        from src.data.snapshot_store import DuckDBSnapshotStore
 
-        harvester_path = store_cfg.get("harvester_path")
-        primary = HarvesterSnapshotStore(path=harvester_path, data_root=_data_root(config))
+        harvester_root = _harvester_data_root(config)
+        harvester_path = store_cfg.get("harvester_path") or str(harvester_root / "snapshots")
+        primary = HarvesterSnapshotStore(path=str(harvester_path), data_root=str(harvester_root))
         secondary = DuckDBSnapshotStore(path=_snapshot_store_path(config), data_root=_data_root(config))
         return DualWriteSnapshotStore(primary=primary, secondary=secondary)
 
-    # default: duckdb
-    return DuckDBSnapshotStore(path=_snapshot_store_path(config), data_root=_data_root(config))
+    if backend == "duckdb":
+        from src.data.snapshot_store import DuckDBSnapshotStore
+
+        return DuckDBSnapshotStore(path=_snapshot_store_path(config), data_root=_data_root(config))
+
+    raise ValueError(
+        f"unsupported snapshot_store.backend={backend!r}; expected harvester, dual, or duckdb"
+    )
 
 
 MAPPING_RULES_PATH: Path = WorkspacePaths.discover().data / "structural_lab" / "nlp" / "mapping_rules.yaml"
@@ -196,7 +236,7 @@ def _event_log_path(config: dict[str, Any]) -> Path:
     explicit = config.get("event_log", {}).get("path")
     if explicit:
         return Path(explicit).expanduser()
-    return _resolve_paths(config).event_log_path
+    return cast(Path, _resolve_paths(config).event_log_path)
 
 
 def _text_log_path(config: dict[str, Any]) -> Path:
@@ -206,7 +246,7 @@ def _text_log_path(config: dict[str, Any]) -> Path:
 def _resolve_data_backend(config: dict[str, Any]) -> str:
     """Resolve the active data backend from config.
 
-    Priority: data_backend > data_access.backend > data.backend > default(legacy).
+    Priority: data_backend > data_access.backend > data.backend > default(harvester).
     """
     backend = config.get("data_backend")
     if backend is None:
@@ -287,7 +327,7 @@ def build_system(config: dict[str, Any], use_mock: bool = True) -> ResearchPipel
         if MAPPING_RULES_PATH.exists():
             nlp_translator = NLPEventTranslator.from_mapping_rules(MAPPING_RULES_PATH)
     except Exception:
-        pass
+        logger.warning("Unable to initialize NLP event translator", exc_info=True)
 
     snapshot_store = _build_snapshot_store(config)
     anomaly_detector, narrative_detector, reflexivity_detector = build_all_detectors(config, snapshot_store)
@@ -439,6 +479,7 @@ def _build_harvester_data_hub(
         from pathlib import Path
 
         from src.data.gateway.data_hub_lite import DataHubLite
+        from src.data.paths import default_harvester_contract_root
         from src.data_access.harvester_adapter import HarvesterAdapter
 
         hcfg = config.get("harvester") or {}
@@ -451,8 +492,7 @@ def _build_harvester_data_hub(
 
         contract_root = hcfg.get("contract_root", "")
         if not contract_root:
-            contract_root = str(Path.cwd() / "Workbench" / "data_providers" /
-                               "structural-risk-harvester" / "contracts")
+            contract_root = str(default_harvester_contract_root(config))
 
         adapter = HarvesterAdapter(
             exports_root=Path(exports_root),
@@ -463,7 +503,11 @@ def _build_harvester_data_hub(
             validate_schema=False,
         )
         return DataHubLite(adapter=adapter)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Harvester DataHub construction failed: error_type=%s",
+            type(exc).__name__,
+        )
         return None
 
 

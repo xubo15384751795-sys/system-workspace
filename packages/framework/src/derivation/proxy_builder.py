@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
@@ -47,7 +47,7 @@ class DefaultProxyBuilder(ProxyBuilderInterface):
     stable_threshold: float = -0.5
 
     def build(self, raw: pd.DataFrame, run_date: str) -> ProxyReading:
-        values = {channel: None for channel in PUBLIC_CHANNELS}
+        values: dict[str, float | None] = {channel: None for channel in PUBLIC_CHANNELS}
         if raw.empty:
             return self._to_reading(run_date, values)
 
@@ -247,7 +247,7 @@ class DefaultProxyBuilder(ProxyBuilderInterface):
     def _to_reading(
         self,
         run_date: str,
-        values: dict[str, float | None],
+        values: Mapping[str, float | None],
         components: dict[str, float | None] | None = None,
     ) -> ProxyReading:
         directions = {}

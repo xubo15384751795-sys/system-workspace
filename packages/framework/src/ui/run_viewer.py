@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import streamlit as st
@@ -11,7 +11,7 @@ from src.core.runtime_context import RuntimePaths
 
 
 def _default_run_root() -> Path:
-    return RuntimePaths.discover().run_root
+    return cast(Path, RuntimePaths.discover().run_root)
 
 
 def main(output_root: Path | None = None) -> None:

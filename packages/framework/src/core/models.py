@@ -19,16 +19,18 @@ def _freeze_mapping(value: Mapping) -> Mapping:
     return MappingProxyType(dict(value))
 
 
-def _freeze_nested_mapping(value: Mapping[str, Mapping[str, float]]) -> Mapping[str, Mapping[str, float]]:
-    outer: dict[str, Mapping[str, float]] = {}
+def _freeze_nested_mapping(
+    value: Mapping[str, Mapping[str, float | None]],
+) -> Mapping[str, Mapping[str, float | None]]:
+    outer: dict[str, Mapping[str, float | None]] = {}
     for key, inner in dict(value).items():
         outer[str(key)] = _freeze_mapping(inner)
     return _freeze_mapping(outer)
 
 
-def _model_to_dict(obj):
+def _model_to_dict(obj: Any) -> dict[str, Any]:
     """Generic serialization for frozen dataclass instances."""
-    result = {}
+    result: dict[str, Any] = {}
     for f in dataclasses.fields(obj):
         val = getattr(obj, f.name)
         if isinstance(val, MappingProxyType):

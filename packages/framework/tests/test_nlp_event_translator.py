@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
+from typing import Any, cast
 
 import pandas as pd
 from system_runtime.paths import WorkspacePaths
@@ -15,6 +15,8 @@ _MAPPING_RULES = _NLP_DATA / "mapping_rules.yaml"
 
 
 class NLPEventTranslatorTests(unittest.TestCase):
+    translator: NLPEventTranslator
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.translator = NLPEventTranslator.from_mapping_rules(_MAPPING_RULES)
@@ -61,8 +63,11 @@ class NLPEventTranslatorTests(unittest.TestCase):
     #       policy_intervention -> POLICY_BACKSTOP (recovery)
     # ------------------------------------------------------------------
 
-    def _load_svb_case(self) -> dict:
-        return json.loads((_CASE_LIBRARY / "svb_2023.json").read_text(encoding="utf-8"))
+    def _load_svb_case(self) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            json.loads((_CASE_LIBRARY / "svb_2023.json").read_text(encoding="utf-8")),
+        )
 
     def test_svb_translates_both_patterns(self) -> None:
         case = self._load_svb_case()

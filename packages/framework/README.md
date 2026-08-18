@@ -402,13 +402,13 @@ Core endpoints:
 - `GET /health`
 - `GET /runtime`
 - `GET /series`
-- `GET /data?series_ids=FRED:VIXCLS&start=2007-01-01&end=2009-06-30`
+- `GET /data?series_ids=FRED:VIXCLS&start=2026-01-01&end=2026-04-20` (bounded query window)
 - `GET /hub/providers`
 - `POST /hub/series`
 - `POST /hub/events`
 - `POST /hub/filings`
 - `POST /hub/positions`
-- `POST /snapshots/run?run_date=2026-04-20&run_type=WEEKLY`
+- `POST /snapshots/run` with JSON body `{"run_date":"2026-04-20","run_type":"WEEKLY"}`
 - `GET /snapshots`
 - `GET /snapshots/{run_date}`
 
@@ -504,7 +504,7 @@ Useful environment variables:
 - `SEC_USER_AGENT`
 - `ALPHA_VANTAGE_API_KEY`
 - `TIINGO_API_KEY`
-- `POLYGON_API_KEY`
+- `MASSIVE_API_KEY` (or legacy `POLYGON_API_KEY`)
 - `NASDAQ_DATA_LINK_API_KEY`
 
 ## Project Layout

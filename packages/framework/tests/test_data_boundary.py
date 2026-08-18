@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 PROJECT = Path(__file__).resolve().parents[1]
 SRC = PROJECT / "src"
 LEGACY_ALLOWED = {
@@ -18,9 +17,8 @@ LEGACY_ALLOWED = {
     # Legacy shim adapters (re-export from _legacy)
     "src/data/adapters/__init__.py",
     "src/data/gateway/__init__.py",
-    # Existing acquisition-like modules kept visible until Phase 3 inventory.
-    "src/benchmarks/historical_replay.py",
-    "src/research_corpus/providers/brevan_howard.py",
+    # The sole non-legacy egress owner; provider adapters may not import HTTPX.
+    "src/data_access/http_gateway.py",
 }
 FORBIDDEN_IMPORT_PREFIXES = [
     # Legacy data sources now under _legacy — forbidden from non-legacy code
@@ -36,6 +34,7 @@ FORBIDDEN_ENV_KEYS = [
     "ALPHAVANTAGE_API_KEY",
     "ALPHA_VANTAGE_API_KEY",
     "POLYGON_API_KEY",
+    "MASSIVE_API_KEY",
     "TIINGO_API_KEY",
     "NASDAQ_DATA_LINK_API_KEY",
 ]
@@ -125,7 +124,7 @@ def test_data_access_does_not_import_legacy_provider_modules():
 def test_external_downloads_is_fail_wrapper_without_active_acquisition():
     text = EXTERNAL_DOWNLOADS.read_text(encoding="utf-8")
     forbidden = FORBIDDEN_HTTP_TOKENS + FORBIDDEN_ENV_KEYS + [
-        "urlopen",
+    "urlopen",
         "Request(",
         "subprocess.run",
         "curl",

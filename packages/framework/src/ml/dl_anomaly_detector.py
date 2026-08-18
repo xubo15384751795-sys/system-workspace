@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
 from src.core.interfaces import AnomalyDetectorInterface, SnapshotStoreInterface
-from src.core.models import ProxyReading, Snapshot
+from src.core.models import ProxyReading
 from src.ml.ml_anomaly import IsolationForestDetector, _proxy_to_vec, _snapshots_to_matrix
 from src.ml.model_registry import ModelRegistry, ModelRegistryError
 
@@ -20,6 +20,51 @@ def _torch_available() -> bool:
         return True
     except Exception:
         return False
+
+
+def _snapshot_store_provenance(store: SnapshotStoreInterface) -> dict[str, Any]:
+    """Return manifest-safe provenance for the store used during training.
+
+    The runtime selects the canonical snapshot backend from configuration.  A
+    hard-coded DuckDB label in a model manifest would therefore describe a
+    different data path than the one actually used for training.  Keep the
+    provenance structural and deterministic: backend identity, concrete store
+    class, and any store paths exposed by the implementation.
+    """
+
+    class_name = type(store).__name__
+    backend_by_class = {
+        "HarvesterSnapshotStore": "harvester_parquet",
+        "DuckDBSnapshotStore": "duckdb_legacy_readonly",
+        "DualWriteSnapshotStore": "dual_write_harvester_primary",
+    }
+    paths: list[str] = []
+    stores: list[SnapshotStoreInterface] = [store]
+    seen: set[int] = set()
+    while stores:
+        current = stores.pop(0)
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        for attr in ("root", "path"):
+            value = getattr(current, attr, None)
+            if value is not None:
+                rendered = str(value)
+                if rendered not in paths:
+                    paths.append(rendered)
+        for attr in ("primary", "secondary"):
+            nested = getattr(current, attr, None)
+            if nested is not None and (
+                hasattr(nested, "load_range") or hasattr(nested, "root") or hasattr(nested, "path")
+            ):
+                stores.append(nested)
+
+    return {
+        "training_data_source": "snapshot_store_interface",
+        "training_data_backend": backend_by_class.get(class_name, class_name),
+        "training_data_store_class": class_name,
+        "training_data_paths": paths,
+    }
 
 
 @dataclass
@@ -158,8 +203,8 @@ class LSTMAutoencoderDetector(AnomalyDetectorInterface):
         for i in range(0, mat.shape[0] - window + 1):
             out.append(mat[i : i + window])
         if not out:
-            return np.zeros((0, window, 4), dtype=np.float64)
-        return np.stack(out, axis=0)
+            return cast(np.ndarray, np.zeros((0, window, 4), dtype=np.float64))
+        return cast(np.ndarray, np.stack(out, axis=0))
 
     def _latest_window(self, run_date: str) -> np.ndarray | None:
         if self._snapshot_store is None:
@@ -169,7 +214,7 @@ class LSTMAutoencoderDetector(AnomalyDetectorInterface):
         if len(prior) < self.window:
             return None
         tail = prior[-self.window :]
-        return _snapshots_to_matrix(tail)
+        return cast(np.ndarray, _snapshots_to_matrix(tail))
 
     def score(self, proxy: ProxyReading) -> float:
         if self._model is not None and self._mean is not None and self._std is not None and self._train_errors is not None:
@@ -213,12 +258,12 @@ class LSTMAutoencoderDetector(AnomalyDetectorInterface):
         buf = io.BytesIO()
         torch.save(tmp._model.state_dict(), buf)
         snaps = snapshot_store.load_range(start, end)
+        data_provenance = _snapshot_store_provenance(snapshot_store)
         manifest = {
             "schema_version": "workbench.dl_model.v1",
             "model_type": "lstm_autoencoder_anomaly",
             "trained_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            "training_data_source": "duckdb_snapshot_store",
-            "training_data_paths": [],
+            **data_provenance,
             "source_releases_excluded": [],
             "training_rows": len(snaps),
             "window": window,
@@ -233,4 +278,4 @@ class LSTMAutoencoderDetector(AnomalyDetectorInterface):
         }
         reg = ModelRegistry(root=Path(output_root))
         reg.register("anomaly", source_release, weights_bytes=buf.getvalue(), manifest=manifest)
-        return reg.manifest_path("anomaly", source_release)
+        return cast(Path, reg.manifest_path("anomaly", source_release))

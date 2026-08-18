@@ -627,7 +627,7 @@ def _preset(
 
 
 def enrich_series_request_from_preset(request: SeriesRequest, preset: StructuralPreset) -> SeriesRequest:
-    structural = {
+    structural: dict[str, Any] = {
         "preset_name": request.preset_name or preset.name,
         "channel": request.channel or preset.channel,
         "measurement_block": request.measurement_block or preset.measurement_block,

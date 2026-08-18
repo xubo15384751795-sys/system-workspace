@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
@@ -12,6 +13,8 @@ from src.core.representation.graph_repr import (
     degree_summary,
     to_networkx,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -208,7 +211,7 @@ def _bottleneck_proxy(degree_values: np.ndarray, graph: StructuralGraph) -> floa
             if edge_scores:
                 return float(max(edge_scores.values()))
         except (ImportError, ValueError, RuntimeError):
-            pass
+            logger.debug("NetworkX bottleneck calculation unavailable; using degree proxy", exc_info=True)
     if degree_values.size == 0:
         return 0.0
     total = float(np.sum(degree_values))

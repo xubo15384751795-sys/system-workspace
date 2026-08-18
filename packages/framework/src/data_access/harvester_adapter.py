@@ -217,7 +217,9 @@ class HarvesterAdapter:
         return catalog
 
     def _catalog_entry(self, name: str) -> dict[str, Any]:
-        matches = [entry for entry in self.catalog["datasets"] if entry["dataset_id"] == name]
+        matches: list[dict[str, Any]] = [
+            entry for entry in self.catalog["datasets"] if entry["dataset_id"] == name
+        ]
         if not matches:
             raise HarvesterDatasetNotFoundError(f"unknown Harvester dataset: {name}")
         if len(matches) > 1:
@@ -295,7 +297,9 @@ class HarvesterAdapter:
             self._validate_bundle_files()
 
     def _bundle_entry(self, role: str) -> dict[str, Any]:
-        matches = [entry for entry in self.catalog["files"] if entry.get("role") == role]
+        matches: list[dict[str, Any]] = [
+            entry for entry in self.catalog["files"] if entry.get("role") == role
+        ]
         if not matches:
             raise HarvesterDatasetNotFoundError(f"unknown Harvester bundle role: {role}")
         if len(matches) > 1:

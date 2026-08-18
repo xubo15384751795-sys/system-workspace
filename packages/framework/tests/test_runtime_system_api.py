@@ -107,6 +107,13 @@ class StructuralSystemAPITests(unittest.TestCase):
             self.assertIsNotNone(evidence)
             assert evidence is not None
             self.assertIn("graph_features", evidence["families"])
+            self.assertIn("canonical_chain", evidence)
+            from system_runtime.canonical_ids import validate_chain
+
+            validate_chain(evidence["canonical_chain"])
+            self.assertEqual(evidence["canonical_chain"]["measurement"]["derivation"], "PROXY_DERIVED")
+            self.assertEqual(evidence["canonical_chain"]["evidence"]["evidence_role"], "DERIVED")
+            self.assertIs(evidence["canonical_chain"]["claim"]["provenance"]["promotion_allowed"], False)
 
     def test_runtime_api_exposes_datahub_fetchers(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

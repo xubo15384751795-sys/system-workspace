@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any, cast
 
 import numpy as np
 
@@ -72,8 +73,9 @@ class PrototypeEmbeddingNarrativeDetector(NarrativeDetectorInterface):
 
     def _encode_mean(self, sentences: list[str]) -> np.ndarray:
         assert self._model is not None
-        vecs = self._model.encode(sentences, convert_to_numpy=True, show_progress_bar=False)
-        return np.asarray(vecs, dtype=np.float64).mean(axis=0)
+        model = cast(Any, self._model)
+        vecs = model.encode(sentences, convert_to_numpy=True, show_progress_bar=False)
+        return cast(np.ndarray, np.asarray(vecs, dtype=np.float64).mean(axis=0))
 
     def analyze(self, texts: list[dict], run_date: str) -> NarrativeReading:
         if self._fallback is not None:
@@ -91,8 +93,9 @@ class PrototypeEmbeddingNarrativeDetector(NarrativeDetectorInterface):
 
         assert self._model is not None
         assert self._proto_ai is not None and self._proto_clo is not None and self._proto_pol is not None
+        model = cast(Any, self._model)
         emb = np.asarray(
-            self._model.encode([blob], convert_to_numpy=True, show_progress_bar=False)[0],
+            model.encode([blob], convert_to_numpy=True, show_progress_bar=False)[0],
             dtype=np.float64,
         )
         s_ai = _cosine(emb, self._proto_ai)

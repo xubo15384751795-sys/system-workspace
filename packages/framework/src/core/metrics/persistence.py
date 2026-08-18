@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, cast
 
 import numpy as np
 
@@ -84,11 +84,11 @@ def detect_structural_change_points(
 
 def _window_representative(window: Sequence[np.ndarray | Mapping[str, float]]) -> np.ndarray:
     vectors = [_coerce_vector(state) for state in window]
-    return np.mean(np.vstack(vectors), axis=0)
+    return cast(np.ndarray, np.mean(np.vstack(vectors), axis=0))
 
 
 def _coerce_vector(value: np.ndarray | Mapping[str, float]) -> np.ndarray:
     if isinstance(value, np.ndarray):
-        return np.asarray(value, dtype=float)
+        return cast(np.ndarray, np.asarray(value, dtype=float))
     ordered = [float(value.get(channel, 0.0)) for channel in sorted(value.keys())]
-    return np.asarray(ordered, dtype=float)
+    return cast(np.ndarray, np.asarray(ordered, dtype=float))

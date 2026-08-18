@@ -38,7 +38,7 @@ SUBSYSTEM_PATHS = {
 class ArchitectureBoundaryTests(unittest.TestCase):
     def test_subsystem_import_graph_stays_sparse(self) -> None:
         path_to_subsystem = _path_to_subsystem()
-        coupling = {name: set() for name in SUBSYSTEM_PATHS}
+        coupling: dict[str, set[str]] = {name: set() for name in SUBSYSTEM_PATHS}
         for file_path, source_subsystem in path_to_subsystem.items():
             tree = ast.parse(file_path.read_text(encoding="utf-8"))
             for module in _imported_modules(tree):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 _MISMATCH_STATUS = frozenset({"normal", "watch", "warning", "critical", "unknown"})
 

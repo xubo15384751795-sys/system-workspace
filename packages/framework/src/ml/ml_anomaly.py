@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
 from src.core.interfaces import AnomalyDetectorInterface, SnapshotStoreInterface
 from src.core.models import ProxyReading, Snapshot
 
+logger = logging.getLogger(__name__)
+
 
 def _proxy_to_vec(proxy: ProxyReading) -> np.ndarray:
-    return np.array(
+    return cast(np.ndarray, np.array(
         [
             float(proxy.M) if proxy.M is not None else 0.0,
             float(proxy.D) if proxy.D is not None else 0.0,
@@ -18,13 +21,13 @@ def _proxy_to_vec(proxy: ProxyReading) -> np.ndarray:
             float(proxy.X) if proxy.X is not None else 0.0,
         ],
         dtype=np.float64,
-    )
+    ))
 
 
 def _snapshots_to_matrix(snapshots: list[Snapshot]) -> np.ndarray:
     if not snapshots:
-        return np.zeros((0, 4), dtype=np.float64)
-    return np.stack([_proxy_to_vec(s.proxy) for s in snapshots], axis=0)
+        return cast(np.ndarray, np.zeros((0, 4), dtype=np.float64))
+    return cast(np.ndarray, np.stack([_proxy_to_vec(s.proxy) for s in snapshots], axis=0))
 
 
 @dataclass
@@ -74,7 +77,7 @@ class IsolationForestDetector(AnomalyDetectorInterface):
                 # sklearn: lower score_samples => more outlier-like; invert so higher => more anomaly
                 return float(-self._model.score_samples(vec)[0])
             except Exception:
-                pass
+                logger.debug("IsolationForest scoring failed; using heuristic score", exc_info=True)
         return self._heuristic_score(proxy)
 
     def _heuristic_score(self, proxy: ProxyReading) -> float:

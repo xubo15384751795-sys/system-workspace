@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 import numpy as np
 
@@ -93,7 +93,7 @@ class DiffraxODEEngine(ODEEngineInterface):
                         params=clean_params,
                     )
                     self.last_diagnostics = diagnostics
-                    return np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0)
+                    return cast(np.ndarray, np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0))
                 except (ValueError, RuntimeError, ImportError):
                     if backend in {"jax", "diffrax"}:
                         raise
@@ -108,7 +108,7 @@ class DiffraxODEEngine(ODEEngineInterface):
                 params=clean_params,
             )
             self.last_diagnostics = diagnostics
-            return np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0)
+            return cast(np.ndarray, np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0))
         except (ValueError, RuntimeError, ImportError, OverflowError):
             import logging
 
@@ -122,10 +122,10 @@ class DiffraxODEEngine(ODEEngineInterface):
                 steps=0,
                 final_time=0.0,
             )
-            return np.zeros(6, dtype=float)
+            return cast(np.ndarray, np.zeros(6, dtype=float))
 
     def map_proxy_to_initial_state(self, proxy: ProxyReading) -> np.ndarray:
-        return self.state_space_mapping.map_proxy(proxy).as_array()
+        return cast(np.ndarray, self.state_space_mapping.map_proxy(proxy).as_array())
 
     def curvature_diagnostics(
         self,
@@ -158,7 +158,7 @@ class DiffraxODEEngine(ODEEngineInterface):
         dz[3] = -alpha * z[3] + beta * abs(z[1])
         dz[4] = alpha * (z[0] - z[4]) + beta * z[2]
         dz[5] = alpha * (z[1] - z[5]) + beta * z[3]
-        return dz
+        return cast(np.ndarray, dz)
 
     def _solve_diffrax(
         self,
@@ -311,7 +311,7 @@ class DiffraxODEEngine(ODEEngineInterface):
     ) -> tuple[np.ndarray, np.ndarray]:
         steps = max(1, int(np.ceil(horizon / dt)))
         times = np.linspace(0.0, horizon, steps + 1)
-        states = np.zeros((steps + 1, len(z0)), dtype=float)
+        states: np.ndarray = np.zeros((steps + 1, len(z0)), dtype=float)
         states[0] = z0
         for idx in range(steps):
             t = float(times[idx])
@@ -334,7 +334,7 @@ class DiffraxODEEngine(ODEEngineInterface):
             def f(y):
                 return jnp.asarray(self._drift_jax(y, alpha=alpha, beta=beta))
 
-            return np.asarray(jax.jacfwd(f)(jnp.asarray(state, dtype=jnp.float64)), dtype=float)
+            return cast(np.ndarray, np.asarray(jax.jacfwd(f)(jnp.asarray(state, dtype=jnp.float64)), dtype=float))
         except (ImportError, RuntimeError) as exc:
             import logging
 
@@ -359,14 +359,14 @@ class DiffraxODEEngine(ODEEngineInterface):
     def _jacobian_finite_difference(self, state: np.ndarray, alpha: float, beta: float) -> np.ndarray:
         eps = 1e-5
         base = np.asarray(state, dtype=float)
-        jac = np.zeros((len(base), len(base)), dtype=float)
+        jac: np.ndarray = np.zeros((len(base), len(base)), dtype=float)
         for idx in range(len(base)):
             step = np.zeros_like(base)
             step[idx] = eps
             fp = self._drift_numpy(0.0, base + step, alpha=alpha, beta=beta)
             fm = self._drift_numpy(0.0, base - step, alpha=alpha, beta=beta)
             jac[:, idx] = (fp - fm) / (2.0 * eps)
-        return jac
+        return cast(np.ndarray, jac)
 
 
 def threshold_crossing_time(

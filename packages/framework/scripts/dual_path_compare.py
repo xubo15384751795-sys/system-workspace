@@ -15,7 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 
@@ -260,8 +259,8 @@ def dual_path_report(result: DualPathResult, *, format: str = "markdown") -> str
     lines.append("")
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"| Metric | Legacy | DataHubLite |")
-    lines.append(f"|---|---|---|")
+    lines.append("| Metric | Legacy | DataHubLite |")
+    lines.append("|---|---|---|")
     lines.append(f"| Items | {result.legacy_items} | {result.lite_items} |")
     lines.append(f"| Errors | {result.legacy_errors} | {result.lite_errors} |")
     lines.append("")
@@ -305,8 +304,10 @@ def run_dual_path(
 
     This is the main entry point for D.1.
     """
+    from src.core.runtime_context import RuntimePaths
     from src.data.gateway import create_data_hub
     from src.data.gateway.data_hub_lite import DataHubLite
+    from src.data.paths import default_harvester_contract_root
     from src.data_access.harvester_adapter import HarvesterAdapter
 
     if preset_names is None:
@@ -322,10 +323,15 @@ def run_dual_path(
     legacy_result = legacy_hub.fetch_structural_presets(preset_names, start=start, end=end)
 
     # --- Harvester path ---
+    paths = (
+        RuntimePaths.from_project_root(cfg["project_root"])
+        if cfg.get("project_root")
+        else RuntimePaths.discover()
+    )
     adapter = HarvesterAdapter(
-        exports_root="/Users/a1/System/Data/harvester/exports",
+        exports_root=str(paths.harvester_root / "exports"),
         release="latest",
-        contract_root="/Users/a1/System/Workbench/data_providers/structural-risk-harvester/contracts",
+        contract_root=str(default_harvester_contract_root(cfg)),
         require_finalized=True,
         validate_hashes=False,
         validate_schema=False,

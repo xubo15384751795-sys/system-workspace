@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -31,7 +32,7 @@ class GraphReflexivityDetector(ReflexivityDetectorInterface):
         self._fallback = DTWReflexivityDetector(channel_threshold=self.channel_threshold)
 
     def check(self, event_log: pd.DataFrame, proxy_history: pd.DataFrame, run_date: str) -> dict[str, bool]:
-        base = self._fallback.check(event_log, proxy_history, run_date)
+        base = cast(dict[str, bool], self._fallback.check(event_log, proxy_history, run_date))
         if proxy_history.empty or len(proxy_history) < max(8, self.window // 4):
             return base
 

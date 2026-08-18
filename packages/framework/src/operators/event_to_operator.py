@@ -174,6 +174,8 @@ def _event_intensity(event: Mapping[str, Any]) -> float:
         if key not in event:
             continue
         value = event.get(key)
+        if value is None:
+            continue
         if isinstance(value, str):
             score = _severity_score(value)
             if score is not None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from src.dynamic.criticality import CriticalityState
 from src.dynamic.mismatch import MismatchMap, MismatchProfile
@@ -14,7 +14,7 @@ from src.dynamic.signal_card import EvidenceItem, SignalCard
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def json_prefix_for_case(case_id: str) -> str:

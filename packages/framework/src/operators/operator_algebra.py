@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 import numpy as np
 
@@ -248,7 +248,7 @@ def _operator_vector_field(
 ) -> np.ndarray:
     z = clean_state(state)
     out = apply_operator(z, operator, intensity=intensity)
-    return np.array([out[channel] - z[channel] for channel in CHANNELS], dtype=float)
+    return cast(np.ndarray, np.array([out[channel] - z[channel] for channel in CHANNELS], dtype=float))
 
 
 def _operator_vector_jacobian(
@@ -269,7 +269,7 @@ def _operator_vector_jacobian(
             return delta * factor
 
         z = jnp.asarray([clean_state(state)[channel] for channel in CHANNELS], dtype=jnp.float64)
-        return np.asarray(jax.jacfwd(field)(z), dtype=float)
+        return cast(np.ndarray, np.asarray(jax.jacfwd(field)(z), dtype=float))
     except Exception:
         return _operator_vector_jacobian_fd(operator, state, intensity)
 
@@ -281,7 +281,7 @@ def _operator_vector_jacobian_fd(
 ) -> np.ndarray:
     eps = 1e-5
     z = np.array([clean_state(state)[channel] for channel in CHANNELS], dtype=float)
-    jac = np.zeros((len(CHANNELS), len(CHANNELS)), dtype=float)
+    jac: np.ndarray = np.zeros((len(CHANNELS), len(CHANNELS)), dtype=float)
     for idx in range(len(CHANNELS)):
         step = np.zeros_like(z)
         step[idx] = eps
@@ -291,7 +291,7 @@ def _operator_vector_jacobian_fd(
             _operator_vector_field(operator, plus, intensity)
             - _operator_vector_field(operator, minus, intensity)
         ) / (2.0 * eps)
-    return jac
+    return cast(np.ndarray, jac)
 
 
 def _state_multiplier_jax(operator: StructuralOperator, state: Mapping[str, Any], intensity: float) -> Any:

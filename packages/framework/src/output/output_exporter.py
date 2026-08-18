@@ -4,7 +4,7 @@ import html
 import json
 import subprocess
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 import numpy as np
 
@@ -45,7 +45,7 @@ def snapshot_to_dict(snapshot: Snapshot) -> dict[str, Any]:
     core = snapshot_core_to_dict(snapshot.core())
     extension = snapshot_extension_to_dict(snapshot.extension())
     sigma_vector = _sigma_vector_from_snapshot(snapshot)
-    return {
+    payload = {
         "run_date": snapshot.run_date,
         "run_type": snapshot.run_type,
         "escalation": snapshot.escalation,
@@ -101,6 +101,124 @@ def snapshot_to_dict(snapshot: Snapshot) -> dict[str, Any]:
             "recommended_actions": interpretation.recommended_actions,
         },
     }
+    canonical_lineage = _canonical_snapshot_lineage(snapshot)
+    if canonical_lineage is not None:
+        payload["canonical_chain"] = canonical_lineage["canonical_chain"]
+        payload["canonical_ids"] = canonical_lineage["canonical_ids"]
+    return payload
+
+
+def _canonical_snapshot_lineage(snapshot: Snapshot) -> dict[str, Any] | None:
+    """Build an additive canonical envelope for a framework snapshot.
+
+    The framework snapshot remains a diagnostic/proxy artifact.  Its legacy
+    fields are intentionally untouched, and the generated Claim is always
+    ``WATCH``.  If the workspace canonical runtime is unavailable (for
+    example, when the framework package is installed standalone), the legacy
+    export continues to work without inventing a partial envelope.
+    """
+    try:
+        from system_runtime.canonical_ids import (
+            build_chain,
+            build_claim,
+            build_evidence,
+            build_measurement,
+            build_observation,
+            lineage_ids,
+        )
+    except ImportError:
+        return None
+
+    provenance = dict(snapshot.state.provenance or {})
+    observed_at = str(snapshot.run_date)
+    if len(observed_at) == 10:
+        observed_at = f"{observed_at}T00:00:00Z"
+    source_id = str(
+        provenance.get("source_id")
+        or provenance.get("source_release_id")
+        or "framework:structural_snapshot"
+    )
+    source_snapshot_sha256 = provenance.get("source_snapshot_sha256") or provenance.get("snapshot_sha256")
+    availability = provenance.get("observation_status")
+    if availability not in {
+        "AVAILABLE",
+        "STALE",
+        "DELAYED",
+        "MISSING",
+        "NOT_APPLICABLE",
+        "SOURCE_DOWN",
+        "SCHEMA_CHANGED",
+        "DISCONTINUED",
+        "UNKNOWN",
+    }:
+        availability = "AVAILABLE" if all(
+            bool(snapshot.proxy.available.get(channel, False)) for channel in ("M", "D", "K", "X")
+        ) else "MISSING"
+
+    values = {
+        channel: _finite_snapshot_value(getattr(snapshot.proxy, channel, None))
+        for channel in ("M", "D", "K", "X")
+    }
+    captured_at = str(provenance.get("generated_at") or provenance.get("captured_at") or observed_at)
+    shared_provenance = {
+        "captured_at": captured_at,
+        "producer": "framework.output_exporter",
+        "run_id": f"{snapshot.run_date}_{snapshot.run_type}",
+        "source_release_id": provenance.get("source_release_id"),
+        "claim_ceiling": "diagnostic_watch_only",
+        "statement_kind": "diagnostic_snapshot",
+        "promotion_allowed": False,
+    }
+    observation = build_observation(
+        canonical_series_id="FRAMEWORK:STRUCTURAL_SNAPSHOT",
+        observed_at=observed_at,
+        vintage_at=observed_at,
+        value=values,
+        unit="bounded_proxy_vector",
+        source_id=source_id,
+        status=availability,
+        source_snapshot_sha256=source_snapshot_sha256,
+        provenance=shared_provenance,
+    )
+    measurement = build_measurement(
+        observation_ids=[observation["observation_id"]],
+        measurement_definition="framework_structural_snapshot",
+        value=values,
+        unit="bounded_proxy_vector",
+        status=availability,
+        derivation="PROXY_DERIVED",
+        confidence=None,
+        provenance={**shared_provenance, "method": "framework_proxy_snapshot"},
+    )
+    evidence = build_evidence(
+        measurement_ids=[measurement["measurement_id"]],
+        evidence_role="DERIVED",
+        source_id=source_id,
+        release_id=provenance.get("source_release_id"),
+        source_snapshot_sha256=source_snapshot_sha256,
+        status=availability,
+        provenance=shared_provenance,
+    )
+    claim_status = "STALE" if availability == "STALE" else "INSUFFICIENT_DATA" if availability != "AVAILABLE" else "WATCH"
+    claim = build_claim(
+        claim_text="Framework structural snapshot is available for bounded diagnostic monitoring.",
+        subject="framework_structural_snapshot",
+        predicate="supports_diagnostic_monitoring",
+        evidence_ids=[evidence["evidence_id"]],
+        status=claim_status,
+        confidence=None,
+        provenance=shared_provenance,
+    )
+    chain = build_chain(observation=observation, measurement=measurement, evidence=evidence, claim=claim)
+    return {"canonical_chain": chain, "canonical_ids": lineage_ids(chain)}
+
+
+def _finite_snapshot_value(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) else None
 
 
 def snapshot_core_to_dict(core: SnapshotCore) -> dict[str, Any]:
@@ -555,4 +673,4 @@ def _plain_metric(value: Any) -> str:
 
 
 def _concept_registry_payload() -> dict[str, dict[str, Any]]:
-    return concept_registry_payload()
+    return cast(dict[str, dict[str, Any]], concept_registry_payload())

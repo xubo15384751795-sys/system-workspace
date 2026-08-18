@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 from src.data.adapters import (
     AlphaVantageSeriesAdapter,
@@ -222,19 +222,19 @@ class DataHub:
         return FetchResult(kind="market_structure", items=[], errors=errors, metadata={"start": start, "end": end, "status": "deferred"})
 
     def available_providers(self) -> dict[str, list[str]]:
-        return self.registry.available()
+        return cast(dict[str, list[str]], self.registry.available())
 
     def available_structural_presets(self) -> list[dict[str, Any]]:
-        return [preset.to_dict() for preset in self.structural_presets]
+        return cast(list[dict[str, Any]], [preset.to_dict() for preset in self.structural_presets])
 
     def build_structural_plan(self, series_ids: Sequence[str]) -> StructuralFetchPlan:
         return build_structural_fetch_plan(series_ids=series_ids, presets=self.structural_presets)
 
     def route_evidence(self, request: EvidenceRequest | Mapping[str, Any]) -> dict[str, Any]:
-        return EvidenceRouter(presets=self.structural_presets).route(request).to_dict()
+        return cast(dict[str, Any], EvidenceRouter(presets=self.structural_presets).route(request).to_dict())
 
     def provider_capabilities(self) -> list[dict[str, Any]]:
-        return EvidenceRouter(presets=self.structural_presets).capability_catalog()
+        return cast(list[dict[str, Any]], EvidenceRouter(presets=self.structural_presets).capability_catalog())
 
     def fetch_structural_presets(self, preset_names: Sequence[str], start: str, end: str) -> FetchResult:
         items: list[StructuralPresetResult] = []

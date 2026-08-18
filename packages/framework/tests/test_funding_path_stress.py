@@ -65,6 +65,9 @@ class FundingPathStressDetectorTests(unittest.TestCase):
 class FundingPathStressCalibrationTests(unittest.TestCase):
     """Spec §5 anchors on the real harvester panel."""
 
+    detector: FundingPathStressDetector
+    panel: pd.DataFrame
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.detector = FundingPathStressDetector()

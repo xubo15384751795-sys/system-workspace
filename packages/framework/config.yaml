@@ -32,6 +32,9 @@ data:
   lab_root: "/Users/a1/System/Data/structural_lab"
   backend: legacy
   version: "bootstrap-v1"
+snapshot_store:
+  # Parquet is the default authority; legacy DuckDB is migration-only.
+  backend: harvester
 runtime:
   duckdb_path: "/Users/a1/System/Data/structural_lab/runtime/system.duckdb"
   processed_dir: "/Users/a1/System/Data/structural_lab/processed"
@@ -64,11 +67,12 @@ data_sources:
 
   # API keys can be set here or via env vars:
   # FRED_API_KEY, SEC_USER_AGENT, ALPHA_VANTAGE_API_KEY, TIINGO_API_KEY,
-  # POLYGON_API_KEY, NASDAQ_DATA_LINK_API_KEY
+  # MASSIVE_API_KEY (or legacy POLYGON_API_KEY), NASDAQ_DATA_LINK_API_KEY
   api_keys:
     fred: ""
     alpha_vantage: ""
     tiingo: ""
+    massive: ""
     polygon: ""
     nasdaq_data_link: ""
     sec_user_agent: ""

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 
+from typing import cast
+
 import numpy as np
 import pandas as pd
 
@@ -96,7 +98,7 @@ class CrossSectionAggregator:
             vals = row.dropna().to_numpy(dtype=float)
             if len(vals) < 2:
                 return np.nan
-            return _gini(vals)
+            return cast(float, _gini(vals))
 
         return clean.apply(_gini_row, axis=1).rename("gini_concentration")
 

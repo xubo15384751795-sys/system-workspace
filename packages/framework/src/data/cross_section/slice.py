@@ -123,7 +123,8 @@ def build_cross_section_slice(
 
     mean = float(np.mean(arr))
     std = float(np.std(arr, ddof=1)) if n > 1 else None
-    q10, q50, q90 = (float(v) for v in np.percentile(arr, [10, 50, 90]))
+    percentiles = np.asarray(np.percentile(arr, [10, 50, 90]), dtype=float)
+    q10, q50, q90 = (float(percentiles[i]) for i in range(3))
     iqr = float(np.percentile(arr, 75) - np.percentile(arr, 25))
     gini = _gini(arr) if n > 1 else None
 

@@ -12,7 +12,7 @@ When no adapter is provided, fetch_series raises NotImplementedError.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence, cast
 
 import pandas as pd
 
@@ -106,7 +106,7 @@ class _PanelMatch:
 
     @property
     def empty(self) -> bool:
-        return self.frame.empty
+        return bool(self.frame.empty)
 
     @property
     def is_fuzzy(self) -> bool:
@@ -387,6 +387,7 @@ class DataHubLite:
         6. ``not_found`` — no match possible.
         """
         sid_lower = source_id.lower()
+        warnings: list[str] = []
 
         # ------------------------------------------------------------------
         # Pass 0 — check if the series exists at all
@@ -412,13 +413,11 @@ class DataHubLite:
             # Found via series_id — apply series_id_only strategy
             matched = candidates
             strategy = MATCH_SERIES_ID_ONLY
-            warnings: list[str] = []
         else:
             # ------------------------------------------------------------------
             # Pass 1 — exact (source_id, source_series_id)
             # ------------------------------------------------------------------
             exact = candidates[candidates["source_id"].str.lower() == sid_lower]
-            warnings: list[str] = []
             if not exact.empty:
                 matched = exact
                 strategy = MATCH_EXACT_SOURCE_AND_SERIES
@@ -787,7 +786,7 @@ class DataHubLite:
         Compatible with the legacy DataHub.build_structural_plan() signature.
         """
         plan = build_structural_fetch_plan(series_ids, self.presets)
-        return plan.to_dict()
+        return cast(dict[str, Any], plan.to_dict())
 
     def available_structural_presets(self) -> list[dict[str, Any]]:
         return [preset.to_dict() for preset in self.presets]
@@ -804,10 +803,10 @@ class DataHubLite:
             entry["capability_type"] = "release_serving"
             entry["not_acquisition"] = True
             entry["release_id"] = self.release_id
-        return caps
+        return cast(list[dict[str, Any]], caps)
 
     def route_evidence(self, request: Mapping[str, Any]) -> dict[str, Any]:
-        return self._router.route(request).to_dict()
+        return cast(dict[str, Any], self._router.route(request).to_dict())
 
     def available_providers(self) -> dict[str, list[str]]:
         """Return providers and their series from the current release.
@@ -831,16 +830,16 @@ class DataHubLite:
 def _resolve_source_series_id(request: SeriesRequest) -> str:
     """Best-effort extraction of the native series identifier from a request."""
     if request.series_id:
-        return request.series_id
+        return cast(str, request.series_id)
     if request.field:
-        return request.field
+        return cast(str, request.field)
     if request.key:
-        return request.key
+        return cast(str, request.key)
     if request.resource:
-        return request.resource
+        return cast(str, request.resource)
     if request.dataset:
-        return request.dataset
-    return request.request_key()
+        return cast(str, request.dataset)
+    return cast(str, request.request_key())
 
 
 def _enrich_from_preset(request: SeriesRequest, preset: StructuralPreset) -> SeriesRequest:

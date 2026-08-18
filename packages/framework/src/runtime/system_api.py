@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
 
 from src.core.execution import RunContext
 from src.core.interfaces import DataSource, PipelineInterface, SnapshotStoreInterface
-from src.core.runtime_context import RuntimePaths
 from src.core.models import NarrativeReading, ProxyReading, Snapshot, StructuralState
+from src.core.runtime_context import RuntimePaths
 from src.data.gateway import DataHub
 from src.interpretation.market_state import classify_pattern, leading_channel
 from src.output.output_exporter import export_snapshot_artifacts, snapshot_to_dict
@@ -22,6 +23,8 @@ from src.runtime.assets import (
     materialize_snapshot_flow,
 )
 from src.runtime.evidence_store import RuntimeEvidenceStore
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -100,8 +103,12 @@ class StructuralSystemAPI:
 
     def available_series(self) -> list[str]:
         try:
-            return self.data_source.available_series()
-        except Exception:
+            return cast(list[str], self.data_source.available_series())
+        except Exception as exc:
+            logger.warning(
+                "Data source series discovery failed: error_type=%s",
+                type(exc).__name__,
+            )
             return []
 
     def fetch_data(self, series_ids: list[str], start: str, end: str) -> dict[str, Any]:
@@ -128,32 +135,32 @@ class StructuralSystemAPI:
     def route_evidence(self, request: Mapping[str, Any]) -> dict[str, Any]:
         if self.data_hub is None:
             raise RuntimeError("data hub is not configured")
-        return self.data_hub.route_evidence(request)
+        return cast(dict[str, Any], self.data_hub.route_evidence(request))
 
     def fetch_structural_presets(self, preset_names: Sequence[str], start: str, end: str) -> dict[str, Any]:
         if self.data_hub is None:
             raise RuntimeError("data hub is not configured")
-        return self.data_hub.fetch_structural_presets(preset_names, start=start, end=end).to_dict()
+        return cast(dict[str, Any], self.data_hub.fetch_structural_presets(preset_names, start=start, end=end).to_dict())
 
     def fetch_series(self, requests: Sequence[Mapping[str, Any]], start: str, end: str) -> dict[str, Any]:
         if self.data_hub is None:
             raise RuntimeError("data hub is not configured")
-        return self.data_hub.fetch_series(requests, start=start, end=end).to_dict()
+        return cast(dict[str, Any], self.data_hub.fetch_series(requests, start=start, end=end).to_dict())
 
     def fetch_events(self, requests: Sequence[Mapping[str, Any]], start: str, end: str) -> dict[str, Any]:
         if self.data_hub is None:
             raise RuntimeError("data hub is not configured")
-        return self.data_hub.fetch_events(requests, start=start, end=end).to_dict()
+        return cast(dict[str, Any], self.data_hub.fetch_events(requests, start=start, end=end).to_dict())
 
     def fetch_filings(self, requests: Sequence[Mapping[str, Any]], start: str, end: str) -> dict[str, Any]:
         if self.data_hub is None:
             raise RuntimeError("data hub is not configured")
-        return self.data_hub.fetch_filings(requests, start=start, end=end).to_dict()
+        return cast(dict[str, Any], self.data_hub.fetch_filings(requests, start=start, end=end).to_dict())
 
     def fetch_positions(self, requests: Sequence[Mapping[str, Any]], start: str, end: str) -> dict[str, Any]:
         if self.data_hub is None:
             raise RuntimeError("data hub is not configured")
-        return self.data_hub.fetch_positions(requests, start=start, end=end).to_dict()
+        return cast(dict[str, Any], self.data_hub.fetch_positions(requests, start=start, end=end).to_dict())
 
     def run_snapshot(
         self,
@@ -162,7 +169,7 @@ class StructuralSystemAPI:
         export_artifacts: bool = False,
     ) -> dict[str, Any]:
         snapshot = self.pipeline.run(run_date=run_date, run_type=run_type)
-        payload = snapshot_to_dict(snapshot)
+        payload = cast(dict[str, Any], snapshot_to_dict(snapshot))
         payload["assets"] = [
             {
                 "asset_name": item.asset_name,
@@ -261,12 +268,12 @@ class StructuralSystemAPI:
         ]
 
     def asset_lineage(self, asset_name: str) -> dict[str, Any] | None:
-        return asset_lineage(self.asset_catalog, asset_name)
+        return cast(dict[str, Any] | None, asset_lineage(self.asset_catalog, asset_name))
 
     def list_evidence_definitions(self) -> list[dict[str, Any]]:
         if self.evidence_store is None:
             return []
-        return self.evidence_store.list_definitions()
+        return cast(list[dict[str, Any]], self.evidence_store.list_definitions())
 
     def get_snapshot_evidence(self, run_date: str, refresh: bool = False) -> dict[str, Any] | None:
         if self.evidence_store is None:
@@ -278,24 +285,33 @@ class StructuralSystemAPI:
         history = self.snapshot_store.load_range(history_start, run_date)
         prior = [item for item in history if item.run_date != run_date]
         bundle = self.evidence_store.build_snapshot_bundle(snapshot=snapshot, history=prior, refresh=refresh)
-        return {
+        result = {
             "run_date": bundle.run_date,
             "target_type": bundle.target_type,
             "families": {name: dict(values) for name, values in bundle.families.items()},
             "metadata": dict(bundle.metadata),
         }
+        if bundle.canonical_chain is not None:
+            result["canonical_chain"] = dict(bundle.canonical_chain)
+            result["canonical_ids"] = {
+                "observation_id": bundle.canonical_chain["observation"]["observation_id"],
+                "measurement_id": bundle.canonical_chain["measurement"]["measurement_id"],
+                "evidence_id": bundle.canonical_chain["evidence"]["evidence_id"],
+                "claim_id": bundle.canonical_chain["claim"]["claim_id"],
+            }
+        return result
 
     def export_snapshot(self, run_date: str) -> dict[str, str] | None:
         snapshot = self.snapshot_store.load(run_date)
         if snapshot is None:
             return None
         output_cfg = self.config.get("output", {})
-        return export_snapshot_artifacts(
+        return cast(dict[str, str] | None, export_snapshot_artifacts(
             snapshot=snapshot,
             output_dir=str(output_cfg.get("dir", str(RuntimePaths.discover().output_root))),
             export_image=bool(output_cfg.get("export_image", True)),
             image_width=int(output_cfg.get("image_width", 1400)),
-        )
+        ))
 
     def _evaluate_proxy(self, proxy: ProxyReading, run_type: str, persist: bool) -> Snapshot:
         pipeline = self.pipeline

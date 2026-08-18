@@ -99,7 +99,8 @@ class DistributionSummary:
         mean = float(np.mean(vals))
         variance = float(np.var(vals, ddof=1)) if n > 1 else None
         std = float(np.std(vals, ddof=1)) if n > 1 else None
-        q10, q50, q90 = (float(v) for v in np.percentile(vals, [10, 50, 90]))
+        percentiles = np.asarray(np.percentile(vals, [10, 50, 90]), dtype=float)
+        q10, q50, q90 = (float(percentiles[i]) for i in range(3))
         iqr = float(np.percentile(vals, 75) - np.percentile(vals, 25))
 
         # skewness and kurtosis (excess)

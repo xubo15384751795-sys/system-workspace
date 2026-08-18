@@ -4,13 +4,18 @@ HTTP status: research_only_non_harvester
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterable
-from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from typing import Iterable, cast
+from urllib.parse import parse_qsl, urljoin, urlparse
 
+from src.data_access.http_gateway import (
+    GatewayError,
+    GatewayPolicyError,
+    OwnedHTTPGateway,
+)
 from src.research_corpus.manifest import (
     CorpusDocumentManifest,
     CorpusDocumentSeed,
@@ -20,8 +25,12 @@ from src.research_corpus.manifest import (
 from src.research_corpus.registry import provider_group_for
 from src.research_corpus.taxonomy import BREVAN_HOWARD_USAGE_TAGS, DocumentType
 
-
 BREVAN_HOWARD_PROVIDER = "Brevan Howard"
+logger = logging.getLogger(__name__)
+RESEARCH_ENDPOINTS = {
+    "www.bhmacro.com": "bhmacro_document",
+    "www.brevanhoward.com": "brevanhoward_document",
+}
 DEFAULT_TOPICS = ("global_macro", "rates", "FX", "liquidity", "risk_management")
 DEFAULT_ASSET_CLASS = ("rates", "FX", "liquid_markets")
 DEFAULT_STRATEGY_FAMILY = ("global_macro",)
@@ -52,11 +61,18 @@ class BrevanHowardProvider:
         manifest_root: Path | str = Path("data/manifests/research_corpus"),
         timeout_sec: int = 30,
         user_agent: str = "StructuralRiskLab/0.1 research-corpus archiver",
+        gateway: OwnedHTTPGateway | None = None,
     ) -> None:
         self.corpus_root = Path(corpus_root)
         self.manifest_root = Path(manifest_root)
         self.timeout_sec = timeout_sec
         self.user_agent = user_agent
+        self._owns_gateway = gateway is None
+        self.gateway = gateway or OwnedHTTPGateway(
+            headers={"User-Agent": user_agent},
+            max_response_bytes=10_000_000,
+            timeout_sec=timeout_sec,
+        )
 
     @property
     def local_root(self) -> Path:
@@ -91,7 +107,11 @@ class BrevanHowardProvider:
         for index_url in self.index_urls:
             try:
                 body = self._fetch_bytes(index_url).decode("utf-8", errors="replace")
-            except Exception:
+            except GatewayError as exc:
+                logger.warning(
+                    "Research corpus discovery fetch failed; skipping index: %s",
+                    type(exc).__name__,
+                )
                 continue
             for link in _extract_links(body, index_url):
                 if len(seeds) >= max_pages:
@@ -158,12 +178,54 @@ class BrevanHowardProvider:
         suffix = Path(parsed.path).suffix.lower()
         if not suffix or len(suffix) > 8:
             suffix = ".html"
-        return self.local_root / seed.document_type.value / f"{slugify(seed.title)}{suffix}"
+        return cast(Path, self.local_root / seed.document_type.value / f"{slugify(seed.title)}{suffix}")
 
     def _fetch_bytes(self, url: str) -> bytes:
-        request = Request(url, headers={"User-Agent": self.user_agent})
-        with urlopen(request, timeout=self.timeout_sec) as response:
-            return response.read()
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        endpoint_id = RESEARCH_ENDPOINTS.get(host)
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise GatewayPolicyError("research URL has an invalid port") from exc
+        if (
+            parsed.scheme.lower() != "https"
+            or endpoint_id is None
+            or parsed.username
+            or parsed.password
+            or parsed.fragment
+            or port is not None
+        ):
+            raise GatewayPolicyError("research URL is not a registered endpoint")
+
+        query: dict[str, str | list[str]] = {}
+        if parsed.query:
+            if len(parsed.query) > 2048:
+                raise GatewayPolicyError("research query exceeds byte budget")
+            for name, value in parse_qsl(parsed.query, keep_blank_values=True):
+                if name in query:
+                    current = query[name]
+                    query[name] = [current, value] if isinstance(current, str) else [*current, value]
+                else:
+                    query[name] = value
+
+        response = self.gateway.fetch(
+            "research_brevan_howard",
+            endpoint_id,
+            params={**query, "path": parsed.path.lstrip("/")},
+        )
+        response.raise_for_status()
+        return cast(bytes, response.content)
+
+    def close(self) -> None:
+        if self._owns_gateway:
+            self.gateway.close()
+
+    def __enter__(self) -> "BrevanHowardProvider":
+        return self
+
+    def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
+        self.close()
 
 
 def classify_document(url_or_title: str) -> DocumentType:

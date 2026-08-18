@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from src.research.schemas import ClaimMaturityTag
@@ -129,7 +130,7 @@ class ScenarioPathGenerator:
 def _first_break_channel(trajectory: tuple[dict[str, float], ...] | tuple[object, ...]) -> str | None:
     thresholds = {"M": 0.8, "D": -0.65, "K": 0.65, "X": 0.65}
     for row in trajectory:
-        values = dict(row)
+        values = dict(row) if isinstance(row, Mapping) else {}
         if values.get("D", 0.0) <= thresholds["D"]:
             return "D"
         for channel in ("M", "K", "X"):

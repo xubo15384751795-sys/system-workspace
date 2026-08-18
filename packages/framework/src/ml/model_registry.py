@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class ModelRegistryError(RuntimeError):
@@ -104,7 +107,7 @@ class ModelRegistry:
                 latest.unlink()
             latest.symlink_to(release_id, target_is_directory=True)
         except OSError:
-            pass
+            logger.warning("Unable to update ML model latest symlink: %s", latest, exc_info=True)
         return dest_dir
 
 

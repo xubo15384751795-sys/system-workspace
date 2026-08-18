@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ def _resolve_harvester_snapshots_root(
     if data_root is not None:
         return Path(data_root).expanduser() / "snapshots"
     # Default: Data/harvester/snapshots (Harvester-governed)
-    discovered = resolve_data_root()
+    discovered = cast(Path, resolve_data_root())
     # resolve_data_root returns the structural_lab root; climb to Data/ then harvester/
     return discovered.parent / "harvester" / "snapshots"
 
@@ -344,13 +344,13 @@ class HarvesterSnapshotStore(SnapshotStoreInterface):
 
     def _proxy_value(self, proxy: ProxyReading, name: str) -> float | None:
         if name == "M":
-            return proxy.M
+            return cast(float | None, proxy.M)
         if name == "D":
-            return proxy.D
+            return cast(float | None, proxy.D)
         if name == "K":
-            return proxy.K
+            return cast(float | None, proxy.K)
         if name == "X":
-            return proxy.X
+            return cast(float | None, proxy.X)
         return None
 
     def _snapshot_to_payload(self, snapshot: Snapshot) -> dict[str, Any]:

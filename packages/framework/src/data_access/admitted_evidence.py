@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from src.data.paths import default_harvester_contract_root
 from src.data_access.errors import InvalidEvidenceError, MissingReleaseError
 from src.data_access.harvester_adapter import (
     HarvesterAdapter,
@@ -75,7 +76,11 @@ class AdmittedEvidenceHub:
         # No API keys.
         # No external HTTP.
         self.release_root = Path(release_root).expanduser()
-        self.contract_root = Path(contract_root).expanduser() if contract_root else _default_contract_root()
+        self.contract_root = (
+            Path(contract_root).expanduser()
+            if contract_root
+            else default_harvester_contract_root()
+        )
         self.require_finalized = require_finalized
         self.validate_hashes = validate_hashes
         self.validate_schema = validate_schema
@@ -151,7 +156,10 @@ def _bundle_from_harvester(adapter: HarvesterAdapter, bundle: HarvesterBundle) -
 def _panel(name: str, frame: pd.DataFrame, bundle: HarvesterBundle, source_path: Path) -> EvidencePanel:
     source_ids = sorted(str(value) for value in frame.get("source_id", pd.Series(dtype=str)).dropna().unique())
     provider = ",".join(source_ids) if source_ids else "harvester"
-    catalog_entry = next((entry for entry in bundle.catalog.get("files", []) if entry.get("role") == name), {})
+    catalog_entry: dict[str, Any] = next(
+        (entry for entry in bundle.catalog.get("files", []) if entry.get("role") == name),
+        {},
+    )
     schema_version = str(catalog_entry.get("schema", {}).get("version", "harvester.bundle.v1"))
     return EvidencePanel(
         name=name,
@@ -170,17 +178,3 @@ def _panel(name: str, frame: pd.DataFrame, bundle: HarvesterBundle, source_path:
             "format": catalog_entry.get("format"),
         },
     )
-
-
-def _default_contract_root() -> Path:
-    from src.core.runtime_context import RuntimePaths
-    project_root = RuntimePaths.discover().project_root
-    workspace_root = project_root.parent
-    candidates = [
-        workspace_root / "Workbench" / "data_providers" / "structural-risk-harvester" / "contracts",
-        workspace_root / "Structural Risk Harvester" / "contracts",
-    ]
-    for path in candidates:
-        if path.exists():
-            return path
-    return candidates[0]

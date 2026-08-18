@@ -7,6 +7,8 @@ from pathlib import Path
 
 from assembly import build_system
 from src.core.interfaces import SnapshotStoreInterface
+from src.data.harvester_snapshot_store import HarvesterSnapshotStore
+from src.runtime.assembly import _build_snapshot_store
 
 
 class AssemblyWiringTests(unittest.TestCase):
@@ -24,7 +26,7 @@ class AssemblyWiringTests(unittest.TestCase):
             "ml": {"enabled": False},
         }
 
-    def test_build_system_uses_duckdb_snapshot_store(self) -> None:
+    def test_build_system_uses_harvester_snapshot_store_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = self._base_config(
                 output_dir=tmpdir,
@@ -33,6 +35,8 @@ class AssemblyWiringTests(unittest.TestCase):
             )
             pipeline = build_system(cfg, use_mock=True)
             self.assertIsInstance(pipeline.snapshot_store, SnapshotStoreInterface)
+            self.assertIsInstance(pipeline.snapshot_store, HarvesterSnapshotStore)
+            self.assertEqual(pipeline.snapshot_store.root, Path(tmpdir) / "harvester" / "snapshots")
 
     def test_build_system_wires_event_and_text_loaders(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -72,6 +76,16 @@ class AssemblyWiringTests(unittest.TestCase):
             self.assertEqual(event_df.iloc[0]["actor"], "REGULATOR")
             self.assertEqual(len(texts), 1)
             self.assertEqual(texts[0]["text"], "policy intervention and spread compression")
+
+    def test_unknown_snapshot_backend_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(ValueError, "unsupported snapshot_store.backend"):
+                _build_snapshot_store(
+                    {
+                        "data": {"root": tmpdir},
+                        "snapshot_store": {"backend": "typo"},
+                    }
+                )
 
 
 if __name__ == "__main__":

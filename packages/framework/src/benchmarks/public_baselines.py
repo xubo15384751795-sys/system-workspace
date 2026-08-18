@@ -94,7 +94,11 @@ def latest_reading(baseline_frame: pd.DataFrame) -> PublicBaselineReading | None
 
 def _single(name: str, candidates: tuple[str, ...], frame: pd.DataFrame) -> PublicBaseline:
     features = _present(frame, candidates)
-    return PublicBaseline(name, features, lambda data, cols=features: _zmean(data, cols))
+
+    def scorer(data: pd.DataFrame) -> pd.Series:
+        return _zmean(data, features)
+
+    return PublicBaseline(name, features, scorer)
 
 
 def _present(frame: pd.DataFrame, candidates: tuple[str, ...]) -> tuple[str, ...]:

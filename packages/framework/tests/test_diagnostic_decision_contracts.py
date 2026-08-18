@@ -11,7 +11,7 @@ from src.diagnostics.rejection_gates import evaluate_rejection_gates
 
 class DiagnosticDecisionContractTests(unittest.TestCase):
     def test_morphology_label_branches_are_locked_to_inputs(self) -> None:
-        cases = [
+        cases: list[tuple[dict[str, float], dict[str, float], dict[str, float], str]] = [
             (
                 {"M_anchor_mismatch": 0.7, "D_stress": 0.8},
                 {},

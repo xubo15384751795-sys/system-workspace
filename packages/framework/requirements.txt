@@ -1,3 +1,4 @@
-# Convenience redirect to the pinned lock file.
-# The authoritative dependency source is requirements/lock.txt.
+# Historical pip compatibility input. The workspace authoritative resolver is
+# /Users/a1/System/uv.lock; package builds do not read this file.
+# Do not install this file directly; use `uv sync --locked --all-packages`.
 -r requirements/lock.txt

@@ -51,7 +51,7 @@ def _http_imports(directory: Path, workspace_root: Path) -> list[dict[str, str]]
                 ):
                     findings.append({
                         "file": str(py_file.relative_to(workspace_root)),
-                        "line": str(node.lineno),
+                        "line": str(getattr(node, "lineno", 0)),
                         "import": module,
                     })
     return findings

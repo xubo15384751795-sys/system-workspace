@@ -50,6 +50,12 @@ from src._legacy.data.data_sources import (
 from src.data.paths import resolve_fred_cache_dir
 
 
+def _require_http(client: HTTPClient | None) -> HTTPClient:
+    if client is None:
+        raise RuntimeError("legacy HTTP adapter is not configured")
+    return client
+
+
 def _series_result(provider: str, request: SeriesRequest, frame: pd.DataFrame, metadata: Mapping[str, Any] | None = None) -> SeriesResult:
     ordered = frame.sort_index()
     combined_metadata = {
@@ -73,7 +79,7 @@ def _coerce_date(value: Any) -> str | None:
     stamp = pd.to_datetime(value, errors="coerce")
     if pd.isna(stamp):
         return None
-    return stamp.strftime("%Y-%m-%d")
+    return str(stamp.strftime("%Y-%m-%d"))
 
 
 def _best_value(row: Mapping[str, Any], candidates: tuple[str, ...], default: Any = None) -> Any:
@@ -246,7 +252,7 @@ class TreasuryEventAdapter:
             f"?filter={date_field}:gte:{start},{date_field}:lte:{end}"
             f"&format=json&page[size]=1000"
         )
-        payload = self.http.get_json(url)
+        payload = _require_http(self.http).get_json(url)
         rows = payload.get("data", []) if isinstance(payload, dict) else []
         records: list[EventRecord] = []
         for row in rows:
@@ -305,7 +311,7 @@ class SECFilingAdapter:
         if not request.cik:
             raise ValueError("SEC filing requests require `cik`.")
         cik = str(request.cik).zfill(10)
-        payload = self.http.get_json(f"{self.base_url.rstrip('/')}/CIK{cik}.json")
+        payload = _require_http(self.http).get_json(f"{self.base_url.rstrip('/')}/CIK{cik}.json")
         recent = payload.get("filings", {}).get("recent", {}) if isinstance(payload, dict) else {}
         if not isinstance(recent, Mapping):
             return []
@@ -366,7 +372,7 @@ class ECBSeriesAdapter:
             f"{self.base_url.rstrip('/')}/{flow_ref}/{key}"
             f"?startPeriod={start}&endPeriod={end}&format=csvdata"
         )
-        csv_text = self.http.get_text(url)
+        csv_text = _require_http(self.http).get_text(url)
         frame = pd.read_csv(StringIO(csv_text))
         if frame.empty:
             raise ValueError("ECB response was empty.")
@@ -416,7 +422,7 @@ class CFTCPositionAdapter:
             f"{self.base_url.rstrip('/')}/{resource}.json"
             f"?$limit=50000&$order={date_field}%20asc"
         )
-        rows = self.http.get_json(url)
+        rows = _require_http(self.http).get_json(url)
         if not isinstance(rows, list):
             return []
 
@@ -528,7 +534,7 @@ class StooqSeriesAdapter:
         d1 = start.replace("-", "")
         d2 = end.replace("-", "")
         url = f"{self.base_url}?s={symbol.lower()}&d1={d1}&d2={d2}&i=d"
-        frame = _csv_date_value_frame(self.http.get_text(url), request.request_key(), field_candidates=(field, field.title(), field.lower()))
+        frame = _csv_date_value_frame(_require_http(self.http).get_text(url), request.request_key(), field_candidates=(field, field.title(), field.lower()))
         return _series_result(self.provider, request, frame, metadata={"symbol": symbol, "field": field, "frequency": "daily"})
 
 
@@ -551,7 +557,7 @@ class TiingoSeriesAdapter:
         url = f"{self.base_url.rstrip('/')}/{ticker}/prices?startDate={start}&endDate={end}"
         if token:
             url = f"{url}&token={token}"
-        rows = self.http.get_json(url, headers={"Content-Type": "application/json"})
+        rows = _require_http(self.http).get_json(url, headers={"Content-Type": "application/json"})
         if not isinstance(rows, list):
             raise ValueError("Tiingo response did not contain a row list.")
         frame = _json_rows_date_value_frame(rows, request.request_key(), date_candidates=("date",), value_candidates=(field, "adjClose", "close"))
@@ -577,7 +583,7 @@ class CBOESeriesAdapter:
                 raise ValueError("CBOE requests require `resource`/metadata.url unless dataset is VIX.")
         field = str(request.field or request.metadata.get("field", "CLOSE"))
         frame = _csv_date_value_frame(
-            self.http.get_text(url),
+            _require_http(self.http).get_text(url),
             request.request_key(),
             date_candidates=("DATE", "Date", "date"),
             field_candidates=(field, field.upper(), field.title(), "CLOSE", "Close"),
@@ -607,7 +613,7 @@ class GenericCSVSeriesAdapter:
             "value_columns",
             (request.field, *self.default_value_columns) if request.field else self.default_value_columns,
         )
-        frame = _csv_date_value_frame(self.http.get_text(url), request.request_key(), date_candidates=date_candidates, field_candidates=value_candidates)
+        frame = _csv_date_value_frame(_require_http(self.http).get_text(url), request.request_key(), date_candidates=date_candidates, field_candidates=value_candidates)
         frame = frame[(frame.index >= pd.to_datetime(start)) & (frame.index <= pd.to_datetime(end))]
         return _series_result(self.provider, request, frame, metadata={"source_url": url, "endpoint_family": "generic_csv"})
 
@@ -628,7 +634,7 @@ class IMFSeriesAdapter:
         if "startPeriod=" not in url:
             joiner = "&" if "?" in url else "?"
             url = f"{url}{joiner}startPeriod={start}&endPeriod={end}"
-        payload = self.http.get_json(url)
+        payload = _require_http(self.http).get_json(url)
         observations = _extract_imf_observations(payload)
         frame = pd.DataFrame({request.request_key(): observations}).sort_index()
         return _series_result(self.provider, request, frame, metadata={"source_url": url, "endpoint_family": "imf_sdmx_json"})

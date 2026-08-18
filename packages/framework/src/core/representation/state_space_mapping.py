@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 import numpy as np
 
@@ -20,7 +20,7 @@ class StructuralStateVector:
         object.__setattr__(self, "values", np.asarray(self.values, dtype=float))
 
     def as_array(self) -> np.ndarray:
-        return np.asarray(self.values, dtype=float)
+        return cast(np.ndarray, np.asarray(self.values, dtype=float))
 
     def as_mapping(self) -> dict[str, float]:
         return {label: float(value) for label, value in zip(self.labels, self.values)}

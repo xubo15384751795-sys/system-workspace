@@ -255,7 +255,8 @@ class FundingPathStressDetector:
 
         trigger_pass = trigger_spread and trigger_path and move_ok
 
-        softclip = lambda z: max(0.0, min(1.0, (z / 3.0) if z > 0 else 0.0))
+        def softclip(z: float) -> float:
+            return max(0.0, min(1.0, (z / 3.0) if z > 0 else 0.0))
         path_strength = 0.0
         if res_drawdown:
             path_strength = max(path_strength, 1.0 - res_pct_val)

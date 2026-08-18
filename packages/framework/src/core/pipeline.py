@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -420,7 +420,7 @@ class ResearchPipeline(PipelineInterface):
 
     def _proxy_too_incomplete(self, proxy) -> bool:
         available_count = sum(proxy.available.values())
-        return available_count < 2
+        return bool(available_count < 2)
 
     def _multi_reflexivity(self, flags: dict[str, bool] | None) -> bool:
         if not flags:
@@ -428,10 +428,10 @@ class ResearchPipeline(PipelineInterface):
         return sum(flags.values()) >= 2
 
     def _leading_channel(self, directions: dict[str, str] | Any) -> str:
-        return leading_channel(directions)
+        return str(leading_channel(directions))
 
     def _classify_pattern(self, directions: dict[str, str], reflexivity_flags: dict[str, bool]) -> str:
-        return classify_pattern(directions, reflexivity_flags)
+        return str(classify_pattern(directions, reflexivity_flags))
 
     def _build_distribution_state(
         self,
@@ -477,7 +477,7 @@ class ResearchPipeline(PipelineInterface):
                 series_id: route.to_dict()
                 for series_id, route in router.route_proxy_series(structural_plan.requested_series_ids).items()
             }
-        return provenance
+        return cast(dict[str, Any], provenance)
 
     def _data_usage_manifest(
         self,
@@ -627,7 +627,7 @@ class ResearchPipeline(PipelineInterface):
         logging.warning(msg)
 
     def _normalize_run_date(self, run_date: str) -> str:
-        return pd.to_datetime(run_date).strftime("%Y-%m-%d")
+        return str(pd.to_datetime(run_date).strftime("%Y-%m-%d"))
 
     def _ode_params(self) -> dict[str, Any]:
         params = self.config.get("ode_params", {})

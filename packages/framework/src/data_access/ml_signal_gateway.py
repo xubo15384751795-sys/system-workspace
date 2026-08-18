@@ -12,13 +12,13 @@ Hard constraints:
 """
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from system_runtime.paths import WorkspacePaths
 
 log = logging.getLogger(__name__)
 
@@ -107,7 +107,11 @@ def _read_signal(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            log.warning("ml_signal_gateway: signal payload is not an object: %s", path)
+            return None
+        return payload
     except (json.JSONDecodeError, OSError) as exc:
         log.warning("ml_signal_gateway: failed to read %s: %s", path, exc)
         return None

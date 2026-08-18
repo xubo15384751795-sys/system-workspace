@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 import numpy as np
 
@@ -27,6 +28,7 @@ class EvidenceBundle:
     target_type: str
     families: Mapping[str, Mapping[str, Any]]
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    canonical_chain: Mapping[str, Any] | None = None
 
 
 @dataclass
@@ -64,33 +66,34 @@ class RuntimeEvidenceStore:
             "distance_target": "z_vector_or_proxy_state",
         }
         persistence = multi_window_stability(_history_windows(state_history + [snapshot]))
+        families = {
+            "graph_features": {
+                "node_count": graph_evidence.node_count,
+                "edge_count": graph_evidence.edge_count,
+                "degree_concentration": graph_evidence.degree_concentration,
+                "fragmentation_proxy": graph_evidence.fragmentation_proxy,
+                "bottleneck_proxy": graph_evidence.bottleneck_proxy,
+                "connectedness_ratio": graph_evidence.connectedness_ratio,
+            },
+            "distance_features": distance_features,
+            "persistence_features": {
+                "stability_score": persistence.stability_score,
+                "mean_distance": persistence.mean_distance,
+                "max_distance": persistence.max_distance,
+                "change_point_count": persistence.change_point_count,
+            },
+            "state_features": {
+                "sigma_t": snapshot.state.sigma_t,
+                "anomaly_score": snapshot.state.anomaly_score,
+                "singular_flag": snapshot.state.singular_flag,
+            },
+            "shadow_maturity_features": _shadow_maturity_features(snapshot),
+            "mean_field_gap_features": _mean_field_gap_features(snapshot),
+        }
         bundle = EvidenceBundle(
             run_date=snapshot.run_date,
             target_type="snapshot",
-            families={
-                "graph_features": {
-                    "node_count": graph_evidence.node_count,
-                    "edge_count": graph_evidence.edge_count,
-                    "degree_concentration": graph_evidence.degree_concentration,
-                    "fragmentation_proxy": graph_evidence.fragmentation_proxy,
-                    "bottleneck_proxy": graph_evidence.bottleneck_proxy,
-                    "connectedness_ratio": graph_evidence.connectedness_ratio,
-                },
-                "distance_features": distance_features,
-                "persistence_features": {
-                    "stability_score": persistence.stability_score,
-                    "mean_distance": persistence.mean_distance,
-                    "max_distance": persistence.max_distance,
-                    "change_point_count": persistence.change_point_count,
-                },
-                "state_features": {
-                    "sigma_t": snapshot.state.sigma_t,
-                    "anomaly_score": snapshot.state.anomaly_score,
-                    "singular_flag": snapshot.state.singular_flag,
-                },
-                "shadow_maturity_features": _shadow_maturity_features(snapshot),
-                "mean_field_gap_features": _mean_field_gap_features(snapshot),
-            },
+            families=families,
             metadata={
                 "definition_count": len(self.definitions),
                 "source_assets": ["evidence_features", "graph_state_features", "snapshot"],
@@ -99,9 +102,101 @@ class RuntimeEvidenceStore:
                     "They are not policy decisions and do not replace Core judgment.",
                 ),
             },
+            canonical_chain=_canonical_evidence_bundle_chain(snapshot, families),
         )
         self._cache[snapshot.run_date] = bundle
         return bundle
+
+
+def _canonical_evidence_bundle_chain(
+    snapshot: Snapshot,
+    families: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    """Expose the computed evidence bundle as a diagnostic-only canonical chain."""
+    try:
+        from system_runtime.canonical_ids import (
+            build_chain,
+            build_claim,
+            build_evidence,
+            build_measurement,
+            build_observation,
+        )
+    except ImportError:
+        return None
+
+    provenance = dict(snapshot.state.provenance or {})
+    run_date = str(snapshot.run_date)
+    observed_at = run_date if "T" in run_date else f"{run_date}T00:00:00Z"
+    quality = str((provenance.get("data_quality") or {}).get("research_quality") or "").lower()
+    availability = {
+        "mock": "MISSING",
+        "degraded": "STALE",
+        "clean": "AVAILABLE",
+    }.get(quality, "AVAILABLE")
+    source_id = str(provenance.get("source_id") or "framework:evidence_store")
+    source_snapshot_sha256 = provenance.get("source_snapshot_sha256") or provenance.get("snapshot_sha256")
+    captured_at = str(provenance.get("generated_at") or provenance.get("captured_at") or observed_at)
+    if "T" not in captured_at:
+        captured_at = observed_at
+    shared_provenance = {
+        "captured_at": captured_at,
+        "producer": "framework.runtime.evidence_store",
+        "run_id": f"{snapshot.run_date}_{snapshot.run_type}",
+        "statement_kind": "diagnostic_evidence_bundle",
+        "claim_ceiling": "diagnostic_watch_only",
+        "promotion_allowed": False,
+    }
+    serializable_families = json.loads(json.dumps(families, default=str))
+    observation = build_observation(
+        canonical_series_id="FRAMEWORK:EVIDENCE_BUNDLE",
+        observed_at=observed_at,
+        vintage_at=observed_at,
+        value=serializable_families,
+        unit="derived_evidence_features",
+        source_id=source_id,
+        status=availability,
+        source_snapshot_sha256=source_snapshot_sha256,
+        provenance=shared_provenance,
+    )
+    measurement = build_measurement(
+        observation_ids=[observation["observation_id"]],
+        measurement_definition="framework_runtime_evidence_bundle",
+        value=serializable_families,
+        unit="derived_evidence_features",
+        status=availability,
+        derivation="PROXY_DERIVED",
+        method_version="framework.evidence_store.v1",
+        provenance=shared_provenance,
+    )
+    evidence = build_evidence(
+        measurement_ids=[measurement["measurement_id"]],
+        evidence_role="DERIVED",
+        source_id=source_id,
+        release_id=provenance.get("source_release_id"),
+        source_snapshot_sha256=source_snapshot_sha256,
+        status=availability,
+        provenance=shared_provenance,
+    )
+    claim_status = {
+        "AVAILABLE": "WATCH",
+        "STALE": "STALE",
+    }.get(availability, "INSUFFICIENT_DATA")
+    claim = build_claim(
+        claim_text="Framework runtime evidence bundle is available for bounded diagnostic monitoring.",
+        subject="framework_runtime_evidence_bundle",
+        predicate="supports_diagnostic_monitoring",
+        policy_version="framework.evidence_store.v1",
+        evidence_ids=[evidence["evidence_id"]],
+        status=claim_status,
+        confidence=None,
+        provenance=shared_provenance,
+    )
+    return build_chain(
+        observation=observation,
+        measurement=measurement,
+        evidence=evidence,
+        claim=claim,
+    )
 
 
 def default_evidence_definitions() -> tuple[EvidenceDefinition, ...]:
@@ -199,7 +294,7 @@ def _distance_to_previous(current: Snapshot, previous: Snapshot | None) -> float
         return 0.0
     current_state = current.state.z_vector if current.state.z_vector is not None else _proxy_state(current)
     previous_state = previous.state.z_vector if previous.state.z_vector is not None else _proxy_state(previous)
-    return state_distance(current_state, previous_state)
+    return cast(float, state_distance(current_state, previous_state))
 
 
 def _proxy_state(snapshot: Snapshot) -> dict[str, float]:

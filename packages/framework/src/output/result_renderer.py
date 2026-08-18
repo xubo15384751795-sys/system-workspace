@@ -5,22 +5,23 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from src.core.interfaces import SnapshotStoreInterface
 from src.core.runtime_context import RuntimePaths
-from src.data.paths import resolve_data_root, resolve_snapshot_store_path
-from src.data.snapshot_store import DuckDBSnapshotStore
 from src.output.run_package import export_research_run_package
 
 
 def render_latest_result(config: dict[str, Any]) -> dict[str, str]:
     """Render the latest persisted run into a stable human-readable report."""
 
-    store = DuckDBSnapshotStore(
-        path=str(resolve_snapshot_store_path(config)),
-        data_root=str(resolve_data_root(config)),
-    )
+    # Import lazily: runtime.assembly imports output exporters while assembling
+    # the pipeline, so a module-level selector import would create a cycle.
+    from src.runtime.assembly import _build_snapshot_store
+
+    store = _build_snapshot_store(config)
     latest = _latest_snapshot(store)
     if latest is None:
-        raise FileNotFoundError(f"no snapshots found in {store.path}")
+        store_root = getattr(store, "root", getattr(store, "path", "configured snapshot store"))
+        raise FileNotFoundError(f"no snapshots found in {store_root}")
     history = list(store.iter_range("1900-01-01", latest.run_date))
 
     output_cfg = config.get("output", {}) or {}
@@ -47,7 +48,7 @@ def render_latest_result(config: dict[str, Any]) -> dict[str, str]:
     return result
 
 
-def _latest_snapshot(store: DuckDBSnapshotStore):
+def _latest_snapshot(store: SnapshotStoreInterface):
     latest = None
     for snapshot in store.iter_range("1900-01-01", "2999-12-31"):
         latest = snapshot

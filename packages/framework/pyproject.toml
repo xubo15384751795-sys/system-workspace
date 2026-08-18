@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==84.0.0", "wheel==0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,11 +7,18 @@ name = "structural-deformation-research-system"
 version = "0.1.0"
 description = "Code-managed research system for structural financial deformation diagnostics."
 readme = "README.md"
-requires-python = ">=3.12"
-dynamic = ["dependencies"]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements/lock.txt"]}
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.11",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "duckdb>=0.10",
+    "polars>=1.0",
+    "jinja2>=3.1",
+    "httpcore>=1.0,<2",
+    "httpx>=0.27,<1",
+]
 
 [project.optional-dependencies]
 math = ["jax>=0.4.20", "jaxlib>=0.4.20", "diffrax>=0.5", "equinox>=0.11", "numpyro>=0.14", "blackjax>=0.8", "networkx>=3.0", "scikit-learn>=1.3", "ruptures>=1.0"]
@@ -25,26 +32,9 @@ dl-full = ["pytorch-forecasting>=1.0", "hmmlearn>=0.3"]
 [tool.setuptools.packages.find]
 include = ["src*"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-pythonpath = ["."]
-markers = [
-    "critical_gate: tests that must pass before promotion",
-    "semantic: concept registry, proxy semantics",
-    "data_boundary: data boundary, freshness, provenance",
-    "benchmark: benchmark correctness",
-    "report: report verdict gate",
-    "governance_loop: ledger, escalation, incident",
-    "slow: tests that take >10s",
-    "operator: tests requiring an initialized operator workspace; excluded by default",
-    "network: tests that make live network calls; excluded by default",
-    "external_repo: tests requiring external repositories; excluded by default",
-]
-
 # ── Typed Boundary: strict on architecture layers, relaxed on UI/scripts ──
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 check_untyped_defs = true
 ignore_missing_imports = true
 warn_redundant_casts = true

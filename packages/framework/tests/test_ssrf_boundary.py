@@ -13,7 +13,11 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from src.api.security import SSRFBlockedError, validate_outbound_url
+from src.api.security import (
+    SSRFBlockedError,
+    resolve_outbound_url,
+    validate_outbound_url,
+)
 
 
 class ValidateOutboundUrlTests(unittest.TestCase):
@@ -116,6 +120,17 @@ class ValidateOutboundUrlTests(unittest.TestCase):
             result = validate_outbound_url("https://example.com/data")
         self.assertEqual(result, "https://example.com/data")
 
+    def test_resolver_returns_one_deduplicated_public_dns_snapshot(self) -> None:
+        fake_addrinfo = [
+            ("AF_INET", "SOCK_STREAM", "IPPROTO_TCP", "", ("93.184.216.34", 443)),
+            ("AF_INET", "SOCK_STREAM", "IPPROTO_TCP", "", ("93.184.216.34", 443)),
+            ("AF_INET6", "SOCK_STREAM", "IPPROTO_TCP", "", ("2606:4700:4700::1111", 443, 0, 0)),
+        ]
+        with mock.patch("socket.getaddrinfo", return_value=fake_addrinfo) as getaddrinfo:
+            result = resolve_outbound_url("https://example.com/data")
+        self.assertEqual(result, ("93.184.216.34", "2606:4700:4700::1111"))
+        getaddrinfo.assert_called_once_with("example.com", None)
+
 
 class HubSeriesRejectsRawUrlTests(unittest.TestCase):
     """Verify /hub/series (and siblings) reject raw URL fields with 422."""
@@ -177,6 +192,66 @@ class HubSeriesRejectsRawUrlTests(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 422)
 
+    def test_all_public_request_routes_forbid_free_form_fields(self) -> None:
+        client, _ = self._make_client()
+        for path in ("/hub/events", "/hub/filings", "/hub/positions", "/hub_lite/series"):
+            resp = client.post(
+                path,
+                json=[{"provider": "cboe", "resource": "https://evil.example/"}],
+                headers={"X-API-Key": "test-key"},
+            )
+            self.assertEqual(resp.status_code, 422, path)
+
+    def test_route_endpoint_forbids_free_form_fields(self) -> None:
+        client, _ = self._make_client()
+        resp = client.post(
+            "/hub/route",
+            json={"channel": "K", "metadata": {"url": "https://evil.example/"}},
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(resp.status_code, 422)
+
+    def test_rejects_unknown_provider_before_service_call(self) -> None:
+        client, _ = self._make_client()
+        resp = client.post(
+            "/hub/series",
+            json=[{"provider": "unregistered_provider", "series_id": "DGS10"}],
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(resp.status_code, 422)
+
+    def test_rejects_coercible_identifier_and_invalid_date_window(self) -> None:
+        client, _ = self._make_client()
+        numeric = client.post(
+            "/hub/series",
+            json=[{"provider": "fred", "series_id": 123}],
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(numeric.status_code, 422)
+
+        reversed_window = client.post(
+            "/hub/series?start=2026-04-20&end=2026-01-01",
+            json=[{"provider": "fred", "series_id": "DGS10"}],
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(reversed_window.status_code, 422)
+
+        oversized_window = client.post(
+            "/hub/series?start=2025-01-01&end=2026-04-20",
+            json=[{"provider": "fred", "series_id": "DGS10"}],
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(oversized_window.status_code, 422)
+
+    def test_rejects_oversized_request_batch(self) -> None:
+        client, _ = self._make_client()
+        resp = client.post(
+            "/hub/series",
+            json=[{"provider": "fred", "series_id": "DGS10"}] * 65,
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(resp.status_code, 422)
+
     def test_no_resource_no_422_for_url_rejection(self) -> None:
         """A request without raw URL fields must not 422 for URL reasons.
 
@@ -196,3 +271,79 @@ class HubSeriesRejectsRawUrlTests(unittest.TestCase):
                 "Request without raw URL fields was rejected with 422 - "
                 "the SSRF guard fired incorrectly."
             )
+
+    def test_structural_routes_reject_free_form_and_oversized_inputs(self) -> None:
+        client, _ = self._make_client()
+        for path in ("/hub/structural", "/hub_lite/structural"):
+            extra = client.post(
+                path,
+                json={"preset_names": ["M_PROXY"], "resource": "https://evil.example/"},
+                headers={"X-API-Key": "test-key"},
+            )
+            self.assertEqual(extra.status_code, 422, path)
+
+            oversized = client.post(
+                path,
+                json={"preset_names": [f"preset-{i}" for i in range(65)]},
+                headers={"X-API-Key": "test-key"},
+            )
+            self.assertEqual(oversized.status_code, 422, path)
+
+    def test_snapshot_run_requires_strict_iso_date_body(self) -> None:
+        client, _ = self._make_client()
+        cases = [
+            {"run_date": 20260420, "run_type": "WEEKLY"},
+            {"run_date": "2026-99-01", "run_type": "WEEKLY"},
+            {"run_date": "2026-04-20", "run_type": "WEEKLY", "resource": "https://evil.example/"},
+        ]
+        for payload in cases:
+            response = client.post(
+                "/snapshots/run",
+                json=payload,
+                headers={"X-API-Key": "test-key"},
+            )
+            self.assertEqual(response.status_code, 422)
+
+    def test_data_query_rejects_oversized_identifier_batch(self) -> None:
+        client, _ = self._make_client()
+        response = client.get(
+            "/data",
+            params=[("series_ids", f"series-{i}") for i in range(65)],
+            headers={"X-API-Key": "test-key"},
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_all_invalid_public_inputs_skip_owned_gateways(self) -> None:
+        client, _ = self._make_client()
+        headers = {"X-API-Key": "test-key"}
+        invalid_requests = [
+            ("post", "/hub/route", {"channel": "K", "metadata": {"url": "https://evil.example/"}}),
+            ("post", "/hub/series", [{"provider": "fred", "resource": "https://evil.example/"}]),
+            ("post", "/hub/events", [{"provider": "fred", "resource": "https://evil.example/"}]),
+            ("post", "/hub/filings", [{"provider": "sec", "metadata": {"url": "https://evil.example/"}}]),
+            ("post", "/hub/positions", [{"provider": "cftc", "resource": "https://evil.example/"}]),
+            ("post", "/hub_lite/series", [{"provider": "fred", "resource": "https://evil.example/"}]),
+            ("post", "/hub/structural", {"preset_names": ["M_PROXY"], "resource": "https://evil.example/"}),
+            ("post", "/hub_lite/structural", {"preset_names": ["M_PROXY"], "resource": "https://evil.example/"}),
+            ("post", "/snapshots/run", {"run_date": 20260420, "run_type": "WEEKLY"}),
+        ]
+        with mock.patch("src.data_access.http_gateway.OwnedHTTPGateway.fetch") as framework_fetch:
+            with mock.patch("harvester.http_gateway.OwnedHTTPGateway.fetch") as harvester_fetch:
+                for method, path, payload in invalid_requests:
+                    response = getattr(client, method)(path, json=payload, headers=headers)
+                    self.assertEqual(response.status_code, 422, path)
+
+                response = client.get(
+                    "/data",
+                    params=[("series_ids", f"series-{i}") for i in range(65)],
+                    headers=headers,
+                )
+                self.assertEqual(response.status_code, 422)
+                response = client.get(
+                    "/snapshots?start=2026-04-20&end=2026-01-01",
+                    headers=headers,
+                )
+                self.assertEqual(response.status_code, 422)
+
+        framework_fetch.assert_not_called()
+        harvester_fetch.assert_not_called()

@@ -27,12 +27,15 @@ heavier than numpy + scikit-learn.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
 import math
-from typing import Mapping
+from dataclasses import dataclass
+from typing import Mapping, cast
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 try:
     from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -62,7 +65,7 @@ def _hac_newey_west(X: np.ndarray, residuals: np.ndarray, lags: int) -> np.ndarr
     """Newey-West heteroskedasticity-and-autocorrelation-consistent covariance."""
     n, k = X.shape
     if n <= k:
-        return np.full((k, k), np.nan)
+        return cast(np.ndarray, np.full((k, k), np.nan))
     XtX_inv = np.linalg.pinv(X.T @ X)
     u = residuals.reshape(-1, 1)
     Xu = X * u
@@ -71,7 +74,7 @@ def _hac_newey_west(X: np.ndarray, residuals: np.ndarray, lags: int) -> np.ndarr
         weight = 1.0 - lag / (lags + 1)
         gamma = Xu[lag:].T @ Xu[:-lag]
         S = S + weight * (gamma + gamma.T)
-    return n * XtX_inv @ S @ XtX_inv / max(n - k, 1)
+    return cast(np.ndarray, n * XtX_inv @ S @ XtX_inv / max(n - k, 1))
 
 
 @dataclass(frozen=True)
@@ -121,7 +124,7 @@ def _ols_with_hac(X: np.ndarray, y: np.ndarray, names: list[str], hac_lags: int)
     residuals = y - X @ beta
     cov = _hac_newey_west(X, residuals, lags=hac_lags)
     se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
-    df = max(len(y) - rank, 1)
+    df = max(len(y) - int(rank), 1)
     terms: list[RegressionTermStat] = []
     for i, name in enumerate(names):
         b = float(beta[i])
@@ -197,11 +200,16 @@ class OOSForecastResult:
     eval_end: pd.Timestamp
     n_train: int
     n_eval: int
-    metrics_per_model: dict[str, dict[str, float]]
+    metrics_per_model: dict[str, dict[str, float | str]]
     winner: str = ""
 
     def to_frame(self) -> pd.DataFrame:
         return pd.DataFrame(self.metrics_per_model).T
+
+
+def _metric_score(metrics: Mapping[str, float | str], metric_name: str) -> float:
+    value = metrics.get(metric_name)
+    return float(value) if isinstance(value, (int, float)) else float("-inf")
 
 
 def structural_model_comparison(
@@ -271,7 +279,7 @@ def structural_model_comparison(
     y_eval = full.loc[eval_mask, "__y__"].to_numpy()
     train_mean = float(y_train.mean())
     eval_baseline = np.full_like(y_eval, train_mean, dtype=float)
-    metrics_per_model: dict[str, dict[str, float]] = {}
+    metrics_per_model: dict[str, dict[str, float | str]] = {}
     for label, cols in feature_sets.items():
         Xtr = full.loc[train_mask, cols].to_numpy()
         Xev = full.loc[eval_mask, cols].to_numpy()
@@ -287,12 +295,12 @@ def structural_model_comparison(
                 reg.fit(Xtr, y_train)
                 yhat = reg.predict(Xev)
                 metrics = _metrics_continuous(y_eval, yhat, baseline=eval_baseline)
-            metrics_per_model[label] = metrics
+            metrics_per_model[label] = cast(dict[str, float | str], metrics)
         except Exception as exc:
             metrics_per_model[label] = {"error": str(exc)}
 
     winner_metric = "auc" if is_binary else "oos_r2"
-    winner = max(metrics_per_model, key=lambda label: metrics_per_model[label].get(winner_metric, float("-inf")))
+    winner = max(metrics_per_model, key=lambda label: _metric_score(metrics_per_model[label], winner_metric))
     return OOSForecastResult(
         target_name=str(target_name),
         horizon=horizon,
@@ -332,7 +340,7 @@ def _metrics_binary(y_true: np.ndarray, p_pred: np.ndarray) -> dict[str, float]:
         try:
             out["auc"] = float(roc_auc_score(y_true, p))
         except (ValueError, RuntimeError):
-            pass
+            logger.debug("AUC is undefined for the binary evaluation sample", exc_info=True)
     return out
 
 
@@ -402,7 +410,7 @@ def out_of_sample_forecast(
         "signal_plus_controls": ["__signal__"] + list(ctrl_frame.columns),
     }
 
-    metrics_per_model: dict[str, dict[str, float]] = {}
+    metrics_per_model: dict[str, dict[str, float | str]] = {}
     for label, cols in feature_sets.items():
         if not cols:
             continue
@@ -413,7 +421,7 @@ def out_of_sample_forecast(
                 clf = LogisticRegression(max_iter=1000, solver="lbfgs")
                 clf.fit(Xtr, y_train)
                 p = clf.predict_proba(Xev)[:, 1]
-                metrics_per_model[label] = _metrics_binary(y_eval, p)
+                metrics_per_model[label] = cast(dict[str, float | str], _metrics_binary(y_eval, p))
             except Exception as exc:
                 metrics_per_model[label] = {"error": str(exc)}
         else:
@@ -421,7 +429,10 @@ def out_of_sample_forecast(
                 reg = LinearRegression()
                 reg.fit(Xtr, y_train)
                 yhat = reg.predict(Xev)
-                metrics_per_model[label] = _metrics_continuous(y_eval, yhat, baseline=eval_baseline)
+                metrics_per_model[label] = cast(
+                    dict[str, float | str],
+                    _metrics_continuous(y_eval, yhat, baseline=eval_baseline),
+                )
             except Exception as exc:
                 metrics_per_model[label] = {"error": str(exc)}
 
@@ -429,7 +440,7 @@ def out_of_sample_forecast(
     winner = ""
     best_score = float("-inf")
     for label, m in metrics_per_model.items():
-        score = m.get(winner_metric, float("-inf"))
+        score = _metric_score(m, winner_metric)
         if score > best_score:
             best_score = score
             winner = label
@@ -604,47 +615,47 @@ class IncrementalInformationReport:
 
     def to_summary_frame(self) -> pd.DataFrame:
         rows: list[dict[str, object]] = []
-        for r in self.test_a:
-            sig = next((t for t in r.terms if t.name not in ("__intercept__",) and "SIGMA" in t.name.upper()), None)
+        for regression_result in self.test_a:
+            sig = next((t for t in regression_result.terms if t.name not in ("__intercept__",) and "SIGMA" in t.name.upper()), None)
             rows.append({
                 "test": "A_information_regression",
-                "target": r.target_name,
-                "horizon": r.horizon,
-                "incremental_r2": round(r.incremental_r_squared, 4),
+                "target": regression_result.target_name,
+                "horizon": regression_result.horizon,
+                "incremental_r2": round(regression_result.incremental_r_squared, 4),
                 "signal_t_stat": round(sig.t_stat, 3) if sig else None,
                 "signal_p_value": round(sig.p_value, 4) if sig else None,
-                "n_obs": r.n_obs,
+                "n_obs": regression_result.n_obs,
             })
-        for r in self.test_b:
-            best = r.metrics_per_model.get(r.winner, {})
+        for forecast_result in self.test_b:
+            best = forecast_result.metrics_per_model.get(forecast_result.winner, {})
             rows.append({
                 "test": "B_oos_forecast",
-                "target": r.target_name,
-                "horizon": r.horizon,
-                "winner": r.winner,
+                "target": forecast_result.target_name,
+                "horizon": forecast_result.horizon,
+                "winner": forecast_result.winner,
                 "winner_metric": next(iter(best.values())) if best else None,
-                "n_train": r.n_train,
-                "n_eval": r.n_eval,
+                "n_train": forecast_result.n_train,
+                "n_eval": forecast_result.n_eval,
             })
-        for r in self.test_c:
+        for lead_lag_result in self.test_c:
             rows.append({
                 "test": "C_regime_lead_lag",
-                "signal": r.signal_name,
-                "regime": r.regime_name,
-                "best_lag": r.best_lag,
-                "best_corr": round(r.best_correlation, 3),
-                "median_lead_days": r.median_lead_days,
-                "n_regimes": r.n_regimes,
+                "signal": lead_lag_result.signal_name,
+                "regime": lead_lag_result.regime_name,
+                "best_lag": lead_lag_result.best_lag,
+                "best_corr": round(lead_lag_result.best_correlation, 3),
+                "median_lead_days": lead_lag_result.median_lead_days,
+                "n_regimes": lead_lag_result.n_regimes,
             })
-        for r in self.test_d:
+        for specificity_result in self.test_d:
             rows.append({
                 "test": "D_mechanism_specificity",
-                "case": r.case_name,
-                "expected": r.expected_leading_channel,
-                "observed": r.observed_leading_channel,
-                "match": r.matches_expectation,
-                "leading_share": round(r.leading_channel_share, 3),
-                "sigma_at_event": round(r.sigma_at_event, 3),
+                "case": specificity_result.case_name,
+                "expected": specificity_result.expected_leading_channel,
+                "observed": specificity_result.observed_leading_channel,
+                "match": specificity_result.matches_expectation,
+                "leading_share": round(specificity_result.leading_channel_share, 3),
+                "sigma_at_event": round(specificity_result.sigma_at_event, 3),
             })
         return pd.DataFrame(rows)
 

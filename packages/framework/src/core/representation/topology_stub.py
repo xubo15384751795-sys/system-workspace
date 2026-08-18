@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, runtime_checkable
 
 from src.core.representation.graph_repr import StructuralGraph
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -47,11 +50,11 @@ def available_tda_backends() -> tuple[str, ...]:
 
         available.append("gudhi")
     except ImportError:
-        pass
+        logger.debug("Gudhi topology backend is unavailable")
     try:
         import gtda  # type: ignore  # noqa: F401
 
         available.append("giotto-tda")
     except ImportError:
-        pass
+        logger.debug("giotto-tda topology backend is unavailable")
     return tuple(available)
