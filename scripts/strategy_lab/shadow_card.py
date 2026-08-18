@@ -14,6 +14,7 @@ accumulating forward-looking evaluation data.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,8 +29,10 @@ from scripts.strategy_lab.risk_gate import (
 )
 from system_runtime.events import payload_of
 
+logger = logging.getLogger(__name__)
+
 OUTPUT_DIR = rio.ROOT / "Output" / "strategy_lab"
-FRAMEWORK_PATH = rio.ROOT / "Output" / "current" / "framework_output.json"
+FRAMEWORK_PATH = rio.surface_dir("current") / "framework_output.json"
 
 # The four co-equal channels. A channel absent from the signal frame is
 # reported as missing, never as a zero reading.
@@ -405,7 +408,7 @@ def _load_degraded_nav_dates() -> set[str]:
     Reads ``Output/position/paper_portfolio_nav.jsonl``. Robust to missing
     file or rows lacking ``sizing_mode`` (older rows predate the field).
     """
-    nav_path = rio.ROOT / "Output" / "position" / "paper_portfolio_nav.jsonl"
+    nav_path = rio.surface_dir("position") / "paper_portfolio_nav.jsonl"
     degraded: set[str] = set()
     if not nav_path.exists():
         return degraded
@@ -422,7 +425,7 @@ def _load_degraded_nav_dates() -> set[str]:
                 if as_of:
                     degraded.add(str(as_of))
     except OSError:
-        pass
+        logger.warning("Unable to read degraded shadow-card history", exc_info=True)
     return degraded
 
 

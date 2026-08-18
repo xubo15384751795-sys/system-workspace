@@ -29,6 +29,11 @@ def test_build_authority_graph_from_real_pipeline() -> None:
     graph = module.build_authority_graph(ROOT)
 
     assert graph["schema_version"] == "authority_graph.v1"
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import load_pipeline
+
+    assert graph["plan_digest"] == load_pipeline(WorkspacePaths(root=ROOT)).plan_digest
+    assert graph["compiled_plan"]["available"] is True
     assert graph["metrics"]["pipeline_step_count"] > 20
     assert graph["metrics"]["edge_count"] > 0
     assert "bridge" in graph["bridge_nodes"]

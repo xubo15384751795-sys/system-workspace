@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -9,6 +10,8 @@ from typing import Any, Mapping
 
 from .events import EventEnvelope, JsonlEventStore
 from .paths import WorkspacePaths
+
+logger = logging.getLogger(__name__)
 
 
 class ArtifactBoundaryError(RuntimeError):
@@ -45,7 +48,7 @@ class ArtifactStore:
             try:
                 os.unlink(temporary)
             except FileNotFoundError:
-                pass
+                logger.debug("Temporary artifact file already absent during cleanup: %s", temporary)
             raise
         return target
 

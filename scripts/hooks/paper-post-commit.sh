@@ -13,4 +13,5 @@ if [[ ! -f "${SYSTEM_ROOT}/scripts/sync_paper_world_model.py" ]]; then
   exit 0
 fi
 
-python3 "${SYSTEM_ROOT}/scripts/sync_paper_world_model.py" --quiet-on-success
+PYTHON="$("${SYSTEM_ROOT}/scripts/resolve_system_python.sh")"
+"${PYTHON}" "${SYSTEM_ROOT}/scripts/sync_paper_world_model.py" --quiet-on-success

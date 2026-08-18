@@ -14,6 +14,7 @@ DAILY_RUN_HOUR="${DAILY_RUN_HOUR:-7}"
 PLIST_SRC="${SYSTEM_ROOT}/scripts/launchd/com.system.daily-run.plist"
 PLIST_DST="${HOME}/Library/LaunchAgents/com.system.daily-run.plist"
 RUN_SCRIPT="${SYSTEM_ROOT}/scripts/run_daily_scheduled.sh"
+SYSTEM_PYTHON="$("${SYSTEM_ROOT}/scripts/resolve_system_python.sh")"
 
 mkdir -p "${SYSTEM_ROOT}/Output/runs" "${HOME}/Library/LaunchAgents"
 chmod +x "${RUN_SCRIPT}" "${SYSTEM_ROOT}/scripts/orchestrate.sh" 2>/dev/null || true
@@ -22,9 +23,10 @@ sed \
   -e "s|__SYSTEM_ROOT__|${SYSTEM_ROOT}|g" \
   -e "s|__PAPER_ROOT__|${PAPER_ROOT}|g" \
   -e "s|__HORIZON_ROOT__|${HORIZON_ROOT}|g" \
+  -e "s|__SYSTEM_PYTHON__|${SYSTEM_PYTHON}|g" \
   "${PLIST_SRC}" > "${PLIST_DST}.tmp"
 
-python3 - <<PY
+"${SYSTEM_PYTHON}" - <<PY
 import plistlib
 from pathlib import Path
 src = Path("${PLIST_DST}.tmp")

@@ -16,4 +16,5 @@ while IFS= read -r file; do
   [[ -n "${file}" ]] && args+=("${PAPER_ROOT}/${file}")
 done <<< "${changed}"
 
-python3 "${SYSTEM_ROOT}/scripts/lint_paper_frontmatter.py" "${args[@]}"
+PYTHON="$("${SYSTEM_ROOT}/scripts/resolve_system_python.sh")"
+"${PYTHON}" "${SYSTEM_ROOT}/scripts/lint_paper_frontmatter.py" "${args[@]}"

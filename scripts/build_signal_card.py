@@ -28,11 +28,18 @@ from scripts._constants import (
     SIGNAL_SIZE_SMALL,
     TRADING_DAYS_PER_YEAR,
 )
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, write_json
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    write_json,
+)
 
 CURRENT = current_dir()  # Phase 1.1: honor CURRENT_OUTPUT_DIR candidate redirect
-JUDGMENT = ROOT / "Output" / "judgment"
-TRADE_DECISION = ROOT / "Output" / "trade_decision"
+JUDGMENT = surface_dir("judgment")
+TRADE_DECISION = surface_dir("trade_decision")
 CASELAB = ROOT / "Output" / "caselab"
 HMM = ROOT / "Output" / "ml_signals" / "latest"
 VALIDATION = ROOT / "Output" / "validation"
@@ -888,7 +895,7 @@ def _check_closure_chain() -> None:
     This helps detect partial refreshes where the signal card is rebuilt
     but the judgment/trade_decision haven't been updated.
     """
-    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    judgment_path = JUDGMENT / "latest.json"
     current_card = CURRENT / "signal_card.json"
 
     if not judgment_path.exists():

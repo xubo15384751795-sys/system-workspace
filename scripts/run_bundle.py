@@ -5,6 +5,7 @@ containing:
   manifest.json      — top-level descriptor (run_id, mode, timing, status)
   input_snapshot.json — fingerprints of all input artifacts at run start
   steps.jsonl         — one JSON line per completed step
+                         (optionally includes validated canonical lineage)
   decision_trace.json — judgment/trade decisions captured during the run
   signal_trace.json   — framework/sigma signals captured during the run
   artifact_index.json — paths and hashes of all artifacts produced
@@ -38,9 +39,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from scripts._runtime_io import ROOT, ensure_dir
+from system_runtime.paths import output_surface
 
 RUNS_DIR = ROOT / "Output" / "runs"
-LATEST_POINTER = ROOT / "Output" / "current" / "latest_run_id.txt"
+LATEST_POINTER = output_surface(ROOT, "current") / "latest_run_id.txt"
 
 # Artifacts to fingerprint at input snapshot time
 INPUT_ARTIFACTS = [
@@ -100,7 +102,13 @@ class RunBundle:
         self._decision_traces: list[dict[str, Any]] = []
         self._signal_traces: list[dict[str, Any]] = []
         self._feedback_items: list[dict[str, Any]] = []
+        self._evidence_finalized = False
+        self._outcome: dict[str, Any] | None = None
         self._step_file: Path | None = None
+        self._plan_digest: str | None = None
+        self._evidence_digest: str | None = None
+        self._generation_digest: str | None = None
+        self._admission_digest: str | None = None
 
     # ── lifecycle ──────────────────────────────────────────────
 
@@ -112,10 +120,13 @@ class RunBundle:
         tag: str | None = None,
         *,
         update_pointer: bool = True,
+        output_root: Path | None = None,
     ) -> RunBundle:
         """Create a new run bundle, write input snapshot, return handle."""
+        if root is not None and output_root is not None:
+            raise ValueError("root and output_root are mutually exclusive")
         resolved_root = root or ROOT
-        base = root / "Output" / "runs" if root else RUNS_DIR
+        base = output_root / "runs" if output_root is not None else (root / "Output" / "runs" if root else RUNS_DIR)
         run_id = _generate_run_id(mode)
         run_dir = base / run_id
         ensure_dir(run_dir)
@@ -137,6 +148,12 @@ class RunBundle:
         detail: str = "",
         input_artifacts: list[str | Path] | None = None,
         blocked_by: list[str] | None = None,
+        degraded: bool = False,
+        provider_outcome: dict[str, Any] | None = None,
+        step_outcome: dict[str, Any] | None = None,
+        canonical_ids: dict[str, Any] | None = None,
+        canonical_chain: dict[str, Any] | None = None,
+        canonical_source_path: str | None = None,
         stdout_tail: str = "",
         stderr_tail: str = "",
         full_stderr: str = "",
@@ -179,6 +196,20 @@ class RunBundle:
             entry["detail"] = detail[:500]
         if blocked_by:
             entry["blocked_by"] = list(blocked_by)
+        if degraded:
+            entry["degraded"] = True
+        if provider_outcome:
+            entry["provider_outcome"] = dict(provider_outcome)
+        if step_outcome:
+            entry["step_outcome"] = dict(step_outcome)
+        # Additive SYS-21 shadow lineage. These fields are transport metadata;
+        # publish/admission authority still comes from the run/generation gate.
+        if canonical_ids:
+            entry["canonical_ids"] = dict(canonical_ids)
+        if canonical_chain:
+            entry["canonical_chain"] = dict(canonical_chain)
+        if canonical_source_path:
+            entry["canonical_source_path"] = str(canonical_source_path)
         # Capture stdout/stderr tails for quick triage (Phase 0.1). These make
         # the six-day "what did the nightly run actually report" question
         # answerable from the bundle alone, without re-running the step.
@@ -209,7 +240,7 @@ class RunBundle:
                         h = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                         hashes[_safe_relative(p, self._root)] = h
                     except OSError:
-                        pass
+                        logger.warning("Failed to fingerprint step input: %s", p, exc_info=True)
             if hashes:
                 entry["input_hashes"] = hashes
 
@@ -222,6 +253,8 @@ class RunBundle:
 
     def capture_decision_trace(self, data: dict[str, Any]) -> None:
         """Capture a judgment/trade decision snapshot."""
+        if self._evidence_finalized:
+            raise RuntimeError("run-bundle evidence is already finalized")
         self._decision_traces.append({
             "captured_at": datetime.now(UTC).isoformat(),
             "data": _scrub_large_values(data),
@@ -229,6 +262,8 @@ class RunBundle:
 
     def capture_signal_trace(self, data: dict[str, Any]) -> None:
         """Capture a framework/sigma signal snapshot."""
+        if self._evidence_finalized:
+            raise RuntimeError("run-bundle evidence is already finalized")
         self._signal_traces.append({
             "captured_at": datetime.now(UTC).isoformat(),
             "data": _scrub_large_values(data),
@@ -254,8 +289,10 @@ class RunBundle:
             validation_type: Category of validation needed
             priority: "high", "medium", "low"
             metadata: Optional structured data (claim_tier, mechanism_hypothesis,
-                      watch_conditions, invalidation_conditions, etc.)
+                watch_conditions, invalidation_conditions, etc.)
         """
+        if self._evidence_finalized:
+            raise RuntimeError("run-bundle evidence is already finalized")
         entry = {
             "item": item,
             "source": source,
@@ -318,11 +355,147 @@ class RunBundle:
             encoding="utf-8",
         )
 
-    def finish(self, status: str = "success") -> Path:
-        """Finalize the bundle — write all summary files, return run_dir."""
-        now = datetime.now(UTC)
-        elapsed = (now - self.started_at).total_seconds()
+    def set_contract_digests(
+        self,
+        *,
+        plan_digest: str | None = None,
+        evidence_digest: str | None = None,
+        generation_digest: str | None = None,
+        admission_digest: str | None = None,
+    ) -> None:
+        """Persist the plan/evidence/generation/admission contract chain.
 
+        Downstream digests are filled as the run advances.  Existing artifact
+        index entries are rewritten with the final contract state so the
+        bundle remains self-describing after admission.
+        """
+        if plan_digest is not None:
+            self._plan_digest = plan_digest
+        if evidence_digest is not None:
+            self._evidence_digest = evidence_digest
+        if generation_digest is not None:
+            self._generation_digest = generation_digest
+        if admission_digest is not None:
+            self._admission_digest = admission_digest
+
+        index_path = self.run_dir / "artifact_index.json"
+        if index_path.exists():
+            try:
+                entries = json.loads(index_path.read_text(encoding="utf-8"))
+                if isinstance(entries, list):
+                    for entry in entries:
+                        if isinstance(entry, dict):
+                            entry["contract_digests"] = self.contract_digests
+                    index_path.write_text(
+                        json.dumps(entries, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8",
+                    )
+            except (OSError, json.JSONDecodeError):
+                logger.warning("Failed to update artifact contract digests", exc_info=True)
+        self._write_manifest()
+
+    @property
+    def contract_digests(self) -> dict[str, str | None]:
+        """Return the explicit execution contract state for this run."""
+        return {
+            "plan_digest": self._plan_digest,
+            "evidence_digest": self._evidence_digest,
+            "generation_digest": self._generation_digest,
+            "admission_digest": self._admission_digest,
+        }
+
+    def evidence_digest(self, generation_dir: Path | None = None) -> str:
+        """Hash run outcomes, input identities, and acquired generation bytes.
+
+        Timestamps and mtimes are intentionally excluded.  Provider/output
+        bytes are represented by full SHA-256 values, while step results and
+        artifact provenance provide the acquisition/outcome context.
+        """
+
+        def stable_artifact(entry: dict[str, Any]) -> dict[str, Any]:
+            return {
+                key: entry[key]
+                for key in ("path", "size_bytes", "sha256", "status", "provenance")
+                if key in entry
+            }
+
+        def stable_input(entry: Any) -> Any:
+            if not isinstance(entry, dict):
+                return entry
+            return {
+                key: entry[key]
+                for key in ("path", "size_bytes", "sha256", "status")
+                if key in entry
+            }
+
+        input_snapshot: dict[str, Any] = {}
+        input_path = self.run_dir / "input_snapshot.json"
+        if input_path.exists():
+            try:
+                raw_snapshot = json.loads(input_path.read_text(encoding="utf-8"))
+                if isinstance(raw_snapshot, dict):
+                    input_snapshot = {
+                        key: stable_input(value)
+                        for key, value in sorted(raw_snapshot.items())
+                    }
+            except (OSError, json.JSONDecodeError):
+                input_snapshot = {"status": "invalid_input_snapshot"}
+
+        artifacts: list[dict[str, Any]] = []
+        artifact_path = self.run_dir / "artifact_index.json"
+        if artifact_path.exists():
+            try:
+                raw_artifacts = json.loads(artifact_path.read_text(encoding="utf-8"))
+                if isinstance(raw_artifacts, list):
+                    artifacts = sorted(
+                        [stable_artifact(item) for item in raw_artifacts if isinstance(item, dict)],
+                        key=lambda item: str(item.get("path", "")),
+                    )
+            except (OSError, json.JSONDecodeError):
+                artifacts = [{"status": "invalid_artifact_index"}]
+
+        generation_files: list[dict[str, Any]] = []
+        if generation_dir is not None and generation_dir.exists():
+            for path in sorted(generation_dir.rglob("*")):
+                if not path.is_file() or path.name in {"lineage.json", "admission.json"}:
+                    continue
+                generation_files.append(
+                    {
+                        "path": str(path.relative_to(generation_dir)),
+                        "size_bytes": path.stat().st_size,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+                )
+
+        steps = []
+        for entry in self._steps:
+            steps.append(
+                {
+                    key: entry[key]
+                    for key in ("step", "status", "returncode", "detail", "blocked_by", "input_hashes")
+                    if key in entry
+                }
+            )
+        payload = {
+            "schema_version": "system.evidence.v1",
+            "run_id": self.run_id,
+            "input_snapshot": input_snapshot,
+            "steps": steps,
+            "artifacts": artifacts,
+            "generation_files": generation_files,
+        }
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def finalize_evidence(self) -> None:
+        """Write trace/feedback evidence exactly once before publication."""
+        if self._evidence_finalized:
+            return
         # Write decision trace
         if self._decision_traces:
             (self.run_dir / "decision_trace.json").write_text(
@@ -344,6 +517,18 @@ class RunBundle:
                 encoding="utf-8",
             )
 
+        self._evidence_finalized = True
+
+    def finish(self, status: str = "success") -> Path:
+        """Finalize the bundle — write all summary files, return run_dir."""
+        now = datetime.now(UTC)
+        elapsed = (now - self.started_at).total_seconds()
+
+        # Evidence is normally finalized before the generation pointer swap.
+        # Compatibility/diagnostic callers that have no pointer swap retain
+        # the old convenience of finalizing it here.
+        self.finalize_evidence()
+
         # Overwrite manifest with final data
         self._write_manifest(
             finished_at=now.isoformat(),
@@ -357,6 +542,14 @@ class RunBundle:
             index_path.write_text("[]\n", encoding="utf-8")
 
         return self.run_dir
+
+    def record_outcome(self, outcome: dict[str, Any]) -> None:
+        """Persist the typed run outcome used by every run consumer."""
+        self._outcome = dict(outcome)
+        (self.run_dir / "run_outcome.json").write_text(
+            json.dumps(self._outcome, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
 
     # ── internal ───────────────────────────────────────────────
 
@@ -411,9 +604,11 @@ class RunBundle:
             "steps_failed": sum(1 for st in statuses if st not in ("success", "blocked_upstream")),
             "steps_blocked": sum(1 for st in statuses if st == "blocked_upstream"),
             "root_failures": root_failures,
+            "outcome": self._outcome,
             "decision_traces": len(self._decision_traces),
             "signal_traces": len(self._signal_traces),
             "run_dir": _safe_relative(self.run_dir, self._root),
+            "contract_digests": self.contract_digests,
         }
         (self.run_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
@@ -422,7 +617,13 @@ class RunBundle:
 
     def _update_latest_pointer(self, root: Path | None = None) -> None:
         """Update the latest_run_id.txt pointer in Output/current/."""
-        pointer = root / "Output" / "current" / "latest_run_id.txt" if root else LATEST_POINTER
+        generation_mode = os.environ.get("SYSTEM_GENERATION_MODE", "").strip().lower() in {"1", "true", "yes"}
+        generation_active = (root or ROOT) / "Output" / "live"
+        if generation_mode or generation_active.is_symlink():
+            raise RuntimeError(
+                "latest_run_id is generation-owned; create it inside PublishTransaction.commit_generation"
+            )
+        pointer = (output_surface(root or ROOT, "current") / "latest_run_id.txt") if root else LATEST_POINTER
         ensure_dir(pointer.parent)
         pointer.write_text(self.run_id + "\n", encoding="utf-8")
 
@@ -441,7 +642,7 @@ def _scrub_large_values(data: dict[str, Any], max_bytes: int = 50_000) -> dict[s
 
 def latest_run_dir(root: Path | None = None) -> Path | None:
     """Return the path to the most recent run bundle, or None."""
-    pointer = root / "Output" / "current" / "latest_run_id.txt" if root else LATEST_POINTER
+    pointer = (output_surface(root or ROOT, "current") / "latest_run_id.txt") if root else LATEST_POINTER
     if not pointer.exists():
         return None
     run_id = pointer.read_text(encoding="utf-8").strip()

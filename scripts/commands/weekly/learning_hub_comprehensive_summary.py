@@ -30,24 +30,25 @@ from scripts._runtime_io import (
     ensure_dir,
     load_json,
     load_jsonl,
+    surface_dir,
     utc_now,
     write_json,
 )
 
-JUDGMENT_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "judgment_calibration_summary.json"
-JUDGMENT_CALIBRATION_REPORT = ROOT / "Output" / "judgment" / "calibration_report.json"
-TRADE_CALIBRATION_REPORT = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
+JUDGMENT_CALIBRATION_PATH = surface_dir("system_learning") / "latest" / "judgment_calibration_summary.json"
+JUDGMENT_CALIBRATION_REPORT = surface_dir("judgment") / "calibration_report.json"
+TRADE_CALIBRATION_REPORT = surface_dir("trade_ledger") / "calibration_report.json"
 MECHANISM_GATE_PATH = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 MIN_JUDGMENT_CALIBRATION_SAMPLES = 10
-TRADE_CALIBRATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "trade_decision_calibration_summary.json"
-TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
-CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
+TRADE_CALIBRATION_PATH = surface_dir("system_learning") / "latest" / "trade_decision_calibration_summary.json"
+TRADE_LEDGER_PATH = surface_dir("trade_ledger") / "decisions.jsonl"
+CALIBRATION_REPORT_PATH = surface_dir("trade_ledger") / "calibration_report.json"
 MARKET_FEEDBACK_PATH = ROOT / "Output" / "market_feedback" / "feedback_decision.json"
-CLAIM_EVALUATION_PATH = ROOT / "Output" / "system_learning" / "latest" / "claim_evaluation.json"
+CLAIM_EVALUATION_PATH = surface_dir("system_learning") / "latest" / "claim_evaluation.json"
 CLAIM_PROGRESSION_PATH = ROOT / "Output" / "claim_ladder" / "progression.json"
 HORIZON_EVENTS_PATH = ROOT / "Data" / "horizon_events" / "daily_digest.json"
 PROBABILISTIC_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest.json"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 
 
 def _entry_key(entry: dict[str, Any]) -> tuple[Any, ...]:

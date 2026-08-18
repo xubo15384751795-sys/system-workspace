@@ -203,12 +203,20 @@ def compile_dag() -> dict[str, Any]:
         decision_adjacent_cww/sequence_contradictions are all empty
     """
     from scripts._daily_run_sequence import load_daily_run_sequence
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import load_pipeline
 
+    plan = load_pipeline(WorkspacePaths.discover())
     reg = load_registry()
     steps = reg.get("steps", {})
     external_inputs = reg.get("external_inputs", []) or []
-    edges = _edges()
-    nodes = [sid for sid, s in steps.items() if s.get("status", "active") not in ("archived",)]
+    # Compatibility projection only: execution edges come from CompiledPlan.
+    edges = {consumer: list(producers) for consumer, producers in plan.edges.items()}
+    nodes = [
+        step.step_id
+        for step in plan.steps
+        if step.status not in {"archived", "inactive"}
+    ]
 
     # Cycle detection (Kahn).
     in_degree = {n: 0 for n in nodes}

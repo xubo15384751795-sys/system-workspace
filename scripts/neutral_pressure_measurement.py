@@ -9,6 +9,7 @@ funding-mismatch pressure and market-constraint pressure.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from datetime import UTC, datetime
@@ -20,6 +21,14 @@ import pandas as pd
 
 from scripts._artifact_provenance import build_provenance
 from scripts._runtime_io import ROOT, current_dir, write_json
+from system_runtime.canonical_ids import (
+    build_chain,
+    build_claim,
+    build_evidence,
+    build_measurement,
+    build_observation,
+    lineage_ids,
+)
 
 DEFAULT_PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
 MECHANISM_CARDS = ROOT / "docs" / "measurements" / "macro_pressure_mechanism_cards.md"
@@ -144,6 +153,17 @@ def _release_id() -> str:
         return "unknown"
 
 
+def _file_sha256(path: Path) -> str | None:
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
+    except OSError:
+        return None
+
+
 def build_snapshot(panel_path: Path, history_path: Path) -> tuple[dict[str, Any], pd.DataFrame]:
     panel = pd.read_parquet(panel_path)
     required = {"date", "series_id", "value"}
@@ -182,6 +202,77 @@ def build_snapshot(panel_path: Path, history_path: Path) -> tuple[dict[str, Any]
     # they still need a non-empty identity and must agree with the payload.
     provenance["run_id"] = run_id
 
+    # The legacy snapshot remains intact, but its new canonical envelope gives
+    # every downstream consumer one deterministic observation -> measurement
+    # -> evidence -> claim lineage.  The panel snapshot hash makes retries
+    # idempotent while still producing a new observation when the input itself
+    # is revised.
+    panel_snapshot_sha256 = _file_sha256(panel_path)
+    canonical_observation = build_observation(
+        canonical_series_id="SYSTEM:NEUTRAL_PRESSURE_PANEL",
+        observed_at=as_of,
+        value={"M": m_value, "D": d_value},
+        source_id="harvester:benchmark_panel",
+        unit="bounded_pressure_gauge",
+        source_snapshot_sha256=panel_snapshot_sha256,
+        provenance={
+            **provenance,
+            "captured_at": provenance.get("generated_at", as_of),
+            "producer": "neutral_pressure_measurement",
+        },
+    )
+    canonical_measurement = build_measurement(
+        observation_ids=[canonical_observation["observation_id"]],
+        measurement_definition="macro_pressure_measurement",
+        value={"M": m_value, "D": d_value},
+        unit="bounded_pressure_gauge",
+        status="AVAILABLE" if both_live else "MISSING",
+        derivation="PROXY_DERIVED",
+        confidence=0.7 if both_live else 0.35,
+        provenance={
+            **provenance,
+            "captured_at": provenance.get("generated_at", as_of),
+            "producer": "neutral_pressure_measurement",
+            "method": "causal_zscore_and_component_mean",
+        },
+    )
+    canonical_evidence = build_evidence(
+        measurement_ids=[canonical_measurement["measurement_id"]],
+        evidence_role="PRIMARY",
+        source_id="harvester:benchmark_panel",
+        release_id=_release_id() or None,
+        source_snapshot_sha256=panel_snapshot_sha256,
+        status="AVAILABLE" if panel_snapshot_sha256 else "UNKNOWN",
+        provenance={
+            **provenance,
+            "captured_at": provenance.get("generated_at", as_of),
+            "producer": "neutral_pressure_measurement",
+            "source_url": str(panel_path),
+        },
+    )
+    canonical_claim = build_claim(
+        claim_text=f"Neutral macro-pressure state is {state}.",
+        subject="neutral_macro_pressure",
+        predicate="has_state",
+        evidence_ids=[canonical_evidence["evidence_id"]],
+        status="WATCH",
+        confidence=0.7 if both_live else 0.35,
+        provenance={
+            **provenance,
+            "captured_at": provenance.get("generated_at", as_of),
+            "producer": "neutral_pressure_measurement",
+            "statement_kind": "bounded_neutral_measurement",
+            "claim_ceiling": "bounded_neutral_measurement",
+            "promotion_allowed": False,
+        },
+    )
+    canonical_chain = build_chain(
+        observation=canonical_observation,
+        measurement=canonical_measurement,
+        evidence=canonical_evidence,
+        claim=canonical_claim,
+    )
+
     snapshot: dict[str, Any] = {
         "schema_version": "neutral_pressure.snapshot.v1",
         "measurement_id": "macro_pressure_measurement",
@@ -190,6 +281,8 @@ def build_snapshot(panel_path: Path, history_path: Path) -> tuple[dict[str, Any]
         "run_id": run_id,
         "as_of": as_of,
         "provenance": provenance,
+        "canonical_chain": canonical_chain,
+        "canonical_ids": lineage_ids(canonical_chain),
         "status": "active_partial" if both_live else "degraded_partial",
         "basic": {
             "overall": overall,

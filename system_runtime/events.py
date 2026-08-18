@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 import uuid
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping
 
 ENVELOPE_SCHEMA = "system.event_envelope.v1"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -142,7 +144,7 @@ class JsonlEventStore:
             try:
                 os.unlink(temporary)
             except FileNotFoundError:
-                pass
+                logger.debug("Temporary event file already absent during cleanup: %s", temporary)
             raise
 
     def replace_payloads(

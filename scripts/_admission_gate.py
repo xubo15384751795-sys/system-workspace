@@ -32,8 +32,16 @@ from scripts._runtime_io import ROOT
 
 # Which content-cache checks matter for the public-stress consumers. These are
 # the files whose staleness silently degrades P_public (eq-weight PIT over
-# OFR/NFCI/CISS) - the "no silent channel collapse" guardrail.
-_PUBLIC_CONTENT_CHECKS = ("ofr_fsi_cache", "ciss_cache", "benchmark_panel")
+# OFR/NFCI/CISS) or the decision-critical cross-asset panel - the "no silent
+# channel collapse" guardrail. ETF acquisition is checked separately by the
+# Harvester provider/promotion gate; this closes the consumer-side boundary so
+# an old panel cannot pass merely because it exists.
+_PUBLIC_CONTENT_CHECKS = (
+    "ofr_fsi_cache",
+    "ciss_cache",
+    "benchmark_panel",
+    "etf_panel",
+)
 
 # Consumers known to depend on fresh public components. Admission is currently
 # uniform across these; the consumer name is recorded for the audit trail.
@@ -61,10 +69,22 @@ class AdmissionDecision:
     content_checks: list[dict[str, Any]] = field(default_factory=list)
     checked_at: str = ""
     degradations: list[str] = field(default_factory=list)
+    content_result_digests: list[str] = field(default_factory=list)
+    freshness_digest: str = ""
 
     def __post_init__(self) -> None:
         if not self.checked_at:
             self.checked_at = datetime.now(UTC).isoformat()
+        if not self.content_result_digests:
+            self.content_result_digests = [
+                str(check["result_digest"])
+                for check in self.content_checks
+                if check.get("result_digest")
+            ]
+        if not self.freshness_digest and self.content_checks:
+            from orchestration.quality.content_freshness import freshness_results_digest
+
+            self.freshness_digest = freshness_results_digest(self.content_checks)
 
 
 def _release_level_blockers(release_dir: Path) -> tuple[list[str], dict[str, Any] | None]:

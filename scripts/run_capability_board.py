@@ -158,6 +158,7 @@ def table_paper_nav_compare(
         residual_mode="level",
         onset_lambda=0.0,
         min_components=1,
+        research_only=True,
     )
     schemes["public_lambda0"] = (
         baseline.reindex(close.index).fillna(0.0) * lambda0["sizing"]["position"]
@@ -465,6 +466,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             residual_mode=mode,
             onset_lambda=1.0,
             min_components=1,
+            research_only=True,
         )
         for mode in RESIDUAL_MODES
     }

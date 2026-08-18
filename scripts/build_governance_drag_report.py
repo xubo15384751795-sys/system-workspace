@@ -19,6 +19,7 @@ This is a read-only diagnostic. It never blocks, never modifies, never promotes.
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,9 +29,11 @@ from scripts._daily_run_sequence import (  # noqa: E402
     load_daily_run_sequence,
     weekly_step_ids,
 )
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, surface_dir  # noqa: E402
 
-OUTPUT_PATH = ROOT / "Output" / "system_learning" / "latest" / "governance_drag_report.json"
+logger = logging.getLogger(__name__)
+
+OUTPUT_PATH = surface_dir("system_learning") / "latest" / "governance_drag_report.json"
 
 # --- helpers ---------------------------------------------------------------
 
@@ -240,7 +243,7 @@ def _git_log_last_n(root: Path, n: int = 10) -> list[str]:
         if result.returncode == 0:
             return result.stdout.strip().splitlines()
     except Exception:
-        pass
+        logger.warning("Unable to read recent git history for governance drag report", exc_info=True)
     return []
 
 

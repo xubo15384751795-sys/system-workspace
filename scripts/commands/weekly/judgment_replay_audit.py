@@ -19,9 +19,15 @@ from scripts._data_paths import (
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
-from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ensure_dir,
+    load_json,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
-JUDGMENT_DIR = ROOT / "Output" / "judgment"
+JUDGMENT_DIR = surface_dir("judgment")
 ETF_PANEL = resolve_cross_asset_panel_path()
 BENCHMARK_PANEL = resolve_benchmark_panel_path()
 REPORT_JSON = JUDGMENT_DIR / "calibration_report.json"

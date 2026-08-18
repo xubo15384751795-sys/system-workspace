@@ -13,6 +13,27 @@ from pathlib import Path
 
 WORKSPACE_ENV = "SYSTEM_WORKSPACE_ROOT"
 WORKSPACE_MARKER = Path("governance/daily_pipeline_registry.yaml")
+GENERATION_ENV = "SYSTEM_GENERATION_DIR"
+GENERATION_MODE_ENV = "SYSTEM_GENERATION_MODE"
+
+
+def generation_mode_enabled() -> bool:
+    """Return whether the caller is on the post-migration generation path."""
+    return os.environ.get(GENERATION_MODE_ENV, "").strip().lower() in {"1", "true", "yes"}
+
+
+def output_surface(root: Path, name: str) -> Path:
+    """Resolve an output surface through the active generation when present.
+
+    Production writers must never infer a candidate path themselves.  The
+    generation transaction sets ``SYSTEM_GENERATION_DIR`` before importing
+    writer modules; outside a transaction this preserves the legacy
+    compatibility surface for read-only tools and explicit emergency paths.
+    """
+    generation = os.environ.get(GENERATION_ENV, "").strip()
+    if generation:
+        return Path(generation).expanduser().resolve() / name
+    return root / "Output" / name
 
 
 def discover_workspace(start: Path | None = None) -> Path:
@@ -74,4 +95,8 @@ class WorkspacePaths:
     @property
     def current(self) -> Path:
         override = os.environ.get("CURRENT_OUTPUT_DIR")
-        return Path(override).resolve() if override else self.output / "current"
+        return Path(override).resolve() if override else output_surface(self.root, "current")
+
+    def surface(self, name: str) -> Path:
+        """Return a named output surface under the active generation."""
+        return output_surface(self.root, name)

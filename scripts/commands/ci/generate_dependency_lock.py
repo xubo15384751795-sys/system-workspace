@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate requirements.lock.txt from the declared dependency closure.
+"""Audit the historical compatibility requirements lock.
+
+The workspace dependency authority is ``uv.lock``.  This command is retained
+only for migration/reference audits of ``requirements.lock.txt`` and must not
+be used to provision the workspace or replace the uv resolver.
 
 The previous lock was produced by `pip freeze | grep -iE "^(pyyaml|jsonschema
 |pandas|numpy|scikit-learn|hmmlearn|ruff|pytest)"` — a hand-written list of
@@ -20,7 +24,11 @@ requirements.
 
 Usage:
     python3 -m scripts.commands.ci.generate_dependency_lock            # check
-    python3 -m scripts.commands.ci.generate_dependency_lock --write    # rewrite
+    python3 -m scripts.commands.ci.generate_dependency_lock --write \
+        --allow-legacy-compatibility-write                              # rewrite legacy file
+
+``--write`` updates the historical compatibility file only; it does not
+modify ``uv.lock`` and the generated file must not be installed directly.
 
 Exit codes:
     0  lock is current (or was rewritten with --write)
@@ -51,7 +59,10 @@ PYPROJECTS = [ROOT / "pyproject.toml", *sorted(ROOT.glob("packages/*/pyproject.t
 LOCKED_EXTRAS = ("dev",)
 
 HEADER = """\
-# Pinned dependency versions for reproducible environments.
+# Historical compatibility dependency pins; not the workspace authority.
+#
+# The workspace authority is /Users/a1/System/uv.lock. Use
+# `uv sync --locked --all-packages`; do not install this file directly.
 #
 # Generated — do not edit by hand:
 #     python3 -m scripts.commands.ci.generate_dependency_lock --write
@@ -62,7 +73,7 @@ HEADER = """\
 # Optional extras CI does not install (torch, jax, openbb, ...) are excluded
 # on purpose: pinning them would imply the project requires them.
 #
-# Usage: pip install -r requirements.lock.txt
+# This file is retained only for migration/reference audits.
 """
 
 
@@ -146,8 +157,19 @@ def _normalize(text: str) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="Rewrite the lock file.")
+    parser.add_argument("--write", action="store_true", help="Rewrite the legacy compatibility file.")
+    parser.add_argument(
+        "--allow-legacy-compatibility-write",
+        action="store_true",
+        help="Explicitly authorize rewriting requirements.lock.txt; never changes uv.lock.",
+    )
     args = parser.parse_args(argv)
+    if args.write and not args.allow_legacy_compatibility_write:
+        parser.error(
+            "--write is compatibility-only; add --allow-legacy-compatibility-write explicitly"
+        )
+    if args.allow_legacy_compatibility_write and not args.write:
+        parser.error("--allow-legacy-compatibility-write requires --write")
 
     roots = _declared_roots()
     pinned, missing = resolve_closure(roots)
@@ -175,7 +197,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {extra}")
         for missed in sorted(want - have)[:10]:
             print(f"  + {missed}")
-        print("run: python3 -m scripts.commands.ci.generate_dependency_lock --write")
+        print(
+            "run only for legacy compatibility maintenance: "
+            "python3 -m scripts.commands.ci.generate_dependency_lock "
+            "--write --allow-legacy-compatibility-write"
+        )
         return 1
 
     print(f"lock is current — {len(pinned)} pins")

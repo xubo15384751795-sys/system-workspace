@@ -16,6 +16,7 @@ Stamping strategy:
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import subprocess
 from datetime import UTC, datetime
@@ -23,6 +24,8 @@ from pathlib import Path
 from typing import Any
 
 from scripts._runtime_io import ROOT
+
+logger = logging.getLogger(__name__)
 
 PROVENANCE_FIELDS = (
     "run_id",
@@ -53,7 +56,7 @@ def current_commit() -> str:
         if out.returncode == 0:
             return out.stdout.strip()[:12]
     except Exception:
-        pass
+        logger.warning("Unable to determine current git commit for provenance", exc_info=True)
     return ""
 
 
@@ -72,7 +75,7 @@ def fingerprint_inputs(paths: list[str | Path]) -> dict[str, str]:
                 rel = str(path)
             fps[rel] = h
         except OSError:
-            pass
+            logger.warning("Unable to fingerprint provenance input: %s", path, exc_info=True)
     return fps
 
 

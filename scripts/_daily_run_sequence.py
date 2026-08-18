@@ -2,43 +2,42 @@
 
 ``governance/daily_run_sequence.yaml`` is now a generated compatibility view.
 Runtime order, schedule, and skip flags come only from
-``governance/daily_pipeline_registry.yaml``.
+``governance/daily_pipeline_registry.yaml`` via the typed
+``CompiledPipeline`` compiler (WP1B).  This module no longer performs a
+raw-YAML sort; it delegates to the single compiler so the executor, runner,
+and entrypoint all use the same authoritative ordering.
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, load_yaml
+from scripts._runtime_io import ROOT
 
 PIPELINE_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
 SEQUENCE_PATH = ROOT / "governance" / "daily_run_sequence.yaml"  # generated view
 
 
 def load_daily_run_sequence(path: Path = PIPELINE_PATH) -> list[dict[str, Any]]:
-    """Return ordered runnable steps compiled from the pipeline registry."""
+    """Return ordered runnable steps compiled from the pipeline registry.
+
+    Delegates to ``system_runtime.pipeline.load_pipeline`` (the single
+    compiler) so ordering, filtering, and duplicate-order detection are
+    authoritative. A compiler/schema failure is intentionally propagated:
+    an invalid plan must start zero steps.
+    """
     if not path.exists():
-        return []
-    data = load_yaml(path)
-    defaults = data.get("_defaults", {}) or {}
-    compiled: list[tuple[float, str, dict[str, Any]]] = []
-    for step_id, raw in (data.get("steps", {}) or {}).items():
-        if not isinstance(raw, dict):
-            continue
-        if raw.get("status", "active") in {"archived", "inactive"}:
-            continue
-        schedule = raw.get("schedule", defaults.get("schedule", "daily"))
-        if schedule == "on_demand":
-            continue
-        record: dict[str, Any] = {"id": str(step_id)}
-        if schedule != "daily":
-            record["schedule"] = schedule
-        if raw.get("skip_flag"):
-            record["skip_flag"] = raw["skip_flag"]
-        order = raw.get("order")
-        compiled.append((float(order if order is not None else 9999), str(step_id), record))
-    compiled.sort(key=lambda item: (item[0], item[1]))
-    return [record for _, _, record in compiled]
+        raise FileNotFoundError(f"authoritative pipeline registry missing: {path}")
+    if path != PIPELINE_PATH:
+        raise ValueError(
+            "custom sequence paths are not execution authorities; "
+            "compile governance/daily_pipeline_registry.yaml instead"
+        )
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import load_pipeline
+
+    ws = WorkspacePaths(root=ROOT)
+    return load_pipeline(ws).sequence()
 
 
 def step_ids(path: Path = PIPELINE_PATH) -> list[str]:

@@ -25,12 +25,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, surface_dir
 from system_runtime.events import EventEnvelope, JsonlEventStore
 
-TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
-RISK_GATE_PATH = ROOT / "Output" / "trade_decision" / "risk_gate.json"
-OUTPUT_DIR = ROOT / "Output" / "trade_ledger"
+TRADE_DECISION_PATH = surface_dir("trade_decision") / "latest.json"
+RISK_GATE_PATH = surface_dir("trade_decision") / "risk_gate.json"
+OUTPUT_DIR = surface_dir("trade_ledger")
 
 
 def _normalize_paper_sources(raw: Any) -> list[dict[str, str]]:

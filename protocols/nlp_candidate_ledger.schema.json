@@ -27,6 +27,13 @@
     "ledger_entry_id": {"type": "string"},
     "candidate_id": {"type": "string"},
     "status": {"enum": ["candidate", "reviewed", "canonical", "rejected", "needs_revision", "admitted"]},
+    "canonical_claim_id": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"},
+    "canonical_claim_status": {"enum": ["SUPPORTED", "WEAKLY_SUPPORTED", "CONFLICTED", "STALE", "INSUFFICIENT_DATA", "UNOBSERVABLE", "WATCH"]},
+    "canonical_claim_ceiling": {"type": "string", "const": "diagnostic_watch_only"},
+    "canonical_evidence_ids": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^evd_[0-9a-f]{32}$"}
+    },
     "corpus_id": {"type": "string"},
     "release_id": {"type": "string"},
     "source_path": {"type": "string"},

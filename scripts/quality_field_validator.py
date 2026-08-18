@@ -24,11 +24,12 @@ from scripts._runtime_io import (
     current_dir,
     ensure_dir,
     load_json,
+    surface_dir,
     utc_now,
     write_json,
 )
 
-FW_PATH = ROOT / "Output" / "current" / "framework_output.json"
+FW_PATH = surface_dir("current") / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 OUTPUT_PATH = current_dir() / "quality_validation.json"

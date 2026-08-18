@@ -24,14 +24,21 @@ import json
 from collections import defaultdict
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 FEEDBACK_DIR = ROOT / "Output" / "feedback_samples" / "replay_runs"
 SUMMARY_PATH = ROOT / "Output" / "feedback_samples" / "calibration_summary.json"
-SYSTEM_LEARNING_DIR = ROOT / "Output" / "system_learning" / "latest"
+SYSTEM_LEARNING_DIR = surface_dir("system_learning") / "latest"
 REPORT_PATH = SYSTEM_LEARNING_DIR / "threshold_review_candidates.json"
 CLAIM_FAILURES_PATH = SYSTEM_LEARNING_DIR / "claim_failures_pending.json"
 

@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system.canonical_chain.v1",
+  "title": "Canonical Observation to Claim Chain",
+  "description": "Stable IDs and explicit lineage for observation, measurement, evidence, and claim artifacts.",
+  "type": "object",
+  "required": ["schema_version", "observation", "measurement", "evidence", "claim"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "system.canonical_chain.v1"
+    },
+    "observation": { "$ref": "#/$defs/observation" },
+    "measurement": { "$ref": "#/$defs/measurement" },
+    "evidence": { "$ref": "#/$defs/evidence" },
+    "claim": { "$ref": "#/$defs/claim" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "observation_id": {
+      "type": "string",
+      "pattern": "^obs_[0-9a-f]{32}$"
+    },
+    "measurement_id": {
+      "type": "string",
+      "pattern": "^mea_[0-9a-f]{32}$"
+    },
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^evd_[0-9a-f]{32}$"
+    },
+    "claim_id": {
+      "type": "string",
+      "pattern": "^clm_[0-9a-f]{32}$"
+    },
+    "availability_status": {
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "STALE",
+        "DELAYED",
+        "MISSING",
+        "NOT_APPLICABLE",
+        "SOURCE_DOWN",
+        "SCHEMA_CHANGED",
+        "DISCONTINUED",
+        "UNKNOWN"
+      ]
+    },
+    "derivation_status": {
+      "type": "string",
+      "enum": [
+        "OBSERVED",
+        "ESTIMATED",
+        "INTERPOLATED",
+        "MODELED",
+        "PROXY_DERIVED",
+        "ASSUMED",
+        "NOT_OBSERVABLE"
+      ]
+    },
+    "claim_status": {
+      "type": "string",
+      "enum": [
+        "SUPPORTED",
+        "WEAKLY_SUPPORTED",
+        "CONFLICTED",
+        "STALE",
+        "INSUFFICIENT_DATA",
+        "UNOBSERVABLE",
+        "WATCH"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["captured_at", "producer"],
+      "properties": {
+        "captured_at": { "type": "string", "format": "date-time" },
+        "producer": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string" },
+        "parser_version": { "type": "string" },
+        "method": { "type": "string" },
+        "source_url": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["source_id"],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "release_id": { "type": ["string", "null"] },
+        "snapshot_sha256": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "observation_id",
+        "canonical_series_id",
+        "observed_at",
+        "vintage_at",
+        "value",
+        "status",
+        "source",
+        "provenance"
+      ],
+      "properties": {
+        "observation_id": { "$ref": "#/$defs/observation_id" },
+        "canonical_series_id": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "minLength": 1 },
+        "vintage_at": { "type": "string", "minLength": 1 },
+        "value": {},
+        "unit": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/availability_status" },
+        "scope": { "type": "object", "additionalProperties": true },
+        "source": { "$ref": "#/$defs/source" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      },
+      "additionalProperties": false
+    },
+    "measurement": {
+      "type": "object",
+      "required": [
+        "measurement_id",
+        "observation_ids",
+        "measurement_definition",
+        "method_version",
+        "value",
+        "status",
+        "derivation",
+        "provenance"
+      ],
+      "properties": {
+        "measurement_id": { "$ref": "#/$defs/measurement_id" },
+        "observation_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/observation_id" }
+        },
+        "measurement_definition": { "type": "string", "minLength": 1 },
+        "method_version": { "type": "string", "minLength": 1 },
+        "value": {},
+        "unit": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/availability_status" },
+        "derivation": { "$ref": "#/$defs/derivation_status" },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["evidence_id", "measurement_ids", "evidence_role", "status", "source", "provenance"],
+      "properties": {
+        "evidence_id": { "$ref": "#/$defs/evidence_id" },
+        "measurement_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/measurement_id" }
+        },
+        "evidence_role": {
+          "type": "string",
+          "enum": ["PRIMARY", "SECONDARY", "DERIVED", "CONTEXT", "REPRODUCTION"]
+        },
+        "status": { "$ref": "#/$defs/availability_status" },
+        "source": { "$ref": "#/$defs/source" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": ["claim_id", "claim_text", "evidence_ids", "status", "provenance"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/claim_id" },
+        "claim_text": { "type": "string", "minLength": 1 },
+        "subject": { "type": ["string", "null"] },
+        "predicate": { "type": ["string", "null"] },
+        "policy_version": { "type": "string", "minLength": 1 },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence_id" }
+        },
+        "status": { "$ref": "#/$defs/claim_status" },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

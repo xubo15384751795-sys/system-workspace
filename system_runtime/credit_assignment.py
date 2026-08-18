@@ -182,8 +182,8 @@ def join_activation_costs(
         if producer:
             nodes_by_step.setdefault(producer, []).append(str(node.get("node_id", "")))
 
-    producer_costs = []
-    node_costs = []
+    producer_costs: list[dict[str, Any]] = []
+    node_costs: list[dict[str, Any]] = []
     for producer, node_ids in sorted(nodes_by_step.items()):
         duration = duration_by_step.get(producer)
         producer_costs.append({
@@ -199,7 +199,11 @@ def join_activation_costs(
             "attributed_duration_s": round(share, 6) if share is not None else None,
         } for node_id in node_ids)
 
-    measured = [row["duration_s"] for row in producer_costs if row["duration_s"] is not None]
+    measured: list[float] = [
+        float(row["duration_s"])
+        for row in producer_costs
+        if row["duration_s"] is not None
+    ]
     return {
         "run_id": trace.get("run_id"),
         "unique_active_producer_steps": len(nodes_by_step),

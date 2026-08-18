@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Phase 2.3 staged plist.
-     Apply via: bash scripts/install_launchd_plists.sh (pass apply flag).
-     Logs under Output/logs/launchd/. Authoritative harvester run at 22:30;
-     21:30 postclose job skips harvester. -->
+<!-- Legacy harvester agent retained as an auditable, disabled record.
+     The canonical com.system.daily-run is the only scheduled publisher.
+     Apply via: bash scripts/install_launchd_plists.sh apply flag. -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.system.daily-run-harvester</string>
+    <key>Disabled</key>
+    <true/>
     <key>ProgramArguments</key>
     <array>
-        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>__SYSTEM_PYTHON__</string>
         <string>/Users/a1/System/scripts/daily_run.py</string>
     </array>
     <key>EnvironmentVariables</key>
@@ -20,7 +21,7 @@
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
-        <!-- 22:30 local: authoritative daily harvester fetch -->
+        <!-- Historical slot; disabled because daily-run owns acquisition. -->
         <key>Hour</key>
         <integer>22</integer>
         <key>Minute</key>

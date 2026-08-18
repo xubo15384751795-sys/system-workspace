@@ -22,6 +22,7 @@ from scripts._runtime_io import (
     ensure_dir,
     load_json,
     load_jsonl,
+    surface_dir,
     utc_now,
     write_json,
 )
@@ -30,8 +31,8 @@ CLAIM_LADDER_STATE = ROOT / "Output" / "claim_ladder" / "state.json"
 FEEDBACK_LOG = ROOT / "caselab_context" / "feedback_log.jsonl"
 CALIBRATION_GATE = ROOT / "Output" / "caselab" / "causal" / "mechanism_calibration_gate.json"
 ALERT_PATH = ROOT / "Output" / "alerts" / "latest_alert.json"
-ACCURACY_REPORT_PATH = ROOT / "Output" / "system_learning" / "latest" / "judgment_accuracy_report.json"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+ACCURACY_REPORT_PATH = surface_dir("system_learning") / "latest" / "judgment_accuracy_report.json"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 
 
 def build_claim_ladder_feedback() -> dict[str, Any]:

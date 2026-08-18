@@ -21,15 +21,15 @@ from datetime import UTC, datetime
 from typing import Any
 
 from scripts._constants import CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, write_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, surface_dir, write_json
 from scripts._runtime_io import load_json as _load_json
 
 OUTPUT_CURRENT = current_dir()
 
 # Source paths
 FRAMEWORK_OUTPUT = OUTPUT_CURRENT / "framework_output.json"
-JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
-PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
+JUDGMENT_PATH = surface_dir("judgment") / "latest.json"
+PROMOTION_GATE_PATH = surface_dir("judgment") / "promotion_gate.json"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "daily" / "regime_hmm.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"

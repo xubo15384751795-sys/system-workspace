@@ -17,6 +17,14 @@
       "items": {"type": "string"},
       "uniqueItems": true
     },
+    "execution_profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string", "minLength": 1},
+        "uniqueItems": true
+      }
+    },
     "_defaults": {"type": "object"},
     "steps": {
       "type": "object",
@@ -35,6 +43,11 @@
         "schedule": {"enum": ["daily", "weekly", "on_demand"]},
         "skip_flag": {"type": "string"},
         "failure_behavior": {"type": "string", "minLength": 1},
+        "depends_on": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
         "execution": {
           "type": "object",
           "required": ["mode"],

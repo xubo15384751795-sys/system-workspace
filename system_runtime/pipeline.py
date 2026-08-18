@@ -1,6 +1,7 @@
 """Compile and execute the authoritative pipeline specification."""
 from __future__ import annotations
 
+import hashlib
 import importlib
 import inspect
 import json
@@ -10,7 +11,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import jsonschema
 import yaml
@@ -36,6 +37,7 @@ class CompiledStep:
     outputs: tuple[str, ...]
     failure_behavior: str
     affects_core_judgment: bool
+    depends_on: tuple[str, ...] = ()
     skip_flag: str | None = None
 
     def as_sequence_record(self) -> dict[str, Any]:
@@ -53,12 +55,50 @@ class CompiledPipeline:
     steps: tuple[CompiledStep, ...]
     external_inputs: tuple[str, ...]
     edges: dict[str, tuple[str, ...]]
+    profiles: dict[str, tuple[str, ...]]
 
     def step(self, step_id: str) -> CompiledStep:
         for step in self.steps:
             if step.step_id == step_id:
                 return step
         raise KeyError(step_id)
+
+    def projection(self, profile: str) -> tuple[CompiledStep, ...]:
+        """Return an execution-mode projection owned by the compiled plan."""
+        try:
+            step_ids = self.profiles[profile]
+        except KeyError as exc:
+            raise KeyError(f"unknown pipeline execution profile: {profile}") from exc
+        return tuple(self.step(step_id) for step_id in step_ids)
+
+    @property
+    def plan_digest(self) -> str:
+        """Stable identity for this compiled plan and its execution edges."""
+        payload = {
+            "schema_version": self.schema_version,
+            "steps": [
+                {
+                    "id": step.step_id,
+                    "order": step.order,
+                    "status": step.status,
+                    "schedule": step.schedule,
+                    "command": step.command,
+                    "callable": step.callable_spec,
+                    "mode": step.execution_mode,
+                    "inputs": list(step.inputs),
+                    "outputs": list(step.outputs),
+                    "failure_behavior": step.failure_behavior,
+                    "affects_core_judgment": step.affects_core_judgment,
+                    "depends_on": list(step.depends_on),
+                    "skip_flag": step.skip_flag,
+                }
+                for step in self.steps
+            ],
+            "edges": {key: list(value) for key, value in sorted(self.edges.items())},
+            "profiles": {key: list(value) for key, value in sorted(self.profiles.items())},
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
 
     def sequence(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
         return [
@@ -91,11 +131,74 @@ class CompiledPipeline:
             if not step.command and not step.callable_spec and step.status == "active":
                 errors.append(f"{step.step_id}: active step has no command/callable")
         sequence_index = {step.step_id: index for index, step in enumerate(self.steps)}
+        active_ids = {
+            step.step_id
+            for step in self.steps
+            if step.status not in {"archived", "inactive"}
+        }
+        for step in self.steps:
+            if len(step.depends_on) != len(set(step.depends_on)):
+                errors.append(f"{step.step_id}: duplicate depends_on entries")
+            for producer in step.depends_on:
+                if producer == step.step_id:
+                    errors.append(f"{step.step_id}: depends_on itself")
+                elif producer not in active_ids:
+                    errors.append(f"{step.step_id}: depends_on inactive/unknown {producer}")
         for consumer, producers in self.edges.items():
             for producer in producers:
                 if sequence_index.get(producer, -1) > sequence_index.get(consumer, -1):
                     errors.append(f"{consumer}: runs before producer {producer}")
+        for profile, step_ids in self.profiles.items():
+            if len(step_ids) != len(set(step_ids)):
+                errors.append(f"{profile}: duplicate step ids")
+            for step_id in step_ids:
+                try:
+                    step = self.step(step_id)
+                except KeyError:
+                    errors.append(f"{profile}: unknown step {step_id}")
+                    continue
+                if step.status in {"archived", "inactive"}:
+                    errors.append(f"{profile}: archived/inactive step {step_id}")
         return errors
+
+    def interpret_failure(self, step_id: str, results: list[dict[str, Any]]) -> dict[str, Any]:
+        """Interpret upstream failures using this plan's edges and metadata."""
+        status_by_step = {result.get("step"): result.get("status") for result in results}
+        blocked_by: list[str] = []
+        degraded_by: list[str] = []
+        for producer in self.edges.get(step_id, ()):
+            status = status_by_step.get(producer)
+            if status is None or status == "success":
+                continue
+            behavior = self.step(producer).failure_behavior
+            if behavior in {
+                "block_current_readout",
+                "block_core_judgment",
+                "block_promotion",
+                "decision_adjacent_block",
+            }:
+                blocked_by.append(producer)
+            elif behavior in {"hold_flat", "lower_claim_ceiling"}:
+                degraded_by.append(producer)
+        if blocked_by:
+            action = "block"
+        elif degraded_by:
+            action = "run_degraded"
+        else:
+            action = "run"
+        return {
+            "action": action,
+            "blocked_by": blocked_by,
+            "behavior": self.step(step_id).failure_behavior,
+            "degraded": bool(degraded_by),
+            "degraded_by": degraded_by,
+        }
+
+
+# WP1B: ``CompiledPlan`` is the canonical name for the compiled pipeline that
+# the executor accepts.  It is an alias for ``CompiledPipeline`` so existing
+# code that references ``CompiledPipeline`` continues to work.
+CompiledPlan = CompiledPipeline
 
 
 def _paths(step: dict[str, Any], name: str, legacy: str) -> tuple[str, ...]:
@@ -130,10 +233,21 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
             raise PipelineSpecError(f"{step_id}: step must be an object")
         execution = {**(defaults.get("execution") or {}), **(raw.get("execution") or {})}
         authority = raw.get("authority") or {}
+        raw_dependencies = raw.get("depends_on")
+        if raw_dependencies is None:
+            dependencies: tuple[str, ...] = ()
+        elif isinstance(raw_dependencies, list) and all(
+            isinstance(item, str) and item for item in raw_dependencies
+        ):
+            dependencies = tuple(raw_dependencies)
+        else:
+            raise PipelineSpecError(f"{step_id}: depends_on must be a list of non-empty strings")
+        raw_order = raw.get("order")
+        order = float(str(raw_order)) if raw_order is not None else 9999.0
         compiled.append(
             CompiledStep(
                 step_id=str(step_id),
-                order=float(raw.get("order") if raw.get("order") is not None else 9999),
+                order=order,
                 status=str(raw.get("status", "active")),
                 owner=str(raw.get("owner", "")),
                 schedule=str(raw.get("schedule", defaults.get("schedule", "daily"))),
@@ -151,6 +265,7 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
                     raw.get("allowed_to_affect_core_judgment")
                     or authority.get("affects_core_judgment")
                 ),
+                depends_on=dependencies,
                 skip_flag=raw.get("skip_flag"),
             )
         )
@@ -167,6 +282,9 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
         and step.schedule != "on_demand"
     ]
     for consumer in active_steps:
+        if consumer.depends_on:
+            edges[consumer.step_id] = consumer.depends_on
+            continue
         producers: list[str] = []
         for producer in active_steps:
             if producer.step_id == consumer.step_id:
@@ -183,6 +301,10 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
         steps=tuple(compiled),
         external_inputs=tuple(str(item).rstrip("/") for item in document.get("external_inputs", [])),
         edges=edges,
+        profiles={
+            str(profile): tuple(str(step_id) for step_id in step_ids)
+            for profile, step_ids in (document.get("execution_profiles") or {}).items()
+        },
     )
     errors = pipeline.validate()
     if errors:
@@ -198,7 +320,7 @@ def resolve_callable(callable_spec: str) -> Callable[..., Any]:
     target = getattr(module, attribute)
     if not callable(target):
         raise TypeError(f"{callable_spec} is not callable")
-    return target
+    return cast(Callable[..., Any], target)
 
 
 def run_callable(step: CompiledStep, argv: list[str] | None = None) -> dict[str, Any]:
@@ -308,4 +430,75 @@ def render_sequence_yaml(pipeline: CompiledPipeline) -> str:
         "generated_from": "governance/daily_pipeline_registry.yaml",
         "steps": pipeline.sequence(),
     }
-    return yaml.safe_dump(document, sort_keys=False, allow_unicode=True)
+    return cast(str, yaml.safe_dump(document, sort_keys=False, allow_unicode=True))
+
+
+def validate_pipeline_docs(paths: WorkspacePaths, pipeline: CompiledPipeline) -> list[str]:
+    """Validate that human-facing pipeline docs preserve authority boundaries.
+
+    ``pipeline_schedule.md`` is intentionally a historical reference rather
+    than an executable schedule. This check prevents it, README, or the layout
+    map from silently becoming a second runtime authority or from describing
+    the retired submodule layout as the current checkout.
+    """
+
+    required: dict[str, tuple[str, ...]] = {
+        "README.md": (
+            "Repository Layout (monorepo workspace)",
+            "packages/orchestration/",
+        ),
+        "governance/repo_layout_map.md": (
+            "Current canonical workspace",
+            "Historical pre-consolidation layout",
+            "packages/orchestration/",
+            "entrypoint_registry.yaml",
+        ),
+        "governance/pipeline_schedule.md": (
+            "Historical Daily / Weekly / On-Demand Reference",
+            "Current executable authority:",
+            "governance/daily_pipeline_registry.yaml",
+            "governance/daily_run_sequence.yaml",
+        ),
+    }
+    errors: list[str] = []
+    for relative, markers in required.items():
+        path = paths.root / relative
+        if not path.exists():
+            errors.append(f"missing documentation: {relative}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in markers:
+            if marker not in text:
+                errors.append(f"{relative}: missing marker {marker!r}")
+
+    readme_path = paths.root / "README.md"
+    if readme_path.exists():
+        readme = readme_path.read_text(encoding="utf-8")
+        if "git clone --recurse-submodules" in readme:
+            errors.append("README.md: retired recursive-submodule clone command remains")
+        if ".gitmodules" not in readme:
+            errors.append("README.md: absence of .gitmodules is not stated")
+
+    schedule_path = paths.root / "governance/pipeline_schedule.md"
+    if schedule_path.exists():
+        schedule = schedule_path.read_text(encoding="utf-8")
+        if "not\n> current runtime authority" not in schedule:
+            errors.append("pipeline_schedule.md: historical non-authority boundary is missing")
+
+    if not (paths.root / ".gitmodules").exists() and any(
+        "git submodule" in (paths.root / relative).read_text(encoding="utf-8")
+        for relative in ("README.md",)
+        if (paths.root / relative).exists()
+    ):
+        # README may mention submodules only in the explicit absence statement;
+        # this branch catches an accidental operational instruction instead.
+        readme = readme_path.read_text(encoding="utf-8")
+        operational = ("submodule update", "--recurse-submodules")
+        if any(marker in readme for marker in operational):
+            errors.append("README.md: operational submodule instruction remains")
+
+    # Consume the compiled plan so the CLI reports a validator tied to the
+    # same active graph as execution, rather than merely linting prose.
+    if not pipeline.steps:
+        errors.append("compiled pipeline has no active steps")
+    return errors

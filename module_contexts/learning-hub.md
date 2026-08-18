@@ -16,8 +16,8 @@ modules must not embed learning sensors or write learning artifacts directly.
 
 ## Primary Paths
 
-- `system-learning-hub/` — canonical source (git submodule at workspace root)
-- `System Learning Hub/` — compatibility symlink
+- `packages/learning_hub/` — canonical source in the workspace monorepo
+- `System Learning Hub/` — compatibility symlink to `packages/learning_hub/`
 - `Data/system_learning/` — canonical ledgers and registries
 - `Output/system_learning/runtime/` — append-only runtime log (**Hub writes**)
 - `Output/system_learning/latest/` — derived reports (**Hub writes**)

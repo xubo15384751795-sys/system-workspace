@@ -1,0 +1,32 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-17-python-313-unification
+date: "2026-08-17"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Select Python 3.13 as the only supported runtime for the active System
+  workspace. The prior >=3.12,<3.14 declaration allowed local 3.14 drift and
+  CI's mixed 3.12/3.13 matrix did not describe the scheduled runtime. Python
+  3.13 is already present in CI and preserves the optional Great Expectations
+  compatibility boundary without starting a 3.14 migration.
+authority_changes:
+  - module: pyproject.toml and packages/*/pyproject.toml
+    claim: active workspace packages require >=3.13,<3.14
+  - module: .python-version and uv.lock
+    claim: local and locked resolution target Python 3.13
+  - module: .github/workflows/*.yml
+    claim: CI setup and matrices use Python 3.13 only
+  - module: scripts/resolve_system_python.sh and scheduled launchers
+    claim: default local/launchd execution resolves and validates Python 3.13
+references:
+  - tests/test_python_support_contract.py
+  - scripts/resolve_system_python.sh
+  - scripts/launchd/com.system.daily-run.plist
+  - README.md
+exceptions:
+  - ExternalTools/qlib_benchmark_runner remains an isolated benchmark project
+    with its own Python >=3.10 contract and is not a workspace member.
+non_goals:
+  - Upgrade the runtime to Python 3.14
+  - Reinstall or bootstrap launchd jobs during this change
+  - Change data, output artifacts, provider credentials, or model thresholds

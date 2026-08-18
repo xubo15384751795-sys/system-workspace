@@ -32,12 +32,12 @@ from workbench.judgment.layer import (
     write_dated_outputs,
 )
 
-from scripts._runtime_io import ROOT, load_json, utc_now, write_json
+from scripts._runtime_io import ROOT, load_json, surface_dir, utc_now, write_json
 
 ARCHIVE_FW = ROOT / "Output" / "archive" / "framework_output"
 ARCHIVE_CASELAB = ROOT / "Output" / "archive" / "caselab"
 CASELAB_DIR = ROOT / "Output" / "caselab"
-JUDGMENT_DIR = ROOT / "Output" / "judgment"
+JUDGMENT_DIR = surface_dir("judgment")
 RUNS_DIR = ROOT / "Output" / "runs"
 REPORT_PATH = ROOT / "Output" / "caselab_runtime" / "backfill_judgment_report.json"
 

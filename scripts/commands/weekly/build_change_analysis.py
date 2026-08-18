@@ -16,13 +16,16 @@ Outputs:
 from __future__ import annotations
 
 import json
+import logging
 import statistics
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts._runtime_io import ROOT, current_dir, load_json  # noqa: E402
+from scripts._runtime_io import ROOT, current_dir, load_json, surface_dir  # noqa: E402
 
-JUDGMENT_DIR = ROOT / "Output" / "judgment"
+logger = logging.getLogger(__name__)
+
+JUDGMENT_DIR = surface_dir("judgment")
 CASELAB_DIR = ROOT / "Output" / "caselab"
 CURRENT_DIR = current_dir()
 LOOKBACK_DAYS = 7
@@ -268,13 +271,13 @@ def build_change_analysis() -> dict:
                     m_str = line.split("M=")[1].split(" and")[0].split(";")[0].split(",")[0]
                     m_val = float(m_str)
                 except (ValueError, IndexError):
-                    pass
+                    logger.debug("Unable to parse M value from historical line", exc_info=True)
             if "D=" in line:
                 try:
                     d_str = line.split("D=")[1].split(";")[0].split(",")[0]
                     d_val = float(d_str)
                 except (ValueError, IndexError):
-                    pass
+                    logger.debug("Unable to parse D value from historical line", exc_info=True)
 
         sigma_history.append((date, {"M": m_val, "D": d_val}))
 

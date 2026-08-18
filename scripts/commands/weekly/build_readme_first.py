@@ -18,12 +18,23 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, surface_dir
 
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 FRAMEWORK_OUTPUT_PATH = current_dir() / "framework_output.json"
-EVIDENCE_REPORT_PATH = ROOT / "Output" / "current" / "evidence_grade_report.json"
-OUTPUT_PATH = ROOT / "Output" / "current" / "00_READ_ME_FIRST.md"
+EVIDENCE_REPORT_PATH = surface_dir("current") / "evidence_grade_report.json"
+OUTPUT_PATH = surface_dir("current") / "00_READ_ME_FIRST.md"
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    """Return a mapping for optional/failed-run sections.
+
+    Failed or degraded runs may materialize a section as JSON ``null`` while
+    the README builder still needs to produce an honest diagnostic readout.
+    Treating those sections as empty mappings keeps this non-authoritative
+    presentation step from becoming a new root failure.
+    """
+    return value if isinstance(value, dict) else {}
 
 
 def build_readme_from_index(
@@ -33,13 +44,14 @@ def build_readme_from_index(
 ) -> str:
     """Build README from System Index."""
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    date = index.get("generated_at", now)[:10]
+    generated_at = index.get("generated_at") or now
+    date = str(generated_at)[:10]
 
     # Output source and quality from framework_output.json
-    fw = framework_output or {}
+    fw = _mapping(framework_output)
     run_id = fw.get("run_id", "unknown")
     source = fw.get("source")
-    quality_status = (fw.get("basic") or {}).get("quality_status", "N/A")
+    quality_status = _mapping(fw.get("basic")).get("quality_status", "N/A")
     if source == "structural_replay_v2" or run_id.startswith("replay_bridge"):
         output_source = f"structural_replay_v2 bridge ({run_id})"
     elif run_id.startswith("deformation"):
@@ -48,38 +60,39 @@ def build_readme_from_index(
         output_source = run_id
 
     # Extract key sections
-    measurement = index.get("measurement_state", {})
-    judgment = measurement.get("judgment", {}).get("summary", {})
-    promotion_gate = measurement.get("promotion_gate", {}).get("summary", {})
-    signals = measurement.get("signals", {})
-    hmm = signals.get("hmm", {}).get("summary", {})
-    k_gate = signals.get("k_gate", {}).get("summary", {})
-    x_gate = signals.get("x_gate", {}).get("summary", {})
+    measurement = _mapping(index.get("measurement_state"))
+    judgment = _mapping(_mapping(measurement.get("judgment")).get("summary"))
+    promotion_gate = _mapping(_mapping(measurement.get("promotion_gate")).get("summary"))
+    signals = _mapping(measurement.get("signals"))
+    hmm = _mapping(_mapping(signals.get("hmm")).get("summary"))
+    k_gate = _mapping(_mapping(signals.get("k_gate")).get("summary"))
+    x_gate = _mapping(_mapping(signals.get("x_gate")).get("summary"))
 
-    trade_decision = index.get("trade_decision", {}).get("summary", {})
-    risk_gate = index.get("risk_gate", {}).get("summary", {})
+    trade_decision = _mapping(_mapping(index.get("trade_decision")).get("summary"))
+    risk_gate = _mapping(_mapping(index.get("risk_gate")).get("summary"))
 
-    paper = index.get("paper_world_model", {})
-    horizon = index.get("horizon_events", {})
-    prob_context = measurement.get("probabilistic_context", {})
-    market_feedback = index.get("market_feedback", {}).get("latest", {})
+    paper = _mapping(index.get("paper_world_model"))
+    horizon = _mapping(index.get("horizon_events"))
+    prob_context = _mapping(measurement.get("probabilistic_context"))
+    market_feedback = _mapping(_mapping(index.get("market_feedback")).get("latest"))
 
     # Determine availability
-    paper_available = paper.get("cases", {}).get("exists", False)
-    horizon_available = horizon.get("events", {}).get("exists", False)
+    paper_available = _mapping(paper.get("cases")).get("exists", False)
+    horizon_available = _mapping(horizon.get("events")).get("exists", False)
     prob_available = prob_context.get("exists", False) if isinstance(prob_context, dict) else False
     feedback_available = market_feedback.get("exists", False)
 
     # Freshness - FAIL must name the failing items, never a bare FAIL (WB-A3).
-    freshness = index.get("freshness", {})
+    freshness = _mapping(index.get("freshness"))
     freshness_verdict = freshness.get("verdict", "UNKNOWN")
-    stale_artifacts = freshness.get("stale_artifacts", [])
+    stale_artifacts_raw = freshness.get("stale_artifacts", [])
+    stale_artifacts = stale_artifacts_raw if isinstance(stale_artifacts_raw, list) else []
     if freshness_verdict == "FAIL" and stale_artifacts:
         freshness_display = f"FAIL ({', '.join(stale_artifacts)})"
     else:
         freshness_display = freshness_verdict
 
-    report = evidence_report or {}
+    report = _mapping(evidence_report)
     structural_grade = report.get("grade", trade_decision.get("evidence_grade", "N/A") if trade_decision else "N/A")
     trade_grade = report.get("trade_decision_grade", trade_decision.get("evidence_grade", "N/A") if trade_decision else "N/A")
     grade_match = report.get("grade_match")
@@ -88,7 +101,8 @@ def build_readme_from_index(
         grade_note = " (structural vs trade differ — see evidence_grade_report.json)"
 
     # Check if HMM regime is forbidden
-    forbidden = promotion_gate.get("forbidden_language", [])
+    forbidden_raw = promotion_gate.get("forbidden_language", [])
+    forbidden = forbidden_raw if isinstance(forbidden_raw, list) else []
     hmm_regime = hmm.get("current_regime", "N/A")
     if hmm_regime.lower() in [f.lower() for f in forbidden]:
         hmm_display = "withheld (diagnostic-only)"
@@ -97,11 +111,12 @@ def build_readme_from_index(
 
     # Position intent - now derived from trade_decision.v3 in build_system_index
     # (stance x effective_size x velocity_gate_state). Single decision dialect.
-    position = index.get("position", {}).get("summary", {})
+    position = _mapping(_mapping(index.get("position")).get("summary"))
     position_decision = position.get("decision", "N/A")
     position_action = position.get("portfolio_action", "N/A")
     position_mode = position.get("allowed_mode", "N/A")
-    position_blockers = position.get("blockers", [])
+    position_blockers_raw = position.get("blockers", [])
+    position_blockers = position_blockers_raw if isinstance(position_blockers_raw, list) else []
     # Target weight comes from the derived effective_size (was hardcoded 0%).
     target_weight = position.get("target_weight")
     if target_weight is None:
@@ -132,8 +147,8 @@ def build_readme_from_index(
     # What would change the decision (invalidation conditions in plain words)
     invalidation_plain = []
     # Read invalidation from the trade_decision v3 file directly for plain mapping
-    td_path = ROOT / "Output" / "trade_decision" / "latest.json"
-    td_data = load_json(td_path) if td_path.exists() else {}
+    td_path = surface_dir("trade_decision") / "latest.json"
+    td_data = _mapping(load_json(td_path)) if td_path.exists() else {}
     for inv in td_data.get("invalidation", []):
         plain = {
             "Data freshness > 48h": "data falls more than 2 days behind",
@@ -242,7 +257,8 @@ def build_readme_from_index(
         lines.append(f"- {item}")
 
     # Forbidden language
-    forbidden = promotion_gate.get("forbidden_language", [])
+    forbidden_raw = promotion_gate.get("forbidden_language", [])
+    forbidden = forbidden_raw if isinstance(forbidden_raw, list) else []
     if forbidden:
         lines += [
             "",

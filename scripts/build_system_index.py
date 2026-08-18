@@ -22,9 +22,9 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, output_root_dir
 
-OUTPUT_DIR = ROOT / "Output"
+OUTPUT_DIR = output_root_dir()
 DATA_DIR = ROOT / "Data"
 INDEX_DIR = DATA_DIR / "system_index"
 INDEX_PATH = INDEX_DIR / "latest.json"

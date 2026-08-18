@@ -16,25 +16,85 @@ from __future__ import annotations
 import json
 import logging
 import os
-import urllib.error
-import urllib.request
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
+
+from system_runtime.external_http import (
+    ExternalEndpointSpec,
+    ExternalGatewayError,
+    OwnedExternalHTTPGateway,
+    redact_sink_text,
+)
 
 logger = logging.getLogger(__name__)
 
 _SENTRY_INITIALIZED = False
+_DATADOG_SITES = frozenset(
+    {
+        "datadoghq.com",
+        "datadoghq.eu",
+        "us3.datadoghq.com",
+        "us5.datadoghq.com",
+        "ap1.datadoghq.com",
+        "ddog-gov.com",
+    }
+)
+_SENSITIVE_TAG_NAMES = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "authorization",
+        "dsn",
+        "password",
+        "secret",
+        "token",
+    }
+)
+_ALLOWED_ATTRIBUTE_NAMES = frozenset(
+    {
+        "event_type",
+        "generation",
+        "generation_id",
+        "release",
+        "release_id",
+        "run",
+        "run_id",
+        "service",
+        "severity",
+        "source",
+        "status",
+        "step",
+    }
+)
 
 
 def _disabled() -> bool:
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return True
-    return os.environ.get("OBSERVABILITY_DISABLE", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    disabled_values = {"1", "true", "yes", "on"}
+    return any(
+        os.environ.get(name, "").strip().lower() in disabled_values
+        for name in ("OBSERVABILITY_DISABLE", "NOTIFY_DISABLE")
+    )
+
+
+def _sanitize_tags(tags: dict[str, str] | None) -> dict[str, str]:
+    """Keep only bounded, non-sensitive operational attributes."""
+    safe: dict[str, str] = {}
+    for raw_key, raw_value in (tags or {}).items():
+        key = str(raw_key).casefold().replace("-", "_")
+        if key not in _ALLOWED_ATTRIBUTE_NAMES or key in _SENSITIVE_TAG_NAMES:
+            continue
+        if not isinstance(raw_value, (str, int, float, bool)):
+            continue
+        value = redact_sink_text(raw_value).strip()
+        if not value or len(value) > 128:
+            continue
+        if value.lstrip().startswith(("{", "[")):
+            continue
+        safe[key] = value
+    return safe
 
 
 def init_sentry() -> bool:
@@ -61,6 +121,7 @@ def init_sentry() -> bool:
 
 
 def capture_exception(exc: BaseException) -> None:
+    """Capture a sanitized exception representation without raw credentials."""
     if _disabled():
         return
     if not init_sentry():
@@ -68,9 +129,12 @@ def capture_exception(exc: BaseException) -> None:
     try:
         import sentry_sdk
 
-        sentry_sdk.capture_exception(exc)
-    except Exception:  # noqa: BLE001
-        logger.debug("sentry capture_exception failed", exc_info=True)
+        safe_exception = RuntimeError(
+            f"{type(exc).__name__}: {redact_sink_text(exc)}"
+        )
+        sentry_sdk.capture_exception(safe_exception)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("sentry capture_exception failed: %s", type(exc).__name__)
 
 
 def capture_message(message: str, *, level: str = "error", tags: dict[str, str] | None = None) -> None:
@@ -82,11 +146,11 @@ def capture_message(message: str, *, level: str = "error", tags: dict[str, str] 
         import sentry_sdk
 
         with sentry_sdk.push_scope() as scope:
-            for key, value in (tags or {}).items():
+            for key, value in _sanitize_tags(tags).items():
                 scope.set_tag(key, value)
-            sentry_sdk.capture_message(message, level=level)
-    except Exception:  # noqa: BLE001
-        logger.debug("sentry capture_message failed", exc_info=True)
+            sentry_sdk.capture_message(redact_sink_text(message), level=level)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("sentry capture_message failed: %s", type(exc).__name__)
 
 
 def _datadog_event(title: str, text: str, *, alert_type: str = "error", tags: list[str] | None = None) -> bool:
@@ -94,6 +158,9 @@ def _datadog_event(title: str, text: str, *, alert_type: str = "error", tags: li
     if not api_key:
         return False
     site = os.environ.get("DD_SITE", "datadoghq.com").strip() or "datadoghq.com"
+    if site not in _DATADOG_SITES:
+        logger.warning("datadog event skipped: invalid site configuration")
+        return False
     service = os.environ.get("DD_SERVICE", "structural-risk-workbench")
     url = f"https://api.{site}/api/v1/events"
     payload = {
@@ -104,20 +171,26 @@ def _datadog_event(title: str, text: str, *, alert_type: str = "error", tags: li
         "date_happened": int(datetime.now(UTC).timestamp()),
         "tags": [f"service:{service}", *(tags or [])],
     }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "DD-API-KEY": api_key,
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return 200 <= resp.status < 300
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        logger.debug("datadog event failed: %s", exc)
+        host = urlparse(url).hostname or ""
+        endpoint = ExternalEndpointSpec(
+            endpoint_id="datadog_events",
+            url=url,
+            allowed_hosts=frozenset({host}),
+        )
+        with OwnedExternalHTTPGateway({"datadog_events": endpoint}) as gateway:
+            response = gateway.post(
+                "datadog_events",
+                json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "DD-API-KEY": api_key,
+                },
+                timeout_sec=5,
+            )
+            return 200 <= response.status_code < 300
+    except (ExternalGatewayError, ValueError) as exc:
+        logger.warning("datadog event failed: %s", type(exc).__name__)
         return False
 
 
@@ -136,12 +209,19 @@ def emit_alert(
     if _disabled():
         return result
 
+    safe_title = redact_sink_text(title)
+    safe_message = redact_sink_text(message)
+    safe_tags = _sanitize_tags(tags)
     level = "warning" if severity in {"warn", "warning"} else "error"
-    tag_pairs = tags or {}
-    capture_message(f"{title}: {message}", level=level, tags=tag_pairs)
+    capture_message(f"{safe_title}: {safe_message}", level=level, tags=safe_tags)
     result["sentry"] = bool(os.environ.get("SENTRY_DSN", "").strip()) and init_sentry()
 
-    dd_tags = [f"{k}:{v}" for k, v in tag_pairs.items()]
+    dd_tags = [f"{k}:{v}" for k, v in safe_tags.items()]
     alert_type = "warning" if level == "warning" else "error"
-    result["datadog"] = _datadog_event(title, message, alert_type=alert_type, tags=dd_tags)
+    result["datadog"] = _datadog_event(
+        safe_title,
+        safe_message,
+        alert_type=alert_type,
+        tags=dd_tags,
+    )
     return result

@@ -20,17 +20,17 @@ The binding decision is
 
 ## Primary Paths
 
-- `deformation-framework/src/core/`
-- `deformation-framework/src/derivation/`
-- `deformation-framework/src/dynamics/`
-- `deformation-framework/src/operators/`
-- `deformation-framework/src/diagnostics/`
-- `deformation-framework/src/interpretation/`
-- `deformation-framework/src/claims/`
-- `deformation-framework/src/data_access/`
-- `deformation-framework/tests/`
-- `deformation-framework/wiki/`
-- `deformation-framework/papers/`
+- `packages/framework/src/core/`
+- `packages/framework/src/derivation/`
+- `packages/framework/src/dynamics/`
+- `packages/framework/src/operators/`
+- `packages/framework/src/diagnostics/`
+- `packages/framework/src/interpretation/`
+- `packages/framework/src/claims/`
+- `packages/framework/src/data_access/`
+- `packages/framework/tests/`
+- `packages/framework/wiki/`
+- `packages/framework/papers/`
 
 ## Reads
 

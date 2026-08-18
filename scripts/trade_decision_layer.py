@@ -45,19 +45,20 @@ from scripts._runtime_io import (
     ensure_dir,
     load_json,
     load_jsonl,
+    surface_dir,
     utc_now,
     write_json,
 )
 from system_runtime.credit_assignment import build_trade_learning_trace
 
-JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
-PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
+JUDGMENT_PATH = surface_dir("judgment") / "latest.json"
+PROMOTION_GATE_PATH = surface_dir("judgment") / "promotion_gate.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 PAPER_WORLD_MODEL_DIR = ROOT / "Data" / "paper_world_model"
-OUTPUT_DIR = ROOT / "Output" / "trade_decision"
+OUTPUT_DIR = surface_dir("trade_decision")
 PAPER_SUPPORT_REGISTRY = ROOT / "governance" / "paper_support_registry.yaml"
 
 
@@ -217,7 +218,7 @@ def _resolve_velocity_gate_state() -> dict[str, Any]:
 
 def _load_sigma_vector() -> dict[str, Any] | None:
     """Load compatibility gauge vector from the neutral pressure snapshot."""
-    fw = load_json(ROOT / "Output" / "current" / "neutral_pressure_snapshot.json")
+    fw = load_json(surface_dir("current") / "neutral_pressure_snapshot.json")
     if not isinstance(fw, dict):
         return None
     adv = fw.get("advanced") or {}

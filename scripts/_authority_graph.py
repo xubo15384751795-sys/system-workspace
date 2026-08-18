@@ -14,13 +14,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ensure_dir  # noqa: E402
+from scripts._runtime_io import ROOT as WORKSPACE_ROOT  # noqa: E402
+from scripts._runtime_io import ensure_dir
 from scripts._runtime_io import load_yaml as _load_yaml
+from system_runtime.paths import WorkspacePaths, output_surface
+from system_runtime.pipeline import load_pipeline
 
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "authority_graph.v1"
 DEFAULT_OUTPUT = "Output/system_learning/latest/authority_graph.json"
+
+
+def _surface(root: Path, name: str) -> Path:
+    return output_surface(root, name) if root == WORKSPACE_ROOT else root / "Output" / name
 
 
 def _normalize_path(path: str) -> str:
@@ -60,11 +67,42 @@ def _core_chain_prefixes(root: Path, policy: dict[str, Any]) -> tuple[list[str],
     return authorized + canonical_data, prohibited
 
 
-def _is_core_chain_path(path: str, core_prefixes: list[str], prohibited_prefixes: list[str]) -> bool:
+def _is_core_chain_path(
+    path: str,
+    core_prefixes: list[str],
+    prohibited_prefixes: list[str],
+    non_authoritative_prefixes: list[str] | tuple[str, ...] = (),
+) -> bool:
     normalized = _normalize_path(path)
     if any(normalized.startswith(prefix) for prefix in prohibited_prefixes):
         return False
+    if any(
+        normalized == prefix or normalized.startswith(prefix + "/")
+        for prefix in non_authoritative_prefixes
+    ):
+        return False
     return any(normalized.startswith(prefix) for prefix in core_prefixes)
+
+
+def _non_authoritative_output_prefixes(root: Path) -> list[str]:
+    """Return validation outputs that governance explicitly keeps review-only.
+
+    ``system_constitution.yaml`` intentionally authorizes the broad
+    ``Output/quality/`` chain because some quality gates are promotion inputs.
+    The ML validation policy is narrower: an individual validation artifact
+    such as the as-of report may live under that chain while remaining
+    non-authoritative.  The graph must preserve that more specific policy
+    instead of treating its directory as sufficient authority.
+    """
+    policy = _load_yaml(root / "governance" / "ml_validation_policy.yaml")
+    outputs = policy.get("validation_outputs", []) or []
+    return [
+        _normalize_path(str(item.get("path", "")))
+        for item in outputs
+        if isinstance(item, dict)
+        and item.get("path")
+        and item.get("can_affect_core_judgment") is False
+    ]
 
 
 def _is_surface_path(path: str, surface_prefixes: list[str]) -> bool:
@@ -237,9 +275,25 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
     policy = _load_yaml(root / "governance" / "authority_graph_policy.yaml")
     routing = _load_yaml(root / "governance" / "output_routing_policy.yaml")
 
+    compiled_plan: dict[str, Any]
+    try:
+        plan = load_pipeline(WorkspacePaths(root=root))
+        compiled_plan = {
+            "available": True,
+            "plan_digest": plan.plan_digest,
+            "edges": {key: list(value) for key, value in sorted(plan.edges.items())},
+            "profiles": {key: list(value) for key, value in sorted(plan.profiles.items())},
+        }
+    except Exception as exc:  # noqa: BLE001 — display-only graph remains inspectable for legacy fixtures
+        compiled_plan = {
+            "available": False,
+            "error": type(exc).__name__,
+        }
+
     bridge_nodes = list(policy.get("bridge_nodes", ["bridge"]))
     surface_prefixes = [_normalize_path(p) for p in policy.get("surface_path_prefixes", ["Output/current/"])]
     core_prefixes, prohibited_prefixes = _core_chain_prefixes(root, policy)
+    non_authoritative_prefixes = _non_authoritative_output_prefixes(root)
 
     steps: dict[str, dict[str, Any]] = pipeline.get("steps", {}) or {}
     nodes: dict[str, dict[str, Any]] = {}
@@ -280,7 +334,9 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
                     "kind": "artifact",
                     "zone": _zone_for_artifact(path, policy, routing),
                     "path": path,
-                    "in_core_chain": _is_core_chain_path(path, core_prefixes, prohibited_prefixes),
+                    "in_core_chain": _is_core_chain_path(
+                        path, core_prefixes, prohibited_prefixes, non_authoritative_prefixes
+                    ),
                     "in_surface": _is_surface_path(path, surface_prefixes),
                 }
             edges.append({"from": step_id, "to": artifact, "kind": "produces"})
@@ -296,7 +352,9 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
                     "kind": "artifact",
                     "zone": _zone_for_artifact(consumed, policy, routing),
                     "path": consumed,
-                    "in_core_chain": _is_core_chain_path(consumed, core_prefixes, prohibited_prefixes),
+                    "in_core_chain": _is_core_chain_path(
+                        consumed, core_prefixes, prohibited_prefixes, non_authoritative_prefixes
+                    ),
                     "in_surface": _is_surface_path(consumed, surface_prefixes),
                 }
             edges.append({"from": artifact, "to": step_id, "kind": "consumes"})
@@ -332,7 +390,8 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
             continue
         produces = node.get("produces", [])
         derived_core = any(
-            _is_core_chain_path(path, core_prefixes, prohibited_prefixes) for path in produces
+            _is_core_chain_path(path, core_prefixes, prohibited_prefixes, non_authoritative_prefixes)
+            for path in produces
         )
         reaches_surface = any(_is_surface_path(path, surface_prefixes) for path in produces)
 
@@ -410,11 +469,14 @@ def build_authority_graph(root: Path) -> dict[str, Any]:
 
     return {
         "schema_version": SCHEMA_VERSION,
+        "plan_digest": compiled_plan.get("plan_digest"),
+        "compiled_plan": compiled_plan,
         "generated_at": datetime.now(UTC).isoformat(),
         "sources": [
             "governance/daily_pipeline_registry.yaml",
             "governance/authority_graph_policy.yaml",
             "governance/output_routing_policy.yaml",
+            "governance/ml_validation_policy.yaml",
             "governance/system_constitution.yaml",
         ],
         "core_chain_prefixes": core_prefixes,
@@ -543,7 +605,7 @@ def _runtime_blocking_reasons(
 
 
 def completed_steps_from_run(root: Path) -> set[str]:
-    pointer = root / "Output" / "current" / "latest_run_id.txt"
+    pointer = _surface(root, "current") / "latest_run_id.txt"
     if not pointer.exists():
         return set()
     run_id = pointer.read_text(encoding="utf-8").strip()

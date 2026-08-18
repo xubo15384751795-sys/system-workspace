@@ -33,7 +33,7 @@
     <key>PYTHONPATH</key>
     <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>PYTHON</key>
-    <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+    <string>__SYSTEM_PYTHON__</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

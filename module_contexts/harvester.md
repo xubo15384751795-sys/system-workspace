@@ -15,14 +15,14 @@ turns provider data into admitted evidence with provenance.
 
 ## Primary Paths
 
-- `structural-risk-harvester/` — canonical source (git submodule at workspace root)
-- `Structural Risk Harvester/` — compatibility symlink to the path above
+- `packages/harvester/` — canonical source in the workspace monorepo
+- `Structural Risk Harvester/` — compatibility symlink to `packages/harvester/`
 - `Data/harvester/exports/`
 - `configs/freshness_policy.yaml`
 - Harvester tests inside the provider repo
 
-The harvester is a **sibling repository**, not under `Workbench/data_providers/`.
-That nested path appears in older docs only.
+The harvester is a workspace member, not a nested provider under Workbench.
+The former sibling/submodule paths appear in older migration records only.
 
 ## Reads
 

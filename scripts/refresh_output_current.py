@@ -8,47 +8,16 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 import time
 from datetime import UTC, datetime
-from pathlib import Path
-
-# Ensure workspace + orchestration package are importable for ./sys refresh.
-_ROOT_BOOT = Path(__file__).resolve().parents[1]
-for _p in (str(_ROOT_BOOT), str(_ROOT_BOOT / "scripts"), str(_ROOT_BOOT / "packages" / "orchestration")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
 from scripts._admission_gate import AdmissionDecision, admit_for_consumption
-from scripts._constants import TIMEOUT_STANDARD
-from scripts._runtime_io import ROOT
+from scripts._pipeline_runner import list_profile_steps, run_registry_step
+from scripts._runtime_io import surface_dir
 
-CURRENT = ROOT / "Output" / "current"
-JUDGMENT = ROOT / "Output" / "judgment"
-
-
-def run_step(name: str, cmd: list[str]) -> dict:
-    """Run a subprocess and capture result."""
-    start = time.time()
-    try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIMEOUT_STANDARD,
-            cwd=str(ROOT),
-        )
-        duration = time.time() - start
-        return {
-            "step": name,
-            "status": "success" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "duration_s": round(duration, 1),
-            "stdout_tail": result.stdout[-300:] if result.stdout else "",
-            "stderr_tail": result.stderr[-300:] if result.stderr else "",
-        }
-    except subprocess.TimeoutExpired:
-        return {"step": name, "status": "timeout", "duration_s": 120}
-    except Exception as e:
-        return {"step": name, "status": "error", "error": str(e), "duration_s": 0}
+CURRENT = surface_dir("current")
+JUDGMENT = surface_dir("judgment")
 
 
 def run_refresh_admission() -> dict:
@@ -79,7 +48,8 @@ def _legacy_main(args: argparse.Namespace) -> int:
     start_time = datetime.now(UTC)
     steps: list[dict] = []
     skip_measurement = args.skip_measurement or args.skip_bridge
-    total = 19
+    profile_steps = list_profile_steps("refresh_current")
+    total = len(profile_steps) + 1
     step_no = 1
 
     print(f"[{step_no}/{total}] Checking pre-consumption admission...")
@@ -91,62 +61,23 @@ def _legacy_main(args: argparse.Namespace) -> int:
         print("\nRefresh blocked before any producer or descendant was executed.")
         return 1
 
-    def _run(label: str, script: str, *extra_args: str) -> bool:
+    def _run(step_id: str) -> bool:
         nonlocal step_no
-        print(f"[{step_no}/{total}] {label}...")
-        result = run_step(
-            label,
-            [sys.executable, str(ROOT / "scripts" / script), *extra_args],
-        )
+        print(f"[{step_no}/{total}] {step_id}...")
+        result = run_registry_step(step_id)
         steps.append(result)
         step_no += 1
         return result["status"] == "success"
 
-    if not skip_measurement:
-        if not _run("neutral_pressure_measurement", "neutral_pressure_measurement.py"):
+    for step_id in profile_steps:
+        if step_id == "neutral_pressure_measurement" and skip_measurement:
+            print(f"[{step_no}/{total}] Skipping neutral measurement")
+            step_no += 1
+            continue
+        if not _run(step_id):
             _print_summary(steps, start_time)
+            print(f"\nRefresh stopped after blocking step: {step_id}.")
             return 1
-    else:
-        print(f"[{step_no}/{total}] Skipping neutral measurement")
-        step_no += 1
-
-    producer_steps = [
-        ("quality_validation", "quality_field_validator.py"),
-        ("measurement_quality", "commands/weekly/build_measurement_quality_report.py"),
-        ("judgment_layer", "judgment_layer.py"),
-        ("promotion_gate", "judgment_promotion_gate.py"),
-        ("trade_decision", "trade_decision_layer.py"),
-        ("signal_card", "build_signal_card.py"),
-        ("signal_consensus", "signal_consensus.py"),
-        ("current_status", "build_current_status.py"),
-        ("system_index", "build_system_index.py"),
-        ("work_brief", "build_work_brief.py"),
-        ("next_actions", "commands/weekly/build_next_actions.py"),
-        ("improvement_queue_report", "refresh_improvement_queue_report.py"),
-        ("freshness_validator", "freshness_validator.py"),
-        ("evidence_grade", "commands/weekly/build_evidence_grade_report.py"),
-        ("artifact_registry", "commands/weekly/build_artifact_registry.py"),
-    ]
-    for label, script in producer_steps:
-        if not _run(label, script):
-            _print_summary(steps, start_time)
-            print(f"\nRefresh stopped after blocking step: {label}.")
-            return 1
-
-    print(f"[{step_no}/{total}] Recording run event...")
-    run_event = run_step(
-        "run_event",
-        [sys.executable, str(ROOT / "scripts" / "record_daily_run_event.py"), "--skip-if-unchanged"],
-    )
-    steps.append(run_event)
-    step_no += 1
-    if run_event["status"] != "success":
-        _print_summary(steps, start_time)
-        print("\nRefresh stopped after blocking step: run_event.")
-        return 1
-    if not _run("readme_first", "commands/weekly/build_readme_first.py"):
-        _print_summary(steps, start_time)
-        return 1
 
     _print_summary(steps, start_time)
     required = [
@@ -164,7 +95,7 @@ def _legacy_main(args: argparse.Namespace) -> int:
         CURRENT / "NEXT_ACTIONS.md",
         CURRENT / "evidence_grade_report.json",
         CURRENT / "artifact_registry.json",
-        ROOT / "Output" / "quality" / "freshness_report.json",
+        surface_dir("quality") / "freshness_report.json",
         JUDGMENT / "latest.json",
         JUDGMENT / "latest.md",
         JUDGMENT / "promotion_gate.json",
@@ -199,11 +130,18 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         dagster_ok = False
 
-    if legacy or not dagster_ok:
+    if legacy:
         if args.dry_run:
-            print("DRY RUN — legacy refresh chain" + ("" if legacy else " (dagster not installed)"))
+            print("DRY RUN — legacy refresh chain (explicit emergency flag)")
             return 0
         return _legacy_main(args)
+    if not dagster_ok:
+        print(
+            "Dagster is unavailable; refresh default path is fail-closed. "
+            "Use SYSTEM_USE_LEGACY_DAILY_RUN=1 only for an explicit emergency run.",
+            file=sys.stderr,
+        )
+        return 78
 
     # Prefer orchestration.cli when SYSTEM_ORCHESTRATOR=dagster (aligned with launchd).
     if os.environ.get("SYSTEM_ORCHESTRATOR", "").strip().lower() == "dagster":

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Refresh cross-asset daily panel with latest market data.
+"""Mirror the accepted Harvester cross-asset daily panel.
 
 Updates the writable workspace mirror at
 `Data/panels/cross_asset_daily_panel.parquet`. Finalized Harvester releases
 under `Data/harvester/exports/latest/` are read-only; consumers resolve the
 fresher of mirror vs canonical via `_data_paths.resolve_cross_asset_panel_path`
 (and k_gate's matching helper). A complete Harvester
-`stage_complete_release` refreshes the immutable canonical copy.
+`stage_complete_release` writes the immutable canonical release; this consumer
+never mutates that release.
 
 Usage:
     python3 scripts/refresh_cross_asset_panel.py
     python3 scripts/refresh_cross_asset_panel.py --days 30
+
+--days is retained for command compatibility; it no longer causes a
+second provider request.
 
 Output:
     Data/panels/cross_asset_daily_panel.parquet
@@ -18,6 +22,9 @@ Output:
 from __future__ import annotations
 
 import argparse
+import json
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -26,6 +33,7 @@ from scripts._runtime_io import ROOT
 
 PANEL_PATH = ROOT / "Data" / "panels" / "cross_asset_daily_panel.parquet"
 HARVESTER_PANEL_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "cross_asset_daily_panel.parquet"
+HARVESTER_EXPORTS_ROOT = ROOT / "Data" / "harvester" / "exports"
 
 
 def _panel_max_date(path: Path) -> pd.Timestamp | None:
@@ -37,18 +45,90 @@ def _panel_max_date(path: Path) -> pd.Timestamp | None:
     return pd.to_datetime(frame["date"]).max()
 
 
-def _harvester_build(*, fetch_period: str) -> pd.DataFrame:
+def _same_day_candidate_outcome() -> dict[str, object] | None:
+    """Read the current day's staged/failure evidence, never its data bytes."""
+    prefix = datetime.now(UTC).strftime("%Y-%m-%d-r")
+    candidates: list[Path] = []
+    if HARVESTER_EXPORTS_ROOT.is_dir():
+        for release_dir in HARVESTER_EXPORTS_ROOT.iterdir():
+            if not release_dir.is_dir() or not release_dir.name.startswith(prefix):
+                continue
+            if (release_dir / ".finalized").exists():
+                continue
+            manifest = release_dir / "manifests" / "cross_asset_daily_panel.manifest.json"
+            if manifest.is_file():
+                candidates.append(manifest)
+    for manifest in sorted(candidates, key=lambda path: path.stat().st_mtime, reverse=True):
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        outcome = payload.get("provider_outcome")
+        if isinstance(outcome, dict):
+            return dict(outcome)
+
+    # A failure can occur before the cross-asset manifest is emitted.  Keep
+    # the fallback state explicit so the consumer never presents an old panel
+    # as a fresh success.
+    failure_dir = HARVESTER_EXPORTS_ROOT / ".failures"
+    failures = sorted(
+        failure_dir.glob(f"{prefix}*.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    ) if failure_dir.is_dir() else []
+    if failures:
+        return {
+            "status": "reused_after_provider_failure",
+            "provider": "harvester.release",
+            "requested_count": 0,
+            "succeeded_count": 0,
+            "failed_count": 0,
+            "failed_series": [],
+            "fallback_reason": "same_day_harvester_release_failed",
+            "error": failures[0].name,
+        }
+    return None
+
+
+def _harvester_build(*, fetch_period: str) -> tuple[pd.DataFrame, dict[str, object]]:
+    # ``fetch_period`` remains a compatibility argument for callers and CLI
+    # scripts.  Acquisition is owned by the preceding Harvester release step;
+    # this function intentionally performs no provider/network call.
     from harvester.cross_asset_panel import (  # noqa: I001
-        build_cross_asset_panel,
+        load_latest_release_panel,
         sync_panel_to_workspace,
     )
 
-    panel = build_cross_asset_panel(workspace=ROOT, fetch_period=fetch_period)
+    del fetch_period
+    panel, outcome = load_latest_release_panel(workspace=ROOT)
+    candidate_outcome = _same_day_candidate_outcome()
+    if candidate_outcome is not None:
+        outcome = dict(candidate_outcome)
+        # A staged-but-unfinalized release is not an accepted source.  Even if
+        # its provider call succeeded, this step must not label the previous
+        # finalized bytes as fresh.
+        if outcome.get("status") in {"refreshed", "accepted", "finalized"}:
+            outcome["source_status"] = outcome.get("status")
+            outcome["status"] = "reused_after_provider_failure"
+            outcome["fallback_reason"] = "same_day_release_not_finalized"
+    if not panel.empty and "date" in panel.columns:
+        latest = pd.to_datetime(panel["date"], errors="coerce").max()
+        if pd.notna(latest):
+            try:
+                grace_days = max(
+                    0,
+                    int(os.environ.get("ETF_PANEL_CACHE_GRACE_DAYS", "3")),
+                )
+            except ValueError:
+                grace_days = 3
+            age_days = (datetime.now(UTC).date() - latest.date()).days
+            outcome["cache_age_days"] = age_days
+            outcome["cache_within_grace"] = age_days <= grace_days
     sync_panel_to_workspace(panel, ROOT)
-    return panel
+    return panel, outcome
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--days", type=int, default=5, help="Days to fetch from yfinance")
     args = parser.parse_args()
@@ -56,7 +136,8 @@ def main() -> None:
     prior_max = _panel_max_date(PANEL_PATH) or _panel_max_date(HARVESTER_PANEL_PATH)
     period = f"{args.days}d"
     print(f"Refreshing cross-asset panel via Harvester builder ({period})...")
-    merged = _harvester_build(fetch_period=period)
+    merged, provider_outcome = _harvester_build(fetch_period=period)
+    print(f"Provider outcome: {provider_outcome}")
 
     if merged.empty:
         raise SystemExit("No panel data produced")
@@ -79,6 +160,23 @@ def main() -> None:
             "check yfinance rate limits / fetch errors"
         )
 
+    status = str(provider_outcome.get("status", "unknown"))
+    degraded = status not in {"refreshed", "accepted", "finalized"}
+    if degraded:
+        print(f"Provider outcome is degraded: {status}")
+    print(
+        "SYSTEM_STEP_OUTCOME="
+        + json.dumps(
+            {
+                "status": "degraded" if degraded else "success",
+                "provider_outcome": provider_outcome,
+                "source": "harvester_finalized_release",
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

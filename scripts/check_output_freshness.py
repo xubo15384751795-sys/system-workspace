@@ -24,10 +24,10 @@ import sys
 import time
 from pathlib import Path
 
-from scripts._runtime_io import ROOT, load_yaml  # noqa: E402
+from scripts._runtime_io import ROOT, load_yaml, surface_dir  # noqa: E402
 
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
-OUTPUT_CURRENT = ROOT / "Output" / "current"
+OUTPUT_CURRENT = surface_dir("current")
 
 # Map artifact filenames to freshness_rules.max_age_hours keys.
 # Files not in this map use the default max age.
@@ -204,7 +204,7 @@ def run_freshness_check(root: Path) -> list[dict]:
     if not constitution:
         return [{"severity": "ERROR", "status": "ERROR", "message": "Cannot load constitution"}]
 
-    output_current = root / "Output" / "current"
+    output_current = surface_dir("current") if root == ROOT else root / "Output" / "current"
     if not output_current.exists():
         return [
             {
@@ -300,7 +300,7 @@ def main() -> int:
     args = parser.parse_args()
 
     findings = run_freshness_check(ROOT)
-    output_current = ROOT / "Output" / "current"
+    output_current = surface_dir("current")
     missing_required: list[str] = []
     if output_current.exists():
         missing_required = _missing_required_artifacts(ROOT)

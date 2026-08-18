@@ -19,15 +19,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from datetime import UTC, datetime
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json, load_yaml  # noqa: E402
+from scripts._runtime_io import (  # noqa: E402
+    ROOT,
+    ensure_dir,
+    load_json,
+    load_yaml,
+    surface_dir,
+)
 
-CURRENT = ROOT / "Output" / "current"
-JUDGMENT = ROOT / "Output" / "judgment"
-LEARNING = ROOT / "Output" / "system_learning" / "latest"
+logger = logging.getLogger(__name__)
+
+CURRENT = surface_dir("current")
+JUDGMENT = surface_dir("judgment")
+LEARNING = surface_dir("system_learning") / "latest"
 DEFERRED_PATH = ROOT / "governance" / "deferred_work_register.yaml"
 DATA_AUTHORITY_PATH = ROOT / "governance" / "authority_registry.yaml"
 SUPERVISOR_POLICY_PATH = ROOT / "governance" / "opencode_supervisor_policy.yaml"
@@ -161,7 +170,7 @@ def _check_deferred_work_overdue() -> dict[str, Any]:
                     "hard_deadline": str(hard_dl),
                 })
         except ValueError:
-            pass
+            logger.warning("Invalid governance exception deadline: %s", hard_dl, exc_info=True)
 
     return {
         "status": "PASS" if not overdue else "OVERDUE",
@@ -486,6 +495,7 @@ def run_supervisor_check() -> dict[str, Any]:
 
     return {
         "timestamp": now.isoformat(),
+        "cadence": "weekly",
         "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "overall_status": overall,
         "checks": checks,

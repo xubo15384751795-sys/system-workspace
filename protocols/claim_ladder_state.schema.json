@@ -15,6 +15,37 @@
         "required": ["claim_id", "current_tier", "tier_label", "mechanism_hypothesis", "status", "history"],
         "properties": {
           "claim_id": {"type": "string"},
+          "canonical_claim_id": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"},
+          "canonical_claim": {
+            "type": "object",
+            "description": "Standalone canonical Claim during migration; empty evidence_ids are diagnostic-only.",
+            "required": ["claim_id", "claim_text", "evidence_ids", "status", "provenance"],
+            "properties": {
+              "claim_id": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"},
+              "claim_text": {"type": "string", "minLength": 1},
+              "subject": {"type": ["string", "null"]},
+              "predicate": {"type": ["string", "null"]},
+              "policy_version": {"type": "string", "minLength": 1},
+              "evidence_ids": {
+                "type": "array",
+                "items": {"type": "string", "pattern": "^evd_[0-9a-f]{32}$"}
+              },
+              "status": {
+                "enum": ["SUPPORTED", "WEAKLY_SUPPORTED", "CONFLICTED", "STALE", "INSUFFICIENT_DATA", "UNOBSERVABLE", "WATCH"]
+              },
+              "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+              "provenance": {
+                "type": "object",
+                "required": ["captured_at", "producer"],
+                "properties": {
+                  "captured_at": {"type": "string"},
+                  "producer": {"type": "string", "minLength": 1}
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
           "current_tier": {"type": "integer", "minimum": 0, "maximum": 3},
           "tier_label": {"type": "string"},
           "mechanism_hypothesis": {"type": "string"},

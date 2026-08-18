@@ -19,11 +19,11 @@ reduce repeated project-wide reads without hiding important boundaries.
 - `module_contexts/`
 - `ROUTING_CONSTITUTION.md`
 - `routing_decision_record.template.yaml`
-- `Workbench/agents/harness/`
+- `packages/workbench/agents/harness/`
 - `Structural Research Harness/`
 
 `Structural Research Harness/` is a compatibility symlink. Canonical source
-lives under `Workbench/agents/harness/`.
+lives under `packages/workbench/agents/harness/`.
 
 ## Reads
 

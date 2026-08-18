@@ -7,6 +7,7 @@ Output/current/ and latest_run_id.txt is updated.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -15,16 +16,24 @@ from pathlib import Path
 from typing import Any
 
 from scripts._constants import TIMEOUT_STANDARD
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._runtime_io import (
+    ROOT,
+    compatibility_surface_dir,
+    ensure_dir,
+    load_yaml,
+    surface_dir,
+)
+
+logger = logging.getLogger(__name__)
 
 ROUTING_POLICY = ROOT / "governance" / "output_routing_policy.yaml"
-LATEST_RUN_ID = ROOT / "Output" / "current" / "latest_run_id.txt"
-PUBLISHED_CURRENT = ROOT / "Output" / "current"
+LATEST_RUN_ID = compatibility_surface_dir("current") / "latest_run_id.txt"
+PUBLISHED_CURRENT = compatibility_surface_dir("current")
 
 
 def begin_candidate(run_dir: Path) -> Path:
     """Route current-writing scripts to the run's candidate directory."""
-    candidate = run_dir / "current_candidate"
+    candidate = surface_dir("current") if os.environ.get("SYSTEM_GENERATION_DIR") else run_dir / "current_candidate"
     ensure_dir(candidate)
     os.environ["CURRENT_OUTPUT_DIR"] = str(candidate)
     return candidate
@@ -50,6 +59,11 @@ def publish_candidate(candidate_dir: Path, *, run_id: str, root: Path = ROOT) ->
     swap the whole directory atomically with os.replace (POSIX rename). The
     latest_run_id.txt pointer is written into staging so it swaps together.
     """
+    generation_mode = os.environ.get("SYSTEM_GENERATION_MODE", "").strip().lower() in {"1", "true", "yes"}
+    if generation_mode or (root / "Output" / "live").is_symlink():
+        raise RuntimeError(
+            "legacy current publisher is disabled in generation topology; use PublishTransaction.commit_generation"
+        )
     target = root / "Output" / "current"
     ensure_dir(target.parent)
     staging = target.parent / f".current_staging.{os.getpid()}"
@@ -104,12 +118,12 @@ def run_freshness_check(root: Path = ROOT) -> dict[str, Any]:
             payload["exit_code"] = result.returncode
             return payload
         except json.JSONDecodeError:
-            pass
+            logger.warning("Freshness validator failure output was not valid JSON")
     if result.stdout.strip():
         try:
             return json.loads(result.stdout)
         except json.JSONDecodeError:
-            pass
+            logger.warning("Freshness validator output was not valid JSON")
     return {
         "status": "fail" if result.returncode != 0 else "pass",
         "exit_code": result.returncode,
@@ -118,6 +132,12 @@ def run_freshness_check(root: Path = ROOT) -> dict[str, Any]:
 
 
 def should_publish(run_status: str, freshness: dict[str, Any]) -> tuple[bool, str]:
+    """Publish gate: only allow publication on explicit freshness PASS.
+
+    The ``freshness_assumed_ok`` escape hatch has been removed (WP2).
+    Unknown/missing freshness verdicts now BLOCK instead of allowing
+    publication.
+    """
     if run_status != "success":
         return False, f"run_status={run_status}"
     overall = str(freshness.get("verdict", freshness.get("overall_status", freshness.get("status", "")))).upper()
@@ -130,7 +150,8 @@ def should_publish(run_status: str, freshness: dict[str, Any]) -> tuple[bool, st
         return False, "freshness_validator_failed"
     if overall in {"FAIL", "STALE", "VIOLATION"}:
         return False, f"freshness_{overall.lower()}"
-    return True, "freshness_assumed_ok"
+    # Unknown/missing verdict: BLOCK (no more assumed_ok).
+    return False, f"freshness_unknown_verdict={overall or 'missing'}"
 
 
 def should_publish_with_provenance(

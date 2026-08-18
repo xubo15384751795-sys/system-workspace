@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from scripts._runtime_io import ROOT
+from scripts._runtime_io import surface_dir
 
 ARCHIVE_ENV = "ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION"
 
@@ -24,6 +24,6 @@ def require_archived_reproduction(*, current_writer: bool = False) -> None:
     if not override:
         raise SystemExit("Archived bridge reproduction requires an isolated CURRENT_OUTPUT_DIR.")
     target = Path(override).resolve()
-    authoritative = (ROOT / "Output" / "current").resolve()
+    authoritative = surface_dir("current").resolve()
     if target == authoritative or authoritative in target.parents:
         raise SystemExit("Archived bridge reproduction cannot write authoritative Output/current.")

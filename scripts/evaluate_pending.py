@@ -25,13 +25,13 @@ from typing import Any
 import pandas as pd
 
 from scripts._data_paths import resolve_cross_asset_panel_path
-from scripts._runtime_io import ROOT, ensure_dir, load_json, write_jsonl
+from scripts._runtime_io import ROOT, ensure_dir, load_json, surface_dir, write_jsonl
 
 EVAL_DIR = ROOT / "Output" / "evaluations"
 PENDING_PATH = EVAL_DIR / "pending.jsonl"
 EVAL_LOG_PATH = EVAL_DIR / "eval_log.jsonl"
 ETF_PANEL = resolve_cross_asset_panel_path()
-CURRENT_TRADE_DECISION = ROOT / "Output" / "trade_decision" / "latest.json"
+CURRENT_TRADE_DECISION = surface_dir("trade_decision") / "latest.json"
 
 HORIZONS = {"1d": 1, "1w": 5, "1m": 21}  # trading days
 ETF_SYMBOLS = ("SPY", "HYG", "TLT")

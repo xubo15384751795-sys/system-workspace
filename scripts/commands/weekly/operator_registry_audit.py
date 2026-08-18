@@ -22,12 +22,19 @@ import re
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_yaml,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
 REGISTRY_PATH = ROOT / "governance" / "operator_registry.yaml"
 CONSTITUTION_PATH = ROOT / "governance" / "system_constitution.yaml"
 DAILY_RUN_PATH = ROOT / "scripts" / "daily_run.py"
-OUTPUT_DIR = ROOT / "Output" / "quality"
+OUTPUT_DIR = surface_dir("quality")
 
 
 def extract_daily_run_steps() -> list[str]:

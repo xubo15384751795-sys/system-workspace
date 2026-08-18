@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import logging
 import os
 import re
 import subprocess
@@ -26,14 +27,16 @@ from pathlib import Path
 from typing import Any
 
 from scripts._constants import TIMEOUT_SHORT  # noqa: E402
-from scripts._runtime_io import ROOT, ensure_dir  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir, surface_dir  # noqa: E402
 from scripts._runtime_io import load_yaml as _load_yaml
+
+logger = logging.getLogger(__name__)
 
 FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 DAILY_PIPELINE_REGISTRY = ROOT / "governance" / "daily_pipeline_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 
 
 def _framework_self_check_heartbeat() -> dict[str, Any]:
@@ -205,7 +208,7 @@ def _check_legacy_display_in_current() -> list[dict[str, str]]:
         "latest_screenshot.png",
     }
     # Also check for latest_run directory or symlink
-    current = ROOT / "Output" / "current"
+    current = surface_dir("current")
     findings = []
     if not current.exists():
         return findings
@@ -330,7 +333,7 @@ def _check_data_retention_policy_unapplied() -> list[dict[str, str]]:
 def _check_symlinks_fresh(output_dir: Path, max_age_days: int = 7) -> list[dict[str, str]]:
     """Check that symlinks in Output/current point to recent artifacts."""
     findings = []
-    current = output_dir / "Output" / "current"
+    current = surface_dir("current") if output_dir == ROOT else output_dir / "Output" / "current"
     if not current.exists():
         return findings
     # Legacy Deformation display artifacts — not authoritative current state.
@@ -417,7 +420,7 @@ def _check_active_partial_lifecycle() -> list[dict[str, str]]:
                 if review_date >= today:
                     continue  # review date not yet reached
             except (ValueError, TypeError):
-                pass
+                logger.warning("Invalid architecture review date: %s", review_date_str, exc_info=True)
 
         # Try to find when status was set via git log
         try:
@@ -468,6 +471,7 @@ def run_audit() -> dict[str, Any]:
     """Run all architecture reality checks."""
     results: dict[str, Any] = {
         "audit_timestamp": datetime.now(UTC).isoformat(),
+        "cadence": "weekly",
         "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "audit_version": "1.0.0",
         "checks": {},

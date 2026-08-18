@@ -24,17 +24,18 @@ from scripts._runtime_io import (
     current_dir,
     ensure_dir,
     load_json,
+    surface_dir,
     utc_now,
     write_json,
 )
 
-JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
-PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
-TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
+JUDGMENT_PATH = surface_dir("judgment") / "latest.json"
+PROMOTION_GATE_PATH = surface_dir("judgment") / "promotion_gate.json"
+TRADE_DECISION_PATH = surface_dir("trade_decision") / "latest.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
-FRESHNESS_PATH = ROOT / "Output" / "quality" / "freshness_report.json"
+FRESHNESS_PATH = surface_dir("quality") / "freshness_report.json"
 PAPER_MANIFEST_PATH = ROOT / "Data" / "paper_world_model" / "manifest.json"
 HARVESTER_CATALOG_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
 DATA_REQUEST_PATH = ROOT / "governance" / "data_request_registry.yaml"

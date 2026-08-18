@@ -28,36 +28,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 MANIFEST_DIR = ROOT / "Output" / "verification"
 MANIFEST_PATH = MANIFEST_DIR / "merge_gate_manifest.json"
+REMOTE_ENFORCEMENT_STATUS = "COMPENSATING_CONTROL_ONLY"
 
-# These suites intentionally assert against local runtime state (large
-# gitignored Data/, generated Output/, compatibility symlinks, or the external
-# Paper sister repository). They are useful on an initialized operator
-# workspace, but cannot be merge evidence for a clean GitHub checkout. Their
-# source-independent coverage is provided below by the module suites and
-# explicit runtime/governance checks.
-STATEFUL_ROOT_TESTS = (
-    # CaseLab + Paper vault (external) — not compressable without PAPER_ROOT fixtures
-    "tests/test_caselab_context.py",
-    "tests/test_caselab_embeddings.py",
-    "tests/test_caselab_graph.py",
-    "tests/test_caselab_mcp.py",
-    "tests/test_caselab_state_machine.py",
-    "tests/test_caselab_world_model.py",
-    "tests/test_golden_samples.py",
-    # P0-3 remaining heavy E2E scenarios (degrade/block/recover fixtures) still open;
-    # resolve+light-execute coverage is hermetic in test_daily_pipeline_callable_e2e.py
-    # "tests/test_daily_pipeline_callable_e2e.py",
-    # Operator residuals (P0-2 waves 4–5 splits)
-    "tests/test_current_artifact_chain_operator.py",
-    "tests/test_freshness_governance_operator.py",
-    "tests/test_harvester_bundle_operator.py",
-    "tests/test_home_page_consistency_operator.py",
-    "tests/test_mechanism_tiers_operator.py",
-    "tests/test_task_router_operator.py",
-    "tests/test_workbench_nlp_operator.py",
-    "tests/test_workbench_tools_operator.py",
-)
 
+def _load_stateful_root_tests() -> tuple[str, ...]:
+    """Expose the classification inventory without duplicating it in code."""
+    classification = ROOT / "tests" / "stateful_test_classification.yaml"
+    try:
+        import yaml
+
+        payload = yaml.safe_load(classification.read_text(encoding="utf-8")) or {}
+        return tuple(
+            str(item["path"])
+            for item in payload.get("items", [])
+            if isinstance(item, dict) and item.get("class") == "operator_workspace"
+        )
+    except (OSError, KeyError, TypeError, ValueError):
+        return ()
+
+
+# Compatibility export used by the classification contract test. The actual
+# merge gate delegates selection to the root pyproject.toml and does not maintain a second
+# ignore list.
+STATEFUL_ROOT_TESTS = _load_stateful_root_tests()
 
 def _git_sha() -> str:
     try:
@@ -115,15 +108,10 @@ def _run_step(
 def merge_gate_steps() -> list[tuple[str, list[str], Path]]:
     """The 10-item merge-gate chain. Each must pass; no continue-on-error."""
     py = sys.executable
-    root_clean_checkout = [
-        py,
-        "-m",
-        "pytest",
-        "tests/",
-        "-q",
-        "--tb=short",
-        *(argument for path in STATEFUL_ROOT_TESTS for argument in ("--ignore", path)),
-    ]
+    # The root pyproject.toml is the single classification authority. It excludes
+    # operator/network/external_repo/slow suites for clean-checkout evidence;
+    # this gate must not maintain a second hand-written ignore list.
+    root_clean_checkout = [py, "-m", "pytest", "tests/", "-q", "--tb=short"]
     return [
         ("root_clean_checkout_pytest", root_clean_checkout, ROOT),
         ("workbench_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "workbench"),
@@ -174,6 +162,7 @@ def run_merge_gate() -> dict:
         # merge-gate + SHA-bound manifest is the substitute required control.
         # See governance/routing_decisions/2026-07-27-ci-enforcement-private-repo.yaml
         "enforcement_mode": "private_repo_substitute",
+        "remote_enforcement_status": REMOTE_ENFORCEMENT_STATUS,
         "steps_total": len(results),
         "steps_passed": passed_count,
         "steps_failed": failed_count,
@@ -212,6 +201,11 @@ def is_manifest_valid_for_sha(sha: str | None = None) -> tuple[bool, str]:
     mode = manifest.get("enforcement_mode")
     if mode not in (None, "private_repo_substitute"):
         return False, f"unexpected enforcement_mode={mode}"
+    remote_status = manifest.get("remote_enforcement_status")
+    if remote_status not in (None, REMOTE_ENFORCEMENT_STATUS):
+        return False, f"unexpected remote_enforcement_status={remote_status}"
+    if mode == "private_repo_substitute" and remote_status != REMOTE_ENFORCEMENT_STATUS:
+        return False, "missing remote_enforcement_status=COMPENSATING_CONTROL_ONLY"
     return True, "valid"
 
 

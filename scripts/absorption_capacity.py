@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,8 @@ try:
     from professional_methods import causal_pit, folded_pit
 except ModuleNotFoundError:
     from scripts.professional_methods import causal_pit, folded_pit
+
+logger = logging.getLogger(__name__)
 
 
 def _folded_pit(series: pd.Series, *, min_periods: int = 126) -> pd.Series:
@@ -247,7 +250,7 @@ def _normalize_panel(frame: pd.DataFrame) -> pd.DataFrame:
         try:
             panel.index = pd.to_datetime(panel.index)
         except Exception:
-            pass
+            logger.warning("Unable to parse absorption-capacity panel dates", exc_info=True)
     panel = panel.sort_index()
     if not panel.index.is_unique:
         panel = panel.groupby(level=0).last()

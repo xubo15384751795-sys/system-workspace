@@ -1,0 +1,297 @@
+{
+  "schema_version": "system.canonical_runtime_parity.v1",
+  "fixture_only": true,
+  "contract_scope": "contract_replay_only",
+  "states": [
+    {
+      "name": "healthy",
+      "category": "Healthy",
+      "runtime": {
+        "operational_state": "FRESH_READY",
+        "execution_status": "SUCCESS",
+        "admission_verdict": "PASS",
+        "publish_status": "COMMITTED",
+        "decision_ready": true,
+        "claim_ceiling": "SUPPORTED",
+        "current_pointer": "generation-healthy"
+      },
+      "observation": {
+        "canonical_series_id": "FRED:NFCI",
+        "observed_at": "2026-08-17T00:00:00Z",
+        "vintage_at": "2026-08-17T01:00:00Z",
+        "value": 0.42,
+        "source_id": "fred:nfci",
+        "status": "AVAILABLE"
+      },
+      "measurement": {
+        "measurement_definition": "nfci_runtime_state",
+        "method_version": "1",
+        "value": 0.42,
+        "status": "AVAILABLE",
+        "derivation": "OBSERVED",
+        "confidence": 0.95
+      },
+      "evidence": {
+        "evidence_role": "PRIMARY",
+        "release_id": "fred-2026-08-17",
+        "status": "AVAILABLE"
+      },
+      "claim": {
+        "claim_text": "NFCI runtime state is decision-ready.",
+        "subject": "FRED:NFCI",
+        "predicate": "runtime_state",
+        "status": "SUPPORTED",
+        "confidence": 0.8
+      },
+      "provider_attempts": [
+        {
+          "provider_attempt_id": "att_00000000000000000000000000000001",
+          "attempt_number": 1,
+          "provider": "fred:nfci",
+          "source_tier": 1,
+          "reason": "primary_success",
+          "outcome": "success",
+          "retryable": false
+        }
+      ],
+      "expected_lineage": {
+        "observation_id": "obs_78faa7086d23b007dba7ec39fb305213",
+        "measurement_id": "mea_9b5e4d7377a6d702d950e2ee32e531f5",
+        "evidence_id": "evd_1f6bb02920aebeb0c2f12b5eeb8bc7ab",
+        "claim_id": "clm_9b059bb0c4c586d7978481cdfb95b267"
+      }
+    },
+    {
+      "name": "provider_failure",
+      "category": "Provider Failure",
+      "runtime": {
+        "operational_state": "COMPLETED_BLOCKED",
+        "execution_status": "SUCCESS",
+        "admission_verdict": "BLOCK",
+        "publish_status": "NOT_PUBLISHED",
+        "decision_ready": false,
+        "claim_ceiling": "WATCH",
+        "current_pointer": "generation-healthy"
+      },
+      "observation": {
+        "canonical_series_id": "FRED:NFCI",
+        "observed_at": "2026-08-17T00:00:00Z",
+        "vintage_at": "2026-08-17T02:00:00Z",
+        "value": null,
+        "source_id": "fred:nfci",
+        "status": "SOURCE_DOWN"
+      },
+      "measurement": {
+        "measurement_definition": "nfci_runtime_state",
+        "method_version": "1",
+        "value": null,
+        "status": "SOURCE_DOWN",
+        "derivation": "NOT_OBSERVABLE",
+        "confidence": 0.0
+      },
+      "evidence": {
+        "evidence_role": "PRIMARY",
+        "release_id": "fred-2026-08-17",
+        "status": "SOURCE_DOWN"
+      },
+      "claim": {
+        "claim_text": "NFCI runtime state is decision-ready.",
+        "subject": "FRED:NFCI",
+        "predicate": "runtime_state",
+        "status": "INSUFFICIENT_DATA",
+        "confidence": 0.0
+      },
+      "provider_attempts": [
+        {
+          "provider_attempt_id": "att_00000000000000000000000000000002",
+          "attempt_number": 1,
+          "provider": "fred:nfci",
+          "source_tier": 1,
+          "reason": "rate_limit",
+          "outcome": "failed",
+          "retryable": true
+        }
+      ],
+      "expected_lineage": {
+        "observation_id": "obs_23ab8414df42c83b31fded516cfd0da4",
+        "measurement_id": "mea_2c3ec214fdd50215242c1dc0b96cc16f",
+        "evidence_id": "evd_f8c86cf51e68504c3a07feb87ef14b63",
+        "claim_id": "clm_9b059bb0c4c586d7978481cdfb95b267"
+      }
+    },
+    {
+      "name": "stale_within_grace",
+      "category": "Stale / Carry-forward",
+      "runtime": {
+        "operational_state": "COMPLETED_DEGRADED",
+        "execution_status": "SUCCESS",
+        "admission_verdict": "BLOCK",
+        "publish_status": "NOT_PUBLISHED",
+        "decision_ready": false,
+        "claim_ceiling": "WATCH",
+        "current_pointer": "generation-healthy"
+      },
+      "observation": {
+        "canonical_series_id": "FRED:NFCI",
+        "observed_at": "2026-08-16T00:00:00Z",
+        "vintage_at": "2026-08-16T01:00:00Z",
+        "value": 0.41,
+        "source_id": "fred:nfci",
+        "status": "STALE"
+      },
+      "measurement": {
+        "measurement_definition": "nfci_runtime_state",
+        "method_version": "1",
+        "value": 0.41,
+        "status": "STALE",
+        "derivation": "OBSERVED",
+        "confidence": 0.6
+      },
+      "evidence": {
+        "evidence_role": "PRIMARY",
+        "release_id": "fred-2026-08-16",
+        "status": "STALE"
+      },
+      "claim": {
+        "claim_text": "NFCI runtime state is decision-ready.",
+        "subject": "FRED:NFCI",
+        "predicate": "runtime_state",
+        "status": "STALE",
+        "confidence": 0.55
+      },
+      "provider_attempts": [
+        {
+          "provider_attempt_id": "att_00000000000000000000000000000003",
+          "attempt_number": 1,
+          "provider": "fred:nfci",
+          "source_tier": 1,
+          "reason": "source_down",
+          "outcome": "failed",
+          "retryable": true
+        }
+      ],
+      "expected_lineage": {
+        "observation_id": "obs_82ed08c28d11c27201b6395c73f7250f",
+        "measurement_id": "mea_ed57645707667613379512dd35586f28",
+        "evidence_id": "evd_96152f520254c12c4e3009f451ffe0a9",
+        "claim_id": "clm_9b059bb0c4c586d7978481cdfb95b267"
+      }
+    },
+    {
+      "name": "stale_expired",
+      "category": "Stale / Carry-forward",
+      "runtime": {
+        "operational_state": "COMPLETED_BLOCKED",
+        "execution_status": "SUCCESS",
+        "admission_verdict": "BLOCK",
+        "publish_status": "NOT_PUBLISHED",
+        "decision_ready": false,
+        "claim_ceiling": "WATCH",
+        "current_pointer": "generation-healthy"
+      },
+      "observation": {
+        "canonical_series_id": "FRED:NFCI",
+        "observed_at": "2026-08-14T00:00:00Z",
+        "vintage_at": "2026-08-14T01:00:00Z",
+        "value": 0.39,
+        "source_id": "fred:nfci",
+        "status": "STALE"
+      },
+      "measurement": {
+        "measurement_definition": "nfci_runtime_state",
+        "method_version": "1",
+        "value": 0.39,
+        "status": "STALE",
+        "derivation": "OBSERVED",
+        "confidence": 0.0
+      },
+      "evidence": {
+        "evidence_role": "PRIMARY",
+        "release_id": "fred-2026-08-14",
+        "status": "STALE"
+      },
+      "claim": {
+        "claim_text": "NFCI runtime state is decision-ready.",
+        "subject": "FRED:NFCI",
+        "predicate": "runtime_state",
+        "status": "INSUFFICIENT_DATA",
+        "confidence": 0.0
+      },
+      "provider_attempts": [
+        {
+          "provider_attempt_id": "att_00000000000000000000000000000004",
+          "attempt_number": 1,
+          "provider": "fred:nfci",
+          "source_tier": 1,
+          "reason": "cache_expired",
+          "outcome": "failed",
+          "retryable": false
+        }
+      ],
+      "expected_lineage": {
+        "observation_id": "obs_5b82f5bfdc327a9cfe61b376d70914eb",
+        "measurement_id": "mea_bffd1ffcb2a23e8624133e8240bb95bb",
+        "evidence_id": "evd_3029c94f289a6c6bb90c73c8ad859119",
+        "claim_id": "clm_9b059bb0c4c586d7978481cdfb95b267"
+      }
+    },
+    {
+      "name": "schema_drift",
+      "category": "Schema Drift",
+      "runtime": {
+        "operational_state": "COMPLETED_BLOCKED",
+        "execution_status": "SUCCESS",
+        "admission_verdict": "BLOCK",
+        "publish_status": "NOT_PUBLISHED",
+        "decision_ready": false,
+        "claim_ceiling": "WATCH",
+        "current_pointer": "generation-healthy"
+      },
+      "observation": {
+        "canonical_series_id": "FRED:NFCI",
+        "observed_at": "2026-08-17T00:00:00Z",
+        "vintage_at": "2026-08-17T03:00:00Z",
+        "value": null,
+        "source_id": "fred:nfci",
+        "status": "SCHEMA_CHANGED"
+      },
+      "measurement": {
+        "measurement_definition": "nfci_runtime_state",
+        "method_version": "1",
+        "value": null,
+        "status": "SCHEMA_CHANGED",
+        "derivation": "NOT_OBSERVABLE",
+        "confidence": 0.0
+      },
+      "evidence": {
+        "evidence_role": "PRIMARY",
+        "release_id": "fred-2026-08-17",
+        "status": "SCHEMA_CHANGED"
+      },
+      "claim": {
+        "claim_text": "NFCI runtime state is decision-ready.",
+        "subject": "FRED:NFCI",
+        "predicate": "runtime_state",
+        "status": "UNOBSERVABLE",
+        "confidence": 0.0
+      },
+      "provider_attempts": [
+        {
+          "provider_attempt_id": "att_00000000000000000000000000000005",
+          "attempt_number": 1,
+          "provider": "fred:nfci",
+          "source_tier": 1,
+          "reason": "schema_changed",
+          "outcome": "failed",
+          "retryable": false
+        }
+      ],
+      "expected_lineage": {
+        "observation_id": "obs_0faf8f1ec62bcf5326a690b8f926b3c8",
+        "measurement_id": "mea_8c7e6b4c3349ed7b78f33636073186c0",
+        "evidence_id": "evd_58ff5c6ee70d7edb6ee2ec51c24214e5",
+        "claim_id": "clm_9b059bb0c4c586d7978481cdfb95b267"
+      }
+    }
+  ]
+}

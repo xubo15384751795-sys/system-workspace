@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system.restore_manifest.v1",
+  "title": "System accepted-release restore manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "accepted_release_scope",
+    "bytes_owner",
+    "files",
+    "remote",
+    "restore_drill",
+    "certification"
+  ],
+  "properties": {
+    "schema_version": {"const": "system.restore_manifest.v1"},
+    "status": {"enum": ["PASS", "BLOCKED"]},
+    "accepted_release_scope": {"type": "string", "minLength": 1},
+    "bytes_owner": {"enum": ["dvc_remote", "object_storage", "UNCONFIGURED"]},
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "bytes_owner",
+          "uri",
+          "content_hash",
+          "size_bytes",
+          "encryption_class",
+          "access_class"
+        ],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "bytes_owner": {"enum": ["dvc_remote", "object_storage", "UNCONFIGURED"]},
+          "uri": {"type": "string", "minLength": 1},
+          "object_id": {"type": "string", "minLength": 1},
+          "content_hash": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "encryption_class": {"type": "string", "minLength": 1},
+          "access_class": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": true
+      }
+    },
+    "remote": {
+      "type": "object",
+      "required": [
+        "type",
+        "uri",
+        "same_disk_as_workspace",
+        "complete_bytes_verified",
+        "content_hash_verified"
+      ],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "uri": {"type": "string", "minLength": 1},
+        "same_disk_as_workspace": {"type": "boolean"},
+        "complete_bytes_verified": {"type": "boolean"},
+        "content_hash_verified": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "restore_drill": {
+      "type": "object",
+      "required": ["required", "status", "device_class"],
+      "properties": {
+        "required": {"const": true},
+        "status": {"enum": ["PASS", "NOT_RUN", "FAIL"]},
+        "device_class": {"type": "string", "minLength": 1},
+        "last_verified_at": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "certification": {
+      "type": "object",
+      "required": ["recoverable", "reason_codes", "evidence_boundary"],
+      "properties": {
+        "recoverable": {"type": "boolean"},
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "evidence_boundary": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

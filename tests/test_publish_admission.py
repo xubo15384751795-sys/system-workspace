@@ -1,20 +1,20 @@
-"""Acceptance skeleton for WP2: PublishAdmission and live-hash invariant.
+"""Acceptance tests for WP2: PublishAdmission and live-hash invariant.
 
 Defines the contract that admission separates integrity and authority verdicts,
 rejects runs with missing required artifacts or previous-run lineage, and
 that a rejected run leaves live hashes/mtime/NAV-line-count unchanged.
 
-Also asserts ``freshness_assumed_ok`` is removed.  Marked ``xfail(strict=True)``
-until WP2 lands.
+Also asserts ``freshness_assumed_ok`` is removed.
 """
 from __future__ import annotations
 
-import pytest
+import hashlib
 
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    reason="WP2: publish admission not yet implemented",
-)
+import pytest  # noqa: F401  # kept for marker compatibility
+
+PLAN_DIGEST = hashlib.sha256(b"plan").hexdigest()
+EVIDENCE_DIGEST = hashlib.sha256(b"evidence").hexdigest()
+GENERATION_DIGEST = hashlib.sha256(b"generation").hexdigest()
 
 
 def test_publish_admission_module_exists() -> None:
@@ -81,3 +81,186 @@ def test_rejected_run_leaves_live_unchanged() -> None:
     assert "current" in source.lower() or "live" in source.lower(), (
         "PublishAdmission must reference live current preservation"
     )
+
+
+def test_authority_block_requires_integrity_complete_before_diagnostic_publish() -> None:
+    from system_runtime.publish_admission import AUTHORITY_BLOCK, PublishAdmission
+
+    blocked = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=["current/README.md"],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        authority_verdict=AUTHORITY_BLOCK,
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert blocked.integrity_verdict == "BLOCK"
+    assert blocked.is_blocked is True
+    assert "REQUIRED_ARTIFACT_MISSING" in blocked.reason_codes
+
+    complete = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=["current/README.md"],
+        candidate_artifacts=["current/README.md"],
+        candidate_run_id="run-1",
+        authority_verdict=AUTHORITY_BLOCK,
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert complete.integrity_verdict == "PASS"
+    assert complete.is_blocked is False
+    assert complete.decision_authority_blocked is True
+
+
+def test_contract_digests_are_required_for_admission() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    blocked = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+    )
+    assert blocked.integrity_verdict == "BLOCK"
+    assert {
+        "PLAN_DIGEST_MISSING",
+        "EVIDENCE_DIGEST_MISSING",
+        "GENERATION_DIGEST_MISSING",
+    } <= set(blocked.reason_codes)
+
+
+def test_contract_digests_are_serialized() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    admission = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    payload = admission.to_dict()
+    assert payload["plan_digest"] == PLAN_DIGEST
+    assert payload["evidence_digest"] == EVIDENCE_DIGEST
+    assert payload["generation_digest"] == GENERATION_DIGEST
+
+
+def test_canonical_lineage_is_serialized_as_non_authoritative_context() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    lineage = {
+        "schema_version": "system.canonical_lineage_reader.v1",
+        "authority": "shadow_only",
+        "promotion_allowed": False,
+        "status": "MATCH",
+        "entry_count": 1,
+        "entries": [],
+    }
+    admission = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+        canonical_lineage=lineage,
+    )
+
+    assert admission.integrity_verdict == "PASS"
+    assert admission.authority_verdict == "ALLOW"
+    assert admission.to_dict()["canonical_lineage"] == lineage
+
+
+def test_release_identity_mismatch_blocks_integrity() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    blocked = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        release_id="release-current",
+        artifact_release_ids={"current/framework_output.json": "release-previous"},
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+
+    assert blocked.integrity_verdict == "BLOCK"
+    assert "RELEASE_ID_MISMATCH" in blocked.reason_codes
+    assert blocked.to_dict()["artifact_release_ids"] == {
+        "current/framework_output.json": "release-previous"
+    }
+
+
+def test_provider_decision_cannot_grant_authoritative_admission() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    denied = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        provider_decision="DENY",
+        authority_verdict="ALLOW",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert denied.integrity_verdict == "PASS"
+    assert denied.authority_verdict == "BLOCK"
+    assert "PROVIDER_DECISION_DENIED" in denied.reason_codes
+
+    conditional = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        provider_decision="CONDITIONAL",
+        authority_verdict="ALLOW",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert conditional.integrity_verdict == "PASS"
+    assert conditional.authority_verdict == "DIAGNOSTIC_ONLY"
+
+
+def test_generation_identity_is_required_for_admission_binding() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    blocked = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+
+    assert blocked.integrity_verdict == "BLOCK"
+    assert "GENERATION_ID_MISSING" in blocked.reason_codes

@@ -14,6 +14,13 @@
         "required": ["evidence_id", "path", "excerpt"],
         "properties": {
           "evidence_id": {"type": "string"},
+          "evidence_kind": {
+            "type": "string",
+            "const": "RETRIEVAL_CITATION",
+            "description": "Content-stable retrieval reference, not a canonical Evidence object."
+          },
+          "canonical_evidence": {"const": false},
+          "promotion_allowed": {"const": false},
           "path": {"type": "string"},
           "title": {"type": "string"},
           "release_id": {"type": "string"},
@@ -34,6 +41,11 @@
         "top_k": {"type": "integer"},
         "top_k_max": {"type": "integer"}
       }
+    },
+    "evidence_boundary": {
+      "type": "string",
+      "const": "retrieval_citation_only",
+      "description": "Workbench NLP citations cannot be consumed as current canonical Evidence."
     },
     "prompt_sections": {
       "type": "object",

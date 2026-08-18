@@ -28,6 +28,7 @@ from scripts._runtime_io import (
     ensure_dir,
     load_json,
     load_jsonl,
+    surface_dir,
     utc_now,
 )
 from scripts._runtime_io import (
@@ -37,11 +38,11 @@ from system_runtime.events import JsonlEventStore
 
 logger = logging.getLogger(__name__)
 
-TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
-FRAMEWORK_PATH = ROOT / "Output" / "current" / "framework_output.json"
+TRADE_LEDGER_PATH = surface_dir("trade_ledger") / "decisions.jsonl"
+FRAMEWORK_PATH = surface_dir("current") / "framework_output.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
-FEEDBACK_PENDING_PATH = ROOT / "Output" / "system_learning" / "latest" / "claim_failures_pending.json"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
+FEEDBACK_PENDING_PATH = surface_dir("system_learning") / "latest" / "claim_failures_pending.json"
 
 
 
@@ -109,12 +110,12 @@ def check_md_continuity(
         try:
             entry_M = float(m_match.group(1))
         except ValueError:
-            pass
+            logger.debug("Unable to parse historical M claim value", exc_info=True)
     if d_match:
         try:
             entry_D = float(d_match.group(1))
         except ValueError:
-            pass
+            logger.debug("Unable to parse historical D claim value", exc_info=True)
 
     if entry_M is None or current_M is None:
         return {"M_persisted": None, "D_persisted": None, "direction_same": None}
@@ -207,7 +208,7 @@ def evaluate_single_entry(
             score_part = claim_stmt.split("CaseLab score:")[1].split(")")[0]
             entry_caselab = float(score_part.strip())
         except (ValueError, IndexError):
-            pass
+            logger.debug("Unable to parse historical CaseLab score", exc_info=True)
 
     caselab_delta = None
     if entry_caselab is not None and current_caselab_score is not None:

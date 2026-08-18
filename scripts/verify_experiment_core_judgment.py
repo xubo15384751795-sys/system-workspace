@@ -39,10 +39,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml, write_json  # noqa: E402
+from scripts._runtime_io import (  # noqa: E402
+    ROOT,
+    ensure_dir,
+    load_yaml,
+    surface_dir,
+    write_json,
+)
 
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
-AUDIT_MD_PATH = ROOT / "Output" / "system_learning" / "latest" / "experiment_core_judgment_audit.md"
+AUDIT_MD_PATH = surface_dir("system_learning") / "latest" / "experiment_core_judgment_audit.md"
 
 # Patterns that indicate experimental module output in core judgment paths.
 EXPERIMENTAL_INDICATORS = [
@@ -145,10 +151,10 @@ def get_experimental_modules(registry: dict) -> list[str]:
 def scan_core_judgment_paths(root: Path) -> list[Path]:
     """Return list of core judgment directories to scan."""
     core_dirs = [
-        root / "Output" / "current",
-        root / "Output" / "judgment",
-        root / "Output" / "trade_decision",
-        root / "Output" / "quality",
+        surface_dir("current") if root == ROOT else root / "Output" / "current",
+        surface_dir("judgment") if root == ROOT else root / "Output" / "judgment",
+        surface_dir("trade_decision") if root == ROOT else root / "Output" / "trade_decision",
+        surface_dir("quality") if root == ROOT else root / "Output" / "quality",
     ]
     return [d for d in core_dirs if d.exists()]
 

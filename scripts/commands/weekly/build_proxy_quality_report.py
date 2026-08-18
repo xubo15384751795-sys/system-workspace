@@ -22,11 +22,18 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_yaml,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
 RULES_PATH = ROOT / "governance" / "proxy_quality_rules.yaml"
 REGISTRY_PATH = ROOT / "scripts" / "_replay_registry.py"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 
 NOT_IMPLEMENTED_FAMILY = "NOT_IMPLEMENTED"
 

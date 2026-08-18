@@ -80,6 +80,38 @@ def _dir_fingerprint(path: Path, *, limit: int = 200) -> str:
     return f"{count}:{digest}"
 
 
+def _full_tree_fingerprint(path: Path) -> str:
+    """Hash every operator-tree byte and symlink target."""
+    if not path.exists():
+        return "missing"
+    rows: list[str] = []
+    for root, dirs, files in os.walk(path, followlinks=False):
+        dirs[:] = sorted(dirs)
+        files[:] = sorted(files)
+        root_path = Path(root)
+        for name in dirs:
+            candidate = root_path / name
+            if candidate.is_symlink():
+                rows.append(
+                    f"L:{candidate.relative_to(path).as_posix()}:{os.readlink(candidate)}"
+                )
+        for name in files:
+            candidate = root_path / name
+            relative = candidate.relative_to(path).as_posix()
+            if candidate.is_symlink():
+                rows.append(f"L:{relative}:{os.readlink(candidate)}")
+                continue
+            digest = hashlib.sha256()
+            try:
+                with candidate.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                rows.append(f"F:{relative}:{digest.hexdigest()}")
+            except OSError:
+                rows.append(f"F:{relative}:UNREADABLE")
+    return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _hermetic_workspace_guard():
     """Always-on guard: fail if a hermetic test session creates repo-root Data/ or Output/.
@@ -111,21 +143,43 @@ def _hermetic_workspace_guard():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _operator_tree_hash_guard():
-    """Opt-in guard: fail if tests mutate pre-existing operator Data/ or Output/.
+def _operator_tree_hash_guard(request: pytest.FixtureRequest):
+    """Require isolation for operator tests and guard direct mixed sessions.
 
-    Enable with SYSTEM_TEST_OPERATOR_HASH_GUARD=1 on an initialized operator
-    workspace. Disabled by default so clean CI / merge-gate suites that still
-    write under Data/ during non-hermetic tests are not blocked (P0-2 follow-up).
+    The supported operator entrypoint sets ``SYSTEM_OPERATOR_ISOLATED=1`` and
+    points ``SYSTEM_OPERATOR_WORKSPACE`` at the copied checkout.  Running
+    ``pytest -m operator`` directly therefore fails before any stateful test
+    starts.  Mixed non-isolated sessions may still opt into the complete hash
+    guard with ``SYSTEM_TEST_OPERATOR_HASH_GUARD=1``.
     """
-    if os.environ.get("SYSTEM_TEST_OPERATOR_HASH_GUARD") != "1":
+    selected_operator = any(
+        item.get_closest_marker("operator") is not None
+        for item in request.session.items
+    )
+    isolated = os.environ.get("SYSTEM_OPERATOR_ISOLATED") == "1"
+    if selected_operator:
+        workspace = os.environ.get("SYSTEM_OPERATOR_WORKSPACE", "").strip()
+        if not isolated or not workspace:
+            pytest.fail(
+                "operator tests require scripts/run_operator_tests.py "
+                "--allow-operator-workspace"
+            )
+        if Path(workspace).resolve() != _ROOT.resolve():
+            pytest.fail(
+                "SYSTEM_OPERATOR_WORKSPACE must equal the pytest workspace "
+                f"({workspace!r} != {str(_ROOT)!r})"
+            )
+        # The runner fingerprints the authoring checkout.  The operator copy
+        # is intentionally allowed to update its own Data/Output surfaces.
         yield
         return
-    if os.environ.get("SYSTEM_TEST_SKIP_OPERATOR_HASH_GUARD") == "1":
+
+    explicitly_enabled = os.environ.get("SYSTEM_TEST_OPERATOR_HASH_GUARD") == "1"
+    if not selected_operator and not explicitly_enabled:
         yield
         return
     targets = [_ROOT / "Data", _ROOT / "Output"]
-    before = {str(p): _dir_fingerprint(p) for p in targets if p.exists()}
+    before = {str(p): _full_tree_fingerprint(p) for p in targets if p.exists()}
     yield
     drifted = []
     for key, fingerprint in before.items():
@@ -133,7 +187,7 @@ def _operator_tree_hash_guard():
         if not path.exists():
             drifted.append(f"{key} (deleted)")
             continue
-        if _dir_fingerprint(path) != fingerprint:
+        if _full_tree_fingerprint(path) != fingerprint:
             drifted.append(key)
     if drifted:
         pytest.fail(

@@ -256,6 +256,14 @@ def evaluate_samples(*, force: bool = False, limit: int | None = None) -> dict[s
         "skipped_already_evaluated": skipped,
         "not_evaluable": not_evaluable,
         "label_counts": label_counts,
+        "eligible_for_calibration": 0,
+        "calibration_set_count": sum(
+            1
+            for sample in samples
+            if sample.get("eligibility") == "eligible"
+            and sample.get("calibration_set") is True
+            and sample.get("allowed_to_affect_core_judgment") is False
+        ),
         "allowed_to_affect_core_judgment": False,
     }
     ensure_dir(CALIBRATION_PATH.parent)

@@ -16,13 +16,13 @@ shared language, not a place for module-specific implementation.
 
 - `protocols/`
 - `protocols/README.md`
-- `Workbench/contracts/workbench/`
+- `packages/workbench/contracts/workbench/`
 - `contracts/`
 - `FRAMEWORK_CONTRACT.md`
 - `PRODUCT_FRAMEWORK_BOUNDARY.md`
 
 `contracts/` is a compatibility symlink. Canonical Workbench contract source is
-under `Workbench/contracts/workbench/`.
+under `packages/workbench/contracts/workbench/`.
 
 ## Important Schemas
 
@@ -35,7 +35,7 @@ Workbench cross-module protocols:
 - `protocols/nlp_answer.schema.json`
 
 Structural NLP protocols (compatibility mirrors — canonical source moves to
-`Workbench/src/nlp/`):
+`packages/workbench/src/nlp/`):
 
 - `protocols/nlp_event_card.schema.json`
 - `protocols/nlp_candidate_ledger.schema.json`
@@ -44,7 +44,7 @@ Structural NLP protocols (compatibility mirrors — canonical source moves to
 ## NLP delegation
 
 NLP pipeline work — extraction, mapping, candidate ledger, promotion — is owned
-by the Structural NLP library at `Workbench/src/nlp/`. That library defines and
+by the Structural NLP library at `packages/workbench/src/nlp/`. That library defines and
 validates NLP-domain protocol shapes. Root `protocols/nlp_*.schema.json` files
 for those shapes are transitional mirrors; do not treat this directory as the
 source of truth for NLP semantics.

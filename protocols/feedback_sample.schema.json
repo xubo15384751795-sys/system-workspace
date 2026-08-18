@@ -45,6 +45,125 @@
       "type": "string",
       "description": "ISO timestamp when this sample record was created"
     },
+    "provider_status": {
+      "type": "string",
+      "enum": [
+        "refreshed",
+        "reused_same_content",
+        "reused_after_provider_failure",
+        "partial_provider_success",
+        "provider_failed_no_acceptable_fallback",
+        "no_release_expected",
+        "environmentally_blocked"
+      ],
+      "description": "Provider outcome used by the versioned feedback eligibility matrix"
+    },
+    "provider_outcome": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "refreshed",
+            "reused_same_content",
+            "reused_after_provider_failure",
+            "partial_provider_success",
+            "provider_failed_no_acceptable_fallback",
+            "no_release_expected",
+            "environmentally_blocked"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "lifecycle_state": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "eligible",
+        "reviewed",
+        "accepted",
+        "rejected",
+        "deferred",
+        "calibration_set"
+      ],
+      "description": "Governed feedback lifecycle state; never an authority grant by itself"
+    },
+    "eligibility": {
+      "type": "string",
+      "enum": [
+        "ineligible",
+        "candidate",
+        "eligible",
+        "reviewed",
+        "calibration_set",
+        "deferred",
+        "rejected"
+      ],
+      "description": "Explicit calibration eligibility state"
+    },
+    "eligibility_reason_codes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "cross_run": {
+      "type": "boolean",
+      "const": false,
+      "description": "Must be false; cross-run samples are invalid evidence."
+    },
+    "future_leak": {
+      "type": "boolean",
+      "const": false,
+      "description": "Must be false; future-leak samples are invalid evidence."
+    },
+    "allowed_to_affect_core_judgment": {
+      "type": "boolean",
+      "description": "Must remain false until a separately governed authority contract exists"
+    },
+    "calibration_set": {"type": "boolean"},
+    "golden": {"type": "boolean"},
+    "golden_adjudication": {
+      "type": ["object", "null"],
+      "description": "Versioned, separately adjudicated evidence required when golden is true",
+      "properties": {
+        "criteria_version": {"type": "string", "minLength": 1},
+        "adjudicator": {"type": "string", "minLength": 1},
+        "occurred_at": {"type": "string", "minLength": 1},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "required": ["criteria_version", "adjudicator", "occurred_at", "evidence"],
+      "additionalProperties": true
+    },
+    "lifecycle_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_id", "from_state", "to_state", "owner", "occurred_at", "evidence"],
+        "properties": {
+          "event_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "from_state": {
+            "type": ["string", "null"],
+            "enum": [null, "candidate", "eligible", "reviewed", "accepted", "rejected", "deferred", "calibration_set"]
+          },
+          "to_state": {
+            "type": "string",
+            "enum": ["candidate", "eligible", "reviewed", "accepted", "rejected", "deferred", "calibration_set"]
+          },
+          "owner": {"type": "string", "minLength": 1},
+          "occurred_at": {"type": "string", "minLength": 1},
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          }
+        },
+        "additionalProperties": true
+      }
+    },
     "allowed_lookback": {
       "type": "string",
       "description": "Earliest date the system was allowed to use as input context"
@@ -239,5 +358,21 @@
       "additionalProperties": true
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"golden": {"const": true}},
+        "required": ["golden"]
+      },
+      "then": {
+        "required": ["golden_adjudication"],
+        "properties": {
+          "golden_adjudication": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": true
 }

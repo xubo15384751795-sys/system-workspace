@@ -15,15 +15,16 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, surface_dir
+from system_runtime.feedback_lifecycle import make_transition_event
 
 MANIFEST = ROOT / "Data" / "feedback_samples" / "sample_manifest.jsonl"
 REPLAY_DIR = ROOT / "Output" / "sandbox" / "event_replay"
-FRAMEWORK = ROOT / "Output" / "current" / "framework_output.json"
-JUDGMENT = ROOT / "Output" / "judgment" / "judgment_card.json"
-TRADE = ROOT / "Output" / "judgment" / "trade_decision.json"
-GATE = ROOT / "Output" / "judgment" / "promotion_gate.json"
-OPERATORS = ROOT / "Output" / "current" / "operator_activations.json"
+FRAMEWORK = surface_dir("current") / "framework_output.json"
+JUDGMENT = surface_dir("judgment") / "judgment_card.json"
+TRADE = surface_dir("judgment") / "trade_decision.json"
+GATE = surface_dir("judgment") / "promotion_gate.json"
+OPERATORS = surface_dir("current") / "operator_activations.json"
 
 
 def _sample_id(as_of: str, sample_type: str, suffix: str) -> str:
@@ -54,14 +55,37 @@ def _build_sample(
     judgment = load_json(JUDGMENT) or {}
     trade = load_json(TRADE) or {}
     gate = load_json(GATE) or {}
+    generated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    sample_id = _sample_id(as_of, sample_type, why[:40])
 
     return {
         "schema_version": "feedback_sample.v1",
-        "sample_id": _sample_id(as_of, sample_type, why[:40]),
+        "sample_id": sample_id,
         "as_of_date": as_of,
         "sample_type": sample_type,
         "why_selected": why,
-        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "generated_at": generated_at,
+        # Eligibility is an explicit lifecycle, never inferred from a label.
+        # New samples start as candidates and are not calibration inputs.
+        "lifecycle_state": "candidate",
+        "eligibility": "ineligible",
+        "eligibility_reason_codes": [
+            "HUMAN_REVIEW_REQUIRED",
+            "AUTHORITY_NOT_VERIFIED",
+        ],
+        "allowed_to_affect_core_judgment": False,
+        "calibration_set": False,
+        "golden": False,
+        "lifecycle_events": [
+            make_transition_event(
+                sample_id=sample_id,
+                from_state=None,
+                to_state="candidate",
+                owner="feedback_sample_factory",
+                occurred_at=generated_at,
+                evidence=["sample_factory", why],
+            )
+        ],
         "system_state": {
             "m_value": basic.get("M"),
             "d_value": basic.get("D"),

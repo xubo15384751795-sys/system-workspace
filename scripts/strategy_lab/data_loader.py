@@ -34,6 +34,20 @@ SIGNAL_COLS = {
 }
 
 
+def _deduplicate_daily_index(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return one deterministic row per daily index value.
+
+    ETF provider refreshes may temporarily leave duplicate rows for a symbol
+    and date.  Strategy consumers require a unique index because pandas
+    ``join``/``Series.loc`` otherwise return a Series where a scalar is
+    expected.  The Harvester also deduplicates at write time, but this
+    boundary remains defensive for existing mirrors and legacy releases.
+    """
+    if frame.index.has_duplicates:
+        return frame[~frame.index.duplicated(keep="last")]
+    return frame
+
+
 def load_spy(start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Load SPY daily close + returns from the cross-asset panel.
 
@@ -44,6 +58,7 @@ def load_spy(start: str | None = None, end: str | None = None) -> pd.DataFrame:
     spy = panel[panel["symbol"] == "SPY"].copy()
     spy["date"] = pd.to_datetime(spy["date"])
     spy = spy.set_index("date").sort_index()
+    spy = _deduplicate_daily_index(spy)
     spy = spy[["close", "return_1d", "return_5d", "return_20d", "return_60d", "volatility_20d"]]
     if start:
         spy = spy.loc[start:]
@@ -61,6 +76,7 @@ def load_symbol(symbol: str, start: str | None = None, end: str | None = None) -
     sym = panel[panel["symbol"] == symbol].copy()
     sym["date"] = pd.to_datetime(sym["date"])
     sym = sym.set_index("date").sort_index()
+    sym = _deduplicate_daily_index(sym)
     sym = sym[["close", "return_1d"]]
     if start:
         sym = sym.loc[start:]
@@ -84,6 +100,7 @@ def load_signals(start: str | None = None, end: str | None = None) -> pd.DataFra
     sig = pd.read_parquet(history_path)[["M", "D"]]
     sig.index = pd.to_datetime(sig.index)
     sig = sig.sort_index()
+    sig = _deduplicate_daily_index(sig)
     if start:
         sig = sig.loc[start:]
     if end:

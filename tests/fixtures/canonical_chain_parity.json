@@ -1,0 +1,67 @@
+{
+  "schema_version": "system.canonical_chain.v1",
+  "observation": {
+    "observation_id": "obs_b8fb4b934df0e4315bc29a897733ff97",
+    "canonical_series_id": "FRED:NFCI",
+    "observed_at": "2026-08-14T00:00:00Z",
+    "vintage_at": "2026-08-15T00:00:00Z",
+    "value": 0.42,
+    "unit": "index",
+    "status": "AVAILABLE",
+    "scope": {},
+    "source": {
+      "source_id": "fred:nfci",
+      "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "provenance": {
+      "captured_at": "2026-08-15T01:00:00Z",
+      "producer": "fixture",
+      "parser_version": "1"
+    }
+  },
+  "measurement": {
+    "measurement_id": "mea_a05808cba8cd771ae20b10e1192e1cbb",
+    "observation_ids": ["obs_b8fb4b934df0e4315bc29a897733ff97"],
+    "measurement_definition": "nfci_normalized_level",
+    "method_version": "1",
+    "value": 0.42,
+    "unit": "zscore",
+    "status": "AVAILABLE",
+    "derivation": "OBSERVED",
+    "confidence": 0.95,
+    "provenance": {
+      "captured_at": "2026-08-15T01:00:01Z",
+      "producer": "fixture"
+    }
+  },
+  "evidence": {
+    "evidence_id": "evd_74fc2ea548a5c46404a78ba291852582",
+    "measurement_ids": ["mea_a05808cba8cd771ae20b10e1192e1cbb"],
+    "evidence_role": "PRIMARY",
+    "status": "AVAILABLE",
+    "source": {
+      "source_id": "fred:nfci",
+      "release_id": "fred-2026-08-15",
+      "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "provenance": {
+      "captured_at": "2026-08-15T01:00:02Z",
+      "producer": "fixture",
+      "source_url": "https://example.invalid/nfci"
+    }
+  },
+  "claim": {
+    "claim_id": "clm_098b812fa4635d5320beb77eca394efb",
+    "claim_text": "NFCI is elevated relative to its reference distribution.",
+    "subject": "FRED:NFCI",
+    "predicate": "is_elevated",
+    "policy_version": "1",
+    "evidence_ids": ["evd_74fc2ea548a5c46404a78ba291852582"],
+    "status": "WATCH",
+    "confidence": 0.8,
+    "provenance": {
+      "captured_at": "2026-08-15T01:00:03Z",
+      "producer": "fixture"
+    }
+  }
+}

@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Phase 0.3 + 2.3 staged plist.
-     Apply via: bash scripts/install_launchd_plists.sh (pass apply flag).
-     Changes vs older installed agent:
-       0.3: 21:30 run uses skip-harvester (no Yahoo re-fetch; 22:30 is authoritative).
-       2.3: logs under Output/logs/launchd/ (monthly truncate by daily_run). -->
+<!-- Legacy post-close agent retained as an auditable, disabled record.
+     It previously repeated an authoritative current publish.
+     Apply via: bash scripts/install_launchd_plists.sh apply flag. -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.system.daily-run-harvester-postclose</string>
+    <key>Disabled</key>
+    <true/>
     <key>ProgramArguments</key>
     <array>
-        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>__SYSTEM_PYTHON__</string>
         <string>/Users/a1/System/scripts/daily_run.py</string>
         <string>--skip-harvester</string>
     </array>
@@ -22,7 +22,7 @@
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
-        <!-- 21:30 local: US market close; downstream-only (skip harvester) -->
+        <!-- Historical slot; disabled until an explicit session-gated consumer exists. -->
         <key>Hour</key>
         <integer>21</integer>
         <key>Minute</key>

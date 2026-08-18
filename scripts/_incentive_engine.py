@@ -4,6 +4,7 @@ Credit improves review priority only. It never grants authority.
 """
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from datetime import UTC, datetime
@@ -11,10 +12,18 @@ from pathlib import Path
 from typing import Any
 
 from scripts._constants import TIMEOUT_MEDIUM, TIMEOUT_STANDARD  # noqa: E402
+from scripts._runtime_io import ROOT as WORKSPACE_ROOT
 from scripts._runtime_io import load_json as _load_json
 from scripts._runtime_io import load_yaml as _load_yaml
+from system_runtime.paths import output_surface
+
+logger = logging.getLogger(__name__)
 
 PRIORITY_ORDER = ["low", "registered", "preferred", "canonical"]
+
+
+def _surface(root: Path, name: str) -> Path:
+    return output_surface(root, name) if root == WORKSPACE_ROOT else root / "Output" / name
 
 
 def _tier_index(tier: str) -> int:
@@ -25,8 +34,8 @@ def _tier_index(tier: str) -> int:
 
 
 def collect_runtime_signals(root: Path) -> dict[str, Any]:
-    governance = _load_json(root / "Output/system_learning/latest/governance_status.json") or {}
-    graph = _load_json(root / "Output/system_learning/latest/authority_graph.json") or {}
+    governance = _load_json(_surface(root, "system_learning") / "latest" / "governance_status.json") or {}
+    graph = _load_json(_surface(root, "system_learning") / "latest" / "authority_graph.json") or {}
     run_trace = governance.get("run_trace", {})
     gates = governance.get("gates", {})
     incentive = governance.get("incentive", {})
@@ -101,7 +110,7 @@ def _load_drag_penalty(root: Path | None) -> dict[str, Any]:
     if not root:
         return {"penalty": 0, "drag_score": 0, "severity": "UNKNOWN", "source": "no_root"}
 
-    drag_path = root / "Output" / "system_learning" / "latest" / "governance_drag_report.json"
+    drag_path = _surface(root, "system_learning") / "latest" / "governance_drag_report.json"
     if not drag_path.exists():
         return {"penalty": 0, "drag_score": 0, "severity": "UNKNOWN", "source": "report_missing"}
 
@@ -303,7 +312,7 @@ def run_anti_gaming_checks(root: Path, policy: dict[str, Any]) -> dict[str, Any]
 
     # ── Check 4: Outputs without consumers ─────────────────────
     # If a script writes to Output/ but nothing reads it, it's noise.
-    output_dir = root / "Output" / "current"
+    output_dir = _surface(root, "current")
     if output_dir.exists():
         for artifact in sorted(output_dir.glob("*.json")):
             name = artifact.name
@@ -328,7 +337,7 @@ def run_anti_gaming_checks(root: Path, policy: dict[str, Any]) -> dict[str, Any]
 
     # ── Check 5: Harvester bypass detection ────────────────────
     # If framework_output.json exists but harvester hasn't run today, flag it.
-    fw_path = root / "Output" / "current" / "framework_output.json"
+    fw_path = _surface(root, "current") / "framework_output.json"
     harvester_manifest = root / "Data" / "harvester" / "exports" / "latest" / "manifest.json"
     if fw_path.exists() and harvester_manifest.exists():
         fw_age_hours = (datetime.now(UTC).timestamp() - os.path.getmtime(fw_path)) / 3600
@@ -348,7 +357,7 @@ def run_anti_gaming_checks(root: Path, policy: dict[str, Any]) -> dict[str, Any]
 
     # ── Check 6: Credit score claiming authority ───────────────
     # Check if any output uses credit_score to justify a decision
-    judgment_dir = root / "Output" / "judgment"
+    judgment_dir = _surface(root, "judgment")
     if judgment_dir.exists():
         latest = judgment_dir / "latest.json"
         if latest.exists():
@@ -374,7 +383,7 @@ def run_anti_gaming_checks(root: Path, policy: dict[str, Any]) -> dict[str, Any]
                 if datetime.now(UTC) > retire_date and sub.get("status") not in ("rejected", "archived"):
                     overdue.append(sub.get("submission_id", "?"))
             except ValueError:
-                pass
+                logger.warning("Invalid submission retirement date: %s", retire, exc_info=True)
     if overdue:
         findings.append(
             {

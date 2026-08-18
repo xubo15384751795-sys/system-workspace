@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-12-system-optimization-ws10-safe-monitoring
+date: "2026-08-12"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Execute the safe WS10 contract slice from the comprehensive system
+  optimization plan: reconcile producer paths, classify durable artifacts,
+  add owner/class/mode/target monitoring contracts for static inputs and
+  compatibility pointers, and enforce feedback lifecycle transition evidence
+  without writing live Data/Output or granting decision authority.
+authority_changes:
+  - module: scripts/artifact_monitoring_audit.py
+    claim: monitoring contracts are validated for shape, owner, target, and broken pointer state
+  - module: governance/daily_pipeline_registry.yaml
+    claim: current static inputs, compatibility pointers, producer outputs, and retired artifacts have explicit contracts
+  - module: system_runtime/feedback_lifecycle.py
+    claim: feedback transitions have deterministic event IDs and fail-closed chain validation
+  - module: system_runtime/minimum_monitoring.py
+    claim: missing or invalid lifecycle evidence blocks feedback eligibility
+references:
+  - SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
+  - scripts/artifact_monitoring_audit.py
+  - governance/daily_pipeline_registry.yaml
+  - system_runtime/feedback_lifecycle.py
+  - system_runtime/minimum_monitoring.py
+  - tests/test_artifact_monitoring_audit.py
+  - tests/test_feedback_sample_eligibility.py
+  - tests/test_feedback_eligibility_migration.py
+non_goals:
+  - Apply feedback eligibility migration to the real 6424-record manifest
+  - Migrate Output to generations/live or swap any production pointer
+  - Refresh Data, Output, Learning Hub ledgers, provider releases, or scheduled runs
+  - Claim minimum monitoring PASS, clean-device recovery, vulnerability assessment, or a 14-day window
+  - Change investment judgments, calibration thresholds, promotion policy, or remote GitHub state
+rollback:
+  - Revert this decision's source/config/test changes and restore the previous monitoring registry view
+evidence:
+  tests:
+    - tests/test_artifact_monitoring_audit.py: 14 passed
+    - feedback and minimum monitoring focused suite: 11 passed
+    - governance/security/architecture focused suite: 40 passed
+  live_read_only:
+    required_coverage_gap_count: 0
+    unresolved_monitoring_blind_spot_count: 0
+    monitoring_contract_violation_count: 0
+    overall_minimum_monitoring: BLOCKED

@@ -51,7 +51,14 @@ from scripts._constants import (
     X_CROSS_MARKET_ELEVATED,
     X_CROSS_MARKET_UNWIND,
 )
-from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
 OUTPUT_DIR = ROOT / "Output" / "caselab"
 
@@ -68,7 +75,7 @@ def get_latest_state() -> dict:
     and contains the most current M/D/K/X values from the structural replay.
     proxy_readings.parquet may be stale if the data pipeline has gaps.
     """
-    framework_path = ROOT / "Output" / "current" / "framework_output.json"
+    framework_path = surface_dir("current") / "framework_output.json"
     proxy_path = ROOT / "Data" / "structural_lab" / "processed" / "proxies" / "proxy_readings.parquet"
     state_path = ROOT / "Data" / "structural_lab" / "processed" / "state" / "structural_state.parquet"
 
@@ -134,7 +141,7 @@ def get_latest_state() -> dict:
                     try:
                         state["z_vector"] = [float(x) for x in zv]
                     except (TypeError, ValueError):
-                        pass
+                        logger.warning("Unable to normalize CaseLab z_vector", exc_info=True)
 
                 # Extract active operators from diagnostics
                 diag = row.get("operator_diagnostics")
@@ -622,7 +629,7 @@ def reconcile_regime(state: dict) -> dict[str, Any]:
 
 def _load_claim_ladder_mechanisms() -> list[str]:
     """Load mechanism types from the current judgment's claim_ladder."""
-    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    judgment_path = surface_dir("judgment") / "latest.json"
     if not judgment_path.exists():
         return []
     try:

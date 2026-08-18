@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,8 @@ import pandas as pd
 
 from scripts._runtime_io import ROOT, current_dir, ensure_dir
 from scripts.build_current_status import gather_status
+
+logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = current_dir()
 IMPROVEMENT_LEDGER = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
@@ -130,7 +133,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
                 "module": "packages/harvester",
             })
     except Exception:
-        pass
+        logger.warning("Unable to inspect improvement ledger for next actions", exc_info=True)
 
     # If no blockers, suggest monitoring
     if not actions:

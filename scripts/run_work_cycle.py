@@ -13,15 +13,19 @@ Usage:
 Modes:
     quick_reaction: Read current artifacts, generate brief + signal card +
                     data gaps + supervisor check + run manifest.
-                    No external data refresh.  No pipeline execution.
+                    No external data refresh.  Candidate-only by default.
     standard_run:   Run core judgment chain, then all quick artifacts.
-    full_refresh:   Full pipeline including Harvester, then all artifacts.
+                    Candidate-only by default.
+    full_refresh:   Owned by the scheduled daily/Dagster path; direct
+                    work-cycle execution requires explicit legacy opt-in.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -29,46 +33,93 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._constants import TIMEOUT_LONG  # noqa: E402
-
-# RunBundle integration — use auditable path management
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml
-
-CURRENT = ROOT / "Output" / "current"
-RUNS = ROOT / "Output" / "runs"
-LEARNING = ROOT / "Output" / "system_learning" / "latest"
-RUN_MODE_PATH = ROOT / "governance" / "run_mode_registry.yaml"
 from run_bundle import RunBundle
 
-# Scripts for standard/full modes
-STANDARD_STEPS = [
-    "scripts/bridge_replay_to_current.py",
-    "scripts/quality_field_validator.py",
-    "scripts/judgment_layer.py",
-    "scripts/judgment_promotion_gate.py",
-    "scripts/trade_decision_layer.py",
-    "scripts/trade_risk_gate.py",
-    "scripts/record_trade_decision.py",
-    "scripts/market_feedback.py",
-    "scripts/commands/weekly/claim_evaluator.py",
-    "scripts/commands/weekly/claim_ladder_tracker.py",
-    "scripts/commands/weekly/build_learning_hub_feedback.py",
-    "scripts/commands/weekly/build_proxy_quality_report.py",
-    "scripts/commands/weekly/learning_hub_comprehensive_summary.py",
-    "scripts/build_system_index.py",
-    "scripts/commands/weekly/build_readme_first.py",
-    "scripts/commands/weekly/build_next_actions.py",
-]
+from scripts._constants import TIMEOUT_LONG  # noqa: E402
+from scripts._pipeline_runner import run_registry_step
 
-# Quick cycle scripts — read-only, no data refresh
-QUICK_SCRIPTS = [
-    "scripts/build_signal_card.py",
-    "scripts/signal_consensus.py",
-    "scripts/build_work_brief.py",
-    "scripts/commands/weekly/build_data_gaps.py",
-]
+# RunBundle integration — use auditable path management
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_yaml, surface_dir
+from system_runtime.paths import WorkspacePaths
+from system_runtime.pipeline import load_pipeline
+from system_runtime.publish_transaction import PublishTransaction
 
-GOVERNANCE_STATUS_SCRIPT = "scripts/commands/weekly/governance_status.py"
+logger = logging.getLogger(__name__)
+
+RUNS = ROOT / "Output" / "runs"
+RUN_MODE_PATH = ROOT / "governance" / "run_mode_registry.yaml"
+
+QUICK_RENDER_PROFILE = "work_cycle_quick_render"
+STANDARD_CORE_PROFILE = "work_cycle_standard_core"
+ALWAYS_PROFILE = "work_cycle_always"
+
+
+def _current_dir() -> Path:
+    """Resolve the current surface at call time, after candidate activation."""
+    return current_dir()
+
+
+def _learning_dir() -> Path:
+    """Resolve the Learning Hub surface at call time, after candidate activation."""
+    return surface_dir("system_learning") / "latest"
+
+
+def _legacy_work_cycle_enabled() -> bool:
+    """Allow the pre-generation direct-write path only by explicit opt-in."""
+    return os.environ.get("SYSTEM_USE_LEGACY_WORK_CYCLE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def _seed_candidate_baseline(transaction: PublishTransaction) -> None:
+    """Copy accepted compatibility surfaces into a candidate read baseline.
+
+    Work-cycle renderers need prior judgment/quality/context to explain what
+    changed.  Seeding the candidate preserves that read context while keeping
+    every new write inside the run bundle; the candidate is never published by
+    this entry point.
+    """
+    copy_surfaces = {
+        "current",
+        "position",
+        "judgment",
+        "trade_decision",
+        "trade_ledger",
+        "quality",
+        "system_learning",
+    }
+    for name, target in transaction.candidate_dirs.items():
+        if name not in copy_surfaces:
+            continue
+        source = ROOT / "Output" / name
+        if not source.is_dir():
+            continue
+        shutil.copytree(source, target, dirs_exist_ok=True, symlinks=True)
+
+
+def _profile_step_ids(profile: str) -> list[str]:
+    """Resolve a work-cycle projection from the canonical compiled plan."""
+    plan = load_pipeline(WorkspacePaths(root=ROOT))
+    return [step.step_id for step in plan.projection(profile)]
+
+
+def _run_plan_step(step_id: str) -> dict[str, Any]:
+    """Run one compiled step and retain the work-cycle status vocabulary."""
+    result = run_registry_step(step_id)
+    status_map = {
+        "success": "OK",
+        "failed": "FAIL",
+        "missing": "MISSING",
+        "timeout": "TIMEOUT",
+        "error": "ERROR",
+    }
+    return {
+        "script": step_id,
+        **result,
+        "status": status_map.get(result.get("status", ""), result.get("status", "ERROR")),
+    }
 
 
 
@@ -102,9 +153,10 @@ def _run_script(script: str, timeout: int = 120) -> dict[str, Any]:
 
 def _write_learning_hub_event(event_type: str, data: dict[str, Any]) -> None:
     """Append event to Learning Hub runtime log."""
-    ensure_dir(LEARNING)
+    learning = _learning_dir()
+    ensure_dir(learning)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    event_log = LEARNING / f"work_cycle_events_{today}.jsonl"
+    event_log = learning / f"work_cycle_events_{today}.jsonl"
 
     event = {
         "timestamp": datetime.now(UTC).isoformat(),
@@ -118,14 +170,15 @@ def _write_learning_hub_event(event_type: str, data: dict[str, Any]) -> None:
 
 
 def _collect_artifacts_written() -> list[str]:
-    """Scan Output/current for recently modified artifacts (last 60s)."""
-    if not CURRENT.exists():
+    """Scan the active current candidate for recently modified artifacts."""
+    current = _current_dir()
+    if not current.exists():
         return []
     now = time.time()
     artifacts = []
-    for item in sorted(CURRENT.iterdir()):
+    for item in sorted(current.iterdir()):
         if item.is_file() and (now - item.stat().st_mtime) < 60:
-            artifacts.append(f"Output/current/{item.name}")
+            artifacts.append(str(item.relative_to(ROOT)))
     return artifacts
 
 
@@ -143,19 +196,20 @@ def _record_step(bundle: RunBundle, result: dict[str, Any]) -> None:
 def _capture_bundle_traces(bundle: RunBundle) -> None:
     """Capture decision + signal traces into the bundle."""
     for rel in [
-        "Output/judgment/latest.json",
-        "Output/trade_decision/latest.json",
-        "Output/trade_decisions/latest.json",
+        "judgment/latest.json",
+        "trade_decision/latest.json",
+        "trade_decisions/latest.json",
     ]:
-        p = ROOT / rel
+        surface, name = rel.split("/", 1)
+        p = surface_dir(surface) / name
         if p.exists():
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
-                bundle.capture_decision_trace({rel: data})
+                bundle.capture_decision_trace({f"Output/{rel}": data})
             except (json.JSONDecodeError, OSError, KeyError):
-                pass
+                logger.debug("Unable to capture decision trace from %s", p, exc_info=True)
 
-    fw_path = CURRENT / "framework_output.json"
+    fw_path = _current_dir() / "framework_output.json"
     if fw_path.exists():
         try:
             fw = json.loads(fw_path.read_text(encoding="utf-8"))
@@ -166,24 +220,12 @@ def _capture_bundle_traces(bundle: RunBundle) -> None:
                 "sigma_vector": sv,
             })
         except (json.JSONDecodeError, OSError, KeyError):
-            pass
-
-
-def _run_governance_status(bundle: RunBundle, step_results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Generate the visible governance status and record it as a normal step."""
-    result = _run_script(GOVERNANCE_STATUS_SCRIPT)
-    step = {"step": "governance_status", **result}
-    step_results.append(step)
-    _record_step(bundle, step)
-    _write_learning_hub_event("governance_status_completed", {
-        "status": result["status"],
-    })
-    return step
+            logger.debug("Unable to capture framework signal trace from %s", fw_path, exc_info=True)
 
 
 def _data_freshness() -> dict[str, Any]:
     """Check if framework_output has changed since last work cycle."""
-    fw_path = CURRENT / "framework_output.json"
+    fw_path = _current_dir() / "framework_output.json"
     if not fw_path.exists():
         return {"fresh": False, "reason": "missing"}
 
@@ -203,13 +245,18 @@ def _data_freshness() -> dict[str, Any]:
                     if fw_mtime <= last_ts:
                         return {"fresh": False, "reason": "no_change_since_last_run"}
         except (ValueError, OSError):
-            pass
+            logger.warning("Unable to establish freshness from latest work-cycle manifest", exc_info=True)
+            return {"fresh": False, "reason": "latest_work_cycle_manifest_unparseable"}
 
     return {"fresh": True, "reason": "data_updated"}
 
 
 def _update_latest_work_cycle_pointer(bundle: RunBundle) -> None:
     """Update pointer to latest work cycle run."""
+    if not _legacy_work_cycle_enabled():
+        # Candidate-only work cycles must not make an uncommitted or partial
+        # bundle authoritative input for the next freshness decision.
+        return
     pointer = RUNS / "latest_work_cycle.txt"
     pointer.write_text(str(bundle.run_dir), encoding="utf-8")
 
@@ -224,12 +271,12 @@ def run_quick_cycle(bundle: RunBundle) -> dict[str, Any]:
 
     if freshness["fresh"]:
         # Data changed — re-render all quick artifacts
-        for script in QUICK_SCRIPTS:
-            result = _run_script(script)
-            step_results.append({"step": Path(script).stem, **result})
-            _record_step(bundle, {"step": Path(script).stem, **result})
+        for step_id in _profile_step_ids(QUICK_RENDER_PROFILE):
+            result = _run_plan_step(step_id)
+            step_results.append(result)
+            _record_step(bundle, result)
             _write_learning_hub_event("artifact_generated", {
-                "step": Path(script).stem,
+                "step": step_id,
                 "status": result["status"],
             })
     else:
@@ -238,21 +285,29 @@ def run_quick_cycle(bundle: RunBundle) -> dict[str, Any]:
             "reason": freshness["reason"],
         })
 
-    # Always run change analysis (produces new content from historical trends)
-    change_result = _run_script("scripts/commands/weekly/build_change_analysis.py")
-    step_results.append({"step": "change_analysis", **change_result})
-    _record_step(bundle, {"step": "change_analysis", **change_result})
-
-    # Supervisor check
-    supervisor_result = _run_script("scripts/run_supervisor_check.py")
-    step_results.append({"step": "supervisor_check", **supervisor_result})
-    _record_step(bundle, {"step": "supervisor_check", **supervisor_result})
+    # Always run the analysis/supervisor part of the compiled work-cycle tail.
+    always_results = []
+    for step_id in _profile_step_ids(ALWAYS_PROFILE):
+        result = _run_plan_step(step_id)
+        step_results.append(result)
+        always_results.append(result)
+        _record_step(bundle, result)
+    supervisor_result = next(
+        (result for result in always_results if result["step"] == "supervisor_check"),
+        {"status": "ERROR"},
+    )
     _write_learning_hub_event("supervisor_check_completed", {
         "status": supervisor_result["status"],
     })
+    governance_result = next(
+        (result for result in always_results if result["step"] == "governance_status"),
+        {"status": "ERROR"},
+    )
+    _write_learning_hub_event("governance_status_completed", {
+        "status": governance_result["status"],
+    })
 
     _capture_bundle_traces(bundle)
-    _run_governance_status(bundle, step_results)
     _update_latest_work_cycle_pointer(bundle)
 
     return {
@@ -271,23 +326,23 @@ def run_standard_cycle(bundle: RunBundle) -> dict[str, Any]:
 
     if freshness["fresh"]:
         # Data changed — run full judgment chain
-        for script in STANDARD_STEPS:
-            result = _run_script(script)
-            step_results.append({"step": Path(script).stem, **result})
-            _record_step(bundle, {"step": Path(script).stem, **result})
+        for step_id in _profile_step_ids(STANDARD_CORE_PROFILE):
+            result = _run_plan_step(step_id)
+            step_results.append(result)
+            _record_step(bundle, result)
             if result["status"] not in ("OK",):
                 _write_learning_hub_event("module_activity_recorded", {
-                    "module": Path(script).stem,
+                    "module": step_id,
                     "status": result["status"],
                 })
 
         # Quick artifacts after judgment chain
-        for script in QUICK_SCRIPTS:
-            result = _run_script(script)
-            step_results.append({"step": Path(script).stem, **result})
-            _record_step(bundle, {"step": Path(script).stem, **result})
+        for step_id in _profile_step_ids(QUICK_RENDER_PROFILE):
+            result = _run_plan_step(step_id)
+            step_results.append(result)
+            _record_step(bundle, result)
             _write_learning_hub_event("artifact_generated", {
-                "step": Path(script).stem,
+                "step": step_id,
                 "status": result["status"],
             })
     else:
@@ -296,21 +351,29 @@ def run_standard_cycle(bundle: RunBundle) -> dict[str, Any]:
             "reason": freshness["reason"],
         })
 
-    # Always run change analysis (produces new content from historical trends)
-    change_result = _run_script("scripts/commands/weekly/build_change_analysis.py")
-    step_results.append({"step": "change_analysis", **change_result})
-    _record_step(bundle, {"step": "change_analysis", **change_result})
-
-    # Supervisor check
-    supervisor_result = _run_script("scripts/run_supervisor_check.py")
-    step_results.append({"step": "supervisor_check", **supervisor_result})
-    _record_step(bundle, {"step": "supervisor_check", **supervisor_result})
+    # Always run the analysis/supervisor part of the compiled work-cycle tail.
+    always_results = []
+    for step_id in _profile_step_ids(ALWAYS_PROFILE):
+        result = _run_plan_step(step_id)
+        step_results.append(result)
+        always_results.append(result)
+        _record_step(bundle, result)
+    supervisor_result = next(
+        (result for result in always_results if result["step"] == "supervisor_check"),
+        {"status": "ERROR"},
+    )
     _write_learning_hub_event("supervisor_check_completed", {
         "status": supervisor_result["status"],
     })
+    governance_result = next(
+        (result for result in always_results if result["step"] == "governance_status"),
+        {"status": "ERROR"},
+    )
+    _write_learning_hub_event("governance_status_completed", {
+        "status": governance_result["status"],
+    })
 
     _capture_bundle_traces(bundle)
-    _run_governance_status(bundle, step_results)
     _update_latest_work_cycle_pointer(bundle)
 
     return {
@@ -331,25 +394,38 @@ def run_full_cycle(bundle: RunBundle) -> dict[str, Any]:
     _record_step(bundle, {"step": "daily_pipeline", **pipeline_result})
 
     # Quick artifacts after pipeline
-    for script in QUICK_SCRIPTS:
-        result = _run_script(script)
-        step_results.append({"step": Path(script).stem, **result})
+    for step_id in _profile_step_ids(QUICK_RENDER_PROFILE):
+        result = _run_plan_step(step_id)
+        step_results.append(result)
         _record_step(bundle, result)
         _write_learning_hub_event("artifact_generated", {
-            "step": Path(script).stem,
+            "step": step_id,
             "status": result["status"],
         })
 
-    # Supervisor check
-    supervisor_result = _run_script("scripts/run_supervisor_check.py")
-    step_results.append({"step": "supervisor_check", **supervisor_result})
-    _record_step(bundle, {"step": "supervisor_check", **supervisor_result})
+    # Supervisor and governance tail comes from the same compiled projection.
+    always_results = []
+    for step_id in _profile_step_ids(ALWAYS_PROFILE):
+        result = _run_plan_step(step_id)
+        step_results.append(result)
+        always_results.append(result)
+        _record_step(bundle, result)
+    supervisor_result = next(
+        (result for result in always_results if result["step"] == "supervisor_check"),
+        {"status": "ERROR"},
+    )
     _write_learning_hub_event("supervisor_check_completed", {
         "status": supervisor_result["status"],
     })
+    governance_result = next(
+        (result for result in always_results if result["step"] == "governance_status"),
+        {"status": "ERROR"},
+    )
+    _write_learning_hub_event("governance_status_completed", {
+        "status": governance_result["status"],
+    })
 
     _capture_bundle_traces(bundle)
-    _run_governance_status(bundle, step_results)
 
     return {
         "mode": "full_refresh",
@@ -379,7 +455,7 @@ def summarize_result(result: dict[str, Any]) -> str:
     lines.append(f"**Overall:** {'✅ ALL STEPS OK' if all_ok else '⚠️ SOME STEPS FAILED'}")
 
     # Load work brief for key sections
-    brief_path = CURRENT / "work_brief.json"
+    brief_path = _current_dir() / "work_brief.json"
     if brief_path.exists():
         try:
             brief = json.loads(brief_path.read_text(encoding="utf-8"))
@@ -446,7 +522,7 @@ def summarize_result(result: dict[str, Any]) -> str:
                 lines += ["", f"{icon} **Needs full refresh:** {'YES' if needed else 'No'} ({rec})"]
 
         except (json.JSONDecodeError, OSError, KeyError):
-            pass
+            logger.warning("Unable to render work brief details", exc_info=True)
 
     if result.get("artifacts_written"):
         lines += ["", "## Artifacts Written", ""]
@@ -473,6 +549,15 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
 
+    legacy_work_cycle = _legacy_work_cycle_enabled()
+    if args.mode == "full" and not legacy_work_cycle:
+        message = (
+            "full_refresh is owned by the scheduled Dagster path; set "
+            "SYSTEM_USE_LEGACY_WORK_CYCLE=1 only for an explicitly audited legacy run"
+        )
+        print(message, file=sys.stderr)
+        raise SystemExit(78)
+
     mode_map = {
         "quick": run_quick_cycle,
         "standard": run_standard_cycle,
@@ -480,47 +565,73 @@ def main() -> None:
     }
 
     # Create run bundle
-    bundle = RunBundle.start(mode=f"work_cycle_{args.mode}")
+    # A work-cycle bundle is diagnostic/candidate output by default.  It must
+    # never advance Output/current before the scheduled admission/publisher.
+    bundle = RunBundle.start(mode=f"work_cycle_{args.mode}", update_pointer=False)
+    transaction: PublishTransaction | None = None
+    previous_generation_mode = os.environ.get("SYSTEM_GENERATION_MODE")
 
-    start = time.time()
-    result = mode_map[args.mode](bundle)
-    elapsed = time.time() - start
+    if not legacy_work_cycle:
+        transaction = PublishTransaction(bundle.run_id, bundle.run_dir)
+        transaction.prepare()
+        _seed_candidate_baseline(transaction)
+        os.environ["SYSTEM_GENERATION_MODE"] = "1"
+        transaction.activate()
 
-    result["elapsed_seconds"] = round(elapsed, 1)
-    result["run_id"] = bundle.run_id
+    try:
+        start = time.time()
+        result = mode_map[args.mode](bundle)
+        elapsed = time.time() - start
 
-    # Record artifacts into bundle
-    artifacts_written = _collect_artifacts_written()
-    result["artifacts_written"] = artifacts_written
-    for artifact_rel in artifacts_written:
-        bundle.record_artifact(ROOT / artifact_rel)
+        result["elapsed_seconds"] = round(elapsed, 1)
+        result["run_id"] = bundle.run_id
+        result["candidate_only"] = not legacy_work_cycle
 
-    # Finish run bundle
-    overall = "OK" if all(s.get("status") == "OK" for s in result["steps"]) else "PARTIAL"
-    bundle.finish(status=overall)
+        # Record artifacts into the run bundle, never into a live surface.
+        artifacts_written = _collect_artifacts_written()
+        result["artifacts_written"] = artifacts_written
+        for artifact_rel in artifacts_written:
+            bundle.record_artifact(ROOT / artifact_rel)
 
-    # Refresh governance status after the bundle has its final manifest.
-    governance_result = _run_script(GOVERNANCE_STATUS_SCRIPT)
-    if governance_result.get("status") == "OK":
-        for artifact_rel in [
-            "Output/system_learning/latest/governance_status.json",
-            "Output/system_learning/latest/governance_status.md",
-        ]:
-            artifact = ROOT / artifact_rel
-            if artifact.exists():
-                bundle.record_artifact(artifact)
+        # Finish the work-cycle bundle before the governance tail, preserving
+        # the existing bundle contract while keeping all writer surfaces in
+        # the active candidate.
+        overall = "OK" if all(s.get("status") == "OK" for s in result["steps"]) else "PARTIAL"
+        bundle.finish(status=overall)
 
-    _write_learning_hub_event("work_cycle_completed", {
-        "run_id": bundle.run_id,
-        "mode": result["mode"],
-        "elapsed_seconds": result["elapsed_seconds"],
-        "overall_status": overall,
-    })
+        governance_result = _run_plan_step("governance_status")
+        if governance_result.get("status") == "OK":
+            governance_dir = surface_dir("system_learning") / "latest"
+            for name in ("governance_status.json", "governance_status.md"):
+                artifact = governance_dir / name
+                if artifact.exists():
+                    bundle.record_artifact(artifact)
 
-    if args.json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    else:
-        print(summarize_result(result))
+        _write_learning_hub_event("work_cycle_completed", {
+            "run_id": bundle.run_id,
+            "mode": result["mode"],
+            "elapsed_seconds": result["elapsed_seconds"],
+            "overall_status": overall,
+            "candidate_only": not legacy_work_cycle,
+        })
+
+        if transaction is not None:
+            transaction.write_lineage()
+            result["candidate_path"] = str(transaction.generation_dir.relative_to(ROOT))
+
+        if args.json:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        else:
+            print(summarize_result(result))
+        if overall != "OK":
+            raise SystemExit(1)
+    finally:
+        if transaction is not None:
+            transaction.deactivate()
+            if previous_generation_mode is None:
+                os.environ.pop("SYSTEM_GENERATION_MODE", None)
+            else:
+                os.environ["SYSTEM_GENERATION_MODE"] = previous_generation_mode
 
 
 if __name__ == "__main__":

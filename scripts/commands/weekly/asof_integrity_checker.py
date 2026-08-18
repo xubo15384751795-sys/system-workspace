@@ -21,15 +21,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-JUDGMENT_DIR = ROOT / "Output" / "judgment"
+JUDGMENT_DIR = surface_dir("judgment")
 FEEDBACK_DIR = ROOT / "Output" / "feedback_samples" / "replay_runs"
 RUNS_DIR = ROOT / "Output" / "runs"
-QUALITY_DIR = ROOT / "Output" / "quality"
+QUALITY_DIR = surface_dir("quality")
 REPORT_PATH = QUALITY_DIR / "asof_integrity_report.json"
 
 # ---------------------------------------------------------------------------

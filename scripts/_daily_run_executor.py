@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 
+from orchestration import sequence_executor as _sequence_executor
 from orchestration.sequence_executor import (  # noqa: F401
     CUSTOM_COMMAND_BUILDERS,
     STEP_ENV,
@@ -22,7 +23,6 @@ from orchestration.sequence_executor import (  # noqa: F401
     should_run_step,
 )
 from orchestration.sequence_executor import execute_step as _canonical_execute_step
-from orchestration import sequence_executor as _sequence_executor
 
 execute_step = _canonical_execute_step
 

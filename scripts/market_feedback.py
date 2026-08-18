@@ -20,11 +20,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json, utc_now, write_json
+from scripts._runtime_io import (
+    ROOT,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    utc_now,
+    write_json,
+)
 
 QLIB_OUTPUT_DIR = ROOT / "ExternalTools" / "qlib_benchmark_runner" / "qlib_output"
-TRADE_LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
-CALIBRATION_REPORT_PATH = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
+TRADE_LEDGER_PATH = surface_dir("trade_ledger") / "decisions.jsonl"
+CALIBRATION_REPORT_PATH = surface_dir("trade_ledger") / "calibration_report.json"
 OUTPUT_DIR = ROOT / "Output" / "market_feedback"
 
 

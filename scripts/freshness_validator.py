@@ -18,18 +18,23 @@ import argparse
 import json
 import os
 import sys
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import yaml
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    output_root_dir,
+    surface_dir,
+)
 
-OUTPUT_DIR = ROOT / "Output"
+OUTPUT_DIR = output_root_dir()
 CURRENT = current_dir()
-QUALITY_DIR = OUTPUT_DIR / "quality"
+QUALITY_DIR = surface_dir("quality")
 
 # Phase 1.2: artifact mtime budgets derived from configs/freshness_policy.yaml
 # (single source of truth), not hardcoded. Each artifact maps to its owning
@@ -113,6 +118,19 @@ def _chain_current() -> Path:
         return Path(override)
     return OUTPUT_DIR / "current"
 
+
+def _weekly_freshness_due(now: datetime) -> bool:
+    """Return whether weekly artifacts are expected in this run.
+
+    Daily runs deliberately skip weekly producers except on Monday (the same
+    cadence used by ``daily_run.should_run_step``).  A missing/stale weekly
+    artifact on an ordinary daily run is therefore an advisory condition, not
+    evidence that the current daily generation is incomplete.  Operators can
+    force the weekly contract for an ad-hoc validation with
+    ``SYSTEM_FORCE_WEEKLY=1``.
+    """
+    return now.weekday() == 0 or os.environ.get("SYSTEM_FORCE_WEEKLY") == "1"
+
 # Evidence release TTL — see governance/architecture_reality_decisions.md §4
 # See: configs/freshness_policy.yaml evidence_release section
 EVIDENCE_RELEASE_TTL_HOURS = 3 * 24  # 3 days = 72 hours
@@ -155,20 +173,11 @@ def check_artifact_freshness(
     }
 
 
-def _last_trading_day(on: date) -> date:
-    """Roll calendar date back to the most recent Mon–Fri session."""
-    d = on
-    while d.weekday() >= 5:
-        d -= timedelta(days=1)
-    return d
-
-
 def trading_days_behind(content_max: date, as_of: date) -> int:
-    """Business days that content_max lags the last expected session as of as_of."""
-    expected = _last_trading_day(as_of)
-    if content_max >= expected:
-        return 0
-    return int(np.busday_count(content_max, expected))
+    """Backward-compatible adapter to the canonical exchange-session engine."""
+    from orchestration.quality.calendar_engine import sessions_behind
+
+    return sessions_behind(content_max, as_of)
 
 
 def check_content_freshness(
@@ -178,33 +187,25 @@ def check_content_freshness(
     max_trading_days_behind: int,
     now: datetime,
 ) -> dict[str, Any]:
-    """Check parquet/CSV max(date) against a trading-day lag budget.
-
-    Uses Pandera for column presence when available; lag math stays identical
-    so publish-gate consumers keep the same status vocabulary.
-    """
-    if not path.exists():
-        return {
-            "name": name,
-            "path": str(path),
-            "check_type": "content",
-            "status": "MISSING",
-            "date_column": date_column,
-            "max_date": None,
-            "trading_days_behind": None,
-            "max_trading_days_behind": max_trading_days_behind,
-            "engine": "pandera",
-        }
-
+    """Adapter to the canonical orchestration content-clock evaluator."""
     try:
-        import pandas as pd
+        from orchestration.quality.content_freshness import (
+            evaluate_content_clock,
+            freshness_result_digest,
+        )
 
-        if path.suffix.lower() == ".csv":
-            frame = pd.read_csv(path)
-        else:
-            frame = pd.read_parquet(path, columns=[date_column])
-    except Exception as exc:  # noqa: BLE001 — report as MISSING/unreadable
-        return {
+        result = evaluate_content_clock(
+            name,
+            {
+                "path": str(path),
+                "date_column": date_column,
+                "max_trading_days_behind": max_trading_days_behind,
+            },
+            root=ROOT,
+            as_of=(now.date() if now.tzinfo is None else now.astimezone(UTC).date()),
+        )
+    except Exception as exc:  # noqa: BLE001 — evaluator outage is not a PASS
+        error_result = {
             "name": name,
             "path": str(path),
             "check_type": "content",
@@ -213,65 +214,38 @@ def check_content_freshness(
             "max_date": None,
             "trading_days_behind": None,
             "max_trading_days_behind": max_trading_days_behind,
-            "error": str(exc),
-            "engine": "pandera",
+            "engine": "unavailable",
+            "error": f"quality_evaluator:{exc}",
         }
+        from orchestration.quality.content_freshness import freshness_result_digest
 
-    try:
-        import pandera.pandas as pa
+        error_result["result_digest"] = freshness_result_digest(error_result)
+        return error_result
 
-        pa.DataFrameSchema(
-            {date_column: pa.Column(nullable=False)},
-            coerce=True,
-            strict=False,
-        ).validate(frame[[date_column]] if date_column in frame.columns else frame, lazy=True)
-    except ImportError:
-        pass
-    except Exception as exc:  # noqa: BLE001 — schema failure maps to MISSING
-        return {
-            "name": name,
-            "path": str(path),
-            "check_type": "content",
-            "status": "MISSING",
-            "date_column": date_column,
-            "max_date": None,
-            "trading_days_behind": None,
-            "max_trading_days_behind": max_trading_days_behind,
-            "error": f"pandera:{exc}",
-            "engine": "pandera",
-        }
+    canonical_digest = freshness_result_digest(result)
 
-    if frame.empty or date_column not in frame.columns:
-        return {
-            "name": name,
-            "path": str(path),
-            "check_type": "content",
-            "status": "MISSING",
-            "date_column": date_column,
-            "max_date": None,
-            "trading_days_behind": None,
-            "max_trading_days_behind": max_trading_days_behind,
-            "engine": "pandera",
-        }
-
-    max_ts = pd.to_datetime(frame[date_column]).max()
-    max_d = max_ts.date() if hasattr(max_ts, "date") else date.fromisoformat(str(max_ts)[:10])
-    as_of = now.date() if now.tzinfo is None else now.astimezone().date()
-    behind = trading_days_behind(max_d, as_of)
-    is_fresh = behind <= max_trading_days_behind
-
+    status_map = {
+        "fresh": "FRESH",
+        "stale": "STALE",
+        "missing": "MISSING",
+        "unreadable": "MISSING",
+        "schema_fail": "MISSING",
+        "empty": "MISSING",
+    }
     return {
         "name": name,
         "path": str(path),
         "check_type": "content",
-        "status": "FRESH" if is_fresh else "STALE",
+        "status": status_map.get(str(result.get("status")), "MISSING"),
         "date_column": date_column,
-        "max_date": max_d.isoformat(),
-        "trading_days_behind": behind,
+        "max_date": result.get("latest_date"),
+        "trading_days_behind": result.get("lag_days"),
         "max_trading_days_behind": max_trading_days_behind,
         "age_hours": None,
         "max_age_hours": None,
-        "engine": "pandera",
+        "engine": result.get("engine", "pandera"),
+        "error": "; ".join(result.get("errors", [])) if result.get("errors") else None,
+        "result_digest": canonical_digest,
     }
 
 
@@ -500,8 +474,20 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
     closure_issues = check_closure_chain(now)
 
     # Determine overall verdict
-    stale_artifacts = [a for a in freshness_checks if a["status"] == "STALE"]
-    missing_artifacts = [a for a in freshness_checks if a["status"] == "MISSING"]
+    weekly_due = _weekly_freshness_due(now)
+    schedule_advisory = {
+        a["name"]
+        for a in freshness_checks
+        if not weekly_due
+        and _ARTIFACT_CADENCE.get(str(a.get("name"))) == "weekly"
+        and a.get("status") in {"STALE", "MISSING"}
+    }
+    stale_artifacts = [
+        a for a in freshness_checks if a["status"] == "STALE" and a["name"] not in schedule_advisory
+    ]
+    missing_artifacts = [
+        a for a in freshness_checks if a["status"] == "MISSING" and a["name"] not in schedule_advisory
+    ]
 
     # Only hard violations count toward FAIL; ADVISORY_EXPECTED is informational
     hard_ordering = [i for i in ordering_issues if i["status"] != "ADVISORY_EXPECTED"]
@@ -514,17 +500,26 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
     else:
         verdict = "PASS"
 
-    ge_suite: dict[str, Any] | None = None
+    quality_suite: dict[str, Any]
     try:
         from orchestration.quality.ge_suite import (
-            run_content_freshness_suite,
-            write_ge_validation_artifact,
+            run_content_freshness_quality_suite,
+            write_quality_validation_artifact,
         )
 
-        ge_suite = run_content_freshness_suite(root=ROOT)
-        write_ge_validation_artifact(ge_suite, root=ROOT)
+        quality_suite = run_content_freshness_quality_suite(root=ROOT)
+        write_quality_validation_artifact(quality_suite, root=ROOT)
     except Exception as exc:  # noqa: BLE001 — GE is additive; never block report shape
-        ge_suite = {"engine": "great_expectations+pandera", "success": None, "error": str(exc)}
+        quality_suite = {
+            "engine": "unavailable",
+            "evaluator": "orchestration.quality.content_freshness",
+            "success": False,
+            "status": "EVALUATOR_UNAVAILABLE",
+            "error": str(exc),
+        }
+
+    if quality_suite.get("success") is not True:
+        verdict = "FAIL"
 
     return {
         "schema_version": "freshness_validator.v3",
@@ -532,11 +527,13 @@ def build_freshness_report(now: datetime, *, mode: str = "standard") -> dict[str
         "verdict": verdict,
         "stale_artifacts": [a["name"] for a in stale_artifacts],
         "missing_artifacts": [a["name"] for a in missing_artifacts],
+        "schedule_advisory_artifacts": sorted(schedule_advisory),
+        "weekly_freshness_due": weekly_due,
         "ordering_issues": ordering_issues,
         "closure_chain_issues": closure_issues,
         "content_freshness": content_checks,
         "artifacts": freshness_checks,
-        "ge_content_freshness": ge_suite,
+        "quality_content_freshness": quality_suite,
     }
 
 
@@ -622,6 +619,18 @@ def format_markdown(report: dict[str, Any]) -> str:
             "",
         ]
         for name in report["missing_artifacts"]:
+            lines.append(f"- {name}")
+
+    if report.get("schedule_advisory_artifacts"):
+        lines += [
+            "",
+            "## Schedule Advisory",
+            "",
+            "These weekly artifacts are not expected on the current daily slot; "
+            "they remain visible without blocking daily admission:",
+            "",
+        ]
+        for name in report["schedule_advisory_artifacts"]:
             lines.append(f"- {name}")
 
     lines += [

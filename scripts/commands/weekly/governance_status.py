@@ -25,16 +25,21 @@ from scripts._authority_graph import (  # noqa: E402
     runtime_can_affect_core_judgment,
     write_authority_graph,
 )
-from scripts._runtime_io import ROOT, ensure_dir, write_json  # noqa: E402
+from scripts._runtime_io import ROOT, ensure_dir, surface_dir, write_json  # noqa: E402
 from scripts._runtime_io import load_json as _load_json
 from scripts._runtime_io import load_yaml as _load_yaml
 
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 CONTRACT_REPORT_TTL_HOURS = 168
+CONTRACT_REPORT_CADENCE = "weekly"
+
+
+def _surface(root: Path, name: str) -> Path:
+    return surface_dir(name) if root == ROOT else root / "Output" / name
 
 
 def _latest_run_dir(root: Path) -> Path | None:
-    pointer = root / "Output" / "current" / "latest_run_id.txt"
+    pointer = _surface(root, "current") / "latest_run_id.txt"
     if not pointer.exists():
         return None
     run_id = pointer.read_text(encoding="utf-8").strip()
@@ -92,8 +97,8 @@ def _authority_graph_status(root: Path, run_trace: dict[str, Any]) -> dict[str, 
 
 
 def _gate_status(root: Path, authority_graph: dict[str, Any], run_trace: dict[str, Any]) -> dict[str, Any]:
-    promotion = _load_json(root / "Output" / "judgment" / "promotion_gate.json") or {}
-    risk = _load_json(root / "Output" / "trade_decision" / "risk_gate.json") or {}
+    promotion = _load_json(_surface(root, "judgment") / "promotion_gate.json") or {}
+    risk = _load_json(_surface(root, "trade_decision") / "risk_gate.json") or {}
 
     promotion_status = promotion.get("overall_status", "NO_DATA")
     blocked = promotion.get("blocked_gates", []) or []
@@ -174,6 +179,7 @@ def _load_contract_report(
         "clock_source": clock_source,
         "age_hours": round(age_hours, 2) if age_hours is not None else None,
         "ttl_hours": ttl_hours,
+        "cadence": payload.get("cadence"),
         "source_run_id": payload.get("run_id") or payload.get("source_run_id"),
         "source_sha": payload.get("source_sha") or payload.get("git_sha"),
     }
@@ -183,7 +189,7 @@ def _load_contract_report(
 def _contract_status(root: Path, *, now: datetime | None = None) -> dict[str, Any]:
     checked_at = now or datetime.now(UTC)
     expected_run_id = os.environ.get("ZCODE_BUNDLE_RUN_ID")
-    latest = root / "Output" / "system_learning" / "latest"
+    latest = _surface(root, "system_learning") / "latest"
     supervisor, supervisor_freshness = _load_contract_report(
         latest / "supervisor_check.json", now=checked_at
     )
@@ -207,6 +213,15 @@ def _contract_status(root: Path, *, now: datetime | None = None) -> dict[str, An
             item["same_run"] = item.get("source_run_id") == expected_run_id
             if item["status"] == "FRESH" and not item["same_run"]:
                 item["status"] = "RUN_MISMATCH"
+    for item in freshness.values():
+        item["expected_cadence"] = CONTRACT_REPORT_CADENCE
+        item["same_cadence"] = item.get("cadence") == CONTRACT_REPORT_CADENCE
+        if item["status"] == "FRESH" and not item["same_cadence"]:
+            item["status"] = (
+                "CADENCE_UNDECLARED"
+                if not item.get("cadence")
+                else "CADENCE_MISMATCH"
+            )
 
     def effective_status(raw_status: str, report_freshness: dict[str, Any]) -> str:
         state = report_freshness["status"]
@@ -359,6 +374,8 @@ def _overall_status(
         "MISSING",
         "NO_CONTENT_CLOCK",
         "RUN_MISMATCH",
+        "CADENCE_UNDECLARED",
+        "CADENCE_MISMATCH",
     }:
         return "BLOCKED"
     if run_trace.get("status") == "MISSING":
@@ -474,6 +491,7 @@ def run_governance_status(root: Path = ROOT) -> dict[str, Any]:
     return {
         "schema_version": "system.governance_status.v2",
         "generated_at": datetime.now(UTC).isoformat(),
+        "cadence": CONTRACT_REPORT_CADENCE,
         "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "overall_status": overall,
         "run_trace": run_trace,
@@ -535,6 +553,7 @@ def generate_markdown(report: dict[str, Any]) -> str:
         f"- Supervisor: {contracts['supervisor_status']}",
         f"- Architecture reality: {contracts['architecture_status']} ({contracts['architecture_findings']} findings)",
         f"- Output routing: {contracts['output_routing_status']} ({contracts['output_routing_findings']} findings)",
+        f"- Expected report cadence: {CONTRACT_REPORT_CADENCE}",
         f"- Stale or missing contract reports: {contracts.get('stale_or_missing_count', 0)}",
         "",
         "## Exceptions",
@@ -565,7 +584,7 @@ def generate_markdown(report: dict[str, Any]) -> str:
 
 
 def write_outputs(report: dict[str, Any], root: Path = ROOT) -> dict[str, str]:
-    output_dir = root / "Output" / "system_learning" / "latest"
+    output_dir = _surface(root, "system_learning") / "latest"
     ensure_dir(output_dir)
     json_path = output_dir / "governance_status.json"
     md_path = output_dir / "governance_status.md"

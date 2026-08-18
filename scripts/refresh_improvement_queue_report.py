@@ -12,10 +12,10 @@ from __future__ import annotations
 import pandas as pd
 from system_learning.reports.writer import render_improvement_queue_report
 
-from scripts._runtime_io import ROOT, ensure_dir, utc_now
+from scripts._runtime_io import ROOT, ensure_dir, surface_dir, utc_now
 
 LEDGER_PATH = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
-REPORT_PATH = ROOT / "Output" / "system_learning" / "latest" / "improvement_queue.md"
+REPORT_PATH = surface_dir("system_learning") / "latest" / "improvement_queue.md"
 
 
 def _render(improvements: pd.DataFrame, generated_at: str) -> str:

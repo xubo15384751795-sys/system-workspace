@@ -19,10 +19,10 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, surface_dir
 
-JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
-PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
+JUDGMENT_PATH = surface_dir("judgment") / "latest.json"
+PROMOTION_GATE_PATH = surface_dir("judgment") / "promotion_gate.json"
 INDEX_PATH = ROOT / "Data" / "system_index" / "latest.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"

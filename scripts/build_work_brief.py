@@ -22,11 +22,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, surface_dir
 
 CURRENT = current_dir()  # Phase 1.1: honor CURRENT_OUTPUT_DIR candidate redirect
-JUDGMENT = ROOT / "Output" / "judgment"
-TRADE = ROOT / "Output" / "trade_decision"
+JUDGMENT = surface_dir("judgment")
+TRADE = surface_dir("trade_decision")
 ML_SIGNALS = ROOT / "Output" / "ml_signals"
 
 
@@ -540,7 +540,7 @@ def to_markdown(b: dict) -> str:
 
 def _check_closure_chain() -> None:
     """Warn if running standalone and upstream artifacts are newer."""
-    judgment_path = ROOT / "Output" / "judgment" / "latest.json"
+    judgment_path = JUDGMENT / "latest.json"
     current_brief = CURRENT / "work_brief.json"
 
     if not judgment_path.exists():

@@ -18,15 +18,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, surface_dir
+
+logger = logging.getLogger(__name__)
 
 POLICY_PATH = ROOT / "governance" / "data_retention_policy.yaml"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 
 
 def _load_policy() -> dict[str, Any]:
@@ -43,7 +46,7 @@ def _dir_size_mb(path: Path) -> float:
             try:
                 total += f.stat().st_size
             except OSError:
-                pass
+                logger.warning("Unable to stat retained file: %s", f, exc_info=True)
     return total / (1024 * 1024)
 
 

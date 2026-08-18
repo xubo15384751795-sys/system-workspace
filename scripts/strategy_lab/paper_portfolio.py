@@ -47,11 +47,11 @@ from scripts.strategy_lab.strategies import (  # noqa: E402
 )
 
 ROOT = rio.ROOT
-OUTPUT_DIR = ROOT / "Output" / "position"
+OUTPUT_DIR = rio.surface_dir("position")
 STATE_PATH = OUTPUT_DIR / "paper_portfolio.json"
 NAV_JSONL_PATH = OUTPUT_DIR / "paper_portfolio_nav.jsonl"
 LATEST_MD_PATH = OUTPUT_DIR / "paper_portfolio_latest.md"
-TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
+TRADE_DECISION_PATH = rio.surface_dir("trade_decision") / "latest.json"
 DEFAULT_PANEL = ROOT / "Data" / "harvester" / "exports" / "latest" / "data" / "benchmark_panel.parquet"
 
 # Matches workbench STANCE_WEIGHT — used only as fallback if effective_size missing.

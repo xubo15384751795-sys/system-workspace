@@ -21,13 +21,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, surface_dir
 
 logger = logging.getLogger(__name__)
 
-TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
+TRADE_DECISION_PATH = surface_dir("trade_decision") / "latest.json"
 POLICY_PATH = ROOT / "governance" / "risk_policy.yaml"
-OUTPUT_DIR = ROOT / "Output" / "trade_decision"
+OUTPUT_DIR = surface_dir("trade_decision")
 
 
 def check_decision(decision: dict[str, Any]) -> dict[str, Any]:

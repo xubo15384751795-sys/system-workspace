@@ -20,9 +20,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir
+from scripts._runtime_io import ROOT, compatibility_surface_dir, ensure_dir, surface_dir
 
-LIVE_POSITION_DIR = ROOT / "Output" / "position"
+# Previous accepted position surface.  It intentionally ignores the active
+# generation so a candidate can seed its full NAV history without reading its
+# own empty directory.
+LIVE_POSITION_DIR = compatibility_surface_dir("position")
 NAV_JSONL_NAME = "paper_portfolio_nav.jsonl"
 STATE_JSON_NAME = "paper_portfolio.json"
 LATEST_MD_NAME = "paper_portfolio_latest.md"
@@ -30,7 +33,7 @@ LATEST_MD_NAME = "paper_portfolio_latest.md"
 
 def begin_shadow_candidate(run_dir: Path) -> Path:
     """Route paper_portfolio writes to the run's shadow_candidate directory."""
-    candidate = run_dir / "shadow_candidate"
+    candidate = surface_dir("position") if os.environ.get("SYSTEM_GENERATION_DIR") else run_dir / "shadow_candidate"
     ensure_dir(candidate)
     os.environ["SHADOW_OUTPUT_DIR"] = str(candidate)
     return candidate
@@ -41,6 +44,8 @@ def shadow_candidate_dir() -> Path:
     env = os.environ.get("SHADOW_OUTPUT_DIR")
     if env:
         return Path(env)
+    if os.environ.get("SYSTEM_GENERATION_MODE", "").strip().lower() in {"1", "true", "yes"}:
+        raise RuntimeError("generation mode requires SHADOW_OUTPUT_DIR before any position write")
     return LIVE_POSITION_DIR
 
 
@@ -59,6 +64,11 @@ def publish_shadow_candidate(candidate_dir: Path, *, root: Path = ROOT) -> dict[
     corresponding live file is left untouched (so a partial candidate does not
     delete live state).
     """
+    generation_mode = os.environ.get("SYSTEM_GENERATION_MODE", "").strip().lower() in {"1", "true", "yes"}
+    if generation_mode or (root / "Output" / "live").is_symlink():
+        raise RuntimeError(
+            "legacy shadow publisher is disabled in generation topology; use PublishTransaction.commit_generation"
+        )
     target = root / "Output" / "position"
     ensure_dir(target)
     promoted: list[str] = []

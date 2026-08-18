@@ -36,7 +36,12 @@ run_sync() {
   fi
   last_run=$now
   echo "[$(date -Iseconds)] Paper change detected — syncing..."
-  PAPER_ROOT="${PAPER_ROOT}" "${SYSTEM_ROOT}/scripts/orchestrate.sh" paper-sync --quiet-on-success || true
+  if PAPER_ROOT="${PAPER_ROOT}" "${SYSTEM_ROOT}/scripts/orchestrate.sh" paper-sync --quiet-on-success; then
+    echo "[$(date -Iseconds)] Paper sync completed."
+  else
+    status=$?
+    echo "[$(date -Iseconds)] Paper sync failed (exit ${status}); watcher remains active." >&2
+  fi
 }
 
 # USR1 signal forces immediate sync (bypasses debounce)

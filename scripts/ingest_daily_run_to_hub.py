@@ -8,19 +8,25 @@ with failure modes and calibration gaps.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_json, write_json
+from scripts._runtime_io import ROOT, ensure_dir, load_json, surface_dir, write_json
 
 HUB_RUNS = ROOT / "Data" / "system_learning" / "runs"
 HUB_LATEST_POINTER = HUB_RUNS / "latest.json"
-SUMMARY_PATH = ROOT / "Output" / "system_learning" / "latest" / "summary.json"
-JUDGMENT_CALIBRATION = ROOT / "Output" / "judgment" / "calibration_report.json"
-TRADE_CALIBRATION = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
+_POST_PUBLISH_AUDIT_DIR = os.environ.get("SYSTEM_POST_PUBLISH_AUDIT_DIR", "").strip()
+SUMMARY_PATH = (
+    Path(_POST_PUBLISH_AUDIT_DIR) / "learning_hub_summary.json"
+    if _POST_PUBLISH_AUDIT_DIR
+    else surface_dir("system_learning") / "latest" / "summary.json"
+)
+JUDGMENT_CALIBRATION = surface_dir("judgment") / "calibration_report.json"
+TRADE_CALIBRATION = surface_dir("trade_ledger") / "calibration_report.json"
 HMM_AUDIT = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CLAIM_LADDER = ROOT / "Output" / "claim_ladder" / "progression.json"
 ALERT_JSON = ROOT / "Output" / "alerts" / "latest_alert.json"

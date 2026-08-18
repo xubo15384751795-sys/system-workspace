@@ -31,16 +31,16 @@ from scripts._data_paths import (
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
-from scripts._runtime_io import ROOT, load_yaml
+from scripts._runtime_io import ROOT, load_yaml, surface_dir
 from scripts.commands.weekly.backward_pass import build_report as build_backward_report
 from scripts.commands.weekly.backward_pass import write_report as write_backward_report
 from system_runtime.events import JsonlEventStore
 
-LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
+LEDGER_PATH = surface_dir("trade_ledger") / "decisions.jsonl"
 ETF_PANEL = resolve_cross_asset_panel_path()
 BENCHMARK_PANEL = resolve_benchmark_panel_path()
-REPORT_JSON = ROOT / "Output" / "trade_ledger" / "calibration_report.json"
-REPORT_MD = ROOT / "Output" / "trade_ledger" / "calibration_report.md"
+REPORT_JSON = surface_dir("trade_ledger") / "calibration_report.json"
+REPORT_MD = surface_dir("trade_ledger") / "calibration_report.md"
 
 HORIZONS = {"1d": 1, "1w": 5, "1m": 21}
 ETF_SYMBOLS = ("SPY", "HYG", "TLT")

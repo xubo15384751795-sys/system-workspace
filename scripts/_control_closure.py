@@ -27,7 +27,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT
+from scripts._runtime_io import surface_dir
 
 # ── enforcement mode ─────────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ def invalidate_nav_rows(
 
     Returns the count of invalidated rows.
     """
-    path = nav_path or (ROOT / "Output" / "position" / "paper_portfolio_nav.jsonl")
+    path = nav_path or (surface_dir("position") / "paper_portfolio_nav.jsonl")
     if not path.exists():
         return 0
     rows = []

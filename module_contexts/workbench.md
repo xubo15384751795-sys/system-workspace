@@ -19,7 +19,7 @@ NLP extraction, mapping, promotion, and governance artifacts are **not owned
 here**. That domain belongs to the Structural NLP library:
 
 ```text
-Workbench/src/nlp/
+packages/workbench/src/nlp/
 ```
 
 Workbench consumes NLP outputs as protocol-shaped files. It must not re-implement
@@ -27,8 +27,8 @@ or re-govern structural NLP rules.
 
 ## Primary Paths
 
-- `Workbench/src/workbench/`
-- `Workbench/tests/`
+- `packages/workbench/src/workbench/`
+- `packages/workbench/tests/`
 - `scripts/refresh_output_current.py`
 - `scripts/build_benchmark_evidence_dashboard.py`
 - `scripts/build_artifact_navigator.py`
@@ -41,7 +41,7 @@ or re-govern structural NLP rules.
 - `Output/workbench/`
 
 Top-level scripts are compatibility wrappers. Canonical Workbench source should
-live under `Workbench/src/workbench/`.
+live under `packages/workbench/src/workbench/`.
 
 ## Reads
 
@@ -51,7 +51,7 @@ live under `Workbench/src/workbench/`.
 - `protocols/nlp_query.schema.json`
 - `protocols/nlp_answer.schema.json`
 - NLP library protocol mirrors under `protocols/nlp_*.schema.json` (see
-  `Workbench/src/nlp/` for canonical NLP-domain definitions)
+  `packages/workbench/src/nlp/` for canonical NLP-domain definitions)
 - `Data/system_index/`
 - `Data/harvester/exports/`
 - `Output/deformation_runs/`
@@ -89,7 +89,7 @@ live under `Workbench/src/workbench/`.
 - this file
 - `PRODUCT_FRAMEWORK_BOUNDARY.md`
 - relevant protocol schema files
-- only then inspect `Workbench/src/workbench/`
+- only then inspect `packages/workbench/src/workbench/`
 
 ## Demonstration Walkthrough (Phase 0 Baseline)
 

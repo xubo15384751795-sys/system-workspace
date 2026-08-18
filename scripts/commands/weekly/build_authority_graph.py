@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Build authority graph from pipeline topology.
 
-Derives nodes and edges from daily_pipeline_registry.yaml and writes:
-    Output/system_learning/latest/authority_graph.json
+Derives nodes and edges from daily_pipeline_registry.yaml. The default mode
+writes ``Output/system_learning/latest/authority_graph.json``; ``--no-write``
+provides a read-only audit mode.
 
 Usage:
     python scripts/commands/weekly/build_authority_graph.py
     python scripts/commands/weekly/build_authority_graph.py --json
+    python scripts/commands/weekly/build_authority_graph.py --json --no-write
 """
 from __future__ import annotations
 
@@ -41,17 +43,25 @@ def main() -> None:
         action="store_true",
         help="Exit non-zero when high-severity graph invariants fail.",
     )
+    parser.add_argument(
+        "--no-write",
+        action="store_true",
+        help="Build and validate the graph without writing an Output artifact.",
+    )
     args = parser.parse_args()
 
     graph = build_authority_graph(ROOT)
-    output_path = write_authority_graph(graph, ROOT)
+    output_path = None if args.no_write else write_authority_graph(graph, ROOT)
 
     if args.json:
         print(json.dumps(graph, indent=2, ensure_ascii=False))
     else:
         metrics = graph.get("metrics", {})
         invariants = graph.get("invariants", {})
-        print(f"Authority graph: {output_path.relative_to(ROOT)}")
+        if output_path is None:
+            print("Authority graph: not written (--no-write)")
+        else:
+            print(f"Authority graph: {output_path.relative_to(ROOT)}")
         print(f"Pipeline steps: {metrics.get('pipeline_step_count')}")
         print(f"Core-capable steps: {metrics.get('core_capable_step_count')}")
         print(f"Declared/derived drift: {metrics.get('drift_count')}")

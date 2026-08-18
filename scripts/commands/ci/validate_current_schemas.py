@@ -19,17 +19,19 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+from system_runtime.paths import discover_workspace, output_surface
+
+ROOT = discover_workspace(Path(__file__).resolve())
 
 REQUIRED_CHECKS = (
     {
         "label": "framework_output.json",
-        "data": ROOT / "Output" / "current" / "framework_output.json",
+        "data": output_surface(ROOT, "current") / "framework_output.json",
         "schema": ROOT / "governance" / "framework_output.schema.json",
     },
     {
         "label": "status.json",
-        "data": ROOT / "Output" / "current" / "status.json",
+        "data": output_surface(ROOT, "current") / "status.json",
         "schema": ROOT / "protocols" / "current_card.schema.json",
     },
 )
@@ -41,6 +43,11 @@ def _validate_one(data_path: Path, schema_path: Path) -> None:
     data = json.loads(data_path.read_text(encoding="utf-8"))
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     jsonschema.validate(data, schema)
+    canonical_chain = data.get("canonical_chain") if isinstance(data, dict) else None
+    if canonical_chain is not None:
+        from system_runtime.canonical_ids import validate_chain
+
+        validate_chain(canonical_chain)
 
 
 def run(*, require_artifacts: bool, ci_clean_checkout: bool) -> int:

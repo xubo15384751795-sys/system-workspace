@@ -1,19 +1,14 @@
-"""Acceptance skeleton for WP2: current/decision/shadow unified publish transaction.
+"""Acceptance tests for WP2: current/decision/shadow unified publish transaction.
 
 Defines the contract that publish is a single transaction:
 PREPARING -> PREPARED -> ADMITTED -> COMMITTING -> COMMITTED | ROLLED_BACK | RECOVERY_REQUIRED.
 
 Candidate directories are established at run start, and on failure the
-previous generation is preserved.  Marked ``xfail(strict=True)`` until WP2 lands.
+previous generation is preserved.
 """
 from __future__ import annotations
 
-import pytest
-
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    reason="WP2: publish transaction not yet implemented",
-)
+import pytest  # noqa: F401  # kept for marker compatibility
 
 
 def test_publish_transaction_module_exists() -> None:

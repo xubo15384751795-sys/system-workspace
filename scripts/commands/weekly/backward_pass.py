@@ -20,7 +20,7 @@ from workbench.judgment.trade_decision import (
     determine_stance,
 )
 
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, surface_dir
 from system_runtime.credit_assignment import (
     ablation_marginals,
     exact_shapley_loss_reduction,
@@ -29,9 +29,9 @@ from system_runtime.credit_assignment import (
 )
 from system_runtime.events import JsonlEventStore
 
-LEDGER_PATH = ROOT / "Output" / "trade_ledger" / "decisions.jsonl"
-REPORT_JSON = ROOT / "Output" / "system_learning" / "latest" / "backward_pass.json"
-REPORT_MD = ROOT / "Output" / "system_learning" / "latest" / "backward_pass.md"
+LEDGER_PATH = surface_dir("trade_ledger") / "decisions.jsonl"
+REPORT_JSON = surface_dir("system_learning") / "latest" / "backward_pass.json"
+REPORT_MD = surface_dir("system_learning") / "latest" / "backward_pass.md"
 POLICY_PATH = ROOT / "governance" / "incentive_policy.yaml"
 
 QUALITY_NODE_FIELDS = {

@@ -13,6 +13,7 @@ Public API:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from datetime import UTC, datetime
@@ -22,9 +23,10 @@ from typing import Any
 import yaml
 
 from system_runtime.events import payload_of
-from system_runtime.paths import WorkspacePaths
+from system_runtime.paths import WorkspacePaths, generation_mode_enabled, output_surface
 
 ROOT = WorkspacePaths.discover().root
+logger = logging.getLogger(__name__)
 
 
 def current_dir() -> Path:
@@ -32,7 +34,31 @@ def current_dir() -> Path:
     override = os.environ.get("CURRENT_OUTPUT_DIR")
     if override:
         return Path(override)
-    return ROOT / "Output" / "current"
+    if generation_mode_enabled() and not os.environ.get("SYSTEM_GENERATION_DIR", "").strip():
+        raise RuntimeError("generation mode requires SYSTEM_GENERATION_DIR before current surface access")
+    return output_surface(ROOT, "current")
+
+
+def surface_dir(name: str) -> Path:
+    """Return an output surface routed through the active generation."""
+    if generation_mode_enabled() and not os.environ.get("SYSTEM_GENERATION_DIR", "").strip():
+        raise RuntimeError(
+            f"generation mode requires SYSTEM_GENERATION_DIR before {name!r} surface access"
+        )
+    return output_surface(ROOT, name)
+
+
+def compatibility_surface_dir(name: str) -> Path:
+    """Return the stable compatibility path, for migration/seed operations only."""
+    return ROOT / "Output" / name
+
+
+def output_root_dir() -> Path:
+    """Return the active generation root or the legacy Output root."""
+    generation = os.environ.get("SYSTEM_GENERATION_DIR", "").strip()
+    if generation_mode_enabled() and not generation:
+        raise RuntimeError("generation mode requires SYSTEM_GENERATION_DIR before output root access")
+    return Path(generation).expanduser().resolve() if generation else ROOT / "Output"
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -78,7 +104,7 @@ def write_json(path: Path, data: Any, *, indent: int = 2) -> None:
         try:
             os.unlink(temporary)
         except FileNotFoundError:
-            pass
+            logger.debug("Temporary JSON file already absent during cleanup: %s", temporary)
         raise
 
 
@@ -97,7 +123,7 @@ def write_jsonl(path: Path, entries: list[dict[str, Any]]) -> None:
         try:
             os.unlink(temporary)
         except FileNotFoundError:
-            pass
+            logger.debug("Temporary JSONL file already absent during cleanup: %s", temporary)
         raise
 
 

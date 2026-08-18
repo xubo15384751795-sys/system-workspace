@@ -12,19 +12,13 @@ Design (capability pivot):
 from __future__ import annotations
 
 import logging
-import sys
 from math import sqrt
-from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
-_SCRIPTS = Path(__file__).resolve().parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-
-from professional_methods import (  # noqa: E402
+from scripts.professional_methods import (
     TRADING_DAYS,
     build_forward_stress_events,
     causal_pit,
@@ -59,6 +53,9 @@ def public_level_probability(
     *,
     min_periods: int = 126,
     min_components: int | None = None,
+    research_only: bool = False,
+    available_at: pd.DataFrame | None = None,
+    decision_time: Any | None = None,
 ) -> pd.Series:
     """Equal-weight mean of causal PITs across available public stress indices.
 
@@ -67,8 +64,8 @@ def public_level_probability(
     rather than silently renormalized over the surviving subset. Default
     ``min_components=None`` means "require all components" (full coverage) -
     this is the paper-portfolio / decision-adjacent path. Research callers
-    (capability board comparison) may pass ``min_components=1`` to preserve
-    the old renormalizing behavior for historical NAV comparison.
+    (capability board comparison) may pass a lower threshold only with the
+    explicit ``research_only=True`` marker.
 
     The renormalization failure mode - OFR+CISS NaN -> NFCI-only P_public,
     silently driving a ~0.14 bias and ~15% sizing error for ~9 weeks - is
@@ -77,6 +74,14 @@ def public_level_probability(
     Paper_portfolio's run_paper_portfolio translates a NaN P_public into a
     HOLD-existing position (see _compute_target_series hold branch).
     """
+    if (available_at is None) != (decision_time is None):
+        raise ValueError("available_at and decision_time must be provided together")
+    if available_at is not None and decision_time is not None:
+        public_levels = _apply_causal_availability(
+            public_levels,
+            available_at=available_at,
+            decision_time=decision_time,
+        )
     if public_levels.empty:
         return pd.Series(np.nan, index=public_levels.index, name="p_public")
     pits = pd.DataFrame(
@@ -88,8 +93,16 @@ def public_level_probability(
     )
     full_components = pits.shape[1]
     # Default: require the full component set (fail-closed). A caller may
-    # lower this (e.g. capability_board research comparison passes 1).
+    # lower this only for explicitly marked research comparisons.
     required_components = min_components if min_components is not None else full_components
+    if required_components < 1 or required_components > full_components:
+        raise ValueError(
+            f"min_components must be between 1 and {full_components}, got {required_components}"
+        )
+    if required_components < full_components and not research_only:
+        raise ValueError(
+            "lower public-component coverage is research-only; pass research_only=True"
+        )
     available = pits.notna().sum(axis=1)
     degraded = available[available < required_components]
     if not degraded.empty:
@@ -107,6 +120,67 @@ def public_level_probability(
     # Fail-closed: NaN where coverage is incomplete.
     p_public = p_public.where(available >= required_components)
     return p_public
+
+
+def _apply_causal_availability(
+    public_levels: pd.DataFrame,
+    *,
+    available_at: pd.DataFrame,
+    decision_time: Any,
+) -> pd.DataFrame:
+    """Mask component observations not available at their decision time.
+
+    Missing or timezone-naive availability evidence is treated as unavailable.
+    The helper is intentionally a mask only: provider status, release calendar,
+    and revision policy remain owned by the provider-release evaluator.
+    """
+    if not isinstance(available_at, pd.DataFrame):
+        raise TypeError("available_at must be a DataFrame with one column per public component")
+    decisions = _decision_time_series(decision_time, public_levels.index)
+    masked = public_levels.copy()
+    for column in masked.columns:
+        if column not in available_at.columns:
+            masked[column] = np.nan
+            continue
+        available = pd.Series(
+            [
+                _aware_timestamp(value)
+                for value in available_at[column].reindex(public_levels.index)
+            ],
+            index=public_levels.index,
+        )
+        masked[column] = masked[column].where(available <= decisions)
+    return masked
+
+
+def _decision_time_series(value: Any, index: pd.Index) -> pd.Series:
+    if isinstance(value, pd.Series):
+        values = value.reindex(index)
+    elif isinstance(value, (pd.Index, list, tuple, np.ndarray)) and not isinstance(value, str):
+        if len(value) != len(index):
+            raise ValueError("decision_time sequence must match public_levels index length")
+        values = pd.Series(value, index=index)
+    else:
+        values = pd.Series(value, index=index)
+    decisions = pd.Series(
+        [_aware_timestamp(item) for item in values],
+        index=index,
+    )
+    if decisions.isna().any():
+        logging.warning("causal public join has missing decision_time; affected components are blocked")
+    return decisions
+
+
+def _aware_timestamp(value: Any) -> pd.Timestamp | pd.NaT:
+    if value is None or pd.isna(value):
+        return pd.NaT
+    try:
+        parsed = pd.Timestamp(value)
+    except (TypeError, ValueError):
+        return pd.NaT
+    if parsed.tzinfo is None:
+        return pd.NaT
+    return parsed.tz_convert("UTC")
 
 
 def channel_level_probability(
@@ -223,7 +297,7 @@ def dual_stress_position(
         * vol_multiplier
         * (1.0 - pub.fillna(0.5))
         * (1.0 - lam * onset.fillna(0.0))
-    ).clip(0.0, 1.0)
+    ).clip(0.0, 1.0).where(pub.notna())
     return pd.DataFrame(
         {
             "estimated_volatility": volatility,
@@ -233,6 +307,9 @@ def dual_stress_position(
             "p_onset": onset,
             "onset_lambda": lam,
             "position": position,
+            "public_coverage_status": np.where(
+                pub.notna(), "COMPLETE", "INSUFFICIENT_COVERAGE"
+            ),
         },
         index=index,
     )
@@ -250,18 +327,26 @@ def build_public_residual_bundle(
     target_volatility: float = 0.10,
     min_periods: int = 126,
     min_components: int | None = None,
+    research_only: bool = False,
+    available_at: pd.DataFrame | None = None,
+    decision_time: Any | None = None,
 ) -> dict[str, Any]:
     """One-shot construction of public level, residual onset, and paper weights.
 
-    ``min_components`` is forwarded to ``public_level_probability``: None
-    (default) = fail-closed on incomplete public-component coverage; 1 =
-    preserve the old renormalizing behavior (research/capability-board only).
+    ``min_components`` is forwarded to ``public_level_probability``. A value
+    below full component coverage requires ``research_only=True`` and is never
+    accepted by the paper decision path.
     """
     mode_key = str(residual_mode).strip().lower()
     if mode_key not in {"level", "velocity"}:
         raise ValueError(f"residual_mode must be 'level' or 'velocity', got {residual_mode!r}")
     p_public = public_level_probability(
-        public_levels, min_periods=min_periods, min_components=min_components
+        public_levels,
+        min_periods=min_periods,
+        min_components=min_components,
+        research_only=research_only,
+        available_at=available_at,
+        decision_time=decision_time,
     )
     p_channel = channel_level_probability(channels, min_periods=min_periods)
     if mode_key == "velocity":
@@ -289,12 +374,25 @@ def build_public_residual_bundle(
         target_volatility=target_volatility,
         onset_lambda=onset_lambda,
     )
+    numeric_public = public_levels.apply(pd.to_numeric, errors="coerce")
+    required_components = min_components if min_components is not None else len(numeric_public.columns)
+    required_components = max(1, required_components)
+    available_components = numeric_public.notna().sum(axis=1)
+    coverage_status = pd.Series("WARMUP", index=public_levels.index, dtype="string")
+    coverage_status = coverage_status.mask(
+        available_components < required_components, "INSUFFICIENT_COVERAGE"
+    )
+    coverage_status = coverage_status.mask(
+        (available_components >= required_components) & p_public.notna(), "COMPLETE"
+    )
+    sized["public_coverage_status"] = coverage_status.reindex(sized.index).to_numpy()
     return {
         "p_public": p_public,
         "p_channel_level": p_channel,
         "residual_mode": mode_key,
         "residual": residual,
         "p_onset": p_onset,
+        "public_coverage_status": coverage_status,
         "sizing": sized,
     }
 

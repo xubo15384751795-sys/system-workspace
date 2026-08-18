@@ -31,14 +31,16 @@ from scripts._runtime_io import (
     load_json,
     load_jsonl,
     load_yaml,
+    surface_dir,
     utc_now,
     write_json,
 )
+from system_runtime.canonical_ids import build_claim, canonical_id
 
 logger = logging.getLogger(__name__)
 
 RUNS_DIR = ROOT / "Output" / "runs"
-JUDGMENT_PATH = ROOT / "Output" / "judgment" / "latest.json"
+JUDGMENT_PATH = surface_dir("judgment") / "latest.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "claim_ladder"
@@ -49,7 +51,7 @@ STATE_PATH = OUTPUT_DIR / "state.json"
 REPLAY_EVALUATION_PATH = ROOT / "Output" / "workbench" / "evaluation" / "historical_replay_evaluation.json"
 IMPROVEMENT_QUEUE_PATH = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
 FEEDBACK_SAMPLES_DIR = ROOT / "Output" / "feedback_samples"
-DATA_QUALITY_PATH = ROOT / "Output" / "current" / "framework_output.json"
+DATA_QUALITY_PATH = surface_dir("current") / "framework_output.json"
 
 
 def find_previous_run_dir() -> Path | None:
@@ -540,6 +542,56 @@ def _check_rule(rule: str, evidence: dict[str, Any]) -> bool:
     return False  # Unparseable rule = not met
 
 
+def _canonical_claim_status(legacy_status: str) -> str:
+    """Map claim-ladder workflow state to a conservative canonical status.
+
+    A promotion in the ladder is not publication authority: until a complete
+    evidence chain is attached, every non-invalidated claim remains WATCH.
+    Invalidation is represented as CONFLICTED so downstream readers cannot
+    mistake a retired hypothesis for a supported claim.
+    """
+    return "CONFLICTED" if legacy_status == "invalidated" else "WATCH"
+
+
+def _attach_canonical_claim(claim: dict[str, Any], policy: dict[str, Any], captured_at: str) -> None:
+    """Add/update the canonical Claim envelope without removing legacy fields.
+
+    Claim-ladder state intentionally does not invent evidence IDs.  It may
+    carry ``canonical_evidence_ids`` when an upstream evidence writer has
+    supplied them; otherwise the standalone claim has an empty evidence list
+    and a WATCH ceiling.  This preserves legacy compatibility while making the
+    missing lineage explicit to canonical consumers.
+    """
+    raw_evidence_ids = claim.get("canonical_evidence_ids", [])
+    if raw_evidence_ids is None:
+        raw_evidence_ids = []
+    if not isinstance(raw_evidence_ids, (list, tuple)):
+        raise ValueError("canonical_evidence_ids must be a sequence when present")
+    evidence_ids = [str(value) for value in raw_evidence_ids]
+    policy_version = str(policy.get("schema_version", "claim_ladder_policy.v1"))
+    canonical_claim = build_claim(
+        claim_text=str(claim.get("mechanism_hypothesis", "")),
+        subject="mechanism_hypothesis",
+        predicate="requires_progression_evidence",
+        policy_version=policy_version,
+        evidence_ids=evidence_ids,
+        status=_canonical_claim_status(str(claim.get("status", "tracking"))),
+        confidence=None,
+        provenance={
+            "captured_at": captured_at,
+            "producer": "claim_ladder_tracker",
+            "run_id": claim.get("run_id"),
+            "claim_ladder_status": claim.get("status", "tracking"),
+            "current_tier": claim.get("current_tier", 0),
+            "tier_label": claim.get("tier_label", "diagnostic_claim"),
+            "claim_ceiling": "diagnostic_watch_only",
+            "promotion_allowed": False,
+        },
+    )
+    claim["canonical_claim"] = canonical_claim
+    claim["canonical_claim_id"] = canonical_claim["claim_id"]
+
+
 def apply_transitions(
     state: dict[str, Any],
     progression: list[dict[str, Any]],
@@ -600,8 +652,19 @@ def apply_transitions(
             claim = existing_claims[hypothesis]
             claim["runs_at_current_tier"] = claim.get("runs_at_current_tier", 0) + 1
         else:
+            legacy_claim_id = f"claim-{hypothesis[:40].replace(' ', '_').lower()}"
+            canonical_claim_id = canonical_id(
+                "claim",
+                {
+                    "claim_text": hypothesis,
+                    "subject": "mechanism_hypothesis",
+                    "predicate": "requires_progression_evidence",
+                    "policy_version": str(policy.get("schema_version", "claim_ladder_policy.v1")),
+                },
+            )
             claim = {
-                "claim_id": f"claim-{hypothesis[:40].replace(' ', '_').lower()}",
+                "claim_id": canonical_claim_id,
+                "legacy_claim_id": legacy_claim_id,
                 "current_tier": prev_tier,
                 "tier_label": policy.get("tiers", {}).get(prev_tier, {}).get("label", "unknown"),
                 "mechanism_hypothesis": hypothesis,
@@ -632,6 +695,7 @@ def apply_transitions(
             })
             claim["current_tier"] = 0
             claim["tier_label"] = "diagnostic_claim"
+            _attach_canonical_claim(claim, policy, now)
             demotions += 1
             continue
 
@@ -677,6 +741,8 @@ def apply_transitions(
                 promotions += 1
         else:
             claim["status"] = "tracking"
+
+        _attach_canonical_claim(claim, policy, now)
 
     # Update summary
     active_claims = [c for c in state.get("claims", []) if c.get("status") != "invalidated"]

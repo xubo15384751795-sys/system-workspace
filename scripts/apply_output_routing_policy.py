@@ -21,10 +21,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, ensure_dir, load_yaml
+from scripts._runtime_io import ROOT, ensure_dir, load_yaml, surface_dir
 
 POLICY_PATH = ROOT / "governance" / "output_routing_policy.yaml"
-OUTPUT_DIR = ROOT / "Output" / "system_learning" / "latest"
+OUTPUT_DIR = surface_dir("system_learning") / "latest"
 ARCHIVE_ROOT = ROOT / "Output" / "archive" / "output_routing_cleanup"
 ACTIVE_SANDBOX_DEPENDENCIES = {"structural_replay_v2"}
 
@@ -41,7 +41,7 @@ def _check_current_artifacts(policy: dict) -> list[dict[str, str]]:
     if not allowed:
         return findings
 
-    current_dir = ROOT / "Output" / "current"
+    current_dir = surface_dir("current")
     if not current_dir.exists():
         return findings
 
@@ -116,7 +116,7 @@ def _check_legacy_display(policy: dict) -> list[dict[str, str]]:
         "latest_run",
     }
 
-    current_dir = ROOT / "Output" / "current"
+    current_dir = surface_dir("current")
     if not current_dir.exists():
         return findings
 
@@ -170,6 +170,7 @@ def run_routing_check() -> dict[str, Any]:
 
     return {
         "timestamp": datetime.now(UTC).isoformat(),
+        "cadence": "weekly",
         "source_run_id": os.environ.get("ZCODE_BUNDLE_RUN_ID"),
         "policy": str(POLICY_PATH.relative_to(ROOT)),
         "mode": "dry-run",

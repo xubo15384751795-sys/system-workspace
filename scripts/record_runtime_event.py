@@ -15,10 +15,6 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
-_HUB_SRC = _ROOT / "packages" / "learning_hub" / "src"
-for _p in (str(_ROOT), str(_HUB_SRC), str(_ROOT / "scripts")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
 
 def main(argv: list[str] | None = None) -> int:

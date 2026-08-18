@@ -2,7 +2,7 @@
 # Unified cross-repo orchestration for System workspace.
 #
 # Usage:
-#   bash scripts/orchestrate.sh daily          # Horizon (optional) + daily_run
+#   bash scripts/orchestrate.sh daily          # System daily publisher only
 #   bash scripts/orchestrate.sh horizon        # Run Horizon aggregator only
 #   bash scripts/orchestrate.sh paper-sync     # Paper world model sync
 #   bash scripts/orchestrate.sh feedback-export
@@ -16,17 +16,16 @@ HORIZON_ROOT="${HORIZON_ROOT:-$(dirname "${SYSTEM_ROOT}")/Horizon}"
 export SYSTEM_ROOT PAPER_ROOT HORIZON_ROOT
 
 # Defend against launchd's low soft NOFILE (harvester hits EMFILE otherwise).
-ulimit -n 65536 2>/dev/null || ulimit -n 10240 2>/dev/null || true
+if ! ulimit -n 65536 2>/dev/null && ! ulimit -n 10240 2>/dev/null; then
+  echo "[orchestrate] warning: could not raise the file-descriptor limit; continuing with the inherited limit" >&2
+fi
 
-# Auto-detect Python: prefer Framework 3.14, then PYTHON env, then python3
-if [[ -z "${PYTHON:-}" ]]; then
-  if [[ -x "/Library/Frameworks/Python.framework/Versions/3.14/bin/python3" ]]; then
-    PY="/Library/Frameworks/Python.framework/Versions/3.14/bin/python3"
-  else
-    PY="python3"
-  fi
-else
+# Resolve the one supported runtime. An explicit PYTHON is an audited
+# compatibility/test override; the default path is always checked to be 3.13.
+if [[ -n "${PYTHON:-}" ]]; then
   PY="${PYTHON}"
+else
+  PY="$("${SYSTEM_ROOT}/scripts/resolve_system_python.sh")"
 fi
 
 run_horizon() {
@@ -54,21 +53,30 @@ run_horizon() {
 cmd="${1:-daily}"
 case "${cmd}" in
   daily)
-    run_horizon
     cd "${SYSTEM_ROOT}"
-    # Default path: Dagster daily_job (launchd → orchestrate → orchestration.cli).
-    # Escape hatch: SYSTEM_USE_LEGACY_DAILY_RUN=1, or automatic fallback when
-    # dagster / orchestration package is not installed.
+    # Default path: Dagster daily_job (launchd -> orchestrate -> orchestration.cli).
+    # Horizon is an independent producer and must not synchronously block the
+    # System core slot. The explicit legacy flag is the only compatibility path.
     export SYSTEM_ORCHESTRATOR="${SYSTEM_ORCHESTRATOR:-dagster}"
     export PYTHONPATH="${SYSTEM_ROOT}:${SYSTEM_ROOT}/packages/orchestration:${PYTHONPATH:-}"
+    if [[ -z "${SYSTEM_GENERATION_MODE:-}" ]]; then
+      if [[ -L "${SYSTEM_ROOT}/Output/live" ]]; then
+        export SYSTEM_GENERATION_MODE=1
+      else
+        export SYSTEM_GENERATION_MODE=0
+      fi
+    fi
+    "${PY}" "${SYSTEM_ROOT}/scripts/reconcile_generation.py" --fail-on-recovery
     if [[ "${SYSTEM_USE_LEGACY_DAILY_RUN:-}" == "1" ]]; then
       echo "[orchestrate] SYSTEM_USE_LEGACY_DAILY_RUN=1 — bypassing Dagster CLI"
       exec "${PY}" scripts/daily_run.py "${@:2}"
     fi
     if ! "${PY}" -c "import dagster, orchestration.cli" >/dev/null 2>&1; then
-      echo "[orchestrate] dagster/orchestration unavailable — falling back to scripts/daily_run.py"
-      echo "[orchestrate] install with: pip install -e '.[orchestration]'"
-      exec "${PY}" scripts/daily_run.py "${@:2}"
+      echo "[orchestrate] dagster/orchestration unavailable; default path is fail-closed" >&2
+      echo "[orchestrate] install with: uv sync --locked --all-packages" >&2
+      echo "[orchestrate] run with: uv run --locked ..." >&2
+      echo "[orchestrate] emergency compatibility requires SYSTEM_USE_LEGACY_DAILY_RUN=1" >&2
+      exit 78
     fi
     exec "${PY}" -m orchestration.cli daily -- "${@:2}"
     ;;
@@ -88,11 +96,33 @@ case "${cmd}" in
     exec "${PY}" scripts/commands/weekly/export_feedback_to_paper.py "${@:2}"
     ;;
   install-automation)
-    bash "${SYSTEM_ROOT}/scripts/install_daily_run_launchd.sh"
-    bash "${SYSTEM_ROOT}/scripts/install_horizon_launchd.sh" || true
-    bash "${SYSTEM_ROOT}/scripts/install_paper_sync_hook.sh" || true
-    bash "${SYSTEM_ROOT}/scripts/install_paper_lint_hook.sh" || true
-    bash "${SYSTEM_ROOT}/scripts/install_paper_watch.sh" || true
+    failed_installers=()
+    run_installer() {
+      local label="$1"
+      shift
+      if "$@"; then
+        return 0
+      else
+        local status=$?
+        failed_installers+=("${label} (exit ${status})")
+        echo "[orchestrate] ${label} installer failed (exit ${status})" >&2
+        return 0
+      fi
+    }
+
+    # Run every installer so one missing optional dependency does not hide the
+    # status of the remaining automation components.  The aggregate result is
+    # non-zero whenever any requested installer failed.
+    run_installer "daily System launchd" bash "${SYSTEM_ROOT}/scripts/install_daily_run_launchd.sh"
+    run_installer "Horizon launchd" bash "${SYSTEM_ROOT}/scripts/install_horizon_launchd.sh"
+    run_installer "Paper post-commit sync hook" bash "${SYSTEM_ROOT}/scripts/install_paper_sync_hook.sh"
+    run_installer "Paper pre-commit lint hook" bash "${SYSTEM_ROOT}/scripts/install_paper_lint_hook.sh"
+    run_installer "Paper watcher" bash "${SYSTEM_ROOT}/scripts/install_paper_watch.sh"
+
+    if ((${#failed_installers[@]} > 0)); then
+      printf '[orchestrate] Automation installers incomplete: %s\n' "${failed_installers[*]}" >&2
+      exit 1
+    fi
     echo "[orchestrate] Automation installers finished"
     ;;
   *)

@@ -17,19 +17,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, utc_now
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    utc_now,
+)
 from system_runtime.events import EventEnvelope, JsonlEventStore, payload_of
 
-TRADE_DECISION_PATH = ROOT / "Output" / "trade_decision" / "latest.json"
+logger = logging.getLogger(__name__)
+
+TRADE_DECISION_PATH = surface_dir("trade_decision") / "latest.json"
 EVIDENCE_GRADE_PATH = current_dir() / "evidence_grade_report.json"
 STATUS_PATH = current_dir() / "status.json"
-EVENTS_DIR = ROOT / "Output" / "system_learning" / "events"
-PROMOTION_GATE_PATH = ROOT / "Output" / "judgment" / "promotion_gate.json"
+EVENTS_DIR = surface_dir("system_learning") / "events"
+PROMOTION_GATE_PATH = surface_dir("judgment") / "promotion_gate.json"
 HUB_EVENTS_DIR = ROOT / "Output" / "runtime_events"
 
 
@@ -183,7 +193,7 @@ def record_event(event: dict[str, Any], *, force: bool = False, skip_if_unchange
         )
     except Exception:
         # Never fail the operator projection if Hub runtime append is unavailable.
-        pass
+        logger.warning("Learning Hub runtime append unavailable", exc_info=True)
 
     return event_path
 

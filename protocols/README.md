@@ -7,6 +7,12 @@ Workbench protocols define how Product, Harvester, and Framework layers exchange
 - `evidence.schema.json`: admitted evidence exposed to the Workbench
 - `framework_output.schema.json`: framework diagnosis exposed to the Workbench
 - `current_card.schema.json`: system status card (Output/current/status.json) — produced by build_next_actions.py
+- `canonical_chain.schema.json`: deterministic Observation -> Measurement -> Evidence -> Claim IDs and lineage; runtime constructors live in `system_runtime/canonical_ids.py`
+
+The canonical chain is the identity contract for new producers. Legacy
+artifacts may carry `canonical_chain` and `canonical_ids` as optional fields
+until all readers have completed the parity migration; orchestration is not
+changed by this contract phase.
 
 ## NLP Boundary
 
@@ -15,7 +21,7 @@ export, promotion, and hard-case evaluation — is **not implemented or governed
 in this directory**. That work belongs to the external library:
 
 ```text
-Workbench/src/nlp/
+packages/workbench/src/nlp/
 ```
 
 ### Protocol authority
@@ -41,13 +47,13 @@ local evidence and `Output/current/`:
 - `nlp_query.schema.json`: user question over admitted/local evidence
 - `nlp_answer.schema.json`: grounded answer with citations and limits
 
-Implementation: `Workbench/src/workbench/nlp.py`. Optional modular LLM handoff
+Implementation: `packages/workbench/src/workbench/nlp.py`. Optional modular LLM handoff
 may include `prompt_sections` and `assembled_prompt`, backed by
-`Workbench/contracts/workbench/agent_prompt_sections/` and `context_budget.yaml`.
+`packages/workbench/contracts/workbench/agent_prompt_sections/` and `context_budget.yaml`.
 
 ### NLP governance rules (delegated)
 
-The rules below are enforced by `Workbench/src/nlp/`, not re-defined here:
+The rules below are enforced by `packages/workbench/src/nlp/`, not re-defined here:
 
 1. NLP tools answer over admitted evidence and current Workbench/Framework outputs.
 2. They must not fetch external sources from Framework code or invent evidence.
@@ -56,6 +62,6 @@ The rules below are enforced by `Workbench/src/nlp/`, not re-defined here:
 5. Variable mapping is rule-first with labeling-function votes; LLM may assist but not override.
 6. Rejected or needs_revision cards are automatically appended to hard cases for evaluation.
 
-When changing NLP behavior or protocol fields, start in `Workbench/src/nlp/` and
+When changing NLP behavior or protocol fields, start in `packages/workbench/src/nlp/` and
 its protocol catalog. Root `protocols/nlp_*.schema.json` will follow in a later
 consolidation pass.

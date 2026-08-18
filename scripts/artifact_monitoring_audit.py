@@ -13,7 +13,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from scripts._runtime_io import ROOT, ensure_dir, write_json
+from scripts._runtime_io import ROOT, ensure_dir, surface_dir, write_json
 
 DATE_STAMP = re.compile(r"(?:^|[_-])(?:19|20)\d{2}[-_]?[01]\d[-_]?[0-3]\d(?=[_.T-]|$)")
 IMMUTABLE_PARTS = {"runs", "releases", "snapshots", "archive", "raw", "history"}
@@ -92,7 +92,7 @@ def declared_outputs(registry: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def explicit_content_monitors(registry: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
+    monitors = [
         {
             "monitor": str(name),
             "pattern": str(config.get("path", "")),
@@ -102,6 +102,80 @@ def explicit_content_monitors(registry: dict[str, Any]) -> list[dict[str, Any]]:
         for name, config in (registry.get("content_freshness", {}) or {}).items()
         if isinstance(config, dict) and config.get("path")
     ]
+    monitors.extend(
+        {
+            "monitor": str(name),
+            "pattern": str(config.get("path", "")),
+            "owner_step": config.get("owner"),
+            "decision_critical": config.get("class")
+            in {"authoritative", "decision_adjacent_shadow"},
+        }
+        for name, config in (registry.get("monitoring_contracts", {}) or {}).items()
+        if isinstance(config, dict) and config.get("path")
+    )
+    return monitors
+
+
+def monitoring_contract_violations(root: Path, registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Fail closed when a declared static/pointer monitor is malformed or absent."""
+    findings: list[dict[str, Any]] = []
+    for name, config in (registry.get("monitoring_contracts", {}) or {}).items():
+        if not isinstance(config, dict):
+            findings.append({"monitor": str(name), "kind": "invalid_monitoring_contract"})
+            continue
+        path_value = str(config.get("path") or "").strip()
+        if not path_value:
+            findings.append({"monitor": str(name), "kind": "missing_monitoring_contract_path"})
+            continue
+        if config.get("class") not in MONITORING_CLASSES:
+            findings.append(
+                {
+                    "monitor": str(name),
+                    "path": path_value,
+                    "kind": "invalid_monitoring_contract_class",
+                }
+            )
+        if not str(config.get("owner") or "").strip():
+            findings.append(
+                {
+                    "monitor": str(name),
+                    "path": path_value,
+                    "kind": "ownerless_monitoring_contract",
+                }
+            )
+        if not str(config.get("mode") or "").strip():
+            findings.append(
+                {
+                    "monitor": str(name),
+                    "path": path_value,
+                    "kind": "missing_monitoring_contract_mode",
+                }
+            )
+        matches = (
+            list(root.glob(path_value))
+            if any(char in path_value for char in "*?[")
+            else [root / path_value]
+        )
+        existing = [path for path in matches if path.exists() or path.is_symlink()]
+        if not existing:
+            findings.append(
+                {
+                    "monitor": str(name),
+                    "path": path_value,
+                    "kind": "missing_monitoring_contract_target",
+                }
+            )
+        elif config.get("mode") == "pointer_integrity":
+            for pointer in existing:
+                if pointer.is_symlink() and not pointer.resolve().exists():
+                    findings.append(
+                        {
+                            "monitor": str(name),
+                            "path": path_value,
+                            "kind": "broken_monitoring_contract_pointer",
+                        }
+                    )
+    return findings
 
 
 def matches_pattern(relative_path: str, pattern: str) -> bool:
@@ -362,6 +436,7 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
     classified = classify_blind_spots(blind_spot_paths, registry)
     coverage_gaps = required_coverage_gaps(classified, registry)
     unresolved = unresolved_blind_spots(classified)
+    contract_violations = monitoring_contract_violations(root, registry)
     content = non_daily_content_checks(root, registry, now)
     matrix = monitoring_matrix(root, registry)
     source_lag = learning_hub_source_lag(root)
@@ -373,6 +448,7 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
         "generated_at": now.isoformat(),
         "status": "FAIL"
         if contracts
+        or contract_violations
         or stale_or_missing
         or no_content_clock
         or classification_fail
@@ -384,6 +460,7 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
         "monitoring_blind_spot_classifications": classified,
         "required_coverage_gaps": coverage_gaps,
         "unresolved_monitoring_blind_spots": unresolved,
+        "monitoring_contract_violations": contract_violations,
         "artifact_monitoring_matrix": matrix,
         "learning_hub_source_lag": source_lag,
         "summary": {
@@ -400,6 +477,7 @@ def build_report(root: Path, now: datetime | None = None) -> dict[str, Any]:
             "required_coverage_gap_count": len(coverage_gaps),
             "unresolved_monitoring_blind_spot_count": len(unresolved),
             "classified_monitoring_blind_spot_count": len(classified),
+            "monitoring_contract_violation_count": len(contract_violations),
         },
     }
     if report["status"] == "PASS" and (
@@ -425,6 +503,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Unmonitored current/durable artifacts: {summary['monitoring_blind_spot_count']}",
         f"- Required coverage gaps (authoritative / decision-adjacent): {summary.get('required_coverage_gap_count', 0)}",
         f"- Unresolved (unclassified / ownerless) blind spots: {summary.get('unresolved_monitoring_blind_spot_count', 0)}",
+        f"- Monitoring contract violations: {summary.get('monitoring_contract_violation_count', 0)}",
         "",
         "## Monitoring blind spots",
         "",
@@ -454,13 +533,25 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument(
+        "--no-write",
+        action="store_true",
+        help="inspect and print the report without updating monitoring_coverage artifacts",
+    )
     args = parser.parse_args()
     root = args.root.resolve()
     report = build_report(root)
-    output_dir = root / "Output" / "system_learning" / "latest"
-    ensure_dir(output_dir)
-    write_json(output_dir / "monitoring_coverage.json", report)
-    (output_dir / "monitoring_coverage.md").write_text(render_markdown(report), encoding="utf-8")
+    if not args.no_write:
+        output_dir = (
+            surface_dir("system_learning") / "latest"
+            if root == ROOT
+            else root / "Output" / "system_learning" / "latest"
+        )
+        ensure_dir(output_dir)
+        write_json(output_dir / "monitoring_coverage.json", report)
+        (output_dir / "monitoring_coverage.md").write_text(
+            render_markdown(report), encoding="utf-8"
+        )
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:

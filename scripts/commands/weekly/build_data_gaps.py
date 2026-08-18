@@ -26,14 +26,14 @@ try:
 except ImportError:
     yaml = None  # type: ignore[assignment,misc]
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir  # noqa: E402
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, surface_dir  # noqa: E402
 from scripts._runtime_io import load_json as _load_json
 from scripts._runtime_io import load_yaml as _load_yaml
 
 logger = logging.getLogger(__name__)
 
 CURRENT = current_dir()
-JUDGMENT = ROOT / "Output" / "judgment"
+JUDGMENT = surface_dir("judgment")
 DATA_AUTHORITY_PATH = ROOT / "governance" / "authority_registry.yaml"
 DATA_REQUEST_PATH = ROOT / "governance" / "data_request_registry.yaml"
 
