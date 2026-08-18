@@ -14,6 +14,16 @@ refresh_output_current:
   description: Refresh Output/current/ artifacts
   allowed_use:
   - current_artifact_generation
+dual_path_compare:
+  script: scripts/dual_path_compare.py
+  status: compatibility_wrapper
+  owner: Harvester
+  description: Compatibility entrypoint for the canonical Framework dual-path comparison implementation
+  allowed_use:
+  - dual_path_validation
+  forbidden_use:
+  - current_output_generation
+  - core_judgment
 promote_snapshot:
   script: scripts/promote_snapshot.py
   status: active
@@ -1066,7 +1076,7 @@ refresh_cross_asset_panel:
   script: scripts/refresh_cross_asset_panel.py
   status: active
   owner: Harvester
-  description: Refresh cross-asset daily panel with latest market data from yfinance via Harvester provider
+  description: Mirror the accepted Harvester cross-asset release and expose its provider outcome; acquisition belongs to harvester daily-release
   allowed_use:
   - data_refresh
 re_evaluate_outcomes:
@@ -1152,16 +1162,28 @@ run_e3_three_replication:
   - preregistered_replication
 generate_dependency_lock:
   script: scripts/commands/ci/generate_dependency_lock.py
-  status: governance_active
+  status: deprecated
   owner: Governance
   description: >-
-    Regenerate requirements.lock.txt from the declared dependency closure.
-    Replaces a hand-written `pip freeze | grep` of eight names that missed
-    omegaconf, mcp, mypy and every transitive dependency. Default mode is a
-    read-only staleness check; --write rewrites.
+    Historical compatibility-lock audit only. The workspace authority is
+    uv.lock; this entrypoint never replaces the uv resolver. --write is
+    allowed only for explicit migration/reference maintenance of the legacy
+    requirements.lock.txt.
   allowed_use:
-  - dependency_lock_generation
-  - dependency_lock_verification
+  - historical_dependency_lock_audit
+  forbidden_use:
+  - workspace_dependency_authority
+  - workspace_installation
+run_operator_tests:
+  script: scripts/run_operator_tests.py
+  status: governance_active
+  owner: Governance
+  description: Run the stateful operator suite inside a temporary isolated workspace with source Data/Output fingerprint verification
+  allowed_use:
+  - operator_test_isolation
+  - hermetic_operator_validation
+  forbidden_use:
+  - authoring_checkout_operator_execution
 check_main_ci_status:
   script: scripts/commands/ci/check_main_ci_status.py
   status: governance_active
@@ -1222,3 +1244,76 @@ strategy_lab_run_backtest:
   description: Registered Strategy Lab shadow backtest entrypoint
   allowed_use:
   - shadow_research
+build_release_evidence:
+  script: scripts/build_release_evidence.py
+  status: governance_active
+  owner: Governance
+  description: Build SHA/lock/platform-bound release manifest and dual SBOM evidence
+  allowed_use:
+  - clean_room_release_evidence
+  - artifact_exclusion_audit
+check_generation_writer_inventory:
+  script: scripts/check_generation_writer_inventory.py
+  status: governance_active
+  owner: Governance
+  description: Audit generation-owned writers and reject unguarded live-surface writers
+  allowed_use:
+  - generation_writer_audit
+check_schedule_manifest:
+  script: scripts/check_schedule_manifest.py
+  status: governance_active
+  owner: Governance
+  description: Read-only audit of tracked and installed launchd schedule boundaries
+  allowed_use:
+  - schedule_boundary_audit
+migrate_feedback_eligibility:
+  script: scripts/commands/weekly/migrate_feedback_eligibility.py
+  status: blocked
+  owner: Governance
+  description: Explicitly classify legacy feedback records without granting authority
+  allowed_use:
+  - feedback_lifecycle_migration_review
+  - feedback_lifecycle_migration_apply_after_approval
+migrate_caselab_embeddings_to_lancedb:
+  script: scripts/migrate_caselab_embeddings_to_lancedb.py
+  status: blocked
+  owner: Workbench
+  description: One-shot manual migration of legacy CaseLab embeddings to LanceDB
+  allowed_use:
+  - explicit_manual_migration
+migrate_output_to_generations:
+  script: scripts/migrate_output_to_generations.py
+  status: blocked
+  owner: Runtime
+  description: Explicit baseline migration from compatibility Output surfaces to generations
+  allowed_use:
+  - output_generation_migration_review
+  - output_generation_migration_apply_after_approval
+reconcile_generation:
+  script: scripts/reconcile_generation.py
+  status: governance_active
+  owner: Governance
+  description: Read-only startup reconciliation of immutable generation topology
+  allowed_use:
+  - generation_reconciliation
+record_runtime_event:
+  script: scripts/record_runtime_event.py
+  status: tool_active
+  owner: Learning Hub
+  description: Append governed runtime events through the Learning Hub peer entrypoint
+  allowed_use:
+  - runtime_event_append
+verify_restore_manifest:
+  script: scripts/verify_restore_manifest.py
+  status: governance_active
+  owner: Governance
+  description: Validate bytes authority, recovery evidence, and restore-drill status
+  allowed_use:
+  - recovery_evidence_audit
+verify_vulnerability_ledger:
+  script: scripts/verify_vulnerability_ledger.py
+  status: governance_active
+  owner: Governance
+  description: Validate vulnerability assessment and exception bindings to release evidence
+  allowed_use:
+  - vulnerability_evidence_audit

@@ -5,6 +5,13 @@
 schema_version: operator_registry.v1
 updated_at: 2026-06-16
 
+# This registry is a governance/display view.  Execution authority belongs to
+# governance/daily_pipeline_registry.yaml after compilation into CompiledPlan.
+authority:
+  role: governance_display_only
+  execution_authority: false
+  can_affect_core_judgment: false
+
 operators:
   # ── Data Acquisition ──────────────────────────────────────────
   harvester:

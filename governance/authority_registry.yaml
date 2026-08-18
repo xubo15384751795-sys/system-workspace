@@ -186,16 +186,16 @@ data_sources:
       Archived 2026-07-11 — last row 2025-12-30, zero code consumers.
       Live ETF prices come from Data/panels/cross_asset_daily_panel.parquet.
 
-  - path: "deformation-framework/src/benchmarks/historical_replay.py"
+  - path: "packages/framework/src/benchmarks/historical_replay.py"
     authority: research_only_non_harvester
     owner: Deformation Framework
     allowed_use: [research, benchmark, historical_replay]
     forbidden_use: [core_judgment_primary_input, active_pipeline]
     note: >
-      Fetches FRED macro data directly via urllib for historical replay.
-      Active macro data must come through Harvester.
+      Fetches FRED macro data through the research-only owned gateway for
+      historical replay. Active macro data must come through Harvester.
 
-  - path: "deformation-framework/src/research_corpus/providers/brevan_howard.py"
+  - path: "packages/framework/src/research_corpus/providers/brevan_howard.py"
     authority: research_only_non_harvester
     owner: Deformation Framework
     allowed_use: [research, corpus_archival]

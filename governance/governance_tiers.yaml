@@ -46,12 +46,13 @@ shape_inventory:
   git_workspace_policy.md: {shape: precedent, attention: on_demand, role: workflow_reference_backed_by_hooks}
   governance_freeze_manifest.yaml: {shape: executable_invariant, attention: zero, role: freeze_baseline}
   governance_tiers.yaml: {shape: executable_invariant, attention: zero, role: attention_classifier}
+  external_route_inventory.yaml: {shape: executable_invariant, attention: zero, role: public_route_boundary_inventory}
   incentive_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   mechanism_calibration_gate.yaml: {shape: executable_invariant, attention: zero, role: machine_gate}
   ml_validation_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   open_threads.yaml: {shape: precedent, attention: on_demand, role: migration_record}
   opencode_supervisor_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
-  operator_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
+  operator_registry.yaml: {shape: executable_invariant, attention: zero, role: governance_display_registry}
   output_routing_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   paper_support_registry.yaml: {shape: executable_invariant, attention: zero, role: decision_input_registry}
   pipeline_schedule.md: {shape: precedent, attention: on_demand, role: historical_schedule_reference}
@@ -60,12 +61,14 @@ shape_inventory:
   proxy_quality_rules.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   redundancy_budget.yaml: {shape: executable_invariant, attention: zero, role: machine_budget}
   repo_layout_map.md: {shape: precedent, attention: on_demand, role: migration_record}
+  restore_manifest.yaml: {shape: feedback_loop, attention: deviation_only, role: restore_readiness_contract}
   runtime_status_contract.yaml: {shape: executable_invariant, attention: zero, role: status_enum_authority}
   run_mode_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
   run_observability_summary.template.md: {shape: precedent, attention: on_demand, role: superseded_template}
   semantic_registry.json: {shape: executable_invariant, attention: zero, role: machine_registry}
   submodule_commit_plan.md: {shape: precedent, attention: on_demand, role: migration_record}
   system_constitution.yaml: {shape: executable_invariant, attention: zero, role: machine_constitution}
+  vulnerability_exception_ledger.yaml: {shape: feedback_loop, attention: deviation_only, role: vulnerability_assessment_record}
 
 sunset_queue:
   system_constitution.yaml#agent_work_protocol:

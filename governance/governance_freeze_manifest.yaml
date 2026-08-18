@@ -1,16 +1,17 @@
 schema_version: governance_freeze_manifest.v2
-updated_at: '2026-07-31'
+updated_at: '2026-08-19'
 freeze_commit: 06e91e906d0f8ce6562240b27db556366edb3e2b
 freeze_date: '2026-06-17'
-review_after: '2026-08-15'
+review_after: '2026-09-19'
 purpose: 'Machine-checkable governance freeze baseline. Root-level governance files
   must appear in baseline_root_files or approved_additions. Generated overlays and
   historical snapshots are exempt.  v2: adds file hashes for content integrity.
 
   '
 approved_additions_budget:
-  max_files: 17
-  reason: Cap post-freeze additions; +1 for P0-2 runtime_status_contract.yaml (enum authority)
+  max_files: 20
+  reason: Cap post-freeze additions; renewed on 2026-08-19 to register the
+    route-inventory, restore-manifest, and vulnerability-ledger contracts.
 blocking_hash_files:
 - authority_registry.yaml
 - capability_registry.yaml
@@ -54,28 +55,28 @@ baseline_root_files:
 - system_constitution.yaml
 baseline_hashes:
   architecture_cleanup_decisions.md: daae955ec8d5ce78
-  architecture_reality_decisions.md: eb49fbd165f8cdc2
-  authority_registry.yaml: b385ac07c0aa16b8
+  architecture_reality_decisions.md: 278ddbca99ba35c1
+  authority_registry.yaml: 887e57de13a5f57c
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: 6ef4e5dfd4e5bb31
+  daily_pipeline_registry.yaml: 86733d68b6fa3d4b
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 7441dd45daf12adf
-  deferred_work_register.yaml: 1fde357f8e240193
-  entrypoint_registry.yaml: 7624a54763831a62
+  deferred_work_register.yaml: baa2e255b97ef48f
+  entrypoint_registry.yaml: 95431ab8ef3d422e
   experimental_submission_registry.yaml: e362f89e927c1957
-  framework_output.schema.json: 7378891650ab5040
+  framework_output.schema.json: d7877e819c16456e
   git_workspace_policy.md: 4dab5f4a7e64d803
   incentive_policy.yaml: 8d2c92e89a5f803c
   opencode_supervisor_policy.yaml: 15cb87cbd163e6c8
-  operator_registry.yaml: 52406a8a279176c1
+  operator_registry.yaml: b4b935cb1a0dfc97
   output_routing_policy.yaml: 3bbdaa96f0b57671
   pipeline_test_baseline.yaml: d476abebd64035a6
   proxy_quality_rules.yaml: 9398c8068f839cbf
   redundancy_budget.yaml: 56b2b16c01033365
-  repo_layout_map.md: 15f2d85e93e4f91c
-  run_mode_registry.yaml: a0aa12f41ec3f33a
+  repo_layout_map.md: efb499cd772319c9
+  run_mode_registry.yaml: 632a01d0e19496fe
   run_observability_summary.template.md: 69bb81c0d223cf9e
   semantic_registry.json: 5b24fdeafa56fe1b
   submodule_commit_plan.md: 164a0f9110fba6d5
@@ -83,9 +84,10 @@ baseline_hashes:
 baseline_revision_history:
 - approved_at: '2026-07-31'
   approval: user_requested_governance_closure
-  reason: >
-    Reconcile accumulated approved governance changes, then make critical
-    authority files and all missing baseline files blocking going forward.
+  reason: 'Reconcile accumulated approved governance changes, then make critical authority
+    files and all missing baseline files blocking going forward.
+
+    '
   files:
   - architecture_cleanup_decisions.md
   - architecture_reality_decisions.md
@@ -178,7 +180,23 @@ approved_additions:
   approved_at: '2026-07-27'
   commit: hermetic-stateful-tests
   reason: 'P0-2: single enum authority for framework_output.status and judgment.decision
-    (closes degraded_partial / ACTIVE_WATCH drift between producers, schemas, and tests).'
+    (closes degraded_partial / ACTIVE_WATCH drift between producers, schemas, and
+    tests).'
+- file: external_route_inventory.yaml
+  approved_at: '2026-08-19'
+  commit: governance-unblock-2026-08-19
+  reason: 'P1-06: machine-readable inventory for public outbound route boundaries,
+    backed by strict DTO and SSRF negative tests.'
+- file: restore_manifest.yaml
+  approved_at: '2026-08-19'
+  commit: governance-unblock-2026-08-19
+  reason: 'WS9: fail-closed restore readiness contract; metadata-only until an
+    off-device owner and clean-device drill are evidenced.'
+- file: vulnerability_exception_ledger.yaml
+  approved_at: '2026-08-19'
+  commit: governance-unblock-2026-08-19
+  reason: 'Security evidence boundary: records assessment and exceptions without
+    claiming that a scan has run.'
 baseline_updates:
 - file: system_constitution.yaml
   approved_at: '2026-06-18'
@@ -606,97 +624,130 @@ baseline_updates:
   approved_at: '2026-07-31'
   old_hash: 14d45cbe7cc4eabc
   new_hash: f3a586a1690f758d
-  reason: >-
-    refresh_cross_asset_panel on_demand -> daily. It is the declared owner_step
+  reason: refresh_cross_asset_panel on_demand -> daily. It is the declared owner_step
     of the etf_panel content_freshness check (3 trading days, decision_critical);
-    commit 10acc44 added that check and set the step on_demand in the same
-    change, so the budget was unsatisfiable and the panel froze on 2026-07-20.
-    Restores the daily cadence already recorded in pipeline_schedule.md
-    (2026-07-11). Operator-approved 2026-07-31.
+    commit 10acc44 added that check and set the step on_demand in the same change,
+    so the budget was unsatisfiable and the panel froze on 2026-07-20. Restores the
+    daily cadence already recorded in pipeline_schedule.md (2026-07-11). Operator-approved
+    2026-07-31.
 - file: daily_pipeline_registry.yaml
   approved_at: '2026-07-31'
   old_hash: f3a586a1690f758d
   new_hash: ffdba9c41b149c58
-  reason: >-
-    Declare Output/research/ as an external input. output_routing_audit
-    (added in 0e3b9c2) consumes it, but it is a routing destination declared
-    in output_routing_policy.yaml routes.research, not a pipeline product, so
-    test_consumes_traceable_to_upstream failed and merge-gate has been red on
-    main since 3f022d2. Classified alongside Output/runs/ and governance/.
+  reason: Declare Output/research/ as an external input. output_routing_audit (added
+    in 0e3b9c2) consumes it, but it is a routing destination declared in output_routing_policy.yaml
+    routes.research, not a pipeline product, so test_consumes_traceable_to_upstream
+    failed and merge-gate has been red on main since 3f022d2. Classified alongside
+    Output/runs/ and governance/.
 - file: entrypoint_registry.yaml
   approved_at: '2026-07-31'
   old_hash: 754d701935f61519
   new_hash: a1f2f061b62cbbf5
-  reason: >-
-    Register scripts/commands/ci/check_main_ci_status.py, which notifies when
-    the default branch's CI is red. Branch protection is unavailable on this
-    repository (private on a free plan; the API returns 403), so nothing
-    server-side keeps a red commit off main — merge-gate was red there for a
-    day after 3f022d2. Read-only gh query; placed under commands/ci beside
-    check_pace_routing rather than at root, so the root_scripts budget is
-    untouched.
+  reason: Register scripts/commands/ci/check_main_ci_status.py, which notifies when
+    the default branch's CI is red. Branch protection is unavailable on this repository
+    (private on a free plan; the API returns 403), so nothing server-side keeps a
+    red commit off main — merge-gate was red there for a day after 3f022d2. Read-only
+    gh query; placed under commands/ci beside check_pace_routing rather than at root,
+    so the root_scripts budget is untouched.
 - file: daily_pipeline_registry.yaml
   approved_at: '2026-08-01'
   old_hash: ffdba9c41b149c58
   new_hash: ef936cb5e6de5e81
-  reason: >-
-    Register data_retention_audit (weekly, reporting only). The policy has
-    declared harvester_exports.keep_last_n_daily since 2026-06-17 but nothing
-    evaluated it, so Data/ reached 1038MB against a 300MB budget while the
-    policy still recorded current_size_mb: 205. The step never deletes;
-    acting on findings stays an operator decision because releases are
-    finalized evidence.
+  reason: 'Register data_retention_audit (weekly, reporting only). The policy has
+    declared harvester_exports.keep_last_n_daily since 2026-06-17 but nothing evaluated
+    it, so Data/ reached 1038MB against a 300MB budget while the policy still recorded
+    current_size_mb: 205. The step never deletes; acting on findings stays an operator
+    decision because releases are finalized evidence.'
 - file: proxy_quality_rules.yaml
   approved_at: '2026-08-01'
   old_hash: 07de97481688210c
   new_hash: 9398c8068f839cbf
-  reason: >-
-    Comment-only: repoint the CONSUMERS section at
-    tests/governance/test_proxy_quality_gate.py. The referenced
-    test_proxy_quality_scorer.py targeted a scorer archived in 7023b75 on
-    2026-06-18 and had been skipping silently since. No rule, criterion,
-    threshold or tier changed.
+  reason: 'Comment-only: repoint the CONSUMERS section at tests/governance/test_proxy_quality_gate.py.
+    The referenced test_proxy_quality_scorer.py targeted a scorer archived in 7023b75
+    on 2026-06-18 and had been skipping silently since. No rule, criterion, threshold
+    or tier changed.'
 - file: entrypoint_registry.yaml
   approved_at: '2026-08-01'
   old_hash: a1f2f061b62cbbf5
   new_hash: 7624a54763831a62
-  reason: >-
-    Register scripts/commands/ci/generate_dependency_lock.py. The lock was
-    previously a hand-written `pip freeze | grep` of eight names that missed
-    omegaconf, mcp and mypy — all declared in requirements-dev.txt — plus
-    every transitive dependency. Closes the dependency_locking deferred item
-    (hard_deadline 2026-08-15) whose trigger condition "when CI is set up"
-    had already fired.
+  reason: Register scripts/commands/ci/generate_dependency_lock.py. The lock was previously
+    a hand-written `pip freeze | grep` of eight names that missed omegaconf, mcp and
+    mypy — all declared in requirements-dev.txt — plus every transitive dependency.
+    Closes the dependency_locking deferred item (hard_deadline 2026-08-15) whose trigger
+    condition "when CI is set up" had already fired.
 - file: deferred_work_register.yaml
   approved_at: '2026-08-01'
   old_hash: f8de885dccaa8ba0
   new_hash: 1fde357f8e240193
-  reason: >-
-    Record that dependency_locking's trigger condition ("when CI is set up")
-    had already fired, and that a single generated closure lock was delivered
-    instead of four per-module constraints files — the per-module split
-    predates the packages/ consolidation, so those paths are now symlinks and
-    would pin one shared interpreter four times. The 30-day cross-environment
-    evidence window remains open.
+  reason: Record that dependency_locking's trigger condition ("when CI is set up")
+    had already fired, and that a single generated closure lock was delivered instead
+    of four per-module constraints files — the per-module split predates the packages/
+    consolidation, so those paths are now symlinks and would pin one shared interpreter
+    four times. The 30-day cross-environment evidence window remains open.
 - file: daily_pipeline_registry.yaml
   approved_at: '2026-08-01'
   old_hash: ef936cb5e6de5e81
   new_hash: f653df283d9a43b0
-  reason: >-
-    Correct etf_refresh's blocker text and record artifact_status. The text
-    said the root script "may recompute features only", implying feature
-    recomputation worked; scripts/k_features_from_etf.py was archived in
-    878bca4 and is not in scripts/archive/, so update_k_features() returns
-    False every run and the declared artifact has been frozen since
-    2026-06-17. Documentation only — no schedule, authority or output changed.
+  reason: Correct etf_refresh's blocker text and record artifact_status. The text
+    said the root script "may recompute features only", implying feature recomputation
+    worked; scripts/k_features_from_etf.py was archived in 878bca4 and is not in scripts/archive/,
+    so update_k_features() returns False every run and the declared artifact has been
+    frozen since 2026-06-17. Documentation only — no schedule, authority or output
+    changed.
 - file: daily_pipeline_registry.yaml
   approved_at: '2026-08-10'
   old_hash: f653df283d9a43b0
   new_hash: 6ef4e5dfd4e5bb31
-  reason: >-
-    Reorder system_index / current_status / work_brief / readme_first before
-    freshness_validator so the CURRENT closure chain is closed in-run; drop
-    --strict from monitoring_coverage_audit to match continue_with_warning.
+  reason: Reorder system_index / current_status / work_brief / readme_first before
+    freshness_validator so the CURRENT closure chain is closed in-run; drop --strict
+    from monitoring_coverage_audit to match continue_with_warning.
+- file: architecture_reality_decisions.md
+  approved_at: '2026-08-19'
+  old_hash: eb49fbd165f8cdc2
+  new_hash: 278ddbca99ba35c1
+  reason: Reconcile current monorepo architecture paths and runtime authority notes.
+- file: authority_registry.yaml
+  approved_at: '2026-08-19'
+  old_hash: b385ac07c0aa16b8
+  new_hash: 887e57de13a5f57c
+  reason: Repoint active package paths and research-only gateway ownership.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-08-19'
+  old_hash: eb778a88ab491147
+  new_hash: 86733d68b6fa3d4b
+  reason: Register execution profiles, monitoring contracts, calendars, and current
+    package paths for the canonical scheduled runtime.
+- file: deferred_work_register.yaml
+  approved_at: '2026-08-19'
+  old_hash: 1fde357f8e240193
+  new_hash: baa2e255b97ef48f
+  reason: Reconcile the active deferred-work state with the current package layout.
+- file: entrypoint_registry.yaml
+  approved_at: '2026-08-19'
+  old_hash: 7624a54763831a62
+  new_hash: 95431ab8ef3d422e
+  reason: Register current package entrypoints and validation surfaces.
+- file: framework_output.schema.json
+  approved_at: '2026-08-19'
+  old_hash: 7378891650ab5040
+  new_hash: d7877e819c16456e
+  reason: Align output schema with the canonical runtime status contract.
+- file: operator_registry.yaml
+  approved_at: '2026-08-19'
+  old_hash: 52406a8a279176c1
+  new_hash: b4b935cb1a0dfc97
+  reason: Reconcile operator ownership and current execution surfaces.
+- file: repo_layout_map.md
+  approved_at: '2026-08-19'
+  old_hash: 15f2d85e93e4f91c
+  new_hash: efb499cd772319c9
+  reason: Document the packages/ monorepo layout and active compatibility boundaries.
+- file: run_mode_registry.yaml
+  approved_at: '2026-08-19'
+  old_hash: a0aa12f41ec3f33a
+  new_hash: 632a01d0e19496fe
+  reason: Reconcile run-mode ownership with the canonical scheduled and work-cycle
+    paths.
 work_support_budget:
   max_files: 17
   source: governance/governance_tiers.yaml

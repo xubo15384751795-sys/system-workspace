@@ -1,0 +1,27 @@
+schema_version: system.restore_manifest.v1
+status: BLOCKED
+accepted_release_scope: Data/harvester/exports
+bytes_owner: UNCONFIGURED
+files: []
+remote:
+  type: local_filesystem
+  uri: ../Data/.dvc_cache
+  same_disk_as_workspace: true
+  complete_bytes_verified: false
+  content_hash_verified: false
+restore_drill:
+  required: true
+  status: NOT_RUN
+  device_class: compute_device_required
+  last_verified_at: null
+certification:
+  recoverable: false
+  reason_codes:
+    - SAME_DISK_REMOTE
+    - COMPLETE_BYTES_NOT_VERIFIED
+    - CONTENT_HASH_NOT_VERIFIED
+    - BYTES_OWNER_UNCONFIGURED
+    - REMOTE_PATH_NOT_FOUND
+    - RESTORE_DRILL_NOT_RUN
+    - FILE_INVENTORY_EMPTY
+  evidence_boundary: metadata_only_until_off_device_bytes_and_restore_drill_pass

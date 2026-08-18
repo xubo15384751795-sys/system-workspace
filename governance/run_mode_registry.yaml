@@ -4,7 +4,12 @@ created: "2026-06-17"
 purpose: >
   Defines work cycle modes for the system.  Each mode specifies what the
   system does, how long it takes, and what artifacts it produces.
-  Referenced by: scripts/run_work_cycle.py, governance/opencode_supervisor_policy.yaml
+  By default scripts/run_work_cycle.py writes only to
+  Output/runs/{run_id}/publish_candidate/ and never advances a compatibility
+  pointer.  Direct legacy surface writes require the explicit
+  SYSTEM_USE_LEGACY_WORK_CYCLE=1 audit flag.  Full refresh is owned by the
+  scheduled Dagster path.  Referenced by: scripts/run_work_cycle.py,
+  governance/opencode_supervisor_policy.yaml
 
 modes:
   quick_reaction:
@@ -14,6 +19,8 @@ modes:
       Use after: rule changes, questions, experiments, session starts.
       Default high-frequency mode — run as often as needed.
     external_data_refresh: false
+    default_write_scope: Output/runs/{run_id}/publish_candidate/
+    legacy_write_opt_in: SYSTEM_USE_LEGACY_WORK_CYCLE=1
     expected_seconds: 15
     steps:
       - build_work_brief
@@ -46,6 +53,8 @@ modes:
       Run core judgment chain without refreshing external data.
       Use when: updating framework status, checking judgment consistency.
     external_data_refresh: false
+    default_write_scope: Output/runs/{run_id}/publish_candidate/
+    legacy_write_opt_in: SYSTEM_USE_LEGACY_WORK_CYCLE=1
     expected_seconds: 120
     steps:
       - bridge
@@ -88,6 +97,8 @@ modes:
       Full pipeline refresh including Harvester data acquisition.
       Use when: data is stale, new evidence release needed.
     external_data_refresh: true
+    default_execution_owner: scheduled_dagster
+    legacy_write_opt_in: SYSTEM_USE_LEGACY_WORK_CYCLE=1
     expected_seconds: 600
     steps:
       - all_daily_pipeline_steps
@@ -121,26 +132,26 @@ modes:
 # ── Work Brief Required Sections ────────────────────────────────────────────
 work_brief_sections:
   - id: current_reaction
-    question: "当前系统反应是什么？"
+    question: '当前系统反应是什么？'
     required: true
   - id: evidence_basis
-    question: "依据是什么？"
+    question: '依据是什么？'
     required: true
   - id: contributing_factors
-    question: "哪些因素贡献最大？"
+    question: '哪些因素贡献最大？'
     required: true
   - id: upgrade_blockers
-    question: "为什么不能升级判断？"
+    question: '为什么不能升级判断？'
     required: true
   - id: data_requests
-    question: "有哪些 Harvester 数据请求？"
+    question: '有哪些 Harvester 数据请求？'
     required: false
   - id: active_modules
-    question: "哪些模块本次实际工作了？"
+    question: '哪些模块本次实际工作了？'
     required: true
   - id: learning_hub_feedback
-    question: "哪些输出进入 Learning Hub 反馈？"
+    question: '哪些输出进入 Learning Hub 反馈？'
     required: false
   - id: human_review_items
-    question: "哪些事项需要人类 review？"
+    question: '哪些事项需要人类 review？'
     required: false

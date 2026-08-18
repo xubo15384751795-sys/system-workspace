@@ -1,0 +1,91 @@
+schema_version: external_route_inventory.v1
+owner: Framework boundary / Harvester-owned egress
+gateway: packages/framework/src/data_access/http_gateway.py
+negative_tests: packages/framework/tests/test_ssrf_boundary.py
+routes:
+  - method: GET
+    path: /health
+    free_form_url: false
+  - method: GET
+    path: /runtime
+    free_form_url: false
+  - method: GET
+    path: /series
+    free_form_url: false
+  - method: GET
+    path: /data
+    request_model: query-parameter identifiers only
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: POST
+    path: /snapshots/run
+    request_model: SnapshotRunRequest
+    free_form_url: false
+  - method: GET
+    path: /snapshots
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: GET
+    path: /snapshots/{run_date}
+    path_parameter: ISO date
+    free_form_url: false
+  - method: GET
+    path: /hub/providers
+    free_form_url: false
+  - method: GET
+    path: /hub/presets
+    free_form_url: false
+  - method: GET
+    path: /hub/capabilities
+    free_form_url: false
+  - method: POST
+    path: /hub/route
+    request_model: EvidenceRouteRequest
+    free_form_url: false
+  - method: POST
+    path: /hub/series
+    request_model: SeriesRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: POST
+    path: /hub/events
+    request_model: EventRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: POST
+    path: /hub/filings
+    request_model: FilingRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: POST
+    path: /hub/positions
+    request_model: PositionRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: POST
+    path: /hub/structural
+    request_model: StructuralPresetRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: GET
+    path: /hub_lite/capabilities
+    free_form_url: false
+  - method: GET
+    path: /hub_lite/presets
+    free_form_url: false
+  - method: GET
+    path: /hub_lite/providers
+    free_form_url: false
+  - method: POST
+    path: /hub_lite/series
+    request_model: SeriesRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: POST
+    path: /hub_lite/structural
+    request_model: StructuralPresetRequest
+    query_model: DateRangeQuery
+    free_form_url: false
+  - method: GET
+    path: /hub_lite/health
+    free_form_url: false

@@ -1,0 +1,39 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-12-system-optimization-e0-ws1-ws2a
+date: "2026-08-12"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Execute the first dependency-ordered slice of the comprehensive system
+  optimization plan: establish a single local test classification, make the
+  merge aggregator always-run, contain legacy scheduled agents, fail closed
+  when Dagster is unavailable, propagate typed RunOutcome failure through the
+  Dagster default path, and make the compiled pipeline the executor's plan
+  authority.
+authority_changes:
+  - module: scripts/run_daily_scheduled.sh
+    claim: scheduled wrapper forwards operator arguments to the default path
+  - module: scripts/orchestrate.sh
+    claim: daily mode does not synchronously run Horizon or silently fallback to legacy
+  - module: scripts/launchd/*.plist
+    claim: legacy harvester/post-close agents are disabled records; daily-run is the publisher
+  - module: system_runtime.pipeline
+    claim: compiled plan owns sequence, edges, failure metadata, and plan digest
+  - module: packages/orchestration/orchestration/definitions.py
+    claim: non-zero RunOutcome produces a failed Dagster step
+  - module: scripts/run_bundle.py
+    claim: typed RunOutcome is persisted with the run bundle
+references:
+  - SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
+  - pyproject.toml [tool.pytest.ini_options]
+  - .github/workflows/ci.yml
+  - tests/test_run_outcome.py
+  - tests/test_pipeline_compiler.py
+non_goals:
+  - Apply or unload installed launchd agents in the user Library during source validation
+  - Refresh Data/ or rewrite generated Output/ artifacts
+  - Switch the production checkout branch or discard existing worktree changes
+  - Change investment judgments, position limits, freshness budgets, or promotion policy
+  - Claim generation transaction, provider availability, clean-room, recovery, or runtime-window closure
+rollback:
+  - Revert this decision's source/config changes and restore the previous tracked plist view

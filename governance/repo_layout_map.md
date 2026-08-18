@@ -1,14 +1,31 @@
 # Repository Layout Map
 
-**Status:** current reality as of 2026-05-22  
-**Policy:** docs follow on-disk reality (locked 2026-05-22). Sister repos stay as **top-level submodules**; physical nest under `Workbench/` is **retired**.
+**Status:** migration record plus current package snapshot as of 2026-08-12
+**Policy:** the active source tree is the root monorepo under `packages/`.
+The submodule and pre-consolidation paths retained below are historical records,
+not current clone or update instructions.
 
 This file is the authoritative map when `FOLDER_OWNERSHIP.md`, older README
 sections, or bootstrap history disagree with the tree on disk.
 
 ---
 
-## 1. Sister repositories (git submodules)
+## 0. Current canonical workspace
+
+| Package | Active path | Role |
+|---|---|---|
+| `system-workspace` | `/` | root docs, protocols, scripts, configs, governance |
+| `structural-workbench` | `packages/workbench/` | product, NLP, contracts, agent harness |
+| `Structural-Deformation-Research-System` | `packages/framework/` | framework core |
+| `structural-risk-harvester` | `packages/harvester/` | data providers and release production |
+| `system-learning-hub` | `packages/learning_hub/` | reliability and governance memory |
+| `system-orchestration` | `packages/orchestration/` | Dagster/runtime orchestration |
+
+This checkout has no `.gitmodules`, no Git-linked package entries, and no
+nested package repositories. `scripts/bootstrap.sh` verifies the package layout
+and recreates compatibility symlinks only.
+
+## 1. Historical pre-consolidation layout (git submodules)
 
 | Repo | Actual path | Submodule |
 |---|---|---|
@@ -18,8 +35,9 @@ sections, or bootstrap history disagree with the tree on disk.
 | `structural-risk-harvester` | `structural-risk-harvester/` | yes |
 | `system-learning-hub` | `system-learning-hub/` | yes |
 
-Registered in `.gitmodules`. Parent pins each sister repo at a commit; see
-`governance/git_workspace_policy.md` for clone/update workflows.
+This was the pre-consolidation layout. Its paths, pins, and `.gitmodules`
+references are retained for migration provenance only; do not use them for a
+fresh checkout.
 
 ### Sibling knowledge repo (not a submodule)
 
@@ -36,20 +54,20 @@ Set `PAPER_ROOT` when the vault lives outside the default path.
 
 | Old canonical path in docs | Why wrong |
 |---|---|
-| `Workbench/data_providers/structural-risk-harvester/` | directory never created; harvester lives at repo root |
-| `Workbench/governance/system-learning-hub/` | directory never created; hub lives at repo root |
-| `Workbench/agent_harness/structural-research-harness/` | harness lives at `Workbench/agents/harness/` |
+| `Workbench/data_providers/structural-risk-harvester/` | directory never created; active source is `packages/harvester/` |
+| `Workbench/governance/system-learning-hub/` | directory never created; active source is `packages/learning_hub/` |
+| `Workbench/agent_harness/structural-research-harness/` | directory never created; active harness is `packages/workbench/agents/harness/` |
 
 ---
 
-## 2. Compatibility symlinks (human-readable aliases)
+## 2. Compatibility symlinks (active aliases)
 
 | Symlink | Target | Purpose |
 |---|---|---|
-| `Structural Risk Harvester` | `structural-risk-harvester/` | legacy name / IDE navigation |
-| `System Learning Hub` | `system-learning-hub/` | legacy name; hub runtime resolves this first |
-| `Structural Research Harness` | `Workbench/agents/harness/` | legacy name for agent harness |
-| `contracts` | `Workbench/contracts/` | Workbench contract root |
+| `Structural Risk Harvester` | `packages/harvester/` | legacy name / IDE navigation |
+| `System Learning Hub` | `packages/learning_hub/` | legacy name; hub runtime resolves this first |
+| `Structural Research Harness` | `packages/workbench/agents/harness/` | legacy name for agent harness |
+| `contracts` | `packages/workbench/contracts/` | Workbench contract root |
 
 Symlinks are optional for tooling that uses kebab-case paths directly, but
 should exist on a fresh bootstrap checkout.
@@ -60,13 +78,14 @@ should exist on a fresh bootstrap checkout.
 
 | Module | Source (edit here) | Generated / consumed artifacts |
 |---|---|---|
-| Workbench product | `Workbench/src/workbench/` | `Output/current/`, `Output/workbench/` |
-| Structural NLP | `Workbench/src/nlp/` | `Data/nlp/`, protocol-shaped exports |
-| Agent harness | `Workbench/agents/harness/` | hooks, tools, routing helpers |
-| Harvester | `structural-risk-harvester/` | `Data/harvester/exports/` |
-| Learning Hub | `system-learning-hub/` | see §4 |
-| Deformation Framework | `deformation-framework/` | `Output/deformation_runs/`, promoted `Data/deformation/` |
-| Workspace protocols | `protocols/` + `Workbench/contracts/workbench/` | JSON schemas |
+| Workbench product | `packages/workbench/src/workbench/` | `Output/current/`, `Output/workbench/` |
+| Structural NLP | `packages/workbench/src/nlp/` | `Data/nlp/`, protocol-shaped exports |
+| Agent harness | `packages/workbench/agents/harness/` | hooks, tools, routing helpers |
+| Harvester | `packages/harvester/` | `Data/harvester/exports/` |
+| Learning Hub | `packages/learning_hub/` | see §4 |
+| Deformation Framework | `packages/framework/` | `Output/deformation_runs/`, promoted `Data/deformation/` |
+| Orchestration | `packages/orchestration/` | Dagster jobs and runtime entrypoints |
+| Workspace protocols | `protocols/` + `packages/workbench/contracts/workbench/` | JSON schemas |
 | Workspace constitution | `governance/` | authority registries, proxy spec |
 
 ---
@@ -79,8 +98,8 @@ should exist on a fresh bootstrap checkout.
 | `Data/system_learning/` | ledgers, registries | **yes — canonical data** | Learning Hub only |
 | `Output/system_learning/latest/` | derived reports | **yes — canonical runtime output** | Learning Hub only |
 | `Output/system_learning/events/` | legacy peer sensor output | **deprecated** | none (migration) |
-| `Workbench/Output/system_learning/` | removed | **n/a** | n/a |
-| `system-learning-hub/data/` | symlink → `Data/system_learning/` | **alias only** | bootstrap |
+| `packages/workbench/Output/system_learning/` | removed | **n/a** | n/a |
+| `packages/learning_hub/data/` | symlink → `Data/system_learning/` | **alias only** | bootstrap |
 
 Peer modules **read** Hub outputs; they **record** only via `scripts/record_runtime_event.py`
 or `python3 -m system_learning record`. See `governance/runtime_log_contract.md`.
@@ -95,14 +114,14 @@ or `python3 -m system_learning record`. See `governance/runtime_log_contract.md`
 | `Output/governance/` | generated governance run artifacts |
 | `docs/governance/` | human-readable governance docs |
 | `tests/governance/` | anti-gaming and gate tests |
-| `Workbench/src/workbench/governance/` | product-side governance UI/helpers (if present) |
-| `system-learning-hub/` | governance **memory tool** — orchestrates learning events, does not replace `governance/` |
+| `packages/workbench/src/workbench/governance/` | product-side governance UI/helpers (if present) |
+| `packages/learning_hub/` | governance **memory tool** — orchestrates learning events, does not replace `governance/` |
 
 ---
 
-## 6. Top-level `scripts/` inventory
+## 6. Top-level `scripts/` compatibility inventory
 
-### Thin wrappers (delegate to `Workbench/src/workbench/`)
+### Thin wrappers (delegate to `packages/workbench/src/workbench/`)
 
 ```text
 refresh_output_current.py
@@ -115,21 +134,15 @@ promote_snapshot.py
 system_status.py
 ```
 
-### Module-owned scripts (in-place marked 2026-05-22, physical move pending)
+### Module-owned scripts and entrypoints
 
-Each script below carries a `DEPRECATED LOCATION (marked 2026-05-22)` banner in
-its header pointing to the target submodule. **Files are not yet moved**; they
-remain at `scripts/` so `sys`, Justfile, tests, and config references keep
-working. Physical migration happens after the submodule pin cleanup
-(`governance/submodule_commit_plan.md`), paired with thin wrappers.
-
-| Script | Should live in | Banner present? |
-|---|---|---|
-| `structural_replay_v2.py`, `structural_replay_evaluation.py`, `run_c005_morphology_replay.py`, `build_c005_morphology_report.py` | `deformation-framework/scripts/` | ✓ |
-| `nlp_ingest.py`, `nlp_extract.py`, `ask_evidence.py` | `Workbench/` CLI entry | ✓ |
-| `openbb_secondary_audit.py`, `repair_openbb_entrypoints.py` | `structural-risk-harvester/scripts/` | ✓ |
-| `framework_cli.py` | `Workbench/` or Framework CLI (TBD) | ✓ |
-| `audit_boundaries.py`, `prepare_dl_training_data.py` | workspace audit / research utilities | ✓ |
+Active package-owned code is under `packages/framework/`,
+`packages/harvester/`, `packages/learning_hub/`, and `packages/workbench/`.
+Root compatibility scripts remain where the runtime and `sys` surface require
+them. The current script ownership and lifecycle inventory is
+`governance/entrypoint_registry.yaml`, checked by
+`tests/test_entrypoint_registry_completeness.py`; this avoids maintaining a
+second hand-written list of historical filenames here.
 
 ### Internal / maintenance
 
@@ -140,17 +153,20 @@ _run_descriptive_quality_tests.py, github_preflight.py, bootstrap.sh
 
 ---
 
-## 7. Planned migrations (remaining)
+## 7. Historical migration record
 
-1. ~~Register four sister repos as git submodules~~ (done 2026-05-22)
-2. ~~Consolidate duplicate `system_learning` trees~~ (done 2026-05-22)
-3. ~~Mark non-wrapper scripts with deprecation banner pointing to target submodule~~ (done 2026-05-22, evening)
-4. ~~Archive legacy `Output/system_learning/events/*.jsonl`~~ (done 2026-05-22, evening)
-5. **Submodule pin cleanup**: each sister repo commits in-flight work; parent updates gitlinks. Plan: `governance/submodule_commit_plan.md`.
-6. **Physical migration** of the 12 marked scripts into their target submodule `scripts/` directories — only after step 5 lands, with thin wrappers retained at parent `scripts/`.
-7. **Peer-writer retirement**: route remaining `Output/system_learning/events/` writers through `system_learning record` (cross-submodule cleanup).
+1. ~~Register four sister repos as git submodules~~ (historical, 2026-05-22)
+2. ~~Consolidate duplicate `system_learning` trees~~ (historical, 2026-05-22)
+3. ~~Mark non-wrapper scripts with deprecation banners~~ (historical, 2026-05-22)
+4. ~~Archive legacy `Output/system_learning/events/*.jsonl`~~ (historical, 2026-05-22)
+5. **Submodule pin cleanup and physical migration** are superseded by the
+   active `packages/` monorepo; `governance/submodule_commit_plan.md` remains
+   migration provenance and is not an execution plan.
+6. **Peer-writer retirement** is tracked by the current Learning Hub contracts,
+   not by cross-submodule updates.
 
-Retired: nest harvester/hub under `Workbench/` — do not pursue without a new migration plan.
+Historical retired option: nest harvester/hub under `Workbench/` — do not pursue
+without a new migration plan.
 
 See `governance/repo_state_audit.md` for phase plan and risks, and
 `governance/submodule_commit_plan.md` for step 5 details.

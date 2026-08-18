@@ -124,6 +124,7 @@ items:
       - "2026-07-07: B1+B2 packages/ migration + import seam redirect"
       - "2026-07-07: B3 CI workflows updated (3 files, no submodule checkout)"
       - "2026-07-07: B4 pyproject unified (>=3.12, numpy/pandas/pyarrow aligned)"
+      - "2026-08-17: Active workspace runtime rebased to Python >=3.13,<3.14; CI, uv.lock, local target, and scheduled launchers aligned"
       - "2026-07-07: B5 boundary tests + audit scripts paths updated"
       - "2026-07-07: B6 governance closeout (architecture_reality_decisions §9 executed)"
       - "2026-07-07: status -> completed"

@@ -12,7 +12,7 @@ external_inputs:
   - governance/operator_registry.yaml
   - governance/
   - scripts/
-  - "deformation-framework/src/"
+  - "packages/framework/src/"
   - Output/runs/
   - Output/current/latest_run_id.txt
   - Output/system_learning/latest/supervisor_check.json
@@ -27,6 +27,55 @@ external_inputs:
   # (routes.research). output_routing_audit scans it; no pipeline step
   # produces it, so it is a root input like Output/runs/ above.
   - Output/research/
+
+# Execution-mode projections are part of the same authority registry.  They
+# are compiled and validated with the daily graph; callers must not maintain
+# another producer list for refresh or work-cycle modes.
+execution_profiles:
+  refresh_current:
+    - neutral_pressure_measurement
+    - quality_validation
+    - measurement_quality_report
+    - judgment_layer
+    - judgment_promotion_gate
+    - trade_decision
+    - risk_gate
+    - record_trade_decision
+    - signal_card
+    - signal_consensus
+    - current_status
+    - system_index
+    - work_brief
+    - next_actions
+    - evidence_grade_report
+    - build_artifact_registry
+    - record_daily_run_event
+    - readme_first
+    - freshness_validator
+  work_cycle_quick_render:
+    - signal_card
+    - signal_consensus
+    - work_brief
+    - build_data_gaps
+  work_cycle_standard_core:
+    - quality_validation
+    - judgment_layer
+    - judgment_promotion_gate
+    - trade_decision
+    - risk_gate
+    - record_trade_decision
+    - market_feedback
+    - claim_evaluator
+    - claim_ladder_tracker
+    - learning_hub_feedback
+    - learning_summary
+    - system_index
+    - readme_first
+    - next_actions
+  work_cycle_always:
+    - change_analysis
+    - supervisor_check
+    - governance_status
 
 # Step defaults — individual steps override only when they differ.
 # NOTE: This block is documentation for human readers. The merge logic
@@ -53,27 +102,73 @@ content_freshness:
   etf_panel:
     path: Data/panels/cross_asset_daily_panel.parquet
     date_column: date
+    calendar: XNYS
     max_trading_days_behind: 3
     owner_step: refresh_cross_asset_panel
     decision_critical: true
   ofr_fsi_cache:
     path: Data/harvester/raw/external_indicators/ofr_fsi.csv
     date_column: date
+    calendar: XNYS
     max_trading_days_behind: 10
     owner_step: harvester
     decision_critical: true
   ciss_cache:
     path: Data/harvester/raw/external_indicators/ciss.csv
     date_column: TIME_PERIOD
+    calendar: XNYS
     max_trading_days_behind: 10
     owner_step: harvester
     decision_critical: true
   benchmark_panel:
     path: Data/harvester/exports/latest/data/benchmark_panel.parquet
     date_column: date
+    calendar: XNYS
     max_trading_days_behind: 5
     owner_step: harvester
     decision_critical: true
+
+# Coverage contracts for durable inputs and compatibility pointers that are
+# not themselves produced by a scheduled registry step.  These are presence
+# and ownership contracts, not freshness PASS claims; the owning path still
+# has to satisfy its own content/authority checks.
+monitoring_contracts:
+  current_run_pointer:
+    path: Output/current/latest_run_id.txt
+    class: authoritative
+    owner: PublishTransaction
+    mode: pointer_integrity
+    reason: generation-owned current-run identity
+  current_decision_trace:
+    path: Output/current/decision_trace.json
+    class: decision_adjacent_shadow
+    owner: PublishTransaction
+    mode: pointer_integrity
+    reason: compatibility decision trace must resolve with current output
+  learning_hub_governance_status_registry:
+    path: Data/system_learning/registries/governance_status_registry.yaml
+    class: decision_adjacent_shadow
+    owner: Learning Hub
+    mode: version_controlled_input
+    reason: governance guards read this registry to deny unsafe reuse
+  learning_hub_issue_registry:
+    path: Data/system_learning/registries/issue_registry.yaml
+    class: decision_adjacent_shadow
+    owner: Learning Hub
+    mode: version_controlled_input
+    reason: canonical issue severity and hard-gate taxonomy
+  learning_hub_routing_rules:
+    path: Data/system_learning/registries/routing_rules.yaml
+    class: decision_adjacent_shadow
+    owner: Learning Hub
+    mode: version_controlled_input
+    reason: issue-to-owner routing policy
+  learning_hub_verification_policy:
+    path: Data/system_learning/registries/verification_policy.yaml
+    class: decision_adjacent_shadow
+    owner: Learning Hub
+    mode: version_controlled_input
+    reason: improvement verification evidence policy
 
 # P0-4 wave 2: every monitoring blind spot must land in one class with an owner.
 # authoritative + decision_adjacent_shadow cannot remain uncovered.
@@ -109,6 +204,86 @@ monitoring_classification:
     - pattern: Output/current/operator_activations.json
       class: archived_retire
       owner: ML Signals
+    # Explicitly retired/reclassified historical surfaces.  Keep these
+    # specific rules before the broad current/quality/system-learning rules.
+    - pattern: Data/panels/benchmark_panel_5yr.parquet
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Data/panels/cross_asset_daily_panel.csv.gz
+      class: archived_retire
+      owner: Workbench Signals
+    - pattern: Data/panels/cross_asset_features.parquet
+      class: archived_retire
+      owner: Workbench Signals
+    - pattern: Data/system_learning/ledgers/provenance_gap_ledger.jsonl
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Data/system_learning/structural_lab/codebase_metrics/history.parquet
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/quality/PIPELINE_TRIAGE_PLAN.md
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Output/quality/PROJECT_REFACTOR_AUDIT.json
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Output/quality/PROJECT_REFACTOR_AUDIT.md
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Output/quality/ge_content_freshness.json
+      class: archived_retire
+      owner: Framework
+    - pattern: Output/quality/quality_content_freshness.json
+      class: decision_adjacent_shadow
+      owner: Framework
+    - pattern: Output/quality/governance_yield_report.json
+      class: archived_retire
+      owner: Governance
+    - pattern: Output/quality/governance_yield_report.md
+      class: archived_retire
+      owner: Governance
+    - pattern: Output/quality/freshness_report.md
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/system_learning/latest/proxy_quality_report.*
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Output/system_learning/governance_audit/*
+      class: manual_on_demand
+      owner: Learning Hub
+    - pattern: Output/system_learning/research_posture/*
+      class: manual_on_demand
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/abandoned_work_report.md
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/experiment_core_judgment_audit.*
+      class: archived_retire
+      owner: Workbench
+    - pattern: Output/system_learning/latest/feedback_improvement_queue.md
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/governance_drag_report.json
+      class: manual_on_demand
+      owner: Governance
+    - pattern: Output/system_learning/latest/hypothesis_inflow.json
+      class: manual_on_demand
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/judgment_calibration_summary.json
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/module_activity_distribution.*
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/scripts.commands.weekly.architecture_reality_audit.*
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/scripts.commands.weekly.governance_status.*
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/trade_decision_calibration_summary.json
+      class: archived_retire
+      owner: Learning Hub
     - pattern: Output/current/*
       class: authoritative
       owner: Workbench
@@ -204,6 +379,7 @@ steps:
     - external_providers
     produces: &id002
     - Data/harvester/exports/latest/
+    - Data/harvester/exports/.dvc_meta/latest_pointer.json*
     artifact_path: Data/harvester/exports/latest/catalog.json
     ttl_hours: 48
     requires_harvester_evidence: true
@@ -473,6 +649,7 @@ steps:
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
     produces:
     - Output/quality/proxy_catalog_report.json
+    - Output/quality/proxy_catalog_report.md
     artifact_path: Output/quality/proxy_catalog_report.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
@@ -494,6 +671,7 @@ steps:
       - Data/harvester/exports/latest/data/benchmark_panel.parquet
       outputs:
       - Output/quality/proxy_catalog_report.json
+      - Output/quality/proxy_catalog_report.md
   quality_validation:
     order: 10
     status: active
@@ -741,6 +919,7 @@ steps:
     - Output/caselab/
     produces: &id024
     - Output/judgment/latest.json
+    - Output/judgment/latest.md
     artifact_path: Output/judgment/latest.json
     ttl_hours: 48
     allowed_to_affect_core_judgment: true
@@ -799,6 +978,7 @@ steps:
     - Output/judgment/latest.json
     produces: &id027
     - Output/judgment/promotion_gate.json
+    - Output/judgment/promotion_gate.md
     artifact_path: Output/judgment/promotion_gate.json
     ttl_hours: 48
     allowed_to_affect_core_judgment: true
@@ -1103,6 +1283,7 @@ steps:
     - Output/current/framework_output.json
     produces: &id_claim_eval_out
     - Output/system_learning/latest/claim_evaluation.json
+    - Output/system_learning/latest/claim_failures_pending.json
     artifact_path: Output/system_learning/latest/claim_evaluation.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
@@ -1166,6 +1347,7 @@ steps:
     produces: &id_lh_feedback_out
     - Output/system_learning/latest/claim_ladder_feedback.json
     - Output/system_learning/latest/caselab_review_feedback.json
+    - Output/system_learning/latest/pipeline_alert_feedback.json
     artifact_path: Output/system_learning/latest/claim_ladder_feedback.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
@@ -1257,6 +1439,7 @@ steps:
     - Output/system_learning/
     produces: &id038
     - Output/system_learning/latest/comprehensive_summary.md
+    - Output/system_learning/latest/comprehensive_summary.json
     artifact_path: Output/system_learning/latest/comprehensive_summary.md
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
@@ -1396,7 +1579,8 @@ steps:
       owner: Workbench
   system_index:
     # Before freshness_validator (36): closure requires system_index in the same run window.
-    order: 34
+    # order 34.1 (after claim_ladder_tracker=34, before current_status=34.5) - WP1B dedup.
+    order: 34.1
     status: active
     owner: Data/Output
     command: python scripts/build_system_index.py
@@ -1565,10 +1749,16 @@ steps:
     produces: &id_learning_hub_ingest_out
     - Data/system_learning/ledgers/system_event_log.parquet
     - Data/system_learning/ledgers/system_event_ledger.parquet
+    - Data/system_learning/ledgers/event_edges.parquet
+    - Data/system_learning/ledgers/improvement_lifecycle_ledger.parquet
     - Data/system_learning/ledgers/violation_ledger.parquet
     - Data/system_learning/ledgers/improvement_queue.parquet
+    - Data/system_learning/ledgers/subsystem_health.parquet
     - Output/system_learning/latest/summary.json
     - Output/system_learning/latest/improvement_queue.md
+    - Output/system_learning/latest/system_health_report.md
+    - Output/system_learning/latest/recurrence_report.md
+    - Output/system_learning/latest/learning_summary.md
     artifact_path: Data/system_learning/ledgers/system_event_ledger.parquet
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
@@ -1658,6 +1848,16 @@ steps:
     command: python scripts/freshness_validator.py
     input: &id051
     - Output/current/
+    # These exact artifacts are intentionally listed in addition to the
+    # directory-level read surface.  The compiled DAG derives edges from
+    # exact producer-output/path overlaps; without them freshness could run
+    # concurrently with judgment/trade writers and report false MISSING
+    # artifacts before the same run had produced them.
+    - Output/current/signal_consensus.json
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    - Output/trade_decision/latest.json
+    - Output/trade_decision/risk_gate.json
     - Data/harvester/exports/latest/
     artifact_path: Output/quality/freshness_report.json
     ttl_hours: 24
@@ -1674,6 +1874,7 @@ steps:
       inputs: *id051
       outputs:
       - Output/quality/freshness_report.json
+      - Output/quality/freshness_report.md
       emits_run_event: true
     authority:
       affects_core_judgment: true
@@ -1723,7 +1924,7 @@ steps:
     input: &id052
     - governance/
     - scripts/
-    - deformation-framework/src/
+    - packages/framework/src/
     produces: &id053
     - Output/system_learning/latest/architecture_reality_audit.md
     - Output/system_learning/latest/architecture_reality_audit.json
@@ -1819,6 +2020,7 @@ steps:
     command: python scripts/strategy_lab/run_backtest.py --shadow-card
     input:
     - Output/current/framework_output.json
+    - Output/current/neutral_pressure_snapshot.json
     - Data/panels/cross_asset_daily_panel.parquet
     - Output/sandbox/structural_replay_v2/all_signals.parquet
     produces:
@@ -1838,10 +2040,12 @@ steps:
     contracts:
       inputs:
       - Output/current/framework_output.json
+      - Output/current/neutral_pressure_snapshot.json
       - Data/panels/cross_asset_daily_panel.parquet
       - Output/sandbox/structural_replay_v2/all_signals.parquet
       outputs:
       - Output/strategy_lab/shadow_cards/latest.json
+      - Output/strategy_lab/shadow_cards/
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -1854,6 +2058,7 @@ steps:
     command: python scripts/build_shadow_outcomes_90d.py
     input:
     - Output/strategy_lab/shadow_cards/
+    - Output/current/neutral_pressure_snapshot.json
     produces:
     - Output/strategy_lab/shadow_outcomes_90d.json
     artifact_path: Output/strategy_lab/shadow_outcomes_90d.json
@@ -1870,6 +2075,7 @@ steps:
     contracts:
       inputs:
       - Output/strategy_lab/shadow_cards/
+      - Output/current/neutral_pressure_snapshot.json
       outputs:
       - Output/strategy_lab/shadow_outcomes_90d.json
       emits_run_event: true
@@ -2007,7 +2213,9 @@ steps:
       - Output/feedback_samples/calibration_summary.json
       - Output/feedback_samples/evaluation_report.md
   current_status:
-    order: 34.5
+    # order 35.2 (after hmm_stability_audit=35 which produces hmm_stability_audit.json
+    # consumed by current_status, and after work_brief=35.1) - WP1B edge-ordering fix.
+    order: 35.2
     status: active
     owner: Workbench
     command: python scripts/build_current_status.py
@@ -2040,7 +2248,8 @@ steps:
       failure_behavior: continue_with_warning
       owner: Workbench
   work_brief:
-    order: 35
+    # order 35.1 (after hmm_stability_audit=35, before readme_first=35.5) - WP1B dedup.
+    order: 35.1
     status: active
     owner: Workbench
     command: python scripts/build_work_brief.py
@@ -2582,9 +2791,11 @@ steps:
 
     schedule: weekly
   refresh_cross_asset_panel:
-    order: 2.5
+    order: 1.5
     status: active
     owner: Harvester
+    # Acquisition is owned by harvester.daily-release. This step only mirrors
+    # the accepted immutable release and records its provider outcome.
     # Daily, not on_demand: this step is the declared owner_step of the
     # etf_panel content_freshness check (budget 3 trading days,
     # decision_critical). An on_demand owner can never satisfy a 3-day budget,
@@ -2593,6 +2804,7 @@ steps:
     command: python scripts/refresh_cross_asset_panel.py
     input:
       - Data/panels/cross_asset_daily_panel.parquet
+      - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
     produces:
       - Data/panels/cross_asset_daily_panel.parquet
     ttl_hours: 24
@@ -2608,6 +2820,7 @@ steps:
     contracts:
       inputs:
         - Data/panels/cross_asset_daily_panel.parquet
+        - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
       outputs:
         - Data/panels/cross_asset_daily_panel.parquet
       emits_run_event: true
@@ -2657,7 +2870,7 @@ steps:
     input:
       - Output/sandbox/structural_replay_v2/
     produces:
-      - Output/system_learning/latest/asof_integrity_report.json
+      - Output/quality/asof_integrity_report.json
     ttl_hours: 168
     schedule: weekly
     allowed_to_affect_core_judgment: false
@@ -2673,7 +2886,7 @@ steps:
       inputs:
         - Output/sandbox/structural_replay_v2/
       outputs:
-        - Output/system_learning/latest/asof_integrity_report.json
+        - Output/quality/asof_integrity_report.json
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -2786,10 +2999,10 @@ steps:
     owner: Framework
     command: python scripts/commands/weekly/threshold_review_bridge.py
     input:
-      - Output/system_learning/latest/claim_evaluation.json
-      - Output/system_learning/latest/threshold_review_candidates.json
+      - Output/feedback_samples/replay_runs/
+      - Output/system_learning/latest/claim_failures_pending.json
     produces:
-      - Output/system_learning/latest/threshold_review_report.json
+      - Output/system_learning/latest/threshold_review_candidates.json
     ttl_hours: 168
     schedule: weekly
     allowed_to_affect_core_judgment: false
@@ -2803,10 +3016,10 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs:
-        - Output/system_learning/latest/claim_evaluation.json
-        - Output/system_learning/latest/threshold_review_candidates.json
+        - Output/feedback_samples/replay_runs/
+        - Output/system_learning/latest/claim_failures_pending.json
       outputs:
-        - Output/system_learning/latest/threshold_review_report.json
+        - Output/system_learning/latest/threshold_review_candidates.json
       emits_run_event: true
     authority:
       affects_core_judgment: false

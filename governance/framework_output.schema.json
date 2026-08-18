@@ -21,6 +21,24 @@
       "type": "string",
       "description": "Must start with 'replay_bridge_' for canonical path"
     },
+    "provenance": {
+      "type": "object",
+      "description": "Run, producer, release, input-fingerprint, and validation lineage for the artifact.",
+      "required": ["run_id", "producer_step"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "producer_step": { "type": "string" },
+        "producer_commit": { "type": "string" },
+        "source_release_id": { "type": "string" },
+        "generated_at": { "type": "string" },
+        "as_of_date": { "type": "string" },
+        "input_fingerprints": { "type": "object", "additionalProperties": { "type": "string" } },
+        "validation_verdict": { "type": "string" },
+        "claim_ceiling": { "type": "string" },
+        "degraded_reasons": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
     "as_of": {
       "type": "string",
       "format": "date-time"
@@ -140,6 +158,32 @@
     "next_actions": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "canonical_chain": {
+      "type": "object",
+      "description": "Optional canonical observation -> measurement -> evidence -> claim envelope. It is validated by protocols/canonical_chain.schema.json.",
+      "properties": {
+        "schema_version": { "const": "system.canonical_chain.v1" },
+        "observation": { "type": "object" },
+        "measurement": { "type": "object" },
+        "evidence": { "type": "object" },
+        "claim": { "type": "object" }
+      },
+      "required": ["schema_version", "observation", "measurement", "evidence", "claim"],
+      "additionalProperties": true
+    },
+    "canonical_ids": {
+      "type": "object",
+      "description": "Compact canonical ID references for consumers that cannot yet read the full chain envelope.",
+      "required": ["schema_version", "observation_id", "measurement_id", "evidence_id", "claim_id"],
+      "properties": {
+        "schema_version": { "const": "system.canonical_chain.v1" },
+        "observation_id": { "type": "string", "pattern": "^obs_[0-9a-f]{32}$" },
+        "measurement_id": { "type": "string", "pattern": "^mea_[0-9a-f]{32}$" },
+        "evidence_id": { "type": "string", "pattern": "^evd_[0-9a-f]{32}$" },
+        "claim_id": { "type": "string", "pattern": "^clm_[0-9a-f]{32}$" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

@@ -312,7 +312,7 @@ was executed 2026-07-07 (routing decision 2026-07-07-submodule-consolidation).
 
 1. Clear dirty submodule state. ✅ (submodules deinit'd, .gitmodules removed)
 2. Unify test entry points. ✅ (installable workspace packages + `system` console entry point; path helper retired 2026-07-17)
-3. Unify Python version and dependency strategy. ✅ (requires-python >=3.12, numpy/pandas/pyarrow unified)
+3. Unify Python version and dependency strategy. ✅ (active workspace requires Python >=3.13,<3.14; uv lock/CI/local/scheduled paths all target 3.13)
 4. Clarify migration path. ✅ (routing decision record)
 5. Final structure: single-repo workspace with `packages/` directory. ✅
 

@@ -1,10 +1,27 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
-from src.api.security import install_api_key_middleware, resolve_api_key, resolve_harvester_validation
+from src.api.dto import (
+    DateRangeQuery,
+    EventRequest,
+    EvidenceRouteRequest,
+    FilingRequest,
+    PositionRequest,
+    SeriesRequest,
+    SnapshotRunRequest,
+    StructuralPresetRequest,
+    request_payload,
+)
+from src.api.security import (
+    install_api_key_middleware,
+    resolve_api_key,
+    resolve_harvester_validation,
+)
 from src.runtime.assembly import create_system_api
 from src.runtime.system_api import StructuralSystemAPI
 
@@ -20,7 +37,7 @@ def create_app(
     api_key: str | None = None,
 ):
     try:
-        from fastapi import Body, FastAPI, HTTPException, Query
+        from fastapi import Body, Depends, FastAPI, HTTPException, Query
     except Exception as exc:  # pragma: no cover - dependency guard
         raise RuntimeError("Install fastapi and uvicorn to run the terminal API.") from exc
 
@@ -31,30 +48,15 @@ def create_app(
     resolved_api_key = api_key if api_key is not None else resolve_api_key(config)
     install_api_key_middleware(app, api_key=resolved_api_key)
 
-    def _reject_raw_url_fields(requests: list[dict[str, Any]]) -> None:
-        """Fail-closed: reject raw URL fields (``resource``, ``metadata.url``).
-
-        These fields flow through the legacy adapter chain to ``HTTPClient`` /
-        ``urlopen`` with no host validation.  Until the endpoint-registry
-        redesign (WP6B), the HTTP boundary refuses them outright so callers
-        must use provider/dataset/series identifiers instead.
-        """
-        for i, req in enumerate(requests):
-            if not isinstance(req, dict):
-                continue
-            if "resource" in req:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"request[{i}]: 'resource' field is not accepted; "
-                    "use provider/dataset/series_id instead",
-                )
-            metadata = req.get("metadata")
-            if isinstance(metadata, dict) and "url" in metadata:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"request[{i}]: 'metadata.url' field is not accepted; "
-                    "use provider/dataset/series_id instead",
-                )
+    def date_range_query(
+        start: date = Query(date(2026, 1, 1)),
+        end: date = Query(date(2026, 4, 20)),
+    ) -> DateRangeQuery:
+        """Parse bounded query dates and expose model errors as HTTP 422."""
+        try:
+            return DateRangeQuery(start=start, end=end)
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail="invalid date range") from exc
 
     @app.get("/health")
     def health():
@@ -70,19 +72,27 @@ def create_app(
 
     @app.get("/data")
     def data(
-        series_ids: list[str] = Query(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        series_ids: list[str] = Query(..., min_length=1, max_length=64),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
-        return service.fetch_data(series_ids=series_ids, start=start, end=end)
+        return service.fetch_data(
+            series_ids=series_ids,
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
 
     @app.post("/snapshots/run")
-    def run_snapshot(run_date: str, run_type: str = "WEEKLY"):
-        return service.run_snapshot(run_date=run_date, run_type=run_type)
+    def run_snapshot(request: SnapshotRunRequest = Body(...)):
+        return service.run_snapshot(run_date=request.run_date, run_type=request.run_type)
 
     @app.get("/snapshots")
-    def snapshots(start: str = "1900-01-01", end: str = "2999-12-31"):
-        return {"snapshots": service.list_snapshots(start=start, end=end)}
+    def snapshots(date_range: DateRangeQuery = Depends(date_range_query)):
+        return {
+            "snapshots": service.list_snapshots(
+                start=date_range.start.isoformat(),
+                end=date_range.end.isoformat(),
+            )
+        }
 
     @app.get("/snapshots/{run_date}")
     def snapshot(run_date: str):
@@ -104,52 +114,63 @@ def create_app(
         return {"capabilities": service.provider_capabilities()}
 
     @app.post("/hub/route")
-    def hub_route(request: dict[str, Any] = Body(...)):
-        return service.route_evidence(request)
+    def hub_route(request: EvidenceRouteRequest = Body(...)):
+        return service.route_evidence(request_payload(request))
 
     @app.post("/hub/structural")
     def hub_structural(
-        preset_names: list[str] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        request: StructuralPresetRequest = Body(...),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
-        return service.fetch_structural_presets(preset_names=preset_names, start=start, end=end)
+        return service.fetch_structural_presets(
+            preset_names=request.preset_names,
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
 
     @app.post("/hub/series")
     def hub_series(
-        requests: list[dict[str, Any]] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        requests: list[SeriesRequest] = Body(..., min_length=1, max_length=64),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
-        _reject_raw_url_fields(requests)
-        return service.fetch_series(requests=requests, start=start, end=end)
+        return service.fetch_series(
+            requests=[request_payload(request) for request in requests],
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
 
     @app.post("/hub/events")
     def hub_events(
-        requests: list[dict[str, Any]] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        requests: list[EventRequest] = Body(..., min_length=1, max_length=64),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
-        _reject_raw_url_fields(requests)
-        return service.fetch_events(requests=requests, start=start, end=end)
+        return service.fetch_events(
+            requests=[request_payload(request) for request in requests],
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
 
     @app.post("/hub/filings")
     def hub_filings(
-        requests: list[dict[str, Any]] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        requests: list[FilingRequest] = Body(..., min_length=1, max_length=64),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
-        _reject_raw_url_fields(requests)
-        return service.fetch_filings(requests=requests, start=start, end=end)
+        return service.fetch_filings(
+            requests=[request_payload(request) for request in requests],
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
 
     @app.post("/hub/positions")
     def hub_positions(
-        requests: list[dict[str, Any]] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        requests: list[PositionRequest] = Body(..., min_length=1, max_length=64),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
-        _reject_raw_url_fields(requests)
-        return service.fetch_positions(requests=requests, start=start, end=end)
+        return service.fetch_positions(
+            requests=[request_payload(request) for request in requests],
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
 
     # ------------------------------------------------------------------
     # D.3: /hub_lite shadow endpoints — Harvester-backed DataHubLite
@@ -177,24 +198,30 @@ def create_app(
 
     @app.post("/hub_lite/series")
     def hub_lite_series(
-        requests: list[dict[str, Any]] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        requests: list[SeriesRequest] = Body(..., min_length=1, max_length=64),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
         if _lite is None:
             raise HTTPException(status_code=503, detail="Harvester backend not configured")
-        result = _lite.fetch_series(requests, start=start, end=end)
+        result = _lite.fetch_series(
+            [request_payload(request) for request in requests],
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
         return result.to_dict()
 
     @app.post("/hub_lite/structural")
     def hub_lite_structural(
-        preset_names: list[str] = Body(...),
-        start: str = "2026-01-01",
-        end: str = "2026-04-20",
+        request: StructuralPresetRequest = Body(...),
+        date_range: DateRangeQuery = Depends(date_range_query),
     ):
         if _lite is None:
             raise HTTPException(status_code=503, detail="Harvester backend not configured")
-        result = _lite.fetch_structural_presets(preset_names, start=start, end=end)
+        result = _lite.fetch_structural_presets(
+            request.preset_names,
+            start=date_range.start.isoformat(),
+            end=date_range.end.isoformat(),
+        )
         return result.to_dict()
 
     @app.get("/hub_lite/health")
@@ -224,8 +251,10 @@ def _build_lite_service(config: dict[str, Any]) -> Any | None:
     """Build a DataHubLite instance from config for /hub_lite shadow endpoints."""
     try:
         from pathlib import Path
-        from src.data_access.harvester_adapter import HarvesterAdapter
+
         from src.data.gateway.data_hub_lite import DataHubLite
+        from src.data.paths import default_harvester_contract_root
+        from src.data_access.harvester_adapter import HarvesterAdapter
 
         hcfg = config.get("harvester") or {}
         exports_root = hcfg.get("exports_root")
@@ -237,8 +266,7 @@ def _build_lite_service(config: dict[str, Any]) -> Any | None:
 
         contract_root = hcfg.get("contract_root", "")
         if not contract_root:
-            contract_root = str(Path.cwd() / "Workbench" / "data_providers" /
-                               "structural-risk-harvester" / "contracts")
+            contract_root = str(default_harvester_contract_root(config))
 
         validate_hashes, validate_schema = resolve_harvester_validation(config)
         adapter = HarvesterAdapter(
