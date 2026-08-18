@@ -4,7 +4,7 @@ These files are loaded by active scripts at runtime and must satisfy
 structural and authority-boundary invariants.
 
 Files tested:
-- operator_registry.yaml (loaded by daily_run.py, operator_registry_audit.py)
+- operator_registry.yaml (read by the governance-only operator audit)
 - run_mode_registry.yaml (loaded by run_work_cycle.py)
 - opencode_supervisor_policy.yaml (loaded by run_supervisor_check.py)
 - incentive_policy.yaml (loaded by build_incentive_review.py)
@@ -36,6 +36,12 @@ class TestOperatorRegistry:
     def test_has_operators(self):
         assert "operators" in self.REG
         assert len(self.REG["operators"]) > 0
+
+    def test_registry_is_not_execution_authority(self):
+        authority = self.REG.get("authority", {})
+        assert authority.get("role") == "governance_display_only"
+        assert authority.get("execution_authority") is False
+        assert authority.get("can_affect_core_judgment") is False
 
     def test_operator_required_fields(self):
         required = {"type", "description", "inputs", "outputs", "claim_ceiling"}
@@ -73,6 +79,16 @@ class TestRunModeRegistry:
         for name, mode in self.REG["modes"].items():
             missing = required - set(mode.keys())
             assert not missing, f"Mode '{name}' missing: {missing}"
+
+    def test_work_cycle_writes_are_candidate_scoped_by_default(self):
+        for name in ("quick_reaction", "standard_run"):
+            mode = self.REG["modes"][name]
+            assert mode["default_write_scope"].startswith("Output/runs/{run_id}/publish_candidate")
+            assert mode["legacy_write_opt_in"] == "SYSTEM_USE_LEGACY_WORK_CYCLE=1"
+
+        full = self.REG["modes"]["full_refresh"]
+        assert full["default_execution_owner"] == "scheduled_dagster"
+        assert full["legacy_write_opt_in"] == "SYSTEM_USE_LEGACY_WORK_CYCLE=1"
 
     def test_work_brief_sections(self):
         sections = self.REG.get("work_brief_sections", [])

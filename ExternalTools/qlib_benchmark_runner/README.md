@@ -5,4 +5,4 @@
 # file interfaces (job spec JSON, sandbox input, output directories).
 #
 # See: Output/benchmarks/market_feedback/ for benchmark run directories.
-# See: Workbench/src/benchmarks/market_feedback/ for the orchestration layer.
+# See: packages/workbench/src/benchmarks/market_feedback/ for the orchestration layer.

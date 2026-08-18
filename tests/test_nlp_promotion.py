@@ -12,9 +12,11 @@ WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from nlp.export import write_event_card
-from nlp.extraction import StructuralEventCard, VariableMapping
-from nlp.promotion import promote_event_card, read_promotion_log
+from nlp.export import write_event_card  # noqa: E402
+from nlp.extraction import StructuralEventCard, VariableMapping  # noqa: E402
+from nlp.promotion import promote_event_card, read_promotion_log  # noqa: E402
+
+from system_runtime.canonical_ids import validate_claim  # noqa: E402
 
 
 def _card(event_id: str, *, status: str = "candidate", score: float = 0.62) -> StructuralEventCard:
@@ -101,3 +103,21 @@ def test_reviewed_to_canonical_requires_grounding_and_review_reason(tmp_path: Pa
     assert entry["new_status"] == "canonical"
     payload = json.loads(canonical_path.read_text(encoding="utf-8"))
     assert payload["status"] == "canonical"
+
+
+def test_promotion_preserves_and_recomputes_diagnostic_claim(tmp_path: Path) -> None:
+    root = tmp_path / "event_cards"
+    candidate_path = write_event_card(_card("event_claim_preservation"), out_dir=root / "candidate", write_ledger=False)
+    reviewed_path, _ = promote_event_card(
+        candidate_path,
+        new_status="reviewed",
+        reviewer="reviewer",
+        reason="Review boundary test.",
+        event_cards_root=root,
+        promotion_log_path=tmp_path / "promotion.jsonl",
+    )
+    payload = json.loads(reviewed_path.read_text(encoding="utf-8"))
+    assert payload["canonical_claim_id"] == payload["canonical_claim"]["claim_id"]
+    assert payload["canonical_claim"]["status"] == "WATCH"
+    assert payload["canonical_claim"]["provenance"]["legacy_status"] == "reviewed"
+    validate_claim(payload["canonical_claim"])

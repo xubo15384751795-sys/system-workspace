@@ -5,6 +5,7 @@ from scripts._admission_gate import AdmissionDecision
 
 
 def test_refresh_blocks_before_running_any_producer(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("SYSTEM_USE_LEGACY_DAILY_RUN", "1")
     monkeypatch.setattr(
         refresh,
         "admit_for_consumption",
@@ -14,11 +15,11 @@ def test_refresh_blocks_before_running_any_producer(monkeypatch, capsys) -> None
             blockers=["ofr_fsi_cache:stale (behind=16d)"],
         ),
     )
-    producer_calls: list[tuple[str, list[str]]] = []
+    producer_calls: list[str] = []
     monkeypatch.setattr(
         refresh,
-        "run_step",
-        lambda name, cmd: producer_calls.append((name, cmd)),
+        "run_registry_step",
+        lambda step_id: producer_calls.append(step_id),
     )
 
     assert refresh.main([]) == 1
@@ -29,6 +30,7 @@ def test_refresh_blocks_before_running_any_producer(monkeypatch, capsys) -> None
 
 
 def test_refresh_stops_at_first_failed_producer(monkeypatch) -> None:
+    monkeypatch.setenv("SYSTEM_USE_LEGACY_DAILY_RUN", "1")
     monkeypatch.setattr(
         refresh,
         "admit_for_consumption",
@@ -39,12 +41,12 @@ def test_refresh_stops_at_first_failed_producer(monkeypatch) -> None:
     )
     producer_calls: list[str] = []
 
-    def fake_run_step(name: str, _cmd: list[str]) -> dict:
-        producer_calls.append(name)
-        status = "failed" if name == "quality_validation" else "success"
-        return {"step": name, "status": status, "duration_s": 0}
+    def fake_run_registry_step(step_id: str) -> dict:
+        producer_calls.append(step_id)
+        status = "failed" if step_id == "quality_validation" else "success"
+        return {"step": step_id, "status": status, "duration_s": 0}
 
-    monkeypatch.setattr(refresh, "run_step", fake_run_step)
+    monkeypatch.setattr(refresh, "run_registry_step", fake_run_registry_step)
 
     assert refresh.main([]) == 1
     assert producer_calls == ["neutral_pressure_measurement", "quality_validation"]

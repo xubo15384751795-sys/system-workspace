@@ -13,11 +13,14 @@ Usage:
     df = router.get_ohlcv("GOOGL", start="2024-01-01")
 """
 
-import os
-import pandas as pd
+import logging
 from datetime import datetime, timedelta
-from typing import Optional, Literal
 from pathlib import Path
+from typing import Optional
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Cache directory
 CACHE_DIR = Path(__file__).parent.parent / "data" / "cache"
@@ -155,7 +158,7 @@ class DataRouter:
                 try:
                     return pd.read_parquet(cache_file)
                 except Exception:
-                    pass
+                    logger.warning("Unable to read cached market data: %s", cache_file, exc_info=True)
 
         return None
 
@@ -167,7 +170,7 @@ class DataRouter:
         try:
             df.to_parquet(cache_file, index=False)
         except Exception:
-            pass  # Cache save is optional
+            logger.warning("Unable to save optional market-data cache: %s", cache_file, exc_info=True)
 
     def get_info(self, symbol: str) -> dict:
         """Get ticker info (name, sector, etc.)."""

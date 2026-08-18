@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -38,6 +39,37 @@ def _load_module():
 @pytest.fixture(scope="module")
 def mod():
     return _load_module()
+
+
+def test_requested_authority_blocks_malformed_size(mod):
+    assert mod.requested_authority_from_decision({"decision": "BUY", "effective_size": "bad"}) == "BLOCK"
+    assert mod.requested_authority_from_decision({"decision": "BUY", "effective_size": "nan"}) == "BLOCK"
+    assert mod.requested_authority_from_decision({"decision": "WATCH", "effective_size": "bad"}) == "DIAGNOSTIC_ONLY"
+
+
+@pytest.mark.parametrize(
+    ("state_name", "expected"),
+    [
+        ("ADMITTED", "TRANSACTION_FAILED"),
+        ("ROLLED_BACK", "TRANSACTION_ROLLED_BACK"),
+        ("RECOVERY_REQUIRED", "RECOVERY_REQUIRED"),
+        ("COMMITTED", None),
+    ],
+)
+def test_transaction_commit_state_maps_to_typed_reason(mod, state_name, expected):
+    transaction = mod.PublishTransaction("run-test", Path("/tmp/run-test"))
+    transaction.state = mod.TransactionState[state_name]
+
+    result = mod._transaction_failure_reasons(transaction, commit_attempted=True)
+
+    assert result == ([] if expected is None else [expected])
+
+
+def test_generation_evidence_finalizes_before_live_pointer_commit() -> None:
+    source = (ROOT / "scripts" / "daily_run.py").read_text(encoding="utf-8")
+    assert source.index("bundle.finalize_evidence()") < source.index(
+        "transaction.commit_generation(ROOT)"
+    )
 
 
 # ── run_step ───────────────────────────────────────────────────────────
@@ -104,6 +136,15 @@ class TestDetectScheduleSlot:
         assert mod._detect_schedule_slot(23) == "daily_summary"
 
 
+def test_weekly_compatibility_readout_respects_cadence(mod):
+    monday = datetime(2026, 8, 10, tzinfo=UTC)
+    tuesday = datetime(2026, 8, 11, tzinfo=UTC)
+
+    assert mod._weekly_cadence_due(monday, mod.parse_args([])) is True
+    assert mod._weekly_cadence_due(tuesday, mod.parse_args([])) is False
+    assert mod._weekly_cadence_due(tuesday, mod.parse_args(["--force-weekly"])) is True
+
+
 # ── write_runtime_event ────────────────────────────────────────────────
 
 
@@ -166,6 +207,70 @@ class TestWriteAlert:
         alert = json.loads(alert_file.read_text(encoding="utf-8"))
         assert alert["severity"] == "MEDIUM"
 
+    def test_alert_records_lineage_and_dedup_key(self, mod, tmp_path):
+        outcome = {
+            "run_id": "daily_test",
+            "publish_status": "COMMITTED",
+            "admission_verdict": "PASS",
+            "authority_mode": "authoritative",
+            "generation_id": "generation_test",
+            "release_id": "release_test",
+        }
+        mod.write_alert([], [{"step": "a", "status": "success"}], output_root=tmp_path, outcome=outcome)
+
+        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        assert alert["run_id"] == "daily_test"
+        assert alert["generation_id"] == "generation_test"
+        assert alert["release_id"] == "release_test"
+        assert len(alert["notification_dedup_key"]) == 64
+
+    def test_alert_uses_provider_status_matrix(self, mod, tmp_path):
+        mod.write_alert(
+            [],
+            [{"step": "provider", "status": "success"}],
+            output_root=tmp_path,
+            provider_status="reused_after_provider_failure",
+        )
+
+        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        assert alert["provider_status"] == "reused_after_provider_failure"
+        assert alert["provider_alert_policy"] == "ERROR"
+        assert alert["provider_alert_eligibility"] == "ALLOWED"
+        assert alert["severity"] == "HIGH"
+
+    def test_alert_unknown_provider_status_is_visible_and_blocked(self, mod, tmp_path):
+        mod.write_alert(
+            [],
+            [{"step": "provider", "status": "success"}],
+            output_root=tmp_path,
+            provider_status="unknown",
+        )
+
+        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        assert alert["provider_alert_policy"] is None
+        assert alert["provider_alert_eligibility"] == "BLOCKED"
+        assert "unknown provider status" in alert["provider_alert_policy_error"]
+
+    def test_alert_uses_outcome_failure_when_all_steps_succeeded(self, mod, tmp_path):
+        outcome = {
+            "run_id": "blocked-late-admission",
+            "exit_code": 4,
+            "status": "partial_failure",
+            "admission_verdict": "BLOCK",
+            "publish_status": "NOT_PUBLISHED",
+        }
+        mod.write_alert(
+            [],
+            [{"step": "all_steps", "status": "success"}],
+            output_root=tmp_path,
+            outcome=outcome,
+        )
+
+        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        assert alert["status"] == "partial_failure"
+        assert alert["severity"] == "HIGH"
+        assert "exit_code=4" in alert["summary"]
+
 
 # ── check_freshness ────────────────────────────────────────────────────
 
@@ -173,7 +278,7 @@ class TestWriteAlert:
 class TestCheckFreshness:
     def test_missing_framework_output(self, mod, tmp_path):
         """Missing file returns status=missing."""
-        with patch("daily_run.ROOT", tmp_path):
+        with patch("scripts._runtime_io.ROOT", tmp_path):
             result = mod.check_freshness()
         assert result["status"] == "missing"
 
@@ -183,8 +288,58 @@ class TestCheckFreshness:
         fw_dir.mkdir(parents=True)
         fw_file = fw_dir / "neutral_pressure_snapshot.json"
         fw_file.write_text("{}")
-        with patch("daily_run.ROOT", tmp_path):
+        with patch("scripts._runtime_io.ROOT", tmp_path):
             result = mod.check_freshness()
         assert result["status"] == "fresh"
         assert result["stale_hours"] is not None
         assert result["stale_hours"] < 1
+
+
+def test_harvester_warning_uses_observation_end_not_finalized_at(mod, tmp_path, monkeypatch):
+    latest = tmp_path / "Data" / "harvester" / "exports" / "latest"
+    (latest / "manifests").mkdir(parents=True)
+    (latest / "catalog.json").write_text(
+        json.dumps({"finalized_at": "2099-01-01T00:00:00Z"}), encoding="utf-8"
+    )
+    for dataset_id in ("benchmark_panel", "cross_asset_daily_panel"):
+        (latest / "manifests" / f"{dataset_id}.manifest.json").write_text(
+            json.dumps({"time_coverage": {"end": "2020-01-01"}}), encoding="utf-8"
+        )
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+
+    warnings = mod.check_warnings()
+
+    assert any(warning.startswith("HARVESTER_STALE:") for warning in warnings)
+
+
+def test_harvester_warning_surfaces_provider_carry_forward(mod, tmp_path, monkeypatch):
+    latest = tmp_path / "Data" / "harvester" / "exports" / "latest"
+    (latest / "manifests").mkdir(parents=True)
+    for dataset_id in ("benchmark_panel", "cross_asset_daily_panel"):
+        outcome = (
+            {
+                "status": "reused_after_provider_failure",
+                "failed_count": 53,
+                "requested_count": 65,
+            }
+            if dataset_id == "benchmark_panel"
+            else {"status": "refreshed"}
+        )
+        (latest / "manifests" / f"{dataset_id}.manifest.json").write_text(
+            json.dumps(
+                {
+                    "time_coverage": {"end": "2026-08-14"},
+                    "provider_outcome": outcome,
+                }
+            ),
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+
+    warnings = mod.check_warnings()
+
+    assert any(
+        warning == "HARVESTER_PROVIDER_DEGRADED: benchmark_panel "
+        "status=reused_after_provider_failure failed=53/65"
+        for warning in warnings
+    )

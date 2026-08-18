@@ -11,9 +11,15 @@ WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from nlp.candidate_ledger import read_candidate_ledger
-from nlp.export import write_event_card
-from nlp.extraction import StructuralEventCard, VariableMapping, validate_event_card
+from nlp.candidate_ledger import read_candidate_ledger  # noqa: E402
+from nlp.export import write_event_card  # noqa: E402
+from nlp.extraction import (  # noqa: E402
+    StructuralEventCard,
+    VariableMapping,
+    validate_event_card,
+)
+
+from system_runtime.canonical_ids import validate_claim  # noqa: E402
 
 
 def test_candidate_export_appends_schema_valid_ledger_entry(tmp_path: Path) -> None:
@@ -48,7 +54,34 @@ def test_candidate_export_appends_schema_valid_ledger_entry(tmp_path: Path) -> N
     assert entry["chunk_hash"].startswith("sha256:")
     assert entry["source_hash"].startswith("sha256:")
     assert entry["candidate_variables"] == ["S", "A", "L"]
+    assert entry["canonical_claim_id"].startswith("clm_")
+    assert entry["canonical_claim_status"] == "WATCH"
+    assert entry["canonical_claim_ceiling"] == "diagnostic_watch_only"
+    assert entry["canonical_evidence_ids"] == []
+    validate_claim(json.loads(export_path.read_text(encoding="utf-8"))["canonical_claim"])
 
     schema = json.loads((ROOT / "protocols" / "nlp_candidate_ledger.schema.json").read_text(encoding="utf-8"))
     errors = list(Draft202012Validator(schema).iter_errors(entry))
+    assert not errors
+
+
+def test_event_card_payload_keeps_diagnostic_claim_without_promoting_quote(tmp_path: Path) -> None:
+    card = StructuralEventCard(
+        event_id="event_canonical_compat",
+        event_name="Liquidity pressure changed",
+        source_chunks=["chunk_compat_001"],
+        evidence_quotes=["Liquidity pressure changed after funding conditions tightened."],
+        status="candidate",
+    )
+    export_path = write_event_card(card, out_dir=tmp_path / "event_cards" / "candidate", write_ledger=False)
+    payload = json.loads(export_path.read_text(encoding="utf-8"))
+
+    assert payload["canonical_claim_id"] == payload["canonical_claim"]["claim_id"]
+    assert payload["canonical_claim"]["status"] == "WATCH"
+    assert payload["canonical_claim"]["evidence_ids"] == []
+    assert payload["canonical_claim"]["provenance"]["promotion_allowed"] is False
+    validate_claim(payload["canonical_claim"])
+
+    schema = json.loads((ROOT / "protocols" / "nlp_event_card.schema.json").read_text(encoding="utf-8"))
+    errors = list(Draft202012Validator(schema).iter_errors(payload))
     assert not errors

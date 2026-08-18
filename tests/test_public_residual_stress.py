@@ -1,6 +1,8 @@
 """Tests for public-level + residual-onset paper path."""
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -43,7 +45,9 @@ def test_public_level_fails_closed_on_missing_components() -> None:
 
     # Research opt-out: min_components=1 preserves the old renormalizing
     # behavior so capability-board NAV comparisons stay comparable.
-    p_research = public_level_probability(public, min_periods=50, min_components=1)
+    p_research = public_level_probability(
+        public, min_periods=50, min_components=1, research_only=True
+    )
     assert p_research.dropna().between(0.0, 1.0).all()
     assert p_research.notna().sum() > 100
 
@@ -121,3 +125,56 @@ def test_dual_stress_position_formula() -> None:
     )
     # Constant tiny returns → vol small → vol_multiplier clips to 1 → w≈0.8*0.5=0.4
     assert sized["position"].dropna().iloc[-1] == pytest.approx(0.4, abs=0.05)
+
+
+def test_reduced_coverage_requires_research_marker() -> None:
+    public = pd.DataFrame({"nfci": [0.2] * 4, "ofr_fsi": [np.nan] * 4})
+    with pytest.raises(ValueError, match="research_only=True"):
+        public_level_probability(public, min_periods=1, min_components=1)
+
+
+def test_causal_availability_masks_late_component_before_pit() -> None:
+    index = pd.date_range("2026-01-01", periods=180, freq="B")
+    public = pd.DataFrame(
+        {
+            "ofr_fsi": np.linspace(0.0, 1.0, len(index)),
+            "nfci": np.linspace(0.2, 0.8, len(index)),
+        },
+        index=index,
+    )
+    available_at = pd.DataFrame(
+        {
+            "ofr_fsi": pd.Timestamp("2026-01-02", tz=UTC),
+            "nfci": pd.Timestamp("2026-12-31", tz=UTC),
+        },
+        index=index,
+    )
+    decision_time = pd.Series(
+        datetime(2026, 8, 12, 12, 0, tzinfo=UTC),
+        index=index,
+    )
+    p_public = public_level_probability(
+        public,
+        min_periods=50,
+        available_at=available_at,
+        decision_time=decision_time,
+    )
+    assert p_public.isna().all()
+
+
+def test_causal_availability_requires_both_inputs() -> None:
+    public = pd.DataFrame({"nfci": [0.1, 0.2]})
+    with pytest.raises(ValueError, match="provided together"):
+        public_level_probability(public, available_at=pd.DataFrame({"nfci": ["2026-01-01"]}))
+
+
+def test_missing_public_probability_emits_no_sizing_weight() -> None:
+    index = pd.date_range("2026-01-01", periods=4, freq="B")
+    sized = dual_stress_position(
+        p_public=pd.Series([np.nan] * 4, index=index),
+        p_onset=pd.Series(0.0, index=index),
+        returns=pd.Series(0.001, index=index),
+        ewma_span=2,
+    )
+    assert sized["position"].isna().all()
+    assert (sized["public_coverage_status"] == "INSUFFICIENT_COVERAGE").all()

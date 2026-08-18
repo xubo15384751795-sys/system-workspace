@@ -68,12 +68,20 @@ def _minimal_root(tmp_path: Path) -> Path:
     )
     _write_json(
         tmp_path / "Output/system_learning/latest/supervisor_check.json",
-        {"timestamp": fresh_at, "overall_status": "PASS", "review_queue": []},
+        {
+            "timestamp": fresh_at,
+            "cadence": "weekly",
+            "source_run_id": "prior_weekly_run",
+            "overall_status": "PASS",
+            "review_queue": [],
+        },
     )
     _write_json(
         tmp_path / "Output/system_learning/latest/architecture_reality_audit.json",
         {
             "audit_timestamp": fresh_at,
+            "cadence": "weekly",
+            "source_run_id": "prior_weekly_run",
             "summary": {"overall_status": "PASS", "total_findings": 0},
         },
     )
@@ -81,6 +89,8 @@ def _minimal_root(tmp_path: Path) -> Path:
         tmp_path / "Output/system_learning/latest/output_routing_report.json",
         {
             "timestamp": fresh_at,
+            "cadence": "weekly",
+            "source_run_id": "prior_weekly_run",
             "summary": {"overall_status": "CLEAN", "total_findings": 0},
         },
     )
@@ -217,6 +227,37 @@ def test_governance_status_rejects_previous_run_contract_report(
     assert report["overall_status"] == "BLOCKED"
     assert report["contracts"]["supervisor_status"] == "RUN_MISMATCH"
     assert report["contracts"]["freshness"]["supervisor"]["same_run"] is False
+
+
+def test_governance_status_keeps_prior_weekly_cache_cadence_valid_without_run_expectation(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    root = _minimal_root(tmp_path)
+
+    report = module.run_governance_status(root)
+
+    assert report["contracts"]["supervisor_status"] == "PASS"
+    assert report["contracts"]["freshness"]["supervisor"]["same_cadence"] is True
+    assert "RUN_MISMATCH" not in {
+        report["contracts"]["supervisor_status"],
+        report["contracts"]["architecture_status"],
+        report["contracts"]["output_routing_status"],
+    }
+
+
+def test_governance_status_rejects_undeclared_report_cadence(tmp_path: Path) -> None:
+    module = _load_module()
+    root = _minimal_root(tmp_path)
+    payload_path = root / "Output/system_learning/latest/supervisor_check.json"
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    payload.pop("cadence")
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    report = module.run_governance_status(root)
+
+    assert report["overall_status"] == "BLOCKED"
+    assert report["contracts"]["supervisor_status"] == "CADENCE_UNDECLARED"
 
 
 def test_governance_status_writes_outputs(tmp_path: Path) -> None:

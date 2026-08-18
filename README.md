@@ -28,7 +28,7 @@ For IDE and agent work, route the task first; read only the returned module
 context before inspecting source:
 
 ```bash
-python3 packages/workbench/agents/harness/entrypoints/routing_cli.py "<task>"
+uv run --locked python packages/workbench/agents/harness/entrypoints/routing_cli.py "<task>"
 ```
 
 Basic use shows familiar risk evidence.
@@ -36,7 +36,7 @@ Advanced use exposes framework-specific structural diagnosis.
 
 ## System Workspace
 
-Research operating system with three subsystems and a workspace skeleton that gives every artifact provenance and a path to canonicalisation.
+Research operating system with three subsystems and a monorepo workspace that gives every artifact provenance and a path to canonicalisation.
 
 ## Architecture
 
@@ -54,14 +54,15 @@ Sandbox         =  experimental isolation        (OpenBB / Qlib probes)
 System/
 ├── Data/                                  # source of truth (durable, machine-readable)
 ├── Output/                                # run packages + human-facing artifacts
-├── packages/workbench/                             # Product / Tool layer (nested git)
+├── packages/workbench/                     # Product / Tool layer
 │   ├── src/workbench/                     # cockpit, dashboards, workspace utils
 │   ├── src/nlp/                           # structural NLP library
 │   ├── agents/harness/                    # agent/API harness
 │   └── contracts/workbench/               # Workbench JSON schemas
-├── packages/harvester/             # Data Provider repo (nested git)
-├── packages/learning_hub/                   # Governance memory repo (nested git)
-├── packages/framework/  # Framework repo (nested git)
+├── packages/harvester/                       # Data Provider / Harvester
+├── packages/learning_hub/                   # Governance memory
+├── packages/framework/                      # Framework core
+├── packages/orchestration/                  # Dagster/runtime orchestration
 ├── scripts/                               # workspace-level scripts (see FOLDER_OWNERSHIP.md)
 ├── protocols/                             # cross-module JSON schemas
 ├── governance/                            # constitution + authority registries
@@ -75,15 +76,15 @@ System/
 
 See `governance/repo_layout_map.md` for doc-vs-reality history and migration backlog.
 
-Workbench owns Product/Tool source inside `packages/workbench/`. Harvester and Learning
-Hub are **sibling repos at workspace root**, not nested under `packages/workbench/`.
-Deformation owns Framework source. Protocols live in `protocols/` and
+Workbench, Harvester, Learning Hub, Framework, and Orchestration are **sibling
+workspace packages**, not nested under `packages/workbench/`. Protocols live in `protocols/` and
 `packages/workbench/contracts/workbench/`.
 
-## Repository Layout (multi-repo)
+## Repository Layout (monorepo workspace)
 
-This workspace assembles **five** GitHub repositories. Clone the coordination repo
-with submodules, or run bootstrap after a plain clone:
+This workspace is one Git repository with five buildable workspace packages. The
+`packages/` tree is the active source layout; older submodule paths below remain
+in governance migration records only.
 
 | Repo | Local path | Owns |
 |---|---|---|
@@ -92,25 +93,32 @@ with submodules, or run bootstrap after a plain clone:
 | `structural-workbench` | `packages/workbench/` | NLP pipeline, ML signals, contracts, agent harness, tests |
 | `structural-risk-harvester` | `packages/harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
 | `system-learning-hub` | `packages/learning_hub/` | cross-system reliability and governance memory |
+| `system-orchestration` | `packages/orchestration/` | Dagster jobs and runtime orchestration |
 
-Four sister repos are **git submodules** at the paths above (pinned in
-`.gitmodules`). Four top-level symlinks (`Structural Research Harness`,
-`System Learning Hub`, `Structural Risk Harvester`, `contracts`) provide
-human-readable aliases; bootstrap recreates them on a fresh checkout.
+The four top-level symlinks (`Structural Research Harness`, `System Learning
+Hub`, `Structural Risk Harvester`, `contracts`) are compatibility aliases;
+bootstrap recreates them from the active `packages/` paths. There is no current
+`.gitmodules` or nested Git checkout in this workspace.
 
 Git policy: `governance/git_workspace_policy.md`
 
 ## Setup on a fresh device
 
 ```bash
-git clone --recurse-submodules git@github.com:xubo15384751795-sys/system-workspace.git System
+git clone git@github.com:xubo15384751795-sys/system-workspace.git System
 cd System
-./scripts/bootstrap.sh         # symlinks + submodule sync + venv hints
-# Or: plain clone + bootstrap (runs git submodule update --init)
+./scripts/bootstrap.sh         # package checks + symlinks + venv hints
 # Use GH_PROTO=https ./scripts/bootstrap.sh if SSH is not available
 ```
 
-The bootstrap script is idempotent — re-running pulls existing repos rather than re-cloning. After it finishes it prints venv setup commands for each sub-repo. `Data/` and `Output/` are intentionally never committed; they are regenerated by Harvester releases and Deformation runs.
+The workspace runtime is pinned to Python 3.13 (`.python-version` and
+`uv.lock`). Use `uv run --locked ...` for project commands; the scheduled
+launchers resolve and validate the same interpreter automatically.
+
+The bootstrap script is idempotent and does not pull nested repositories. After
+it finishes it prints venv setup commands for each package. `Data/` and
+`Output/` are intentionally never committed; they are regenerated by Harvester
+releases and Framework runs.
 
 ## Constitution
 

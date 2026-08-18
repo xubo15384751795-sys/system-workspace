@@ -7,7 +7,7 @@ Usage:
     generate_terminal_report("GOOGL", start="2024-01-01")
 """
 
-import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -18,6 +18,8 @@ from plotly.subplots import make_subplots
 
 from research_terminal.data.router import DataRouter
 from research_terminal.strategies.engine import QuickBacktest
+
+logger = logging.getLogger(__name__)
 
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -60,7 +62,7 @@ def generate_terminal_report(
     try:
         benchmark_df = router.get_ohlcv(benchmark, start, end)
     except Exception:
-        pass
+        logger.warning("Unable to load benchmark data for %s", benchmark, exc_info=True)
 
     # Run backtests
     bt = QuickBacktest(df, benchmark_df)
@@ -79,7 +81,7 @@ def generate_terminal_report(
         if len(ytd_df) > 1:
             ytd_return = ytd_df["close"].iloc[-1] / ytd_df["close"].iloc[0] - 1
     except Exception:
-        pass
+        logger.warning("Unable to compute YTD return for %s", symbol, exc_info=True)
 
     max_drawdown = df["drawdown"].min()
     vol_20d = df["volatility_20d"].iloc[-1] if "volatility_20d" in df.columns else 0

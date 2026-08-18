@@ -11,4 +11,5 @@ fi
 if [ "$#" -eq 0 ]; then
   set -- check
 fi
-exec python3 -m system_cli "$@"
+PYTHON="$(${ROOT}/scripts/resolve_system_python.sh)"
+exec "$PYTHON" -m system_cli "$@"

@@ -10,6 +10,7 @@ skeleton that all other tests depend on.
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -51,12 +52,25 @@ class TestPipelineSkeleton:
         assert len(weekly) >= 5, f"Expected >=5 weekly steps, got {len(weekly)}"
 
     def test_authority_graph_builds(self):
-        """build_authority_graph.py should produce a valid graph."""
+        """The graph audit should validate without mutating Output."""
+        target = ROOT / "Output" / "system_learning" / "latest" / "authority_graph.json"
+        before = target.read_bytes() if target.exists() else None
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS / "commands" / "weekly" / "build_authority_graph.py")],
+            [
+                sys.executable,
+                str(SCRIPTS / "commands" / "weekly" / "build_authority_graph.py"),
+                "--json",
+                "--no-write",
+            ],
             capture_output=True, text=True, timeout=60, cwd=str(ROOT),
         )
         assert result.returncode == 0, f"authority graph build failed: {result.stderr}"
+        graph = json.loads(result.stdout)
+        assert graph["invariants"]["valid"] is True
+        if before is None:
+            assert not target.exists()
+        else:
+            assert target.read_bytes() == before
 
     def test_governance_freeze_passes(self):
         """check_governance_freeze.py should pass (no unapproved files)."""

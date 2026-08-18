@@ -208,3 +208,37 @@ class TestEnvironmentallyBlockedSources:
                                          now=pd.Timestamp("2026-07-17"))
         assert decision.allowed is True
         assert any("ofr_fsi_cache" in d for d in decision.degradations)
+
+
+def test_content_gate_checks_decision_critical_etf_panel(monkeypatch) -> None:
+    """The consumer gate must inspect ETF content, not only public caches."""
+    from _admission_gate import _content_level_blockers
+
+    import scripts.freshness_validator as freshness_validator
+
+    monkeypatch.setattr(
+        freshness_validator,
+        "CONTENT_FRESHNESS",
+        {
+            "etf_panel": {
+                "path": "Data/panel.parquet",
+                "date_column": "date",
+                "max_trading_days_behind": 2,
+            }
+        },
+    )
+
+    def stale_check(**kwargs):
+        return {
+            "name": kwargs["name"],
+            "status": "STALE",
+            "trading_days_behind": 3,
+        }
+
+    monkeypatch.setattr(freshness_validator, "check_content_freshness", stale_check)
+    blockers, checks = _content_level_blockers(
+        pd.Timestamp("2026-08-12").to_pydatetime()
+    )
+
+    assert checks[0]["name"] == "etf_panel"
+    assert blockers == ["etf_panel:stale (behind=3d)"]

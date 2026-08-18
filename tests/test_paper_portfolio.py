@@ -59,6 +59,26 @@ def test_position_scale_uses_effective_size_on_latest_only() -> None:
     ) == 1.0
 
 
+def test_load_symbol_deduplicates_provider_rows(tmp_path, monkeypatch) -> None:
+    from strategy_lab import data_loader
+
+    path = tmp_path / "cross_asset_daily_panel.parquet"
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-10", "2026-08-10", "2026-08-11"]),
+            "symbol": ["TLT", "TLT", "TLT"],
+            "close": [82.06, 82.059998, 82.19],
+            "return_1d": [0.0, 0.0, 0.0015],
+        }
+    ).to_parquet(path, index=False)
+    monkeypatch.setattr(data_loader, "PANEL_PATH", path)
+
+    loaded = data_loader.load_symbol("TLT")
+
+    assert not loaded.index.duplicated().any()
+    assert loaded.loc[pd.Timestamp("2026-08-10"), "close"] == pytest.approx(82.059998)
+
+
 def test_continuous_sizing_scales_below_binary_full(monkeypatch) -> None:
     from strategy_lab import paper_portfolio as pp
 

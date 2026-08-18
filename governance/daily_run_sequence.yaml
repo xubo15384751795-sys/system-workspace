@@ -3,9 +3,9 @@ generated_from: governance/daily_pipeline_registry.yaml
 steps:
 - id: harvester
   skip_flag: skip_harvester
+- id: refresh_cross_asset_panel
 - id: etf_refresh
   skip_flag: skip_etf
-- id: refresh_cross_asset_panel
 - id: paper_sync
 - id: caselab_index
 - id: build_policy_from_paper
@@ -41,10 +41,10 @@ steps:
 - id: claim_ladder_tracker
   schedule: weekly
 - id: system_index
-- id: current_status
 - id: hmm_stability_audit
   schedule: weekly
 - id: work_brief
+- id: current_status
 - id: readme_first
 - id: freshness_validator
 - id: data_retention_audit

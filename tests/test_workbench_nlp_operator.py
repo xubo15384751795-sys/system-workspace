@@ -29,6 +29,10 @@ def test_answer_question_is_grounded_and_schema_valid() -> None:
     assert payload["schema_version"] == "workbench.nlp_answer.v1"
     assert payload["citations"]
     assert any("No external provider acquisition" in item for item in payload["limits"])
+    assert payload["evidence_boundary"] == "retrieval_citation_only"
+    assert all(item["evidence_kind"] == "RETRIEVAL_CITATION" for item in payload["citations"])
+    assert all(item["canonical_evidence"] is False for item in payload["citations"])
+    assert all(item["promotion_allowed"] is False for item in payload["citations"])
 
 
 def test_sys_ask_writes_last_answer() -> None:

@@ -129,6 +129,29 @@ class TestStepRecording:
         step = json.loads(lines[0])
         assert step["detail"] == "some detail text"
 
+    def test_record_step_preserves_additive_canonical_lineage(self, tmp_output):
+        bundle = RunBundle.start(mode="test", root=tmp_output)
+        canonical_ids = {
+            "observation_id": "obs_fixture",
+            "measurement_id": "mea_fixture",
+            "evidence_id": "evd_fixture",
+            "claim_id": "clm_fixture",
+        }
+        bundle.record_step(
+            "neutral_pressure_measurement",
+            status="success",
+            canonical_ids=canonical_ids,
+            canonical_chain={"schema_version": "system.canonical_chain.v1"},
+            canonical_source_path="/tmp/current/neutral_pressure_snapshot.json",
+        )
+
+        entry = json.loads(
+            (bundle.run_dir / "steps.jsonl").read_text(encoding="utf-8").strip()
+        )
+        assert entry["canonical_ids"] == canonical_ids
+        assert entry["canonical_chain"]["schema_version"] == "system.canonical_chain.v1"
+        assert entry["canonical_source_path"].endswith("neutral_pressure_snapshot.json")
+
     def test_record_step_blocked_upstream_records_blocked_by(self, tmp_output):
         """A blocked_upstream step records its blocked_by lineage structurally."""
         bundle = RunBundle.start(mode="test", root=tmp_output)
@@ -235,6 +258,21 @@ class TestTraceCapture:
         )
         assert len(decisions) == 2
         assert len(signals) == 2
+
+    def test_finalize_evidence_is_idempotent_and_closes_trace_capture(self, tmp_output):
+        bundle = RunBundle.start(mode="test", root=tmp_output)
+        bundle.capture_decision_trace({"decision": "WATCH"})
+
+        bundle.finalize_evidence()
+        trace_path = bundle.run_dir / "decision_trace.json"
+        before = trace_path.read_bytes()
+
+        with pytest.raises(RuntimeError, match="evidence is already finalized"):
+            bundle.capture_decision_trace({"decision": "BUY"})
+        bundle.finalize_evidence()
+        bundle.finish(status="success")
+
+        assert trace_path.read_bytes() == before
 
 
 class TestArtifactIndex:

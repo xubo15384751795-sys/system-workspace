@@ -1,9 +1,14 @@
-# Pipeline Schedule — Daily / Weekly / On-Demand
+# Pipeline Schedule — Historical Daily / Weekly / On-Demand Reference
 
-> Updated 2026-07-11d. Paper portfolio scales shadow target by trade_decision effective_size (stance×size); public λ=0 stress; paper_sync refreshes TTL on unchanged Paper.
-> Authority: `governance/daily_pipeline_registry.yaml` (order, schedule, execution, contracts). `daily_run_sequence.yaml` is a generated compatibility view checked by `system pipeline generate --check`.
+> Status: historical schedule snapshot. The step counts and table below are not
+> current runtime authority and must not be used to claim producer freshness or
+> a successful run.
+>
+> Current executable authority: `governance/daily_pipeline_registry.yaml`, the
+> compiled plan and its generated `governance/daily_run_sequence.yaml` view.
+> Validate with `./sys pipeline validate` and `./sys pipeline generate --check`.
 
-## Daily (30 steps) — Signal-blocking, every run
+## Historical daily snapshot (30 steps)
 
 These steps form the core signal chain. If any fails, the same-day judgment or trade path is affected.
 
@@ -42,7 +47,7 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 
 **Automation:** macOS `com.system.daily-run` launchd → `scripts/run_daily_scheduled.sh` → `scripts/run_dagster_daily.sh` → `orchestrate.sh daily` → `python -m orchestration.cli daily` (Dagster `daily_job`, default 07:00 local). Escape hatch: `SYSTEM_USE_LEGACY_DAILY_RUN=1`.
 
-## Weekly (44 steps) — Monday UTC or `--force-weekly`
+## Historical weekly snapshot (44 steps)
 
 Validation, calibration, learning, governance, and reporting. These do **not** change same-day judgment when skipped on a daily run.
 

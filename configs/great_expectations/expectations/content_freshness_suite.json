@@ -1,7 +1,7 @@
 {
   "expectation_suite_name": "content_freshness_v1",
   "meta": {
-    "notes": "Authoritative paths live in governance/daily_pipeline_registry.yaml content_freshness. Runtime evaluation uses orchestration.quality.ge_suite."
+    "notes": "Authoritative paths live in governance/daily_pipeline_registry.yaml content_freshness. Runtime evaluation uses orchestration.quality.content_freshness; this document is a retained contract, not a Great Expectations runtime artifact."
   },
   "expectations": [
     {

@@ -101,7 +101,7 @@ If context doesn't resolve it, explore the relevant module before asking:
 - Scan the relevant source directory with `Glob`/`Grep`
 - Read the last 2-3 output files to understand current state
 
-Report what you found, then propose an interpretation. Example: "优化一下数据流" → scan `structural-risk-harvester/src/` and `Data/harvester/exports/`, then say "我看到 Harvester 最近的输出是 X，你是指优化抓取频率还是输出格式？"
+Report what you found, then propose an interpretation. Example: "优化一下数据流" → scan `packages/harvester/src/` and `Data/harvester/exports/`, then say "我看到 Harvester 最近的输出是 X，你是指优化抓取频率还是输出格式？"
 
 ### Layer 3: Propose (structured choices, not open questions)
 

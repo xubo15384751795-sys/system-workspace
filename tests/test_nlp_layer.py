@@ -360,6 +360,10 @@ class TestHardCaseMining:
             failure_reason="Variable mapping too aggressive for weak evidence.",
             hard_cases_path=hard_path,
         )
+        assert record["canonical_claim_id"].startswith("clm_")
+        assert record["canonical_claim_status"] == "CONFLICTED"
+        assert record["canonical_claim_ceiling"] == "diagnostic_watch_only"
+        assert record["canonical_evidence_ids"] == []
         assert record["candidate_id"] == event_card.candidate_id
         assert record["review_decision"] == "rejected"
         assert record["failure_reason"]

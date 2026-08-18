@@ -24,7 +24,7 @@
     <string>com.system.main-ci-watch</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>/Users/a1/.local/share/uv/python/cpython-3.13-macos-aarch64-none/bin/python3.13</string>
         <string>-m</string>
         <string>scripts.commands.ci.check_main_ci_status</string>
     </array>

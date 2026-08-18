@@ -4,6 +4,13 @@
 import sys
 from pathlib import Path
 
+import pytest
+
+RUNNER_ROOT = Path(__file__).parents[3] / "ExternalTools" / "qlib_benchmark_runner"
+sys.path.insert(0, str(RUNNER_ROOT))
+
+from run_qlib_benchmark import FORBIDDEN_PATTERNS, assert_no_forbidden  # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "packages" / "workbench" / "src"))
 
 from benchmarks.market_feedback.benchmark_manifest import (
@@ -102,3 +109,10 @@ class TestJobSpecIsolation:
         assert "experiments" in spec
         assert "fail_policy" in spec
         assert spec["read_only_input"] is True
+
+
+def test_external_runner_rejects_canonical_workspace_packages() -> None:
+    for package in ("framework", "harvester", "learning_hub", "orchestration", "workbench"):
+        assert f"/packages/{package}/" in FORBIDDEN_PATTERNS
+        with pytest.raises(RuntimeError):
+            assert_no_forbidden(Path("/tmp") / "packages" / package / "input")

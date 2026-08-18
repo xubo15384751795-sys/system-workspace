@@ -20,6 +20,10 @@ def test_stance_exit_is_risk_off() -> None:
     assert determine_stance({}, {"state": "EXIT", "position": 0.0}) == "RISK_OFF"
 
 
+def test_stance_invalid_position_fails_closed() -> None:
+    assert determine_stance({}, {"state": "FULL", "position": "not-a-number"}) == "RISK_OFF"
+
+
 def test_stance_three_channels_deteriorating_is_risk_reduce() -> None:
     vg = {
         "state": "FULL",

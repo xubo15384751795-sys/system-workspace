@@ -16,6 +16,7 @@ from artifact_monitoring_audit import (  # noqa: E402
     classify_monitoring_path,
     learning_hub_source_lag,
     monitoring_blind_spots,
+    monitoring_contract_violations,
     monitoring_matrix,
     non_daily_content_checks,
     non_daily_contract_violations,
@@ -289,3 +290,60 @@ def test_live_registry_classifies_authority_paths() -> None:
     assert sandbox["class"] == "research"
     assert sandbox["owner"]
     assert registry["monitoring_classification"]["rules"]
+
+
+def test_monitoring_contract_covers_static_path_and_requires_target(tmp_path: Path) -> None:
+    registry = {
+        "steps": {},
+        "monitoring_contracts": {
+            "static_registry": {
+                "path": "Data/system_learning/registries/policy.yaml",
+                "class": "decision_adjacent_shadow",
+                "owner": "Learning Hub",
+                "mode": "version_controlled_input",
+            }
+        },
+    }
+    path = tmp_path / "Data" / "system_learning" / "registries" / "policy.yaml"
+    path.parent.mkdir(parents=True)
+    path.write_text("schema_version: test.v1\n", encoding="utf-8")
+
+    assert monitoring_contract_violations(tmp_path, registry) == []
+    assert "Data/system_learning/registries/policy.yaml" not in monitoring_blind_spots(
+        tmp_path, registry
+    )
+
+    path.unlink()
+    violations = monitoring_contract_violations(tmp_path, registry)
+    assert violations == [
+        {
+            "monitor": "static_registry",
+            "path": "Data/system_learning/registries/policy.yaml",
+            "kind": "missing_monitoring_contract_target",
+        }
+    ]
+
+
+def test_pointer_monitor_rejects_broken_symlink(tmp_path: Path) -> None:
+    pointer = tmp_path / "Output" / "current" / "latest_run_id.txt"
+    pointer.parent.mkdir(parents=True)
+    pointer.symlink_to(tmp_path / "missing" / "latest_run_id.txt")
+    registry = {
+        "steps": {},
+        "monitoring_contracts": {
+            "current_run_pointer": {
+                "path": "Output/current/latest_run_id.txt",
+                "class": "authoritative",
+                "owner": "PublishTransaction",
+                "mode": "pointer_integrity",
+            }
+        },
+    }
+
+    assert monitoring_contract_violations(tmp_path, registry) == [
+        {
+            "monitor": "current_run_pointer",
+            "path": "Output/current/latest_run_id.txt",
+            "kind": "broken_monitoring_contract_pointer",
+        }
+    ]

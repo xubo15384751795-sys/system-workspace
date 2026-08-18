@@ -1,105 +1,220 @@
-"""The lock must cover what the project declares.
+"""The resolver lock must cover the workspace's declared dependency surface.
 
-requirements.lock.txt was built by `pip freeze | grep` over eight hand-written
-names. It missed omegaconf, mcp and mypy — all declared directly in
-requirements-dev.txt — and every transitive dependency, so eight pins stood in
-for a 461-package interpreter. P0-2's clean-checkout reproduction evidence
-needs the environment to actually be reproducible.
-
-These tests assert coverage of the *declared* surface rather than byte
-equality with a regenerated file: CI runs Linux and the operator runs macOS,
-so the resolved closures legitimately differ. Byte equality would be flaky and
-would teach people to ignore the check.
+``uv.lock`` is the current authority.  ``requirements.lock.txt`` and its
+installed-environment generator remain only as a historical compatibility
+input and are intentionally not used by CI.  These tests validate the
+resolver output without requiring a local virtual environment or network
+access.
 """
 from __future__ import annotations
 
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
-import pytest
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-from scripts.commands.ci import generate_dependency_lock as gen
-
 ROOT = Path(__file__).resolve().parents[1]
-LOCK = ROOT / "requirements.lock.txt"
+UV_LOCK = ROOT / "uv.lock"
+PYPROJECTS = [ROOT / "pyproject.toml", *sorted((ROOT / "packages").glob("*/pyproject.toml"))]
 
 
-def _lock_pins() -> dict[str, str]:
-    pins = {}
-    for line in LOCK.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        name, _, version = line.partition("==")
-        pins[canonicalize_name(name)] = version
-    return pins
+def _lock_payload() -> dict:
+    return tomllib.loads(UV_LOCK.read_text(encoding="utf-8"))
 
 
-@pytest.fixture(scope="module")
-def pins() -> dict[str, str]:
-    return _lock_pins()
+def _lock_packages() -> dict[str, dict]:
+    return {
+        canonicalize_name(str(package["name"])): package
+        for package in _lock_payload().get("package", [])
+        if package.get("name") and package.get("version")
+    }
 
 
-class TestLockCoversDeclaredDependencies:
-    def test_lock_exists_and_is_not_token(self, pins):
-        """Eight pins was the bug, not the baseline."""
-        assert len(pins) > 20, f"only {len(pins)} pins — closure is not resolved"
+def _project_data() -> list[dict]:
+    return [
+        tomllib.loads(path.read_text(encoding="utf-8"))
+        for path in PYPROJECTS
+        if path.exists()
+    ]
 
-    def test_every_dev_requirement_is_pinned(self, pins):
-        """The historical miss: omegaconf, mcp and mypy are declared here and
-        were absent from the lock."""
-        text = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
-        for line in text.splitlines():
-            line = line.split("#", 1)[0].strip()
-            if not line or line.startswith("-"):
-                continue
-            name = canonicalize_name(Requirement(line).name)
-            assert name in pins, f"{name} declared in requirements-dev.txt but not locked"
 
-    def test_every_package_core_dependency_is_pinned(self, pins):
-        project_names = set()
+def _workspace_names() -> set[str]:
+    return {
+        canonicalize_name(str(data.get("project", {}).get("name", "")))
+        for data in _project_data()
+    }
+
+
+def _declared_requirement_names() -> set[str]:
+    names: set[str] = set()
+    for data in _project_data():
+        project = data.get("project", {})
+        for spec in project.get("dependencies", []) or []:
+            names.add(canonicalize_name(Requirement(spec).name))
+        for specs in (project.get("optional-dependencies", {}) or {}).values():
+            for spec in specs or []:
+                names.add(canonicalize_name(Requirement(spec).name))
+        for specs in (data.get("dependency-groups", {}) or {}).values():
+            for spec in specs or []:
+                names.add(canonicalize_name(Requirement(spec).name))
+    requirements_dev = ROOT / "requirements-dev.txt"
+    for line in requirements_dev.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line and not line.startswith("-"):
+            names.add(canonicalize_name(Requirement(line).name))
+    return names
+
+
+class TestUvLock:
+    def test_lock_exists_and_is_resolved(self) -> None:
+        assert UV_LOCK.exists()
+        payload = _lock_payload()
+        assert payload.get("version") == 1
+        assert len(_lock_packages()) > 100
+
+    def test_manifest_contains_every_workspace_member(self) -> None:
+        manifest = {
+            canonicalize_name(str(name))
+            for name in _lock_payload().get("manifest", {}).get("members", [])
+        }
+        assert manifest == _workspace_names()
+
+    def test_every_declared_dependency_is_present_in_resolver_lock(self) -> None:
+        packages = _lock_packages()
+        missing = sorted(_declared_requirement_names() - set(packages))
+        assert not missing, f"declared dependencies missing from uv.lock: {missing}"
+
+    def test_every_package_core_dependency_is_pinned(self) -> None:
+        packages = _lock_packages()
+        workspace_names = _workspace_names()
         declared: set[str] = set()
-        for pyproject in gen.PYPROJECTS:
-            if not pyproject.exists():
-                continue
-            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-            project = data.get("project", {})
-            project_names.add(canonicalize_name(project.get("name", "")))
-            for spec in project.get("dependencies", []) or []:
+        for data in _project_data():
+            for spec in data.get("project", {}).get("dependencies", []) or []:
                 declared.add(canonicalize_name(Requirement(spec).name))
-        for name in declared - project_names:
-            assert name in pins, f"{name} is a declared dependency but not locked"
+        missing = sorted(declared - workspace_names - set(packages))
+        assert not missing, f"core dependencies missing from uv.lock: {missing}"
 
-    def test_uninstalled_optional_extras_are_not_pinned(self, pins):
-        """torch, jax and openbb are optional and CI does not install them.
-        Pinning them would imply the project requires them."""
-        for name in ("torch", "jax", "openbb", "streamlit", "sentence-transformers"):
-            assert canonicalize_name(name) not in pins, (
-                f"{name} is an uninstalled optional extra and must not be locked"
+    def test_default_workspace_sync_does_not_activate_optional_extras(self) -> None:
+        """Resolution may list extras; the default sync must not install them."""
+        default_names: set[str] = set()
+        optional_names: set[str] = set()
+        for package in _lock_payload().get("package", []):
+            source = package.get("source", {})
+            if "editable" not in source:
+                continue
+            default_names.update(
+                canonicalize_name(str(dep["name"]))
+                for dep in package.get("dependencies", [])
+                if dep.get("name")
             )
+            for dep_group in package.get("dev-dependencies", {}).values():
+                default_names.update(
+                    canonicalize_name(str(dep["name"]))
+                    for dep in dep_group
+                    if dep.get("name")
+                )
+            for dep_group in package.get("optional-dependencies", {}).values():
+                optional_names.update(
+                    canonicalize_name(str(dep["name"]))
+                    for dep in dep_group
+                    if dep.get("name")
+                )
+        assert {"torch", "jax", "openbb", "streamlit", "sentence-transformers"} <= optional_names
+        assert not (
+            {"torch", "jax", "openbb", "streamlit", "sentence-transformers"} & default_names
+        )
 
-    def test_all_pins_are_exact(self, pins):
-        for name, version in pins.items():
-            assert version, f"{name} has no pinned version"
+    def test_all_resolved_packages_have_exact_versions(self) -> None:
+        for name, package in _lock_packages().items():
+            assert package.get("version"), f"{name} has no exact version"
 
+    def test_legacy_lock_writer_requires_explicit_compatibility_flag(self) -> None:
+        legacy_lock = ROOT / "requirements.lock.txt"
+        before = legacy_lock.read_bytes()
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.commands.ci.generate_dependency_lock",
+                "--write",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 2
+        assert "--allow-legacy-compatibility-write" in result.stderr
+        assert legacy_lock.read_bytes() == before
 
-class TestGenerator:
-    def test_declared_roots_include_every_package(self):
-        roots = gen._declared_roots()
-        # One representative direct dependency from each pyproject.
-        for name in ("pandas", "requests", "pyarrow", "pydantic", "jsonschema"):
-            assert canonicalize_name(name) in roots
+    def test_historical_requirement_files_do_not_advertise_install_authority(self) -> None:
+        historical_files = (
+            ROOT / "requirements.lock.txt",
+            ROOT / "requirements-dev.txt",
+            ROOT / "packages" / "framework" / "requirements.txt",
+            ROOT / "packages" / "framework" / "requirements" / "lock.txt",
+        )
+        for path in historical_files:
+            header = "\n".join(path.read_text(encoding="utf-8").splitlines()[:8]).lower()
+            assert "historical" in header
+            assert "uv.lock" in header
+            assert "not" in header and "author" in header
 
-    def test_generator_is_idempotent(self, pins):
-        """Running the generator twice must not churn the file."""
-        resolved, missing = gen.resolve_closure(gen._declared_roots())
-        assert not missing, f"declared but not installed: {missing}"
-        again, _ = gen.resolve_closure(gen._declared_roots())
-        assert resolved == again
+        generator = (
+            ROOT / "scripts" / "commands" / "ci" / "generate_dependency_lock.py"
+        ).read_text(encoding="utf-8")
+        assert "must not be installed directly" in generator
+        assert "Usage: pip install -r requirements.lock.txt" not in generator
 
-    def test_check_mode_does_not_write(self):
-        before = LOCK.read_bytes()
-        gen.main([])
-        assert LOCK.read_bytes() == before
+    def test_ci_does_not_free_resolve_workspace_dependencies(self) -> None:
+        """CI project installs must stay on the locked uv workspace path."""
+        workflows = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+        workflows.extend(sorted((ROOT / ".github" / "workflows").glob("*.yaml")))
+        assert workflows
+
+        for workflow in workflows:
+            text = workflow.read_text(encoding="utf-8")
+            assert "pip install -r" not in text
+            assert "pip install --requirement" not in text
+
+            for line in text.splitlines():
+                if "python -m pip install" in line:
+                    # These are bootstrap tools, not project dependencies, and
+                    # their top-level versions must remain exact.
+                    assert "uv==" in line or "semgrep==" in line, (workflow, line)
+                if "uv sync" in line or "uv run" in line or "uv export" in line:
+                    assert "--locked" in line, (workflow, line)
+
+            release_install = "uv pip install --python" in text
+            if release_install:
+                assert "--no-deps" in text
+
+    def test_framework_dependencies_are_declared_in_project_metadata(self) -> None:
+        """The Framework build surface must not consume legacy lock inputs."""
+        project = (ROOT / "packages" / "framework" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+        assert "[project]" in project
+        assert "dependencies = [" in project
+        assert "dynamic = [\"dependencies\"]" not in project
+        assert "requirements/lock.txt" not in project
+
+    def test_workspace_build_requirements_are_exact_and_hash_constrained(self) -> None:
+        """PEP 517 build tools must not be freely re-resolved by CI."""
+        expected = {"setuptools==84.0.0", "wheel==0.46.2"}
+        projects = [ROOT / "pyproject.toml", *sorted((ROOT / "packages").glob("*/pyproject.toml"))]
+        assert len(projects) == 6
+        for path in projects:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            assert set(data["build-system"]["requires"]) == expected, path
+
+        constraints = (ROOT / "constraints" / "build-constraints.txt").read_text(encoding="utf-8")
+        assert "setuptools==84.0.0" in constraints
+        assert "wheel==0.46.2" in constraints
+        assert constraints.count("--hash=sha256:") == 4
+
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        assert ci.count("--build-constraints constraints/build-constraints.txt") == 2
+        assert ci.count("--require-hashes") >= 2

@@ -96,11 +96,13 @@ indicators:
   OFR_FSI:
     required: true
     frequency: daily
+    calendar: XNYS
     stale_required_severity: block
     missing_required_severity: block
   CISS:
     required: true
     frequency: daily
+    calendar: XNYS
     stale_required_severity: block
     missing_required_severity: block
     missing_reason: "ECB CISS; acquired via harvester external_indicators provider."

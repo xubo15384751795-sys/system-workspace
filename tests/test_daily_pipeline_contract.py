@@ -45,6 +45,7 @@ def test_daily_step_count_is_32():
     # 2026-07-11; keep the schedule and its owned check consistent.
     assert "refresh_cross_asset_panel" in ids
     assert _load_registry_steps()["refresh_cross_asset_panel"]["schedule"] == "daily"
+    assert ids.index("refresh_cross_asset_panel") < ids.index("etf_refresh")
     assert "strategy_lab_shadow" in ids
     assert "shadow_outcomes_90d" in ids
     assert "evaluate_pending" in ids
@@ -69,6 +70,31 @@ def test_daily_steps_have_executable_command(registry_steps):
         if not has_command:
             no_command.append(sid)
     assert no_command == [], f"Daily steps without command: {no_command}"
+
+
+def test_strategy_lab_shadow_chain_declares_neutral_pressure_input():
+    """Shadow producers must expose the snapshot consumed by data_loader.
+
+    Both the daily shadow-card producer and its 90-day outcome backfill call
+    ``load_aligned``/``load_signals``.  The registry must therefore expose the
+    neutral-pressure snapshot as an input so the compiled graph carries the
+    real upstream edge instead of relying on an undeclared filesystem read.
+    """
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import load_pipeline
+
+    required = "Output/current/neutral_pressure_snapshot.json"
+    registry = _load_registry_steps()
+    for step_id in ("strategy_lab_shadow", "shadow_outcomes_90d"):
+        entry = registry[step_id]
+        declared = set(entry.get("input", []))
+        declared.update((entry.get("contracts") or {}).get("inputs", []))
+        assert required in declared, f"{step_id} hides its neutral-pressure dependency"
+
+    plan = load_pipeline(WorkspacePaths(root=ROOT))
+    assert "neutral_pressure_measurement" in plan.edges["strategy_lab_shadow"]
+    assert "neutral_pressure_measurement" in plan.edges["shadow_outcomes_90d"]
+    assert "strategy_lab_shadow" in plan.edges["shadow_outcomes_90d"]
 
 
 def test_signal_blocking_steps_documented(registry_steps):

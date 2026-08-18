@@ -36,6 +36,11 @@ def test_promotion_blocks_when_latest_routing_decision_denies(tmp_path, monkeypa
     monkeypatch.setattr(promote_snapshot, "WORKSPACE_ROOT", tmp_path)
     monkeypatch.setattr(promote_snapshot, "ROUTING_DECISIONS", decisions_dir)
     monkeypatch.setattr(promote_snapshot, "RUNTIME_LOG_DIR", runtime_dir)
+    monkeypatch.setattr(
+        promote_snapshot,
+        "AUTHORITY_TRACE",
+        tmp_path / "Output" / "governance" / "traces" / "authority_trace.jsonl",
+    )
     # Disable subprocess so events fall through to direct file write
     monkeypatch.setattr(promote_snapshot, "RECORD_RUNTIME_SCRIPT", tmp_path / "nonexistent_script.py")
 
@@ -69,12 +74,44 @@ def test_promotion_allows_when_latest_routing_decision_allows(tmp_path, monkeypa
     monkeypatch.setattr(promote_snapshot, "WORKSPACE_ROOT", tmp_path)
     monkeypatch.setattr(promote_snapshot, "ROUTING_DECISIONS", decisions_dir)
     monkeypatch.setattr(promote_snapshot, "RUNTIME_LOG_DIR", tmp_path / "runtime")
+    monkeypatch.setattr(
+        promote_snapshot,
+        "AUTHORITY_TRACE",
+        tmp_path / "Output" / "governance" / "traces" / "authority_trace.jsonl",
+    )
     monkeypatch.setattr(promote_snapshot, "RECORD_RUNTIME_SCRIPT", tmp_path / "nonexistent_script.py")
 
     decision = promote_snapshot._enforce_routing_decision("run_a", "snapshot_run_a")
 
     assert decision["decision_id"] == "allow_current_snapshot"
     assert decision["may_promote_current_snapshot"] is True
+
+
+def test_promotion_blocks_when_routing_timestamp_is_invalid(tmp_path, monkeypatch) -> None:
+    decisions_dir = tmp_path / "Output" / "system_learning" / "routing_decisions"
+    decisions_dir.mkdir(parents=True)
+    (decisions_dir / "invalid-timestamp.yaml").write_text(
+        "\n".join(
+            [
+                "decision_id: invalid_timestamp",
+                "timestamp: not-a-timestamp",
+                "promotion_gate_decision:",
+                "  may_promote_current_snapshot: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    authority_trace = tmp_path / "Output" / "governance" / "traces" / "authority.jsonl"
+    monkeypatch.setattr(promote_snapshot, "WORKSPACE_ROOT", tmp_path)
+    monkeypatch.setattr(promote_snapshot, "ROUTING_DECISIONS", decisions_dir)
+    monkeypatch.setattr(promote_snapshot, "AUTHORITY_TRACE", authority_trace)
+
+    with pytest.raises(promote_snapshot.PromotionError, match="timestamp could not be parsed"):
+        promote_snapshot._enforce_routing_decision("run_a", "snapshot_run_a")
+
+    trace = tmp_path / "Output" / "governance" / "traces" / "decision_trace.jsonl"
+    assert "ROUTING_DECISION_INVALID_TIMESTAMP" in trace.read_text(encoding="utf-8")
+    assert '"allowed": false' in authority_trace.read_text(encoding="utf-8")
 
 
 def test_force_promotion_is_traced_as_authority_config(tmp_path, monkeypatch) -> None:

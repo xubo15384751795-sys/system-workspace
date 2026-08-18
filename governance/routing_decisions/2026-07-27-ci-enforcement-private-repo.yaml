@@ -23,6 +23,7 @@ decision: >
   paths must not use continue-on-error or shell true-masks. Scheduled
   failures are owned by System: open/triage an issue or Learning Hub event;
   do not delete or downgrade failing required steps to force green.
+remote_enforcement_status: COMPENSATING_CONTROL_ONLY
 authority_boundary:
   runtime_judgment_change: false
   research_verdict_change: false

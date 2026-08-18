@@ -126,8 +126,8 @@ def test_data_authority_registry_has_research_entries() -> None:
     paths = {e.get("path", "") for e in entries}
 
     research_files = [
-        "deformation-framework/src/benchmarks/historical_replay.py",
-        "deformation-framework/src/research_corpus/providers/brevan_howard.py",
+        "packages/framework/src/benchmarks/historical_replay.py",
+        "packages/framework/src/research_corpus/providers/brevan_howard.py",
     ]
     missing = [f for f in research_files if not any(f in p for p in paths)]
     assert not missing, (
@@ -192,7 +192,7 @@ def test_audit_has_all_hardening_checks() -> None:
 def test_api_security_module_exists() -> None:
     """Terminal API security helpers must exist in deformation-framework."""
     security = ROOT / "packages" / "framework" / "src" / "api" / "security.py"
-    assert security.exists(), "deformation-framework/src/api/security.py missing"
+    assert security.exists(), "packages/framework/src/api/security.py missing"
     source = security.read_text(encoding="utf-8")
     assert "assert_bind_allowed" in source
     assert "install_api_key_middleware" in source

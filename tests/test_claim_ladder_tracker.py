@@ -10,11 +10,12 @@ import sys
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from scripts.commands.weekly.claim_ladder_tracker import (
+from scripts.commands.weekly.claim_ladder_tracker import (  # noqa: E402
     _check_rule,
     _evaluate_policy_rules,
     apply_transitions,
@@ -29,6 +30,7 @@ from scripts.commands.weekly.claim_ladder_tracker import (
     load_state,
     save_state,
 )
+from system_runtime.canonical_ids import validate_claim  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -470,6 +472,21 @@ class TestApplyTransitions:
         result = apply_transitions(state, progression, policy)
         assert len(result["claims"]) == 1
         assert result["claims"][0]["mechanism_hypothesis"] == "test hypothesis"
+        assert result["claims"][0]["claim_id"].startswith("clm_")
+        assert result["claims"][0]["legacy_claim_id"].startswith("claim-")
+        assert result["claims"][0]["canonical_claim_id"] == result["claims"][0]["canonical_claim"]["claim_id"]
+        assert result["claims"][0]["canonical_claim"]["status"] == "WATCH"
+        assert result["claims"][0]["canonical_claim"]["provenance"]["promotion_allowed"] is False
+        validate_claim(result["claims"][0]["canonical_claim"])
+
+        schema = json.loads((ROOT / "protocols" / "claim_ladder_state.schema.json").read_text())
+        state_payload = {
+            "schema_version": "claim_ladder_state.v1",
+            "generated_at": "2026-08-17T00:00:00Z",
+            "claims": result["claims"],
+            "summary": result["summary"],
+        }
+        assert not list(Draft202012Validator(schema).iter_errors(state_payload))
 
     def test_promotion_applied(self, policy):
         state = {"schema_version": "claim_ladder_state.v1", "claims": []}
@@ -505,6 +522,9 @@ class TestApplyTransitions:
         claim = result["claims"][0]
         assert claim["current_tier"] == 0
         assert claim["status"] == "invalidated"
+        assert claim["canonical_claim"]["status"] == "CONFLICTED"
+        assert claim["canonical_claim"]["provenance"]["promotion_allowed"] is False
+        validate_claim(claim["canonical_claim"])
         assert result["summary"]["demotions_this_run"] == 1
 
     def test_existing_claim_accumulates_and_promotes(self, policy):

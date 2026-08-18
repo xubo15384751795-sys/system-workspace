@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from collections import Counter
@@ -10,6 +11,8 @@ from typing import Any, Callable
 
 from caselab_context.embed_provider import DEFAULT_EMBED_MODEL, default_embed_fn
 from caselab_context.graph_core import build_graph
+
+logger = logging.getLogger(__name__)
 
 TOKEN_RE = re.compile(r"[a-z0-9_]{2,}")
 
@@ -140,14 +143,16 @@ def save_embeddings(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     # Mirror into LanceDB when available (ANN store); JSON remains compatibility export.
     try:
-        from caselab_context.lancedb_store import lancedb_dir, migrate_payload_to_lancedb
+        from caselab_context.lancedb_store import (
+            lancedb_dir,
+            migrate_payload_to_lancedb,
+        )
 
-        root = path.resolve().parents[1] if path.name == "embeddings.json" else path.parent
         # Data/caselab_context/embeddings.json -> parents[1] is Data/; use workspace root.
         workspace = path.resolve().parents[2] if "caselab_context" in path.parts else path.parent
         migrate_payload_to_lancedb(payload, db_path=lancedb_dir(workspace))
     except Exception:
-        pass
+        logger.warning("Unable to migrate Caselab embeddings to LanceDB", exc_info=True)
 
 
 def load_embeddings(path: Path) -> dict[str, Any]:
@@ -177,7 +182,7 @@ def search(
                 if lance_hits:
                     return lance_hits
             except Exception:
-                pass
+                logger.debug("Dense LanceDB search unavailable; falling back to sparse search", exc_info=True)
 
     sparse_scores = _score_sparse(payload, query)
     dense_scores = None

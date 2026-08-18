@@ -135,6 +135,29 @@ def test_readme_shows_output_source():
 
 @pytest.mark.governance_loop
 @pytest.mark.semantic
+def test_readme_tolerates_null_degraded_sections():
+    """A failed run must not turn a presentation-only README step into a root failure."""
+    from scripts.commands.weekly.build_readme_first import build_readme_from_index
+
+    readme = build_readme_from_index(
+        {
+            "generated_at": "2026-08-17T16:09:53Z",
+            "measurement_state": {
+                "promotion_gate": None,
+                "judgment": None,
+                "signals": {"hmm": None, "k_gate": None, "x_gate": None},
+            },
+            "market_feedback": None,
+        },
+        {"basic": {"quality_status": "PARTIAL"}},
+    )
+
+    assert "# System Output - 2026-08-17" in readme
+    assert "**Promotion Gate:** N/A" in readme
+
+
+@pytest.mark.governance_loop
+@pytest.mark.semantic
 def test_readme_shows_quality_status():
     """00_READ_ME_FIRST.md must display quality status."""
     if not README_PATH.exists():

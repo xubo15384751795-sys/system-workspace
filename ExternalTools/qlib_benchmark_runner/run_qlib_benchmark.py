@@ -22,6 +22,11 @@ FORBIDDEN_PATTERNS = [
     "/Output/system_learning/",
     "/configs/",
     "/protocols/",
+    "/packages/framework/",
+    "/packages/harvester/",
+    "/packages/learning_hub/",
+    "/packages/orchestration/",
+    "/packages/workbench/",
     "/Workbench/",
 ]
 

@@ -82,6 +82,24 @@ prohibited shortcut above, and P0-4 is not complete.
 
 ## 1. Prepare a clean, pinned workspace
 
+### Test execution budgets and slow-test evidence
+
+The four execution layers use explicit budgets and must retain slow-test
+evidence. The first three layers are enforced by the repository contracts; the
+compute-device layer must record the actual wall-clock budget and timestamps in
+the evidence record before running any stateful work.
+
+| Layer | Job/process timeout | Required duration evidence |
+|---|---:|---|
+| PR / hermetic | CI job `timeout-minutes: 30` | root and focused pytest commands include `--durations=25` |
+| Package | CI module job `timeout-minutes: 30` | every package pytest command includes `--durations=25` |
+| Nightly / operator | Nightly job `timeout-minutes: 45`; isolated operator pytest `--timeout-seconds 5400` | nightly pytest commands and the operator runner include `--durations=25` |
+| Compute device | `scripts/run_operator_tests.py --timeout-seconds 5400`; `./sys verify --merge` bounds each verification subprocess at 600 seconds | record start/end and the emitted `--durations=25` output; declare a numeric budget for any longer refresh/release before execution |
+
+A timeout or budget breach is a failed run requiring diagnosis; it must not be
+converted into a pass by rerunning without the bound. The Mac does not execute
+the stateful compute-device layer, so no runtime duration claim is made here.
+
 Use a fresh clone or a clean worktree. Do not run this protocol on a directory
 with unrelated changes.
 
@@ -96,19 +114,15 @@ git rev-parse HEAD
 `git status --short` must be empty. Record the full SHA printed by the last
 command in the run evidence.
 
-Use Python 3.12 or 3.13 and install the same dependency surfaces as the
+Use Python 3.12 or 3.13 and install the same locked workspace surface as the
 authoritative GitHub merge gate:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pip install -e ".[dev]"
-.venv/bin/python -m pip install -e "packages/framework[dev]"
-.venv/bin/python -m pip install -e "packages/harvester[dev]"
-.venv/bin/python -m pip install -e "packages/workbench[dev]"
-.venv/bin/python -m pip install -e "packages/learning_hub[dev]"
+uv sync --locked --all-packages
 ```
+
+The root `uv.lock` is the only resolver authority. Do not create per-package
+environments or free-resolve `requirements*.txt` files on the compute device.
 
 Confirm the shared roadmap and the 19-step plan before any write:
 
@@ -125,9 +139,9 @@ Run the three audits before refreshing. Failure is expected at the starting
 baseline, but the exact blockers must be retained:
 
 ```bash
-.venv/bin/python scripts/freshness_validator.py --mode full --json
-.venv/bin/python scripts/check_output_freshness.py --require-artifacts --json
-.venv/bin/python scripts/artifact_monitoring_audit.py --strict --json
+uv run --locked python scripts/freshness_validator.py --mode full --json
+uv run --locked python scripts/check_output_freshness.py --require-artifacts --json
+uv run --locked python scripts/artifact_monitoring_audit.py --strict --json
 ```
 
 The known starting blockers were:
@@ -155,7 +169,7 @@ workspace through its official exporter; do not create a manual link.
 Run preflight explicitly:
 
 ```bash
-.venv/bin/python -m harvester \
+uv run --locked python -m harvester \
   --exports-root "$PWD/Data/harvester/exports" \
   preflight
 ```
@@ -164,7 +178,7 @@ Preflight must pass. Then build a fresh release without reusing provider cache
 content:
 
 ```bash
-.venv/bin/python -m harvester \
+uv run --locked python -m harvester \
   --exports-root "$PWD/Data/harvester/exports" \
   daily-release \
   --no-cache \
@@ -178,10 +192,10 @@ statuses, and the path selected by `latest`.
 Validate and monitor the finalized release:
 
 ```bash
-.venv/bin/python -m harvester \
+uv run --locked python -m harvester \
   --exports-root "$PWD/Data/harvester/exports" \
   validate-catalog Data/harvester/exports/latest
-.venv/bin/python -m harvester \
+uv run --locked python -m harvester \
   --exports-root "$PWD/Data/harvester/exports" \
   monitor --max-age-days 3
 ```
@@ -212,8 +226,8 @@ The two weekly products are intentionally outside the daily 19-step chain.
 Build them separately:
 
 ```bash
-.venv/bin/python scripts/commands/weekly/build_data_gaps.py
-.venv/bin/python scripts/commands/weekly/build_change_analysis.py
+uv run --locked python scripts/commands/weekly/build_data_gaps.py
+uv run --locked python scripts/commands/weekly/build_change_analysis.py
 ```
 
 Do not change their schedule classification to daily merely to clear age.
@@ -223,14 +237,16 @@ Do not change their schedule classification to daily merely to clear age.
 Run:
 
 ```bash
-.venv/bin/python scripts/freshness_validator.py --mode full --json
-.venv/bin/python scripts/check_output_freshness.py --require-artifacts --json
-.venv/bin/python scripts/artifact_monitoring_audit.py --strict --json
-.venv/bin/python -m pytest -q \
-  tests/test_current_artifact_chain_operator.py \
-  tests/test_freshness_governance_operator.py \
-  tests/test_harvester_bundle_operator.py
+uv run --locked python scripts/freshness_validator.py --mode full --json
+uv run --locked python scripts/check_output_freshness.py --require-artifacts --json
+uv run --locked python scripts/artifact_monitoring_audit.py --strict --json
+uv run --locked python scripts/run_operator_tests.py --allow-operator-workspace
 ```
+
+The operator suite must run through this entrypoint. It creates a temporary
+workspace, runs the stateful tests there, and fingerprints the authoring
+checkout's `Data/` and `Output/` before and after. Direct `pytest -m operator`
+from the authoring checkout is rejected.
 
 Acceptance requires:
 
@@ -254,8 +270,8 @@ classification.
 After the runtime checks pass, run the repository's authoritative merge gate:
 
 ```bash
-.venv/bin/python scripts/daily_run.py --force-weekly
-.venv/bin/python scripts/check_governance_freeze.py
+uv run --locked python scripts/daily_run.py --force-weekly
+uv run --locked python scripts/check_governance_freeze.py
 ./sys verify --merge
 ./sys verify --check
 ```

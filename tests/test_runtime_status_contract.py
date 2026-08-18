@@ -67,3 +67,9 @@ def test_stateful_classification_covers_ignored_suites() -> None:
         for path in ignored
     )
     assert "tests/test_daily_pipeline_callable_e2e.py" not in ignored
+
+
+def test_operator_hash_guard_has_no_environment_bypass() -> None:
+    """Operator-state protection must remain fail-closed when selected."""
+    source = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    assert "SYSTEM_TEST_SKIP_OPERATOR_HASH_GUARD" not in source

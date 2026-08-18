@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from scripts.neutral_pressure_measurement import build_snapshot
+from system_runtime.canonical_ids import validate_chain
 
 
 def _panel() -> pd.DataFrame:
@@ -42,3 +43,8 @@ def test_snapshot_is_neutral_and_excludes_research_candidates(tmp_path: Path, mo
     assert snapshot["advanced"]["sigma_vector"]["K"] is None
     assert snapshot["advanced"]["sigma_vector"]["X_agg"] is None
     assert snapshot["advanced"]["measurement_eligibility"]["K"]["operational_wiring"] == "denied"
+    validate_chain(snapshot["canonical_chain"])
+    assert snapshot["canonical_ids"]["measurement_id"].startswith("mea_")
+    assert snapshot["canonical_ids"]["claim_id"].startswith("clm_")
+    assert snapshot["canonical_chain"]["claim"]["provenance"]["claim_ceiling"] == "bounded_neutral_measurement"
+    assert snapshot["canonical_chain"]["claim"]["provenance"]["promotion_allowed"] is False

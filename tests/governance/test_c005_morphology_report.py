@@ -14,12 +14,14 @@ WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from workbench.c005_morphology_report import (
+from workbench.c005_morphology_report import (  # noqa: E402
     evidence_payload,
     load_evidence,
     render_report,
     write_report,
 )
+
+from system_runtime.canonical_ids import validate_claim  # noqa: E402
 
 
 def test_c005_report_blocks_empty_validation_loop(tmp_path) -> None:
@@ -43,6 +45,9 @@ def test_c005_report_blocks_empty_validation_loop(tmp_path) -> None:
     payload = evidence_payload(evidence)
     assert payload["claim_id"] == "C005"
     assert payload["claim_carrying_allowed"] is False
+    assert payload["canonical_claim"]["status"] == "INSUFFICIENT_DATA"
+    assert payload["canonical_claim"]["provenance"]["claim_ceiling"] == "diagnostic_watch_only"
+    validate_claim(payload["canonical_claim"])
 
 
 def test_c005_report_supports_populated_validation_loop(tmp_path) -> None:
@@ -87,3 +92,6 @@ def test_c005_report_supports_populated_validation_loop(tmp_path) -> None:
     payload = json.loads(machine_path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "claim_evidence.c005_morphology.v1"
     assert payload["claim_carrying_allowed"] is True
+    assert payload["canonical_claim"]["status"] == "WATCH"
+    assert payload["canonical_claim"]["evidence_ids"] == []
+    validate_claim(payload["canonical_claim"])

@@ -14,46 +14,43 @@
 .PHONY: install-dev test test-operator test-verbose audit freshness dry-run status \
        work-quick work-standard work-full clean
 
-PYTHON ?= python3
-
-# Python path: scripts + Workbench/src + root
-PYTHONPATH := Workbench/src:scripts:.
+UV ?= uv
+UV_RUN := $(UV) run --locked
 
 install-dev:
-	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(UV) sync --locked --all-packages
 
 test:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -q
+	$(UV_RUN) python -m pytest tests -q
 
 test-operator:
-	PYTHONPATH=$(PYTHONPATH) SYSTEM_OPERATOR_TESTS=1 $(PYTHON) -m pytest tests -q -m "operator"
+	$(UV_RUN) python scripts/run_operator_tests.py --allow-operator-workspace
 
 test-verbose:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests -v
+	$(UV_RUN) python -m pytest tests -v
 
 audit:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/commands/weekly/architecture_reality_audit.py --json
+	$(UV_RUN) python scripts/commands/weekly/architecture_reality_audit.py --json
 
 freshness:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/freshness_validator.py
+	$(UV_RUN) python scripts/freshness_validator.py
 
 dry-run:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/daily_run.py --dry-run
+	$(UV_RUN) python scripts/daily_run.py --dry-run
 
 status:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/freshness_validator.py
+	$(UV_RUN) python scripts/freshness_validator.py
 	@echo "---"
 	@cat Output/current/work_brief.md 2>/dev/null | head -20
 
 work-quick:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/run_work_cycle.py --mode quick
+	$(UV_RUN) python scripts/run_work_cycle.py --mode quick
 
 work-standard:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/run_work_cycle.py --mode standard
+	$(UV_RUN) python scripts/run_work_cycle.py --mode standard
 
 work-full:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) scripts/daily_run.py --skip-harvester --skip-etf
+	$(UV_RUN) python scripts/daily_run.py --skip-harvester --skip-etf
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

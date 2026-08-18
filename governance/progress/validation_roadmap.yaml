@@ -61,12 +61,24 @@ tasks:
     roadmap_section: 4
     overall_weight: 10
     criteria:
-      - {id: workflow_repair, title: Nightly/Weekly 路径和安装口径修复, weight: 20}
-      - {id: merge_enforcement, title: 私有仓库替代合并强制, weight: 15}
-      - {id: failure_injection, title: 缺失路径和产物能够阻断, weight: 15}
-      - {id: nightly_green, title: 当前主线 Nightly 绿色, weight: 10}
-      - {id: weekly_green, title: 当前主线 Weekly 绿色, weight: 10}
-      - {id: fourteen_day_window, title: 连续 14 天定期运行全绿, weight: 30}
+      - id: workflow_repair
+        title: 'Nightly/Weekly 路径和安装口径修复'
+        weight: 20
+      - id: merge_enforcement
+        title: '私有仓库替代合并强制'
+        weight: 15
+      - id: failure_injection
+        title: '缺失路径和产物能够阻断'
+        weight: 15
+      - id: nightly_green
+        title: '当前主线 Nightly 绿色'
+        weight: 10
+      - id: weekly_green
+        title: '当前主线 Weekly 绿色'
+        weight: 10
+      - id: fourteen_day_window
+        title: '连续 14 天定期运行全绿'
+        weight: 30
 
   - id: P0-2
     title: 测试隔离与状态契约
@@ -75,12 +87,24 @@ tasks:
     roadmap_section: 5
     overall_weight: 10
     criteria:
-      - {id: status_contract, title: 单一运行状态契约, weight: 15}
-      - {id: hermetic_fixtures, title: 状态型测试使用隔离 fixture, weight: 20}
-      - {id: ignored_test_classification, title: 排除测试逐项分类, weight: 15}
-      - {id: root_suite_green, title: 根测试套件零失败, weight: 15}
-      - {id: operator_hash_unchanged, title: 测试前后操作态哈希不变, weight: 15}
-      - {id: clean_clone_repeat, title: 全新 clone 连续三次结果一致, weight: 20}
+      - id: status_contract
+        title: '单一运行状态契约'
+        weight: 15
+      - id: hermetic_fixtures
+        title: '状态型测试使用隔离 fixture'
+        weight: 20
+      - id: ignored_test_classification
+        title: '排除测试逐项分类'
+        weight: 15
+      - id: root_suite_green
+        title: '根测试套件零失败'
+        weight: 15
+      - id: operator_hash_unchanged
+        title: '测试前后操作态哈希不变'
+        weight: 15
+      - id: clean_clone_repeat
+        title: '全新 clone 连续三次结果一致'
+        weight: 20
 
   - id: P0-3
     title: 默认主链 Callable E2E
@@ -89,12 +113,24 @@ tasks:
     roadmap_section: 6
     overall_weight: 10
     criteria:
-      - {id: callable_execution, title: 默认步骤全部真实 callable 执行, weight: 25}
-      - {id: scenario_matrix, title: 正常降级阻断恢复场景, weight: 15}
-      - {id: lineage_closure, title: run_id 和输入 release 同源, weight: 15}
-      - {id: mode_equivalence, title: Callable 与 subprocess 语义等价, weight: 15}
-      - {id: authority_isolation, title: candidate/shadow 不越权写 current, weight: 10}
-      - {id: fourteen_day_shadow, title: 连续 14 天 shadow evidence, weight: 20}
+      - id: callable_execution
+        title: '默认步骤全部真实 callable 执行'
+        weight: 25
+      - id: scenario_matrix
+        title: '正常降级阻断恢复场景'
+        weight: 15
+      - id: lineage_closure
+        title: 'run_id 和输入 release 同源'
+        weight: 15
+      - id: mode_equivalence
+        title: 'Callable 与 subprocess 语义等价'
+        weight: 15
+      - id: authority_isolation
+        title: 'candidate/shadow 不越权写 current'
+        weight: 10
+      - id: fourteen_day_shadow
+        title: '连续 14 天 shadow evidence'
+        weight: 20
 
   - id: P0-4
     title: Freshness 与监控闭环
@@ -103,13 +139,27 @@ tasks:
     roadmap_section: 7
     overall_weight: 15
     criteria:
-      - {id: ttl_schedule_policy, title: TTL 与 schedule 契约一致, weight: 10}
-      - {id: monitoring_classification, title: 盲区分类并绑定 owner, weight: 10}
-      - {id: pre_consumption_admission, title: 消费前 freshness 硬拦截, weight: 15}
-      - {id: same_run_closure, title: Current 产物同一次运行闭合, weight: 15}
-      - {id: full_freshness_pass, title: Full freshness verdict PASS, weight: 15}
-      - {id: required_coverage, title: 必要监控覆盖 100%, weight: 15}
-      - {id: fourteen_day_no_partial, title: 连续 14 天无 partial refresh, weight: 20}
+      - id: ttl_schedule_policy
+        title: 'TTL 与 schedule 契约一致'
+        weight: 10
+      - id: monitoring_classification
+        title: '盲区分类并绑定 owner'
+        weight: 10
+      - id: pre_consumption_admission
+        title: '消费前 freshness 硬拦截'
+        weight: 15
+      - id: same_run_closure
+        title: 'Current 产物同一次运行闭合'
+        weight: 15
+      - id: full_freshness_pass
+        title: 'Full freshness verdict PASS'
+        weight: 15
+      - id: required_coverage
+        title: '必要监控覆盖 100%'
+        weight: 15
+      - id: fourteen_day_no_partial
+        title: '连续 14 天无 partial refresh'
+        weight: 20
 
   - id: P1-1
     title: 真实数据、PIT 与发布认证
@@ -118,11 +168,21 @@ tasks:
     roadmap_section: 8
     overall_weight: 15
     criteria:
-      - {id: date_semantics, title: 逐序列日期语义和 lag policy, weight: 20}
-      - {id: pit_fixtures, title: PIT fixture 与 revision replay, weight: 20}
-      - {id: release_hard_gates, title: Release finalize 硬阻断, weight: 20}
-      - {id: reproducible_release, title: 同 vintage 重建相同 hash, weight: 15}
-      - {id: provider_canary, title: Provider canary 连续 30 天, weight: 25}
+      - id: date_semantics
+        title: '逐序列日期语义和 lag policy'
+        weight: 20
+      - id: pit_fixtures
+        title: 'PIT fixture 与 revision replay'
+        weight: 20
+      - id: release_hard_gates
+        title: 'Release finalize 硬阻断'
+        weight: 20
+      - id: reproducible_release
+        title: '同 vintage 重建相同 hash'
+        weight: 15
+      - id: provider_canary
+        title: 'Provider canary 连续 30 天'
+        weight: 25
 
   - id: P1-2
     title: 历史回放与 Forward Shadow
@@ -131,11 +191,21 @@ tasks:
     roadmap_section: 9
     overall_weight: 15
     criteria:
-      - {id: frozen_protocol, title: 冻结 folds 标签阈值和 embargo, weight: 15}
-      - {id: common_sample, title: 候选与 incumbent 使用共同样本, weight: 20}
-      - {id: regime_coverage, title: 危机平静恢复缺失窗口覆盖, weight: 15}
-      - {id: incremental_metrics, title: 增量信息和机会成本报告, weight: 20}
-      - {id: forward_shadow, title: 60–90 天前向 Shadow, weight: 30}
+      - id: frozen_protocol
+        title: '冻结 folds 标签阈值和 embargo'
+        weight: 15
+      - id: common_sample
+        title: '候选与 incumbent 使用共同样本'
+        weight: 20
+      - id: regime_coverage
+        title: '危机平静恢复缺失窗口覆盖'
+        weight: 15
+      - id: incremental_metrics
+        title: '增量信息和机会成本报告'
+        weight: 20
+      - id: forward_shadow
+        title: '60–90 天前向 Shadow'
+        weight: 30
 
   - id: P1-3
     title: 故障恢复、性能与 Soak
@@ -144,12 +214,24 @@ tasks:
     roadmap_section: 10
     overall_weight: 10
     criteria:
-      - {id: fault_matrix, title: 完整 fault-injection matrix, weight: 20}
-      - {id: atomic_recovery, title: 原子发布和恢复新 run, weight: 25}
-      - {id: concurrency, title: 并发调度和 ledger 去重, weight: 15}
-      - {id: performance_budget, title: 时间内存磁盘预算, weight: 15}
-      - {id: seven_day_soak, title: 7 天 Soak, weight: 10}
-      - {id: thirty_day_soak, title: 30 天无状态漂移, weight: 15}
+      - id: fault_matrix
+        title: '完整 fault-injection matrix'
+        weight: 20
+      - id: atomic_recovery
+        title: '原子发布和恢复新 run'
+        weight: 25
+      - id: concurrency
+        title: '并发调度和 ledger 去重'
+        weight: 15
+      - id: performance_budget
+        title: '时间内存磁盘预算'
+        weight: 15
+      - id: seven_day_soak
+        title: '7 天 Soak'
+        weight: 10
+      - id: thirty_day_soak
+        title: '30 天无状态漂移'
+        weight: 15
 
   - id: P1-4
     title: 测试有效性、兼容性与安全
@@ -158,12 +240,24 @@ tasks:
     roadmap_section: 11
     overall_weight: 10
     criteria:
-      - {id: risk_coverage, title: 风险加权覆盖率基线, weight: 20}
-      - {id: property_tests, title: 关键路径属性测试, weight: 15}
-      - {id: mutation_threshold, title: 关键模块变异分数门槛, weight: 20}
-      - {id: performance_tests, title: 非空性能测试, weight: 10}
-      - {id: compatibility_matrix, title: Python 3.12–3.14 与锁定依赖, weight: 15}
-      - {id: required_security, title: 类型和安全扫描成为阻断门, weight: 20}
+      - id: risk_coverage
+        title: '风险加权覆盖率基线'
+        weight: 20
+      - id: property_tests
+        title: '关键路径属性测试'
+        weight: 15
+      - id: mutation_threshold
+        title: '关键模块变异分数门槛'
+        weight: 20
+      - id: performance_tests
+        title: '非空性能测试'
+        weight: 10
+      - id: compatibility_matrix
+        title: 'Python 3.13 与锁定依赖'
+        weight: 15
+      - id: required_security
+        title: '类型和安全扫描成为阻断门'
+        weight: 20
 
   - id: P2-1
     title: 研究遗产与登记表收尾
@@ -172,8 +266,18 @@ tasks:
     roadmap_section: 12
     overall_weight: 5
     criteria:
-      - {id: research_review, title: 四个研究提交逐项审阅, weight: 25}
-      - {id: negative_evidence, title: 否定证据和 prereg 历史保留, weight: 20}
-      - {id: branch_decision, title: 合并保留或归档决定, weight: 20}
-      - {id: register_reconciliation, title: Open/deferred 登记表对账, weight: 20}
-      - {id: shadow_annotation, title: Shadow NAV 退化期注释接入读取器, weight: 15}
+      - id: research_review
+        title: '四个研究提交逐项审阅'
+        weight: 25
+      - id: negative_evidence
+        title: '否定证据和 prereg 历史保留'
+        weight: 20
+      - id: branch_decision
+        title: '合并保留或归档决定'
+        weight: 20
+      - id: register_reconciliation
+        title: 'Open/deferred 登记表对账'
+        weight: 20
+      - id: shadow_annotation
+        title: 'Shadow NAV 退化期注释接入读取器'
+        weight: 15

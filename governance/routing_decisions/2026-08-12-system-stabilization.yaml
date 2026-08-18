@@ -12,7 +12,7 @@ summary: >
   RunOutcome, single pipeline compiler, publish transaction, and publish admission as
   xfail contracts that activate when each feature lands.
 authority_changes:
-  - module: pytest.ini
+  - module: pyproject.toml [tool.pytest.ini_options]
     claim: default test collection excludes operator/network/external_repo/slow; strict markers
   - module: tests/conftest.py
     claim: hermetic workspace guard fails if tests create repo-root Data/ or Output/

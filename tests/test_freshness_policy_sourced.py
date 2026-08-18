@@ -6,6 +6,7 @@ hardcoded), so changing the policy changes the validator's behavior.
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +15,16 @@ sys.path.insert(0, str(ROOT / "packages" / "workbench" / "src"))
 
 
 class TestFreshnessPolicySourced:
+    def test_weekly_artifacts_are_schedule_advisory_off_monday(self, monkeypatch):
+        import freshness_validator as fv
+
+        tuesday = datetime(2026, 8, 18, tzinfo=UTC)
+        monday = datetime(2026, 8, 17, tzinfo=UTC)
+        assert fv._weekly_freshness_due(tuesday) is False
+        assert fv._weekly_freshness_due(monday) is True
+        monkeypatch.setenv("SYSTEM_FORCE_WEEKLY", "1")
+        assert fv._weekly_freshness_due(tuesday) is True
+
     def test_max_age_hours_derived_from_policy(self):
         import freshness_validator as fv
 

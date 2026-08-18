@@ -101,10 +101,11 @@ def test_workbench_scripts_are_thin_wrappers() -> None:
 def test_refresh_output_current_is_authority_entry_point() -> None:
     text = (ROOT / "scripts" / "refresh_output_current.py").read_text(encoding="utf-8")
     assert "Refresh Output/current" in text
-    assert "judgment_layer" in text
-    assert "promotion_gate" in text
-    assert "system_index" in text
-    assert "readme_first" in text
+    assert "run_refresh_admission" in text
+    assert "list_profile_steps" in text
+    assert "run_registry_step" in text
+    assert "refresh_current_job" in text
+    assert "for step_id in profile_steps" in text
 
 
 def test_build_system_index_is_authority_entry_point() -> None:

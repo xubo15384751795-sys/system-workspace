@@ -111,6 +111,9 @@ config/*local*
 *.log
 lightning_logs/
 
+# Local side-effect-free plan/apply artifacts (bound to a working tree SHA).
+.system/
+
 # Phase 3.3: agent/tooling working dirs (not source)
 .zcode/
 .cursor/checkpoints/

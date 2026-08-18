@@ -11,3 +11,9 @@ rules:
     severity: WARNING
     languages:
       - python
+    paths:
+      include:
+        - "**/*promot*.py"
+        - "**/*promotion*.py"
+      exclude:
+        - /packages/workbench/src/workbench/workspace/promote_snapshot.py

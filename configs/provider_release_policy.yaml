@@ -1,0 +1,271 @@
+schema_version: workbench.provider_release_policy.v1
+description: >
+  Versioned provider availability policy.  A rule describes the fields that
+  must be evidenced before an observation can be used at decision time.  The
+  current authoring host has no approved provider publication-calendar
+  evidence, so its rules remain explicitly unconfigured and must fail closed.
+default_timezone: UTC
+status_matrix:
+  refreshed:
+    diagnostic: ALLOW
+    decision: ALLOW
+    watch_zero: NOT_REQUIRED
+    feedback: ELIGIBLE_AFTER_REVIEW
+    alert: INFO
+    evaluator_verdict: PASS
+  reused_same_content:
+    diagnostic: ALLOW
+    decision: CONDITIONAL
+    watch_zero: CONDITIONAL
+    feedback: REVIEW_REQUIRED
+    alert: NOTICE
+    evaluator_verdict: WARN
+  reused_after_provider_failure:
+    diagnostic: ALLOW
+    decision: DENY
+    watch_zero: DIAGNOSTIC_ONLY
+    feedback: DENY
+    alert: ERROR
+    evaluator_verdict: BLOCKED
+  partial_provider_success:
+    diagnostic: ALLOW
+    decision: CONDITIONAL
+    watch_zero: CONDITIONAL
+    feedback: REVIEW_REQUIRED
+    alert: WARNING
+    evaluator_verdict: WARN
+  provider_failed_no_acceptable_fallback:
+    diagnostic: FAILURE_ONLY
+    decision: DENY
+    watch_zero: DIAGNOSTIC_ONLY
+    feedback: DENY
+    alert: ERROR
+    evaluator_verdict: FAIL
+  no_release_expected:
+    diagnostic: ALLOW
+    decision: CONDITIONAL
+    watch_zero: CONDITIONAL
+    feedback: REVIEW_REQUIRED
+    alert: INFO
+    evaluator_verdict: PASS
+  environmentally_blocked:
+    diagnostic: ALLOW
+    decision: DENY
+    watch_zero: DIAGNOSTIC_ONLY
+    feedback: DENY
+    alert: WARNING
+    evaluator_verdict: WARN
+rules:
+  - rule_id: etf_provider_chain.cross_asset_daily_panel
+    provider_id: etf_provider_chain
+    series_id: "*"
+    dataset_id: cross_asset_daily_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-13.v1
+    owner: Harvester
+    official_evidence_url: https://www.tiingo.com/documentation/end-of-day
+    provider_chain:
+      - tiingo
+      - massive
+      - yfinance
+    note: >
+      Tiingo is the preferred authenticated EOD source when configured;
+      Massive (formerly Polygon.io) is the authenticated fallback, and
+      yfinance is a bounded last resort. Source selection is recorded per ETF
+      in the release manifest.
+  - rule_id: fred.default
+    provider_id: fred
+    series_id: "*"
+    dataset_id: official_panel
+    observation_frequency: mixed
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://api.stlouisfed.org/fred/series/observations
+  - rule_id: h41.default
+    provider_id: h41
+    series_id: "*"
+    dataset_id: official_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://www.federalreserve.gov/datadownload/
+  - rule_id: treasury.default
+    provider_id: treasury
+    series_id: "*"
+    dataset_id: official_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://api.fiscaldata.treasury.gov/
+  - rule_id: sec.default
+    provider_id: sec
+    series_id: "*"
+    dataset_id: official_panel
+    observation_frequency: irregular
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://data.sec.gov/submissions/
+  - rule_id: cboe_direct.default
+    provider_id: cboe_direct
+    series_id: "*"
+    dataset_id: official_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://cdn.cboe.com/api/global/us_indices/daily_prices/
+  - rule_id: yfinance.cross_asset_daily_panel
+    provider_id: yfinance
+    series_id: "*"
+    dataset_id: cross_asset_daily_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://finance.yahoo.com/
+  - rule_id: openbb_fred.default
+    provider_id: openbb_fred
+    series_id: "*"
+    dataset_id: official_panel
+    observation_frequency: mixed
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://api.stlouisfed.org/fred/series/observations
+  - rule_id: openbb_tiingo.default
+    provider_id: openbb_tiingo
+    series_id: "*"
+    dataset_id: cross_asset_daily_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://api.tiingo.com/
+  - rule_id: openbb_yfinance.default
+    provider_id: openbb_yfinance
+    series_id: "*"
+    dataset_id: cross_asset_daily_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://finance.yahoo.com/
+  - rule_id: direct_ofr.default
+    provider_id: direct_ofr
+    series_id: "*"
+    dataset_id: benchmark_panel
+    observation_frequency: daily
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://www.financialresearch.gov/financial-stress-index/
+  - rule_id: external_public.default
+    provider_id: external_public
+    series_id: "*"
+    dataset_id: benchmark_panel
+    observation_frequency: irregular
+    calendar_status: unconfigured
+    release_expectation: scheduled
+    release_timezone: null
+    release_cutoff_local: null
+    nominal_publication_lag: null
+    business_calendar_basis: unknown
+    revision_vintage_policy: provider_defined
+    deletion_correction_policy: provider_defined
+    reuse_policy: blocked_unless_explicit
+    rule_version: 2026-08-12.v1
+    owner: Harvester
+    official_evidence_url: https://publicreporting.cftc.gov/

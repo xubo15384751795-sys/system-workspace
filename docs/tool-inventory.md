@@ -169,11 +169,11 @@
 | 库 | 位置 | 用途 |
 |---|---|---|
 | microsoft/qlib | ExternalTools/qlib_benchmark_runner | 量化基准 |
-| networkx | Workbench/src/ | 图分析 |
+| networkx | packages/workbench/src/ | 图分析 |
 | plotly | Visualization/ | 交互图表 |
 | pydantic | protocols/ | 数据验证 |
 | semgrep | semgrep_rules/ | 静态分析 |
-| OpenBB | structural-risk-harvester/ | 数据获取 |
+| OpenBB | packages/harvester/ | 数据获取 |
 | DuckDB | Data/ | 列式存储 |
 | JAX | src/ | 数值计算 |
 | statsmodels | src/ | VAR/Granger/ADF |

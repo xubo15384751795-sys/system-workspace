@@ -61,14 +61,17 @@ def test_create_data_hub_still_importable() -> None:
 
 
 def test_data_access_has_no_http_imports() -> None:
-    """src/data_access/ must not import HTTP client libraries."""
+    """Only the owned gateway may import the HTTP transport library."""
     data_access = FRAMEWORK_SRC / "data_access"
     if not data_access.exists():
         pytest.skip("Framework data_access directory not found")
+    owned_gateway = data_access / "http_gateway.py"
     forbidden = {"requests", "httpx", "aiohttp", "urllib.request", "urllib3"}
     violations = []
     for py_file in data_access.rglob("*.py"):
         if "__pycache__" in str(py_file):
+            continue
+        if py_file == owned_gateway:
             continue
         try:
             tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
@@ -87,6 +90,22 @@ def test_data_access_has_no_http_imports() -> None:
                 rel = py_file.relative_to(FRAMEWORK_SRC)
                 violations.append(f"{rel}:{node.lineno}: imports {module!r}")
     assert not violations, "data_access imports HTTP libs:\n" + "\n".join(violations)
+
+
+def test_owned_http_gateway_is_the_only_data_access_egress_owner() -> None:
+    """The approved gateway retains the transport controls required by P1-06."""
+    gateway = FRAMEWORK_SRC / "data_access" / "http_gateway.py"
+    if not gateway.exists():
+        pytest.skip("Owned HTTP gateway not found")
+    source = gateway.read_text(encoding="utf-8")
+    for marker in (
+        "class OwnedHTTPGateway",
+        "follow_redirects=False",
+        "trust_env=False",
+        "validate_outbound_url",
+        "max_response_bytes",
+    ):
+        assert marker in source, f"owned gateway missing transport control: {marker}"
 
 
 def test_build_system_default_is_harvester() -> None:

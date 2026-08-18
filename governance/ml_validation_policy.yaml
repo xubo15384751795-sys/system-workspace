@@ -63,8 +63,8 @@ enforcement:
   forbidden_consumers:
     - scripts/judgment_layer.py
     - scripts/trade_decision_layer.py
-    - Workbench/src/workbench/judgment/layer.py
+    - packages/workbench/src/workbench/judgment/layer.py
   rule: >
-    No script in scripts/ or Workbench/ may read files from Output/validation/
+    No script in scripts/ or packages/workbench/ may read files from Output/validation/
     as input to build_judgment(), build_decision(), or signal generation.
     These outputs are review-only diagnostics.

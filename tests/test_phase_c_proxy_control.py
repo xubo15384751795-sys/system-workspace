@@ -165,3 +165,40 @@ class TestMergeGateManifest:
         # a git repo.
         sha = _git_sha()
         assert sha != "unknown", "must resolve git SHA in this repo"
+
+    def test_private_repo_manifest_is_explicitly_compensating_only(self, tmp_path, monkeypatch):
+        import json
+
+        import verify_merge
+
+        manifest_path = tmp_path / "verification" / "merge_gate_manifest.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "commit": "fixture-sha",
+                    "verdict": "PASS",
+                    "enforcement_mode": "private_repo_substitute",
+                    "remote_enforcement_status": "COMPENSATING_CONTROL_ONLY",
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(verify_merge, "MANIFEST_PATH", manifest_path)
+
+        assert verify_merge.is_manifest_valid_for_sha("fixture-sha") == (True, "valid")
+
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "commit": "fixture-sha",
+                    "verdict": "PASS",
+                    "enforcement_mode": "private_repo_substitute",
+                    "remote_enforcement_status": "REMOTE_ENFORCED",
+                }
+            ),
+            encoding="utf-8",
+        )
+        valid, reason = verify_merge.is_manifest_valid_for_sha("fixture-sha")
+        assert valid is False
+        assert "remote_enforcement_status" in reason

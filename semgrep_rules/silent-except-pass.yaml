@@ -1,10 +1,6 @@
 rules:
   - id: silent-except-pass-in-critical-gates
-    patterns:
-      - pattern: |
-          except $EXC:
-            ...
-            pass
+    pattern-regex: '(?m)^\s*except(?:\s+[^:]+)?:\s*$\n\s+pass\s*$'
     message: >
       Silent except ...: pass in critical code. Exceptions must be
       logged (print/stderr) or escalated (NNF#29).

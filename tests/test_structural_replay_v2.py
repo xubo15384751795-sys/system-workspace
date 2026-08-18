@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def _load_module():
     """Load structural_replay_v2 as a module.
 
-    Must add scripts/ and Workbench/src to sys.path first because the
+    Must add scripts/ and packages/workbench/src to sys.path first because the
     module imports from _workspace_imports, _constants, _runtime_io,
     and workbench.* at module level.  Some dependencies (replay.scoring)
     may not be available in the test environment, so we mock them.
@@ -33,7 +33,7 @@ def _load_module():
     scripts_dir = str(ROOT / "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
-    # Add Workbench/src for workbench.governance, etc.
+    # Add packages/workbench/src for workbench.governance, etc.
     wb_src = str(ROOT / "packages" / "workbench" / "src")
     if wb_src not in sys.path:
         sys.path.insert(0, wb_src)

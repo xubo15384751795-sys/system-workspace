@@ -16,6 +16,17 @@ from system_runtime.pipeline import (
     load_pipeline,
     render_sequence_yaml,
     run_step,
+    validate_pipeline_docs,
+)
+from system_runtime.plan_apply import (
+    PlanApplyError,
+    build_plan,
+    default_plan_path,
+    load_plan,
+    resolve_plan_reference,
+    validate_apply,
+    validate_plan,
+    write_plan,
 )
 
 
@@ -63,7 +74,21 @@ def _show(path: Path, *, lines: int | None = None) -> int:
 def _pipeline_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
     pipeline = load_pipeline(paths)
     if args.pipeline_command == "validate":
-        print(json.dumps({"valid": True, "steps": len(pipeline.steps), "edges": len(pipeline.edges)}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "valid": True,
+                    "plan_digest": pipeline.plan_digest,
+                    "steps": len(pipeline.steps),
+                    "edges": len(pipeline.edges),
+                    "profiles": {
+                        name: len(pipeline.projection(name))
+                        for name in sorted(pipeline.profiles)
+                    },
+                },
+                indent=2,
+            )
+        )
         return 0
     if args.pipeline_command == "generate":
         target = paths.governance / "daily_run_sequence.yaml"
@@ -78,6 +103,23 @@ def _pipeline_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
         target.write_text(rendered, encoding="utf-8")
         print(f"Generated {target}")
         return 0
+    if args.pipeline_command == "docs":
+        errors = validate_pipeline_docs(paths, pipeline)
+        active = [
+            step
+            for step in pipeline.steps
+            if step.status not in {"archived", "inactive"}
+            and step.schedule != "on_demand"
+        ]
+        payload = {
+            "valid": not errors,
+            "plan_digest": pipeline.plan_digest,
+            "current_daily_steps": sum(step.schedule == "daily" for step in active),
+            "current_weekly_steps": sum(step.schedule == "weekly" for step in active),
+            "errors": errors,
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0 if not errors else 1
     if args.pipeline_command == "list":
         rows = [
             {
@@ -92,7 +134,12 @@ def _pipeline_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
             if args.all or step.status not in {"archived", "inactive"}
         ]
         if args.json:
-            print(json.dumps({"count": len(rows), "steps": rows}, indent=2))
+            print(
+                json.dumps(
+                    {"plan_digest": pipeline.plan_digest, "count": len(rows), "steps": rows},
+                    indent=2,
+                )
+            )
         else:
             print(f"{'ORDER':>6}  {'STEP':<32} {'SCHEDULE':<10} {'MODE':<10} OWNER")
             for row in rows:
@@ -103,13 +150,17 @@ def _pipeline_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
         return 0
     if args.pipeline_command == "describe":
         step = pipeline.step(args.step_id)
-        payload = {**step.__dict__, "upstream": list(pipeline.edges.get(step.step_id, ())) }
+        payload = {
+            "plan_digest": pipeline.plan_digest,
+            **step.__dict__,
+            "upstream": list(pipeline.edges.get(step.step_id, ())),
+        }
         print(json.dumps(payload, indent=2))
         return 0
     if args.pipeline_command == "run":
         if args.dry_run:
             step = pipeline.step(args.step_id)
-            print(json.dumps({"dry_run": True, **step.__dict__}, indent=2))
+            print(json.dumps({"dry_run": True, "plan_digest": pipeline.plan_digest, **step.__dict__}, indent=2))
             return 0
         result = run_step(args.step_id, argv=args.step_args, mode=args.mode, paths=paths)
         print(json.dumps(result, indent=2))
@@ -224,6 +275,53 @@ def _state_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
     return 1 if args.state_command == "audit" and result.legacy_records else 0
 
 
+def _plan_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
+    artifact = build_plan(paths, profile=args.profile)
+    payload = artifact.to_dict()
+    if args.write_plan:
+        target = Path(args.write_plan)
+        if not target.is_absolute():
+            target = paths.root / target
+        target = write_plan(artifact, target, root=paths.root)
+        payload["plan_path"] = str(target)
+    elif args.store:
+        target = write_plan(artifact, default_plan_path(paths.root, artifact.plan_id), root=paths.root)
+        payload["plan_path"] = str(target)
+    if not args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+    else:
+        print(json.dumps(payload, ensure_ascii=False))
+    return 0
+
+
+def _apply_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
+    plan_path = resolve_plan_reference(args.plan_ref, root=paths.root)
+    artifact = load_plan(plan_path)
+    if args.preflight_only:
+        result = validate_plan(artifact, paths)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 1 if result["stale"] else 0
+    if not args.evidence_file or not args.admission_file:
+        raise PlanApplyError(
+            "apply requires --evidence-file and --admission-file; "
+            "no-write preflight is the only local apply surface"
+        )
+    evidence_path = Path(args.evidence_file)
+    admission_path = Path(args.admission_file)
+    if not evidence_path.is_absolute():
+        evidence_path = paths.root / evidence_path
+    if not admission_path.is_absolute():
+        admission_path = paths.root / admission_path
+    result = validate_apply(
+        artifact,
+        paths,
+        evidence_path=evidence_path,
+        admission_path=admission_path,
+    )
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="system", description="System research runtime")
     parser.add_argument("--workspace", type=Path, help="Explicit workspace root")
@@ -244,11 +342,36 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_sub.add_parser("validate")
     generate = pipeline_sub.add_parser("generate", help="Generate compatibility views")
     generate.add_argument("--check", action="store_true", help="Fail if generated view is stale")
+    docs = pipeline_sub.add_parser("docs", help="Check current pipeline documentation authority boundaries")
+    docs.add_argument("--check", action="store_true", help="Return non-zero when the contract is violated")
 
     state = sub.add_parser("state", help="Audit or migrate versioned state stores")
     state_sub = state.add_subparsers(dest="state_command", required=True)
     state_sub.add_parser("audit", help="Report legacy records without writing")
     state_sub.add_parser("migrate", help="Back up and migrate known event stores")
+
+    plan = sub.add_parser("plan", help="Create a side-effect-free compiled execution plan")
+    plan.add_argument("profile", nargs="?", default="daily")
+    plan.add_argument("--write-plan", help="Persist the plan outside Data/ and Output/")
+    plan.add_argument(
+        "--store",
+        action="store_true",
+        help="Store under .system/plans/<plan_id>.json (never Data/ or Output/)",
+    )
+    plan.add_argument("--json", action="store_true", help="Emit compact JSON")
+
+    apply = sub.add_parser(
+        "apply",
+        help="Run a no-write stale-plan/evidence/admission preflight",
+    )
+    apply.add_argument("plan_ref", help="Plan ID, plan path, or .system/plans reference")
+    apply.add_argument("--evidence-file")
+    apply.add_argument("--admission-file")
+    apply.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Only validate the saved plan against current policy/code",
+    )
 
     aliases = {
         "check": "Show the current readout",
@@ -294,8 +417,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _pipeline_command(args, paths)
         if args.command == "state":
             return _state_command(args, paths)
+        if args.command == "plan":
+            return _plan_command(args, paths)
+        if args.command == "apply":
+            return _apply_command(args, paths)
         return _legacy_command(args, paths)
-    except (PipelineSpecError, KeyError, RuntimeError, ValueError) as exc:
+    except (PlanApplyError, PipelineSpecError, KeyError, RuntimeError, ValueError) as exc:
         print(f"system: {exc}", file=sys.stderr)
         return 2
 

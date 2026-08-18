@@ -12,7 +12,13 @@ rules:
       - pattern-not-regex: .*public_adapters.*
       - pattern-not-regex: .*data_hub.*
     message: >
-      Direct HTTP in Deformation core violates DATA_BOUNDARY.md.
+      Direct HTTP outside an owned gateway violates DATA_BOUNDARY.md.
     severity: WARNING
     languages:
       - python
+    paths:
+      exclude:
+        - '**/packages/framework/src/data_access/http_gateway.py'
+        - '**/packages/harvester/src/harvester/http_gateway.py'
+        - '**/system_runtime/external_http.py'
+        - '**/packages/workbench/src/workbench/external_http.py'

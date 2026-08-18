@@ -65,7 +65,7 @@ Qlib cannot:
 
 ```
 ExternalTools/qlib_benchmark_runner/   # Qlib executor (external)
-Workbench/src/benchmarks/market_feedback/  # Orchestration layer
+packages/workbench/src/benchmarks/market_feedback/  # Orchestration layer
 Output/benchmarks/market_feedback/<benchmark_id>/  # Per-run isolation
 tests/benchmarks/market_feedback/      # Isolation tests
 ```
