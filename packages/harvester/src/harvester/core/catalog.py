@@ -105,8 +105,11 @@ def write_catalog(catalog: dict[str, Any], path: Path | str) -> None:
     _write_json(Path(path), catalog)
 
 
-def _read_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise CatalogValidationError(f"JSON document must be an object: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

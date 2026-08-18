@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from harvester.core.exporter import finalize_release
+from harvester.official import data_root, harvester_raw_root, workspace_root
 from harvester.ops import (
     monitor_latest,
     next_release_id,
@@ -14,6 +15,18 @@ from harvester.ops import (
 )
 
 from tests.test_export_immutability import create_release, restore_permissions
+
+
+def test_harvester_defaults_to_canonical_system_data_root(tmp_path: Path, monkeypatch) -> None:
+    """A workspace run must not acquire into packages/harvester/data."""
+    marker = tmp_path / "governance" / "daily_pipeline_registry.yaml"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("schema_version: test\n", encoding="utf-8")
+    monkeypatch.setenv("SYSTEM_WORKSPACE_ROOT", str(tmp_path))
+
+    assert data_root() == tmp_path / "Data"
+    assert harvester_raw_root() == tmp_path / "Data" / "harvester" / "raw"
+    assert workspace_root() == tmp_path
 
 
 def test_next_release_id_increments_for_release_date(tmp_path: Path) -> None:
@@ -79,6 +92,29 @@ def test_daily_release_finalizes_when_stage_and_finalize_succeed(tmp_path: Path,
 
     assert result["status"] == "finalized"
     assert result["verified_datasets"] == 3
+
+
+def test_daily_release_does_not_finalize_rejected_provider_outcome(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("FRED_API_KEY", "test")
+    exports = tmp_path / "exports"
+    exports.mkdir()
+
+    with patch("harvester.official.stage_complete_release") as stage, patch("harvester.ops.finalize_release") as finalize:
+        stage.return_value = {
+            "gate_passed": False,
+            "gate_state": "rejected",
+            "gate_blockers": ["cross-asset provider outcome not acceptable"],
+        }
+        result = run_daily_release(
+            release_id="2026-05-10-r2",
+            exports_root=exports,
+            providers=["fred"],
+            preflight=True,
+        )
+
+    assert result["status"] == "failed"
+    assert result["reason"] == "promotion_gate_rejected"
+    finalize.assert_not_called()
 
 
 def test_daily_release_writes_failure_report_on_systemexit(tmp_path: Path, monkeypatch) -> None:
@@ -258,6 +294,35 @@ def test_monitor_latest_reports_healthy_release(tmp_path: Path) -> None:
         assert result["status"] == "healthy"
         assert result["release_id"] == "2026-04-26-r1"
         assert not result["blockers"]
+    finally:
+        restore_permissions(release_dir)
+
+
+def test_monitor_latest_blocks_provider_carry_forward(tmp_path: Path) -> None:
+    exports = tmp_path / "exports"
+    release_dir = create_release(exports)
+    manifest_path = release_dir / "manifests" / "sample_panel.manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["provider_outcome"] = {
+        "status": "reused_after_provider_failure",
+        "provider": "fixture",
+        "requested_count": 65,
+        "succeeded_count": 12,
+        "failed_count": 53,
+        "failed_series": ["MISSING"],
+        "retrieved_at": "2026-04-26T00:00:00Z",
+    }
+    manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+    try:
+        finalize_release("2026-04-26-r1", exports_root=exports, dry_run=False)
+
+        result = monitor_latest(exports_root=exports, max_age_days=9999)
+
+        assert result["status"] == "unhealthy"
+        assert any(
+            check["name"] == "sample_panel_provider_status" and not check["passed"]
+            for check in result["checks"]
+        )
     finally:
         restore_permissions(release_dir)
 

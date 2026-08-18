@@ -1,22 +1,37 @@
 from __future__ import annotations
 
-from system_runtime.paths import WorkspacePaths
-
 import hashlib
 import json
 import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
 from harvester.core.manifest import build_manifest
+from harvester.core.observation import observation_coverage_from_frame, read_observation_coverage
 from harvester.core.provenance import build_provenance
 from harvester.providers import ProviderError, build_provider
+from system_runtime.paths import WorkspacePaths
 
 logger = logging.getLogger(__name__)
+
+
+def _external_indicator_timeout_seconds() -> int:
+    """Return the bounded timeout for optional publisher feeds.
+
+    These feeds are diagnostic/secondary inputs.  A stalled publisher must
+    not consume the whole daily-run budget while the primary registry path is
+    still able to produce a governed release candidate.
+    """
+    raw = os.environ.get("HARVESTER_EXTERNAL_TIMEOUT_SEC", "10").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 10
+    return max(1, min(value, 30))
 
 OFFICIAL_SERIES_MAP: dict[str, dict[str, Any]] = {
     "fred": {
@@ -136,6 +151,18 @@ OFFICIAL_SERIES_MAP: dict[str, dict[str, Any]] = {
             "TLT": "iShares 20+ Year Treasury Bond ETF daily close via OpenBB/Tiingo.",
         },
     },
+    "etf_provider_chain": {
+        "series": ["SPY", "QQQ", "IWM", "DIA", "HYG", "LQD", "TLT"],
+        "desc": {
+            "SPY": "SPDR S&P 500 ETF Trust daily close via Tiingo/Massive/yfinance chain.",
+            "QQQ": "Invesco QQQ Trust daily close via Tiingo/Massive/yfinance chain.",
+            "IWM": "iShares Russell 2000 ETF daily close via Tiingo/Massive/yfinance chain.",
+            "DIA": "SPDR Dow Jones Industrial Average ETF daily close via Tiingo/Massive/yfinance chain.",
+            "HYG": "iShares iBoxx High Yield Corporate Bond ETF daily close via Tiingo/Massive/yfinance chain.",
+            "LQD": "iShares iBoxx Investment Grade Corporate Bond ETF daily close via Tiingo/Massive/yfinance chain.",
+            "TLT": "iShares 20+ Year Treasury Bond ETF daily close via Tiingo/Massive/yfinance chain.",
+        },
+    },
     "openbb_yfinance": {
         "series": ["SPY", "QQQ", "IWM", "DIA", "^SKEW", "^VVIX"],
         "desc": {
@@ -158,7 +185,87 @@ DEFAULT_OFFICIAL_PROVIDERS = [
     "cboe_direct",
     "openbb_tiingo",
     "openbb_yfinance",
+    "etf_provider_chain",
 ]
+
+OFFICIAL_PROVIDER_OUTCOME_STATUSES = {
+    "refreshed",
+    "reused_same_content",
+    "reused_after_provider_failure",
+    "partial_provider_success",
+    "provider_failed_no_acceptable_fallback",
+    "no_release_expected",
+    "environmentally_blocked",
+}
+
+
+def _provider_outcome(
+    *,
+    status: str,
+    provider: str,
+    requested_count: int,
+    succeeded_count: int,
+    failed_series: list[str] | None = None,
+    fallback_reason: str = "",
+    error: str = "",
+    providers_used: list[str] | None = None,
+    series_providers: dict[str, str] | None = None,
+    series_attempts: dict[str, Any] | None = None,
+    provider_chain: list[str] | None = None,
+    fallback_used: bool = False,
+) -> dict[str, Any]:
+    """Build the shared, schema-constrained acquisition outcome payload."""
+    if status not in OFFICIAL_PROVIDER_OUTCOME_STATUSES:
+        raise ValueError(f"unsupported provider outcome status: {status}")
+    failed = sorted(set(failed_series or []))
+    outcome: dict[str, Any] = {
+        "status": status,
+        "provider": provider or "unknown",
+        "requested_count": int(requested_count),
+        "succeeded_count": int(succeeded_count),
+        "failed_count": len(failed),
+        "failed_series": failed,
+        "retrieved_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    }
+    if fallback_reason:
+        outcome["fallback_reason"] = fallback_reason[:2000]
+    if error:
+        outcome["error"] = error[:2000]
+    if providers_used:
+        outcome["providers_used"] = sorted(set(str(item) for item in providers_used))
+    if series_providers:
+        outcome["series_providers"] = {
+            str(key): str(value) for key, value in sorted(series_providers.items())
+        }
+    if series_attempts:
+        outcome["series_attempts"] = {
+            str(key): value for key, value in sorted(series_attempts.items())
+        }
+    if provider_chain:
+        outcome["provider_chain"] = [str(item) for item in provider_chain]
+    if fallback_used:
+        outcome["fallback_used"] = True
+    return outcome
+
+
+def _failed_attempt_failure_classes(provider_outcome: dict[str, Any] | None) -> list[str]:
+    """Extract normalized failed-attempt categories for downstream gates."""
+    if not isinstance(provider_outcome, dict):
+        return []
+    series_attempts = provider_outcome.get("series_attempts")
+    if not isinstance(series_attempts, dict):
+        return []
+    categories: set[str] = set()
+    for attempts in series_attempts.values():
+        if not isinstance(attempts, list):
+            continue
+        for attempt in attempts:
+            if not isinstance(attempt, dict) or attempt.get("outcome") == "success":
+                continue
+            category = attempt.get("failure_class")
+            if category:
+                categories.add(str(category))
+    return sorted(categories)
 
 
 def prefer_openbb() -> bool:
@@ -192,7 +299,45 @@ def order_provider_priority(priority: list[str] | tuple[str, ...]) -> list[str]:
 
 
 def data_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "data"
+    """Return the canonical workspace data root.
+
+    The Harvester package is independently buildable, but a System checkout
+    must never infer its data authority from the package's source location.
+    The old ``parents[2] / data`` fallback pointed at
+    ``packages/harvester/data`` and could make a real refresh acquire into a
+    package-local shadow tree while publishing a release under canonical
+    ``Data/harvester/exports``.
+    """
+    try:
+        return WorkspacePaths.discover().data
+    except (RuntimeError, OSError):
+        # Standalone package tests may not have the System governance marker.
+        # Keep that mode usable, but make the fallback explicit and isolated
+        # from the canonical System path.
+        return Path(__file__).resolve().parents[2] / "data"
+
+
+def harvester_raw_root() -> Path:
+    """Return the governed Harvester raw-data root.
+
+    ``WorkspacePaths.data`` is the workspace-wide ``Data`` directory, while
+    the Harvester raw/cache contract (and freshness registry) lives under
+    ``Data/harvester/raw``.  Keeping this explicit prevents external
+    indicators from being acquired into an unmonitored ``Data/raw`` shadow
+    tree during the workspace migration.
+    """
+    try:
+        return WorkspacePaths.discover().data / "harvester" / "raw"
+    except (RuntimeError, OSError):
+        return data_root() / "raw"
+
+
+def workspace_root() -> Path:
+    """Return the System checkout root, with the standalone fallback above."""
+    try:
+        return WorkspacePaths.discover().root
+    except (RuntimeError, OSError):
+        return data_root().parent
 
 
 def _ensure_fred_api_key() -> None:
@@ -339,6 +484,9 @@ def make_manifest(
     provenance_path: str = "",
     quality_report_path: str | None = None,
     row_count: int = 0,
+    observation_start: str | None = None,
+    observation_end: str | None = None,
+    provider_outcome: dict[str, Any] | None = None,
     notes: str = "",
 ) -> dict[str, Any]:
     file_bytes = data_path.read_bytes()
@@ -349,8 +497,28 @@ def make_manifest(
         columns = _default_columns()
 
     prov_path = provenance_path or f"provenance/{dataset_id}.provenance.json"
+    actual_coverage = read_observation_coverage(
+        data_path,
+        file_format="parquet",
+        time_column="date",
+    )
+    if actual_coverage is not None:
+        actual_start = actual_coverage["start"]
+        actual_end = actual_coverage["end"]
+        if observation_start is not None and observation_start != actual_start:
+            raise ValueError(
+                f"manifest observation_start mismatch for {dataset_id}: "
+                f"declared={observation_start}, actual={actual_start}"
+            )
+        if observation_end is not None and observation_end != actual_end:
+            raise ValueError(
+                f"manifest observation_end mismatch for {dataset_id}: "
+                f"declared={observation_end}, actual={actual_end}"
+            )
+        observation_start = actual_start
+        observation_end = actual_end
 
-    return build_manifest(
+    return cast(dict[str, Any], build_manifest(
         dataset_id=dataset_id,
         release_id=release_id,
         as_of_date=as_of_date,
@@ -370,15 +538,16 @@ def make_manifest(
         },
         columns=columns,
         time_coverage={
-            "start": _date_min(data_path),
-            "end": as_of_date,
+            "start": observation_start or as_of_date,
+            "end": observation_end or as_of_date,
             "frequency": "irregular",
             "time_column": "date",
         },
         provenance_path=prov_path,
         quality_report_path=quality_report_path,
+        provider_outcome=provider_outcome,
         notes=notes,
-    )
+    ))
 
 
 def make_provenance(
@@ -390,6 +559,17 @@ def make_provenance(
     source_params: dict[str, Any] | None = None,
     final_sha256: str,
     raw_sha256: str = "",
+    provider_outcome: dict[str, Any] | None = None,
+    observation_start: str | None = None,
+    observation_end: str | None = None,
+    observation_time_column: str = "date",
+    canonical_observation_path: str | None = None,
+    canonical_observation_count: int | None = None,
+    canonical_chain_path: str | None = None,
+    canonical_chain_count: int | None = None,
+    canonical_schema_version: str | None = None,
+    measurement_spec_path: str | None = None,
+    measurement_spec_version: str | None = None,
     notes: str = "",
 ) -> dict[str, Any]:
     ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -404,13 +584,128 @@ def make_provenance(
     if raw_sha256 and len(raw_sha256) == 64:
         checksums["raw_sha256"] = raw_sha256
 
-    return build_provenance(
+    return cast(dict[str, Any], build_provenance(
         dataset_id=dataset_id,
         release_id=release_id,
         acquisition=acquisition,
         checksums=checksums,
+        provider_outcome=provider_outcome,
+        observation_start=observation_start,
+        observation_end=observation_end,
+        observation_time_column=observation_time_column,
+        canonical_observation_path=canonical_observation_path,
+        canonical_observation_count=canonical_observation_count,
+        canonical_chain_path=canonical_chain_path,
+        canonical_chain_count=canonical_chain_count,
+        canonical_schema_version=canonical_schema_version,
+        measurement_spec_path=measurement_spec_path,
+        measurement_spec_version=measurement_spec_version,
         notes=notes,
+    ))
+
+
+def _canonical_official_observations(
+    panel: pd.DataFrame,
+    *,
+    release_id: str,
+    vintage_date: str,
+    source_snapshot_sha256: str,
+    provider_outcome: dict[str, Any] | None,
+    canonical_prefix: str = "OFFICIAL",
+    producer: str = "harvester.official",
+) -> list[dict[str, Any]]:
+    """Build canonical observations for the long official panel."""
+    try:
+        from system_runtime.canonical_ids import build_observation
+    except ImportError:
+        return []
+
+    outcome = provider_outcome if isinstance(provider_outcome, dict) else {}
+    failed_series = {str(item) for item in outcome.get("failed_series", [])}
+    reused_status = {
+        "reused_after_provider_failure",
+        "provider_failed_no_acceptable_fallback",
+        "environmentally_blocked",
+    }
+    series_attempts = outcome.get("series_attempts")
+    if not isinstance(series_attempts, dict):
+        series_attempts = {}
+    required = {"date", "value"}
+    if panel.empty or not required.issubset(panel.columns):
+        return []
+
+    records: list[dict[str, Any]] = []
+    ordered = panel.sort_values(
+        [column for column in ("series_id", "source_series_id", "date") if column in panel.columns]
     )
+    for row in ordered.to_dict(orient="records"):
+        observed = pd.to_datetime(row.get("date"), errors="coerce")
+        if pd.isna(observed):
+            continue
+        raw_value = row.get("value")
+        value: float | None
+        if raw_value is None or pd.isna(raw_value):
+            value = None
+        else:
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                value = None
+        series_id = str(row.get("series_id") or row.get("source_series_id") or "").strip()
+        source_series_id = str(row.get("source_series_id") or series_id).strip()
+        if not series_id:
+            continue
+        quality_flag = row.get("quality_flag")
+        quality_text = str(quality_flag or "").lower()
+        if value is None:
+            status = "MISSING"
+        elif source_series_id in failed_series or outcome.get("status") in reused_status:
+            status = "STALE"
+        elif quality_text in {"2", "error", "missing", "source_down"} or quality_flag == 2:
+            status = "STALE"
+        else:
+            status = "AVAILABLE"
+        attempts = series_attempts.get(source_series_id, [])
+        selected_attempt = None
+        if isinstance(attempts, list):
+            selected_attempt = next(
+                (item for item in reversed(attempts) if isinstance(item, dict) and item.get("outcome") == "success"),
+                next((item for item in reversed(attempts) if isinstance(item, dict)), None),
+            )
+        provenance: dict[str, Any] = {
+            "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "producer": producer,
+            "run_id": release_id,
+            "method": "registry_provider_observation",
+            "quality_flag": quality_flag,
+            "derivation": "MODELED" if str(row.get("source_id") or "").lower() == "derived" else "OBSERVED",
+        }
+        if isinstance(selected_attempt, dict):
+            if selected_attempt.get("provider_attempt_id"):
+                provenance["provider_attempt_id"] = selected_attempt["provider_attempt_id"]
+            if selected_attempt.get("source_tier") is not None:
+                provenance["source_tier"] = selected_attempt["source_tier"]
+            if selected_attempt.get("failure_class"):
+                provenance["failure_class"] = selected_attempt["failure_class"]
+        records.append(
+            build_observation(
+                canonical_series_id=f"{canonical_prefix}:{series_id}",
+                observed_at=observed.date().isoformat(),
+                vintage_at=str(row.get("vintage_date") or vintage_date),
+                value=value,
+                source_id=str(row.get("source_id") or outcome.get("provider") or "harvester.registry"),
+                unit=str(row.get("unit") or "") or None,
+                status=status,
+                scope={
+                    "series_id": series_id,
+                    "source_series_id": source_series_id,
+                    "release_id": release_id,
+                },
+                source_snapshot_sha256=source_snapshot_sha256,
+                provenance=provenance,
+            )
+        )
+    return records
 
 
 def stage_release(
@@ -430,6 +725,41 @@ def stage_release(
 
     data_path = release_dir / "data" / "official_panel.parquet"
     panel.to_parquet(data_path, index=False)
+    panel_coverage = observation_coverage_from_frame(panel, time_column="date")
+    provider_outcome = panel.attrs.get("provider_outcome")
+    if not isinstance(provider_outcome, dict):
+        provider_outcome = None
+    panel_sha = hashlib.sha256(data_path.read_bytes()).hexdigest()
+    canonical_observations = _canonical_official_observations(
+        panel,
+        release_id=release_id,
+        vintage_date=vintage_date,
+        source_snapshot_sha256=panel_sha,
+        provider_outcome=provider_outcome,
+    )
+    canonical_observation_relpath = "provenance/official_panel.canonical_observations.jsonl"
+    canonical_observation_path = release_dir / canonical_observation_relpath
+    canonical_observation_path.write_text(
+        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in canonical_observations),
+        encoding="utf-8",
+    )
+    from harvester.core.canonical_chain import build_recorded_observation_chains
+
+    canonical_chains = build_recorded_observation_chains(
+        canonical_observations,
+        release_id=release_id,
+        producer="harvester.official",
+        measurement_definition="Official panel value recorded for the release",
+        policy_version="harvester.official.v1",
+        predicate="official_value_recorded_on",
+        label_factory=lambda observation: str(observation.get("canonical_series_id") or "official series"),
+    )
+    canonical_chain_relpath = "provenance/official_panel.canonical_chains.jsonl"
+    canonical_chain_path = release_dir / canonical_chain_relpath
+    canonical_chain_path.write_text(
+        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in canonical_chains),
+        encoding="utf-8",
+    )
 
     columns = _default_columns()
     manifest = make_manifest(
@@ -443,6 +773,7 @@ def stage_release(
         columns=columns,
         provenance_path="provenance/official_panel.provenance.json",
         row_count=len(panel),
+        provider_outcome=provider_outcome,
         notes=notes or (
             "Official public data panel aggregated from FRED, Treasury FiscalData, "
             "SEC EDGAR, and H.4.1 direct DDP CSV. "
@@ -463,6 +794,14 @@ def stage_release(
         source_identifier="harvester.providers (fred, treasury, sec, h41)",
         final_sha256=manifest["data_file"]["sha256"],
         raw_sha256="",
+        provider_outcome=provider_outcome,
+        observation_start=(panel_coverage or {}).get("start"),
+        observation_end=(panel_coverage or {}).get("end"),
+        canonical_observation_path=canonical_observation_relpath,
+        canonical_observation_count=len(canonical_observations),
+        canonical_chain_path=canonical_chain_relpath,
+        canonical_chain_count=len(canonical_chains),
+        canonical_schema_version="system.canonical_chain.v1",
         notes=notes or "Aggregated official data from multiple public sources.",
     )
 
@@ -477,6 +816,8 @@ def stage_release(
         "manifest_path": str(manifest_path),
         "provenance_path": str(prov_path),
         "row_count": len(panel),
+        "canonical_observation_count": len(canonical_observations),
+        "canonical_chain_count": len(canonical_chains),
     }
 
 
@@ -507,7 +848,7 @@ def _date_min(path: Path) -> str:
     try:
         df = pd.read_parquet(path)
         dates = pd.to_datetime(df["date"])
-        return dates.min().strftime("%Y-%m-%d")
+        return str(dates.min().strftime("%Y-%m-%d"))
     except Exception:
         return ""
 
@@ -530,7 +871,7 @@ def fetch_official_series_from_registry(
     Uses provider_priority to route each series through its primary provider.
     Returns a canonical benchmark_panel in long format.
     """
-    from harvester.registry import RegistrySeries, load_registry
+    from harvester.registry import load_registry
 
     _ensure_fred_api_key()
     registry = load_registry()
@@ -548,9 +889,17 @@ def fetch_official_series_from_registry(
         enabled = set(DEFAULT_OFFICIAL_PROVIDERS)
 
     # Per-series provider attempts (ordered); fall back when preferred provider fails.
+    requested_specs = [s for s in registry.active_series() if not s.is_derived]
+    requested_series = [s.source_series_id or s.canonical_id for s in requested_specs]
     all_results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    succeeded_series: list[str] = []
+    failed_series: list[str] = []
     provider_cache: dict[str, Any] = {}
+    providers_used: set[str] = set()
+    series_providers: dict[str, str] = {}
+    series_attempts: dict[str, Any] = {}
+    fallback_used = False
 
     def _provider(name: str):
         if name in provider_cache:
@@ -560,6 +909,11 @@ def fetch_official_series_from_registry(
             "data_root": str(dr) if dr else "",
             "cache": cache,
         }
+        if name == "etf_provider_chain":
+            provider_kwargs["api_keys"] = {
+                "tiingo": keys.get("tiingo", ""),
+                "massive": keys.get("massive", keys.get("polygon", "")),
+            }
         if name.startswith("openbb"):
             provider_kwargs["settings_env"] = keys.get("openbb_settings_env", "")
         prov = build_provider(name, **provider_kwargs)
@@ -607,9 +961,7 @@ def fetch_official_series_from_registry(
         ]
         return df[needed]
 
-    for s in registry.active_series():
-        if s.is_derived:
-            continue
+    for s in requested_specs:
         source_id = s.source_series_id or s.canonical_id
         got = False
         for provider_name in order_provider_priority(s.provider_priority):
@@ -632,8 +984,20 @@ def fetch_official_series_from_registry(
             normalized = _normalize_result(result, prov)
             if normalized is not None:
                 all_results.append(normalized)
+                succeeded_series.append(source_id)
+                selected_provider = str(result.provider or provider_name)
+                providers_used.add(selected_provider)
+                series_providers[source_id] = selected_provider
+                provider_attempts = result.source_params.get("provider_attempts")
+                if isinstance(provider_attempts, list) and provider_attempts:
+                    series_attempts[source_id] = provider_attempts
+                    fallback_used = fallback_used or len(provider_attempts) > 1
                 got = True
                 break
+            provider_attempts = result.source_params.get("provider_attempts")
+            if isinstance(provider_attempts, list) and provider_attempts:
+                series_attempts[source_id] = provider_attempts
+                fallback_used = fallback_used or len(provider_attempts) > 1
             errors.append({
                 "provider": provider_name,
                 "series_id": source_id,
@@ -641,18 +1005,71 @@ def fetch_official_series_from_registry(
                 "fallback_reason": result.fetch_fallback_reason,
             })
         if not got:
+            failed_series.append(source_id)
             logger.debug("no provider succeeded for %s", source_id)
+
+    if not requested_series:
+        outcome = _provider_outcome(
+            status="no_release_expected",
+            provider="harvester.registry",
+            requested_count=0,
+            succeeded_count=0,
+        )
+    elif not all_results:
+        error_text = "; ".join(
+            f"{item.get('provider', 'unknown')}/{item.get('series_id', '')}: "
+            f"{item.get('error', 'unknown')}"
+            for item in errors
+        )
+        outcome = _provider_outcome(
+            status="provider_failed_no_acceptable_fallback",
+            provider="harvester.registry",
+            requested_count=len(requested_series),
+            succeeded_count=0,
+            failed_series=failed_series or requested_series,
+            fallback_reason="all_requested_series_failed",
+            error=error_text or "no provider returned usable rows",
+            providers_used=sorted(providers_used),
+            series_providers=series_providers,
+            series_attempts=series_attempts,
+            fallback_used=fallback_used,
+        )
+    else:
+        outcome = _provider_outcome(
+            status=("partial_provider_success" if failed_series else "refreshed"),
+            provider="harvester.registry",
+            requested_count=len(requested_series),
+            succeeded_count=len(set(succeeded_series)),
+            failed_series=failed_series,
+            fallback_reason="some_requested_series_failed" if failed_series else "",
+            error=(
+                "; ".join(
+                    f"{item.get('provider', 'unknown')}/{item.get('series_id', '')}: "
+                    f"{item.get('error', 'unknown')}"
+                    for item in errors
+                )
+                if errors
+                else ""
+            ),
+            providers_used=sorted(providers_used),
+            series_providers=series_providers,
+            series_attempts=series_attempts,
+            fallback_used=fallback_used,
+        )
 
     if not all_results:
         logger.warning("fetch_official_series_from_registry: no data returned")
-        return pd.DataFrame(columns=[
+        empty = pd.DataFrame(columns=[
             "date", "series_id", "source_id", "source_series_id",
             "value", "unit", "frequency", "vintage_date", "quality_flag",
         ])
+        empty.attrs["provider_outcome"] = outcome
+        return empty
 
     panel = pd.concat(all_results, ignore_index=True)
     panel["date"] = pd.to_datetime(panel["date"])
     panel = panel.sort_values(["series_id", "date"]).reset_index(drop=True)
+    panel.attrs["provider_outcome"] = outcome
     return panel
 
 
@@ -712,13 +1129,9 @@ def build_proxy_candidate_panel(
     Includes TEDRATE replacements, volatility term structure, Roll spread,
     and legacy synthetic MOVE proxy.
     """
-    proxy_ids = {
-        "SOFR_IORB_SPREAD",
-        "CP_TBILL_SPREAD",
-        "VIX3M_VIX_SLOPE",
-        "SPX_ROLL_SPREAD",
-        "MOVE_PROXY",
-    }
+    from harvester.core.proxy_measurement import PROXY_SERIES_IDS
+
+    proxy_ids = PROXY_SERIES_IDS
     candidates = derived_panel[derived_panel["source_series_id"].isin(proxy_ids)].copy()
     return candidates.sort_values(["series_id", "date"]).reset_index(drop=True)
 
@@ -749,7 +1162,7 @@ def _release_panel_candidates(exports_root: Path, *, exclude_release_id: str = "
             if not exclude_release_id or resolved.name != exclude_release_id:
                 ordered.append(resolved / "data" / "benchmark_panel.parquet")
         except OSError:
-            pass
+            logger.warning("Unable to resolve latest Harvester release pointer: %s", latest, exc_info=True)
     for path in sorted(exports_root.glob("*/data/benchmark_panel.parquet"), reverse=True):
         if exclude_release_id and path.parent.parent.name == exclude_release_id:
             continue
@@ -772,7 +1185,16 @@ def _carry_forward_missing_series(
     """
     from harvester.registry import load_registry
 
+    provider_outcome = panel.attrs.get("provider_outcome")
+    if isinstance(provider_outcome, dict):
+        provider_outcome = dict(provider_outcome)
+
     registry = load_registry()
+    required_specs = registry.required_series() if hasattr(registry, "required_series") else []
+    required_for_release = {
+        series.source_series_id or series.canonical_id
+        for series in required_specs
+    }
     expected: set[str] = set()
     for series in registry.active_series():
         if series.is_derived:
@@ -792,7 +1214,12 @@ def _carry_forward_missing_series(
             continue
         try:
             previous = pd.read_parquet(path)
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Unable to read prior release panel %s: %s",
+                path,
+                type(exc).__name__,
+            )
             continue
         if previous.empty or "series_id" not in previous.columns:
             continue
@@ -817,9 +1244,48 @@ def _carry_forward_missing_series(
         len(carried),
         carried["series_id"].nunique(),
     )
+    if isinstance(provider_outcome, dict):
+        carried_ids = set()
+        if "source_series_id" in carried.columns:
+            carried_ids.update(carried["source_series_id"].dropna().astype(str))
+        elif "series_id" in carried.columns:
+            carried_ids.update(
+                carried["series_id"].dropna().astype(str).map(
+                    lambda value: value.split(":", 1)[1] if ":" in value else value
+                )
+            )
+        provider_failed_ids = set(provider_outcome.get("failed_series", []))
+        failed_ids = set(provider_failed_ids)
+        failed_ids.update(carried_ids)
+        provider_outcome["failed_series"] = sorted(failed_ids)
+        provider_outcome["failed_count"] = len(failed_ids)
+        # A provider failure for a required-for-release series cannot become
+        # an authoritative release.  Classify from the provider's failed
+        # identifiers first: a carried row can satisfy a required alias (for
+        # example CBOE:MOVE/VXTLT) even when the failed request itself was an
+        # optional series.  Treating every carried row whose source id happens
+        # to be required would therefore turn an optional outage into a
+        # whole-run failure.  Optional series remain degraded evidence; the
+        # downstream admission policy stays CONDITIONAL and still blocks
+        # decision/current publication.
+        required_failed = provider_failed_ids & required_for_release
+        if required_failed:
+            provider_outcome["status"] = "reused_after_provider_failure"
+            provider_outcome["fallback_reason"] = (
+                "carried_forward_required_series_after_provider_failure"
+            )
+        else:
+            provider_outcome["status"] = "partial_provider_success"
+            provider_outcome["fallback_reason"] = (
+                "carried_forward_optional_series_after_provider_failure"
+            )
     if panel.empty:
-        return carried.reset_index(drop=True)
-    return pd.concat([panel, carried], ignore_index=True)
+        result = carried.reset_index(drop=True)
+    else:
+        result = pd.concat([panel, carried], ignore_index=True)
+    if isinstance(provider_outcome, dict):
+        result.attrs["provider_outcome"] = provider_outcome
+    return result
 
 
 def stage_complete_release(
@@ -846,9 +1312,7 @@ def stage_complete_release(
     Returns a dict with release metadata suitable for finalization.
     """
     from harvester.derived import (
-        build_derived_manifest,
         build_derived_panel,
-        build_derived_provenance,
     )
     from harvester.quality import build_quality_report, write_quality_report
     from harvester.registry import load_registry
@@ -879,6 +1343,9 @@ def stage_complete_release(
         exports_root=ex_root,
         exclude_release_id=release_id,
     )
+    provider_outcome = panel.attrs.get("provider_outcome")
+    if not isinstance(provider_outcome, dict):
+        provider_outcome = None
 
     # ------------------------------------------------------------------
     # 2. Build derived series
@@ -905,11 +1372,14 @@ def stage_complete_release(
             )
             ext_results: dict[str, pd.Series] = {}
             for indicator in KNOWN_INDICATORS:
-                cache_dir = data_root() / "raw" / "external_indicators"
+                cache_dir = harvester_raw_root() / "external_indicators"
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 try:
                     result = fetch_external_indicator(
-                        indicator, cache_dir=cache_dir, refresh=not cache, timeout_sec=30
+                        indicator,
+                        cache_dir=cache_dir,
+                        refresh=not cache,
+                        timeout_sec=_external_indicator_timeout_seconds(),
                     )
                 except ManualDownloadRequired as exc:
                     logger.warning("external indicator unavailable: %s", exc)
@@ -938,8 +1408,41 @@ def stage_complete_release(
     benchmark.to_parquet(bench_path, index=False)
     bench_sha = hashlib.sha256(bench_path.read_bytes()).hexdigest()
     bench_size = bench_path.stat().st_size
+    benchmark_observations = _canonical_official_observations(
+        benchmark,
+        release_id=release_id,
+        vintage_date=vintage_date,
+        source_snapshot_sha256=bench_sha,
+        provider_outcome=provider_outcome,
+        canonical_prefix="BENCHMARK",
+        producer="harvester.complete",
+    )
+    benchmark_observation_relpath = "provenance/benchmark_panel.canonical_observations.jsonl"
+    benchmark_observation_path = release_dir / benchmark_observation_relpath
+    benchmark_observation_path.write_text(
+        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_observations),
+        encoding="utf-8",
+    )
+    from harvester.core.canonical_chain import build_recorded_observation_chains
+
+    benchmark_chains = build_recorded_observation_chains(
+        benchmark_observations,
+        release_id=release_id,
+        producer="harvester.complete",
+        measurement_definition="Benchmark panel value recorded for the release",
+        policy_version="harvester.benchmark_panel.v1",
+        predicate="benchmark_value_recorded_on",
+        label_factory=lambda observation: str(observation.get("canonical_series_id") or "benchmark series"),
+    )
+    benchmark_chain_relpath = "provenance/benchmark_panel.canonical_chains.jsonl"
+    benchmark_chain_path = release_dir / benchmark_chain_relpath
+    benchmark_chain_path.write_text(
+        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_chains),
+        encoding="utf-8",
+    )
 
     panel_dates = pd.to_datetime(benchmark["date"])
+    benchmark_coverage = observation_coverage_from_frame(benchmark, time_column="date")
     bench_manifest = make_manifest(
         dataset_id="benchmark_panel",
         release_id=release_id,
@@ -952,6 +1455,7 @@ def stage_complete_release(
         provenance_path="provenance/benchmark_panel.provenance.json",
         quality_report_path="quality_reports/benchmark_panel.quality.json",
         row_count=len(benchmark),
+        provider_outcome=provider_outcome,
         notes=notes or "Complete benchmark panel: acquired + derived + external indicators.",
     )
     bench_manifest["data_file"]["sha256"] = bench_sha
@@ -969,6 +1473,14 @@ def stage_complete_release(
         method="api_client",
         source_identifier="harvester.registry + derived + external_indicators",
         final_sha256=bench_sha,
+        provider_outcome=provider_outcome,
+        observation_start=(benchmark_coverage or {}).get("start"),
+        observation_end=(benchmark_coverage or {}).get("end"),
+        canonical_observation_path=benchmark_observation_relpath,
+        canonical_observation_count=len(benchmark_observations),
+        canonical_chain_path=benchmark_chain_relpath,
+        canonical_chain_count=len(benchmark_chains),
+        canonical_schema_version="system.canonical_chain.v1",
         notes=notes or "Aggregated from registry-defined providers + derived computations.",
     )
     (release_dir / "provenance" / "benchmark_panel.provenance.json").write_text(
@@ -979,6 +1491,7 @@ def stage_complete_release(
             benchmark,
             as_of_date=as_of_date,
             required_columns=["date", "series_id", "source_id", "source_series_id", "value"],
+            provider_outcome=provider_outcome,
         ),
         release_dir,
         "benchmark_panel",
@@ -1000,6 +1513,27 @@ def stage_complete_release(
     proxy_sha = hashlib.sha256(proxy_path.read_bytes()).hexdigest()
     proxy_size = proxy_path.stat().st_size
     proxy_row_count = len(proxy_candidates)
+    proxy_coverage = observation_coverage_from_frame(proxy_candidates, time_column="date")
+
+    # Keep proxy candidates explicit and non-authoritative.  The measurement
+    # specification records the source ladder, missingness semantics, and
+    # promotion ceiling without emitting a canonical Observation->Claim chain.
+    from harvester.core.proxy_measurement import (
+        SCHEMA_VERSION as PROXY_MEASUREMENT_SPEC_VERSION,
+        build_proxy_measurement_spec,
+    )
+
+    proxy_measurement_spec = build_proxy_measurement_spec(
+        release_id=release_id,
+        derived_series=derived_series,
+        registry=registry,
+        candidate_panel=proxy_candidates,
+    )
+    proxy_measurement_spec_relpath = "provenance/proxy_candidate_panel.measurement_spec.json"
+    (release_dir / proxy_measurement_spec_relpath).write_text(
+        json.dumps(proxy_measurement_spec, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     proxy_manifest = make_manifest(
         dataset_id="proxy_candidate_panel",
@@ -1028,6 +1562,10 @@ def stage_complete_release(
         method="computed",
         source_identifier="harvester.derived",
         final_sha256=proxy_sha,
+        observation_start=(proxy_coverage or {}).get("start"),
+        observation_end=(proxy_coverage or {}).get("end"),
+        measurement_spec_path=proxy_measurement_spec_relpath,
+        measurement_spec_version=PROXY_MEASUREMENT_SPEC_VERSION,
         notes="Derived proxy series for Deformation routing.",
     )
     (release_dir / "provenance" / "proxy_candidate_panel.provenance.json").write_text(
@@ -1047,7 +1585,10 @@ def stage_complete_release(
     # ------------------------------------------------------------------
     # 6b. Cross-asset ETF panel (Harvester evidence bundle)
     # ------------------------------------------------------------------
-    from harvester.cross_asset_panel import stage_cross_asset_panel
+    from harvester.cross_asset_panel import (
+        prefetched_panel_from_registry,
+        stage_cross_asset_panel,
+    )
 
     cross_asset_info = stage_cross_asset_panel(
         release_dir,
@@ -1057,7 +1598,10 @@ def stage_complete_release(
         # CLI is normally launched from packages/harvester; derive the shared
         # System workspace from the canonical data root so history is merged
         # from /System/Data rather than an accidental package-local /Data.
-        workspace=data_root().resolve().parents[1],
+        workspace=workspace_root(),
+        # HYG/LQD/TLT may already have been acquired by the registry phase.
+        # Reuse those rows and request only the remaining cross-asset symbols.
+        prefetched_panel=prefetched_panel_from_registry(panel, workspace=workspace_root()),
     )
 
     # ------------------------------------------------------------------
@@ -1153,6 +1697,24 @@ def stage_complete_release(
         empty_panels=["corpus_index"] if proxy_row_count == 0 else [],
         cross_asset_row_count=int(cross_asset_info.get("row_count", 0)),
         cross_asset_symbol_count=int(cross_asset_info.get("symbol_count", 0)),
+        cross_asset_provider_status=(
+            cross_asset_info.get("provider_outcome", {}).get("status")
+            if isinstance(cross_asset_info.get("provider_outcome"), dict)
+            else None
+        ),
+        benchmark_provider_status=(
+            provider_outcome.get("status")
+            if isinstance(provider_outcome, dict)
+            else None
+        ),
+        provider_failure_classes={
+            scope: categories
+            for scope, categories in {
+                "cross_asset": _failed_attempt_failure_classes(cross_asset_info.get("provider_outcome")),
+                "benchmark": _failed_attempt_failure_classes(provider_outcome),
+            }.items()
+            if categories
+        },
     )
     write_gate_report(gate_result, release_id, release_dir)
 
@@ -1161,10 +1723,12 @@ def stage_complete_release(
         "release_dir": str(release_dir),
         "benchmark_path": str(bench_path),
         "proxy_path": str(proxy_path),
+        "proxy_measurement_spec_path": str(release_dir / proxy_measurement_spec_relpath),
         "cross_asset_path": cross_asset_info.get("data_path"),
         "benchmark_rows": len(benchmark),
         "proxy_rows": proxy_row_count,
         "cross_asset_rows": cross_asset_info.get("row_count", 0),
+        "cross_asset_provider_outcome": cross_asset_info.get("provider_outcome", {}),
         "derived_series": [s.canonical_id for s in derived_series],
         "gate_state": gate_result.state,
         "gate_passed": gate_result.passed,

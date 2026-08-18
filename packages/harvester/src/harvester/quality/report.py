@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from harvester.core.observation import observation_coverage_from_frame
+
+logger = logging.getLogger(__name__)
 
 
 def build_quality_report(
@@ -15,10 +20,12 @@ def build_quality_report(
     time_col: str = "date",
     required_columns: list[str] | None = None,
     allow_empty: bool = False,
+    provider_outcome: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     blockers: list[str] = []
     warnings: list[str] = []
+    observation_coverage: dict[str, Any] | None = None
 
     required = required_columns or []
     _record_check(
@@ -51,7 +58,7 @@ def build_quality_report(
             schema.validate(df, lazy=True)
             _record_check(checks, "pandera_required_columns", True, "ok", warnings, severity="warn")
         except ImportError:
-            pass
+            logger.debug("Pandera is unavailable; using built-in quality checks")
         except Exception as exc:  # noqa: BLE001
             _record_check(
                 checks,
@@ -69,6 +76,8 @@ def build_quality_report(
         if dates.notna().any():
             max_date = dates.max().date()
             min_date = dates.min().date()
+            if null_dates == 0:
+                observation_coverage = observation_coverage_from_frame(df, time_column=time_col)
             as_of = date.fromisoformat(as_of_date[:10])
             # Allow 5-day buffer for series with future effective dates (e.g. IORB)
             future_threshold = as_of + timedelta(days=5)
@@ -98,7 +107,7 @@ def build_quality_report(
             null_rates[column] = float(df[column].isna().sum() / len(df))
 
     status = "failed" if blockers else "warning" if warnings else "passed"
-    return {
+    report = {
         "quality_report_version": "1.0",
         "dataset_id": dataset_id,
         "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -110,6 +119,11 @@ def build_quality_report(
         "warnings": warnings,
         "null_rates": null_rates,
     }
+    if observation_coverage is not None:
+        report["observation_coverage"] = observation_coverage
+    if provider_outcome is not None:
+        report["provider_outcome"] = provider_outcome
+    return report
 
 
 def write_quality_report(report: dict[str, Any], release_dir: Path, dataset_id: str) -> Path:

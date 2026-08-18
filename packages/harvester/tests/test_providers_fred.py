@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
 
-import pandas as pd
+import httpx
 import pytest
 
-from harvester.providers.fred import FredProvider
+import harvester.http_gateway as gateway_module
+from harvester.http_gateway import OwnedHTTPGateway
+from harvester.providers.fred import FRED_MAX_RESPONSE_BYTES, FredProvider
 
 FRED_OBS_RESPONSE = {
     "realtime_start": "2026-04-01",
@@ -26,28 +27,31 @@ FRED_OBS_RESPONSE = {
 
 
 def _mock_response(json_data: dict, status: int = 200, text: str = ""):
-    resp = MagicMock()
-    resp.json.return_value = json_data
-    resp.status_code = status
-    resp.content = json.dumps(json_data).encode("utf-8")
-    resp.text = text or json.dumps(json_data)
-    resp.raise_for_status = MagicMock()
-    if status >= 400:
-        from requests.exceptions import HTTPError
+    content = (text or json.dumps(json_data)).encode("utf-8")
+    return httpx.Response(status, content=content)
 
-        resp.raise_for_status.side_effect = HTTPError(response=resp)
-    return resp
+
+def _gateway(response: httpx.Response) -> OwnedHTTPGateway:
+    return OwnedHTTPGateway(transport=httpx.MockTransport(lambda _request: response))
+
+
+@pytest.fixture(autouse=True)
+def _allow_fake_gateway_hosts(monkeypatch):
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
 
 
 class TestFredProvider:
-    def test_parse_observations(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(FRED_OBS_RESPONSE)
-            mock_session_cls.return_value = mock_session
+    def test_default_gateway_has_bounded_large_series_budget(self, tmp_path) -> None:
+        prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False)
+        try:
+            assert prov._gateway._max_response_bytes == FRED_MAX_RESPONSE_BYTES
+            assert FRED_MAX_RESPONSE_BYTES == 4_000_000
+        finally:
+            prov._gateway.close()
 
-            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False)
+    def test_parse_observations(self, tmp_path) -> None:
+        with _gateway(_mock_response(FRED_OBS_RESPONSE)) as gateway:
+            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["T10Y2Y"])
 
             assert len(results) == 1
@@ -70,13 +74,8 @@ class TestFredProvider:
         assert results[0].frame.empty
 
     def test_http_error(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, status=500, text="Server Error")
-            mock_session_cls.return_value = mock_session
-
-            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, status=500, text="Server Error")) as gateway:
+            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["T10Y2Y"])
 
             assert len(results) == 1
@@ -84,15 +83,8 @@ class TestFredProvider:
             assert results[0].frame.empty
 
     def test_bad_request_invalid_series(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(
-                {}, status=400, text="Bad Request"
-            )
-            mock_session_cls.return_value = mock_session
-
-            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, status=400, text="Bad Request")) as gateway:
+            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["NONEXISTENT"])
 
             assert len(results) == 1
@@ -101,13 +93,8 @@ class TestFredProvider:
 
     def test_empty_observations(self, tmp_path) -> None:
         empty_response = dict(FRED_OBS_RESPONSE, observations=[])
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(empty_response)
-            mock_session_cls.return_value = mock_session
-
-            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response(empty_response)) as gateway:
+            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["T10Y2Y"])
 
             assert len(results) == 1
@@ -115,13 +102,8 @@ class TestFredProvider:
             assert "no observations" in results[0].fetch_error
 
     def test_to_long_panel(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(FRED_OBS_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response(FRED_OBS_RESPONSE)) as gateway:
+            prov = FredProvider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["T10Y2Y", "DFF"])
 
             assert len(results) == 2

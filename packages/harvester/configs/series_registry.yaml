@@ -40,6 +40,11 @@ providers:
     kind: public_api
     url: openbb:equity.price.historical
     note: "OpenBB/yfinance EOD ETF OHLCV. No API key required; fallback for tiingo."
+  etf_provider_chain:
+    source_id: etf_provider_chain
+    kind: public_api
+    url: provider-chain:tiingo,massive,yfinance
+    note: "Cross-asset ETF EOD chain. Source selected per ticker and recorded in the release manifest."
   direct_ofr:
     source_id: ofr
     kind: public_file
@@ -360,7 +365,7 @@ series:
   # -------------------------------------------------------------------
   HYG:
     canonical_id: HYG
-    provider_priority: [openbb_yfinance, openbb_tiingo]
+    provider_priority: [etf_provider_chain]
     measurement_block: depth
     structural_role: high_yield_etf_price
     frequency: daily
@@ -368,11 +373,11 @@ series:
     required_for_release: false
     required_for_model_input: true
     quality_expectation: observed
-    description: "iShares iBoxx High Yield Corporate Bond ETF daily close via Tiingo/OpenBB."
+    description: "iShares iBoxx High Yield Corporate Bond ETF daily close via the owned Tiingo/Massive/yfinance chain."
 
   LQD:
     canonical_id: LQD
-    provider_priority: [openbb_yfinance, openbb_tiingo]
+    provider_priority: [etf_provider_chain]
     measurement_block: depth
     structural_role: investment_grade_etf_price
     frequency: daily
@@ -380,11 +385,11 @@ series:
     required_for_release: false
     required_for_model_input: true
     quality_expectation: observed
-    description: "iShares iBoxx Investment Grade Corporate Bond ETF daily close via Tiingo/OpenBB."
+    description: "iShares iBoxx Investment Grade Corporate Bond ETF daily close via the owned Tiingo/Massive/yfinance chain."
 
   TLT:
     canonical_id: TLT
-    provider_priority: [openbb_yfinance, openbb_tiingo]
+    provider_priority: [etf_provider_chain]
     measurement_block: depth
     structural_role: treasury_duration_etf_price
     frequency: daily
@@ -392,7 +397,7 @@ series:
     required_for_release: false
     required_for_model_input: false
     quality_expectation: observed
-    description: "iShares 20+ Year Treasury Bond ETF daily close via Tiingo/OpenBB."
+    description: "iShares 20+ Year Treasury Bond ETF daily close via the owned Tiingo/Massive/yfinance chain."
 
   SOFR:
     canonical_id: SOFR

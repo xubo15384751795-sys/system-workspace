@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system.measurement_spec.v1",
+  "title": "Proxy Measurement Specification",
+  "description": "Explicit boundary for derived proxy candidates that are not promotion-authoritative research measurements.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "spec_id",
+    "dataset_id",
+    "release_id",
+    "status",
+    "derivation",
+    "target_variable",
+    "measurement_definition",
+    "candidate_series",
+    "missingness_policy",
+    "claim_ceiling",
+    "promotion_allowed",
+    "promotion_requirements",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "system.measurement_spec.v1"
+    },
+    "spec_id": {
+      "type": "string",
+      "pattern": "^mspec_[a-z0-9_]+$"
+    },
+    "dataset_id": {
+      "type": "string",
+      "const": "proxy_candidate_panel"
+    },
+    "release_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "const": "CANDIDATE"
+    },
+    "derivation": {
+      "type": "string",
+      "const": "PROXY_DERIVED"
+    },
+    "target_variable": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measurement_definition": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_row_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "candidate_series": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidate_series" }
+    },
+    "missingness_policy": {
+      "$ref": "#/$defs/missingness_policy"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "const": "diagnostic_proxy_candidate_only"
+    },
+    "promotion_allowed": {
+      "type": "boolean",
+      "const": false
+    },
+    "promotion_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "$defs": {
+    "candidate_series": {
+      "type": "object",
+      "required": [
+        "canonical_series_id",
+        "source_series_id",
+        "formula",
+        "inputs",
+        "structural_role",
+        "quality_expectation",
+        "source_ladder",
+        "row_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "canonical_series_id": { "type": "string", "minLength": 1 },
+        "source_series_id": { "type": "string", "minLength": 1 },
+        "formula": { "type": "string" },
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "structural_role": { "type": "string", "minLength": 1 },
+        "quality_expectation": { "type": "string", "minLength": 1 },
+        "source_ladder": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/source_ladder_entry" }
+        },
+        "row_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source_ladder_entry": {
+      "type": "object",
+      "required": ["tier", "input_series_ids", "source_ids", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": { "type": "integer", "minimum": 1 },
+        "input_series_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "role": {
+          "type": "string",
+          "enum": ["PRIMARY", "FALLBACK", "COMPUTED", "UNRESOLVED"]
+        }
+      }
+    },
+    "missingness_policy": {
+      "type": "object",
+      "required": ["recognized_states", "stale_states", "blocked_states", "imputation_allowed", "carry_forward_allowed"],
+      "additionalProperties": false,
+      "properties": {
+        "recognized_states": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/availability_status" }
+        },
+        "stale_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/availability_status" }
+        },
+        "blocked_states": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/availability_status" }
+        },
+        "imputation_allowed": { "type": "boolean", "const": false },
+        "carry_forward_allowed": { "type": "boolean", "const": false }
+      }
+    },
+    "availability_status": {
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "STALE",
+        "DELAYED",
+        "MISSING",
+        "NOT_APPLICABLE",
+        "SOURCE_DOWN",
+        "SCHEMA_CHANGED",
+        "DISCONTINUED",
+        "UNKNOWN"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["captured_at", "producer"],
+      "additionalProperties": false,
+      "properties": {
+        "captured_at": { "type": "string", "format": "date-time" },
+        "producer": { "type": "string", "const": "harvester.derived_proxy" },
+        "release_id": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

@@ -178,9 +178,140 @@
       },
       "description": "Optional environment metadata for reproducibility."
     },
+    "provider_outcome": {
+      "$ref": "#/$defs/provider_outcome",
+      "description": "Structured acquisition outcome for provider-backed datasets."
+    },
+    "observation_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "time_column"],
+      "properties": {
+        "start": { "type": "string", "format": "date" },
+        "end": { "type": "string", "format": "date" },
+        "time_column": { "type": "string", "minLength": 1 }
+      },
+      "description": "Actual observation interval derived from the final data bytes."
+    },
+    "canonical_observation_path": {
+      "type": "string",
+      "pattern": "^provenance/[^/]+\\.canonical_observations\\.jsonl$",
+      "description": "Release-relative JSONL file containing canonical Observation records."
+    },
+    "canonical_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "canonical_chain_path": {
+      "type": "string",
+      "pattern": "^provenance/[^/]+\\.canonical_chains\\.jsonl$",
+      "description": "Release-relative JSONL file containing complete canonical Observation -> Measurement -> Evidence -> Claim records."
+    },
+    "canonical_chain_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "canonical_schema_version": {
+      "type": "string",
+      "const": "system.canonical_chain.v1"
+    },
+    "measurement_spec_path": {
+      "type": "string",
+      "pattern": "^provenance/[^/]+\\.measurement_spec\\.json$",
+      "description": "Release-relative JSON file containing a target-specific measurement specification."
+    },
+    "measurement_spec_version": {
+      "type": "string",
+      "const": "system.measurement_spec.v1"
+    },
     "notes": {
       "type": "string",
       "maxLength": 4000
+    }
+  },
+  "$defs": {
+    "provider_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "provider", "requested_count", "succeeded_count", "failed_count", "retrieved_at"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "refreshed",
+            "reused_same_content",
+            "reused_after_provider_failure",
+            "partial_provider_success",
+            "provider_failed_no_acceptable_fallback",
+            "no_release_expected",
+            "environmentally_blocked"
+          ]
+        },
+        "provider": { "type": "string", "minLength": 1 },
+        "requested_count": { "type": "integer", "minimum": 0 },
+        "succeeded_count": { "type": "integer", "minimum": 0 },
+        "failed_count": { "type": "integer", "minimum": 0 },
+        "failed_series": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "fallback_reason": { "type": "string", "maxLength": 2000 },
+        "error": { "type": "string", "maxLength": 2000 },
+        "providers_used": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "series_providers": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "series_attempts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "reason", "error"],
+              "properties": {
+                "provider_attempt_id": {
+                  "type": "string",
+                  "pattern": "^att_[0-9a-f]{32}$"
+                },
+                "attempt_number": { "type": "integer", "minimum": 1 },
+                "provider": { "type": "string", "minLength": 1 },
+                "source_tier": { "type": "integer", "minimum": 1 },
+                "reason": { "type": "string", "minLength": 1 },
+                "error": { "type": "string", "maxLength": 300 },
+                "outcome": { "type": "string", "enum": ["success", "failed"] },
+                "retryable": { "type": "boolean" },
+                "failure_class": {
+                  "type": "string",
+                  "enum": ["NONE", "NO_DATA", "PROVIDER_DOWN", "NETWORK", "SCHEMA_CHANGED", "PARSER", "PERMISSION", "RATE_LIMIT", "UNKNOWN"]
+                }
+              }
+            }
+          }
+        },
+        "prefetched_series": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "prefetch_owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_chain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "fallback_used": { "type": "boolean" },
+        "retrieved_at": { "type": "string", "format": "date-time" }
+      }
     }
   }
 }

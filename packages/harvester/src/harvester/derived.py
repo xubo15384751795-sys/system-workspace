@@ -7,14 +7,15 @@ included in a release with the same rigor as acquired series.
 
 from __future__ import annotations
 
-import hashlib
-import json
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
 
 from harvester.registry import RegistrySeries
+
+logger = logging.getLogger(__name__)
 
 
 def build_derived_panel(
@@ -34,7 +35,12 @@ def build_derived_panel(
             frame = compute_derived(series, acquired_panel, as_of_date=as_of_date, vintage_date=vintage_date)
             if frame is not None and not frame.empty:
                 frames.append(frame)
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Derived series computation failed for %s: %s",
+                getattr(series, "canonical_id", "unknown"),
+                type(exc).__name__,
+            )
             continue
 
     if not frames:
@@ -71,7 +77,12 @@ def compute_derived(
     # Compute the formula
     try:
         result = _eval_formula(formula, inputs, wide)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Derived formula evaluation failed for %s: %s",
+            series.canonical_id,
+            type(exc).__name__,
+        )
         return None
 
     if result is None or result.empty:
@@ -178,11 +189,13 @@ def build_derived_provenance(
     release_id: str,
     final_sha256: str,
     input_sha256s: dict[str, str] | None = None,
+    observation_start: str | None = None,
+    observation_end: str | None = None,
     notes: str = "",
 ) -> dict[str, Any]:
     """Build provenance record for a derived series."""
     ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    return {
+    provenance = {
         "schema_version": "1.0",
         "dataset_id": series.canonical_id,
         "dataset_revision": 1,
@@ -210,6 +223,15 @@ def build_derived_provenance(
         "checksums": {"final_sha256": final_sha256},
         "notes": notes or f"Derived from: {', '.join(series.inputs)}. Synthetic: {series.is_synthetic}.",
     }
+    if observation_start is not None or observation_end is not None:
+        if not observation_start or not observation_end:
+            raise ValueError("derived observation coverage requires start and end")
+        provenance["observation_coverage"] = {
+            "start": observation_start,
+            "end": observation_end,
+            "time_column": "date",
+        }
+    return provenance
 
 
 # ---------------------------------------------------------------------------

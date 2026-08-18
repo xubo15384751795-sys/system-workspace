@@ -6,13 +6,21 @@ import time
 from typing import Any
 
 import pandas as pd
-import requests
 
+from harvester.http_gateway import (
+    GatewayError,
+    GatewayHTTPError,
+    OwnedHTTPGateway,
+)
 from harvester.providers.base import OfficialProvider, ProviderResult
 
 logger = logging.getLogger(__name__)
 
 FRED_BASE = "https://api.stlouisfed.org/fred"
+# DFF has a long daily history and its JSON response is larger than the
+# generic provider gateway budget.  Keep the limit finite, but give this
+# allowlisted endpoint enough room for the largest admitted FRED series.
+FRED_MAX_RESPONSE_BYTES = 4_000_000
 
 
 class FredProvider(OfficialProvider):
@@ -24,12 +32,14 @@ class FredProvider(OfficialProvider):
         data_root: str = "",
         cache: bool = True,
         user_agent: str = "StructuralRiskHarvester/0.1.0",
+        gateway: OwnedHTTPGateway | None = None,
     ) -> None:
         super().__init__(data_root=data_root, cache=cache, user_agent=user_agent)
         self._api_key = api_key or os.environ.get("FRED_API_KEY", "")
-        self._session = requests.Session()
-        self._session.headers.update({"User-Agent": user_agent})
-        self._session.trust_env = False  # 不使用环境变量中的代理
+        self._gateway = gateway or OwnedHTTPGateway(
+            headers={"User-Agent": user_agent},
+            max_response_bytes=FRED_MAX_RESPONSE_BYTES,
+        )
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
         if not self._api_key:
@@ -47,53 +57,7 @@ class FredProvider(OfficialProvider):
         return results
 
     def _fetch_one(self, series_id: str) -> ProviderResult:
-        # Prefer official fredapi client when installed; fall back to raw HTTP.
-        sdk_result = self._fetch_one_fredapi(series_id)
-        if sdk_result is not None:
-            return sdk_result
         return self._fetch_one_http(series_id)
-
-    def _fetch_one_fredapi(self, series_id: str) -> ProviderResult | None:
-        try:
-            from fredapi import Fred
-        except ImportError:
-            return None
-        try:
-            fred = Fred(api_key=self._api_key)
-            series = fred.get_series(series_id)
-        except Exception as exc:  # noqa: BLE001 — provider boundary
-            logger.warning("fredapi failed for %s (%s); falling back to HTTP", series_id, exc)
-            return None
-        if series is None or len(series) == 0:
-            return self._build_error_result(series_id, "no observations returned", "empty")
-        rows: list[dict[str, Any]] = []
-        for ts, val in series.items():
-            if val is None or (isinstance(val, float) and pd.isna(val)):
-                continue
-            try:
-                numeric = float(val)
-            except (ValueError, TypeError):
-                continue
-            date_val = ts.date().isoformat() if hasattr(ts, "date") else str(ts)[:10]
-            rows.append({
-                "date": date_val,
-                "value": numeric,
-                "unit": "",
-                "frequency": "",
-            })
-        if not rows:
-            return self._build_error_result(series_id, "all values unparseable", "empty")
-        df = pd.DataFrame(rows)
-        df["date"] = pd.to_datetime(df["date"])
-        if self._cache:
-            self._write_raw(series_id, df.to_csv(index=False).encode("utf-8"))
-        return ProviderResult(
-            provider=self.source_id,
-            series_id=series_id,
-            frame=df,
-            source_url=f"{FRED_BASE}/series/observations",
-            source_params={"series_id": series_id, "client": "fredapi"},
-        )
 
     def _fetch_one_http(self, series_id: str) -> ProviderResult:
         url = f"{FRED_BASE}/series/observations"
@@ -104,7 +68,7 @@ class FredProvider(OfficialProvider):
             "sort_order": "asc",
         }
         try:
-            resp = self._session.get(url, params=params, timeout=30)
+            resp = self._gateway.fetch("fred", "series_observations", params)
             if resp.status_code == 400 and "Bad Request" in resp.text:
                 return self._build_error_result(
                     series_id, f"FRED returned 400 for {series_id}", "invalid_series"
@@ -112,11 +76,11 @@ class FredProvider(OfficialProvider):
             resp.raise_for_status()
             data = resp.json()
             raw_bytes = resp.content
-        except requests.exceptions.HTTPError as exc:
-            msg = f"FRED HTTP {exc.response.status_code if exc.response else '?'} for {series_id}"
+        except GatewayHTTPError as exc:
+            msg = f"FRED HTTP {exc.status_code} for {series_id}"
             logger.warning(msg)
             return self._build_error_result(series_id, msg, "http_error")
-        except requests.exceptions.RequestException as exc:
+        except GatewayError as exc:
             msg = f"FRED network error for {series_id}: {exc}"
             logger.warning(msg)
             return self._build_error_result(series_id, msg, "network_error")

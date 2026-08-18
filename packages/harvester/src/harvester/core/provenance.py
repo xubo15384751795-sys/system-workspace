@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 
 SCHEMA_VERSION = "1.0"
 
@@ -51,6 +50,19 @@ def record_provenance(
         merged["checksums"] = provenance["checksums"]
         if "environment" in provenance:
             merged["environment"] = provenance["environment"]
+        if "observation_coverage" in provenance:
+            merged["observation_coverage"] = provenance["observation_coverage"]
+        for key in (
+            "canonical_observation_path",
+            "canonical_observation_count",
+            "canonical_chain_path",
+            "canonical_chain_count",
+            "canonical_schema_version",
+            "measurement_spec_path",
+            "measurement_spec_version",
+        ):
+            if key in provenance:
+                merged[key] = provenance[key]
         if "notes" in provenance:
             timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             previous = existing.get("notes", "")
@@ -72,6 +84,17 @@ def build_provenance(
     transformations: list[dict[str, Any]] | None = None,
     dataset_revision: int = 1,
     environment: dict[str, Any] | None = None,
+    provider_outcome: dict[str, Any] | None = None,
+    observation_start: str | None = None,
+    observation_end: str | None = None,
+    observation_time_column: str = "date",
+    canonical_observation_path: str | None = None,
+    canonical_observation_count: int | None = None,
+    canonical_chain_path: str | None = None,
+    canonical_chain_count: int | None = None,
+    canonical_schema_version: str | None = None,
+    measurement_spec_path: str | None = None,
+    measurement_spec_version: str | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
     provenance: dict[str, Any] = {
@@ -85,6 +108,36 @@ def build_provenance(
     }
     if environment is not None:
         provenance["environment"] = environment
+    if provider_outcome is not None:
+        provenance["provider_outcome"] = provider_outcome
+    if observation_start is not None or observation_end is not None:
+        if not observation_start or not observation_end:
+            raise ProvenanceValidationError(
+                "observation coverage requires both observation_start and observation_end"
+            )
+        provenance["observation_coverage"] = {
+            "start": observation_start,
+            "end": observation_end,
+            "time_column": observation_time_column,
+        }
+    if canonical_observation_path is not None:
+        provenance["canonical_observation_path"] = canonical_observation_path
+    if canonical_observation_count is not None:
+        if canonical_observation_count < 0:
+            raise ProvenanceValidationError("canonical_observation_count must be non-negative")
+        provenance["canonical_observation_count"] = int(canonical_observation_count)
+    if canonical_chain_path is not None:
+        provenance["canonical_chain_path"] = canonical_chain_path
+    if canonical_chain_count is not None:
+        if canonical_chain_count < 0:
+            raise ProvenanceValidationError("canonical_chain_count must be non-negative")
+        provenance["canonical_chain_count"] = int(canonical_chain_count)
+    if canonical_schema_version is not None:
+        provenance["canonical_schema_version"] = canonical_schema_version
+    if measurement_spec_path is not None:
+        provenance["measurement_spec_path"] = measurement_spec_path
+    if measurement_spec_version is not None:
+        provenance["measurement_spec_version"] = measurement_spec_version
     if notes is not None:
         provenance["notes"] = notes
     validate_provenance(provenance)
@@ -107,8 +160,11 @@ def load_provenance(path: Path | str) -> dict[str, Any]:
     return payload
 
 
-def _read_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ProvenanceValidationError(f"JSON payload must be an object: {path}")
+    return payload
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

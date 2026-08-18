@@ -5,8 +5,8 @@ import time
 from typing import Any
 
 import pandas as pd
-import requests
 
+from harvester.http_gateway import GatewayError, GatewayHTTPError, OwnedHTTPGateway
 from harvester.providers.base import OfficialProvider, ProviderResult
 
 logger = logging.getLogger(__name__)
@@ -57,11 +57,13 @@ class SecProvider(OfficialProvider):
         user_agent: str = "",
         data_root: str = "",
         cache: bool = True,
+        gateway: OwnedHTTPGateway | None = None,
     ) -> None:
         ua = user_agent or SEC_HEADERS["User-Agent"]
         super().__init__(data_root=data_root, cache=cache, user_agent=ua)
-        self._session = requests.Session()
-        self._session.headers.update({"User-Agent": ua, "Accept-Encoding": "gzip, deflate"})
+        self._gateway = gateway or OwnedHTTPGateway(
+            headers={"User-Agent": ua, "Accept-Encoding": "gzip, deflate"}
+        )
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
         results: list[ProviderResult] = []
@@ -88,20 +90,20 @@ class SecProvider(OfficialProvider):
         url = f"{SEC_SUBMISSIONS_BASE}/CIK{padded}.json"
 
         try:
-            resp = self._session.get(url, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            raw_bytes = resp.content
-        except requests.exceptions.HTTPError as exc:
-            status = exc.response.status_code if exc.response else "?"
-            if exc.response is not None and exc.response.status_code == 404:
+            resp = self._gateway.fetch("sec", "submissions", {"cik": padded})
+            if resp.status_code == 404:
                 return self._build_error_result(
                     original_id, f"SEC CIK {cik} not found", "not_found"
                 )
+            resp.raise_for_status()
+            data = resp.json()
+            raw_bytes = resp.content
+        except GatewayHTTPError as exc:
+            status = exc.status_code
             msg = f"SEC HTTP {status} for CIK {cik}"
             logger.warning(msg)
             return self._build_error_result(original_id, msg, "http_error")
-        except requests.exceptions.RequestException as exc:
+        except GatewayError as exc:
             msg = f"SEC network error for CIK {cik}: {exc}"
             logger.warning(msg)
             return self._build_error_result(original_id, msg, "network_error")
@@ -111,7 +113,6 @@ class SecProvider(OfficialProvider):
 
         filings = data.get("filings", {}).get("recent", {})
         filing_dates = filings.get("filingDate", [])
-        forms = filings.get("form", [])
 
         if not filing_dates:
             return self._build_error_result(original_id, "no filing dates returned", "empty")
@@ -153,13 +154,16 @@ class SecProvider(OfficialProvider):
         not-found / network / empty condition (caller skips that CIK/tag).
         """
         padded = cik.zfill(10)
-        url = f"{SEC_XBRL_CONCEPT_BASE}/CIK{padded}/us-gaap/{tag}.json"
         try:
-            resp = self._session.get(url, timeout=30)
+            resp = self._gateway.fetch(
+                "sec",
+                "companyconcept",
+                {"cik": padded, "tag": tag},
+            )
             resp.raise_for_status()
             data = resp.json()
             raw_bytes = resp.content
-        except requests.exceptions.RequestException:
+        except GatewayError:
             return None
 
         if self._cache:

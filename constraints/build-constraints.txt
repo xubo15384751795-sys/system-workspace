@@ -1,0 +1,6 @@
+# PEP 517 build requirements for the six workspace distributions.
+#
+# uv build must consume this file with --require-hashes. Runtime dependency
+# authority remains uv.lock; this file only constrains isolated build tools.
+setuptools==84.0.0 --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73 --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670
+wheel==0.46.2 --hash=sha256:3d79e48fde9847618a5a181f3cc35764c349c752e2fe911e65fa17faab9809b0 --hash=sha256:33ae60725d69eaa249bc1982e739943c23b34b58d51f1cb6253453773aca6e65

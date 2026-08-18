@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from dataclasses import asdict, dataclass, field
@@ -14,6 +15,9 @@ from harvester.core.exporter import (
     finalize_release,
     list_releases,
 )
+from harvester.core.manifest import load_manifest
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -63,7 +67,7 @@ def run_preflight(
         detail=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
     ))
 
-    for module in ("pandas", "pyarrow", "requests", "jsonschema"):
+    for module in ("pandas", "pyarrow", "httpx", "jsonschema"):
         checks.append(_import_check(module))
 
     checks.append(PreflightCheck(
@@ -156,6 +160,16 @@ def run_daily_release(
             include_external=include_external,
             notes=notes,
         )
+        if not staged.get("gate_passed", False):
+            return {
+                "release_id": resolved_release_id,
+                "status": "failed",
+                "reason": "promotion_gate_rejected",
+                "gate_state": staged.get("gate_state"),
+                "gate_blockers": staged.get("gate_blockers", []),
+                "gate_warnings": staged.get("gate_warnings", []),
+                "staged": staged,
+            }
         finalized = finalize_release(resolved_release_id, exports_root=root, dry_run=False)
     except KeyboardInterrupt:
         raise
@@ -208,15 +222,88 @@ def monitor_latest(
         _monitor_check(checks, "catalog_valid", False, repr(exc))
 
     if catalog is not None:
-        finalized_at = _parse_datetime(catalog.get("finalized_at", ""))
-        if finalized_at is not None:
-            age_days = (datetime.now(UTC) - finalized_at).total_seconds() / 86400
+        observation_ends: dict[str, date] = {}
+        required_dataset_ids = {"benchmark_panel", "cross_asset_daily_panel"}
+        available_dataset_ids = {
+            path.name.removesuffix(".manifest.json")
+            for path in (release_dir / "manifests").glob("*.manifest.json")
+        }
+        # Complete production releases must carry both decision-facing panels.
+        # Small standalone releases used by operators/tests can still be
+        # monitored using the datasets they actually declare.
+        target_dataset_ids = (
+            required_dataset_ids
+            if available_dataset_ids & required_dataset_ids
+            else available_dataset_ids
+        )
+        for dataset_id in sorted(target_dataset_ids):
+            manifest_path = release_dir / "manifests" / f"{dataset_id}.manifest.json"
+            try:
+                manifest = load_manifest(manifest_path)
+                raw_end = str(manifest.get("time_coverage", {}).get("end", ""))[:10]
+                if raw_end:
+                    observation_ends[dataset_id] = date.fromisoformat(raw_end)
+                provider_outcome = manifest.get("provider_outcome")
+                if isinstance(provider_outcome, dict):
+                    provider_status = str(provider_outcome.get("status") or "").strip()
+                    if provider_status:
+                        failed = provider_outcome.get("failed_count")
+                        requested = provider_outcome.get("requested_count")
+                        counts = (
+                            f" failed={failed}/{requested}"
+                            if failed is not None and requested is not None
+                            else ""
+                        )
+                        if provider_status in {
+                            "reused_after_provider_failure",
+                            "provider_failed_no_acceptable_fallback",
+                            "environmentally_blocked",
+                        }:
+                            _monitor_check(
+                                checks,
+                                f"{dataset_id}_provider_status",
+                                False,
+                                f"provider_status={provider_status}{counts}",
+                                severity="error",
+                            )
+                        elif provider_status in {"partial_provider_success", "reused_same_content"}:
+                            _monitor_check(
+                                checks,
+                                f"{dataset_id}_provider_status",
+                                False,
+                                f"provider_status={provider_status}{counts}",
+                                severity="warn",
+                            )
+                        else:
+                            _monitor_check(
+                                checks,
+                                f"{dataset_id}_provider_status",
+                                True,
+                                f"provider_status={provider_status}{counts}",
+                            )
+            except Exception as exc:
+                logger.warning("Unable to read observation coverage for %s: %s", dataset_id, exc)
+
+        if target_dataset_ids and len(observation_ends) == len(target_dataset_ids):
+            oldest = min(observation_ends.values())
+            age_days = (datetime.now(UTC).date() - oldest).days
             _monitor_check(
                 checks,
                 "latest_fresh",
                 age_days <= max_age_days,
-                f"age_days={age_days:.2f}, max_age_days={max_age_days}",
-                severity="warn",
+                "observation_end="
+                + ",".join(f"{name}:{value.isoformat()}" for name, value in sorted(observation_ends.items()))
+                + f", oldest_age_days={age_days}, max_age_days={max_age_days}",
+                severity="error",
+            )
+        else:
+            missing = sorted(target_dataset_ids - observation_ends.keys())
+            _monitor_check(
+                checks,
+                "latest_fresh",
+                False,
+                f"required observation coverage missing: {missing}",
+                severity="error",
             )
         _monitor_check(checks, "datasets_present", len(catalog.get("datasets", [])) > 0, f"datasets={len(catalog.get('datasets', []))}")
 

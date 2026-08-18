@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
+import harvester.http_gateway as gateway_module
+from harvester.http_gateway import OwnedHTTPGateway
 from harvester.providers.h41 import (
     H41_DDP_MAP,
     H41_FRED_MAP,
@@ -51,17 +53,21 @@ DDP_H41_RESPONSE = """Time Period,H41/H41/RESPPALDP_N.WW,H41/H41/RESPPALDQ_N.WW,
 
 
 def _mock_response(json_data: dict, status: int = 200, text: str = ""):
-    resp = MagicMock()
-    resp.json.return_value = json_data
-    resp.status_code = status
-    resp.content = (text or json.dumps(json_data)).encode("utf-8")
-    resp.text = text or json.dumps(json_data)
-    resp.raise_for_status = MagicMock()
-    if status >= 400:
-        from requests.exceptions import HTTPError
+    return httpx.Response(status, content=(text or json.dumps(json_data)).encode("utf-8"))
 
-        resp.raise_for_status.side_effect = HTTPError(response=resp)
-    return resp
+
+def _gateway(*responses: httpx.Response) -> OwnedHTTPGateway:
+    remaining = list(responses)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return remaining.pop(0) if len(remaining) > 1 else remaining[0]
+
+    return OwnedHTTPGateway(transport=httpx.MockTransport(handler))
+
+
+@pytest.fixture(autouse=True)
+def _allow_fake_gateway_hosts(monkeypatch):
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
 
 
 class TestH41Provider:
@@ -102,13 +108,8 @@ class TestH41Provider:
             assert H41_UNITS[field] == "mil_usd"
 
     def test_fetch_via_direct_ddp(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text=DDP_H41_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, text=DDP_H41_RESPONSE)) as gateway:
+            prov = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["primary_credit"])
 
             assert len(results) == 1
@@ -128,13 +129,8 @@ class TestH41Provider:
             assert r.source_params["status_detail"] == "direct_h41_ddp"
 
     def test_discount_window_sums_direct_ddp_components(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text=DDP_H41_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, text=DDP_H41_RESPONSE)) as gateway:
+            prov = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway)
             result = prov.fetch_series(["discount_window"])[0]
 
             assert not result.frame.empty
@@ -142,13 +138,8 @@ class TestH41Provider:
             assert result.source_params["verification_status"] == "DIRECT"
 
     def test_btfp_zero_values_are_not_errors(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text=DDP_H41_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, text=DDP_H41_RESPONSE)) as gateway:
+            prov = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["btfp"])
 
             assert len(results) == 1
@@ -171,13 +162,8 @@ class TestH41Provider:
         assert "no Federal Reserve DDP mapping" in results[0].fetch_error
 
     def test_missing_api_key_does_not_block_direct_ddp(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text=DDP_H41_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(api_key="", data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, text=DDP_H41_RESPONSE)) as gateway:
+            prov = H41Provider(api_key="", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["primary_credit"])
 
             assert len(results) == 1
@@ -185,16 +171,11 @@ class TestH41Provider:
             assert results[0].source_params["verification_status"] == "DIRECT"
 
     def test_direct_failure_can_fallback_to_fred(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.side_effect = [
-                _mock_response({}, text="not a usable csv"),
-                _mock_response(FRED_H41_RESPONSE),
-            ]
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(api_key="test_key", data_root=str(tmp_path), cache=False)
+        with _gateway(
+            _mock_response({}, text="not a usable csv"),
+            _mock_response(FRED_H41_RESPONSE),
+        ) as gateway:
+            prov = H41Provider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["primary_credit"])
 
             assert len(results) == 1
@@ -203,13 +184,14 @@ class TestH41Provider:
             assert results[0].source_params["method"] == "fred_bridge"
 
     def test_direct_failure_without_fallback_reports_error(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text="not a usable csv")
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(api_key="", data_root=str(tmp_path), cache=False, allow_fred_fallback=False)
+        with _gateway(_mock_response({}, text="not a usable csv")) as gateway:
+            prov = H41Provider(
+                api_key="",
+                data_root=str(tmp_path),
+                cache=False,
+                allow_fred_fallback=False,
+                gateway=gateway,
+            )
             results = prov.fetch_series(["primary_credit"])
 
             assert len(results) == 1
@@ -217,22 +199,22 @@ class TestH41Provider:
             assert "H41 direct DDP" in results[0].fetch_error
 
     def test_fetch_via_fred_bridge_fallback_method(self, tmp_path) -> None:
-        prov = H41Provider(api_key="test_key", data_root=str(tmp_path), cache=False)
-        with patch.object(prov, "_session") as mock_session:
-            mock_session.get.return_value = _mock_response(FRED_H41_RESPONSE)
+        with _gateway(_mock_response(FRED_H41_RESPONSE)) as gateway:
+            prov = H41Provider(api_key="test_key", data_root=str(tmp_path), cache=False, gateway=gateway)
             result = prov._fetch_via_fred("WPCREDIT", "primary_credit")
 
         assert result.source_params["method"] == "fred_bridge"
         assert result.source_params["verification_status"] == "PROVISIONAL"
 
     def test_missing_api_key_blocks_fred_bridge_only(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text="not a usable csv")
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(api_key="", data_root=str(tmp_path), cache=False, allow_fred_fallback=False)
+        with _gateway(_mock_response({}, text="not a usable csv")) as gateway:
+            prov = H41Provider(
+                api_key="",
+                data_root=str(tmp_path),
+                cache=False,
+                allow_fred_fallback=False,
+                gateway=gateway,
+            )
             results = prov.fetch_series(["primary_credit"])
 
             assert len(results) == 1
@@ -240,13 +222,8 @@ class TestH41Provider:
             assert results[0].fetch_error is not None
 
     def test_fetch_all_fields(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text=DDP_H41_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, text=DDP_H41_RESPONSE)) as gateway:
+            prov = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["discount_window", "primary_credit", "btfp"])
 
             assert len(results) == 3
@@ -256,25 +233,20 @@ class TestH41Provider:
                 assert not r.frame.empty
 
     def test_http_error(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, status=500)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(data_root=str(tmp_path), cache=False, allow_fred_fallback=False)
+        with _gateway(_mock_response({}, status=500)) as gateway:
+            prov = H41Provider(
+                data_root=str(tmp_path),
+                cache=False,
+                allow_fred_fallback=False,
+                gateway=gateway,
+            )
             results = prov.fetch_series(["primary_credit"])
             assert len(results) == 1
             assert results[0].fetch_error is not None
 
     def test_to_long_panel(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, text=DDP_H41_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = H41Provider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, text=DDP_H41_RESPONSE)) as gateway:
+            prov = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["primary_credit"])
             panel = prov._to_long_panel(results)
             assert not panel.empty

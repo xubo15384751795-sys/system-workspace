@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -493,6 +492,48 @@ class OpenBBProvider(OfficialProvider):
         return results
 
     def _fetch_one(self, route: OpenBBSeriesRoute) -> ProviderResult:
+        # ETF yfinance acquisition is owned by EtfYfinanceProvider.  Routing
+        # OpenBB's yfinance ETF fallback through that provider gives it the
+        # same single-flight, cooldown, and short-lived raw cache as the
+        # cross-asset batch, so one daily release cannot fetch HYG/LQD/TLT
+        # twice merely because two registry surfaces reference them.
+        if (
+            route.provider == "yfinance"
+            and route.obb_path == "equity.price.historical"
+        ):
+            from harvester.providers.etf_yfinance import EtfYfinanceProvider
+
+            data_root = self._data_root
+            if data_root.name == "Data":
+                data_root = data_root / "harvester"
+            delegate = EtfYfinanceProvider(
+                tickers={route.source_series_id: route.source_series_id},
+                period=os.environ.get("YFINANCE_PERIOD", "60d"),
+                data_root=str(data_root),
+                cache=self._cache,
+                user_agent=self._user_agent,
+            )
+            delegated = delegate.fetch_series([route.source_series_id])
+            result = delegated[0] if delegated else None
+            if result is None or result.empty():
+                return self._build_error_result(
+                    route.series_id,
+                    result.fetch_error if result is not None else "empty delegated result",
+                    result.fetch_fallback_reason if result is not None else "empty",
+                )
+            return ProviderResult(
+                provider=route.source_id,
+                series_id=route.source_series_id,
+                frame=result.frame,
+                fetch_error=result.fetch_error,
+                fetch_fallback_reason=result.fetch_fallback_reason,
+                data_note="Acquired through shared EtfYfinanceProvider inside Harvester.",
+                source_url="provider:yfinance",
+                source_params={
+                    "source_engine": "harvester.etf_yfinance",
+                    "route": route.obb_path,
+                },
+            )
         try:
             obb = self._obb()
             endpoint = _resolve_attr(obb, route.obb_path)

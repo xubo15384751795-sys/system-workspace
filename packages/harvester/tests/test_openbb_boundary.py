@@ -9,7 +9,6 @@ from __future__ import annotations
 import ast
 import sys
 from pathlib import Path
-from typing import Sequence
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +111,7 @@ def test_openbb_imports_only_in_harvester_providers():
                 offenders.append(str(path.relative_to(SYSTEM_ROOT)))
 
     assert not offenders, (
-        f"openbb imported outside Harvester providers:\n"
+        "openbb imported outside Harvester providers:\n"
         + "\n".join(f"  {o}" for o in offenders)
     )
 
@@ -130,7 +129,7 @@ def test_deformation_never_imports_openbb():
         if _imports_openbb(path):
             offenders.append(str(path.relative_to(DEFORMATION_SRC.parent)))
     assert not offenders, (
-        f"Deformation imports openbb:\n" + "\n".join(f"  {o}" for o in offenders)
+        "Deformation imports openbb:\n" + "\n".join(f"  {o}" for o in offenders)
     )
 
 

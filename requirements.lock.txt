@@ -1,7 +1,12 @@
-# Pinned dependency versions for reproducible environments.
+# Historical compatibility dependency pins; not the workspace authority.
+#
+# The authoritative resolver is /Users/a1/System/uv.lock. This file is not
+# consumed by CI or workspace runtime and is retained only for migration and
+# audit reference.
 #
 # Generated — do not edit by hand:
-#     python3 -m scripts.commands.ci.generate_dependency_lock --write
+#     python3 -m scripts.commands.ci.generate_dependency_lock --write \
+#       --allow-legacy-compatibility-write
 #
 # Contents: the transitive closure of what the project declares
 # (requirements-dev.txt plus each pyproject's dependencies and `dev` extra),
@@ -9,7 +14,7 @@
 # Optional extras CI does not install (torch, jax, openbb, ...) are excluded
 # on purpose: pinning them would imply the project requires them.
 #
-# Usage: pip install -r requirements.lock.txt
+# Do not use this file to provision the workspace; use uv sync --locked.
 
 annotated-types==0.7.0
 anyio==4.13.0

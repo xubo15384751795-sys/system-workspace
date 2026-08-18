@@ -3,11 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+import httpx
 import pandas as pd
 import pytest
 
+import harvester.http_gateway as gateway_module
+from harvester.http_gateway import OwnedHTTPGateway
 from harvester.core.manifest import load_schema as load_manifest_schema
 from harvester.core.provenance import load_schema as load_provenance_schema
 from harvester.official import (
@@ -56,30 +59,29 @@ def _mock_sec_response():
 
 
 def _mock_response(json_data: dict):
-    resp = MagicMock()
-    resp.json.return_value = json_data
-    resp.status_code = 200
-    resp.content = json.dumps(json_data).encode("utf-8")
-    resp.text = json.dumps(json_data)
-    resp.raise_for_status = MagicMock()
-    return resp
+    return httpx.Response(200, content=json.dumps(json_data).encode("utf-8"))
+
+
+def _gateway(response: httpx.Response) -> OwnedHTTPGateway:
+    return OwnedHTTPGateway(transport=httpx.MockTransport(lambda _request: response))
+
+
+@pytest.fixture(autouse=True)
+def _allow_fake_gateway_hosts(monkeypatch):
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
 
 
 class TestOfficialPanelIntegration:
     def test_fetch_official_series_all_providers(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(_mock_fred_response())
-            mock_session_cls.return_value = mock_session
-
-            panel = fetch_official_series(
-                as_of_date="2026-04-30",
-                data_root=str(tmp_path),
-                providers=["fred"],
-                cache=False,
-                api_keys={"fred": "test_key"},
-            )
+        with _gateway(_mock_response(_mock_fred_response())) as gateway:
+            with patch("harvester.providers.fred.OwnedHTTPGateway", return_value=gateway):
+                panel = fetch_official_series(
+                    as_of_date="2026-04-30",
+                    data_root=str(tmp_path),
+                    providers=["fred"],
+                    cache=False,
+                    api_keys={"fred": "test_key"},
+                )
 
             assert not panel.empty
             assert "date" in panel.columns
@@ -103,19 +105,15 @@ class TestOfficialPanelIntegration:
             "date", "series_id", "source_id", "source_series_id",
             "value", "unit", "frequency", "vintage_date", "quality_flag",
         ]
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(_mock_fred_response())
-            mock_session_cls.return_value = mock_session
-
-            panel = fetch_official_series(
-                as_of_date="2026-04-30",
-                data_root=str(tmp_path),
-                providers=["fred"],
-                cache=False,
-                api_keys={"fred": "test_key"},
-            )
+        with _gateway(_mock_response(_mock_fred_response())) as gateway:
+            with patch("harvester.providers.fred.OwnedHTTPGateway", return_value=gateway):
+                panel = fetch_official_series(
+                    as_of_date="2026-04-30",
+                    data_root=str(tmp_path),
+                    providers=["fred"],
+                    cache=False,
+                    api_keys={"fred": "test_key"},
+                )
             for col in expected_columns:
                 assert col in panel.columns, f"missing column: {col}"
 
@@ -241,6 +239,21 @@ class TestManifestProvenance:
         assert Path(info["data_path"]).exists()
         assert Path(info["manifest_path"]).exists()
         assert Path(info["provenance_path"]).exists()
+        observation_path = Path(info["provenance_path"]).parent / "official_panel.canonical_observations.jsonl"
+        chain_path = Path(info["provenance_path"]).parent / "official_panel.canonical_chains.jsonl"
+        assert observation_path.exists()
+        assert chain_path.exists()
+        from system_runtime.canonical_ids import validate_chain, validate_observation
+
+        observations = [json.loads(line) for line in observation_path.read_text().splitlines() if line.strip()]
+        chains = [json.loads(line) for line in chain_path.read_text().splitlines() if line.strip()]
+        assert len(observations) == len(chains) == 2
+        for observation in observations:
+            validate_observation(observation)
+        for chain in chains:
+            validate_chain(chain)
+            assert chain["claim"]["provenance"]["statement_kind"] == "recorded_observation"
+            assert chain["claim"]["provenance"]["promotion_allowed"] is False
 
         manifest = json.loads(Path(info["manifest_path"]).read_text())
         assert manifest["dataset_id"] == "official_panel"
@@ -248,6 +261,8 @@ class TestManifestProvenance:
 
         provenance = json.loads(Path(info["provenance_path"]).read_text())
         assert provenance["checksums"]["final_sha256"] == manifest["data_file"]["sha256"]
+        assert provenance["canonical_observation_count"] == 2
+        assert provenance["canonical_chain_count"] == 2
 
     def test_manifest_sha256_matches_file(self, tmp_path) -> None:
         panel = pd.DataFrame({
@@ -278,7 +293,7 @@ class TestManifestProvenance:
         assert manifest["data_file"]["sha256"] == expected_sha
 
     def test_official_series_map_completeness(self) -> None:
-        required_providers = {"fred", "h41", "treasury", "sec", "openbb_fred", "cboe_direct", "openbb_tiingo", "openbb_yfinance"}
+        required_providers = {"fred", "h41", "treasury", "sec", "openbb_fred", "cboe_direct", "openbb_tiingo", "openbb_yfinance", "etf_provider_chain"}
         assert set(DEFAULT_OFFICIAL_PROVIDERS) == required_providers
         assert required_providers.issubset(set(OFFICIAL_SERIES_MAP.keys()))
 
@@ -290,6 +305,7 @@ class TestManifestProvenance:
         assert "TYVIX" in OFFICIAL_SERIES_MAP["cboe_direct"]["series"]
         assert "VXTLT" in OFFICIAL_SERIES_MAP["cboe_direct"]["series"]
         assert "HYG" in OFFICIAL_SERIES_MAP["openbb_tiingo"]["series"]
+        assert "HYG" in OFFICIAL_SERIES_MAP["etf_provider_chain"]["series"]
         assert "SPY" in OFFICIAL_SERIES_MAP["openbb_yfinance"]["series"]
         assert "STLFSI4" in OFFICIAL_SERIES_MAP["openbb_fred"]["series"]
         assert "HYG" in OFFICIAL_SERIES_MAP["openbb_tiingo"]["series"]

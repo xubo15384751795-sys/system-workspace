@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+import pandas as pd
+
+from harvester.official import build_complete_benchmark_panel
 from harvester.providers.external_indicators import (
     CISS,
+    EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES,
     NYFED_PD_TREASURY_NET,
+    _parse_ciss_csv,
     external_series_to_long_panel,
     fetch_external_indicator,
     write_template_csv,
 )
+import harvester.providers.external_indicators as external_module
 
 # Cache fixtures must be current-dated: a cache older than the freshness
 # budget is deliberately re-downloaded, which would make these tests hit the
@@ -28,6 +34,35 @@ def test_fetch_external_indicator_uses_cached_csv(tmp_path) -> None:
     assert series.name == "CISS"
     assert series.iloc[-1] == 0.5
     assert not download.called
+
+
+def test_external_gateway_has_bounded_large_sdmx_budget(tmp_path, monkeypatch) -> None:
+    created = []
+
+    class _Gateway:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def fetch(self, *_args, **_kwargs):
+            raise RuntimeError("publisher unavailable")
+
+    monkeypatch.setattr(external_module, "OwnedHTTPGateway", _Gateway)
+    # CISS is stale, so the provider must construct its bounded gateway and
+    # then fall back to the cache rather than disabling the byte guard.
+    cache = tmp_path / "external_indicators"
+    cache.mkdir()
+    (cache / "ciss.csv").write_text(
+        "TIME_PERIOD,OBS_VALUE\n2024-01-01,0.5\n", encoding="utf-8"
+    )
+    fetch_external_indicator(CISS, cache_dir=cache, refresh=True)
+    assert created
+    assert created[0]["max_response_bytes"] == EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES
 
 
 def test_stale_cache_is_refreshed_and_history_is_preserved(tmp_path) -> None:
@@ -71,15 +106,15 @@ def test_stale_cache_falls_back_when_publisher_is_unreachable(tmp_path) -> None:
 
 
 def test_fetch_external_indicator_downloads_and_caches(tmp_path) -> None:
-    response = MagicMock()
-    response.text = "TIME_PERIOD,OBS_VALUE\n2024-01-01,0.7\n"
-    response.raise_for_status = MagicMock()
-    with patch("requests.get", return_value=response) as get:
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value="TIME_PERIOD,OBS_VALUE\n2024-01-01,0.7\n",
+    ) as download:
         series = fetch_external_indicator(CISS, cache_dir=tmp_path)
 
     assert series.iloc[-1] == 0.7
     assert (tmp_path / "ciss.csv").exists()
-    assert get.called
+    assert download.called
 
 
 def test_external_series_to_long_panel(tmp_path) -> None:
@@ -92,6 +127,35 @@ def test_external_series_to_long_panel(tmp_path) -> None:
     assert list(panel["series_id"].unique()) == ["CISS"]
     assert list(panel["source_id"].unique()) == ["external_public"]
     assert panel["value"].iloc[0] == 0.5
+
+
+def test_ciss_external_panel_is_retained_by_complete_benchmark_panel() -> None:
+    series = pd.Series(
+        [0.11, 0.12],
+        index=pd.to_datetime(["2026-08-14", "2026-08-15"]),
+        name="CISS",
+    )
+    external = external_series_to_long_panel({"CISS": series}, vintage_date="2026-08-18")
+    empty_acquired = pd.DataFrame(
+        columns=[
+            "date",
+            "series_id",
+            "source_id",
+            "source_series_id",
+            "value",
+            "unit",
+            "frequency",
+            "vintage_date",
+            "quality_flag",
+        ]
+    )
+
+    combined = build_complete_benchmark_panel(
+        empty_acquired,
+        external_indicators=external,
+    )
+
+    assert int((combined["series_id"] == "CISS").sum()) == 2
 
 
 def test_write_template_csv(tmp_path) -> None:
@@ -139,3 +203,46 @@ def test_ciss_sdmx_cache_is_normalized_to_slim_csv(tmp_path) -> None:
     assert len(series) == 2
     assert healed.lstrip().startswith("TIME_PERIOD")
     assert "KEY,FREQ" not in healed.splitlines()[0]
+
+
+def test_ciss_sdmx_generic_xml_is_parsed() -> None:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <message:GenericData xmlns:message="urn:sdmx:org.sdmx.infomodel v2_1"
+                         xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic">
+      <message:DataSet>
+        <generic:Series>
+          <generic:SeriesKey>
+            <generic:Value id="FREQ" value="D"/>
+            <generic:Value id="REF_AREA" value="U2"/>
+          </generic:SeriesKey>
+          <generic:Obs>
+            <generic:ObsDimension id="TIME_PERIOD" value="2026-08-14"/>
+            <generic:ObsValue value="0.12"/>
+          </generic:Obs>
+          <generic:Obs>
+            <generic:ObsDimension id="TIME_PERIOD" value="2026-08-15"/>
+            <generic:ObsValue value="0.13"/>
+          </generic:Obs>
+        </generic:Series>
+      </message:DataSet>
+    </message:GenericData>
+    """
+
+    series = _parse_ciss_csv(xml)
+
+    assert series.name == "CISS"
+    assert list(series.index.strftime("%Y-%m-%d")) == ["2026-08-14", "2026-08-15"]
+    assert list(series) == [0.12, 0.13]
+
+
+def test_ciss_sdmx_generic_xml_rejects_entity_declarations() -> None:
+    xml = "<!DOCTYPE foo [<!ENTITY xxe SYSTEM 'file:///etc/passwd'>]><GenericData/>"
+
+    with patch("harvester.providers.external_indicators.ET.fromstring") as parse:
+        try:
+            _parse_ciss_csv(xml)
+        except ValueError as exc:
+            assert "entity" in str(exc).lower()
+        else:  # pragma: no cover - defensive assertion for a negative test
+            raise AssertionError("entity declaration should be rejected")
+        parse.assert_not_called()

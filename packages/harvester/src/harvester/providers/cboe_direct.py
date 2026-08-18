@@ -5,8 +5,8 @@ from io import StringIO
 from typing import Any
 
 import pandas as pd
-import requests
 
+from harvester.http_gateway import GatewayError, OwnedHTTPGateway
 from harvester.providers.base import OfficialProvider, ProviderResult
 
 
@@ -51,12 +51,12 @@ class CboeDirectProvider(OfficialProvider):
         data_root: str = "",
         cache: bool = True,
         user_agent: str = "StructuralRiskHarvester/0.1.0",
+        gateway: OwnedHTTPGateway | None = None,
         **_: Any,
     ) -> None:
         super().__init__(data_root=data_root, cache=cache, user_agent=user_agent)
         self._route_map = route_map or DEFAULT_CBOE_ROUTES
-        self._session = requests.Session()
-        self._session.headers.update({"User-Agent": user_agent})
+        self._gateway = gateway or OwnedHTTPGateway(headers={"User-Agent": user_agent})
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
         return [self._fetch_one(series_id) for series_id in series_ids]
@@ -70,14 +70,14 @@ class CboeDirectProvider(OfficialProvider):
             if route.intraday:
                 return self._fetch_intraday(route)
             return self._fetch_eod(route)
-        except requests.exceptions.RequestException as exc:
+        except GatewayError as exc:
             return self._build_error_result(series_id, f"CBOE network error: {exc}", "network_error")
         except Exception as exc:
             return self._build_error_result(series_id, f"CBOE parse error: {exc}", "parse_error")
 
     def _fetch_eod(self, route: CboeDirectRoute) -> ProviderResult:
         url = _csv_url(route.symbol)
-        resp = self._session.get(url, timeout=30)
+        resp = self._gateway.fetch("cboe", "daily_prices", {"symbol": route.symbol})
         resp.raise_for_status()
         if self._cache:
             self._write_raw(route.series_id, resp.text)
@@ -95,7 +95,7 @@ class CboeDirectProvider(OfficialProvider):
 
     def _fetch_intraday(self, route: CboeDirectRoute) -> ProviderResult:
         url = _intraday_url(route.symbol)
-        resp = self._session.get(url, timeout=30)
+        resp = self._gateway.fetch("cboe", "intraday_quotes", {"symbol": route.symbol})
         resp.raise_for_status()
         if self._cache:
             self._write_raw(f"{route.series_id}_intraday", resp.text)

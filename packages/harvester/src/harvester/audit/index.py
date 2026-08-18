@@ -12,12 +12,11 @@ reconstructed by re-reading the frozen release directories.
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import duckdb
 
@@ -98,7 +97,10 @@ ALL_DDL = [DDL_RELEASES, DDL_DATASETS, DDL_PROVIDER_RUNS, DDL_DATASET_CHANGES]
 
 def _read_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as fh:
-        return json.load(fh)
+        payload = json.load(fh)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON document must be an object: {path}")
+    return {str(key): value for key, value in payload.items()}
 
 
 def _sha256_file(path: Path) -> str:
@@ -245,13 +247,11 @@ class AuditIndex:
         datasets_count = 0
         for ds_entry in datasets_list:
             manifest_path = rpath / ds_entry["manifest_path"]
-            prov_path = rpath / ds_entry["provenance_path"]
             qr_path_raw = ds_entry.get("quality_report_path", "")
             qr_path = rpath / qr_path_raw if qr_path_raw else None
             qr_exists = qr_path is not None and qr_path.exists()
 
             manifest = _read_json(manifest_path) if manifest_path.exists() else {}
-            provenance = _read_json(prov_path) if prov_path.exists() else {}
             data_file = manifest.get("data_file", {})
             source = manifest.get("source", {})
             time_cov = manifest.get("time_coverage", {})
@@ -498,7 +498,7 @@ def query_index(
     idx = AuditIndex(db)
     try:
         rel = idx.query(sql, params)
-        return rel.fetchall()
+        return cast(list[tuple[Any, ...]], rel.fetchall())
     finally:
         idx.close()
 

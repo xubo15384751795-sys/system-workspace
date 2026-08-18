@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
 
+import httpx
 import pandas as pd
+import pytest
 
+import harvester.http_gateway as gateway_module
+from harvester.http_gateway import OwnedHTTPGateway
 from harvester.providers.sec import (
     DEALER_BANK_CIKS,
     OBS_SERIES_ID,
@@ -22,29 +25,20 @@ def _concept(tag: str, rows: list[dict]) -> dict:
 
 
 def _mock_response(json_data: dict, status: int = 200):
-    resp = MagicMock()
-    resp.json.return_value = json_data
-    resp.status_code = status
-    resp.content = json.dumps(json_data).encode("utf-8")
-    resp.raise_for_status = MagicMock()
-    if status >= 400:
-        from requests.exceptions import HTTPError
+    return httpx.Response(status, content=json.dumps(json_data).encode("utf-8"))
 
-        resp.raise_for_status.side_effect = HTTPError(response=resp)
-    return resp
+
+@pytest.fixture(autouse=True)
+def _allow_fake_gateway_hosts(monkeypatch):
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
 
 
 def _build_provider(side_effect, tmp_path) -> SecProvider:
-    with patch("requests.Session") as mock_session_cls, \
-         patch("harvester.providers.sec.time.sleep"):
-        mock_session = MagicMock()
-        mock_session.headers = {}
-        mock_session.get.side_effect = side_effect
-        mock_session_cls.return_value = mock_session
-        prov = SecProvider(data_root=str(tmp_path), cache=False)
-        # keep the patched session through the call
-        prov._session = mock_session
-        return prov
+    def handler(request: httpx.Request) -> httpx.Response:
+        return side_effect(str(request.url))
+
+    gateway = OwnedHTTPGateway(transport=httpx.MockTransport(handler))
+    return SecProvider(data_root=str(tmp_path), cache=False, gateway=gateway)
 
 
 class TestSecXbrlObs:

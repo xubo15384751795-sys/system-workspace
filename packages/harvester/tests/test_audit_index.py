@@ -9,14 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 from pathlib import Path
-from typing import Any
 
-import pytest
 
 from harvester.audit.index import (
-    AuditIndex,
     build_index,
     diff_releases,
     query_index,

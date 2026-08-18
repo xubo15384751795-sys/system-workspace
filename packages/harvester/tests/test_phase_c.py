@@ -210,7 +210,7 @@ class TestOpenBBBoundary:
     def test_openbb_result_goes_through_normalization(self):
         """OpenBB results must go through Harvester normalization, not directly to DataHubLite."""
         # Verify that OpenBBProvider returns canonical columns via _normalize_frame
-        from harvester.providers.openbb_provider import OpenBBProvider, _normalize_frame, DEFAULT_OPENBB_ROUTES
+        from harvester.providers.openbb_provider import DEFAULT_OPENBB_ROUTES
 
         route = DEFAULT_OPENBB_ROUTES.get("VIXCLS")
         assert route is not None
@@ -601,7 +601,7 @@ class TestPromotionGate:
         return d
 
     def test_all_required_present_passes(self, registry, temp_release_dir):
-        from harvester.promotion import run_promotion_gate, PromotionState
+        from harvester.promotion import run_promotion_gate
 
         # Include all required-for-release series
         all_required = {s.canonical_id for s in registry.required_series()}
@@ -617,6 +617,41 @@ class TestPromotionGate:
         )
         assert result.promotion_allowed is True
         assert result.passed is True
+
+    def test_provider_failure_classes_are_exposed_to_gate_report(self, registry, temp_release_dir):
+        from harvester.promotion import generate_gate_report, run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        all_required.update(s.canonical_id for s in registry.model_input_series())
+        all_required.update({"SOFR_IORB_SPREAD", "CP_TBILL_SPREAD"})
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            sha256_verified=True,
+            provider_failure_classes={"benchmark": ["RATE_LIMIT", "NETWORK"]},
+        )
+        report = generate_gate_report(result, "fixture-release")
+        assert result.promotion_allowed is True
+        assert report["provider_failure_classes"] == {
+            "benchmark": ["NETWORK", "RATE_LIMIT"]
+        }
+
+    def test_unknown_provider_failure_class_blocks_gate(self, registry, temp_release_dir):
+        from harvester.promotion import PromotionState, run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            sha256_verified=True,
+            provider_failure_classes={"benchmark": ["NOT_A_REAL_CLASS"]},
+        )
+        assert result.state == PromotionState.REJECTED
+        assert any("failure classes" in blocker for blocker in result.blockers)
 
     def test_missing_required_blocks(self, registry, temp_release_dir):
         from harvester.promotion import run_promotion_gate, PromotionState
@@ -784,3 +819,83 @@ class TestPromotionGate:
             cross_asset_symbol_count=34,
         )
         assert not any("cross-asset historical coverage" in blocker for blocker in result.blockers)
+
+    def test_cross_asset_provider_failure_blocks_promotion(self, registry, temp_release_dir):
+        from harvester.promotion import PromotionState, run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            cross_asset_row_count=252 * 34,
+            cross_asset_symbol_count=34,
+            cross_asset_provider_status="reused_after_provider_failure",
+        )
+        assert result.state == PromotionState.REJECTED
+        assert any("provider outcome" in blocker for blocker in result.blockers)
+        policy_check = next(
+            check for check in result.checks if check.name == "cross_asset_provider_status_policy"
+        )
+        assert policy_check.passed is True
+        assert "decision=DENY" in policy_check.detail
+
+    def test_benchmark_provider_failure_blocks_promotion(self, registry, temp_release_dir):
+        from harvester.promotion import PromotionState, run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            benchmark_provider_status="reused_after_provider_failure",
+        )
+        assert result.state == PromotionState.REJECTED
+        assert any("benchmark provider outcome" in blocker for blocker in result.blockers)
+        policy_check = next(
+            check for check in result.checks if check.name == "benchmark_provider_status_policy"
+        )
+        assert policy_check.passed is True
+        assert "decision=DENY" in policy_check.detail
+
+    def test_cross_asset_partial_provider_uses_matrix_warning(self, registry, temp_release_dir):
+        from harvester.promotion import run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            cross_asset_row_count=252 * 34,
+            cross_asset_symbol_count=34,
+            cross_asset_provider_status="partial_provider_success",
+        )
+        policy_check = next(
+            check for check in result.checks if check.name == "cross_asset_provider_status_policy"
+        )
+        admission_check = next(
+            check for check in result.checks if check.name == "cross_asset_provider_admission"
+        )
+        assert policy_check.passed is True
+        assert "decision=CONDITIONAL" in policy_check.detail
+        assert admission_check.severity == "warn"
+
+    def test_environmentally_blocked_provider_cannot_promote(self, registry, temp_release_dir):
+        from harvester.promotion import PromotionState, run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required,
+            cross_asset_row_count=252 * 34,
+            cross_asset_symbol_count=34,
+            cross_asset_provider_status="environmentally_blocked",
+        )
+        assert result.state == PromotionState.REJECTED
+        assert any("provider outcome" in blocker for blocker in result.blockers)
+        assert any("decision=DENY" in check.detail for check in result.checks)

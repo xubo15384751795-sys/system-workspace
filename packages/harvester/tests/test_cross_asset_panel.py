@@ -1,16 +1,18 @@
 """Tests for cross-asset panel Harvester dataset staging."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
-
 from harvester.cross_asset_panel import (
     PANEL_COLUMNS,
     build_cross_asset_panel,
     compute_derived_columns,
+    prefetched_panel_from_registry,
     stage_cross_asset_panel,
+    sync_panel_to_workspace,
 )
 
 
@@ -29,6 +31,27 @@ def test_compute_derived_columns_adds_returns(tmp_path: Path) -> None:
     derived = compute_derived_columns(frame)
     assert "return_1d" in derived.columns
     assert derived.loc[1, "return_1d"] == pytest.approx(0.02)
+
+
+def test_compute_derived_columns_deduplicates_symbol_date() -> None:
+    frame = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-01", "2026-01-02"]),
+            "symbol": ["TLT", "TLT", "TLT"],
+            "open": [100.0, 100.000001, 101.0],
+            "high": [101.0, 101.000001, 102.0],
+            "low": [99.0, 99.000001, 100.0],
+            "close": [100.0, 100.000001, 101.0],
+            "volume": [1_000, 1_001, 1_100],
+        }
+    )
+
+    derived = compute_derived_columns(frame)
+
+    assert len(derived) == 2
+    assert not derived.duplicated(["symbol", "date"]).any()
+    assert derived.iloc[0]["close"] == pytest.approx(100.000001)
+    assert derived.iloc[1]["return_1d"] == pytest.approx(0.00999999, rel=1e-6)
 
 
 def test_stage_cross_asset_panel_writes_manifest_and_workspace_copy(
@@ -77,8 +100,8 @@ def test_stage_cross_asset_panel_writes_manifest_and_workspace_copy(
     info = stage_cross_asset_panel(
         release_dir,
         release_id="2026-06-18-r1",
-        as_of_date="2026-06-18",
-        vintage_date="2026-06-18",
+        as_of_date="2026-06-20",
+        vintage_date="2026-06-20",
         workspace=workspace,
     )
 
@@ -86,7 +109,48 @@ def test_stage_cross_asset_panel_writes_manifest_and_workspace_copy(
     assert (release_dir / "data" / "cross_asset_daily_panel.parquet").exists()
     assert (release_dir / "manifests" / "cross_asset_daily_panel.manifest.json").exists()
     assert (release_dir / "provenance" / "cross_asset_daily_panel.provenance.json").exists()
+    canonical_path = release_dir / "provenance" / "cross_asset_daily_panel.canonical_observations.jsonl"
+    assert canonical_path.exists()
+    canonical_records = [
+        json.loads(line)
+        for line in canonical_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(canonical_records) == 3
+    assert canonical_records[0]["observation_id"].startswith("obs_")
+    from system_runtime.canonical_ids import validate_observation
+    from system_runtime.canonical_ids import validate_chain
+
+    for record in canonical_records:
+        validate_observation(record)
+    canonical_chain_path = release_dir / "provenance" / "cross_asset_daily_panel.canonical_chains.jsonl"
+    canonical_chains = [
+        json.loads(line)
+        for line in canonical_chain_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(canonical_chains) == 3
+    for chain in canonical_chains:
+        validate_chain(chain)
+        assert chain["claim"]["status"] == "WATCH"
+        assert chain["claim"]["provenance"]["claim_ceiling"] == "diagnostic_observation_only"
+        assert chain["claim"]["provenance"]["promotion_allowed"] is False
     assert (release_dir / "quality_reports" / "cross_asset_daily_panel.quality.json").exists()
+    manifest = pd.read_json(
+        release_dir / "manifests" / "cross_asset_daily_panel.manifest.json",
+        typ="series",
+    )
+    assert manifest["time_coverage"]["end"] == "2026-06-18"
+    assert manifest["provider_outcome"]["status"] == "refreshed"
+    provenance = json.loads(
+        (release_dir / "provenance" / "cross_asset_daily_panel.provenance.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert provenance["canonical_observation_count"] == 3
+    assert provenance["canonical_chain_count"] == 3
+    assert provenance["canonical_chain_path"].endswith(".canonical_chains.jsonl")
+    assert provenance["canonical_schema_version"] == "system.canonical_chain.v1"
     workspace_copy = workspace / "Data" / "panels" / "cross_asset_daily_panel.parquet"
     assert workspace_copy.exists()
     copied = pd.read_parquet(workspace_copy)
@@ -124,10 +188,119 @@ def test_build_cross_asset_panel_returns_columns_when_seeded(tmp_path: Path, mon
     assert set(PANEL_COLUMNS).issubset(panel.columns)
 
 
+def test_registry_prefetch_is_consumed_before_fresh_provider_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A release must not request registry-acquired ETF symbols twice."""
+    workspace = tmp_path / "workspace"
+    (workspace / "Data" / "panels").mkdir(parents=True)
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["HYG", "SPY"],
+    )
+    calls: list[list[str]] = []
+
+    def fake_fetch(symbols, *, period="5d"):
+        calls.append(list(symbols))
+        return pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2026-08-12"]),
+                "symbol": ["SPY"],
+                "open": [100.0],
+                "high": [101.0],
+                "low": [99.0],
+                "close": [100.5],
+                "volume": [1.0],
+            }
+        )
+
+    monkeypatch.setattr("harvester.cross_asset_panel.fetch_recent_ohlcv", fake_fetch)
+    prefetched = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-12"]),
+            "symbol": ["HYG"],
+            "open": [80.0],
+            "high": [81.0],
+            "low": [79.0],
+            "close": [80.5],
+            "volume": [1.0],
+        }
+    )
+
+    panel, outcome = build_cross_asset_panel(
+        workspace=workspace,
+        prefetched_panel=prefetched,
+        return_outcome=True,
+    )
+
+    assert calls == [["SPY"]]
+    assert set(panel["symbol"]) == {"HYG", "SPY"}
+    assert outcome["prefetched_series"] == ["HYG"]
+    assert outcome["requested_count"] == 2
+    assert outcome["succeeded_count"] == 2
+
+
+def test_registry_rows_are_adapted_to_cross_asset_prefetch(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["HYG", "SPY"],
+    )
+    registry_panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-12", "2026-08-12"]),
+            "source_series_id": ["HYG", "NFCI"],
+            "value": [80.5, 1.2],
+            "open": [80.0, 1.2],
+            "high": [81.0, 1.2],
+            "low": [79.0, 1.2],
+            "volume": [1.0, 0.0],
+        }
+    )
+
+    prefetched = prefetched_panel_from_registry(registry_panel, workspace=tmp_path)
+
+    assert list(prefetched["symbol"]) == ["HYG"]
+    assert prefetched.iloc[0]["close"] == pytest.approx(80.5)
+
+
+def test_sync_panel_never_mutates_finalized_canonical_release(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    canonical = (
+        workspace
+        / "Data"
+        / "harvester"
+        / "exports"
+        / "latest"
+        / "data"
+        / "cross_asset_daily_panel.parquet"
+    )
+    canonical.parent.mkdir(parents=True)
+    canonical.write_bytes(b"finalized-release-bytes")
+    before = canonical.read_bytes()
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-12"]),
+            "symbol": ["SPY"],
+            "close": [100.0],
+        }
+    )
+    mirror = sync_panel_to_workspace(panel, workspace)
+
+    assert mirror == workspace / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+    assert mirror.exists()
+    assert canonical.read_bytes() == before
+
+
 def test_fetch_recent_ohlcv_accepts_provider_value_column(monkeypatch) -> None:
     """EtfYfinanceProvider emits Close as 'value'; must not be dropped as close=0."""
     from harvester.cross_asset_panel import fetch_recent_ohlcv
     from harvester.providers.base import ProviderResult
+
+    # The production chain prefers authenticated providers.  This fixture is
+    # specifically exercising the yfinance adapter, so make that dependency
+    # explicit instead of allowing the test to call a real upstream service.
+    monkeypatch.setenv("ETF_PROVIDER_CHAIN", "yfinance")
 
     class FakeProvider:
         def __init__(self, *args, **kwargs) -> None:
@@ -166,6 +339,10 @@ def test_fetch_recent_ohlcv_raises_when_all_symbols_fail(monkeypatch) -> None:
     from harvester.cross_asset_panel import fetch_recent_ohlcv
     from harvester.providers.base import ProviderResult
 
+    # Keep this failure-path fixture deterministic; the default chain may use
+    # Tiingo/Massive before yfinance when credentials are present.
+    monkeypatch.setenv("ETF_PROVIDER_CHAIN", "yfinance")
+
     class FakeProvider:
         def __init__(self, *args, **kwargs) -> None:
             pass
@@ -184,8 +361,109 @@ def test_fetch_recent_ohlcv_raises_when_all_symbols_fail(monkeypatch) -> None:
         "harvester.providers.etf_yfinance.EtfYfinanceProvider",
         FakeProvider,
     )
-    with pytest.raises(RuntimeError, match="no usable rows"):
+    with pytest.raises(RuntimeError, match="no usable rows") as exc_info:
         fetch_recent_ohlcv(["SPY"], period="5d")
+    assert exc_info.value.outcome["status"] == "provider_failed_no_acceptable_fallback"
+
+
+def test_full_33_symbol_provider_failure_never_reports_refreshed(monkeypatch) -> None:
+    from harvester.cross_asset_panel import fetch_recent_ohlcv
+    from harvester.providers.base import ProviderResult
+
+    # Exercise the yfinance failure fixture directly; do not let credentials
+    # in a developer environment short-circuit it through another provider.
+    monkeypatch.setenv("ETF_PROVIDER_CHAIN", "yfinance")
+
+    symbols = [f"ETF{i:02d}" for i in range(33)]
+
+    class FakeProvider:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def fetch_series(self, series_ids):
+            return [
+                ProviderResult(
+                    provider="yfinance",
+                    series_id=symbol,
+                    frame=pd.DataFrame(),
+                    fetch_error="fixture provider outage",
+                )
+                for symbol in series_ids
+            ]
+
+    monkeypatch.setattr(
+        "harvester.providers.etf_yfinance.EtfYfinanceProvider",
+        FakeProvider,
+    )
+    with pytest.raises(RuntimeError, match="no usable rows") as exc_info:
+        fetch_recent_ohlcv(symbols, period="5d")
+
+    outcome = exc_info.value.outcome
+    assert outcome["status"] == "provider_failed_no_acceptable_fallback"
+    assert outcome["requested_count"] == 33
+    assert outcome["succeeded_count"] == 0
+    assert outcome["failed_count"] == 33
+    assert sorted(outcome["failed_series"]) == symbols
+
+
+def test_staged_provider_outcome_is_identical_across_release_artifacts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import json
+
+    workspace = tmp_path / "workspace"
+    panel_dir = workspace / "Data" / "panels"
+    panel_dir.mkdir(parents=True)
+    seed = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-07-09", "2026-07-10"]),
+            "symbol": ["SPY", "SPY"],
+            "open": [1.0, 1.0],
+            "high": [1.0, 1.0],
+            "low": [1.0, 1.0],
+            "close": [100.0, 101.0],
+            "volume": [1.0, 1.0],
+            "return_1d": [0.0, 0.01],
+            "return_5d": [0.0, 0.0],
+            "return_20d": [0.0, 0.0],
+            "return_60d": [0.0, 0.0],
+            "volatility_20d": [0.0, 0.0],
+            "drawdown_60d": [0.0, 0.0],
+        }
+    )
+    seed.to_parquet(panel_dir / "cross_asset_daily_panel.parquet", index=False)
+
+    def outage(symbols, *, period="5d"):
+        raise RuntimeError("fixture provider outage")
+
+    monkeypatch.setattr("harvester.cross_asset_panel.fetch_recent_ohlcv", outage)
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["SPY"],
+    )
+
+    release_dir = tmp_path / "release"
+    stage_cross_asset_panel(
+        release_dir,
+        release_id="2026-07-10-r1",
+        as_of_date="2026-07-10",
+        vintage_date="2026-07-10",
+        workspace=workspace,
+    )
+
+    manifest = json.loads(
+        (release_dir / "manifests" / "cross_asset_daily_panel.manifest.json").read_text()
+    )
+    provenance = json.loads(
+        (release_dir / "provenance" / "cross_asset_daily_panel.provenance.json").read_text()
+    )
+    quality = json.loads(
+        (release_dir / "quality_reports" / "cross_asset_daily_panel.quality.json").read_text()
+    )
+    expected = manifest["provider_outcome"]
+    assert expected["status"] == "reused_after_provider_failure"
+    assert provenance["provider_outcome"] == expected
+    assert quality["provider_outcome"] == expected
 
 
 def test_build_retains_existing_when_fetch_raises(tmp_path: Path, monkeypatch) -> None:
@@ -220,9 +498,11 @@ def test_build_retains_existing_when_fetch_raises(tmp_path: Path, monkeypatch) -
         lambda workspace=None: ["SPY"],
     )
 
-    panel = build_cross_asset_panel(workspace=workspace)
+    panel, outcome = build_cross_asset_panel(workspace=workspace, return_outcome=True)
     assert len(panel) == 2
     assert panel["close"].iloc[-1] == pytest.approx(101.0)
+    assert outcome["status"] == "reused_after_provider_failure"
+    assert outcome["failed_count"] == 1
 
 
 def test_build_merges_by_symbol_date_not_date_only(tmp_path: Path, monkeypatch) -> None:

@@ -25,7 +25,7 @@ tiers:
     role: "Same-day market closes for volatility term structure and ETF liquidity/depth inputs."
     providers:
       - cboe_direct
-      - openbb_tiingo
+      - etf_provider_chain
     covered_series:
       - VIXCLS
       - VVIX

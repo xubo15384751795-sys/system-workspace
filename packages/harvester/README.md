@@ -34,11 +34,42 @@ Implemented acquisition backends include:
 - U.S. Treasury FiscalData
 - SEC EDGAR filing pulse
 - CBOE direct CSV and delayed JSON endpoints
+- Cross-asset ETF EOD chain: Tiingo, Massive (formerly Polygon.io), then
+  bounded yfinance fallback
 - OpenBB-backed FRED, Tiingo, and selected market-data routes
 - External indicators such as OFR FSI where public files are available
 
 OpenBB is used only as an acquisition engine inside Harvester providers. The
 published identity remains provider-native, such as `fred`, `tiingo`, or `cboe`.
+
+The ETF chain reads `TIINGO_API_KEY` and `MASSIVE_API_KEY` (or the legacy
+`POLYGON_API_KEY`) from the scheduler environment. Missing keys are recorded as
+provider-unavailable and do not trigger a network request. The selected source
+for each ticker is recorded in the `cross_asset_daily_panel` release manifest.
+
+### Configure the Tiingo key for the scheduled run
+
+The default `com.system.daily-run` path reads provider keys from the local file
+`~/.config/system/provider.env`. The file is parsed as plain `KEY=VALUE` data
+(never executed as shell code), must be owned by the current user, and must be
+mode `600` or stricter. Create it locally without committing it:
+
+```bash
+mkdir -p ~/.config/system
+chmod 700 ~/.config/system
+read -r -s "TIINGO_API_KEY?Tiingo API key: "; echo
+umask 077
+printf 'TIINGO_API_KEY=%s\n' "$TIINGO_API_KEY" > ~/.config/system/provider.env
+unset TIINGO_API_KEY
+chmod 600 ~/.config/system/provider.env
+```
+
+Create the token in your Tiingo account, then use the same file for `MASSIVE_API_KEY`
+later if that provider is enabled. An already-exported, non-empty environment
+variable takes precedence over the file. `SYSTEM_PROVIDER_SECRETS_FILE` can be
+set to use another mode-600 path. Never paste the token into source control or
+chat. Verify only the presence of the key (not its value) before the next
+scheduled run.
 
 ## Common Commands
 

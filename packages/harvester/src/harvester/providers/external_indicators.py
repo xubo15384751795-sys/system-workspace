@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import logging
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
-import requests
+
+from harvester.http_gateway import EndpointSpec, OwnedHTTPGateway
+
+logger = logging.getLogger(__name__)
 
 
 # Calendar-day budget before a cached series is considered stale enough to
@@ -15,6 +21,12 @@ import requests
 # served from cache, tight enough that a stalled feed is retried long before
 # the 10-trading-day content_freshness alarm in the pipeline registry.
 DEFAULT_MAX_CACHE_AGE_DAYS = 2
+
+# The ECB CISS SDMX export contains the complete historical series and is
+# larger than the generic 2 MB gateway budget.  Keep a finite provider-owned
+# budget rather than disabling response limits; the normalized cache is much
+# smaller and remains the durable snapshot.
+EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES = 8_000_000
 
 
 @dataclass(frozen=True)
@@ -171,6 +183,16 @@ KNOWN_INDICATORS: tuple[ExternalIndicator, ...] = (
     FINRA_MARGIN_DEBT,
 )
 
+EXTERNAL_ENDPOINTS: dict[tuple[str, str], EndpointSpec] = {
+    ("external_public", indicator.name): EndpointSpec(
+        provider="external_public",
+        endpoint_id=indicator.name,
+        url=indicator.publisher_url,
+        allowed_hosts=frozenset({urlparse(indicator.publisher_url).hostname or ""}),
+    )
+    for indicator in KNOWN_INDICATORS
+}
+
 
 def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
     """Write slim Date/value CSV so naive readers never see raw JSON/SDMX."""
@@ -186,7 +208,7 @@ def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
     else:
         frame.columns = ["Date", "value"]
         frame["Date"] = pd.to_datetime(frame["Date"]).dt.strftime("%Y-%m-%d")
-    return frame.to_csv(index=False)
+    return str(frame.to_csv(index=False))
 
 
 def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Series) -> None:
@@ -194,7 +216,7 @@ def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Seri
     try:
         cache_path.write_text(_canonical_cache_text(indicator_name, series), encoding="utf-8")
     except OSError:
-        pass
+        logger.warning("Failed to normalize indicator cache: %s", cache_path, exc_info=True)
 
 
 def _cache_is_stale(series: pd.Series, *, max_age_days: int) -> bool:
@@ -208,7 +230,7 @@ def _cache_is_stale(series: pd.Series, *, max_age_days: int) -> bool:
     last = pd.Timestamp(series.index.max())
     if pd.isna(last):
         return True
-    return (pd.Timestamp.today().normalize() - last.normalize()).days > max_age_days
+    return bool((pd.Timestamp.today().normalize() - last.normalize()).days > max_age_days)
 
 
 def _merge_cached_history(
@@ -221,6 +243,7 @@ def _merge_cached_history(
     try:
         cached = parser(cache_path.read_text(encoding="utf-8"))
     except Exception:
+        logger.warning("Failed to parse cached indicator history: %s", cache_path, exc_info=True)
         return fresh
     if cached.empty:
         return fresh
@@ -235,6 +258,7 @@ def fetch_external_indicator(
     refresh: bool = False,
     timeout_sec: int = 90,
     max_cache_age_days: int = DEFAULT_MAX_CACHE_AGE_DAYS,
+    gateway: OwnedHTTPGateway | None = None,
 ) -> pd.Series:
     cache_path = _resolve_cache(cache_dir, indicator)
     parser = _PARSERS[indicator.name]
@@ -255,10 +279,21 @@ def fetch_external_indicator(
             if not _cache_is_stale(series, max_age_days=max_cache_age_days):
                 return series
         except Exception:
-            pass
+            logger.warning("Failed to parse cached indicator: %s", cache_path, exc_info=True)
 
     try:
-        text = _download(indicator.publisher_url, timeout_sec=timeout_sec)
+        owns_gateway = gateway is None
+        client = gateway or OwnedHTTPGateway(
+            endpoint_registry=EXTERNAL_ENDPOINTS,
+            headers={"User-Agent": "StructuralRiskHarvester/0.1.0"},
+            timeout_sec=timeout_sec,
+            max_response_bytes=EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES,
+        )
+        try:
+            text = _download(indicator, gateway=client)
+        finally:
+            if owns_gateway:
+                client.close()
         series = _merge_cached_history(cache_path, parser, parser(text))
         _normalize_cache_file(cache_path, indicator.name, series)
         return series
@@ -267,7 +302,7 @@ def fetch_external_indicator(
             try:
                 return parser(cache_path.read_text(encoding="utf-8"))
             except Exception:
-                pass
+                logger.warning("Cached indicator fallback is also invalid: %s", cache_path, exc_info=True)
         raise ManualDownloadRequired(
             indicator=indicator.name,
             expected_path=cache_path,
@@ -283,17 +318,23 @@ def fetch_all_external(
 ) -> dict[str, pd.Series]:
     out: dict[str, pd.Series] = {}
     errors: dict[str, str] = {}
-    for indicator in KNOWN_INDICATORS:
-        try:
-            out[indicator.series_id] = fetch_external_indicator(
-                indicator,
-                cache_dir=cache_dir,
-                refresh=refresh,
-            )
-        except ManualDownloadRequired as exc:
-            if not skip_unavailable:
-                raise
-            errors[indicator.name] = str(exc)
+    with OwnedHTTPGateway(
+        endpoint_registry=EXTERNAL_ENDPOINTS,
+        headers={"User-Agent": "StructuralRiskHarvester/0.1.0"},
+        max_response_bytes=EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES,
+    ) as gateway:
+        for indicator in KNOWN_INDICATORS:
+            try:
+                out[indicator.series_id] = fetch_external_indicator(
+                    indicator,
+                    cache_dir=cache_dir,
+                    refresh=refresh,
+                    gateway=gateway,
+                )
+            except ManualDownloadRequired as exc:
+                if not skip_unavailable:
+                    raise
+                errors[indicator.name] = str(exc)
     if errors:
         out["__errors__"] = pd.Series(errors)  # type: ignore[assignment]
     return out
@@ -354,14 +395,17 @@ def write_template_csv(indicator_name: str, *, cache_dir: Path | str) -> Path:
     return cache_path
 
 
-def _download(url: str, *, timeout_sec: int) -> str:
-    response = requests.get(
-        url,
-        headers={"User-Agent": "StructuralRiskHarvester/0.1.0"},
-        timeout=timeout_sec,
+def _download(
+    indicator: ExternalIndicator,
+    *,
+    gateway: OwnedHTTPGateway,
+) -> str:
+    response = gateway.fetch(
+        "external_public",
+        indicator.name,
     )
     response.raise_for_status()
-    return response.text
+    return str(response.text)
 
 
 def _parse_ofr_fsi_csv(text: str) -> pd.Series:
@@ -390,6 +434,12 @@ def _resolve_cache(cache_dir: Path | str, indicator: ExternalIndicator) -> Path:
 
 
 def _parse_ciss_csv(text: str) -> pd.Series:
+    # The ECB endpoint is documented with ``format=csvdata`` but has returned
+    # both CSV and SDMX Generic XML over time (and through different gateway
+    # paths).  Parse both representations so a content-negotiation change does
+    # not silently turn a fresh release into a stale-cache fallback.
+    if text.lstrip().startswith("<"):
+        return _parse_ciss_sdmx_xml(text)
     frame = pd.read_csv(StringIO(text))
     cols = {c.upper(): c for c in frame.columns}
     if "TIME_PERIOD" not in cols or "OBS_VALUE" not in cols:
@@ -398,6 +448,71 @@ def _parse_ciss_csv(text: str) -> pd.Series:
     values = pd.to_numeric(frame[cols["OBS_VALUE"]], errors="coerce")
     out = pd.Series(values.to_numpy(), index=dates, name="CISS")
     return out[~out.index.isna()].dropna().sort_index()
+
+
+def _xml_local_name(tag: str) -> str:
+    """Return an XML tag/attribute local name, ignoring its namespace."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def _xml_attribute(element: ET.Element, name: str) -> str | None:
+    """Read an XML attribute by local name (Generic XML may namespace it)."""
+    for key, value in element.attrib.items():
+        if key == name or _xml_local_name(key) == name:
+            return value
+    return None
+
+
+def _parse_ciss_sdmx_xml(text: str) -> pd.Series:
+    """Parse ECB SDMX GenericData observations into the canonical CISS series.
+
+    The response is bounded by ``OwnedHTTPGateway`` before reaching this
+    parser.  Rejecting DTD/entity declarations here additionally prevents an
+    untrusted provider response from enabling XML entity expansion if this
+    parser is called directly in a fixture or maintenance script.
+    """
+    lowered = text.lower()
+    if "<!doctype" in lowered or "<!entity" in lowered:
+        raise ValueError("CISS SDMX XML must not contain DTD or entity declarations")
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise ValueError("Unexpected CISS SDMX XML document") from exc
+
+    rows: list[tuple[str, str]] = []
+    for observation in root.iter():
+        if _xml_local_name(observation.tag) != "Obs":
+            continue
+        dimension: ET.Element | None = None
+        value_element: ET.Element | None = None
+        for child in observation.iter():
+            if child is observation:
+                continue
+            local = _xml_local_name(child.tag)
+            if local == "ObsDimension":
+                candidate_id = _xml_attribute(child, "id")
+                if dimension is None or candidate_id == "TIME_PERIOD":
+                    dimension = child
+            elif local == "ObsValue" and value_element is None:
+                value_element = child
+        if dimension is None or value_element is None:
+            continue
+        date_value = _xml_attribute(dimension, "value")
+        observation_value = _xml_attribute(value_element, "value")
+        if date_value and observation_value:
+            rows.append((date_value, observation_value))
+
+    if not rows:
+        raise ValueError("Unexpected CISS SDMX XML schema; no observations found")
+    frame = pd.DataFrame(rows, columns=["TIME_PERIOD", "OBS_VALUE"])
+    dates = pd.to_datetime(frame["TIME_PERIOD"], errors="coerce")
+    values = pd.to_numeric(frame["OBS_VALUE"], errors="coerce")
+    out = pd.Series(values.to_numpy(), index=dates, name="CISS")
+    out = out[~out.index.isna()].dropna()
+    # Generic SDMX can repeat a date when a publisher adds dimensions.  The
+    # endpoint is a single CISS series, so retain the last observation rather
+    # than emitting duplicate index values downstream.
+    return out.groupby(level=0).last().sort_index()
 
 
 def _parse_srisk_csv(text: str) -> pd.Series:

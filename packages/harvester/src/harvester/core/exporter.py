@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from harvester.core.catalog import build_catalog, write_catalog
 from harvester.core.manifest import load_manifest
+from harvester.core.observation import ObservationCoverageError, read_observation_coverage
 from harvester.core.provenance import load_provenance
+
+logger = logging.getLogger(__name__)
 
 
 class ExportValidationError(ValueError):
@@ -46,7 +50,7 @@ def default_exports_root() -> Path:
     try:
         from system_runtime.paths import WorkspacePaths
 
-        return WorkspacePaths.discover().harvester_exports
+        return cast(Path, WorkspacePaths.discover().harvester_exports)
     except Exception:
         return repo_root() / "data" / "exports"
 
@@ -105,10 +109,22 @@ def finalize_release(
     try:
         from orchestration.dvc_promote import record_release_pointer
 
-        record_release_pointer(exports_root=root, release_id=release_id)
-    except Exception:
-        # DVC tracking must never block a finalized release pointer.
-        pass
+        dvc_result = record_release_pointer(exports_root=root, release_id=release_id)
+        if dvc_result.get("dvc_commit_status") != "PASS":
+            logger.warning(
+                "DVC pointer not committed for release %s: %s",
+                release_id,
+                dvc_result.get("dvc_error", "DVC_COMMIT_BLOCKED"),
+            )
+    except Exception as exc:
+        # DVC recovery evidence is separate from the finalized local release,
+        # but the failure must remain visible and typed.
+        logger.warning(
+            "DVC pointer recording failed for release %s: %s",
+            release_id,
+            type(exc).__name__,
+            exc_info=True,
+        )
     _make_read_only(release_dir)
     return result
 
@@ -157,12 +173,27 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
             raise ExportValidationError(f"manifest filename must be {expected_manifest_name}: {manifest_path}")
 
         data_path = release_dir / manifest["data_file"]["path"]
+        try:
+            data_path.relative_to(release_dir)
+        except ValueError as exc:
+            raise ExportValidationError(
+                f"data path escapes release directory for {manifest['dataset_id']}: {data_path}"
+            ) from exc
         declared_data_paths.add(data_path.relative_to(release_dir).as_posix())
         if not data_path.exists() or not data_path.is_file():
             raise ExportValidationError(f"data file missing for {manifest['dataset_id']}: {data_path}")
         if data_path.stat().st_size != manifest["data_file"]["byte_size"]:
             raise ExportValidationError(f"byte_size mismatch for {data_path}")
         verify_file_sha256(data_path, manifest["data_file"]["sha256"])
+
+        actual_coverage = _actual_observation_coverage(data_path, manifest)
+        if actual_coverage is not None:
+            _compare_coverage(
+                actual_coverage,
+                manifest.get("time_coverage", {}),
+                label="manifest",
+                dataset_id=manifest["dataset_id"],
+            )
 
         provenance_path = release_dir / manifest["lineage"]["provenance_path"]
         if not provenance_path.exists() or not provenance_path.is_file():
@@ -174,6 +205,128 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
             raise ExportValidationError(f"provenance release_id mismatch for {manifest['dataset_id']}")
         if provenance["checksums"]["final_sha256"] != manifest["data_file"]["sha256"]:
             raise ExportValidationError(f"provenance final_sha256 mismatch for {manifest['dataset_id']}")
+        if actual_coverage is not None:
+            provenance_coverage = provenance.get("observation_coverage")
+            if not isinstance(provenance_coverage, dict):
+                raise ExportValidationError(
+                    f"provenance observation coverage missing for {manifest['dataset_id']}"
+                )
+            _compare_coverage(
+                actual_coverage,
+                provenance_coverage,
+                label="provenance",
+                dataset_id=manifest["dataset_id"],
+            )
+        canonical_relpath = provenance.get("canonical_observation_path")
+        if canonical_relpath:
+            canonical_path = release_dir / str(canonical_relpath)
+            try:
+                canonical_path.relative_to(release_dir)
+            except ValueError as exc:
+                raise ExportValidationError(
+                    f"canonical observation path escapes release directory for {manifest['dataset_id']}"
+                ) from exc
+            if not canonical_path.is_file():
+                raise ExportValidationError(
+                    f"canonical observation sidecar missing for {manifest['dataset_id']}: {canonical_path}"
+                )
+            expected_count = provenance.get("canonical_observation_count")
+            actual_count = 0
+            try:
+                from system_runtime.canonical_ids import validate_observation
+            except ImportError:
+                validate_observation = None
+            try:
+                for line in canonical_path.read_text(encoding="utf-8").splitlines():
+                    if line.strip():
+                        record = json.loads(line)
+                        if validate_observation is not None:
+                            validate_observation(record)
+                        actual_count += 1
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                raise ExportValidationError(
+                    f"canonical observation sidecar invalid for {manifest['dataset_id']}: {canonical_path}"
+                ) from exc
+            if expected_count is not None and int(expected_count) != actual_count:
+                raise ExportValidationError(
+                    f"canonical observation count mismatch for {manifest['dataset_id']}: "
+                    f"declared={expected_count}, actual={actual_count}"
+                )
+
+        canonical_chain_relpath = provenance.get("canonical_chain_path")
+        if canonical_chain_relpath:
+            canonical_chain_path = release_dir / str(canonical_chain_relpath)
+            try:
+                canonical_chain_path.relative_to(release_dir)
+            except ValueError as exc:
+                raise ExportValidationError(
+                    f"canonical chain path escapes release directory for {manifest['dataset_id']}"
+                ) from exc
+            if not canonical_chain_path.is_file():
+                raise ExportValidationError(
+                    f"canonical chain sidecar missing for {manifest['dataset_id']}: {canonical_chain_path}"
+                )
+            expected_chain_count = provenance.get("canonical_chain_count")
+            actual_chain_count = 0
+            try:
+                from system_runtime.canonical_ids import validate_chain
+            except ImportError:
+                validate_chain = None
+            try:
+                for line in canonical_chain_path.read_text(encoding="utf-8").splitlines():
+                    if line.strip():
+                        record = json.loads(line)
+                        if validate_chain is not None:
+                            validate_chain(record)
+                        actual_chain_count += 1
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                raise ExportValidationError(
+                    f"canonical chain sidecar invalid for {manifest['dataset_id']}: {canonical_chain_path}"
+                ) from exc
+            if expected_chain_count is not None and int(expected_chain_count) != actual_chain_count:
+                raise ExportValidationError(
+                    f"canonical chain count mismatch for {manifest['dataset_id']}: "
+                    f"declared={expected_chain_count}, actual={actual_chain_count}"
+                )
+
+        measurement_spec_relpath = provenance.get("measurement_spec_path")
+        if measurement_spec_relpath:
+            measurement_spec_path = release_dir / str(measurement_spec_relpath)
+            try:
+                measurement_spec_path.relative_to(release_dir)
+            except ValueError as exc:
+                raise ExportValidationError(
+                    f"measurement spec path escapes release directory for {manifest['dataset_id']}"
+                ) from exc
+            if not measurement_spec_path.is_file():
+                raise ExportValidationError(
+                    f"measurement spec missing for {manifest['dataset_id']}: {measurement_spec_path}"
+                )
+            try:
+                from harvester.core.proxy_measurement import load_measurement_spec
+
+                measurement_spec = load_measurement_spec(measurement_spec_path)
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                raise ExportValidationError(
+                    f"measurement spec invalid for {manifest['dataset_id']}: {measurement_spec_path}"
+                ) from exc
+            if measurement_spec.get("dataset_id") != manifest["dataset_id"]:
+                raise ExportValidationError(
+                    f"measurement spec dataset_id mismatch for {manifest['dataset_id']}"
+                )
+            if measurement_spec.get("release_id") != release_id:
+                raise ExportValidationError(
+                    f"measurement spec release_id mismatch for {manifest['dataset_id']}"
+                )
+            declared_spec_version = provenance.get("measurement_spec_version")
+            if not declared_spec_version:
+                raise ExportValidationError(
+                    f"measurement spec version missing for {manifest['dataset_id']}"
+                )
+            if declared_spec_version and measurement_spec.get("schema_version") != declared_spec_version:
+                raise ExportValidationError(
+                    f"measurement spec version mismatch for {manifest['dataset_id']}"
+                )
 
         quality_report_path = manifest.get("quality_report_path")
         if quality_report_path:
@@ -183,6 +336,18 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
             quality_report = json.loads(quality_path.read_text(encoding="utf-8"))
             if quality_report.get("status") == "failed":
                 raise ExportValidationError(f"quality report failed for {manifest['dataset_id']}: {quality_report_path}")
+            if actual_coverage is not None:
+                quality_coverage = quality_report.get("observation_coverage")
+                if not isinstance(quality_coverage, dict):
+                    raise ExportValidationError(
+                        f"quality observation coverage missing for {manifest['dataset_id']}"
+                    )
+                _compare_coverage(
+                    actual_coverage,
+                    quality_coverage,
+                    label="quality",
+                    dataset_id=manifest["dataset_id"],
+                )
 
     actual_data_paths = {
         path.relative_to(release_dir).as_posix()
@@ -194,6 +359,40 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
         raise ExportValidationError(f"undeclared data files in release: {undeclared}")
 
     return len(manifest_paths)
+
+
+def _actual_observation_coverage(data_path: Path, manifest: dict[str, Any]) -> dict[str, Any] | None:
+    time_coverage = manifest.get("time_coverage", {})
+    time_column = time_coverage.get("time_column")
+    if not time_column:
+        return None
+    try:
+        return cast(dict[str, Any], read_observation_coverage(
+            data_path,
+            file_format=str(manifest["data_file"]["format"]),
+            time_column=str(time_column),
+        ))
+    except ObservationCoverageError as exc:
+        raise ExportValidationError(
+            f"observation coverage unreadable for {manifest['dataset_id']}: {exc}"
+        ) from exc
+
+
+def _compare_coverage(
+    actual: dict[str, Any],
+    declared: dict[str, Any],
+    *,
+    label: str,
+    dataset_id: str,
+) -> None:
+    for field in ("start", "end", "time_column"):
+        expected = declared.get(field)
+        observed = actual.get(field)
+        if expected != observed:
+            raise ExportValidationError(
+                f"{label} observation coverage mismatch for {dataset_id}: "
+                f"{field} expected={expected!r}, actual={observed!r}"
+            )
 
 
 def _ensure_mutable(release_dir: Path) -> None:

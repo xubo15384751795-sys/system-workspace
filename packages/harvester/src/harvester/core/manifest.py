@@ -6,7 +6,6 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-
 SCHEMA_VERSION = "1.0"
 
 
@@ -40,6 +39,7 @@ def build_manifest(
     dataset_revision: int = 1,
     quality_report_path: str | None = None,
     lineage: dict[str, Any] | None = None,
+    provider_outcome: dict[str, Any] | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
     manifest: dict[str, Any] = {
@@ -57,6 +57,8 @@ def build_manifest(
     }
     if quality_report_path is not None:
         manifest["quality_report_path"] = quality_report_path
+    if provider_outcome is not None:
+        manifest["provider_outcome"] = provider_outcome
     if notes is not None:
         manifest["notes"] = notes
 
@@ -85,8 +87,11 @@ def write_manifest(manifest: dict[str, Any], path: Path | str) -> None:
     _write_json(Path(path), manifest)
 
 
-def _read_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ManifestValidationError(f"JSON payload must be an object: {path}")
+    return payload
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

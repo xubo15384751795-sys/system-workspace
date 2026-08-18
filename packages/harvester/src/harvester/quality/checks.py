@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 
 class QualityCheckError(ValueError):
@@ -38,25 +38,25 @@ def check_row_count_in_range(df: Any, min_rows: int, max_rows: int) -> None:
 
 def _column_values(df: Any, column: str) -> Iterable[Any]:
     try:
-        return df[column]
+        return cast(Iterable[Any], df[column])
     except Exception as exc:
         raise QualityCheckError(f"missing required column: {column}") from exc
 
 
 def _as_date(value: Any) -> date:
     if isinstance(value, datetime):
-        return value.date()
+        return cast(date, value.date())
     if isinstance(value, date):
         return value
     if isinstance(value, str):
         return date.fromisoformat(value[:10])
     if hasattr(value, "date"):
-        return value.date()
+        return cast(date, value.date())
     raise QualityCheckError(f"cannot interpret value as date: {value!r}")
 
 
 def _is_nan(value: Any) -> bool:
-    return value != value
+    return bool(value != value)
 
 
 __all__ = [

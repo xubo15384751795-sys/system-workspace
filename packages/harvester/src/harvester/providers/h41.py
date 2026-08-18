@@ -8,8 +8,8 @@ from typing import Any
 from urllib.parse import quote
 
 import pandas as pd
-import requests
 
+from harvester.http_gateway import GatewayError, GatewayHTTPError, OwnedHTTPGateway
 from harvester.providers.base import OfficialProvider, ProviderResult
 
 logger = logging.getLogger(__name__)
@@ -109,13 +109,12 @@ class H41Provider(OfficialProvider):
         cache: bool = True,
         user_agent: str = "StructuralRiskHarvester/0.1.0",
         allow_fred_fallback: bool = True,
+        gateway: OwnedHTTPGateway | None = None,
     ) -> None:
         super().__init__(data_root=data_root, cache=cache, user_agent=user_agent)
         self._api_key = api_key or os.environ.get("FRED_API_KEY", "")
         self._allow_fred_fallback = allow_fred_fallback
-        self._session = requests.Session()
-        self._session.headers.update({"User-Agent": user_agent})
-        self._session.trust_env = False  # 不使用环境变量中的代理
+        self._gateway = gateway or OwnedHTTPGateway(headers={"User-Agent": user_agent})
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
         results: list[ProviderResult] = []
@@ -147,11 +146,22 @@ class H41Provider(OfficialProvider):
             f"&rel=H41&lastObs=5000&series={quote(series_param, safe=',/')}"
         )
         try:
-            resp = self._session.get(url, timeout=30)
+            resp = self._gateway.fetch(
+                "h41",
+                "ddp_csv",
+                {
+                    "filetype": "csv",
+                    "label": "include",
+                    "layout": "seriescolumn",
+                    "rel": "H41",
+                    "lastObs": 5000,
+                    "series": series_param,
+                },
+            )
             resp.raise_for_status()
             raw_bytes = resp.content
             text = raw_bytes.decode("utf-8-sig", errors="replace")
-        except requests.exceptions.RequestException as exc:
+        except GatewayError as exc:
             msg = f"H41 direct DDP network error for {h41_field}: {exc}"
             logger.warning(msg)
             return self._build_error_result(h41_field, msg, "network_error")
@@ -203,7 +213,7 @@ class H41Provider(OfficialProvider):
             "sort_order": "asc",
         }
         try:
-            resp = self._session.get(url, params=params, timeout=30)
+            resp = self._gateway.fetch("fred", "series_observations", params)
             if resp.status_code == 400 and "Bad Request" in resp.text:
                 return self._build_error_result(
                     h41_field,
@@ -213,12 +223,12 @@ class H41Provider(OfficialProvider):
             resp.raise_for_status()
             data = resp.json()
             raw_bytes = resp.content
-        except requests.exceptions.HTTPError as exc:
-            status = exc.response.status_code if exc.response else "?"
+        except GatewayHTTPError as exc:
+            status = exc.status_code
             msg = f"H41 via FRED HTTP {status} for {fred_series_id}"
             logger.warning(msg)
             return self._build_error_result(h41_field, msg, "http_error")
-        except requests.exceptions.RequestException as exc:
+        except GatewayError as exc:
             msg = f"H41 via FRED network error for {fred_series_id}: {exc}"
             logger.warning(msg)
             return self._build_error_result(h41_field, msg, "network_error")
@@ -238,7 +248,6 @@ class H41Provider(OfficialProvider):
         unit = H41_UNITS.get(h41_field, "")
         rows: list[dict[str, Any]] = []
         all_zero = True
-        has_any_value = False
 
         for obs in observations:
             date_val = obs.get("date", "")
@@ -249,7 +258,6 @@ class H41Provider(OfficialProvider):
                 numeric = float(val)
             except (ValueError, TypeError):
                 continue
-            has_any_value = True
             if numeric != 0.0:
                 all_zero = False
             rows.append({
@@ -339,8 +347,8 @@ def _find_date_column(df: pd.DataFrame) -> str | None:
     for col in df.columns:
         normalized = str(col).strip().lower()
         if normalized in candidates or normalized.startswith("time"):
-            return col
-    return df.columns[0] if len(df.columns) else None
+            return str(col)
+    return str(df.columns[0]) if len(df.columns) else None
 
 
 def _find_series_column(df: pd.DataFrame, code: str) -> str | None:
@@ -350,5 +358,5 @@ def _find_series_column(df: pd.DataFrame, code: str) -> str | None:
         label = str(col).strip()
         normalized = label.replace("_", "").replace(".", "").upper()
         if label == code or label.endswith(code_tail) or compact in normalized:
-            return col
+            return str(col)
     return None

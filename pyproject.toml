@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools==84.0.0", "wheel==0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "structural-deformation-system"
 version = "0.2.0"
 description = "Governed structural-risk workspace application"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 
 # Core runtime dependencies (shared across all submodules)
 dependencies = [
@@ -14,9 +14,12 @@ dependencies = [
     "jsonschema>=4.0",
     "pandas>=2.0",
     "numpy>=2.0",
+    "exchange-calendars>=4.5,<5",
     "scikit-learn>=1.4",
     "omegaconf>=2.3",
     "mcp>=1.23,<2",
+    "httpcore>=1.0,<2",
+    "httpx>=0.27,<1",
 ]
 
 [project.scripts]
@@ -31,6 +34,7 @@ orchestration = [
     "dagster>=1.9",
     "dagster-webserver>=1.9",
     "pandera>=0.20",
+    "exchange-calendars>=4.5,<5",
     # great_expectations is optional: no wheel for Python >=3.14 yet.
     # packages/orchestration/quality/ge_suite.py emits GE-shaped payloads via Pandera.
     "dvc>=3.50",
@@ -42,7 +46,7 @@ observability = [
     "sentry-sdk>=2.0",
 ]
 ge = [
-    "great_expectations>=0.18.22,<1.0; python_version < '3.14'",
+    "great_expectations>=1.0,<2.0; python_version < '3.14'",
 ]
 dev = [
     "pytest>=8.0",
@@ -59,6 +63,14 @@ full = [
     "structural-deformation-system[ml,dev,orchestration]",
 ]
 
+[dependency-groups]
+dev = [
+    "mypy>=1.10",
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+    "ruff>=0.15,<0.16",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
@@ -72,6 +84,11 @@ include = [
 # The four domain distributions stay independently installable.  Workspace
 # tooling installs them together; runtime code imports their public packages
 # and never mutates sys.path to reach their source trees.
+[tool.uv]
+# Keep PEP 517 build requirements aligned with the checked-in build
+# constraints used by CI. Runtime dependencies remain governed by uv.lock.
+build-constraint-dependencies = ["setuptools==84.0.0", "wheel==0.46.2"]
+
 [tool.uv.workspace]
 members = [
     "packages/framework",
@@ -82,26 +99,56 @@ members = [
 ]
 
 [tool.pytest.ini_options]
+# The root project is the single test-classification authority.  Package
+# projects remain independently buildable, but their tests inherit this
+# hermetic collection policy when run from the workspace or CI.
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = [
+    ".",
+    "packages/framework",
+    "packages/framework/src",
+    "packages/harvester/src",
+    "packages/learning_hub/src",
+    "packages/workbench/src",
+    "packages/orchestration",
+    "scripts",
+]
+addopts = "-m 'not operator and not network and not external_repo and not slow' --strict-markers"
 norecursedirs = [
-    ".git", ".pytest_cache", "__pycache__", "Data", "Output",
-    "Workbench", "deformation-framework",
-    "Structural Risk Harvester", "Structural Research Harness",
-    "System Learning Hub", "contracts",
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "Data",
+    "Output",
+    "Workbench",
+    "Structural Deformation Research System",
+    "Structural Risk Harvester",
+    "Structural Research Harness",
+    "System Learning Hub",
+    "contracts",
 ]
 markers = [
-    "critical_gate: tests that must pass before promotion",
-    "semantic: concept registry, proxy semantics",
-    "data_boundary: data boundary compliance, freshness",
-    "benchmark: benchmark correctness",
+    "critical_gate: tests that must pass before promotion (routing, config, authority gates)",
+    "semantic: concept registry, proxy semantics, NOT_IMPLEMENTED enforcement",
+    "data_boundary: data boundary compliance, freshness, provenance",
+    "benchmark: benchmark correctness (Qlib placeholder, real metrics, comparison validity)",
     "report: report verdict gate, export validation",
     "governance_loop: ledger, escalation, incident lifecycle",
-    "slow: tests that take >10s",
+    "slow: tests that take >10s, excluded from default runs",
+    "operator: tests that require an initialized operator workspace (Data/Output state); excluded by default",
+    "network: tests that make live network calls; excluded by default",
+    "external_repo: tests that require external repositories (Paper vault, CaseLab fixtures); excluded by default",
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
+check_untyped_defs = true
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
-exclude = ["deformation-framework/", "Workbench/", "structural-risk-harvester/", "system-learning-hub/"]
+# Generated wheel/build trees are artifacts, not independent source surfaces;
+# broad package type checks must not duplicate their copied modules.
+exclude = ["(^|/)(build|dist)(/|$)"]
+# Package-specific mypy policy lives in the member pyproject files. The root
+# project has no legacy submodule exclusions; those paths are not current code.

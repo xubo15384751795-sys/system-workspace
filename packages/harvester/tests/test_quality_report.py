@@ -22,6 +22,12 @@ def test_quality_report_passes_basic_panel() -> None:
     assert report["status"] == "passed"
     assert report["row_count"] == 2
     assert not report["blockers"]
+    assert report["observation_coverage"] == {
+        "start": "2026-01-01",
+        "end": "2026-01-02",
+        "time_column": "date",
+        "row_count": 2,
+    }
 
 
 def test_quality_report_blocks_future_dates() -> None:

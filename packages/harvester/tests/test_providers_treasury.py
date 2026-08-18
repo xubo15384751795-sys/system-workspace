@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
+import harvester.http_gateway as gateway_module
+from harvester.http_gateway import OwnedHTTPGateway
 from harvester.providers.treasury import TreasuryProvider
 
 TREASURY_DEBT_RESPONSE = {
@@ -24,28 +26,22 @@ TREASURY_DTS_RESPONSE = {
 
 
 def _mock_response(json_data: dict, status: int = 200):
-    resp = MagicMock()
-    resp.json.return_value = json_data
-    resp.status_code = status
-    resp.content = json.dumps(json_data).encode("utf-8")
-    resp.text = json.dumps(json_data)
-    resp.raise_for_status = MagicMock()
-    if status >= 400:
-        from requests.exceptions import HTTPError
+    return httpx.Response(status, content=json.dumps(json_data).encode("utf-8"))
 
-        resp.raise_for_status.side_effect = HTTPError(response=resp)
-    return resp
+
+def _gateway(response: httpx.Response) -> OwnedHTTPGateway:
+    return OwnedHTTPGateway(transport=httpx.MockTransport(lambda _request: response))
+
+
+@pytest.fixture(autouse=True)
+def _allow_fake_gateway_hosts(monkeypatch):
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
 
 
 class TestTreasuryProvider:
     def test_parse_debt_to_penny(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(TREASURY_DEBT_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = TreasuryProvider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response(TREASURY_DEBT_RESPONSE)) as gateway:
+            prov = TreasuryProvider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["debt_to_penny:tot_pub_debt_out_amt"])
 
             assert len(results) == 1
@@ -58,13 +54,8 @@ class TestTreasuryProvider:
             assert r.frame["frequency"].iloc[0] == "daily"
 
     def test_parse_daily_treasury_statement(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(TREASURY_DTS_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = TreasuryProvider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response(TREASURY_DTS_RESPONSE)) as gateway:
+            prov = TreasuryProvider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["daily_treasury_statement:open_today_bal"])
 
             assert len(results) == 1
@@ -89,38 +80,23 @@ class TestTreasuryProvider:
         assert "unknown dataset" in results[0].fetch_error
 
     def test_http_error(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({}, status=500)
-            mock_session_cls.return_value = mock_session
-
-            prov = TreasuryProvider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({}, status=500)) as gateway:
+            prov = TreasuryProvider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["debt_to_penny:tot_pub_debt_out_amt"])
             assert len(results) == 1
             assert results[0].fetch_error is not None
 
     def test_empty_response(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response({"data": []})
-            mock_session_cls.return_value = mock_session
-
-            prov = TreasuryProvider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response({"data": []})) as gateway:
+            prov = TreasuryProvider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["debt_to_penny:tot_pub_debt_out_amt"])
             assert len(results) == 1
             assert results[0].fetch_error is not None
             assert "no data" in results[0].fetch_error
 
     def test_to_long_panel(self, tmp_path) -> None:
-        with patch("requests.Session") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session.headers = {}
-            mock_session.get.return_value = _mock_response(TREASURY_DEBT_RESPONSE)
-            mock_session_cls.return_value = mock_session
-
-            prov = TreasuryProvider(data_root=str(tmp_path), cache=False)
+        with _gateway(_mock_response(TREASURY_DEBT_RESPONSE)) as gateway:
+            prov = TreasuryProvider(data_root=str(tmp_path), cache=False, gateway=gateway)
             results = prov.fetch_series(["debt_to_penny:tot_pub_debt_out_amt"])
             panel = prov._to_long_panel(results)
             assert not panel.empty

@@ -4,8 +4,8 @@ import logging
 from typing import Any
 
 import pandas as pd
-import requests
 
+from harvester.http_gateway import GatewayError, GatewayHTTPError, OwnedHTTPGateway
 from harvester.providers.base import OfficialProvider, ProviderResult
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,10 @@ class TreasuryProvider(OfficialProvider):
         data_root: str = "",
         cache: bool = True,
         user_agent: str = "StructuralRiskHarvester/0.1.0",
+        gateway: OwnedHTTPGateway | None = None,
     ) -> None:
         super().__init__(data_root=data_root, cache=cache, user_agent=user_agent)
-        self._session = requests.Session()
-        self._session.headers.update({"User-Agent": user_agent})
-        self._session.trust_env = False  # 不使用环境变量中的代理
+        self._gateway = gateway or OwnedHTTPGateway(headers={"User-Agent": user_agent})
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
         results: list[ProviderResult] = []
@@ -48,15 +47,16 @@ class TreasuryProvider(OfficialProvider):
         return "", ""
 
     def _fetch_dataset_field(self, dataset: str, field: str, series_id: str) -> ProviderResult:
-        endpoint_map = {
-            "debt_to_penny": "/v2/accounting/od/debt_to_penny",
-            "daily_treasury_statement": "/v1/accounting/dts/operating_cash_balance",
-        }
-        endpoint = endpoint_map.get(dataset)
-        if not endpoint:
+        endpoint_id = dataset if dataset in {"debt_to_penny", "daily_treasury_statement"} else None
+        if endpoint_id is None:
             return self._build_error_result(
                 series_id, f"unknown dataset: {dataset}", "unknown_dataset"
             )
+        url = (
+            f"{TREASURY_BASE}/v2/accounting/od/debt_to_penny"
+            if endpoint_id == "debt_to_penny"
+            else f"{TREASURY_BASE}/v1/accounting/dts/operating_cash_balance"
+        )
 
         date_field_map = {
             "debt_to_penny": "record_date",
@@ -64,7 +64,6 @@ class TreasuryProvider(OfficialProvider):
         }
         date_field = date_field_map.get(dataset, "record_date")
 
-        url = f"{TREASURY_BASE}{endpoint}"
         params = {
             "fields": f"{date_field},{field}",
             "sort": date_field,
@@ -72,15 +71,15 @@ class TreasuryProvider(OfficialProvider):
         }
 
         try:
-            resp = self._session.get(url, params=params, timeout=30)
+            resp = self._gateway.fetch("treasury", endpoint_id, params)
             resp.raise_for_status()
             data = resp.json()
             raw_bytes = resp.content
-        except requests.exceptions.HTTPError as exc:
-            msg = f"Treasury HTTP {exc.response.status_code if exc.response else '?'} for {series_id}"
+        except GatewayHTTPError as exc:
+            msg = f"Treasury HTTP {exc.status_code} for {series_id}"
             logger.warning(msg)
             return self._build_error_result(series_id, msg, "http_error")
-        except requests.exceptions.RequestException as exc:
+        except GatewayError as exc:
             msg = f"Treasury network error for {series_id}: {exc}"
             logger.warning(msg)
             return self._build_error_result(series_id, msg, "network_error")

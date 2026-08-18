@@ -1,7 +1,8 @@
-# Development dependencies for the Structural Deformation System.
+# Historical development declaration for compatibility/audit tooling.
+# The workspace authority is pyproject.toml + uv.lock; CI and runtime use
+# uv sync --locked rather than free-resolving this file with pip.
 #
-# Install: pip install -r requirements-dev.txt
-# Or:      make install-dev
+# Do not install this file directly in the workspace.
 
 # Core
 pyyaml>=6.0

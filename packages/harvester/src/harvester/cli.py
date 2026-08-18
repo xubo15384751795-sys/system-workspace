@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Load .env from project root and user home if python-dotenv is available
 try:
@@ -13,13 +15,22 @@ try:
     # User-level .env
     load_dotenv(Path.home() / ".hermes" / ".env", override=False)
 except ImportError:
-    pass
+    logger.debug("python-dotenv is unavailable; continuing without .env loading")
 
 from harvester.core.catalog import load_catalog
-from harvester.core.exporter import default_exports_root, finalize_release, list_releases
+from harvester.core.exporter import (
+    default_exports_root,
+    finalize_release,
+    list_releases,
+)
 from harvester.core.manifest import load_manifest
 from harvester.official import stage_complete_release
-from harvester.ops import monitor_latest, next_release_id, run_daily_release, run_preflight
+from harvester.ops import (
+    monitor_latest,
+    next_release_id,
+    run_daily_release,
+    run_preflight,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             notes=args.notes,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
-        return 0
+        return 0 if result.get("gate_passed", False) else 1
     if args.command == "finalize-release":
         result = finalize_release(args.release_id, exports_root=args.exports_root, dry_run=args.dry_run)
         print(
