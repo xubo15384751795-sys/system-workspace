@@ -21,6 +21,7 @@ def build_quality_report(
     required_columns: list[str] | None = None,
     allow_empty: bool = False,
     provider_outcome: dict[str, Any] | None = None,
+    data_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     blockers: list[str] = []
@@ -123,6 +124,8 @@ def build_quality_report(
         report["observation_coverage"] = observation_coverage
     if provider_outcome is not None:
         report["provider_outcome"] = provider_outcome
+    if data_contract is not None:
+        report["data_contract"] = data_contract
     return report
 
 

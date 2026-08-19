@@ -34,7 +34,7 @@ Implemented acquisition backends include:
 - U.S. Treasury FiscalData
 - SEC EDGAR filing pulse
 - CBOE direct CSV and delayed JSON endpoints
-- Cross-asset ETF EOD chain: Tiingo, Massive (formerly Polygon.io), then
+- Cross-asset ETF EOD chain: Tiingo, Massive, then
   bounded yfinance fallback
 - OpenBB-backed FRED, Tiingo, and selected market-data routes
 - External indicators such as OFR FSI where public files are available
@@ -42,10 +42,18 @@ Implemented acquisition backends include:
 OpenBB is used only as an acquisition engine inside Harvester providers. The
 published identity remains provider-native, such as `fred`, `tiingo`, or `cboe`.
 
-The ETF chain reads `TIINGO_API_KEY` and `MASSIVE_API_KEY` (or the legacy
-`POLYGON_API_KEY`) from the scheduler environment. Missing keys are recorded as
-provider-unavailable and do not trigger a network request. The selected source
-for each ticker is recorded in the `cross_asset_daily_panel` release manifest.
+The ETF chain reads `TIINGO_API_KEY` and `MASSIVE_API_KEY` from the scheduler
+environment. Missing keys are recorded as provider-unavailable and do not
+trigger a network request. The selected source for each ticker is recorded in
+the `cross_asset_daily_panel` release manifest.
+
+The workspace-level `configs/source_registry.yaml` is the semantic route
+contract. It keeps Tiingo/Massive as the only authoritative ETF routes,
+requires a reviewed Tiingo/Massive parity report before the Massive fallback
+can be decision-usable, marks yfinance as diagnostic-only, and preserves publisher identity for ECB,
+OFR, NY Fed, CFTC, FINRA, and NYU V-Lab indicators. The parity lane in
+`harvester.core.etf_parity` is shadow-only until its observed window is
+explicitly reviewed.
 
 ### Configure the Tiingo key for the scheduled run
 
@@ -119,6 +127,20 @@ Run the daily release path:
 
 ```bash
 python3 -m harvester.cli daily-release --as-of-date 2026-05-10
+```
+
+Run the explicit Tiingo/Massive parity shadow lane (it never changes the
+scheduled release by itself):
+
+```bash
+python3 scripts/run_etf_provider_parity.py --period 60d
+```
+
+Check the real 14-day scheduled evidence window. Manual runs and tests are
+excluded because only bundles marked `run_origin=launchd` count:
+
+```bash
+python3 scripts/verify_data_reliability_window.py
 ```
 
 ## Contract Discipline

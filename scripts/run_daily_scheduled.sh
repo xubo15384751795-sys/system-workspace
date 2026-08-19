@@ -12,6 +12,9 @@ export SYSTEM_ROOT
 export SYSTEM_ORCHESTRATOR="${SYSTEM_ORCHESTRATOR:-dagster}"
 export SYSTEM_SCHEDULE_LABEL="${SYSTEM_SCHEDULE_LABEL:-com.system.daily-run}"
 export SYSTEM_SCHEDULE_CALENDAR="${SYSTEM_SCHEDULE_CALENDAR:-XNYS}"
+# This marker is evidence that a bundle came through the real scheduled
+# default path.  It is intentionally separate from the human-facing tag.
+export SYSTEM_RUN_ORIGIN=launchd
 export PYTHONPATH="${SYSTEM_ROOT}:${SYSTEM_ROOT}/packages/orchestration:${PYTHONPATH:-}"
 if [[ -z "${SYSTEM_GENERATION_MODE:-}" ]]; then
   if [[ -L "${SYSTEM_ROOT}/Output/live" ]]; then

@@ -166,6 +166,15 @@ def _provider_failure_for_manifest(
     if all_failed:
         verdict = "FAIL"
         reason = "ALL_PROVIDERS_FAILED"
+    elif isinstance(provider_outcome.get("route_policy"), dict) and bool(
+        provider_outcome["route_policy"].get("diagnostic_only")
+    ):
+        # Transport success is not authority. A diagnostic provider route
+        # (yfinance, an unregistered source, a mixed release, or an
+        # uncertified equivalent fallback) must constrain the run before the
+        # publish admission token is computed.
+        verdict = "BLOCKED"
+        reason = "DIAGNOSTIC_ONLY_PROVIDER_ROUTE"
     elif status == "reused_after_provider_failure":
         verdict = "BLOCKED"
         reason = "REUSED_AFTER_PROVIDER_FAILURE"
@@ -193,6 +202,7 @@ def _provider_failure_for_manifest(
         "reason_code": reason,
         "provider_status": status,
         "status_policy": status_policy,
+        "route_policy": provider_outcome.get("route_policy"),
         "release_id": release_identity(root).get("release_id"),
         "manifest": str(manifest),
     }

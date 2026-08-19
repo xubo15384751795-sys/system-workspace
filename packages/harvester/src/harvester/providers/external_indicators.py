@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 from urllib.parse import urlparse
 
 import numpy as np
@@ -36,6 +36,10 @@ class ExternalIndicator:
     description: str
     publisher_url: str
     instructions: str
+    # The publisher/authority is part of measurement identity.  Keep the
+    # legacy default only for third-party callers constructing an ad-hoc
+    # indicator; all registered indicators below set it explicitly.
+    authority_id: str = "external_public"
 
 
 class ManualDownloadRequired(RuntimeError):
@@ -62,6 +66,7 @@ CISS = ExternalIndicator(
         "Manual fallback: download daily CISS from the ECB Data Portal, export as CSV "
         "with columns ['TIME_PERIOD', 'OBS_VALUE'], save as ciss.csv at the cache path."
     ),
+    authority_id="ecb",
 )
 
 SRISK = ExternalIndicator(
@@ -74,6 +79,7 @@ SRISK = ExternalIndicator(
         "'United States, Aggregate', download CSV with columns ['Date', 'SRISK'], "
         "save as srisk.csv at the cache path."
     ),
+    authority_id="nyu_vlab",
 )
 
 COVAR = ExternalIndicator(
@@ -86,6 +92,7 @@ COVAR = ExternalIndicator(
         "replication package. Download a CSV with columns ['Date', 'CoVaR'] and save "
         "as covar.csv at the cache path."
     ),
+    authority_id="nyfed",
 )
 
 OFR_FSI = ExternalIndicator(
@@ -101,6 +108,7 @@ OFR_FSI = ExternalIndicator(
         "Save with columns ['date', 'OFR_FSI'] as ofr_fsi.csv at the cache path. "
         "Updated daily with ~T+2 business day lag."
     ),
+    authority_id="ofr",
 )
 
 CFTC_TFF_LEV_SP = ExternalIndicator(
@@ -123,6 +131,7 @@ CFTC_TFF_LEV_SP = ExternalIndicator(
         "TFF-Futures-Only/gpe5-46if, filter E-MINI S&P 500, export CSV with report date "
         "and leveraged money long/short columns as cftc_tff_lev_sp.csv."
     ),
+    authority_id="cftc",
 )
 
 NYFED_PD_TREASURY_NET = ExternalIndicator(
@@ -139,6 +148,7 @@ NYFED_PD_TREASURY_NET = ExternalIndicator(
         "or export Primary Dealer Statistics PDPOSGST-TOT; save as "
         "nyfed_pd_treasury_net.csv with columns Date,value."
     ),
+    authority_id="nyfed",
 )
 
 # Verified Markets API keyids (2026-07-12 probe). Full paper J=5 not published under
@@ -149,6 +159,7 @@ NYFED_PD_TREASURY_LE2Y = ExternalIndicator(
     description="NY Fed PD net Treasury coupons due ≤2y (PDPOSGSC-L2, weekly).",
     publisher_url="https://markets.newyorkfed.org/api/pd/get/PDPOSGSC-L2.json",
     instructions="Manual fallback: save PDPOSGSC-L2 JSON/CSV as nyfed_pd_treasury_le2y.csv with Date,value.",
+    authority_id="nyfed",
 )
 
 NYFED_PD_TREASURY_GT11Y = ExternalIndicator(
@@ -157,6 +168,7 @@ NYFED_PD_TREASURY_GT11Y = ExternalIndicator(
     description="NY Fed PD net Treasury coupons due >11y (PDPOSGSC-G11, weekly).",
     publisher_url="https://markets.newyorkfed.org/api/pd/get/PDPOSGSC-G11.json",
     instructions="Manual fallback: save PDPOSGSC-G11 JSON/CSV as nyfed_pd_treasury_gt11y.csv with Date,value.",
+    authority_id="nyfed",
 )
 
 FINRA_MARGIN_DEBT = ExternalIndicator(
@@ -169,6 +181,7 @@ FINRA_MARGIN_DEBT = ExternalIndicator(
         "as finra_margin_debt.csv with columns Date,DebitBalances. "
         "FRED series BOGZ1FL663067003Q remains the quarterly Fed Z.1 equivalent."
     ),
+    authority_id="finra",
 )
 
 KNOWN_INDICATORS: tuple[ExternalIndicator, ...] = (
@@ -184,8 +197,8 @@ KNOWN_INDICATORS: tuple[ExternalIndicator, ...] = (
 )
 
 EXTERNAL_ENDPOINTS: dict[tuple[str, str], EndpointSpec] = {
-    ("external_public", indicator.name): EndpointSpec(
-        provider="external_public",
+    (indicator.authority_id, indicator.name): EndpointSpec(
+        provider=indicator.authority_id,
         endpoint_id=indicator.name,
         url=indicator.publisher_url,
         allowed_hosts=frozenset({urlparse(indicator.publisher_url).hostname or ""}),
@@ -340,7 +353,22 @@ def fetch_all_external(
     return out
 
 
-def external_series_to_long_panel(series_map: dict[str, pd.Series], *, vintage_date: str) -> pd.DataFrame:
+def external_series_to_long_panel(
+    series_map: dict[str, pd.Series],
+    *,
+    vintage_date: str,
+    indicators: Mapping[str, ExternalIndicator] | None = None,
+) -> pd.DataFrame:
+    """Convert external observations without collapsing publisher identity.
+
+    ``indicators`` is optional for compatibility with callers that pass only
+    series. Registered indicators are resolved by series id; unknown ad-hoc
+    series retain the explicit legacy ``external_public`` identity instead of
+    guessing a publisher.
+    """
+    known = {indicator.series_id: indicator for indicator in KNOWN_INDICATORS}
+    if indicators:
+        known.update({str(key): value for key, value in indicators.items()})
     frames: list[pd.DataFrame] = []
     for series_id, series in series_map.items():
         if series_id == "__errors__":
@@ -352,7 +380,7 @@ def external_series_to_long_panel(series_map: dict[str, pd.Series], *, vintage_d
             {
                 "date": pd.to_datetime(cleaned.index),
                 "series_id": series_id,
-                "source_id": "external_public",
+                "source_id": str(known.get(series_id).authority_id if series_id in known else "external_public"),
                 "source_series_id": series_id,
                 "value": cleaned.to_numpy(dtype=float),
                 "unit": "",
@@ -401,7 +429,7 @@ def _download(
     gateway: OwnedHTTPGateway,
 ) -> str:
     response = gateway.fetch(
-        "external_public",
+        indicator.authority_id,
         indicator.name,
     )
     response.raise_for_status()

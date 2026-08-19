@@ -235,6 +235,24 @@ def test_unconfigured_calendar_blocks_even_with_timestamps() -> None:
     assert result["reason_code"] == "PROVIDER_RELEASE_CALENDAR_UNCONFIGURED"
 
 
+def test_diagnostic_provider_route_cannot_become_decision_usable() -> None:
+    result = evaluate_provider_availability(
+        _event(
+            route_policy={
+                "route_class": "diagnostic_fallback",
+                "diagnostic_only": True,
+                "promotion_allowed": False,
+            }
+        ),
+        decision_time=DECISION_TIME,
+        policy=_policy(),
+    )
+
+    assert result["verdict"] == "WARN"
+    assert result["reason_code"] == "DIAGNOSTIC_ONLY_PROVIDER_ROUTE"
+    assert result["route_policy"]["promotion_allowed"] is False
+
+
 def test_configured_calendar_fields_must_be_executable() -> None:
     invalid_timezone = _policy()
     invalid_timezone["rules"][0]["release_timezone"] = "Mars/Phobos"

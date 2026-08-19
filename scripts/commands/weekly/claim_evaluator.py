@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -98,24 +97,15 @@ def check_md_continuity(
 ) -> dict[str, Any]:
     """Check if M/D direction persisted since the entry."""
     thesis = entry.get("trade_thesis", {})
-    claim = thesis.get("claim_ladder", {}).get("claim_statement", "")
-
-    # Extract M/D values from claim statement
-    # Format: "... M=-2.092, D=-0.763; ..."
-    entry_M = None
-    entry_D = None
-    m_match = re.search(r"M=\s*([-\d.]+)", claim)
-    d_match = re.search(r"D=\s*([-\d.]+)", claim)
-    if m_match:
-        try:
-            entry_M = float(m_match.group(1))
-        except ValueError:
-            logger.debug("Unable to parse historical M claim value", exc_info=True)
-    if d_match:
-        try:
-            entry_D = float(d_match.group(1))
-        except ValueError:
-            logger.debug("Unable to parse historical D claim value", exc_info=True)
+    ladder = thesis.get("claim_ladder", {})
+    values = thesis.get("md_values") or ladder.get("md_values") or {}
+    entry_M = values.get("M") if isinstance(values, dict) else None
+    entry_D = values.get("D") if isinstance(values, dict) else None
+    try:
+        entry_M = float(entry_M) if entry_M is not None else None
+        entry_D = float(entry_D) if entry_D is not None else None
+    except (TypeError, ValueError):
+        entry_M = entry_D = None
 
     if entry_M is None or current_M is None:
         return {"M_persisted": None, "D_persisted": None, "direction_same": None}

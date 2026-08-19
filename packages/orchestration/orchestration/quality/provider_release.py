@@ -249,6 +249,14 @@ def evaluate_provider_availability(
     result["policy_version"] = rule["rule_version"]
     result["observation_frequency"] = rule["observation_frequency"]
     result["status_policy"] = dict(policy_payload["status_matrix"][provider_status])
+    route_policy = event.get("route_policy")
+    if isinstance(route_policy, dict):
+        result["route_policy"] = dict(route_policy)
+        if bool(route_policy.get("diagnostic_only")):
+            result["verdict"] = "WARN"
+            result["reason_code"] = "DIAGNOSTIC_ONLY_PROVIDER_ROUTE"
+            result["errors"].append("selected_provider_route_is_diagnostic_only")
+            return result
     if provider_status == "environmentally_blocked":
         result["verdict"] = "WARN"
         result["reason_code"] = "ENVIRONMENTALLY_BLOCKED"

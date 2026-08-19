@@ -23,6 +23,7 @@ from src.runtime.assets import (
     materialize_snapshot_flow,
 )
 from src.runtime.evidence_store import RuntimeEvidenceStore
+from system_runtime.canonical_ids import lineage_ids
 
 logger = logging.getLogger(__name__)
 
@@ -293,12 +294,7 @@ class StructuralSystemAPI:
         }
         if bundle.canonical_chain is not None:
             result["canonical_chain"] = dict(bundle.canonical_chain)
-            result["canonical_ids"] = {
-                "observation_id": bundle.canonical_chain["observation"]["observation_id"],
-                "measurement_id": bundle.canonical_chain["measurement"]["measurement_id"],
-                "evidence_id": bundle.canonical_chain["evidence"]["evidence_id"],
-                "claim_id": bundle.canonical_chain["claim"]["claim_id"],
-            }
+            result["canonical_ids"] = lineage_ids(bundle.canonical_chain)
         return result
 
     def export_snapshot(self, run_date: str) -> dict[str, str] | None:

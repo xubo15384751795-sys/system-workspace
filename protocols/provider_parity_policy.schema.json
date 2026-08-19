@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://system.local/protocols/provider_parity_policy.schema.json",
+  "title": "System provider parity policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "preferred_provider",
+    "equivalent_fallback_provider",
+    "diagnostic_provider",
+    "sentinel_tickers",
+    "minimum_overlap_rows",
+    "minimum_coverage_ratio",
+    "certification_mode",
+    "certification_requires_human_review",
+    "equivalent_fallback_requires_certification",
+    "report_path"
+  ],
+  "properties": {
+    "schema_version": { "const": "system.provider_parity_policy.v1" },
+    "dataset_id": { "type": "string", "minLength": 1 },
+    "preferred_provider": { "type": "string", "minLength": 1 },
+    "equivalent_fallback_provider": { "type": "string", "minLength": 1 },
+    "diagnostic_provider": { "type": "string", "minLength": 1 },
+    "sentinel_tickers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Z0-9.\\-^]+$" }
+    },
+    "minimum_overlap_rows": { "type": "integer", "minimum": 1 },
+    "minimum_coverage_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "certification_mode": { "const": "observed_window" },
+    "certification_requires_human_review": { "type": "boolean" },
+    "equivalent_fallback_requires_certification": { "type": "boolean" },
+    "report_path": { "type": "string", "minLength": 1 },
+    "notes": { "type": "string" }
+  }
+}

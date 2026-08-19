@@ -15,9 +15,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DEFAULT_SECRET_FILE = Path("~/.config/system/provider.env").expanduser()
-ALLOWED_PROVIDER_KEYS = frozenset(
-    {"TIINGO_API_KEY", "MASSIVE_API_KEY", "POLYGON_API_KEY"}
-)
+ALLOWED_PROVIDER_KEYS = frozenset({"TIINGO_API_KEY", "MASSIVE_API_KEY"})
 
 
 def _secret_file_path(path: str | os.PathLike[str] | None = None) -> Path:

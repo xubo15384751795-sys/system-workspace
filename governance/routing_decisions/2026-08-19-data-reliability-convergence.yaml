@@ -11,8 +11,10 @@ scope: >
   Add explicit publication, availability, retrieval, vintage, source-signature,
   and primary-key integrity evidence to Harvester releases. Make incomplete
   public-stress channel baskets fail closed, deduplicate ETF panel keys at
-  acquisition and consumer boundaries, and preserve source/fallback metadata
-  through canonical observations and provenance.
+  acquisition and consumer boundaries, preserve source/fallback metadata
+  through canonical observations and provenance, and add a typed SourceSpec /
+  SourceRoute registry so equivalent sources, transport fallbacks, and
+  diagnostic routes cannot be conflated.
 decision: >
   Treat retrieval success as UNKNOWN until publication availability is evidenced
   by a configured calendar and an explicit available_at clock. Treat reused or
@@ -21,6 +23,10 @@ decision: >
   key with deterministic last-row selection while recording duplicate counters.
   Existing data may continue to support diagnostic output, but it cannot become
   decision-usable or current merely because a file was rewritten today.
+  External indicator panels retain the publisher authority (ECB, OFR, NY Fed,
+  CFTC, FINRA, NYU V-Lab) instead of emitting a generic external_public source.
+  yfinance remains a continuity route only; its route policy is diagnostic-only
+  until a Tiingo/Massive observed-window parity report is explicitly reviewed.
 authority_boundary:
   runtime_judgment_change: false
   research_verdict_change: false
@@ -51,6 +57,11 @@ acceptance:
   - Public residual component coverage is fail-closed unless research_only is explicit.
   - Cross-asset and paper-portfolio boundaries produce unique daily keys/scalars.
   - Canonical observations carry availability clocks and source provenance.
+  - "configs/source_registry.yaml validates SourceSpec/SourceRoute semantics."
+  - Tiingo/Massive parity remains shadow-only until the configured overlap window and human review certify the equivalent fallback.
+  - External indicator output uses real publisher authority IDs.
+  - "Cross-asset staging writes a DATA_CONTRACT_VIOLATION-backed structural report."
+  - Dagster exposes blocking structural and non-blocking route-shadow checks.
   - The 14-day default-path evidence window remains explicitly pending until observed.
 non_goals:
   - Configure provider publication calendars without approved source evidence.
@@ -66,5 +77,10 @@ evidence:
   implementation:
     - packages/harvester/src/harvester/core/availability.py
     - packages/harvester/src/harvester/core/source_drift.py
+    - packages/harvester/src/harvester/core/source_spec.py
+    - packages/harvester/src/harvester/core/etf_parity.py
     - packages/harvester/src/harvester/cross_asset_panel.py
+    - packages/harvester/src/harvester/quality/data_contract.py
+    - packages/orchestration/orchestration/assets/data_quality.py
+    - scripts/verify_data_reliability_window.py
     - scripts/public_residual_stress.py

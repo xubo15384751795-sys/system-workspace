@@ -9,7 +9,7 @@ The fast track needs tier 2 and tier 3 data. It does not need tier 4 streaming u
 | 1 | T+1 | FRED | Macro, rates, and credit-spread anchors such as DFF, T10Y2Y, SOFR, DAAA, DBAA, NFCI. | Admitted |
 | 2 | Same-day EOD | CBOE direct CSV, OpenBB/Tiingo | Volatility term structure and ETF liquidity/depth inputs: VVIX, SKEW, TYVIX, VIX3M, VIX9D, HYG, LQD, TLT. | Admitted |
 | 3 | Intraday delayed | CBOE delayed JSON | Market-hours polling for VIX, VVIX, and SKEW, approximately 15 minutes delayed. | Admitted |
-| 4 | True streaming | Polygon or another commercial WebSocket provider | High-frequency push feeds. | Not required |
+| 4 | True streaming | Massive or another commercial WebSocket provider | High-frequency push feeds. | Not required |
 
 ## Coverage
 

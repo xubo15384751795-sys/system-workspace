@@ -91,10 +91,24 @@ def _fingerprint(path: Path, base: Path | None = None) -> dict[str, Any] | None:
 class RunBundle:
     """Atomic run record — one instance per pipeline execution."""
 
-    def __init__(self, run_id: str, mode: str, run_dir: Path, root: Path, tag: str | None = None) -> None:
+    def __init__(
+        self,
+        run_id: str,
+        mode: str,
+        run_dir: Path,
+        root: Path,
+        tag: str | None = None,
+        origin: str | None = None,
+    ) -> None:
         self.run_id = run_id
         self.mode = mode
         self.tag = tag
+        # The origin is deliberately recorded in the bundle rather than
+        # inferred later from a tag.  A tag describes why a run was started;
+        # origin proves whether it came through the real launchd/default path.
+        self.origin = str(
+            origin or os.environ.get("SYSTEM_RUN_ORIGIN", "manual")
+        ).strip().lower() or "manual"
         self.run_dir = run_dir
         self._root = root
         self.started_at = datetime.now(UTC)
@@ -121,6 +135,7 @@ class RunBundle:
         *,
         update_pointer: bool = True,
         output_root: Path | None = None,
+        origin: str | None = None,
     ) -> RunBundle:
         """Create a new run bundle, write input snapshot, return handle."""
         if root is not None and output_root is not None:
@@ -131,7 +146,14 @@ class RunBundle:
         run_dir = base / run_id
         ensure_dir(run_dir)
 
-        bundle = cls(run_id, mode, run_dir, root=resolved_root, tag=tag)
+        bundle = cls(
+            run_id,
+            mode,
+            run_dir,
+            root=resolved_root,
+            tag=tag,
+            origin=origin,
+        )
         bundle._step_file = run_dir / "steps.jsonl"
         bundle._write_input_snapshot()
         bundle._write_manifest()  # initial manifest
@@ -595,6 +617,7 @@ class RunBundle:
             "run_id": self.run_id,
             "mode": self.mode,
             "tag": self.tag,
+            "run_origin": self.origin,
             "started_at": self.started_at.isoformat(),
             "finished_at": finished_at,
             "duration_s": duration_s,

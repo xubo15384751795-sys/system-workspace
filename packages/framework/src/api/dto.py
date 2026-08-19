@@ -41,7 +41,7 @@ ProviderName = Literal[
     "imf",
     "nasdaq_data_link",
     "oecd",
-    "polygon",
+    "massive",
     "sec",
     "stooq",
     "tiingo",

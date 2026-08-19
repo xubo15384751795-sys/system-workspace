@@ -17,7 +17,14 @@ from typing import Any, Mapping, Sequence
 SCHEMA_VERSION = "system.orchestration_shadow_parity.v1"
 SHADOW_AUTHORITY = "shadow_only"
 
-_LINEAGE_KEYS = ("observation_id", "measurement_id", "evidence_id", "claim_id")
+_LINEAGE_KEYS = (
+    "observation_id",
+    "measurement_id",
+    "evidence_id",
+    "claim_id",
+    "judgment_id",
+)
+_PRODUCER_LINEAGE_KEYS = _LINEAGE_KEYS[:4]
 _RESULT_FIELDS = (
     "step",
     "status",
@@ -93,6 +100,7 @@ def _extract_canonical_ids(value: Any) -> dict[str, str]:
                     "measurement_id": "mea_",
                     "evidence_id": "evd_",
                     "claim_id": "clm_",
+                    "judgment_id": "jud_",
                 }[key]
                 if isinstance(candidate, str) and candidate.startswith(prefix):
                     found[key] = candidate
@@ -149,7 +157,11 @@ def compare_sequence_results(
     dagster_ids = _extract_canonical_ids(dagster_results)
     if not legacy_ids and not dagster_ids:
         canonical_parity = "NOT_PRESENT"
-    elif legacy_ids == dagster_ids and set(legacy_ids) == set(_LINEAGE_KEYS):
+    elif (
+        legacy_ids == dagster_ids
+        and set(legacy_ids) >= set(_PRODUCER_LINEAGE_KEYS)
+        and set(legacy_ids) <= set(_LINEAGE_KEYS)
+    ):
         canonical_parity = "MATCH"
     else:
         canonical_parity = "MISMATCH"

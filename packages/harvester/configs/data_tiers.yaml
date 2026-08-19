@@ -55,7 +55,7 @@ tiers:
     latency: "realtime streaming"
     role: "Commercial WebSocket feeds for high-frequency use cases."
     providers:
-      - polygon
+      - massive
     covered_series: []
     production_status: not_required
     note: "Do not add tier-4 dependencies to fast-track daily diagnostics without an explicit architecture decision."

@@ -1,0 +1,16 @@
+schema_version: system.provider_parity_policy.v1
+dataset_id: cross_asset_daily_panel
+preferred_provider: tiingo
+equivalent_fallback_provider: massive
+diagnostic_provider: yfinance
+sentinel_tickers: [SPY, QQQ, HYG, LQD, TLT, GLD, UUP]
+minimum_overlap_rows: 20
+minimum_coverage_ratio: 0.80
+certification_mode: observed_window
+certification_requires_human_review: true
+equivalent_fallback_requires_certification: true
+report_path: Data/harvester/provider_parity/etf_provider_parity.json
+notes: >-
+  Shadow comparison only. The fallback route is not promoted by the presence
+  of a report; it becomes eligible only after the observed-window evidence and
+  human review are recorded.

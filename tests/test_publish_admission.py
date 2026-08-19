@@ -9,6 +9,8 @@ Also asserts ``freshness_assumed_ok`` is removed.
 from __future__ import annotations
 
 import hashlib
+import json
+from pathlib import Path
 
 import pytest  # noqa: F401  # kept for marker compatibility
 
@@ -183,8 +185,80 @@ def test_canonical_lineage_is_serialized_as_non_authoritative_context() -> None:
     )
 
     assert admission.integrity_verdict == "PASS"
-    assert admission.authority_verdict == "ALLOW"
+    # The old shadow reader is preserved as context, but cannot grant
+    # authoritative publication without a complete Claim -> Judgment chain.
+    assert admission.authority_verdict == "DIAGNOSTIC_ONLY"
     assert admission.to_dict()["canonical_lineage"] == lineage
+
+
+def test_complete_claim_judgment_lineage_grants_authority() -> None:
+    from system_runtime.canonical_ids import build_chain, build_judgment_record
+    from system_runtime.publish_admission import PublishAdmission
+
+    chain = json.loads(
+        (Path(__file__).parent / "fixtures" / "canonical_chain_parity.json").read_text()
+    )
+    claim_id = chain["claim"]["claim_id"]
+    record = build_judgment_record(
+        as_of="2026-08-19",
+        decision="ACTIVE_WATCH",
+        claim_ids=[claim_id],
+        supporting_claim_ids=[claim_id],
+        confidence={
+            "measurement": "medium",
+            "evidence": "medium",
+            "mechanism": "medium_low",
+            "calibration": "insufficient",
+            "overall": "medium_low",
+        },
+        claim_ceiling="mechanism_hypothesis",
+        provenance={
+            "captured_at": "2026-08-19T01:00:00Z",
+            "producer": "test",
+            "run_id": "run-1",
+        },
+        decision_time="2026-08-19T01:00:00Z",
+    )
+    chain = build_chain(
+        observation=chain["observation"],
+        measurement=chain["measurement"],
+        evidence=chain["evidence"],
+        claim=chain["claim"],
+        judgment=record,
+    )
+    admission = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+        decision_lineage={"canonical_chain": chain, "canonical_claim_chains": [chain]},
+    )
+    assert admission.integrity_verdict == "PASS"
+    assert admission.authority_verdict == "ALLOW"
+
+
+def test_missing_claim_judgment_lineage_is_diagnostic_only() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    admission = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="PASS",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert admission.integrity_verdict == "PASS"
+    assert admission.authority_verdict == "DIAGNOSTIC_ONLY"
+    assert "JUDGMENT_LINEAGE_MISSING" in admission.reason_codes
 
 
 def test_release_identity_mismatch_blocks_integrity() -> None:

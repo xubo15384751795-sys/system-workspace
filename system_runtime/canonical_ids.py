@@ -6,9 +6,10 @@ labels, but they are not a contract: they can change when a file is moved, a
 claim is reworded, or a retry creates a new run directory.
 
 This module defines the small shared identity layer for the Harvester,
-measurement, evidence, and claim surfaces. IDs are deterministic SHA-256
-digests over normalized identity fields. The full chain is validated against
-``protocols/canonical_chain.schema.json`` before it is published.
+measurement, evidence, claim, and judgment surfaces. IDs are deterministic
+SHA-256 digests over normalized identity fields. Producer chains may stop at
+Claim, but decision-authorized chains must also validate the Claim -> Judgment
+link against ``protocols/canonical_chain.schema.json`` before publication.
 """
 from __future__ import annotations
 
@@ -26,13 +27,15 @@ ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_SCHEMA_PATH = ROOT / "protocols" / "canonical_chain.schema.json"
 SCHEMA_VERSION = "system.canonical_chain.v1"
 
-CanonicalKind = Literal["observation", "measurement", "evidence", "claim"]
+CanonicalKind = Literal["observation", "measurement", "evidence", "claim", "judgment", "invalidation"]
 
 ID_PREFIXES: dict[CanonicalKind, str] = {
     "observation": "obs",
     "measurement": "mea",
     "evidence": "evd",
     "claim": "clm",
+    "judgment": "jud",
+    "invalidation": "inv",
 }
 
 AVAILABILITY_STATUSES = frozenset(
@@ -55,6 +58,12 @@ CLAIM_STATUSES = frozenset(
     {"SUPPORTED", "WEAKLY_SUPPORTED", "CONFLICTED", "STALE", "INSUFFICIENT_DATA", "UNOBSERVABLE", "WATCH"}
 )
 EVIDENCE_ROLES = frozenset({"PRIMARY", "SECONDARY", "DERIVED", "CONTEXT", "REPRODUCTION"})
+JUDGMENT_STATUSES = frozenset(
+    {"SUPPORTED", "CONFLICTED", "WATCH", "INSUFFICIENT_DATA", "UNAVAILABLE", "DIAGNOSTIC_ONLY", "BLOCKED"}
+)
+JUDGMENT_CONFIDENCE_LEVELS = frozenset(
+    {"low", "medium_low", "medium", "medium_high", "high", "insufficient", "unknown"}
+)
 
 
 class CanonicalIdError(ValueError):
@@ -267,14 +276,135 @@ def build_claim(
     }
 
 
+def build_invalidation_spec_id(*, claim_id: str, specification: str) -> str:
+    """Create a stable ID for one rendered invalidation specification."""
+
+    claim_ids = _id_list([claim_id], "clm")
+    text = _normalized_text(specification, "specification")
+    return canonical_id(
+        "invalidation",
+        {"claim_id": claim_ids[0], "specification": text},
+    )
+
+
+def build_judgment_record(
+    *,
+    as_of: str,
+    decision: str,
+    claim_ids: Sequence[str],
+    supporting_claim_ids: Sequence[str] = (),
+    conflicting_claim_ids: Sequence[str] = (),
+    research_only_claim_ids: Sequence[str] = (),
+    status: str = "WATCH",
+    confidence: Mapping[str, Any] | None = None,
+    claim_ceiling: str,
+    unknowns: Sequence[str] = (),
+    invalidation_spec_ids: Sequence[str] = (),
+    policy_version: str = "judgment_policy.v1",
+    synthesis_method_version: str = "judgment_synthesizer.v1",
+    decision_time: str | date | datetime | None = None,
+    provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a first-class Judgment record linked to canonical Claims.
+
+    ``decision_time`` and provenance are deliberately excluded from the
+    deterministic judgment identity.  Re-running the same policy for the same
+    as-of claims therefore preserves the object identity while still recording
+    the current capture time.
+    """
+
+    claim_refs = _unique_ids(_id_list(claim_ids, "clm"), "claim_ids")
+    supporting_refs = _unique_ids(
+        _id_list(supporting_claim_ids, "clm", allow_empty=True),
+        "supporting_claim_ids",
+    )
+    conflicting_refs = _unique_ids(
+        _id_list(conflicting_claim_ids, "clm", allow_empty=True),
+        "conflicting_claim_ids",
+    )
+    research_refs = _unique_ids(
+        _id_list(research_only_claim_ids, "clm", allow_empty=True),
+        "research_only_claim_ids",
+    )
+    for field, refs in {
+        "supporting_claim_ids": supporting_refs,
+        "conflicting_claim_ids": conflicting_refs,
+        "research_only_claim_ids": research_refs,
+    }.items():
+        unknown = sorted(set(refs) - set(claim_refs))
+        if unknown:
+            raise CanonicalIdError(f"{field} contains claims not present in claim_ids: {unknown}")
+    if set(supporting_refs) & set(conflicting_refs):
+        raise CanonicalIdError("a Judgment claim cannot be both supporting and conflicting")
+    if set(research_refs) & (set(supporting_refs) | set(conflicting_refs)):
+        raise CanonicalIdError("research-only claims cannot support or conflict with a Judgment")
+    unclassified = sorted(
+        set(claim_refs) - (set(supporting_refs) | set(conflicting_refs) | set(research_refs))
+    )
+    if unclassified:
+        raise CanonicalIdError(f"Judgment claims have no role assignment: {unclassified}")
+
+    status = _judgment_status(status)
+    ceiling = _required_text(claim_ceiling, "claim_ceiling")
+    decision = _required_text(decision, "decision")
+    as_of = _required_text(as_of, "as_of")
+    policy_version = _required_text(policy_version, "policy_version")
+    synthesis_method_version = _required_text(synthesis_method_version, "synthesis_method_version")
+    confidence_data = _judgment_confidence(confidence)
+    invalidation_refs = _unique_ids(
+        _id_list(invalidation_spec_ids, "inv", allow_empty=True),
+        "invalidation_spec_ids",
+    )
+    unknowns_data = [_normalized_text(item, "unknown") for item in unknowns]
+    decision_time_text = _timestamp(decision_time or datetime.now(timezone.utc))
+    identity = {
+        "as_of": as_of,
+        "decision": decision,
+        "claim_ids": sorted(claim_refs),
+        "supporting_claim_ids": sorted(supporting_refs),
+        "conflicting_claim_ids": sorted(conflicting_refs),
+        "research_only_claim_ids": sorted(research_refs),
+        "status": status,
+        "confidence": confidence_data,
+        "claim_ceiling": ceiling,
+        "unknowns": unknowns_data,
+        "invalidation_spec_ids": sorted(invalidation_refs),
+        "policy_version": policy_version,
+        "synthesis_method_version": synthesis_method_version,
+    }
+    return {
+        "judgment_id": canonical_id("judgment", identity),
+        "as_of": as_of,
+        "decision_time": decision_time_text,
+        "decision": decision,
+        "claim_ids": claim_refs,
+        "supporting_claim_ids": supporting_refs,
+        "conflicting_claim_ids": conflicting_refs,
+        "research_only_claim_ids": research_refs,
+        "status": status,
+        "confidence": confidence_data,
+        "claim_ceiling": ceiling,
+        "unknowns": unknowns_data,
+        "invalidation_spec_ids": invalidation_refs,
+        "policy_version": policy_version,
+        "synthesis_method_version": synthesis_method_version,
+        "provenance": _provenance(provenance),
+    }
+
+
 def build_chain(
     *,
     observation: Mapping[str, Any],
     measurement: Mapping[str, Any],
     evidence: Mapping[str, Any],
     claim: Mapping[str, Any],
+    judgment: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build and validate the one-observation chain envelope."""
+    """Build and validate a canonical chain envelope.
+
+    A Judgment is optional for compatibility with producer-side evidence
+    chains.  Decision-authorized consumers require the extended form.
+    """
 
     chain = {
         "schema_version": SCHEMA_VERSION,
@@ -283,6 +413,8 @@ def build_chain(
         "evidence": dict(evidence),
         "claim": dict(claim),
     }
+    if judgment is not None:
+        chain["judgment"] = dict(judgment)
     validate_chain(chain)
     return chain
 
@@ -308,6 +440,7 @@ def validate_chain(chain: Mapping[str, Any]) -> None:
     measurement = chain["measurement"]
     evidence = chain["evidence"]
     claim = chain["claim"]
+    judgment = chain.get("judgment")
     expected_observation_id = canonical_id(
         "observation",
         {
@@ -372,12 +505,16 @@ def validate_chain(chain: Mapping[str, Any]) -> None:
         raise CanonicalIdError("evidence does not reference its measurement")
     if evidence["evidence_id"] not in claim["evidence_ids"]:
         raise CanonicalIdError("claim does not reference its evidence")
+    if judgment is not None:
+        validate_judgment_record(judgment)
+        if claim["claim_id"] not in judgment["claim_ids"]:
+            raise CanonicalIdError("judgment does not reference the chain claim")
 
 
 def validate_observation(observation: Mapping[str, Any]) -> None:
     """Validate one standalone Observation emitted by a producer sidecar.
 
-    The four-object chain validator remains the authority for complete
+    The producer-chain validator remains the authority for complete
     Observation -> Measurement -> Evidence -> Claim envelopes. Harvester
     releases intentionally publish Observation-only JSONL during migration, so
     this helper enforces the same ID and provenance invariants without inventing
@@ -463,17 +600,116 @@ def validate_claim(claim: Mapping[str, Any]) -> None:
         raise CanonicalIdError("claim ID does not match its canonical identity")
 
 
+def validate_judgment_record(judgment: Mapping[str, Any]) -> None:
+    """Validate one standalone Judgment record and its deterministic ID."""
+
+    if not isinstance(judgment, Mapping):
+        raise CanonicalIdError("judgment must be an object")
+    required = {
+        "judgment_id",
+        "as_of",
+        "decision_time",
+        "decision",
+        "claim_ids",
+        "supporting_claim_ids",
+        "conflicting_claim_ids",
+        "research_only_claim_ids",
+        "status",
+        "confidence",
+        "claim_ceiling",
+        "unknowns",
+        "invalidation_spec_ids",
+        "policy_version",
+        "synthesis_method_version",
+        "provenance",
+    }
+    missing = sorted(required - set(judgment))
+    if missing:
+        raise CanonicalIdError(f"judgment missing required fields: {missing}")
+    claim_refs = _unique_ids(_id_list(judgment["claim_ids"], "clm"), "claim_ids")
+    supporting_refs = _unique_ids(
+        _id_list(judgment["supporting_claim_ids"], "clm", allow_empty=True),
+        "supporting_claim_ids",
+    )
+    conflicting_refs = _unique_ids(
+        _id_list(judgment["conflicting_claim_ids"], "clm", allow_empty=True),
+        "conflicting_claim_ids",
+    )
+    research_refs = _unique_ids(
+        _id_list(judgment["research_only_claim_ids"], "clm", allow_empty=True),
+        "research_only_claim_ids",
+    )
+    for field, refs in {
+        "supporting_claim_ids": supporting_refs,
+        "conflicting_claim_ids": conflicting_refs,
+        "research_only_claim_ids": research_refs,
+    }.items():
+        if not set(refs) <= set(claim_refs):
+            raise CanonicalIdError(f"{field} contains an unlinked claim")
+    if set(supporting_refs) & set(conflicting_refs):
+        raise CanonicalIdError("a Judgment claim cannot be both supporting and conflicting")
+    if set(research_refs) & (set(supporting_refs) | set(conflicting_refs)):
+        raise CanonicalIdError("research-only claims cannot support or conflict with a Judgment")
+    unclassified = sorted(
+        set(claim_refs) - (set(supporting_refs) | set(conflicting_refs) | set(research_refs))
+    )
+    if unclassified:
+        raise CanonicalIdError(f"Judgment claims have no role assignment: {unclassified}")
+    invalidation_refs = _unique_ids(
+        _id_list(judgment["invalidation_spec_ids"], "inv", allow_empty=True),
+        "invalidation_spec_ids",
+    )
+    unknowns = [_normalized_text(item, "unknown") for item in judgment["unknowns"]]
+    status = _judgment_status(judgment["status"])
+    decision = _required_text(judgment["decision"], "decision")
+    as_of = _required_text(judgment["as_of"], "as_of")
+    policy_version = _required_text(judgment["policy_version"], "policy_version")
+    synthesis_method_version = _required_text(
+        judgment["synthesis_method_version"], "synthesis_method_version"
+    )
+    confidence = _judgment_confidence(judgment["confidence"])
+    _timestamp(judgment["decision_time"])
+    _required_text(judgment["claim_ceiling"], "claim_ceiling")
+    provenance = judgment.get("provenance")
+    if not isinstance(provenance, Mapping):
+        raise CanonicalIdError("judgment provenance is required")
+    _provenance(provenance)
+    expected = canonical_id(
+        "judgment",
+        {
+            "as_of": as_of,
+            "decision": decision,
+            "claim_ids": sorted(claim_refs),
+            "supporting_claim_ids": sorted(supporting_refs),
+            "conflicting_claim_ids": sorted(conflicting_refs),
+            "research_only_claim_ids": sorted(research_refs),
+            "status": status,
+            "confidence": confidence,
+            "claim_ceiling": judgment["claim_ceiling"],
+            "unknowns": unknowns,
+            "invalidation_spec_ids": sorted(invalidation_refs),
+            "policy_version": policy_version,
+            "synthesis_method_version": synthesis_method_version,
+        },
+    )
+    if judgment.get("judgment_id") != expected:
+        raise CanonicalIdError("judgment ID does not match its canonical identity")
+
+
 def lineage_ids(chain: Mapping[str, Any]) -> dict[str, Any]:
     """Return a compact ID block suitable for legacy output envelopes."""
 
     validate_chain(chain)
-    return {
+    result = {
         "schema_version": SCHEMA_VERSION,
         "observation_id": chain["observation"]["observation_id"],
         "measurement_id": chain["measurement"]["measurement_id"],
         "evidence_id": chain["evidence"]["evidence_id"],
         "claim_id": chain["claim"]["claim_id"],
     }
+    if "judgment" in chain:
+        result["judgment_id"] = chain["judgment"]["judgment_id"]
+    return result
 
 
 def _normalize(value: Any) -> Any:
@@ -622,6 +858,34 @@ def _id_list(values: Sequence[str], prefix: str, *, allow_empty: bool = False) -
     return result
 
 
+def _unique_ids(values: Sequence[str], field: str) -> list[str]:
+    """Deduplicate references while preserving their first-seen order."""
+
+    result = list(dict.fromkeys(values))
+    if not result and field == "claim_ids":
+        raise CanonicalIdError("claim_ids cannot be empty")
+    return result
+
+
+def _judgment_status(value: Any) -> str:
+    status = _required_text(value, "judgment status").upper()
+    if status not in JUDGMENT_STATUSES:
+        raise CanonicalIdError(f"unknown judgment status: {status}")
+    return status
+
+
+def _judgment_confidence(value: Mapping[str, Any] | None) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise CanonicalIdError("judgment confidence must be an object")
+    result: dict[str, str] = {}
+    for dimension in ("measurement", "evidence", "mechanism", "calibration", "overall"):
+        level = _required_text(value.get(dimension, "unknown"), f"confidence.{dimension}").lower()
+        if level not in JUDGMENT_CONFIDENCE_LEVELS:
+            raise CanonicalIdError(f"unknown confidence level: {level}")
+        result[dimension] = level
+    return result
+
+
 def _format_error(error: Any) -> str:
     path = ".".join(str(part) for part in error.absolute_path) or "<root>"
     return f"{path}: {error.message}"
@@ -634,10 +898,14 @@ __all__ = [
     "CanonicalIdError",
     "DERIVATION_STATUSES",
     "EVIDENCE_ROLES",
+    "JUDGMENT_CONFIDENCE_LEVELS",
+    "JUDGMENT_STATUSES",
     "SCHEMA_VERSION",
     "build_chain",
     "build_claim",
     "build_evidence",
+    "build_invalidation_spec_id",
+    "build_judgment_record",
     "build_measurement",
     "build_observation",
     "canonical_id",
@@ -645,5 +913,6 @@ __all__ = [
     "lineage_ids",
     "validate_claim",
     "validate_observation",
+    "validate_judgment_record",
     "validate_chain",
 ]

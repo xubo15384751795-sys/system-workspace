@@ -90,6 +90,7 @@ def test_refresh_dry_run_does_not_require_operator_data() -> None:
             "PYTHONPATH": (
                 f"{ROOT}{os.pathsep}{ROOT / 'packages' / 'framework' / 'src'}"
                 f"{os.pathsep}{ROOT / 'packages' / 'workbench' / 'src'}"
+                f"{os.pathsep}{ROOT / 'packages' / 'orchestration'}"
                 f"{os.pathsep}{ROOT / 'scripts'}"
             ),
         },

@@ -162,11 +162,19 @@ def main() -> int:
 
     status = str(provider_outcome.get("status", "unknown"))
     availability = provider_outcome.get("availability")
+    route_policy = provider_outcome.get("route_policy")
     causally_usable = bool(
         isinstance(availability, dict)
         and availability.get("decision_usable") is True
     )
-    degraded = status not in {"refreshed", "accepted", "finalized"} or not causally_usable
+    route_diagnostic_only = bool(
+        isinstance(route_policy, dict) and route_policy.get("diagnostic_only")
+    )
+    degraded = (
+        status not in {"refreshed", "accepted", "finalized"}
+        or not causally_usable
+        or route_diagnostic_only
+    )
     if degraded:
         reason = (
             availability.get("reason")
@@ -180,6 +188,7 @@ def main() -> int:
             {
                 "status": "degraded" if degraded else "success",
                 "provider_outcome": provider_outcome,
+                "route_policy": route_policy,
                 "source": "harvester_finalized_release",
             },
             sort_keys=True,

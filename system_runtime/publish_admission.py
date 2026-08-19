@@ -20,8 +20,11 @@ generation, but decision-authorized consumers must not treat it as admissible.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
+
+from system_runtime.canonical_ids import CanonicalIdError, validate_chain
 
 # ---------------------------------------------------------------------------
 # Verdict constants
@@ -50,6 +53,60 @@ def _valid_digest(value: str | None) -> bool:
     return isinstance(value, str) and _SHA256_RE.fullmatch(value) is not None
 
 
+def _validate_decision_lineage(
+    decision_lineage: Mapping[str, Any],
+    *,
+    candidate_run_id: str,
+) -> None:
+    """Validate every Claim referenced by the authoritative Judgment."""
+
+    candidate_chain = decision_lineage.get("canonical_chain")
+    if not isinstance(candidate_chain, Mapping):
+        candidate_chain = decision_lineage
+    if not isinstance(candidate_chain, Mapping):
+        raise CanonicalIdError("canonical Claim -> Judgment chain is missing")
+
+    primary_chain = dict(candidate_chain)
+    validate_chain(primary_chain)
+    judgment_record = primary_chain.get("judgment")
+    if not isinstance(judgment_record, Mapping):
+        raise CanonicalIdError("judgment record is missing from canonical chain")
+    stamped_run_id = (judgment_record.get("provenance") or {}).get("run_id")
+    if not stamped_run_id:
+        raise CanonicalIdError("judgment provenance.run_id is required for authority")
+    if str(stamped_run_id) != str(candidate_run_id):
+        raise CanonicalIdError(
+            f"judgment run_id={stamped_run_id!r} != candidate={candidate_run_id!r}"
+        )
+
+    chains: list[Mapping[str, Any]] = [primary_chain]
+    extra_chains = decision_lineage.get("canonical_claim_chains")
+    if extra_chains is not None:
+        if not isinstance(extra_chains, list):
+            raise CanonicalIdError("canonical_claim_chains must be a list")
+        for item in extra_chains:
+            if not isinstance(item, Mapping):
+                raise CanonicalIdError("canonical_claim_chains contains a non-object")
+            # The producer currently includes the primary chain in its full
+            # list as well as in ``canonical_chain``. Treat that exact repeat
+            # as a transport projection, but reject duplicate claim identities
+            # with different content below.
+            if dict(item) == primary_chain:
+                continue
+            chains.append(item)
+
+    linked_claim_ids: list[str] = []
+    for chain in chains:
+        validate_chain(chain)
+        linked_claim_ids.append(str(chain["claim"]["claim_id"]))
+    if len(set(linked_claim_ids)) != len(linked_claim_ids):
+        raise CanonicalIdError("decision lineage contains duplicate canonical Claims")
+    if set(linked_claim_ids) != set(judgment_record["claim_ids"]):
+        raise CanonicalIdError(
+            "decision lineage does not provide every Claim referenced by the Judgment"
+        )
+
+
 @dataclass(frozen=True)
 class PublishAdmission:
     """Admission verdict for a publish candidate.
@@ -72,7 +129,9 @@ class PublishAdmission:
         evidence_digest: Digest of run evidence and acquired artifact bytes.
         generation_digest: Digest of the pre-publish generation lineage.
         canonical_lineage: Optional shadow-reader context copied from the
-            executed steps. It never participates in a verdict.
+            executed steps. It remains diagnostic context.
+        decision_lineage: The complete canonical Claim -> Judgment chain used
+            for authoritative decision publication.
     """
 
     integrity_verdict: str = INTEGRITY_BLOCK
@@ -91,6 +150,7 @@ class PublishAdmission:
     generation_digest: str | None = None
     admission_digest: str | None = None
     canonical_lineage: dict[str, Any] | None = None
+    decision_lineage: dict[str, Any] | None = None
 
     # Class-level verdict sets (for introspection / tests)
     INTEGRITY_VERDICTS = frozenset({INTEGRITY_PASS, INTEGRITY_BLOCK})
@@ -158,6 +218,8 @@ class PublishAdmission:
         }
         if self.canonical_lineage is not None:
             payload["canonical_lineage"] = dict(self.canonical_lineage)
+        if self.decision_lineage is not None:
+            payload["decision_lineage"] = dict(self.decision_lineage)
         return payload
 
     @classmethod
@@ -180,6 +242,7 @@ class PublishAdmission:
         evidence_digest: str | None = None,
         generation_digest: str | None = None,
         canonical_lineage: dict[str, Any] | None = None,
+        decision_lineage: dict[str, Any] | None = None,
     ) -> PublishAdmission:
         """Evaluate admission from run state and candidate artifacts.
 
@@ -210,6 +273,7 @@ class PublishAdmission:
         }
         contract_fields: dict[str, Any] = {
             **contract_digests,
+            "decision_lineage": decision_lineage,
             "release_id": release_id,
             "artifact_release_ids": dict(artifact_release_ids or {}),
             "provider_decision": provider_decision,
@@ -279,6 +343,24 @@ class PublishAdmission:
         elif normalized_provider_decision == "BLOCK":
             authority_verdict = AUTHORITY_BLOCK
             reason_codes.append("PROVIDER_DECISION_DENIED")
+
+        # A complete Claim -> Judgment chain is now the epistemic authority
+        # boundary. Missing lineage is safely diagnostic-only; malformed or
+        # stale lineage is an authority block. Transactional integrity remains
+        # a separate verdict below.
+        if authority_verdict == AUTHORITY_ALLOW:
+            if not isinstance(decision_lineage, Mapping):
+                authority_verdict = AUTHORITY_DIAGNOSTIC_ONLY
+                reason_codes.append("JUDGMENT_LINEAGE_MISSING")
+            else:
+                try:
+                    _validate_decision_lineage(
+                        decision_lineage,
+                        candidate_run_id=candidate_run_id,
+                    )
+                except (CanonicalIdError, TypeError, ValueError):
+                    authority_verdict = AUTHORITY_BLOCK
+                    reason_codes.append("JUDGMENT_LINEAGE_INVALID")
         if authority_verdict == AUTHORITY_BLOCK:
             reason_codes.append("DECISION_AUTHORITY_BLOCKED")
 

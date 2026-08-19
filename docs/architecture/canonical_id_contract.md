@@ -2,10 +2,11 @@
 
 ## Purpose
 
-The runtime chain is now represented as four explicit objects:
+The runtime chain is represented as four producer objects plus an explicit
+decision object:
 
 ```text
-Observation -> Measurement -> Evidence -> Claim
+Observation -> Measurement -> Evidence -> Claim -> Judgment
 ```
 
 The machine-readable contract is [`protocols/canonical_chain.schema.json`](../../protocols/canonical_chain.schema.json), and the constructors/validator live in [`system_runtime/canonical_ids.py`](../../system_runtime/canonical_ids.py).
@@ -21,6 +22,7 @@ digest is shortened to 128 bits and namespaced by object type:
 | Measurement | `mea_` | sorted observation IDs, definition, method version, status and derivation | run ID, generated time |
 | Evidence | `evd_` | sorted measurement IDs, role, source, release and snapshot hash | run ID, generated time |
 | Claim | `clm_` | normalized proposition, subject, predicate and policy version | current evidence set, run ID |
+| Judgment | `jud_` | as-of decision, claim roles, status, confidence, ceiling, policy and synthesis versions | decision time, provenance |
 
 The claim rule is intentional: new evidence changes the claim's links and
 status, not the identity of the proposition itself. A retry over the same
@@ -43,6 +45,12 @@ Claim status is deliberately non-binary:
 `SUPPORTED`, `WEAKLY_SUPPORTED`, `CONFLICTED`, `STALE`, `INSUFFICIENT_DATA`,
 `UNOBSERVABLE`, and `WATCH`.
 
+Judgment is a separate policy output. It must reference at least one
+canonical Claim and explicitly partition supporting, conflicting, and
+research-only claims. A four-object producer chain can therefore be valid
+lineage while still being `DIAGNOSTIC_ONLY`; it cannot grant publication or
+promotion authority without Claim -> Judgment validation.
+
 ## Compatibility and migration boundary
 
 This phase does not migrate orchestration. Existing output fields remain in
@@ -62,7 +70,7 @@ silently bypass the contract.
 The orchestration migration now has a bounded shadow comparator in
 `packages/orchestration/orchestration/shadow_parity.py`. It compares already
 executed Dagster/direct result lists using deterministic step semantics and,
-when present, all four canonical IDs. Matching execution without canonical IDs
+when present, all canonical IDs. Matching execution without canonical IDs
 is reported as `EXECUTION_MATCH_CANONICAL_UNAVAILABLE`, not as a migration
 pass. The report is always `shadow_only` with `promotion_allowed=false`; it does
 not execute a second production path or change the scheduler's authority.
@@ -79,13 +87,11 @@ The daily `RunBundle` recorder carries these fields into `steps.jsonl` as
 additive provenance. `system_runtime.canonical_lineage.summarize_step_lineage`
 now gives the alert, operator-event, and notification readers a shared
 shadow-only dual-read context. It revalidates the chain and checks the compact
-four-ID block before reporting `MATCH` or `PARITY_MISMATCH`; missing lineage is
-reported as `UNAVAILABLE`. PublishTransaction, Current, and admission still
-use their existing run/release/generation contracts. The admission token and
-minimum-monitoring publication reader may carry/report the same context, but a
-canonical Claim cannot grant authority merely because its IDs are present in a
-step log, and a reader-level mismatch is diagnostic rather than an automatic
-publish block.
+ID block before reporting `MATCH` or `PARITY_MISMATCH`; missing lineage is
+reported as `UNAVAILABLE`. `PublishAdmission.decision_lineage` separately
+validates the complete Claim -> Judgment chain and is the only canonical
+lineage input that can support `ALLOW`. A missing or invalid Judgment therefore
+remains `DIAGNOSTIC_ONLY`, never an implicit promotion or publication grant.
 
 ## Harvester producer boundary (SYS-18)
 
@@ -97,8 +103,8 @@ hash. Provider fallback metadata remains provenance-side: every ETF series may
 carry a `provider_attempt_id` (`att_...`), attempt number, source tier, outcome,
 and retryability in `provider_outcome.series_attempts`.
 
-This is intentionally not a fifth canonical-chain object and does not change
-the four frozen ID rules. Measurement, Evidence, and Claim records will consume
+This is intentionally not a Judgment object and does not change the producer
+ID rules. Measurement, Evidence, and Claim records will consume
 these observations in the later producer migration; until then, the sidecar
 path and count are declared in the Harvester provenance contract and validated
 at release finalization.
@@ -216,10 +222,11 @@ Observation/Measurement writer before it can participate in a current claim.
 
 ## Acceptance criteria
 
-1. The parity fixture validates against the JSON Schema and all three cross-object links.
-2. Re-running a producer over unchanged input yields the same four IDs.
+1. The parity fixture validates against the JSON Schema and all four producer cross-object links.
+2. Re-running a producer over unchanged input yields the same producer IDs;
+   re-running the same policy for the same Claim set yields the same Judgment ID.
 3. Changing an observation value changes observation and measurement IDs while keeping the proposition's claim ID stable.
-4. A broken observation -> measurement -> evidence -> claim link fails validation.
+4. A broken observation -> measurement -> evidence -> claim link fails validation; a broken Claim -> Judgment link fails decision admission.
 5. Existing framework-output validation remains green with the optional canonical envelope present.
 6. A proxy candidate without a valid measurement specification fails release finalization;
    a valid proxy spec still cannot authorize promotion.
@@ -227,6 +234,8 @@ Observation/Measurement writer before it can participate in a current claim.
    canonical-lineage parity and never grants publish authority.
 8. A current-run, validator-approved declared output can move shadow status to
    canonical-lineage `MATCH`; a prior-run or failed-step output cannot.
-9. Alert/operator/notification readers expose the same shadow-only lineage
-   context, while publish/current/admission verdicts remain unchanged when
-   canonical lineage is missing or mismatched.
+9. A complete current-run Claim -> Judgment lineage can support decision
+   admission; a missing or mismatched Judgment remains `DIAGNOSTIC_ONLY`.
+10. Alert/operator/notification readers expose the same shadow-only lineage
+   context, while publish/current/admission verdicts never treat research-only
+   K/X context as canonical Claim authority.

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://system.local/protocols/source_registry.schema.json",
+  "title": "System source registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sources", "series"],
+  "properties": {
+    "schema_version": { "const": "system.source_registry.v1" },
+    "description": { "type": "string" },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/source" }
+    },
+    "series": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/series" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_id", "authority_class", "official_url"],
+      "properties": {
+        "authority_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "authority_class": { "type": "string", "minLength": 1 },
+        "official_url": { "type": "string", "format": "uri" },
+        "notes": { "type": "string" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "source_id",
+        "tier",
+        "transport",
+        "fallback_kind",
+        "claim_ceiling",
+        "diagnostic_only"
+      ],
+      "properties": {
+        "route_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "source_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "tier": { "type": "integer", "minimum": 1 },
+        "transport": { "type": "string", "minLength": 1 },
+        "fallback_kind": {
+          "enum": ["primary", "equivalent_source", "transport_fallback", "proxy_evidence", "cache_reuse"]
+        },
+        "claim_ceiling": { "type": "string", "minLength": 1 },
+        "diagnostic_only": { "type": "boolean" },
+        "requires_parity_certification": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_id",
+        "semantic_equivalence_group",
+        "frequency",
+        "adjustment_policy",
+        "primary_key",
+        "routes"
+      ],
+      "properties": {
+        "dataset_id": { "type": "string", "minLength": 1 },
+        "semantic_equivalence_group": { "type": "string", "minLength": 1 },
+        "frequency": { "type": "string", "minLength": 1 },
+        "adjustment_policy": { "type": "string", "minLength": 1 },
+        "primary_key": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "required_for_decision": { "type": "boolean" },
+        "routes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/route" } }
+      }
+    }
+  }
+}

@@ -268,6 +268,7 @@ class PublishTransaction:
                 evidence_digest=admission.evidence_digest,
                 generation_digest=admission.generation_digest,
                 canonical_lineage=admission.canonical_lineage,
+                decision_lineage=admission.decision_lineage,
             )
         payload_without_digest = {
             "schema_version": "system.publish_admission.v1",

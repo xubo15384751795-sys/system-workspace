@@ -57,7 +57,6 @@ data_sources:
     # - alpha_vantage
     # - stooq
     # - tiingo
-    # - polygon
     # - nasdaq_data_link
     # - cboe
     # - oecd
@@ -67,13 +66,12 @@ data_sources:
 
   # API keys can be set here or via env vars:
   # FRED_API_KEY, SEC_USER_AGENT, ALPHA_VANTAGE_API_KEY, TIINGO_API_KEY,
-  # MASSIVE_API_KEY (or legacy POLYGON_API_KEY), NASDAQ_DATA_LINK_API_KEY
+  # MASSIVE_API_KEY, NASDAQ_DATA_LINK_API_KEY
   api_keys:
     fred: ""
     alpha_vantage: ""
     tiingo: ""
     massive: ""
-    polygon: ""
     nasdaq_data_link: ""
     sec_user_agent: ""
 

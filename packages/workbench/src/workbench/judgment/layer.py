@@ -18,6 +18,17 @@ from pathlib import Path
 from typing import Any, cast
 
 from system_runtime.paths import WorkspacePaths, output_surface
+from system_runtime.canonical_ids import (
+    build_claim,
+    build_evidence,
+    build_invalidation_spec_id,
+    build_measurement,
+    build_observation,
+    build_chain,
+    lineage_ids,
+    validate_chain,
+)
+from workbench.judgment.synthesizer import ClaimEnvelope, JudgmentSynthesizer
 
 logger = logging.getLogger(__name__)
 
@@ -274,11 +285,8 @@ def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
         trade_confidence = "medium"
     if hmm_grade == "WEAK" or caselab_label == "no_reliable_analogy":
         trade_confidence = "low"
-    # Always low when gates are failing
-    if k_gate and k_gate.get("gate_verdict") != "PASS":
-        trade_confidence = "low"
-    if x_gate and x_gate.get("gate_verdict") != "PASS":
-        trade_confidence = "low"
+    # K/X are research-only profiles. Their gate state is reported for review
+    # but cannot promote or demote the neutral measurement judgment.
 
     layered = {
         "diagnostic_confidence": diagnostic_confidence,
@@ -311,9 +319,15 @@ def _claim_ceiling(fw: dict[str, Any], confidence: str,
     """
     validity = fw.get("basic", {}).get("validity_scope")
 
-    # Use claim ladder tier to set ceiling
+    # Preserve the compatibility ceiling vocabulary for tiers 0-2. Tier 3
+    # must use the policy label so the old structural-diagnostic meaning cannot
+    # masquerade as replay-qualified operational research.
     if claim_ladder_tier >= 3:
-        return "structural_diagnostic"
+        from workbench.judgment.claim_ladder import CLAIM_LADDER_TIERS
+
+        label = CLAIM_LADDER_TIERS.get(claim_ladder_tier, {}).get("label")
+        if isinstance(label, str) and label:
+            return label
     if claim_ladder_tier == 2:
         return "watch_condition"
     if claim_ladder_tier == 1:
@@ -447,18 +461,11 @@ def _md_direction_from_judgment(j: dict[str, Any]) -> str:
     cl = j.get("claim_ladder") or {}
     if cl.get("md_direction"):
         return str(cl["md_direction"])
-    meaning = j.get("meaning", [])
-    m_val, d_val = 0.0, 0.0
-    for line in meaning:
-        if "M=" in line and "D=" in line:
-            import re
-            m_match = re.search(r"M=(-?[\d.]+)", line)
-            d_match = re.search(r"D=(-?[\d.]+)", line)
-            if m_match:
-                m_val = float(m_match.group(1))
-            if d_match:
-                d_val = float(d_match.group(1))
-            break
+    values = j.get("md_values") or j.get("measurement_values") or {}
+    if not isinstance(values, dict):
+        values = {}
+    m_val = _as_float(values.get("M", values.get("m")))
+    d_val = _as_float(values.get("D", values.get("d")))
     stress_dir = (m_val + d_val) / 2.0
     if stress_dir > 0.3:
         return "stress_building"
@@ -512,43 +519,332 @@ def _load_run_history(max_runs: int = 5) -> list[dict[str, Any]]:
     return history
 
 
+def _adapter_timestamp() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _adapter_chain(
+    *,
+    as_of: str,
+    run_id: str,
+    source_id: str,
+    series_id: str,
+    value: Any,
+    claim_text: str,
+    predicate: str,
+    measurement_definition: str,
+    derivation: str,
+    evidence_role: str,
+    research_only: bool = False,
+) -> dict[str, Any]:
+    """Adapt one subsystem result into Evidence -> Claim before synthesis."""
+
+    captured_at = _adapter_timestamp()
+    provenance = {
+        "captured_at": captured_at,
+        "producer": "judgment_input_adapter",
+        "run_id": run_id,
+        "source_component": source_id,
+    }
+    observation = build_observation(
+        canonical_series_id=series_id,
+        observed_at=as_of,
+        vintage_at=as_of,
+        value=value,
+        source_id=source_id,
+        status="AVAILABLE",
+        provenance=provenance,
+    )
+    measurement = build_measurement(
+        observation_ids=[observation["observation_id"]],
+        measurement_definition=measurement_definition,
+        method_version="judgment_input_adapter.v1",
+        value=value,
+        status="AVAILABLE",
+        derivation=derivation,
+        provenance=provenance,
+    )
+    evidence = build_evidence(
+        measurement_ids=[measurement["measurement_id"]],
+        evidence_role=evidence_role,
+        source_id=source_id,
+        release_id=run_id,
+        status="AVAILABLE",
+        provenance=provenance,
+    )
+    claim = build_claim(
+        claim_text=claim_text,
+        subject=series_id,
+        predicate=predicate,
+        evidence_ids=[evidence["evidence_id"]],
+        status="WATCH",
+        policy_version="judgment_input_adapter.v1",
+        provenance={
+            **provenance,
+            "research_only": research_only,
+            "promotion_allowed": False,
+        },
+    )
+    return build_chain(
+        observation=observation,
+        measurement=measurement,
+        evidence=evidence,
+        claim=claim,
+    )
+
+
+def _framework_claim_chain(fw: dict[str, Any]) -> dict[str, Any]:
+    raw_chain = fw.get("canonical_chain")
+    if isinstance(raw_chain, dict):
+        validate_chain(raw_chain)
+        return dict(raw_chain)
+    date_str = _date_from_framework(fw)
+    m_val, d_val = _md_values(fw)
+    provenance = fw.get("provenance") or {}
+    run_id = str(provenance.get("run_id") or fw.get("run_id") or "judgment-adapter")
+    return _adapter_chain(
+        as_of=date_str,
+        run_id=run_id,
+        source_id="framework:neutral_pressure",
+        series_id="SYSTEM:NEUTRAL_PRESSURE_PANEL",
+        value={"M": m_val, "D": d_val},
+        claim_text="The neutral pressure panel reports the typed M/D readout for this as-of date.",
+        predicate="reports_neutral_pressure_readout",
+        measurement_definition="neutral_pressure_readout",
+        derivation="OBSERVED",
+        evidence_role="PRIMARY",
+    )
+
+
+def _claim_envelopes(
+    fw: dict[str, Any],
+    caselab: dict[str, Any] | None,
+    hmm: dict[str, Any] | None,
+    k_gate: dict[str, Any] | None,
+    x_gate: dict[str, Any] | None,
+) -> tuple[list[ClaimEnvelope], dict[str, Any]]:
+    """Convert raw subsystem surfaces into canonical claims and typed context."""
+
+    date_str = _date_from_framework(fw)
+    fw_provenance = fw.get("provenance") or {}
+    run_id = str(fw_provenance.get("run_id") or fw.get("run_id") or "judgment-adapter")
+    envelopes = [ClaimEnvelope(_framework_claim_chain(fw), role="supporting")]
+    reconciliation = (caselab or {}).get("regime_reconciliation", {}) if caselab else {}
+    context: dict[str, Any] = {
+        "run_id": run_id,
+        "data_quality_grade": (
+            (fw.get("basic") or {}).get("data_quality_grade")
+            or (fw.get("basic") or {}).get("quality_status")
+            or "C"
+        ),
+        "hmm_conflict": bool(reconciliation.get("divergence", False)),
+        "claim_source_count": 1,
+    }
+
+    if caselab is not None:
+        match = caselab.get("match_quality") or {}
+        label = str(match.get("label") or "unknown")
+        score = _as_float(match.get("top_score"))
+        envelopes.append(
+            ClaimEnvelope(
+                _adapter_chain(
+                    as_of=date_str,
+                    run_id=run_id,
+                    source_id="caselab:daily_signal",
+                    series_id="CASELAB:TOP_MATCH_SCORE",
+                    value={"label": label, "top_score": score},
+                    claim_text=f"CaseLab reports a {label} structural match assessment.",
+                    predicate="reports_structural_match_assessment",
+                    measurement_definition="caselab_match_quality",
+                    derivation="MODELED",
+                    evidence_role="SECONDARY",
+                ),
+                role="conflicting" if context["hmm_conflict"] else "supporting",
+            )
+        )
+        context["caselab_top_score"] = score
+        context["active_mechanism_count"] = len(
+            ((caselab.get("mechanism_context") or {}).get("mechanism_types") or [])
+        )
+
+    if hmm is not None:
+        regime = hmm.get("regime") or {}
+        current = str(regime.get("current") or "unknown")
+        envelopes.append(
+            ClaimEnvelope(
+                _adapter_chain(
+                    as_of=date_str,
+                    run_id=run_id,
+                    source_id="hmm:regime_model",
+                    series_id="HMM:REGIME",
+                    value=regime,
+                    claim_text=f"HMM reports the regime state {current} for this run.",
+                    predicate="reports_regime_state",
+                    measurement_definition="hmm_regime_state",
+                    derivation="MODELED",
+                    evidence_role="SECONDARY",
+                ),
+                role="conflicting" if context["hmm_conflict"] else "supporting",
+            )
+        )
+
+    # K/X are explicitly research-only profiles. They can be carried for
+    # review visibility, but the synthesizer excludes them from support and
+    # conflict authority.
+    for name, gate in (("K", k_gate), ("X", x_gate)):
+        if gate is None:
+            continue
+        verdict = str(gate.get("gate_verdict") or "UNKNOWN")
+        envelopes.append(
+            ClaimEnvelope(
+                _adapter_chain(
+                    as_of=date_str,
+                    run_id=run_id,
+                    source_id=f"deformation:{name.lower()}",
+                    series_id=f"DEFORMATION:{name}",
+                    value={"gate_verdict": verdict},
+                    claim_text=f"Research-only {name} profile reports gate state {verdict}.",
+                    predicate="requests_research_review",
+                    measurement_definition=f"deformation_{name.lower()}_gate",
+                    derivation="MODELED",
+                    evidence_role="CONTEXT",
+                    research_only=True,
+                ),
+                role="research_only",
+                research_only=True,
+            )
+        )
+
+    context["claim_source_count"] = len(envelopes)
+    return envelopes, context
+
+
+def _credibility_assessment(
+    fw: dict[str, Any],
+    caselab: dict[str, Any] | None,
+    claims: list[ClaimEnvelope],
+) -> dict[str, Any]:
+    basic = fw.get("basic") or {}
+    return {
+        "source_quality": "available" if fw else "missing",
+        "freshness": "available" if fw.get("as_of") else "unknown",
+        "measurement_validity": basic.get("validity_scope", "unknown"),
+        "evidence_independence": "multiple_sources" if len(claims) > 1 else "single_source",
+        "contradiction": "present" if (caselab or {}).get("regime_reconciliation", {}).get("divergence") else "none",
+        "coverage": basic.get("overall", basic.get("quality_status", "unknown")),
+        "semantic_fit": "bounded_neutral_measurement",
+        "statistical_support": (caselab or {}).get("match_quality", {}).get("label", "unavailable"),
+    }
+
+
+def _calibration_assessment(validation: dict[str, Any] | None) -> dict[str, Any]:
+    source = validation or {}
+    return {
+        "historical_bucket": source.get("calibration_bucket", "insufficient"),
+        "resolved_count": int(source.get("resolved_count", 0) or 0),
+        "hit_rate": source.get("hit_rate"),
+        "false_positive_rate": source.get("false_positive_rate"),
+        "overconfidence_error": source.get("overconfidence_error"),
+    }
+
+
 def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
                    hmm: dict[str, Any] | None = None,
                    k_gate: dict[str, Any] | None = None,
                    x_gate: dict[str, Any] | None = None,
                    validation: dict[str, Any] | None = None) -> dict[str, Any]:
-    date_str = _date_from_framework(fw)
-    confidence, confidence_reasons, layered_confidence = _confidence(fw, caselab, hmm, k_gate, x_gate, validation)
+    """Build a compatibility judgment card backed by canonical Claims."""
 
-    # Claim ladder evaluation
+    date_str = _date_from_framework(fw)
+    m_val, d_val = _md_values(fw)
+    confidence, confidence_reasons, layered_confidence = _confidence(
+        fw, caselab, hmm, k_gate, x_gate, validation
+    )
+    claims, evidence_context = _claim_envelopes(fw, caselab, hmm, k_gate, x_gate)
+
     from workbench.judgment.claim_ladder import evaluate_claim_tier
+
     mechanism_ctx = (caselab or {}).get("mechanism_context")
     run_history = _load_run_history()
     claim_ladder = evaluate_claim_tier(
-        judgment={"meaning": _meaning(fw, confidence)},
+        judgment={"md_values": {"M": m_val, "D": d_val}},
         caselab=caselab,
         hmm=hmm,
         mechanism_context=mechanism_ctx,
         run_history=run_history,
+        evidence_context=evidence_context,
+        claims=[{"claim_id": item.canonical_chain["claim"]["claim_id"]} for item in claims],
     )
 
-    judgment = {
+    decision = _decision(confidence, caselab)
+    claim_ceiling = _claim_ceiling(fw, confidence, layered_confidence, claim_ladder.tier)
+    meaning = _meaning(fw, confidence)
+    invalidation = _invalidation(fw, caselab)
+    primary_claim_id = claims[0].canonical_chain["claim"]["claim_id"]
+    invalidation_spec_ids = [
+        build_invalidation_spec_id(claim_id=primary_claim_id, specification=item)
+        for item in invalidation
+    ]
+    generated_at = datetime.now(UTC).isoformat()
+    credibility = _credibility_assessment(fw, caselab, claims)
+    calibration = _calibration_assessment(validation)
+    unknowns: list[str] = []
+    if caselab is None:
+        unknowns.append("CaseLab context unavailable")
+    if hmm is None:
+        unknowns.append("HMM context unavailable")
+    if not calibration.get("resolved_count"):
+        unknowns.append("Historical judgment calibration is insufficient")
+    if k_gate is not None or x_gate is not None:
+        unknowns.append("K/X remain research-only profiles")
+    judgment_status = (
+        "CONFLICTED"
+        if evidence_context.get("hmm_conflict")
+        else ("DIAGNOSTIC_ONLY" if confidence == "low" else "WATCH")
+    )
+    synthesis = JudgmentSynthesizer().synthesize(
+        claims=claims,
+        as_of=date_str,
+        decision=decision,
+        claim_ceiling=claim_ceiling,
+        confidence={
+            "measurement": layered_confidence.get("diagnostic_confidence", "unknown"),
+            "evidence": "medium" if len(claims) > 1 else "low",
+            "mechanism": layered_confidence.get("mechanism_confidence", "unknown"),
+            "calibration": calibration.get("historical_bucket", "insufficient"),
+            "overall": confidence,
+        },
+        unknowns=unknowns,
+        invalidation_spec_ids=invalidation_spec_ids,
+        policy_version="judgment_policy.v1",
+        decision_time=generated_at,
+        status=judgment_status,
+        provenance={"producer": "judgment_layer", "run_id": evidence_context.get("run_id", "")},
+    )
+    record = synthesis["judgment"]
+
+    return {
         "schema_version": "system.judgment_card.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": generated_at,
         "as_of": date_str,
-        "decision": _decision(confidence, caselab),
+        "judgment_id": record["judgment_id"],
+        "decision": decision,
         "md_direction": claim_ladder.md_direction,
+        "md_values": {"M": m_val, "D": d_val},
         "confidence": {
             "level": confidence,
             "reasons": confidence_reasons,
             "layered": layered_confidence,
         },
-        "claim_ceiling": _claim_ceiling(fw, confidence, layered_confidence, claim_ladder.tier),
+        "credibility_assessment": credibility,
+        "calibration": calibration,
+        "claim_ceiling": claim_ceiling,
         "claim_ladder": claim_ladder.to_dict(),
-        "meaning": _meaning(fw, confidence),
+        "meaning": meaning,
         "risk": _risks(fw, caselab),
         "actionability": _actionability(confidence),
-        "invalidation": _invalidation(fw, caselab),
+        "invalidation": invalidation,
+        "invalidation_spec_ids": invalidation_spec_ids,
         "watch_window": _watch_window(fw, caselab),
         "gate_status": {
             "hmm_stability": _hmm_stability_grade(hmm)[0],
@@ -556,6 +852,14 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
             "x_gate": (x_gate or {}).get("gate_verdict", "NOT_AVAILABLE"),
             "quality_validation": (validation or {}).get("status", "NOT_AVAILABLE"),
         },
+        "judgment_record": record,
+        "canonical_chain": synthesis["canonical_chain"],
+        "canonical_claim_chains": synthesis["canonical_chains"],
+        "canonical_ids": synthesis["canonical_ids"],
+        "claim_ids": synthesis["claim_ids"],
+        "supporting_claim_ids": synthesis["supporting_claim_ids"],
+        "conflicting_claim_ids": synthesis["conflicting_claim_ids"],
+        "research_only_claim_ids": synthesis["research_only_claim_ids"],
         "inputs": {
             "neutral_pressure_snapshot": str(PRESSURE_PATH),
             "caselab": str(CASELAB_DIR / f"{date_str}.json") if caselab else None,
@@ -565,7 +869,6 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
             "validation": str(VALIDATION_PATH),
         },
     }
-    return judgment
 
 
 def format_markdown(card: dict[str, Any]) -> str:

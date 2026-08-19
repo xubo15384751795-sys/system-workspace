@@ -59,6 +59,15 @@ def gather_status() -> dict[str, Any]:
             "decision": (judgment or {}).get("decision"),
             "confidence": ((judgment or {}).get("confidence") or {}).get("level"),
             "claim_ceiling": (judgment or {}).get("claim_ceiling"),
+            "judgment_id": (judgment or {}).get("judgment_id"),
+            "claim_ids": (judgment or {}).get("claim_ids", []),
+            "supporting_claim_ids": (judgment or {}).get("supporting_claim_ids", []),
+            "conflicting_claim_ids": (judgment or {}).get("conflicting_claim_ids", []),
+            "research_only_claim_ids": (judgment or {}).get("research_only_claim_ids", []),
+            "lineage_complete": bool(
+                isinstance((judgment or {}).get("canonical_chain"), dict)
+                and isinstance(((judgment or {}).get("canonical_chain") or {}).get("judgment"), dict)
+            ),
         },
         "promotion_gate": {
             "status": (promotion_gate or {}).get("overall_status"),
@@ -69,6 +78,7 @@ def gather_status() -> dict[str, Any]:
             "forbidden_language": (promotion_gate or {}).get("forbidden_language", []),
             "allowed_language": (promotion_gate or {}).get("allowed_language", []),
             "claim_ceiling": (promotion_gate or {}).get("claim_ceiling"),
+            "epistemic_authority": (promotion_gate or {}).get("epistemic_authority", "DIAGNOSTIC_ONLY"),
         },
         "signals": {
             "k_gate": {

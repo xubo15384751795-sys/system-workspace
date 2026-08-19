@@ -12,7 +12,7 @@ Implemented providers include:
 - `treasury`: U.S. Treasury FiscalData APIs.
 - `sec`: SEC EDGAR filing pulse.
 - `cboe_direct`: CBOE direct public CSV and delayed JSON endpoints.
-- `etf_market_data`: Tiingo -> Massive (formerly Polygon.io) -> yfinance ETF
+- `etf_market_data`: Tiingo -> Massive -> yfinance ETF
   provider chain with per-provider cooldown, cache, and source provenance.
 - `openbb_provider`: OpenBB-backed routes for FRED, Tiingo, and selected market
   data.

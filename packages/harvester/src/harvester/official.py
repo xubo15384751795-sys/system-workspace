@@ -250,6 +250,13 @@ def _provider_outcome(
         outcome["provider_chain"] = [str(item) for item in provider_chain]
     if fallback_used:
         outcome["fallback_used"] = True
+    if series_providers and any(
+        str(provider).lower() in {"tiingo", "massive", "yfinance"}
+        for provider in series_providers.values()
+    ):
+        from harvester.core.etf_parity import route_policy_for_selection
+
+        outcome["route_policy"] = route_policy_for_selection(series_providers)
     outcome["availability"] = {
         "state": "STALE"
         if status in {"reused_same_content", "reused_after_provider_failure", "environmentally_blocked"}
@@ -730,6 +737,9 @@ def _canonical_official_observations(
         )
         if isinstance(source_signature, dict):
             provenance["source_signature"] = source_signature
+        route_policy = outcome.get("route_policy")
+        if isinstance(route_policy, dict):
+            provenance["route_policy"] = route_policy
         availability = build_availability(
             state=status,
             observation_date=observed.date().isoformat(),
@@ -971,7 +981,7 @@ def fetch_official_series_from_registry(
         if name == "etf_provider_chain":
             provider_kwargs["api_keys"] = {
                 "tiingo": keys.get("tiingo", ""),
-                "massive": keys.get("massive", keys.get("polygon", "")),
+                "massive": keys.get("massive", ""),
             }
         if name.startswith("openbb"):
             provider_kwargs["settings_env"] = keys.get("openbb_settings_env", "")

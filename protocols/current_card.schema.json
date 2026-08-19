@@ -28,7 +28,25 @@
           "description": "Authority: governance/runtime_status_contract.yaml judgment_decision"
         },
         "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
-        "claim_ceiling": {"type": "string"}
+        "claim_ceiling": {"type": "string"},
+        "judgment_id": {"type": ["string", "null"], "pattern": "^jud_[0-9a-f]{32}$"},
+        "claim_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"}
+        },
+        "supporting_claim_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"}
+        },
+        "conflicting_claim_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"}
+        },
+        "research_only_claim_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^clm_[0-9a-f]{32}$"}
+        },
+        "lineage_complete": {"type": "boolean"}
       },
       "additionalProperties": true
     },
@@ -42,7 +60,8 @@
         "blocking_reasons": {"type": "array", "items": {"type": "string"}},
         "watch_reasons": {"type": "array", "items": {"type": "string"}},
         "forbidden_language": {"type": "array", "items": {"type": "string"}},
-        "allowed_language": {"type": "array", "items": {"type": "string"}}
+        "allowed_language": {"type": "array", "items": {"type": "string"}},
+        "epistemic_authority": {"type": "string", "enum": ["ALLOW", "DIAGNOSTIC_ONLY", "BLOCK"]}
       },
       "additionalProperties": true
     },

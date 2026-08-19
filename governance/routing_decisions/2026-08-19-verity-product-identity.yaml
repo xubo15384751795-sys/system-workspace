@@ -1,0 +1,67 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-19-verity-product-identity
+date: "2026-08-19"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Adopt Verity as the product identity and rewrite the root README as a
+  homepage for the evidence-governed research kernel. Move historical
+  Workbench / Deformation / System Workspace archaeology out of the root
+  README. Do not rename the git repository, Python distribution, or package
+  directories in this change.
+scope: >
+  Root README, docs/history/workspace-lineage.md,
+  docs/operations/workspace-entrypoints.md, and this routing record.
+  Package paths, pyproject names, GitHub repository name, and runtime
+  authorities are unchanged.
+decision: >
+  The human-facing product name is Verity: an evidence-governed research
+  kernel for reasoning under incomplete, stale, conflicting, and uncertain
+  information. The canonical research chain is Source -> Observation ->
+  Measurement -> Evidence -> Claim -> Judgment -> Admission / Promotion /
+  Publication. Durable data is not runtime authority. OpenBB is documented as
+  a Harvester acquisition engine, not a sandbox experiment. Historical names
+  remain as implementation and lineage labels only. A later mechanical rename
+  of repository or Python package identifiers may follow; this decision does
+  not perform that rename and does not grant publication or runtime authority
+  changes.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: false
+  identity_surface_change: true
+preregistered_expectation: >
+  A first-time reader of README.md can name the product, the research chain,
+  and the stabilization status without encountering competing titles
+  (Workbench, Deformation, System Workspace) as current product names.
+  Contract tests that pin README layout headings continue to pass.
+observation_window: >
+  Identity-only. No scheduled-run evidence window. Rollback is a documentation
+  revert. This record cannot be used as production-readiness evidence.
+rollback: >
+  Restore the previous README.md and delete the new docs/history and
+  docs/operations pages introduced by this change. Do not restore
+  "Data is the truth layer" as a current constitution once Current publication
+  is owned by PublishAdmission / PublishTransaction.
+acceptance:
+  - Root README title is Verity and centers the Source -> Judgment chain.
+  - README states that diagnostic/fixture success is not production readiness.
+  - OpenBB is described as Harvester infrastructure, not Output/sandbox.
+  - Historical layout, submodule, and Deformation-downscope material lives
+    under docs/history rather than the homepage body.
+  - tests/test_workspace_docs_contract.py and the README-head attention budget
+    test remain green.
+non_goals:
+  - Rename GitHub repository system-workspace.
+  - Rename Python distribution structural-deformation-system.
+  - Rename packages/workbench, packages/framework, or other directories.
+  - Change PublishAdmission, PublishTransaction, or Current semantics.
+  - Claim SYS-15 / SYS-7 / SYS-19 scheduled evidence is complete.
+evidence:
+  docs:
+    - README.md
+    - docs/history/workspace-lineage.md
+    - docs/operations/workspace-entrypoints.md
+    - docs/architecture/authority_runtime_matrix.md

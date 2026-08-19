@@ -114,3 +114,19 @@ def test_judgment_has_schema_version() -> None:
     card = build_judgment(_make_framework_output(), _make_caselab())
     assert "schema_version" in card
     assert card["schema_version"] == "system.judgment_card.v1"
+
+
+def test_research_only_kx_claims_cannot_support_or_conflict_judgment() -> None:
+    card = build_judgment(
+        _make_framework_output(),
+        _make_caselab(),
+        k_gate={"gate_verdict": "PASS"},
+        x_gate={"gate_verdict": "BLOCK"},
+    )
+
+    research_only = set(card["research_only_claim_ids"])
+    assert len(research_only) == 2
+    assert research_only.isdisjoint(card["supporting_claim_ids"])
+    assert research_only.isdisjoint(card["conflicting_claim_ids"])
+    assert set(card["judgment_record"]["research_only_claim_ids"]) == research_only
+    assert card["canonical_chain"]["judgment"]["judgment_id"] == card["judgment_id"]

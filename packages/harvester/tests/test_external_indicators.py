@@ -117,6 +117,28 @@ def test_fetch_external_indicator_downloads_and_caches(tmp_path) -> None:
     assert download.called
 
 
+def test_external_endpoint_identity_uses_real_publisher_authority(tmp_path) -> None:
+    calls: list[tuple[str, str]] = []
+
+    class Gateway:
+        def fetch(self, provider: str, endpoint_id: str, *_args, **_kwargs):
+            calls.append((provider, endpoint_id))
+
+            class Response:
+                text = "TIME_PERIOD,OBS_VALUE\n2026-08-19,0.7\n"
+
+                def raise_for_status(self):
+                    return None
+
+            return Response()
+
+    series = fetch_external_indicator(CISS, cache_dir=tmp_path, gateway=Gateway())
+
+    assert series.iloc[-1] == 0.7
+    assert calls == [("ecb", "CISS")]
+    assert all(provider != "external_public" for provider, _ in calls)
+
+
 def test_external_series_to_long_panel(tmp_path) -> None:
     (tmp_path / "ciss.csv").write_text(f"TIME_PERIOD,OBS_VALUE\n{TODAY},0.5\n", encoding="utf-8")
     with patch("harvester.providers.external_indicators._download"):
@@ -125,7 +147,7 @@ def test_external_series_to_long_panel(tmp_path) -> None:
     panel = external_series_to_long_panel({"CISS": series}, vintage_date="2026-05-05")
 
     assert list(panel["series_id"].unique()) == ["CISS"]
-    assert list(panel["source_id"].unique()) == ["external_public"]
+    assert list(panel["source_id"].unique()) == ["ecb"]
     assert panel["value"].iloc[0] == 0.5
 
 

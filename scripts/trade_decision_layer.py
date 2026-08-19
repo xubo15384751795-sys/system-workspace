@@ -188,7 +188,10 @@ def _build_trade_thesis(
             "tier": ladder.get("tier", 0),
             "label": ladder.get("label", "diagnostic_claim"),
             "claim_statement": ladder.get("claim_statement", ""),
+            "md_values": dict(judgment.get("md_values") or ladder.get("md_values") or {}),
         }
+        if judgment.get("md_values"):
+            thesis["md_values"] = dict(judgment["md_values"])
         # Add watch/invalidation conditions to the thesis
         if ladder.get("watch_conditions"):
             thesis["watch_conditions"] = ladder["watch_conditions"]

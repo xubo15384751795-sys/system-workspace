@@ -2,8 +2,8 @@
 
 SYS-21 is migrating readers incrementally.  This module gives publish,
 authority, and notification consumers one bounded way to *observe* the
-canonical Observation -> Measurement -> Evidence -> Claim IDs while their
-existing run/release/generation contracts remain authoritative.
+canonical Observation -> Measurement -> Evidence -> Claim -> Judgment IDs
+while their existing run/release/generation contracts remain authoritative.
 
 The helper is deliberately non-authoritative: it never creates IDs, changes a
 verdict, or treats missing lineage as a successful migration.  It only
@@ -23,7 +23,7 @@ _VALID_STEP_STATUSES = frozenset({"success", "degraded"})
 
 
 def _compact_ids(value: Mapping[str, Any]) -> dict[str, str] | None:
-    """Return the four canonical IDs when a complete compact block exists."""
+    """Return the producer IDs and optional Judgment ID when complete."""
 
     ids: dict[str, str] = {}
     for key in _LINEAGE_KEYS:
@@ -31,6 +31,11 @@ def _compact_ids(value: Mapping[str, Any]) -> dict[str, str] | None:
         if not isinstance(candidate, str) or not candidate:
             return None
         ids[key] = candidate
+    if "judgment_id" in value:
+        candidate = value.get("judgment_id")
+        if not isinstance(candidate, str) or not candidate:
+            return None
+        ids["judgment_id"] = candidate
     return ids
 
 
@@ -79,7 +84,11 @@ def summarize_step_lineage(
             violations.append(f"{step_name}:canonical_chain_missing")
             continue
 
-        expected_ids = {key: str(derived[key]) for key in _LINEAGE_KEYS}
+        expected_ids = {
+            key: str(value)
+            for key, value in derived.items()
+            if key != "schema_version"
+        }
         if compact_ids != expected_ids:
             violations.append(f"{step_name}:canonical_ids_chain_mismatch")
             continue

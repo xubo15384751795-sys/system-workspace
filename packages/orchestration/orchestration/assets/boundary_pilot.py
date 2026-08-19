@@ -74,6 +74,9 @@ def read_harvester_release(root: Path = ROOT) -> dict[str, Any]:
             else None
         ),
         "quality_verdict": quality.get("verdict") or quality.get("status"),
+        "data_contract": quality.get("data_contract"),
+        "integrity": (manifest.get("provider_outcome") or {}).get("integrity"),
+        "route_policy": (manifest.get("provider_outcome") or {}).get("route_policy"),
     }
 
 

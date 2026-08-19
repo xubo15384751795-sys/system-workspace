@@ -1,0 +1,246 @@
+schema_version: system.source_registry.v1
+description: >-
+  Semantic source and route contract. This registry distinguishes equivalent
+  sources, transport fallbacks, and diagnostic-only routes.
+sources:
+  tiingo:
+    authority_id: tiingo
+    authority_class: authenticated_market_data
+    official_url: https://www.tiingo.com/documentation/end-of-day
+    notes: Canonical ETF adjusted EOD source when configured.
+  massive:
+    authority_id: massive
+    authority_class: authenticated_market_data
+    official_url: https://massive.com
+    notes: Equivalent ETF EOD route; provider is now branded Massive.
+  yfinance:
+    authority_id: yfinance
+    authority_class: public_aggregator
+    official_url: https://finance.yahoo.com/
+    notes: Bounded diagnostic continuity route; never an authoritative decision source.
+  fred:
+    authority_id: fred
+    authority_class: official_public_api
+    official_url: https://api.stlouisfed.org/fred/series/observations
+  ecb:
+    authority_id: ecb
+    authority_class: official_public_api
+    official_url: https://data-api.ecb.europa.eu/
+  ofr:
+    authority_id: ofr
+    authority_class: official_public_file
+    official_url: https://www.financialresearch.gov/financial-stress-index/
+  nyfed:
+    authority_id: nyfed
+    authority_class: official_public_api
+    official_url: https://markets.newyorkfed.org/
+  cftc:
+    authority_id: cftc
+    authority_class: official_public_api
+    official_url: https://publicreporting.cftc.gov/
+  finra:
+    authority_id: finra
+    authority_class: official_public_file
+    official_url: https://www.finra.org/investors/learn-to-invest/advanced-investing/margin-statistics
+  nyu_vlab:
+    authority_id: nyu_vlab
+    authority_class: academic_public_api
+    official_url: https://vlab.stern.nyu.edu/
+  cboe:
+    authority_id: cboe
+    authority_class: official_public_file
+    official_url: https://cdn.cboe.com/api/global/us_indices/daily_prices/
+    notes: Direct Cboe volatility-index history and delayed quote publisher.
+series:
+  ETF_EOD_ADJUSTED:
+    dataset_id: cross_asset_daily_panel
+    semantic_equivalence_group: etf_adjusted_eod_close_ohlcv
+    frequency: daily
+    adjustment_policy: adjusted_ohlcv_v1
+    primary_key: [symbol, date]
+    required_for_decision: true
+    routes:
+      - route_id: tiingo_primary
+        source_id: tiingo
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+      - route_id: massive_equivalent
+        source_id: massive
+        tier: 2
+        transport: owned_http_gateway
+        fallback_kind: equivalent_source
+        claim_ceiling: observed_source
+        diagnostic_only: false
+        requires_parity_certification: true
+      - route_id: yfinance_diagnostic
+        source_id: yfinance
+        tier: 3
+        transport: bounded_provider_adapter
+        fallback_kind: equivalent_source
+        claim_ceiling: diagnostic_only
+        diagnostic_only: true
+        notes: Requires parity certification before an authoritative cutover.
+  CISS:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: euro_area_systemic_stress
+    frequency: daily
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    required_for_decision: true
+    routes:
+      - route_id: ecb_sdmx_primary
+        source_id: ecb
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+  OFR_FSI:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: us_financial_stress
+    frequency: daily
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    required_for_decision: true
+    routes:
+      - route_id: ofr_direct_primary
+        source_id: ofr
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+      - route_id: ofr_cache_transport
+        source_id: ofr
+        tier: 2
+        transport: normalized_snapshot_cache
+        fallback_kind: transport_fallback
+        claim_ceiling: stale_observation
+        diagnostic_only: true
+  COVAR:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: us_delta_covar
+    frequency: irregular
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: nyfed_covar_primary
+        source_id: nyfed
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+  SRISK:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: us_aggregate_srisk
+    frequency: weekly
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: nyu_vlab_primary
+        source_id: nyu_vlab
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+  CFTC_TFF_LEV_SP:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: cftc_leveraged_funds_sp500
+    frequency: weekly
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: cftc_primary
+        source_id: cftc
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+  NYFED_PD_TREASURY_NET:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: nyfed_primary_dealer_treasury
+    frequency: weekly
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: nyfed_pd_primary
+        source_id: nyfed
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+  FINRA_MARGIN_DEBT:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: finra_margin_debt
+    frequency: monthly
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: finra_primary
+        source_id: finra
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+  FRED_SERIES:
+    dataset_id: official_panel
+    semantic_equivalence_group: fred_published_series
+    frequency: mixed
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    required_for_decision: false
+    routes:
+      - route_id: fred_direct_primary
+        source_id: fred
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+      - route_id: fred_openbb_transport
+        source_id: fred
+        tier: 2
+        transport: openbb_adapter
+        fallback_kind: transport_fallback
+        claim_ceiling: observed_source
+        diagnostic_only: false
+        notes: OpenBB is transport only; publisher identity remains FRED.
+  SOFR:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: sofr_published_rate
+    frequency: daily
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    required_for_decision: false
+    routes:
+      - route_id: fred_sofr_primary
+        source_id: fred
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+        notes: FRED is the current implemented route; NY Fed direct promotion is a separate migration.
+  CBOE_VOLATILITY:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: cboe_published_volatility_index
+    frequency: daily
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    required_for_decision: false
+    routes:
+      - route_id: cboe_direct_primary
+        source_id: cboe
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false

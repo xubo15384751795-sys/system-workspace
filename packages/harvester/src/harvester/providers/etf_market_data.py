@@ -5,7 +5,7 @@ single free endpoint is not a production reliability strategy, so this module
 keeps the source decision inside Harvester and records the source selected for
 each ticker:
 
-    Tiingo -> Massive (formerly Polygon) -> yfinance
+    Tiingo -> Massive -> yfinance
 
 Tiingo and Massive are optional authenticated providers.  When their keys are
 absent, the chain skips them without making a network request.  yfinance stays
@@ -100,9 +100,6 @@ def _api_key(provider: str, explicit: str | None = None) -> str:
         return str(explicit).strip()
     env_name = _API_KEY_ENV.get(provider, "")
     value = os.environ.get(env_name, "").strip() if env_name else ""
-    if provider == "massive" and not value:
-        # Existing deployments may still use the provider's former name.
-        value = os.environ.get("POLYGON_API_KEY", "").strip()
     return value
 
 
@@ -600,7 +597,7 @@ class TiingoEodProvider(_AuthenticatedEodProvider):
 
 
 class MassiveEodProvider(_AuthenticatedEodProvider):
-    """Massive (formerly Polygon.io) daily aggregate provider."""
+    """Massive daily aggregate provider."""
 
     source_id = "massive"
     endpoint_id = "daily_aggs"
@@ -688,7 +685,7 @@ class EtfProviderChain(OfficialProvider):
                 cache=self._cache,
                 user_agent=self._user_agent,
             )
-        elif name in {"massive", "polygon"}:
+        elif name == "massive":
             self._instances[name] = MassiveEodProvider(
                 api_key=self._api_keys.get(name),
                 period=self._period,
@@ -774,6 +771,12 @@ class EtfProviderChain(OfficialProvider):
                         "source_signature",
                         _source_signature(result.provider or provider_name),
                     )
+                    if provider_name == "yfinance":
+                        # yfinance is continuity/diagnostic evidence only. It
+                        # remains useful for a degraded panel, but its route
+                        # must be visible to admission and promotion layers.
+                        result.source_params["diagnostic_only"] = True
+                        result.source_params["claim_ceiling"] = "diagnostic_only"
                     if provider_name != self.provider_order[0]:
                         result.source_params["fallback_from"] = list(self.provider_order[: self.provider_order.index(provider_name)])
                         if not result.fetch_fallback_reason:

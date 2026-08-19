@@ -161,13 +161,14 @@
     },
     "canonical_chain": {
       "type": "object",
-      "description": "Optional canonical observation -> measurement -> evidence -> claim envelope. It is validated by protocols/canonical_chain.schema.json.",
+      "description": "Optional canonical observation -> measurement -> evidence -> claim -> judgment envelope. Producer-side envelopes may omit judgment; decision-authorized consumers may not.",
       "properties": {
         "schema_version": { "const": "system.canonical_chain.v1" },
         "observation": { "type": "object" },
         "measurement": { "type": "object" },
         "evidence": { "type": "object" },
-        "claim": { "type": "object" }
+        "claim": { "type": "object" },
+        "judgment": { "type": "object" }
       },
       "required": ["schema_version", "observation", "measurement", "evidence", "claim"],
       "additionalProperties": true
@@ -181,7 +182,8 @@
         "observation_id": { "type": "string", "pattern": "^obs_[0-9a-f]{32}$" },
         "measurement_id": { "type": "string", "pattern": "^mea_[0-9a-f]{32}$" },
         "evidence_id": { "type": "string", "pattern": "^evd_[0-9a-f]{32}$" },
-        "claim_id": { "type": "string", "pattern": "^clm_[0-9a-f]{32}$" }
+        "claim_id": { "type": "string", "pattern": "^clm_[0-9a-f]{32}$" },
+        "judgment_id": { "type": "string", "pattern": "^jud_[0-9a-f]{32}$" }
       },
       "additionalProperties": false
     }

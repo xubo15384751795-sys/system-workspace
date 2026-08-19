@@ -10,6 +10,7 @@ import os
 from dagster import Definitions, Failure, job, op
 
 from orchestration.assets.boundary_pilot import BOUNDARY_ASSETS, BOUNDARY_CHECKS
+from orchestration.assets.data_quality import DATA_QUALITY_CHECKS
 from orchestration.ops.refresh_chain import refresh_admission_op, refresh_producers_op
 from orchestration.schedules import daily_schedule
 
@@ -58,5 +59,5 @@ defs = Definitions(
     jobs=[daily_job, refresh_current_job],
     schedules=[daily_schedule],
     assets=list(BOUNDARY_ASSETS),
-    asset_checks=list(BOUNDARY_CHECKS),
+    asset_checks=[*BOUNDARY_CHECKS, *DATA_QUALITY_CHECKS],
 )

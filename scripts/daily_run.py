@@ -104,6 +104,19 @@ from scripts._daily_run_sequence import (
 from scripts._notify import notify_daily_run_result
 
 
+def _diagnostic_route_policies(steps: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Return provider route policies that cannot carry decision authority."""
+    policies: list[dict[str, object]] = []
+    for step in steps:
+        provider_outcome = step.get("provider_outcome")
+        if not isinstance(provider_outcome, dict):
+            continue
+        route_policy = provider_outcome.get("route_policy")
+        if isinstance(route_policy, dict) and bool(route_policy.get("diagnostic_only")):
+            policies.append(dict(route_policy))
+    return policies
+
+
 def _transaction_failure_reasons(
     transaction: PublishTransaction | None,
     *,
@@ -193,6 +206,29 @@ def _candidate_identity_contracts(
         relative = str(path.relative_to(generation_dir))
         walk(payload, relative)
     return run_ids, release_ids
+
+
+def _candidate_decision_lineage(generation_dir: Path) -> dict[str, object] | None:
+    """Read the candidate Judgment chain for authority admission.
+
+    The publish transaction still checks every candidate byte. This helper
+    only selects the decision-facing lineage envelope; PublishAdmission is the
+    validator and authority owner.
+    """
+
+    path = generation_dir / "judgment" / "latest.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict) or not isinstance(payload.get("canonical_chain"), dict):
+        return None
+    result: dict[str, object] = {"canonical_chain": payload["canonical_chain"]}
+    if isinstance(payload.get("canonical_claim_chains"), list):
+        result["canonical_claim_chains"] = payload["canonical_claim_chains"]
+    return result
 
 
 from scripts._pipeline_runner import run_registry_step
@@ -1010,6 +1046,7 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
         decision_payload = load_json(decision_path) if decision_path.exists() else None
         requested_authority = requested_authority_from_decision(decision_payload)
         canonical_lineage = summarize_step_lineage(steps, run_id=bundle.run_id)
+        decision_lineage = _candidate_decision_lineage(transaction.generation_dir)
         pre_publish_monitoring = evaluate_minimum_monitoring(
             ROOT,
             output_root=output_root if args.output_root else None,
@@ -1030,6 +1067,13 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
                 "FAIL": "DENY",
                 "BLOCKED": "DENY",
             }.get(str(pre_publish_provider.get("status") or "").upper())
+        diagnostic_routes = _diagnostic_route_policies(steps)
+        if diagnostic_routes:
+            # The candidate itself is the authority for this run. Do not let
+            # pre-publish monitoring of the previous finalized release hide a
+            # diagnostic-only route selected by the current candidate.
+            provider_decision = "DENY"
+            warnings.append("ADMISSION_BLOCKED: DIAGNOSTIC_ONLY_PROVIDER_ROUTE")
         admission_token = PublishAdmission.evaluate(
             run_status=run_status,
             freshness_verdict=str(freshness_report.get("verdict", "UNKNOWN")),
@@ -1046,6 +1090,7 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
             evidence_digest=evidence_digest,
             generation_digest=generation_digest,
             canonical_lineage=canonical_lineage,
+            decision_lineage=decision_lineage,
         )
         can_publish = transaction.admit(admission_token)
         admission_payload = load_json(transaction.generation_dir / "admission.json") or {}
@@ -1100,6 +1145,11 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     else:
         freshness_report = load_json(surface_dir("quality") / "freshness_report.json") or {}
         can_publish, publish_reason = should_publish(run_status, freshness_report)
+        diagnostic_routes = _diagnostic_route_policies(steps)
+        if diagnostic_routes:
+            can_publish = False
+            publish_reason = "diagnostic_provider_route"
+            warnings.append("PUBLISH_BLOCKED: DIAGNOSTIC_ONLY_PROVIDER_ROUTE")
         if run_status == "success" and not can_publish:
             warnings.append(f"PUBLISH_BLOCKED: {publish_reason}")
             run_status = "partial_failure"

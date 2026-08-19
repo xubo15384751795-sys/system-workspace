@@ -130,6 +130,12 @@ def _provider_outcome(
         outcome["provider_chain"] = [str(item) for item in provider_chain]
     if fallback_used:
         outcome["fallback_used"] = True
+    # Route semantics are separate from provider transport success.  In
+    # particular, yfinance may keep a diagnostic panel alive but must never
+    # silently grant an authoritative route.
+    from harvester.core.etf_parity import route_policy_for_selection
+
+    outcome["route_policy"] = route_policy_for_selection(series_providers)
     # Retrieval is not publication availability.  Unless a source explicitly
     # provides an evidenced publication timestamp, the release evaluator must
     # keep this state unknown and decision-ineligible rather than treating a
@@ -714,6 +720,15 @@ def build_cross_asset_panel(
     elif succeeded_symbols:
         outcome["status"] = "refreshed"
 
+    # Inherited registry-prefetch metadata can add a yfinance-selected series
+    # after the initial outcome was built. Recompute route semantics at the
+    # release boundary so the final manifest has one authoritative answer.
+    from harvester.core.etf_parity import route_policy_for_selection
+
+    outcome["route_policy"] = route_policy_for_selection(
+        outcome.get("series_providers") if isinstance(outcome.get("series_providers"), dict) else {}
+    )
+
     acquired = (
         pd.concat([prefetched, fresh], ignore_index=True)
         if not prefetched.empty or not fresh.empty
@@ -881,6 +896,13 @@ def _canonical_observation_records(
         )
         if isinstance(source_signature, dict):
             provenance["source_signature"] = source_signature
+        route_policy = provider_outcome.get("route_policy")
+        if isinstance(route_policy, dict):
+            # Keep route semantics attached to every Observation.  A release
+            # manifest is not enough: downstream Measurement/Evidence readers
+            # must be able to see that a value came from a diagnostic route or
+            # an unregistered provider without consulting a second artifact.
+            provenance["route_policy"] = route_policy
         availability = build_availability(
             state=status,
             observation_date=observed.date().isoformat(),
@@ -1025,6 +1047,15 @@ def stage_cross_asset_panel(
         prefetched_panel=prefetched_panel,
         return_outcome=True,
     )
+    from harvester.quality.data_contract import validate_cross_asset_panel_contract
+
+    data_contract = validate_cross_asset_panel_contract(
+        panel,
+        expected_symbols=resolve_etf_universe(workspace),
+        require_nonempty=True,
+        raise_on_error=True,
+    )
+    provider_outcome["data_contract"] = data_contract
     data_dir = release_dir / "data"
     manifests_dir = release_dir / "manifests"
     provenance_dir = release_dir / "provenance"
@@ -1130,6 +1161,7 @@ def stage_cross_asset_panel(
             required_columns=["date", "symbol", "close"],
             allow_empty=False,
             provider_outcome=provider_outcome,
+            data_contract=data_contract,
         ),
         release_dir,
         DATASET_ID,

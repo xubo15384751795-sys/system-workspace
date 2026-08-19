@@ -48,7 +48,7 @@ class TestRunBundleCreation:
         assert "test_" in bundle.run_id
 
     def test_start_writes_manifest(self, tmp_output):
-        bundle = RunBundle.start(mode="test", root=tmp_output)
+        bundle = RunBundle.start(mode="test", root=tmp_output, origin="launchd")
         manifest_path = bundle.run_dir / "manifest.json"
         assert manifest_path.exists()
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -56,6 +56,7 @@ class TestRunBundleCreation:
         assert manifest["mode"] == "test"
         assert manifest["status"] == "running"
         assert manifest["started_at"] is not None
+        assert manifest["run_origin"] == "launchd"
 
     def test_start_writes_input_snapshot(self, tmp_output):
         bundle = RunBundle.start(mode="test", root=tmp_output)

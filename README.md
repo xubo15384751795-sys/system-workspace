@@ -1,210 +1,211 @@
-# Structural Risk Workbench
+# Verity
 
-> Governance is compiled into runtime gates, tests, feedback loops, and the
-> task router. Long decision records are precedent, not required reading.
+**An evidence-governed research kernel for reasoning under
+incomplete, stale, conflicting, and uncertain information.**
 
-This is a structural-risk workbench.
-It does three things:
+Verity turns heterogeneous observations into auditable research objects:
 
-1. collects and freezes data evidence,
-2. turns evidence into risk checks and framework diagnoses,
-3. exposes the current state, evidence, report, and next actions through a user-facing dashboard.
+```text
+Source → Observation → Measurement → Evidence → Claim → Judgment
+       → Admission / Promotion / Publication
+```
 
-Start here:
+It does not treat model output, retrieved data, or successful execution as
+truth by default. Research objects become authoritative only through explicit
+validation, admission, promotion, and publication boundaries.
+
+| Name | Role |
+|---|---|
+| **Verity** | Product identity: the evidence-governed research kernel |
+| `system-workspace` | This Git repository |
+| `packages/*` | Implementation modules. They are not product names. |
+| Structural Risk Workbench / Deformation / System Workspace | Historical names. See [workspace lineage](docs/history/workspace-lineage.md). |
+
+The GitHub repository, Python distribution, and `packages/*` directories keep
+their current names. Those are implementation identifiers, not a second product.
+
+## Why Verity exists
+
+Most research tooling solves one layer well:
+
+- OpenBB provides data access.
+- Dagster orchestrates computation.
+- Qlib evaluates quantitative models.
+- Agents search, generate, and analyze.
+
+Verity governs what these outputs mean and when they may become trusted
+research state.
+
+## What it is
+
+- A kernel for incomplete, stale, conflicting, and uncertain evidence.
+- A publication boundary: only admitted, committed generations may change
+  Current.
+- A workspace that can run research objects from source acquisition through
+  judgment without collapsing those objects into a dashboard or a model score.
+
+## What it is not
+
+- A data vendor, scheduler, or model zoo.
+- A production research OS that is already proven on the scheduled path.
+- A system in which `Data/` is automatically the runtime authority, or in
+  which a green diagnostic run grants publication rights.
+
+## Core principles
+
+1. **One fact, one authority.** Runtime truth is owned by explicit
+   authorities. Derived views are read-only projections.
+2. **Durable data ≠ runtime authority.** `Data/` stores durable evidence.
+   Current, admission, and publication are separate authorities.
+3. **Unknown is a valid research result.** Missingness must not silently
+   change measurement meaning.
+4. **Models produce evidence, not truth.**
+5. **Execution success does not imply publication authority.**
+6. **Promotion is explicit.** Sandbox is isolated. Every artifact has a
+   state.
+
+The runtime rule is:
+
+> one fact → one runtime authority → many read-only projections.
+
+Current is not a copy of the latest Output. The live path is:
+
+```text
+Candidate Generation
+  → PublishAdmission
+  → PublishTransaction
+  → COMMITTED
+  → Output/current
+```
+
+Only an admitted, committed generation may modify Current. See
+[authority and runtime matrix](docs/architecture/authority_runtime_matrix.md).
+
+## Architecture
+
+```text
+Kernel          canonical IDs, admission, publication, current pointer
+Data            Harvester releases, provenance, durable evidence
+Orchestration   compiled plan, run outcome, Dagster/launchd execution
+Capabilities    Workbench, Learning Hub, Framework, agents — replaceable
+```
+
+| Layer | Owns | Does not own |
+|---|---|---|
+| Kernel | Observation → Judgment lineage, `PublishAdmission`, `PublishTransaction`, Current | Provider transport, model scores, UI copy |
+| Data / Harvester | Acquisition, provenance, immutable releases | Publication of Current |
+| Orchestration | Compiled plan, `RunOutcome`, scheduled execution | Re-deciding admission |
+| Replaceable capabilities | Interpretation, NLP, learning memory, agent routing | Runtime authority |
+
+OpenBB is an **acquisition engine** inside Harvester
+(`packages/harvester/src/harvester/providers/openbb_provider.py`). Downstream
+consumers keep source IDs such as `fred` / `tiingo`; they do not depend on
+OpenBB. Qlib and other experimental probes remain isolated until an explicit
+routing decision and a Harvester release promote them.
+
+## Project status
+
+Verity is currently in **stabilization**.
+
+The canonical evidence and authority contracts exist, but runtime ownership,
+scheduled-path reproducibility, and long-run production evidence are still
+being closed.
+
+**Do not interpret a successful diagnostic or fixture run as production
+readiness.** Dry-run, fixture, dirty-checkout, and old-artifact results remain
+diagnostic evidence only. SYS-15, SYS-7, and SYS-19 still require clean
+scheduled evidence.
+
+| Area | Status |
+|---|---|
+| Architecture / governance | advanced |
+| Canonical chain | implemented / migrating |
+| Authority convergence | implementing |
+| Dagster ownership | migrating |
+| Measurement Kernel | incomplete |
+| Clean scheduled evidence | incomplete |
+| 14-day production proof | not complete |
+
+## Quick start
+
+Python 3.13 is the only supported runtime.
 
 ```bash
-cd /Users/a1/System
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+uv sync --locked --all-packages
+./scripts/bootstrap.sh      # recreates compatibility aliases
+```
+
+There is no `.gitmodules` file. This is a monorepo under `packages/`.
+
+Daily operator loop:
+
+```bash
 ./sys check
 ./sys open
 ./sys next
 ./sys roadmap
 ```
 
-Daily users do not need to understand the internal framework first.
-`./sys roadmap` shows the evidence-derived project completion, blockers, and
-next acceptance gate shared through Git.
-
-For IDE and agent work, route the task first; read only the returned module
-context before inspecting source:
-
-```bash
-uv run --locked python packages/workbench/agents/harness/entrypoints/routing_cli.py "<task>"
-```
-
-Basic use shows familiar risk evidence.
-Advanced use exposes framework-specific structural diagnosis.
-
-## System Workspace
-
-Research operating system with three subsystems and a monorepo workspace that gives every artifact provenance and a path to canonicalisation.
-
-## Architecture
-
-```text
-Workbench       =  Product / Tool layer          (cockpit, providers, agent harness)
-Deformation     =  Framework core                (protocol input -> run package)
-Learning Hub    =  Workbench governance tool      (events -> ledgers -> improvement queue)
-System Index    =  cross-system index            (latest / catalog / lineage)
-Sandbox         =  experimental isolation        (OpenBB / Qlib probes)
-```
-
-## Top-level Layout
-
-```text
-System/
-├── Data/                                  # source of truth (durable, machine-readable)
-├── Output/                                # run packages + human-facing artifacts
-├── packages/workbench/                     # Product / Tool layer
-│   ├── src/workbench/                     # cockpit, dashboards, workspace utils
-│   ├── src/nlp/                           # structural NLP library
-│   ├── agents/harness/                    # agent/API harness
-│   └── contracts/workbench/               # Workbench JSON schemas
-├── packages/harvester/                       # Data Provider / Harvester
-├── packages/learning_hub/                   # Governance memory
-├── packages/framework/                      # Framework core
-├── packages/orchestration/                  # Dagster/runtime orchestration
-├── scripts/                               # workspace-level scripts (see FOLDER_OWNERSHIP.md)
-├── protocols/                             # cross-module JSON schemas
-├── governance/                            # constitution + authority registries
-├── contracts -> packages/workbench/contracts
-├── Structural Risk Harvester -> packages/harvester/
-├── Structural Research Harness -> packages/workbench/agents/harness/
-├── System Learning Hub -> packages/learning_hub/
-├── ROUTING_CONSTITUTION.md
-└── routing_decision_record.template.yaml
-```
-
-See `governance/repo_layout_map.md` for doc-vs-reality history and migration backlog.
-
-Workbench, Harvester, Learning Hub, Framework, and Orchestration are **sibling
-workspace packages**, not nested under `packages/workbench/`. Protocols live in `protocols/` and
-`packages/workbench/contracts/workbench/`.
+`./sys roadmap` shows evidence-derived completion, blockers, and the next
+eligible transition. Extra entrypoints live in
+[workspace entrypoints](docs/operations/workspace-entrypoints.md).
 
 ## Repository Layout (monorepo workspace)
 
-This workspace is one Git repository with five buildable workspace packages. The
-`packages/` tree is the active source layout; older submodule paths below remain
-in governance migration records only.
-
-| Repo | Local path | Owns |
-|---|---|---|
-| `system-workspace` | `/` (this repo) | root docs, protocols, scripts, configs, governance |
-| `Structural-Deformation-Research-System` | `packages/framework/` | framework core (`src/core`, `src/derivation`, `src/dynamics`, …) |
-| `structural-workbench` | `packages/workbench/` | NLP pipeline, ML signals, contracts, agent harness, tests |
-| `structural-risk-harvester` | `packages/harvester/` | data providers (FRED / H.4.1 / SEC / Treasury / OpenBB / …) |
-| `system-learning-hub` | `packages/learning_hub/` | cross-system reliability and governance memory |
-| `system-orchestration` | `packages/orchestration/` | Dagster jobs and runtime orchestration |
-
-The four top-level symlinks (`Structural Research Harness`, `System Learning
-Hub`, `Structural Risk Harvester`, `contracts`) are compatibility aliases;
-bootstrap recreates them from the active `packages/` paths. There is no current
-`.gitmodules` or nested Git checkout in this workspace.
-
-Git policy: `governance/git_workspace_policy.md`
-
-## Setup on a fresh device
-
-```bash
-git clone git@github.com:xubo15384751795-sys/system-workspace.git System
-cd System
-./scripts/bootstrap.sh         # package checks + symlinks + venv hints
-# Use GH_PROTO=https ./scripts/bootstrap.sh if SSH is not available
-```
-
-The workspace runtime is pinned to Python 3.13 (`.python-version` and
-`uv.lock`). Use `uv run --locked ...` for project commands; the scheduled
-launchers resolve and validate the same interpreter automatically.
-
-The bootstrap script is idempotent and does not pull nested repositories. After
-it finishes it prints venv setup commands for each package. `Data/` and
-`Output/` are intentionally never committed; they are regenerated by Harvester
-releases and Framework runs.
-
-## Constitution
-
-1. **Data is the truth layer.** Output is the run/display layer. Output may reference Data; Data may not depend on Output.
-2. **Promotion is explicit.** Run-local artifacts in `Output/` become canonical only by promotion into `Data/`, with a manifest entry and an updated index.
-3. **Latest is a symlink.** Every script and agent must resolve through it (`find -L`, `realpath`). Treating a symlink as an empty directory is a recorded boundary violation.
-4. **Sandbox is isolated.** OpenBB and Qlib probes live under `Output/sandbox/`. They cannot feed Deformation directly; promotion goes through a routing decision and a Harvester release.
-5. **Every artifact has a state** in `{sandbox, run_local, candidate, canonical, archived, deprecated}`.
-6. **Every gap is recorded.** Missing operator_trace, retroactive config_snapshot, latest-symlink misuse — all append to the Learning Hub runtime log under `Output/system_learning/runtime/` via `scripts/record_runtime_event.py`.
-
-## Main Flow
-
 ```text
-external providers
-  -> Workbench Data Provider / Harvester acquisition / provenance
-  -> Data/harvester/exports/<release_id>/                  (release artifact)
-  -> Deformation src/data_access/
-  -> Deformation runtime, diagnostics, UI, reports
-  -> Output/deformation_runs/<run_id>/                     (run artifact)
-  -> scripts/promote_snapshot.py
-  -> Data/deformation/snapshots/<snapshot_id>.json         (canonical artifact)
+System/                                 # system-workspace git repo
+├── Data/                               # durable evidence (not a second runtime)
+├── Output/                             # run packages, candidates, Current
+├── protocols/                          # cross-module JSON schemas
+├── governance/                         # registries, freeze, routing decisions
+├── system_runtime/                     # kernel: plan, outcome, admission, publish
+├── scripts/                            # workspace entrypoints
+├── tests/                              # workspace-level tests
+├── packages/workbench/                 # operator surface, NLP, contracts, harness
+├── packages/harvester/                 # providers, provenance, releases
+├── packages/learning_hub/              # reliability and governance memory
+├── packages/framework/                 # replaceable interpretation capability
+└── packages/orchestration/             # Dagster/runtime orchestration
 ```
 
-System events and governance reports flow separately into `System Learning Hub`, with the machine-readable index at `Output/system_learning/latest/summary.json`.
+`Data/` and `Output/` are never committed. They are regenerated by Harvester
+releases and governed runs. Compatibility aliases and historical paths are
+recorded in [`governance/repo_layout_map.md`](governance/repo_layout_map.md).
 
-## Workspace Scripts
+## Integrations
 
-```bash
-python3 scripts/system_status.py        # one-screen workspace digest
-python3 scripts/list_latest.py          # resolved latest paths per subsystem
-python3 scripts/build_system_index.py   # regenerate Data/system_index/
-python3 scripts/promote_snapshot.py --run <run_id>   # canonicalise a Deformation snapshot
-./sys current                           # user-facing run cockpit
-./sys evidence                          # benchmark + evidence dashboard
-./sys artifacts                         # report artifact navigator
-```
+| Tool | Role in Verity |
+|---|---|
+| OpenBB | Harvester acquisition engine. Not a sandbox experiment. Source IDs stay with the publisher. |
+| Dagster | Execution substrate. Ownership is still migrating onto compiled-plan / `RunOutcome` authority. |
+| Qlib | Isolated quantitative evaluation. Not a truth source. Promotion is explicit. |
+| Agents | Search, generation, and analysis. They cannot publish Current. |
 
-## Note Ownership
+## Roadmap
 
-- Source, dataset, acquisition, and data-quality notes live in **Workbench Data Providers**.
-- Structural interpretation, cases, mechanisms, variables, methods, and claims live in **Deformation**.
-- Generated artifacts live in **Output**.
-- Canonical (post-promotion) artifacts live in **Data**.
-- Cross-system routing rules live in `ROUTING_CONSTITUTION.md` and the Agent Routing module.
+Near-term closure is evidence, not features:
 
-## Deformation Downscope
+1. Finish canonical-chain producer/reader migration.
+2. Converge remaining runtime facts onto the authority matrix.
+3. Complete Dagster ownership so wrappers cannot re-decide truth.
+4. Close Measurement Kernel gaps, including missingness semantics.
+5. Produce clean scheduled evidence for SYS-15, SYS-7, and SYS-19.
+6. Hold a 14-day production proof on the default path.
 
-Deformation should not continue growing as a data acquisition system.
+Plugin architecture and a Meta Framework sit after that proof. They must not
+become a second identity while publication authority is still closing.
 
-Keep in Deformation:
+## Documentation
 
-- `src/core`, `src/derivation`, `src/dynamics`, `src/operators`
-- `src/proxies`, `src/diagnostics`, `src/validation`
-- framework-specific benchmark evaluation
-- case replay and scenario labs
-- framework-specific runtime and interpretation surfaces
-- wiki, paper, and claim governance
-- thin `src/data/gateway/` shim over `src/data_access/`
-
-Move or freeze out of Deformation:
-
-- provider-specific downloaders
-- raw/processed data ownership
-- corpus acquisition providers
-- dataset source documentation
-- acquisition or source-validation notebooks
-- data-agent prompts
-- source registry publication
-- Harvester bundle creation
-- generated benchmark report artifacts
-- generic UI/API/report rendering and artifact navigation
-- generic benchmark evidence dashboards
-
-## Sparse Activation Routing
-
-Default posture: smallest sufficient expert set first. Add experts when a task crosses layer boundaries, touches protected artifacts, triggers coupling rules, or prepares an output for release.
-
-- `ROUTING_CONSTITUTION.md`: global deny rules, layer authority, activation discipline.
-- `routing_decision_record.template.yaml`: auditable record template for non-trivial routing decisions; concrete records live under `Output/system_learning/routing_decisions/`.
-
-## Outstanding Workspace Gaps
-
-Recorded in `Output/system_learning/events/events_2026-05-03.jsonl` and surfaced by `scripts/system_status.py`:
-
-| Gap                                                              | Owner                                  | Action                                                    |
-|------------------------------------------------------------------|----------------------------------------|-----------------------------------------------------------|
-| `operator_trace.jsonl` missing in `2026-04-22_WEEKLY`            | deformation-framework | Runner must emit one JSON object per applied operator.    |
-| `config_snapshot.json` was backfilled, not captured at run time  | deformation-framework | Runner must serialise resolved config before completing.  |
-| `latest` symlink misuse risk                                     | Workspace / agents                     | Always inspect via `find -L` / `realpath`.                |
+| Start here | File |
+|---|---|
+| Authority map | [`docs/architecture/authority_runtime_matrix.md`](docs/architecture/authority_runtime_matrix.md) |
+| Canonical IDs | [`docs/architecture/canonical_id_contract.md`](docs/architecture/canonical_id_contract.md) |
+| Layout (authoritative) | [`governance/repo_layout_map.md`](governance/repo_layout_map.md) |
+| Operator entrypoints | [`docs/operations/workspace-entrypoints.md`](docs/operations/workspace-entrypoints.md) |
+| Historical names and migration | [`docs/history/workspace-lineage.md`](docs/history/workspace-lineage.md) |
+| Product / framework boundary | [`PRODUCT_FRAMEWORK_BOUNDARY.md`](PRODUCT_FRAMEWORK_BOUNDARY.md) |
+| Module routing | [`MODULES.md`](MODULES.md) |
+| Change cadence | [`PACE.md`](PACE.md) |

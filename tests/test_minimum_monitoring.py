@@ -76,6 +76,42 @@ def test_environmentally_blocked_provider_never_unlocks_decision(tmp_path: Path)
     assert check["status_policy"]["watch_zero"] == "DIAGNOSTIC_ONLY"
 
 
+def test_diagnostic_provider_route_never_unlocks_decision(tmp_path: Path) -> None:
+    _copy_provider_policy(tmp_path)
+    manifest_dir = (
+        tmp_path
+        / "Data"
+        / "harvester"
+        / "exports"
+        / "latest"
+        / "manifests"
+    )
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "cross_asset_daily_panel.manifest.json").write_text(
+        json.dumps(
+            {
+                "provider_outcome": {
+                    "status": "refreshed",
+                    "route_policy": {
+                        "route_class": "diagnostic_fallback",
+                        "diagnostic_only": True,
+                        "promotion_allowed": False,
+                        "decision_usable": False,
+                        "reason": "yfinance_route_is_diagnostic_only",
+                    },
+                },
+                "release_id": "release_diagnostic_route",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = evaluate_minimum_monitoring(tmp_path)
+    check = result["checks"]["provider_failure"]
+    assert check["status"] == "BLOCKED"
+    assert check["reason_code"] == "DIAGNOSTIC_ONLY_PROVIDER_ROUTE"
+
+
 def test_notification_dedup_and_lineage_are_checked(tmp_path: Path) -> None:
     output = tmp_path / "Output"
     run_id = "daily_test_run"

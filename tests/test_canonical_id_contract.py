@@ -12,6 +12,7 @@ from system_runtime.canonical_ids import (
     build_chain,
     build_claim,
     build_evidence,
+    build_judgment_record,
     build_measurement,
     build_observation,
     canonical_id,
@@ -232,6 +233,40 @@ def test_cross_object_links_are_enforced() -> None:
     chain["claim"]["evidence_ids"] = []
     with pytest.raises(CanonicalIdError, match="claim does not reference its evidence"):
         validate_chain(chain)
+
+
+def test_judgment_extension_is_a_validated_claim_consumer() -> None:
+    chain = _chain()
+    claim_id = chain["claim"]["claim_id"]
+    judgment = build_judgment_record(
+        as_of="2026-08-19",
+        decision="ACTIVE_WATCH",
+        claim_ids=[claim_id],
+        supporting_claim_ids=[claim_id],
+        confidence={
+            "measurement": "medium",
+            "evidence": "medium",
+            "mechanism": "medium_low",
+            "calibration": "insufficient",
+            "overall": "medium_low",
+        },
+        claim_ceiling="mechanism_hypothesis",
+        provenance={"captured_at": "2026-08-19T01:00:00Z", "producer": "test"},
+        decision_time="2026-08-19T01:00:00Z",
+    )
+    extended = build_chain(
+        observation=chain["observation"],
+        measurement=chain["measurement"],
+        evidence=chain["evidence"],
+        claim=chain["claim"],
+        judgment=judgment,
+    )
+    validate_chain(extended)
+    assert lineage_ids(extended)["judgment_id"] == judgment["judgment_id"]
+
+    extended["judgment"]["claim_ids"] = []
+    with pytest.raises(CanonicalIdError, match="judgment.claim_ids.*non-empty"):
+        validate_chain(extended)
 
 
 def test_id_tampering_is_rejected_even_when_shape_is_valid() -> None:

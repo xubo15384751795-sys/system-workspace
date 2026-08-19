@@ -7,12 +7,16 @@ Workbench protocols define how Product, Harvester, and Framework layers exchange
 - `evidence.schema.json`: admitted evidence exposed to the Workbench
 - `framework_output.schema.json`: framework diagnosis exposed to the Workbench
 - `current_card.schema.json`: system status card (Output/current/status.json) — produced by build_next_actions.py
-- `canonical_chain.schema.json`: deterministic Observation -> Measurement -> Evidence -> Claim IDs and lineage; runtime constructors live in `system_runtime/canonical_ids.py`
+- `canonical_chain.schema.json`: deterministic Observation -> Measurement -> Evidence -> Claim -> Judgment IDs and lineage; runtime constructors live in `system_runtime/canonical_ids.py`
+- `source_registry.schema.json`: SourceSpec/SourceRoute semantics for authority identity, equivalent sources, transport fallbacks, and diagnostic-only routes
+- `provider_parity_policy.schema.json`: reviewed-window contract for equivalent provider certification
 
-The canonical chain is the identity contract for new producers. Legacy
-artifacts may carry `canonical_chain` and `canonical_ids` as optional fields
-until all readers have completed the parity migration; orchestration is not
-changed by this contract phase.
+The canonical chain is the identity contract for new producers. A producer
+may publish the four-object Observation -> Measurement -> Evidence -> Claim
+envelope during migration, but a decision-authorized consumer requires the
+embedded Judgment and its Claim -> Judgment references. Legacy artifacts may
+carry `canonical_chain` and `canonical_ids` as optional fields; they remain
+diagnostic until the complete decision lineage is present.
 
 ## NLP Boundary
 

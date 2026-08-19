@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "system.canonical_chain.v1",
-  "title": "Canonical Observation to Claim Chain",
-  "description": "Stable IDs and explicit lineage for observation, measurement, evidence, and claim artifacts.",
+  "title": "Canonical Observation to Judgment Chain",
+  "description": "Stable IDs and explicit lineage for observation, measurement, evidence, claim, and optional judgment artifacts.",
   "type": "object",
   "required": ["schema_version", "observation", "measurement", "evidence", "claim"],
   "properties": {
@@ -13,7 +13,8 @@
     "observation": { "$ref": "#/$defs/observation" },
     "measurement": { "$ref": "#/$defs/measurement" },
     "evidence": { "$ref": "#/$defs/evidence" },
-    "claim": { "$ref": "#/$defs/claim" }
+    "claim": { "$ref": "#/$defs/claim" },
+    "judgment": { "$ref": "#/$defs/judgment" }
   },
   "additionalProperties": false,
   "$defs": {
@@ -32,6 +33,14 @@
     "claim_id": {
       "type": "string",
       "pattern": "^clm_[0-9a-f]{32}$"
+    },
+    "judgment_id": {
+      "type": "string",
+      "pattern": "^jud_[0-9a-f]{32}$"
+    },
+    "invalidation_spec_id": {
+      "type": "string",
+      "pattern": "^inv_[0-9a-f]{32}$"
     },
     "availability_status": {
       "type": "string",
@@ -214,6 +223,100 @@
         },
         "status": { "$ref": "#/$defs/claim_status" },
         "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      },
+      "additionalProperties": false
+    },
+    "judgment_confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium_low",
+        "medium",
+        "medium_high",
+        "high",
+        "insufficient",
+        "unknown"
+      ]
+    },
+    "judgment_status": {
+      "type": "string",
+      "enum": [
+        "SUPPORTED",
+        "CONFLICTED",
+        "WATCH",
+        "INSUFFICIENT_DATA",
+        "UNAVAILABLE",
+        "DIAGNOSTIC_ONLY",
+        "BLOCKED"
+      ]
+    },
+    "judgment": {
+      "type": "object",
+      "required": [
+        "judgment_id",
+        "as_of",
+        "decision_time",
+        "decision",
+        "claim_ids",
+        "supporting_claim_ids",
+        "conflicting_claim_ids",
+        "research_only_claim_ids",
+        "status",
+        "confidence",
+        "claim_ceiling",
+        "unknowns",
+        "invalidation_spec_ids",
+        "policy_version",
+        "synthesis_method_version",
+        "provenance"
+      ],
+      "properties": {
+        "judgment_id": { "$ref": "#/$defs/judgment_id" },
+        "as_of": { "type": "string", "minLength": 1 },
+        "decision_time": { "type": "string", "format": "date-time" },
+        "decision": { "type": "string", "minLength": 1 },
+        "claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/claim_id" }
+        },
+        "supporting_claim_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claim_id" }
+        },
+        "conflicting_claim_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claim_id" }
+        },
+        "research_only_claim_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claim_id" }
+        },
+        "status": { "$ref": "#/$defs/judgment_status" },
+        "confidence": {
+          "type": "object",
+          "required": ["measurement", "evidence", "mechanism", "calibration", "overall"],
+          "properties": {
+            "measurement": { "$ref": "#/$defs/judgment_confidence" },
+            "evidence": { "$ref": "#/$defs/judgment_confidence" },
+            "mechanism": { "$ref": "#/$defs/judgment_confidence" },
+            "calibration": { "$ref": "#/$defs/judgment_confidence" },
+            "overall": { "$ref": "#/$defs/judgment_confidence" }
+          },
+          "additionalProperties": true
+        },
+        "claim_ceiling": { "type": "string", "minLength": 1 },
+        "unknowns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "invalidation_spec_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/invalidation_spec_id" }
+        },
+        "policy_version": { "type": "string", "minLength": 1 },
+        "synthesis_method_version": { "type": "string", "minLength": 1 },
         "provenance": { "$ref": "#/$defs/provenance" }
       },
       "additionalProperties": false

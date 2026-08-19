@@ -3,7 +3,8 @@
 The daily executor historically returned step status only.  During the
 orchestration migration we may expose canonical IDs that a step has already
 written, but only when the output belongs to the current run and validates as
-the frozen Observation -> Measurement -> Evidence -> Claim contract.  This
+the Observation -> Measurement -> Evidence -> Claim contract, with an optional
+Judgment for decision-bearing outputs.  This
 module never creates IDs, changes authority, or publishes an output.
 """
 from __future__ import annotations

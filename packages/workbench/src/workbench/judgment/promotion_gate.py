@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 from system_runtime.paths import WorkspacePaths, output_surface
+from system_runtime.canonical_ids import CanonicalIdError, lineage_ids, validate_chain
 
 import json
 from datetime import UTC, datetime
@@ -91,22 +92,29 @@ def check_claim_ceiling(judgment: dict[str, Any]) -> dict[str, Any]:
     - structural_diagnostic: PASS
     """
     claim_ceiling = judgment.get("claim_ceiling", "unknown")
+    from workbench.judgment.claim_ladder import CLAIM_LADDER_TIERS
 
-    if claim_ceiling == "mechanism_hypothesis":
+    policy_labels = {
+        int(tier): str(definition.get("label"))
+        for tier, definition in CLAIM_LADDER_TIERS.items()
+        if isinstance(definition, dict) and definition.get("label")
+    }
+
+    if claim_ceiling == policy_labels.get(1):
         return {
             "status": "WATCH",
             "reason": "Claim ceiling is mechanism_hypothesis — mechanism language allowed, operational blocked",
             "blocked_terms": ["signal", "regime call", "prediction", "forecast", "position", "strong claim"],
         }
 
-    if claim_ceiling == "diagnostic_watch_only":
+    if claim_ceiling in {"diagnostic_watch_only", policy_labels.get(0)}:
         return {
             "status": "BLOCKED",
             "reason": "Claim ceiling is diagnostic_watch_only",
             "blocked_terms": ["signal", "regime call", "prediction", "forecast", "strong claim"],
         }
 
-    if claim_ceiling == "structural_diagnostic_with_caveats":
+    if claim_ceiling in {"structural_diagnostic_with_caveats", policy_labels.get(2)}:
         return {
             "status": "WATCH",
             "reason": "Claim ceiling has caveats",
@@ -238,29 +246,93 @@ def check_hmm() -> dict[str, Any]:
 def check_k_gate() -> dict[str, Any]:
     k_gate = load_json(K_GATE_PATH)
     if not k_gate:
-        return {"status": "NOT_AVAILABLE", "reason": "K gate not run", "blocked_terms": []}
-    verdict = k_gate.get("gate_verdict", "UNKNOWN")
-    if verdict != "PASS":
         return {
-            "status": "BLOCKED",
-            "reason": f"K gate: {verdict}",
-            "blocked_terms": ["K primary", "K signal", "curvature signal"],
+            "status": "RESEARCH_ONLY",
+            "authority": "research_only",
+            "reason": "K profile is research-only and has no promotion authority",
+            "blocked_terms": [],
         }
-    return {"status": "PASS", "blocked_terms": []}
+    verdict = k_gate.get("gate_verdict", "UNKNOWN")
+    return {
+        "status": "RESEARCH_ONLY",
+        "authority": "research_only",
+        "reason": f"K gate: {verdict}; research-only review signal",
+        "blocked_terms": ["K primary", "K signal", "curvature signal"],
+    }
 
 
 def check_x_gate() -> dict[str, Any]:
     x_gate = load_json(X_GATE_PATH)
     if not x_gate:
-        return {"status": "NOT_AVAILABLE", "reason": "X gate not run", "blocked_terms": []}
+        return {
+            "status": "RESEARCH_ONLY",
+            "authority": "research_only",
+            "reason": "X profile is research-only and has no promotion authority",
+            "blocked_terms": [],
+        }
     verdict = x_gate.get("gate_verdict", "UNKNOWN")
-    if verdict != "PASS":
+    return {
+        "status": "RESEARCH_ONLY",
+        "authority": "research_only",
+        "reason": f"X_agg gate: {verdict}; research-only review signal",
+        "blocked_terms": ["X primary", "X signal", "leverage signal"],
+    }
+
+
+def check_epistemic_promotion(judgment: dict[str, Any]) -> dict[str, Any]:
+    """Require a complete canonical Claim -> Judgment lineage.
+
+    This is separate from the language gate: a card may use bounded language
+    while remaining ineligible for authoritative publication.
+    """
+
+    chain = judgment.get("canonical_chain")
+    record = judgment.get("judgment_record")
+    if not isinstance(chain, dict):
         return {
             "status": "BLOCKED",
-            "reason": f"X_agg gate: {verdict}",
-            "blocked_terms": ["X primary", "X signal", "leverage signal"],
+            "authority": "DIAGNOSTIC_ONLY",
+            "reason": "Canonical Claim -> Judgment lineage is missing",
+            "blocked_terms": ["authoritative judgment", "promotion"],
         }
-    return {"status": "PASS", "blocked_terms": []}
+    try:
+        validate_chain(chain)
+    except (CanonicalIdError, TypeError, ValueError) as exc:
+        return {
+            "status": "BLOCKED",
+            "authority": "DIAGNOSTIC_ONLY",
+            "reason": f"Canonical Claim -> Judgment lineage is invalid: {type(exc).__name__}",
+            "blocked_terms": ["authoritative judgment", "promotion"],
+        }
+    embedded = chain.get("judgment")
+    if not isinstance(embedded, dict) or not isinstance(record, dict):
+        return {
+            "status": "BLOCKED",
+            "authority": "DIAGNOSTIC_ONLY",
+            "reason": "Judgment record is not attached to the canonical chain",
+            "blocked_terms": ["authoritative judgment", "promotion"],
+        }
+    if embedded.get("judgment_id") != record.get("judgment_id"):
+        return {
+            "status": "BLOCKED",
+            "authority": "DIAGNOSTIC_ONLY",
+            "reason": "Judgment record and canonical chain IDs disagree",
+            "blocked_terms": ["authoritative judgment", "promotion"],
+        }
+    compact = judgment.get("canonical_ids")
+    if isinstance(compact, dict) and compact != lineage_ids(chain):
+        return {
+            "status": "BLOCKED",
+            "authority": "DIAGNOSTIC_ONLY",
+            "reason": "Canonical compact IDs do not match the Claim -> Judgment chain",
+            "blocked_terms": ["authoritative judgment", "promotion"],
+        }
+    return {
+        "status": "PASS",
+        "authority": "ALLOW",
+        "reason": "Complete canonical Claim -> Judgment lineage is present",
+        "blocked_terms": [],
+    }
 
 
 def determine_allowed_language(
@@ -345,6 +417,7 @@ def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
         "hmm": check_hmm(),
         "k_gate": check_k_gate(),
         "x_gate": check_x_gate(),
+        "epistemic_promotion": check_epistemic_promotion(judgment),
     }
     blocked_gates = [name for name, gate in gates.items() if gate.get("status") == "BLOCKED"]
     watch_gates = [name for name, gate in gates.items() if gate.get("status") == "WATCH"]
@@ -355,10 +428,10 @@ def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
     else:
         overall_status = "PASS"
     language = determine_allowed_language(gates)
-    claim_ceiling = determine_claim_ceiling(gates)
 
     # Include claim ladder from judgment card if available
     claim_ladder = judgment.get("claim_ladder")
+    claim_ceiling = determine_claim_ceiling(gates)
 
     # Re-evaluate language with ladder context
     if claim_ladder:
@@ -381,6 +454,7 @@ def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
         "allowed_language": language["allowed"],
         "forbidden_language": language["forbidden"],
         "claim_ceiling": claim_ceiling,
+        "epistemic_authority": gates["epistemic_promotion"].get("authority", "DIAGNOSTIC_ONLY"),
     }
 
 

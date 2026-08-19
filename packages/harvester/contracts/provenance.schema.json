@@ -268,6 +268,8 @@
         "error": { "type": "string", "maxLength": 2000 },
         "availability": { "$ref": "#/$defs/availability" },
         "integrity": { "$ref": "#/$defs/integrity" },
+        "route_policy": { "$ref": "#/$defs/route_policy" },
+        "data_contract": { "$ref": "#/$defs/data_contract" },
         "series_source_signatures": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/source_signature" }
@@ -352,6 +354,34 @@
         "duplicate_key_count": { "type": "integer", "minimum": 0 },
         "counter_scope": { "type": "string", "enum": ["single_boundary", "aggregate_across_boundaries"] },
         "boundary_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "route_policy": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["route_class", "diagnostic_only", "promotion_allowed", "decision_usable", "reason"],
+      "properties": {
+        "route_class": { "type": "string", "minLength": 1 },
+        "selected_providers": { "type": "array", "items": { "type": "string" } },
+        "authoritative_providers": { "type": "array", "items": { "type": "string" } },
+        "diagnostic_providers": { "type": "array", "items": { "type": "string" } },
+        "diagnostic_only": { "type": "boolean" },
+        "promotion_allowed": { "type": "boolean" },
+        "decision_usable": { "type": "boolean" },
+        "reason": { "type": "string", "minLength": 1 },
+        "parity_certified": { "type": "boolean" }
+      }
+    },
+    "data_contract": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "contract_id", "status", "violations", "warnings"],
+      "properties": {
+        "schema_version": { "type": "string", "minLength": 1 },
+        "contract_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["PASS", "WARN", "BLOCK"] },
+        "violations": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
       }
     },
     "source_signature": {
