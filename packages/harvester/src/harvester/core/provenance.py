@@ -52,6 +52,9 @@ def record_provenance(
             merged["environment"] = provenance["environment"]
         if "observation_coverage" in provenance:
             merged["observation_coverage"] = provenance["observation_coverage"]
+        for key in ("availability", "integrity"):
+            if key in provenance:
+                merged[key] = provenance[key]
         for key in (
             "canonical_observation_path",
             "canonical_observation_count",
@@ -88,6 +91,8 @@ def build_provenance(
     observation_start: str | None = None,
     observation_end: str | None = None,
     observation_time_column: str = "date",
+    availability: dict[str, Any] | None = None,
+    integrity: dict[str, Any] | None = None,
     canonical_observation_path: str | None = None,
     canonical_observation_count: int | None = None,
     canonical_chain_path: str | None = None,
@@ -120,6 +125,10 @@ def build_provenance(
             "end": observation_end,
             "time_column": observation_time_column,
         }
+    if availability is not None:
+        provenance["availability"] = dict(availability)
+    if integrity is not None:
+        provenance["integrity"] = dict(integrity)
     if canonical_observation_path is not None:
         provenance["canonical_observation_path"] = canonical_observation_path
     if canonical_observation_count is not None:

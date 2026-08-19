@@ -211,6 +211,7 @@ def _provider_outcome(
     providers_used: list[str] | None = None,
     series_providers: dict[str, str] | None = None,
     series_attempts: dict[str, Any] | None = None,
+    series_source_signatures: dict[str, Any] | None = None,
     provider_chain: list[str] | None = None,
     fallback_used: bool = False,
 ) -> dict[str, Any]:
@@ -241,10 +242,24 @@ def _provider_outcome(
         outcome["series_attempts"] = {
             str(key): value for key, value in sorted(series_attempts.items())
         }
+    if series_source_signatures:
+        outcome["series_source_signatures"] = {
+            str(key): value for key, value in sorted(series_source_signatures.items())
+        }
     if provider_chain:
         outcome["provider_chain"] = [str(item) for item in provider_chain]
     if fallback_used:
         outcome["fallback_used"] = True
+    outcome["availability"] = {
+        "state": "STALE"
+        if status in {"reused_same_content", "reused_after_provider_failure", "environmentally_blocked"}
+        else "UNKNOWN",
+        "calendar_status": "UNCONFIGURED",
+        "available_at": None,
+        "retrieved_at": outcome["retrieved_at"],
+        "decision_usable": False,
+        "reason": "publication_calendar_or_available_at_not_evidenced",
+    }
     return outcome
 
 
@@ -563,6 +578,8 @@ def make_provenance(
     observation_start: str | None = None,
     observation_end: str | None = None,
     observation_time_column: str = "date",
+    availability: dict[str, Any] | None = None,
+    integrity: dict[str, Any] | None = None,
     canonical_observation_path: str | None = None,
     canonical_observation_count: int | None = None,
     canonical_chain_path: str | None = None,
@@ -593,6 +610,8 @@ def make_provenance(
         observation_start=observation_start,
         observation_end=observation_end,
         observation_time_column=observation_time_column,
+        availability=availability,
+        integrity=integrity,
         canonical_observation_path=canonical_observation_path,
         canonical_observation_count=canonical_observation_count,
         canonical_chain_path=canonical_chain_path,
@@ -617,6 +636,7 @@ def _canonical_official_observations(
     """Build canonical observations for the long official panel."""
     try:
         from system_runtime.canonical_ids import build_observation
+        from harvester.core.availability import build_availability
     except ImportError:
         return []
 
@@ -630,6 +650,16 @@ def _canonical_official_observations(
     series_attempts = outcome.get("series_attempts")
     if not isinstance(series_attempts, dict):
         series_attempts = {}
+    availability_meta = outcome.get("availability")
+    if not isinstance(availability_meta, dict):
+        availability_meta = {
+            "state": "UNKNOWN",
+            "calendar_status": "UNCONFIGURED",
+            "available_at": None,
+            "retrieved_at": outcome.get("retrieved_at") or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "decision_usable": False,
+            "reason": "publication_calendar_or_available_at_not_evidenced",
+        }
     required = {"date", "value"}
     if panel.empty or not required.issubset(panel.columns):
         return []
@@ -664,7 +694,12 @@ def _canonical_official_observations(
         elif quality_text in {"2", "error", "missing", "source_down"} or quality_flag == 2:
             status = "STALE"
         else:
-            status = "AVAILABLE"
+            status = str(availability_meta.get("state") or "UNKNOWN").upper()
+            if status not in {
+                "AVAILABLE", "STALE", "DELAYED", "MISSING", "NOT_APPLICABLE",
+                "SOURCE_DOWN", "SCHEMA_CHANGED", "DISCONTINUED", "UNKNOWN",
+            }:
+                status = "UNKNOWN"
         attempts = series_attempts.get(source_series_id, [])
         selected_attempt = None
         if isinstance(attempts, list):
@@ -687,6 +722,27 @@ def _canonical_official_observations(
                 provenance["source_tier"] = selected_attempt["source_tier"]
             if selected_attempt.get("failure_class"):
                 provenance["failure_class"] = selected_attempt["failure_class"]
+        source_signatures = outcome.get("series_source_signatures")
+        source_signature = (
+            source_signatures.get(source_series_id)
+            if isinstance(source_signatures, dict)
+            else None
+        )
+        if isinstance(source_signature, dict):
+            provenance["source_signature"] = source_signature
+        availability = build_availability(
+            state=status,
+            observation_date=observed.date().isoformat(),
+            source_vintage_at=str(row.get("vintage_date") or vintage_date),
+            retrieved_at=str(availability_meta.get("retrieved_at") or outcome.get("retrieved_at")),
+            published_at=availability_meta.get("published_at"),
+            available_at=availability_meta.get("available_at"),
+            calendar_status=str(availability_meta.get("calendar_status") or "UNCONFIGURED"),
+            release_timezone=availability_meta.get("release_timezone"),
+            release_cutoff_local=availability_meta.get("release_cutoff_local"),
+            decision_usable=bool(availability_meta.get("decision_usable", False)),
+            reason=str(availability_meta.get("reason") or ""),
+        )
         records.append(
             build_observation(
                 canonical_series_id=f"{canonical_prefix}:{series_id}",
@@ -702,6 +758,7 @@ def _canonical_official_observations(
                     "release_id": release_id,
                 },
                 source_snapshot_sha256=source_snapshot_sha256,
+                availability=availability,
                 provenance=provenance,
             )
         )
@@ -797,6 +854,7 @@ def stage_release(
         provider_outcome=provider_outcome,
         observation_start=(panel_coverage or {}).get("start"),
         observation_end=(panel_coverage or {}).get("end"),
+        availability=(provider_outcome or {}).get("availability"),
         canonical_observation_path=canonical_observation_relpath,
         canonical_observation_count=len(canonical_observations),
         canonical_chain_path=canonical_chain_relpath,
@@ -898,6 +956,7 @@ def fetch_official_series_from_registry(
     provider_cache: dict[str, Any] = {}
     providers_used: set[str] = set()
     series_providers: dict[str, str] = {}
+    series_source_signatures: dict[str, Any] = {}
     series_attempts: dict[str, Any] = {}
     fallback_used = False
 
@@ -988,6 +1047,9 @@ def fetch_official_series_from_registry(
                 selected_provider = str(result.provider or provider_name)
                 providers_used.add(selected_provider)
                 series_providers[source_id] = selected_provider
+                source_signature = result.source_params.get("source_signature")
+                if isinstance(source_signature, dict):
+                    series_source_signatures[source_id] = dict(source_signature)
                 provider_attempts = result.source_params.get("provider_attempts")
                 if isinstance(provider_attempts, list) and provider_attempts:
                     series_attempts[source_id] = provider_attempts
@@ -1032,6 +1094,7 @@ def fetch_official_series_from_registry(
             providers_used=sorted(providers_used),
             series_providers=series_providers,
             series_attempts=series_attempts,
+            series_source_signatures=series_source_signatures,
             fallback_used=fallback_used,
         )
     else:
@@ -1054,6 +1117,7 @@ def fetch_official_series_from_registry(
             providers_used=sorted(providers_used),
             series_providers=series_providers,
             series_attempts=series_attempts,
+            series_source_signatures=series_source_signatures,
             fallback_used=fallback_used,
         )
 

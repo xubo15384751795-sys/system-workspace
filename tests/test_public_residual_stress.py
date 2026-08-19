@@ -50,6 +50,10 @@ def test_public_level_fails_closed_on_missing_components() -> None:
     )
     assert p_research.dropna().between(0.0, 1.0).all()
     assert p_research.notna().sum() > 100
+    coverage = p_closed.attrs["coverage"]
+    assert coverage["required_components"] == 3
+    assert coverage["degraded_dates"] == 300
+    assert "ecb_ciss" in coverage["missing_components_by_date"]["2020-01-01"]
 
 
 def test_residual_onset_rises_when_channel_pulls_ahead() -> None:
@@ -131,6 +135,19 @@ def test_reduced_coverage_requires_research_marker() -> None:
     public = pd.DataFrame({"nfci": [0.2] * 4, "ofr_fsi": [np.nan] * 4})
     with pytest.raises(ValueError, match="research_only=True"):
         public_level_probability(public, min_periods=1, min_components=1)
+
+
+def test_channel_level_fails_closed_when_component_basket_changes() -> None:
+    from scripts.public_residual_stress import channel_level_probability
+
+    index = pd.date_range("2026-01-01", periods=10, freq="B")
+    channels = pd.DataFrame(
+        {"M": [0.1] * 10, "D": [np.nan] * 10},
+        index=index,
+    )
+    result = channel_level_probability(channels, min_periods=1)
+    assert result.isna().all()
+    assert result.attrs["coverage"]["degraded_dates"] == 10
 
 
 def test_causal_availability_masks_late_component_before_pit() -> None:

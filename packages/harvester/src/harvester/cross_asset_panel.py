@@ -51,6 +51,26 @@ PROVIDER_OUTCOME_STATUSES = {
 }
 
 
+def _conservative_availability(
+    status: str,
+    retrieved_at: str | None = None,
+) -> dict[str, Any]:
+    """Return metadata that never treats retrieval as publication evidence."""
+    return {
+        "state": (
+            "STALE"
+            if status
+            in {"reused_same_content", "reused_after_provider_failure", "environmentally_blocked"}
+            else "UNKNOWN"
+        ),
+        "calendar_status": "UNCONFIGURED",
+        "available_at": None,
+        "retrieved_at": retrieved_at or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "decision_usable": False,
+        "reason": "publication_calendar_or_available_at_not_evidenced",
+    }
+
+
 class PanelFetchError(RuntimeError):
     """Provider acquisition failed with a structured, auditable outcome."""
 
@@ -71,8 +91,10 @@ def _provider_outcome(
     providers_used: list[str] | None = None,
     series_providers: dict[str, str] | None = None,
     series_attempts: dict[str, Any] | None = None,
+    series_source_signatures: dict[str, Any] | None = None,
     provider_chain: list[str] | tuple[str, ...] | None = None,
     fallback_used: bool = False,
+    integrity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if status not in PROVIDER_OUTCOME_STATUSES:
         raise ValueError(f"unsupported provider outcome status: {status}")
@@ -100,10 +122,21 @@ def _provider_outcome(
         outcome["series_attempts"] = {
             str(key): value for key, value in sorted(series_attempts.items())
         }
+    if series_source_signatures:
+        outcome["series_source_signatures"] = {
+            str(key): value for key, value in sorted(series_source_signatures.items())
+        }
     if provider_chain:
         outcome["provider_chain"] = [str(item) for item in provider_chain]
     if fallback_used:
         outcome["fallback_used"] = True
+    # Retrieval is not publication availability.  Unless a source explicitly
+    # provides an evidenced publication timestamp, the release evaluator must
+    # keep this state unknown and decision-ineligible rather than treating a
+    # successful HTTP response as causally available.
+    outcome["availability"] = _conservative_availability(status, outcome["retrieved_at"])
+    if integrity:
+        outcome["integrity"] = dict(integrity)
     return outcome
 
 
@@ -150,6 +183,98 @@ def _drop_invalid_quotes(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[frame["close"].astype(float) > 0].copy()
 
 
+def _deduplicate_panel_rows(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Enforce the panel primary key ``(symbol, date)`` at every boundary.
+
+    Provider fallbacks and release merges can expose the same trading bar more
+    than once.  Letting that shape leak downstream is unsafe: pandas returns a
+    ``Series`` for ``frame.loc[date]`` instead of a scalar and a consumer can
+    fail (or, worse, aggregate the duplicate implicitly).  The helper keeps a
+    deterministic last row using a stable sort and returns an integrity record
+    so the removal is visible in the release evidence rather than silently
+    disappearing.
+    """
+    if frame.empty:
+        return frame.copy(), {
+            "primary_key": ["symbol", "date"],
+            "rows_before": 0,
+            "rows_after": 0,
+            "duplicate_rows_removed": 0,
+            "duplicate_key_count": 0,
+            "counter_scope": "single_boundary",
+            "boundary_count": 1,
+        }
+    work = frame.copy()
+    if "date" in work.columns:
+        work["date"] = pd.to_datetime(work["date"], errors="coerce")
+    required = {"symbol", "date"}
+    if not required.issubset(work.columns):
+        return work, {
+            "primary_key": ["symbol", "date"],
+            "rows_before": int(len(work)),
+            "rows_after": int(len(work)),
+            "duplicate_rows_removed": 0,
+            "duplicate_key_count": 0,
+            "counter_scope": "single_boundary",
+            "boundary_count": 1,
+        }
+    duplicate_mask = work.duplicated(["symbol", "date"], keep=False)
+    duplicate_key_count = int(
+        work.loc[duplicate_mask, ["symbol", "date"]].drop_duplicates().shape[0]
+    )
+    rows_before = int(len(work))
+    # mergesort is stable, so the source row order remains the deterministic
+    # tie-breaker when no provider retrieval timestamp is available per row.
+    work = work.sort_values(["symbol", "date"], kind="mergesort")
+    work = work.drop_duplicates(["symbol", "date"], keep="last")
+    work = work.sort_values(["symbol", "date"], kind="mergesort").reset_index(drop=True)
+    integrity = {
+        "primary_key": ["symbol", "date"],
+        "rows_before": rows_before,
+        "rows_after": int(len(work)),
+        "duplicate_rows_removed": rows_before - int(len(work)),
+        "duplicate_key_count": duplicate_key_count,
+        "counter_scope": "single_boundary",
+        "boundary_count": 1,
+    }
+    return work, integrity
+
+
+def _merge_integrity(*records: dict[str, Any] | None) -> dict[str, Any]:
+    """Combine integrity evidence without making row counts ambiguous.
+
+    ``rows_before``/``rows_after`` describe the final boundary in the merge;
+    duplicate counters are accumulated across all boundaries and explicitly
+    labelled as such.  This prevents a release from reporting summed row
+    counts that do not correspond to any actual artifact.
+    """
+    valid = [record for record in records if isinstance(record, dict)]
+    if not valid:
+        return {
+            "primary_key": ["symbol", "date"],
+            "rows_before": 0,
+            "rows_after": 0,
+            "duplicate_rows_removed": 0,
+            "duplicate_key_count": 0,
+            "counter_scope": "single_boundary",
+            "boundary_count": 0,
+        }
+    last = valid[-1]
+    merged = {
+        "primary_key": ["symbol", "date"],
+        "rows_before": int(last.get("rows_before", 0) or 0),
+        "rows_after": int(last.get("rows_after", 0) or 0),
+        "duplicate_rows_removed": sum(int(record.get("duplicate_rows_removed", 0) or 0) for record in valid),
+        "duplicate_key_count": sum(int(record.get("duplicate_key_count", 0) or 0) for record in valid),
+        "counter_scope": "aggregate_across_boundaries" if len(valid) > 1 else str(last.get("counter_scope") or "single_boundary"),
+        "boundary_count": sum(int(record.get("boundary_count", 1) or 1) for record in valid),
+    }
+    primary_key = last.get("primary_key")
+    if isinstance(primary_key, list) and primary_key:
+        merged["primary_key"] = [str(item) for item in primary_key]
+    return merged
+
+
 def load_existing_panel(workspace: Path | None = None) -> pd.DataFrame:
     root = workspace or workspace_root()
     path = root / "Data" / "panels" / "cross_asset_daily_panel.parquet"
@@ -158,7 +283,10 @@ def load_existing_panel(workspace: Path | None = None) -> pd.DataFrame:
     frame = pd.read_parquet(path)
     if "date" in frame.columns:
         frame["date"] = pd.to_datetime(frame["date"])
-    return _drop_invalid_quotes(frame)
+    frame = _drop_invalid_quotes(frame)
+    frame, integrity = _deduplicate_panel_rows(frame)
+    frame.attrs["integrity"] = integrity
+    return frame
 
 
 def load_latest_release_panel(
@@ -191,6 +319,7 @@ def load_latest_release_panel(
     if "date" in frame.columns:
         frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
     frame = _drop_invalid_quotes(frame)
+    frame, integrity = _deduplicate_panel_rows(frame)
     outcome: dict[str, Any] = {}
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -207,7 +336,16 @@ def load_latest_release_panel(
             succeeded_count=int(frame["symbol"].nunique()) if "symbol" in frame.columns else 0,
             fallback_reason="legacy_release_manifest_without_provider_outcome",
         )
+    outcome.setdefault(
+        "availability",
+        _conservative_availability(
+            str(outcome.get("status") or "environmentally_blocked"),
+            outcome.get("retrieved_at"),
+        ),
+    )
+    outcome["integrity"] = _merge_integrity(outcome.get("integrity"), integrity)
     frame.attrs["provider_outcome"] = outcome
+    frame.attrs["integrity"] = outcome["integrity"]
     return frame, outcome
 
 
@@ -249,7 +387,9 @@ def prefetched_panel_from_registry(
         ["date", "symbol", "open", "high", "low", "close", "volume"]
     ].copy()
     result = result[result["date"].notna()]
+    result, integrity = _deduplicate_panel_rows(result)
     result.attrs["provider_outcome"] = dict(panel.attrs.get("provider_outcome", {}))
+    result.attrs["integrity"] = integrity
     return result
 
 
@@ -281,6 +421,11 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
         result.series_id: result.provider
         for result in results
         if result is not None and not result.empty()
+    }
+    series_source_signatures = {
+        result.series_id: dict(result.source_params.get("source_signature", {}))
+        for result in results
+        if result is not None and result.source_params.get("source_signature")
     }
     providers_used = sorted(set(series_providers.values()))
     series_attempts = {
@@ -328,6 +473,7 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
             providers_used=providers_used,
             series_providers=series_providers,
             series_attempts=series_attempts,
+            series_source_signatures=series_source_signatures,
             provider_chain=list(provider.provider_order),
             fallback_used=fallback_used,
         )
@@ -336,11 +482,10 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
             f"({len(failed_series)} failed/empty)",
             outcome,
         )
-    if not rows:
-        return pd.DataFrame(columns=PANEL_COLUMNS)
     frame = pd.DataFrame(rows)
     frame["date"] = pd.to_datetime(frame["date"])
     frame = _drop_invalid_quotes(frame)
+    frame, integrity = _deduplicate_panel_rows(frame)
     succeeded_series = sorted(set(frame["symbol"].astype(str))) if not frame.empty else []
     failed_series = sorted(set(requested_symbols) - set(succeeded_series))
     status = "partial_provider_success" if failed_series else "refreshed"
@@ -354,8 +499,10 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
         providers_used=providers_used,
         series_providers=series_providers,
         series_attempts=series_attempts,
+        series_source_signatures=series_source_signatures,
         provider_chain=list(provider.provider_order),
         fallback_used=fallback_used,
+        integrity=integrity,
     )
     if failed_series:
         logger.warning(
@@ -368,13 +515,14 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
 
 def compute_derived_columns(frame: pd.DataFrame) -> pd.DataFrame:
     parts: list[pd.DataFrame] = []
+    input_integrity = frame.attrs.get("integrity") if isinstance(frame.attrs, dict) else None
     for symbol, group in frame.groupby("symbol"):
         # The provider chain can return the same (symbol, date) more than
         # once (for example, rounded and unrounded Yahoo rows).  Keep the
         # last deterministic row before calculating returns; otherwise the
         # duplicate survives into the workspace mirror and downstream joins
         # produce a non-unique DatetimeIndex.
-        group = group.sort_values("date").drop_duplicates("date", keep="last").copy()
+        group = group.sort_values("date", kind="mergesort").drop_duplicates("date", keep="last").copy()
         close = group["close"].astype(float)
         group["return_1d"] = close.pct_change(1)
         group["return_5d"] = close.pct_change(5)
@@ -390,7 +538,10 @@ def compute_derived_columns(frame: pd.DataFrame) -> pd.DataFrame:
     for column in PANEL_COLUMNS:
         if column not in merged.columns:
             merged[column] = np.nan
-    return merged[PANEL_COLUMNS].sort_values(["symbol", "date"]).reset_index(drop=True)
+    result = merged[PANEL_COLUMNS].sort_values(["symbol", "date"], kind="mergesort").reset_index(drop=True)
+    result, output_integrity = _deduplicate_panel_rows(result)
+    result.attrs["integrity"] = _merge_integrity(input_integrity, output_integrity)
+    return result
 
 
 def build_cross_asset_panel(
@@ -413,6 +564,7 @@ def build_cross_asset_panel(
         symbols = sorted(existing["symbol"].astype(str).unique())
 
     prefetched = prefetched_panel.copy() if prefetched_panel is not None else pd.DataFrame()
+    prefetched_integrity = prefetched.attrs.get("integrity") if isinstance(prefetched.attrs, dict) else None
     if not prefetched.empty:
         required_prefetch_columns = {"date", "symbol", "close"}
         if not required_prefetch_columns.issubset(prefetched.columns):
@@ -420,6 +572,7 @@ def build_cross_asset_panel(
         else:
             prefetched["date"] = pd.to_datetime(prefetched["date"], errors="coerce")
             prefetched = prefetched[prefetched["date"].notna()].copy()
+            prefetched, prefetched_integrity = _deduplicate_panel_rows(prefetched)
             if symbols:
                 prefetched = prefetched[prefetched["symbol"].astype(str).isin(symbols)]
             else:
@@ -473,6 +626,7 @@ def build_cross_asset_panel(
         fresh = pd.DataFrame(
             columns=["date", "symbol", "open", "high", "low", "close", "volume"]
         )
+
     except RuntimeError as exc:
         if existing.empty and prefetched.empty:
             raise
@@ -495,7 +649,20 @@ def build_cross_asset_panel(
             columns=["date", "symbol", "open", "high", "low", "close", "volume"]
         )
 
+    # Keep legacy/custom fetchers inside the same release contract.  A test
+    # double or older provider adapter may return a status without the new
+    # availability metadata; that must remain conservative rather than
+    # silently regaining decision eligibility.
+    outcome.setdefault(
+        "availability",
+        _conservative_availability(
+            str(outcome.get("status") or "environmentally_blocked"),
+            outcome.get("retrieved_at"),
+        ),
+    )
+
     fresh_symbols = sorted(set(fresh["symbol"].astype(str))) if "symbol" in fresh.columns else []
+    fresh_integrity = fresh.attrs.get("integrity") if isinstance(fresh.attrs, dict) else None
     succeeded_symbols = sorted(set(prefetched_symbols) | set(fresh_symbols))
     failed_series = sorted(set(symbols) - set(succeeded_symbols))
     outcome["provider"] = "etf_provider_chain"
@@ -521,6 +688,12 @@ def build_cross_asset_panel(
                         }
                     elif field == "provider_chain" and not outcome.get(field):
                         outcome[field] = list(inherited)
+            inherited_signatures = prefetched_outcome.get("series_source_signatures")
+            if isinstance(inherited_signatures, dict):
+                outcome["series_source_signatures"] = {
+                    **inherited_signatures,
+                    **dict(outcome.get("series_source_signatures", {})),
+                }
             inherited_attempts = prefetched_outcome.get("series_attempts")
             if isinstance(inherited_attempts, dict):
                 outcome["series_attempts"] = {
@@ -546,6 +719,7 @@ def build_cross_asset_panel(
         if not prefetched.empty or not fresh.empty
         else pd.DataFrame()
     )
+    acquired, acquired_integrity = _deduplicate_panel_rows(acquired)
     if existing.empty and acquired.empty:
         outcome["status"] = "provider_failed_no_acceptable_fallback"
         return _return_panel(
@@ -573,7 +747,20 @@ def build_cross_asset_panel(
     for column in PANEL_COLUMNS:
         if column not in merged.columns:
             merged[column] = np.nan
+    merged, merged_integrity = _deduplicate_panel_rows(merged)
+    outcome["integrity"] = _merge_integrity(
+        existing.attrs.get("integrity") if isinstance(existing.attrs, dict) else None,
+        prefetched_integrity,
+        fresh_integrity,
+        acquired_integrity,
+        merged_integrity,
+    )
     merged = compute_derived_columns(merged)
+    outcome["integrity"] = _merge_integrity(
+        outcome.get("integrity"),
+        merged.attrs.get("integrity") if isinstance(merged.attrs, dict) else None,
+    )
+    merged.attrs["integrity"] = outcome["integrity"]
     return _return_panel(merged, outcome, return_outcome=return_outcome)
 
 
@@ -589,6 +776,11 @@ def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) 
     root = workspace or workspace_root()
     path = root / "Data" / "panels" / "cross_asset_daily_panel.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
+    panel, integrity = _deduplicate_panel_rows(panel)
+    panel.attrs["integrity"] = _merge_integrity(
+        panel.attrs.get("integrity") if isinstance(panel.attrs, dict) else None,
+        integrity,
+    )
     panel.to_parquet(path, index=False)
     return path
 
@@ -609,6 +801,7 @@ def _canonical_observation_records(
     """
     try:
         from system_runtime.canonical_ids import build_observation
+        from harvester.core.availability import build_availability
     except ImportError:
         logger.warning("system_runtime canonical IDs unavailable; skipping observation sidecar")
         return []
@@ -628,6 +821,16 @@ def _canonical_observation_records(
         "provider_failed_no_acceptable_fallback",
         "environmentally_blocked",
     }
+    availability_meta = provider_outcome.get("availability")
+    if not isinstance(availability_meta, dict):
+        availability_meta = {
+            "state": "UNKNOWN",
+            "calendar_status": "UNCONFIGURED",
+            "available_at": None,
+            "retrieved_at": provider_outcome.get("retrieved_at") or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "decision_usable": False,
+            "reason": "publication_calendar_or_available_at_not_evidenced",
+        }
     records: list[dict[str, Any]] = []
     if panel.empty or not {"date", "symbol", "close"}.issubset(panel.columns):
         return records
@@ -665,7 +868,32 @@ def _canonical_observation_records(
                 provenance["source_tier"] = selected_attempt["source_tier"]
             if selected_attempt.get("failure_class"):
                 provenance["failure_class"] = selected_attempt["failure_class"]
-        status = "STALE" if symbol in failed_series or provider_outcome.get("status") in reused_statuses else "AVAILABLE"
+        content_status = "STALE" if symbol in failed_series or provider_outcome.get("status") in reused_statuses else "AVAILABLE"
+        availability_state = str(availability_meta.get("state") or "UNKNOWN").upper()
+        status = "STALE" if content_status == "STALE" else availability_state
+        if status not in {"AVAILABLE", "STALE", "DELAYED", "MISSING", "NOT_APPLICABLE", "SOURCE_DOWN", "SCHEMA_CHANGED", "DISCONTINUED", "UNKNOWN"}:
+            status = "UNKNOWN"
+        source_signatures = provider_outcome.get("series_source_signatures")
+        source_signature = (
+            source_signatures.get(symbol)
+            if isinstance(source_signatures, dict)
+            else None
+        )
+        if isinstance(source_signature, dict):
+            provenance["source_signature"] = source_signature
+        availability = build_availability(
+            state=status,
+            observation_date=observed.date().isoformat(),
+            source_vintage_at=vintage_date,
+            retrieved_at=str(availability_meta.get("retrieved_at") or provider_outcome.get("retrieved_at")),
+            published_at=availability_meta.get("published_at"),
+            available_at=availability_meta.get("available_at"),
+            calendar_status=str(availability_meta.get("calendar_status") or "UNCONFIGURED"),
+            release_timezone=availability_meta.get("release_timezone"),
+            release_cutoff_local=availability_meta.get("release_cutoff_local"),
+            decision_usable=bool(availability_meta.get("decision_usable", False)),
+            reason=str(availability_meta.get("reason") or ""),
+        )
         source_id = str(series_providers.get(symbol) or provider_outcome.get("provider") or "etf_provider_chain")
         records.append(
             build_observation(
@@ -678,6 +906,7 @@ def _canonical_observation_records(
                 status=status,
                 scope={"symbol": symbol, "release_id": release_id},
                 source_snapshot_sha256=source_snapshot_sha256,
+                availability=availability,
                 provenance=provenance,
             )
         )
@@ -716,6 +945,7 @@ def _canonical_chain_records(
         claim_status = {
             "AVAILABLE": "WATCH",
             "STALE": "STALE",
+            "UNKNOWN": "WATCH",
         }.get(status, "INSUFFICIENT_DATA")
         measurement = build_measurement(
             observation_ids=[observation["observation_id"]],
@@ -878,6 +1108,8 @@ def stage_cross_asset_panel(
         provider_outcome=provider_outcome,
         observation_start=observation_start or None,
         observation_end=observation_end or None,
+        availability=provider_outcome.get("availability"),
+        integrity=provider_outcome.get("integrity"),
         canonical_observation_path=canonical_observation_relpath,
         canonical_observation_count=len(canonical_observations),
         canonical_chain_path=canonical_chain_relpath,

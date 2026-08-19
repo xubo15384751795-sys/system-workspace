@@ -1,0 +1,70 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-19-data-reliability-convergence
+date: "2026-08-19"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Close the data-reliability gap at the Source -> ProviderAttempt ->
+  Observation -> Availability -> Measurement boundary without changing
+  research thresholds or granting a degraded release decision authority.
+scope: >
+  Add explicit publication, availability, retrieval, vintage, source-signature,
+  and primary-key integrity evidence to Harvester releases. Make incomplete
+  public-stress channel baskets fail closed, deduplicate ETF panel keys at
+  acquisition and consumer boundaries, and preserve source/fallback metadata
+  through canonical observations and provenance.
+decision: >
+  Treat retrieval success as UNKNOWN until publication availability is evidenced
+  by a configured calendar and an explicit available_at clock. Treat reused or
+  carried-forward values as STALE. Keep source changes visible through a stable
+  normalization signature and parity helper. Enforce the (symbol, date) panel
+  key with deterministic last-row selection while recording duplicate counters.
+  Existing data may continue to support diagnostic output, but it cannot become
+  decision-usable or current merely because a file was rewritten today.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: true
+preregistered_expectation: >
+  No provider retrieval is labelled decision-usable without causal availability
+  evidence; incomplete OFR/NFCI/CISS-style component baskets cannot silently
+  renormalize; duplicate ETF keys cannot reach paper sizing; and every staged
+  release records provider outcome, availability, source convention, and
+  integrity evidence.
+observation_window: >
+  Fourteen consecutive default launchd runs after deployment, including at
+  least one provider failure, one fallback/carry-forward, one cache-expiry or
+  stale release, one schema-drift/parity fixture, and one recovery run. The
+  window is evidence collection only; it cannot be marked complete from tests
+  or a single successful run.
+rollback: >
+  Revert this decision and the associated commit. Restore the previous
+  observation/provenance schema readers only after confirming no release still
+  depends on the new availability or integrity fields. Do not restore the old
+  silent-renormalization, duplicate-key, or stale-as-fresh behavior in a live
+  decision path.
+acceptance:
+  - Harvester package suite is green with the data-reliability contract tests.
+  - Provider release tests reject unconfigured calendars and missing available_at.
+  - Public residual component coverage is fail-closed unless research_only is explicit.
+  - Cross-asset and paper-portfolio boundaries produce unique daily keys/scalars.
+  - Canonical observations carry availability clocks and source provenance.
+  - The 14-day default-path evidence window remains explicitly pending until observed.
+non_goals:
+  - Configure provider publication calendars without approved source evidence.
+  - Treat diagnostic or stale data as an authoritative current release.
+  - Replace the orchestration platform, add distributed infrastructure, or alter research thresholds.
+  - Claim that CI and unit tests substitute for the scheduled evidence window.
+evidence:
+  tests:
+    - packages/harvester/tests/test_data_reliability_contract.py
+    - tests/test_canonical_availability_contract.py
+    - tests/test_paper_portfolio_data_shape.py
+    - packages/orchestration/tests/test_provider_release.py
+  implementation:
+    - packages/harvester/src/harvester/core/availability.py
+    - packages/harvester/src/harvester/core/source_drift.py
+    - packages/harvester/src/harvester/cross_asset_panel.py
+    - scripts/public_residual_stress.py

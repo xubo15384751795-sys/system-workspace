@@ -97,6 +97,33 @@ def _date_str(ts: Any) -> str:
     return str(ts)[:10]
 
 
+def _deduplicate_datetime_index(value: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
+    """Keep one deterministic value per decision date at the strategy boundary.
+
+    The Harvester enforces ``(symbol, date)`` uniqueness at write time and the
+    loader repeats that check for legacy mirrors.  This final boundary protects
+    the paper consumer from older artifacts or a third-party alignment that
+    reintroduced duplicate dates.  A duplicate must never reach ``float(.loc)``
+    as a Series.
+    """
+    if not value.index.has_duplicates:
+        return value
+    if isinstance(value, pd.DataFrame):
+        return value.groupby(level=0, sort=False).last()
+    return value.groupby(level=0, sort=False).last()
+
+
+def _scalar_at(series: pd.Series, ts: pd.Timestamp, *, name: str) -> float:
+    """Read a scalar strategy input and fail with a useful shape error."""
+    value = series.loc[ts]
+    if isinstance(value, pd.Series):
+        raise ValueError(
+            f"{name} has a non-unique decision index at {ts.date()}; "
+            "deduplicate the source panel before paper sizing"
+        )
+    return float(value)
+
+
 def load_state() -> dict[str, Any] | None:
     if not STATE_PATH.exists():
         return None
@@ -298,7 +325,10 @@ def _compute_target_series(
             {"p_public": 0.0, "p_onset": 0.0, "position": overlay},
             index=data.index,
         )
-    return overlay, gate.reindex(data.index).fillna(1.0), stress_frame
+    overlay = _deduplicate_datetime_index(overlay)
+    gate = _deduplicate_datetime_index(gate.reindex(data.index).fillna(1.0))
+    stress_frame = _deduplicate_datetime_index(stress_frame)
+    return overlay, gate, stress_frame
 
 
 def _append_nav_row(row: dict[str, Any]) -> None:
@@ -585,7 +615,7 @@ def run_paper_portfolio(
                 matches = [i for i in data.index if _date_str(i) == date_s]
                 if matches:
                     ts = matches[0]
-                gate_pos = float(gate.loc[ts]) if ts in gate.index else 1.0
+                gate_pos = _scalar_at(gate, ts, name="velocity gate") if ts in gate.index else 1.0
                 vg_now = "EXIT" if gate_pos < 1.0 else "FULL"
                 level_now = _level_state(ts)
                 if notify and not dry_run:
@@ -628,9 +658,9 @@ def run_paper_portfolio(
             latest_date=latest_date,
             backfill_days=backfill_days,
         )
-        target = float(overlay.loc[ts]) * scale
+        target = _scalar_at(overlay, ts, name="paper overlay") * scale
         target = max(0.0, min(1.0, target))
-        gate_pos = float(gate.loc[ts])
+        gate_pos = _scalar_at(gate, ts, name="velocity gate")
         mom_v = float(mom.loc[ts]) if ts in mom.index and pd.notna(mom.loc[ts]) else None
         pub_f, onset_f = _stress_vals(ts)
         level_now = _level_state(ts)

@@ -48,7 +48,7 @@ def build_recorded_observation_chains(
                 or "observation"
             )
         )
-        claim_status = {"AVAILABLE": "WATCH", "STALE": "STALE"}.get(
+        claim_status = {"AVAILABLE": "WATCH", "UNKNOWN": "WATCH", "STALE": "STALE"}.get(
             status, "INSUFFICIENT_DATA"
         )
         captured_at = str(provenance.get("captured_at") or "")

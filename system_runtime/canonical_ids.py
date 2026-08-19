@@ -104,6 +104,7 @@ def build_observation(
     status: str = "AVAILABLE",
     scope: Mapping[str, Any] | None = None,
     source_snapshot_sha256: str | None = None,
+    availability: Mapping[str, Any] | None = None,
     provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one canonical observation and its deterministic ID."""
@@ -124,7 +125,7 @@ def build_observation(
         "source_id": source,
         "source_snapshot_sha256": source_snapshot_sha256,
     }
-    return {
+    result = {
         "observation_id": canonical_id("observation", identity),
         "canonical_series_id": series,
         "observed_at": observed,
@@ -139,6 +140,9 @@ def build_observation(
         },
         "provenance": _provenance(provenance),
     }
+    if availability is not None:
+        result["availability"] = _availability_contract(availability)
+    return result
 
 
 def build_measurement(
@@ -401,6 +405,8 @@ def validate_observation(observation: Mapping[str, Any]) -> None:
     if not isinstance(provenance, Mapping):
         raise CanonicalIdError("observation provenance is required")
     _provenance(provenance)
+    if "availability" in observation:
+        _availability_contract(observation["availability"])
     status = _availability(observation["status"])
     expected = canonical_id(
         "observation",
@@ -522,6 +528,63 @@ def _availability(value: Any) -> str:
     if status not in AVAILABILITY_STATUSES:
         raise CanonicalIdError(f"unknown availability status: {status}")
     return status
+
+
+def _availability_contract(value: Any) -> dict[str, Any]:
+    """Validate the optional explicit observation availability clocks."""
+    if not isinstance(value, Mapping):
+        raise CanonicalIdError("observation availability must be an object")
+    required = {
+        "state",
+        "observation_date",
+        "source_vintage_at",
+        "published_at",
+        "available_at",
+        "retrieved_at",
+        "calendar_status",
+        "decision_usable",
+    }
+    missing = sorted(required - set(value))
+    if missing:
+        raise CanonicalIdError(f"observation availability missing fields: {missing}")
+    state = _availability(value["state"])
+    calendar = _required_text(value["calendar_status"], "availability.calendar_status").upper()
+    if calendar not in {"CONFIGURED", "UNCONFIGURED"}:
+        raise CanonicalIdError("availability.calendar_status must be CONFIGURED or UNCONFIGURED")
+    if not isinstance(value["decision_usable"], bool):
+        raise CanonicalIdError("availability.decision_usable must be boolean")
+    if value["decision_usable"] and (
+        calendar != "CONFIGURED" or value.get("available_at") in (None, "")
+    ):
+        raise CanonicalIdError(
+            "availability.decision_usable requires configured calendar and available_at"
+        )
+    available_at = _availability_timestamp(value.get("available_at"), "availability.available_at")
+    published_at = _availability_timestamp(value.get("published_at"), "availability.published_at")
+    retrieved_at = _availability_timestamp(value.get("retrieved_at"), "availability.retrieved_at")
+    if available_at and published_at and available_at < published_at:
+        raise CanonicalIdError("availability.available_at cannot precede published_at")
+    if retrieved_at is None:
+        raise CanonicalIdError("availability.retrieved_at is required")
+    return {str(key): _normalize(item) for key, item in value.items()} | {"state": state}
+
+
+def _availability_timestamp(value: Any, field: str) -> datetime | None:
+    """Parse an optional causal clock and require an explicit timezone."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise CanonicalIdError(f"{field} must be an ISO timestamp") from exc
+    else:
+        raise CanonicalIdError(f"{field} must be an ISO timestamp or null")
+    if parsed.tzinfo is None:
+        raise CanonicalIdError(f"{field} must be timezone-aware")
+    return parsed.astimezone(timezone.utc)
 
 
 def _derivation(value: Any) -> str:

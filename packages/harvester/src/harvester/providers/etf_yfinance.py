@@ -37,6 +37,17 @@ _DEFAULT_COOLDOWN_S = 15 * 60
 _DEFAULT_CACHE_MAX_AGE_S = 15 * 60
 _STATE_FILENAME = "provider_state/yfinance.json"
 _LOCK_FILENAME = "provider_state/yfinance.lock"
+_NORMALIZATION_PROFILE = "etf_ohlcv.adjusted.v1"
+
+
+def _source_signature(*, cache_hit: bool = False) -> dict[str, Any]:
+    return {
+        "provider": "yfinance",
+        "normalization_profile": _NORMALIZATION_PROFILE,
+        "adjusted": True,
+        "timestamp_basis": "trading_date",
+        "cache_hit": bool(cache_hit),
+    }
 
 
 def _env_float(name: str, default: float) -> float:
@@ -390,6 +401,7 @@ class EtfYfinanceProvider(OfficialProvider):
         frame: pd.DataFrame,
         *,
         persist: bool,
+        cache_hit: bool = False,
     ) -> ProviderResult:
         if persist:
             self._write_raw(ticker, frame.to_json(orient="records", date_format="iso"))
@@ -398,7 +410,11 @@ class EtfYfinanceProvider(OfficialProvider):
             series_id=ticker,
             frame=frame,
             source_url=f"https://finance.yahoo.com/quote/{ticker}",
-            source_params={"period": self._period},
+            source_params={
+                "period": self._period,
+                "adjusted": True,
+                "source_signature": _source_signature(cache_hit=cache_hit),
+            },
             data_note=f"yfinance daily OHLCV for {self._tickers.get(ticker, ticker)}",
         )
 
@@ -419,7 +435,7 @@ class EtfYfinanceProvider(OfficialProvider):
         frame = frame.dropna(subset=["date"]).reset_index(drop=True)
         if frame.empty:
             return None
-        return self._result_from_frame_with_cache(ticker, frame, persist=False)
+        return self._result_from_frame_with_cache(ticker, frame, persist=False, cache_hit=True)
 
     def _fetch_batch(self, series_ids: list[str]) -> dict[str, ProviderResult]:
         """One multi-ticker download — fewer Yahoo round-trips than N serial calls."""

@@ -193,6 +193,14 @@
       },
       "description": "Actual observation interval derived from the final data bytes."
     },
+    "availability": {
+      "$ref": "#/$defs/availability",
+      "description": "Explicit publication, availability, retrieval, and calendar clocks for the release."
+    },
+    "integrity": {
+      "$ref": "#/$defs/integrity",
+      "description": "Primary-key and duplicate-row integrity evidence for the release."
+    },
     "canonical_observation_path": {
       "type": "string",
       "pattern": "^provenance/[^/]+\\.canonical_observations\\.jsonl$",
@@ -258,6 +266,12 @@
         },
         "fallback_reason": { "type": "string", "maxLength": 2000 },
         "error": { "type": "string", "maxLength": 2000 },
+        "availability": { "$ref": "#/$defs/availability" },
+        "integrity": { "$ref": "#/$defs/integrity" },
+        "series_source_signatures": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/source_signature" }
+        },
         "providers_used": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
@@ -311,6 +325,45 @@
         },
         "fallback_used": { "type": "boolean" },
         "retrieved_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "calendar_status", "available_at", "retrieved_at", "decision_usable", "reason"],
+      "properties": {
+        "state": { "type": "string", "enum": ["AVAILABLE", "STALE", "DELAYED", "MISSING", "NOT_APPLICABLE", "SOURCE_DOWN", "SCHEMA_CHANGED", "DISCONTINUED", "UNKNOWN"] },
+        "calendar_status": { "type": "string", "enum": ["CONFIGURED", "UNCONFIGURED"] },
+        "published_at": { "type": ["string", "null"], "format": "date-time" },
+        "available_at": { "type": ["string", "null"], "format": "date-time" },
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "decision_usable": { "type": "boolean" },
+        "reason": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary_key": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+        "rows_before": { "type": "integer", "minimum": 0 },
+        "rows_after": { "type": "integer", "minimum": 0 },
+        "duplicate_rows_removed": { "type": "integer", "minimum": 0 },
+        "duplicate_key_count": { "type": "integer", "minimum": 0 },
+        "counter_scope": { "type": "string", "enum": ["single_boundary", "aggregate_across_boundaries"] },
+        "boundary_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "normalization_profile", "adjusted", "timestamp_basis"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "normalization_profile": { "type": "string", "minLength": 1 },
+        "adjusted": { "type": "boolean" },
+        "timestamp_basis": { "type": "string", "minLength": 1 },
+        "cache_hit": { "type": "boolean" }
       }
     }
   }

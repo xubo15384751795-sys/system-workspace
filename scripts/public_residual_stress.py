@@ -104,6 +104,10 @@ def public_level_probability(
             "lower public-component coverage is research-only; pass research_only=True"
         )
     available = pits.notna().sum(axis=1)
+    missing_components = pits.isna().apply(
+        lambda row: sorted(str(column) for column, missing in row.items() if bool(missing)),
+        axis=1,
+    )
     degraded = available[available < required_components]
     if not degraded.empty:
         logging.warning(
@@ -119,6 +123,21 @@ def public_level_probability(
     p_public = pits.mean(axis=1, skipna=True).rename("p_public")
     # Fail-closed: NaN where coverage is incomplete.
     p_public = p_public.where(available >= required_components)
+    # Keep the measurement-shape decision attached to the result.  Consumers
+    # may render this as evidence; they must not infer a full measurement from
+    # a value alone when the component basket changed.
+    p_public.attrs["coverage"] = {
+        "required_components": int(required_components),
+        "component_names": [str(column) for column in pits.columns],
+        "complete_dates": int((available >= required_components).sum()),
+        "degraded_dates": int((available < required_components).sum()),
+        "missing_components_by_date": {
+            str(index.date() if hasattr(index, "date") else index): values
+            for index, values in missing_components.items()
+            if values
+        },
+        "research_only": bool(research_only),
+    }
     return p_public
 
 
@@ -187,13 +206,33 @@ def channel_level_probability(
     channels: pd.DataFrame,
     *,
     min_periods: int = 126,
+    min_components: int | None = None,
+    research_only: bool = False,
 ) -> pd.Series:
-    """Equal-weight PIT of channel levels (M/D/K/X)."""
+    """Equal-weight PIT of channel levels (M/D/K/X), fail-closed by default."""
     pits = pd.DataFrame(
         {column: causal_pit(channels[column], min_periods=min_periods) for column in channels.columns},
         index=channels.index,
     )
-    return pits.mean(axis=1, skipna=True).rename("p_channel_level")
+    full_components = pits.shape[1]
+    required_components = min_components if min_components is not None else full_components
+    if required_components < 1 or required_components > full_components:
+        raise ValueError(
+            f"min_components must be between 1 and {full_components}, got {required_components}"
+        )
+    if required_components < full_components and not research_only:
+        raise ValueError("lower channel-component coverage is research-only; pass research_only=True")
+    available = pits.notna().sum(axis=1)
+    result = pits.mean(axis=1, skipna=True).rename("p_channel_level")
+    result = result.where(available >= required_components)
+    result.attrs["coverage"] = {
+        "required_components": int(required_components),
+        "component_names": [str(column) for column in pits.columns],
+        "complete_dates": int((available >= required_components).sum()),
+        "degraded_dates": int((available < required_components).sum()),
+        "research_only": bool(research_only),
+    }
+    return result
 
 
 def residual_vs_public(
@@ -393,6 +432,8 @@ def build_public_residual_bundle(
         "residual": residual,
         "p_onset": p_onset,
         "public_coverage_status": coverage_status,
+        "public_coverage": p_public.attrs.get("coverage", {}),
+        "channel_coverage": p_channel.attrs.get("coverage", {}),
         "sizing": sized,
     }
 

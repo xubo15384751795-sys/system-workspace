@@ -161,9 +161,19 @@ def main() -> int:
         )
 
     status = str(provider_outcome.get("status", "unknown"))
-    degraded = status not in {"refreshed", "accepted", "finalized"}
+    availability = provider_outcome.get("availability")
+    causally_usable = bool(
+        isinstance(availability, dict)
+        and availability.get("decision_usable") is True
+    )
+    degraded = status not in {"refreshed", "accepted", "finalized"} or not causally_usable
     if degraded:
-        print(f"Provider outcome is degraded: {status}")
+        reason = (
+            availability.get("reason")
+            if isinstance(availability, dict) and availability.get("reason")
+            else "provider outcome not decision-usable"
+        )
+        print(f"Provider outcome is degraded: {status}; {reason}")
     print(
         "SYSTEM_STEP_OUTCOME="
         + json.dumps(

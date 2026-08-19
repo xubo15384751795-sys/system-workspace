@@ -95,6 +95,33 @@
       },
       "additionalProperties": true
     },
+    "availability": {
+      "type": "object",
+      "required": [
+        "state",
+        "observation_date",
+        "source_vintage_at",
+        "published_at",
+        "available_at",
+        "retrieved_at",
+        "calendar_status",
+        "decision_usable"
+      ],
+      "properties": {
+        "state": { "$ref": "#/$defs/availability_status" },
+        "observation_date": { "type": ["string", "null"] },
+        "source_vintage_at": { "type": ["string", "null"] },
+        "published_at": { "type": ["string", "null"] },
+        "available_at": { "type": ["string", "null"] },
+        "retrieved_at": { "type": "string", "minLength": 1 },
+        "calendar_status": { "type": "string", "enum": ["CONFIGURED", "UNCONFIGURED"] },
+        "release_timezone": { "type": ["string", "null"] },
+        "release_cutoff_local": { "type": ["string", "null"] },
+        "decision_usable": { "type": "boolean" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "observation": {
       "type": "object",
       "required": [
@@ -117,6 +144,7 @@
         "status": { "$ref": "#/$defs/availability_status" },
         "scope": { "type": "object", "additionalProperties": true },
         "source": { "$ref": "#/$defs/source" },
+        "availability": { "$ref": "#/$defs/availability" },
         "provenance": { "$ref": "#/$defs/provenance" }
       },
       "additionalProperties": false

@@ -39,6 +39,23 @@ _API_KEY_ENV = {
     "tiingo": "TIINGO_API_KEY",
     "massive": "MASSIVE_API_KEY",
 }
+_NORMALIZATION_PROFILE = "etf_ohlcv.adjusted.v1"
+
+
+def _source_signature(provider: str, *, cache_hit: bool = False) -> dict[str, Any]:
+    """Describe the effective measurement convention for one provider.
+
+    Provider names alone are not enough to detect source drift.  The signature
+    records the adjustment and trading-date normalization choices that must be
+    held constant (or explicitly compared) when a fallback changes source.
+    """
+    return {
+        "provider": str(provider),
+        "normalization_profile": _NORMALIZATION_PROFILE,
+        "adjusted": True,
+        "timestamp_basis": "trading_date",
+        "cache_hit": bool(cache_hit),
+    }
 
 
 def _env_float(name: str, default: float) -> float:
@@ -521,6 +538,7 @@ class _AuthenticatedEodProvider(OfficialProvider):
                 "start_date": start_date,
                 "end_date": end_date,
                 "adjusted": True,
+                "source_signature": _source_signature(self.source_id),
             },
             data_note=f"{self.source_id} daily ETF OHLCV",
         )
@@ -550,7 +568,12 @@ class _AuthenticatedEodProvider(OfficialProvider):
             series_id=ticker,
             frame=frame,
             source_url=self._source_url(ticker),
-            source_params={"cache_hit": True, "cache_age_seconds": round(age, 3)},
+            source_params={
+                "cache_hit": True,
+                "cache_age_seconds": round(age, 3),
+                "adjusted": True,
+                "source_signature": _source_signature(self.source_id, cache_hit=True),
+            },
             data_note=f"{self.source_id} daily ETF OHLCV (recent raw cache)",
         )
 
@@ -747,6 +770,10 @@ class EtfProviderChain(OfficialProvider):
                     )
                     result.source_params = dict(result.source_params or {})
                     result.source_params.setdefault("provider_chain", list(self.provider_order))
+                    result.source_params.setdefault(
+                        "source_signature",
+                        _source_signature(result.provider or provider_name),
+                    )
                     if provider_name != self.provider_order[0]:
                         result.source_params["fallback_from"] = list(self.provider_order[: self.provider_order.index(provider_name)])
                         if not result.fetch_fallback_reason:
