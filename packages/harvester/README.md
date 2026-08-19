@@ -46,7 +46,6 @@ The ETF chain reads `TIINGO_API_KEY` and `MASSIVE_API_KEY` from the scheduler
 environment. Missing keys are recorded as provider-unavailable and do not
 trigger a network request. The selected source for each ticker is recorded in
 the `cross_asset_daily_panel` release manifest.
-
 The workspace-level `configs/source_registry.yaml` is the semantic route
 contract. It keeps Tiingo/Massive as the only authoritative ETF routes,
 requires a reviewed Tiingo/Massive parity report before the Massive fallback
