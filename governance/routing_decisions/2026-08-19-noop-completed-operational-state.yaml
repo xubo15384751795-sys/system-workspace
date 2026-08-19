@@ -1,0 +1,28 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-19-noop-completed-operational-state
+date: "2026-08-19"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Tighten RunOutcome.operational_state so FRESH_READY requires authoritative
+  mode AND COMMITTED publish status. Diagnostic no-ops (duplicate schedule
+  wake-up, dry-run) that exit 0 without publishing an authoritative generation
+  now return NOOP_COMPLETED instead of falsely claiming decision-readiness.
+  Adds three acceptance tests covering the invariant.
+authority_changes:
+  - module: system_runtime/run_outcome.py
+    claim: >
+      operational_state FRESH_READY requires exit_code==0 AND
+      authority_mode==authoritative AND publish_status==COMMITTED;
+      all other exit-0 paths return NOOP_COMPLETED
+  - module: system_runtime/run_outcome.py
+    claim: >
+      status property returns "success" for NOOP_COMPLETED outcomes
+      so notification/alert consumers stay silent
+references:
+  - system_runtime/run_outcome.py
+  - tests/test_run_outcome.py
+non_goals:
+  - Change exit-code derivation logic
+  - Alter notification or alert consumer behaviour
+  - Modify daily_run.py RunOutcome construction sites

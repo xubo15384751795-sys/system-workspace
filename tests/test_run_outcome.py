@@ -149,3 +149,82 @@ def test_status_and_serialization_are_derived_from_same_outcome() -> None:
     serialized = outcome.to_dict()
     assert serialized["status"] == outcome.status
     assert serialized["exit_code"] == outcome.exit_code
+
+
+def test_diagnostic_noop_is_not_fresh_ready() -> None:
+    """Duplicate scheduled wake-up must not claim FRESH_READY."""
+    from system_runtime.run_outcome import RunOutcome
+
+    outcome = RunOutcome(
+        run_id="scheduled_slot_skip_fixture",
+        spec_status="OK",
+        execution_status="SUCCESS",
+        admission_verdict="PASS",
+        publish_status="NOT_PUBLISHED",
+        authority_mode="diagnostic",
+        reason_codes=["SCHEDULE_SLOT_ALREADY_CLAIMED"],
+    )
+    assert outcome.exit_code == 0
+    assert outcome.operational_state == "NOOP_COMPLETED"
+    assert outcome.status == "success"
+    assert outcome.to_dict()["operational_state"] == "NOOP_COMPLETED"
+
+
+def test_dry_run_noop_is_not_fresh_ready() -> None:
+    """Dry-run must not claim FRESH_READY."""
+    from system_runtime.run_outcome import RunOutcome
+
+    outcome = RunOutcome(
+        run_id="dry_run",
+        spec_status="OK",
+        execution_status="SUCCESS",
+        admission_verdict="PASS",
+        publish_status="NOT_PUBLISHED",
+        authority_mode="diagnostic",
+        reason_codes=[],
+    )
+    assert outcome.exit_code == 0
+    assert outcome.operational_state == "NOOP_COMPLETED"
+    assert outcome.status == "success"
+
+
+def test_fresh_ready_requires_authoritative_committed() -> None:
+    """FRESH_READY must require authoritative mode AND COMMITTED publish."""
+    from system_runtime.run_outcome import RunOutcome
+
+    # Authoritative + COMMITTED → FRESH_READY (the only valid path)
+    ready = RunOutcome(
+        run_id="ready-run",
+        spec_status="OK",
+        execution_status="SUCCESS",
+        admission_verdict="PASS",
+        publish_status="COMMITTED",
+        authority_mode="authoritative",
+    )
+    assert ready.operational_state == "FRESH_READY"
+
+    # Authoritative + NOT_PUBLISHED → NOOP_COMPLETED (not ready)
+    not_published = RunOutcome(
+        run_id="auth-not-published",
+        spec_status="OK",
+        execution_status="SUCCESS",
+        admission_verdict="PASS",
+        publish_status="NOT_PUBLISHED",
+        authority_mode="authoritative",
+    )
+    # This case hits the publish-not-committed guard in _compute_exit_code (L174)
+    # so exit_code != 0, making it a failure path rather than NOOP.
+    assert not_published.exit_code != 0
+    assert not_published.operational_state != "FRESH_READY"
+
+    # Diagnostic + COMMITTED → NOOP_COMPLETED (diagnostic can't claim readiness)
+    diagnostic_committed = RunOutcome(
+        run_id="diag-committed",
+        spec_status="OK",
+        execution_status="SUCCESS",
+        admission_verdict="PASS",
+        publish_status="COMMITTED",
+        authority_mode="diagnostic",
+    )
+    assert diagnostic_committed.exit_code == 0
+    assert diagnostic_committed.operational_state == "NOOP_COMPLETED"

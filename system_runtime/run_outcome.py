@@ -179,7 +179,22 @@ class RunOutcome:
 
     @property
     def operational_state(self) -> str:
-        """Return the four-state scheduler/readiness classification."""
+        """Return the scheduler/readiness classification.
+
+        FRESH_READY requires all three conditions:
+        - exit_code == 0  (no failure of any kind)
+        - authority_mode == "authoritative"  (not a diagnostic/dry-run)
+        - publish_status == "COMMITTED"  (an authoritative generation was published)
+
+        Diagnostic no-ops (duplicate schedule wake-up, dry-run) succeed
+        without producing an authoritative generation and must not claim
+        FRESH_READY.
+        """
+        if self.exit_code == EXIT_SUCCESS and (
+            self.authority_mode != AUTHORITY_AUTHORITATIVE
+            or self.publish_status != PUBLISH_COMMITTED
+        ):
+            return "NOOP_COMPLETED"
         if self.exit_code == EXIT_SUCCESS:
             return "FRESH_READY"
         if (
@@ -199,6 +214,8 @@ class RunOutcome:
         """Return the only consumer-facing run status derived from ``exit_code``."""
         if self.operational_state == "COMPLETED_DEGRADED":
             return "degraded"
+        if self.operational_state == "NOOP_COMPLETED":
+            return "success"
         return "success" if self.exit_code == EXIT_SUCCESS else "partial_failure"
 
     def to_dict(self) -> dict[str, Any]:
