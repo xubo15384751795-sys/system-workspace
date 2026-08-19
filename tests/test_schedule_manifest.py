@@ -72,6 +72,24 @@ def test_schedule_audit_accepts_resolved_python_313_path(tmp_path: Path) -> None
     assert result["status"] == "PASS", result["violations"]
 
 
+def test_schedule_audit_accepts_resolved_python_313_path_for_legacy_records(tmp_path: Path) -> None:
+    installed = _write_installed(tmp_path)
+    for name in (
+        "com.system.daily-run-harvester.plist",
+        "com.system.daily-run-harvester-postclose.plist",
+    ):
+        path = installed / name
+        payload = plistlib.loads(path.read_bytes())
+        payload["ProgramArguments"][0] = sys.executable
+        path.write_bytes(plistlib.dumps(payload))
+
+    result = audit(root=ROOT, installed_dir=installed)
+
+    assert result["records"]["com.system.daily-run-harvester"]["semantic_match"] is True
+    assert result["records"]["com.system.daily-run-harvester-postclose"]["semantic_match"] is True
+    assert result["status"] == "PASS", result["violations"]
+
+
 def test_schedule_audit_rejects_missing_script_target(tmp_path: Path) -> None:
     installed = _write_installed(tmp_path)
     path = installed / "com.system.daily-run.plist"

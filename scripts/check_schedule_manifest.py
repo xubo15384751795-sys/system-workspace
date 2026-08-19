@@ -71,6 +71,34 @@ def _canonical_semantic_match(installed: dict[str, Any], rendered: dict[str, Any
     return installed_copy == expected_copy
 
 
+def _legacy_semantic_match(installed: dict[str, Any], tracked: dict[str, Any]) -> bool:
+    """Allow a concrete Python 3.13 path in a disabled legacy record.
+
+    Legacy plists are intentionally tracked with ``__SYSTEM_PYTHON__`` so the
+    record remains portable.  Installation renders that one argument to a
+    concrete interpreter path.  The record is still semantically identical
+    when the resolved interpreter is Python 3.13 and every other field matches.
+    """
+    if installed == tracked:
+        return True
+    expected_args = tracked.get("ProgramArguments") or []
+    installed_args = installed.get("ProgramArguments") or []
+    if (
+        not isinstance(expected_args, list)
+        or not isinstance(installed_args, list)
+        or len(expected_args) != len(installed_args)
+        or not expected_args
+        or expected_args[0] != "__SYSTEM_PYTHON__"
+        or not _is_python_313(installed_args[0])
+    ):
+        return False
+    expected_copy = dict(tracked)
+    installed_copy = dict(installed)
+    expected_copy["ProgramArguments"] = expected_args[1:]
+    installed_copy["ProgramArguments"] = installed_args[1:]
+    return installed_copy == expected_copy
+
+
 def _render_canonical(root: Path, paper_root: Path, horizon_root: Path) -> dict[str, Any]:
     path = root / "scripts/launchd/com.system.daily-run.plist"
     payload = path.read_text(encoding="utf-8")
@@ -200,8 +228,8 @@ def audit(
                 entry["semantic_match"] = False
                 violations.append(f"{label}: installed plist is invalid ({exc})")
                 continue
-            entry["semantic_match"] = installed_payload == payload
-            if installed_payload != payload:
+            entry["semantic_match"] = _legacy_semantic_match(installed_payload, payload)
+            if not entry["semantic_match"]:
                 violations.append(f"{label}: installed plist differs from tracked disabled record")
             if installed_payload.get("Disabled") is not True:
                 violations.append(f"{label}: installed legacy record is not Disabled=true")
