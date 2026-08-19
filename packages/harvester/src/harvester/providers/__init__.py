@@ -31,7 +31,7 @@ def build_provider(name: str, **kwargs: Any) -> OfficialProvider:
         from harvester.providers.cboe_direct import CboeDirectProvider
 
         return CboeDirectProvider(**kwargs)
-    if name in {"tiingo", "massive", "polygon", "etf_provider_chain"}:
+    if name in {"tiingo", "massive", "etf_provider_chain"}:
         from harvester.providers.etf_market_data import (
             EtfProviderChain,
             MassiveEodProvider,
@@ -40,7 +40,7 @@ def build_provider(name: str, **kwargs: Any) -> OfficialProvider:
 
         if name == "tiingo":
             return TiingoEodProvider(**kwargs)
-        if name in {"massive", "polygon"}:
+        if name == "massive":
             return MassiveEodProvider(**kwargs)
         return EtfProviderChain(**kwargs)
     if name.startswith("openbb"):

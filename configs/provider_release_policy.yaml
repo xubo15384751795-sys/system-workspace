@@ -79,7 +79,7 @@ rules:
       - yfinance
     note: >
       Tiingo is the preferred authenticated EOD source when configured;
-      Massive (formerly Polygon.io) is the authenticated fallback, and
+      Massive is the authenticated fallback, and
       yfinance is a bounded last resort. Source selection is recorded per ETF
       in the release manifest.
   - rule_id: fred.default

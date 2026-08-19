@@ -971,7 +971,7 @@ def fetch_official_series_from_registry(
         if name == "etf_provider_chain":
             provider_kwargs["api_keys"] = {
                 "tiingo": keys.get("tiingo", ""),
-                "massive": keys.get("massive", keys.get("polygon", "")),
+                "massive": keys.get("massive", ""),
             }
         if name.startswith("openbb"):
             provider_kwargs["settings_env"] = keys.get("openbb_settings_env", "")

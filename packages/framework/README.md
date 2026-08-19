@@ -252,7 +252,7 @@ Supported provider families include:
 - `alpha_vantage`
 - `stooq`
 - `tiingo`
-- `polygon`
+- `massive`
 - `nasdaq_data_link` / `ndl` / `quandl`
 - `cboe`
 - `oecd`
@@ -504,7 +504,7 @@ Useful environment variables:
 - `SEC_USER_AGENT`
 - `ALPHA_VANTAGE_API_KEY`
 - `TIINGO_API_KEY`
-- `MASSIVE_API_KEY` (or legacy `POLYGON_API_KEY`)
+- `MASSIVE_API_KEY`
 - `NASDAQ_DATA_LINK_API_KEY`
 
 ## Project Layout

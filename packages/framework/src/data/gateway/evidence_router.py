@@ -162,7 +162,7 @@ def default_provider_capabilities() -> tuple[ProviderCapability, ...]:
         ProviderCapability("stooq", ("K",), ("proxy", "validation"), ("market_price", "jump_instability"), ("daily",), stability="medium", priority=65),
         ProviderCapability("tiingo", ("K",), ("proxy", "validation"), ("market_price",), ("daily",), requires_key=True, stability="medium", priority=62),
         ProviderCapability("alpha_vantage", ("K",), ("proxy", "validation"), ("market_price",), ("daily",), requires_key=True, stability="medium", priority=60),
-        ProviderCapability("polygon", ("K",), ("proxy", "validation"), ("market_price", "options"), ("daily",), requires_key=True, stability="medium", priority=58),
+        ProviderCapability("massive", ("K",), ("proxy", "validation"), ("market_price", "options"), ("daily",), requires_key=True, stability="medium", priority=58),
         ProviderCapability("nasdaq_data_link", ("M", "D", "K", "X"), ("proxy", "validation"), frequencies=("daily", "monthly", "quarterly"), requires_key=True, stability="medium", priority=57),
         ProviderCapability("cboe", ("K",), ("proxy", "validation"), ("volatility_surface", "jump_instability"), ("daily",), stability="high", priority=82),
         ProviderCapability("oecd", ("M", "D"), ("validation",), frequencies=("monthly", "quarterly", "annual"), stability="high", priority=75),
