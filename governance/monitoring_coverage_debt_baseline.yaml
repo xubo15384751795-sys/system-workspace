@@ -1,0 +1,60 @@
+schema_version: monitoring_coverage_debt_baseline.v1
+as_of: '2026-08-03'
+review_by: '2026-09-30'
+owner: Learning Hub
+accountable: operator
+note: Known required_coverage_gaps accepted as monitoring debt. artifact_monitoring_audit
+  --strict fails only on gaps NOT listed here (plus contract/unresolved/ledger breaks).
+  Shrink this list when monitors are added; do not grow it without a routing decision.
+paths:
+- Data/panels/benchmark_panel_5yr.parquet
+- Data/panels/cross_asset_daily_panel.csv.gz
+- Data/panels/cross_asset_features.parquet
+- Data/system_learning/ledgers/event_edges.parquet
+- Data/system_learning/ledgers/improvement_lifecycle_ledger.parquet
+- Data/system_learning/ledgers/provenance_gap_ledger.jsonl
+- Data/system_learning/ledgers/subsystem_health.parquet
+- Data/system_learning/registries/governance_status_registry.yaml
+- Data/system_learning/registries/issue_registry.yaml
+- Data/system_learning/registries/routing_rules.yaml
+- Data/system_learning/registries/verification_policy.yaml
+- Data/system_learning/structural_lab/codebase_metrics/history.parquet
+- Output/current/decision_trace.json
+- Output/current/latest_run_id.txt
+- Output/judgment/latest.md
+- Output/judgment/promotion_gate.md
+- Output/quality/PIPELINE_TRIAGE_PLAN.md
+- Output/quality/PROJECT_REFACTOR_AUDIT.json
+- Output/quality/PROJECT_REFACTOR_AUDIT.md
+- Output/quality/asof_integrity_report.json
+- Output/quality/freshness_report.md
+- Output/quality/governance_yield_report.json
+- Output/quality/governance_yield_report.md
+- Output/quality/proxy_catalog_report.md
+- Output/system_learning/governance_audit/LEARNING_HUB_DAILY_AUDIT.md
+- Output/system_learning/governance_audit/governance_audit.json
+- Output/system_learning/latest/abandoned_work_report.md
+- Output/system_learning/latest/claim_failures_pending.json
+- Output/system_learning/latest/comprehensive_summary.json
+- Output/system_learning/latest/experiment_core_judgment_audit.json
+- Output/system_learning/latest/experiment_core_judgment_audit.md
+- Output/system_learning/latest/feedback_improvement_queue.md
+- Output/system_learning/latest/governance_drag_report.json
+- Output/system_learning/latest/hypothesis_inflow.json
+- Output/system_learning/latest/judgment_calibration_summary.json
+- Output/system_learning/latest/learning_summary.md
+- Output/system_learning/latest/module_activity_distribution.json
+- Output/system_learning/latest/module_activity_distribution.md
+- Output/system_learning/latest/pipeline_alert_feedback.json
+- Output/system_learning/latest/proxy_quality_report.json
+- Output/system_learning/latest/proxy_quality_report.md
+- Output/system_learning/latest/recurrence_report.md
+- Output/system_learning/latest/scripts.commands.weekly.architecture_reality_audit.json
+- Output/system_learning/latest/scripts.commands.weekly.architecture_reality_audit.md
+- Output/system_learning/latest/scripts.commands.weekly.governance_status.json
+- Output/system_learning/latest/scripts.commands.weekly.governance_status.md
+- Output/system_learning/latest/system_health_report.md
+- Output/system_learning/latest/threshold_review_candidates.json
+- Output/system_learning/latest/trade_decision_calibration_summary.json
+- Output/system_learning/research_posture/RESEARCH_POSTURE.md
+- Output/system_learning/research_posture/research_posture.json

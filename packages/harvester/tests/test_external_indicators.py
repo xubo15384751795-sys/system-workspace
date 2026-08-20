@@ -10,6 +10,7 @@ from harvester.providers.external_indicators import (
     CISS,
     EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES,
     NYFED_PD_TREASURY_NET,
+    OFR_FSI,
     _parse_ciss_csv,
     external_series_to_long_panel,
     fetch_external_indicator,
@@ -185,6 +186,23 @@ def test_write_template_csv(tmp_path) -> None:
 
     assert path.exists()
     assert "TIME_PERIOD" in path.read_text(encoding="utf-8")
+
+
+def test_ofr_fsi_publisher_url_is_csv_export() -> None:
+    """HTML landing page is not parseable; download must hit fsi.csv."""
+    assert OFR_FSI.publisher_url.endswith("/financial-stress-index/data/fsi.csv")
+
+
+def test_ofr_fsi_cache_keeps_date_ofr_schema(tmp_path) -> None:
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value=f"Date,OFR FSI\n{TODAY},-1.5\n",
+    ):
+        series = fetch_external_indicator(OFR_FSI, cache_dir=tmp_path, refresh=True)
+
+    assert series.iloc[-1] == -1.5
+    cached = (tmp_path / "ofr_fsi.csv").read_text(encoding="utf-8")
+    assert cached.splitlines()[0] == "date,OFR_FSI"
 
 
 def test_nyfed_json_cache_is_normalized_to_csv(tmp_path) -> None:

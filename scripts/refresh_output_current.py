@@ -13,7 +13,11 @@ import time
 from datetime import UTC, datetime
 
 from scripts._admission_gate import AdmissionDecision, admit_for_consumption
-from scripts._pipeline_runner import list_profile_steps, run_registry_step
+from scripts._pipeline_runner import (
+    list_profile_steps,
+    load_registry,
+    run_registry_step,
+)
 from scripts._runtime_io import surface_dir
 
 CURRENT = surface_dir("current")
@@ -135,6 +139,15 @@ def main(argv: list[str] | None = None) -> int:
             print("DRY RUN — legacy refresh chain (explicit emergency flag)")
             return 0
         return _legacy_main(args)
+    if args.dry_run:
+        # A dry-run is an entrypoint wiring check; it must not import the
+        # optional orchestration package or require a live Dagster workspace.
+        print("DRY RUN — pre-consumption admission (hard gate); Dagster refresh chain")
+        registry = load_registry()
+        for step_id in list_profile_steps("refresh_current"):
+            command = str((registry.get("steps", {}).get(step_id) or {}).get("command") or step_id)
+            print(f"  {step_id}: {command}")
+        return 0
     if not dagster_ok:
         print(
             "Dagster is unavailable; refresh default path is fail-closed. "

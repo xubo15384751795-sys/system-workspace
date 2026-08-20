@@ -101,6 +101,37 @@ class TestClosureChain:
                 assert len(issues) > 0
                 assert "work_brief" in issues[0]["rule"]
 
+    def test_candidate_mode_marks_closure_advisory(self, tmp_path, monkeypatch):
+        """CURRENT_OUTPUT_DIR mid-run gaps must not hard-fail the validator."""
+        import os
+
+        now = datetime.now(UTC)
+        fresh = now
+        stale = now - timedelta(minutes=35)
+        candidate = tmp_path / "candidate"
+        candidate.mkdir()
+        for name, ts in [
+            ("signal_card.json", fresh),
+            ("signal_consensus.json", fresh),
+        ]:
+            p = candidate / name
+            p.write_text("{}")
+            os.utime(p, (ts.timestamp(), ts.timestamp()))
+
+        idx = tmp_path / "Data" / "system_index" / "latest.json"
+        idx.parent.mkdir(parents=True, exist_ok=True)
+        idx.write_text("{}")
+        os.utime(idx, (stale.timestamp(), stale.timestamp()))
+
+        monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(candidate))
+        with patch("scripts.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
+            with patch("scripts.freshness_validator.ROOT", tmp_path):
+                from scripts.freshness_validator import check_closure_chain
+
+                issues = check_closure_chain(now)
+                assert issues
+                assert all(i["status"] == "ADVISORY_EXPECTED" for i in issues)
+
 
 # ── Confidence layering ──────────────────────────────────────────────
 

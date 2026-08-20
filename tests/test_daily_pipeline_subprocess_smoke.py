@@ -38,10 +38,10 @@ MAIN_CHAIN = [
     "judgment_promotion_gate",
     "trade_decision",
     "risk_gate",
-    "freshness_validator",
-    "architecture_reality_audit",
     "system_index",
     "readme_first",
+    "freshness_validator",
+    "architecture_reality_audit",
 ]
 
 # Scripts that support --help (have argparse)

@@ -190,14 +190,21 @@ def _classify_field(field_path: str) -> str:
 
 def _match_approved_marker(filepath: Path, indicator: str, field_path: str) -> dict | None:
     """Check if a reference matches an approved diagnostic marker."""
+    relative_candidates: list[str] = []
     try:
-        rel = str(filepath.resolve().relative_to(ROOT.resolve()))
+        relative_candidates.append(str(filepath.absolute().relative_to(ROOT.absolute())))
     except ValueError:
+        pass
+    try:
+        relative_candidates.append(str(filepath.resolve().relative_to(ROOT.resolve())))
+    except ValueError:
+        pass
+    if not relative_candidates:
         return None
     for pattern, marker in APPROVED_DIAGNOSTIC_MARKERS:
         if marker.get("indicator") != indicator:
             continue
-        if not fnmatch.fnmatch(rel, pattern):
+        if not any(fnmatch.fnmatch(rel, pattern) for rel in relative_candidates):
             continue
         fp = marker.get("field_pattern", "")
         if fp and fp not in field_path:

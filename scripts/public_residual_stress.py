@@ -18,15 +18,26 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from scripts.professional_methods import (
-    TRADING_DAYS,
-    build_forward_stress_events,
-    causal_pit,
-    causal_robust_zscore,
-    incremental_logistic_test,
-    positive_cusum,
-    probability_metrics,
-)
+try:
+    from professional_methods import (
+        TRADING_DAYS,
+        build_forward_stress_events,
+        causal_pit,
+        causal_robust_zscore,
+        incremental_logistic_test,
+        positive_cusum,
+        probability_metrics,
+    )
+except ModuleNotFoundError:
+    from scripts.professional_methods import (
+        TRADING_DAYS,
+        build_forward_stress_events,
+        causal_pit,
+        causal_robust_zscore,
+        incremental_logistic_test,
+        positive_cusum,
+        probability_metrics,
+    )
 
 ResidualMode = Literal["level", "velocity"]
 

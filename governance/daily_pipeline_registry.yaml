@@ -715,7 +715,7 @@ steps:
     ttl_hours: 48
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
-    failure_behavior: continue_with_warning
+    failure_behavior: block_current_readout
     execution:
       mode: subprocess
       current_command: Workbench ml.regime_detector.detect_regime(...)
@@ -728,7 +728,7 @@ steps:
       emits_run_event: true
     authority:
       affects_core_judgment: false
-      failure_behavior: continue_with_warning
+      failure_behavior: block_current_readout
       owner: ML Signals
   archive_hmm_calibration_snapshot:
     order: 12
@@ -1998,7 +1998,7 @@ steps:
     ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
-    failure_behavior: continue_with_warning
+    failure_behavior: block_current_readout
     execution:
       mode: subprocess
       current_command: python scripts/signal_consensus.py
@@ -2011,7 +2011,7 @@ steps:
       emits_run_event: true
     authority:
       affects_core_judgment: false
-      failure_behavior: continue_with_warning
+      failure_behavior: block_current_readout
       owner: Workbench
   strategy_lab_shadow:
     order: 65

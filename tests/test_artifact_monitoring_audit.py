@@ -148,6 +148,27 @@ def test_learning_hub_source_newer_than_ledger_is_failure(tmp_path: Path) -> Non
     assert result["status"] == "SOURCE_AHEAD_OF_LEDGER"
 
 
+def test_checkpoint_mtime_does_not_trip_learning_hub_lag(tmp_path: Path) -> None:
+    """Agent checkpoints must not fail nightly monitoring --strict."""
+    ledger = tmp_path / "Data" / "system_learning" / "ledgers" / "system_event_ledger.parquet"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("ledger", encoding="utf-8")
+    event = tmp_path / "Output" / "system_learning" / "events" / "run_events_2026-07-17.jsonl"
+    event.parent.mkdir(parents=True)
+    event.write_text("{}\n", encoding="utf-8")
+    checkpoint = tmp_path / ".cursor" / "checkpoints" / "note.md"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_text("# note\n", encoding="utf-8")
+    os.utime(ledger, (3000, 3000))
+    os.utime(event, (2000, 2000))
+    os.utime(checkpoint, (4000, 4000))
+
+    result = learning_hub_source_lag(tmp_path)
+
+    assert result["status"] == "PASS"
+    assert "checkpoints" not in str(result.get("newest_source") or "")
+
+
 def test_report_fails_when_weekly_contract_is_unmonitored(tmp_path: Path) -> None:
     _write_registry(tmp_path, {"orphan": {"status": "active", "schedule": "weekly"}})
 
@@ -291,7 +312,6 @@ def test_live_registry_classifies_authority_paths() -> None:
     assert sandbox["owner"]
     assert registry["monitoring_classification"]["rules"]
 
-
 def test_monitoring_contract_covers_static_path_and_requires_target(tmp_path: Path) -> None:
     registry = {
         "steps": {},
@@ -347,3 +367,64 @@ def test_pointer_monitor_rejects_broken_symlink(tmp_path: Path) -> None:
             "kind": "broken_monitoring_contract_pointer",
         }
     ]
+
+
+def test_strict_exit_ignores_known_coverage_debt() -> None:
+    """Pipeline --strict must not fail forever on classified coverage gaps."""
+    from artifact_monitoring_audit import strict_exit_nonzero
+
+    assert strict_exit_nonzero({
+        "weekly_contract_violations": [],
+        "unresolved_monitoring_blind_spots": [],
+        "new_required_coverage_gaps": [],
+        "learning_hub_source_lag": {"status": "PASS"},
+        "status": "FAIL",
+        "summary": {"required_coverage_gap_count": 51},
+    }) is False
+
+
+def test_strict_exit_trips_on_unresolved_blind_spots() -> None:
+    from artifact_monitoring_audit import strict_exit_nonzero
+
+    assert strict_exit_nonzero({
+        "weekly_contract_violations": [],
+        "unresolved_monitoring_blind_spots": [{"path": "Output/x", "class": "unclassified"}],
+        "new_required_coverage_gaps": [],
+        "learning_hub_source_lag": {"status": "PASS"},
+        "status": "FAIL",
+    }) is True
+
+
+def test_strict_exit_trips_on_new_gaps_beyond_baseline() -> None:
+    from artifact_monitoring_audit import strict_exit_nonzero
+
+    assert strict_exit_nonzero({
+        "weekly_contract_violations": [],
+        "unresolved_monitoring_blind_spots": [],
+        "new_required_coverage_gaps": [
+            {"path": "Output/current/brand_new.json", "class": "authoritative"}
+        ],
+        "learning_hub_source_lag": {"status": "PASS"},
+        "status": "FAIL",
+    }) is True
+
+
+def test_diff_coverage_gaps_against_baseline() -> None:
+    from artifact_monitoring_audit import diff_coverage_gaps_against_baseline
+
+    gaps = [
+        {"path": "Output/a.json", "class": "authoritative"},
+        {"path": "Output/b.json", "class": "authoritative"},
+    ]
+    diff = diff_coverage_gaps_against_baseline(gaps, ["Output/a.json", "Output/old.json"])
+    assert diff["new_gap_count"] == 1
+    assert diff["new_gaps"][0]["path"] == "Output/b.json"
+    assert diff["cleared_paths"] == ["Output/old.json"]
+    assert diff["baselined_count"] == 1
+
+
+def test_live_baseline_covers_current_required_gaps() -> None:
+    """Committed debt baseline must absorb today's required gaps (no false new)."""
+    report = build_report(ROOT, now=datetime.now(UTC))
+    assert report["summary"]["new_required_coverage_gap_count"] == 0
+    assert report["coverage_debt_baseline"]["missing"] is False

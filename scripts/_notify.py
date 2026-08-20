@@ -203,7 +203,15 @@ def notify_deviations(title: str, deviations: list[str], *, severity: str = "err
     preview = "; ".join(compact[:3])
     if len(compact) > 3:
         preview += f"; +{len(compact) - 3} more"
-    return notify_failure(title, preview, severity=severity)
+    try:
+        return notify_failure(title, preview, severity=severity)
+    except TypeError as exc:
+        # Keep small test doubles and older local integrations that still
+        # expose notify_failure(title, message) compatible with the richer
+        # observability signature.
+        if "severity" not in str(exc):
+            raise
+        return notify_failure(title, preview)
 
 
 def _notify_desktop(title: str, message: str) -> bool:
@@ -237,7 +245,10 @@ def notify_daily_run_result(
     warnings: list[str],
     outcome: dict[str, object] | None = None,
     canonical_lineage: dict[str, object] | None = None,
+    content_stale: list[str] | None = None,
+    publish_blocked: str | None = None,
 ) -> None:
+    """Notify hard failures while keeping known soft debt in the audit file."""
     outcome_suffix = ""
     if outcome:
         outcome_suffix = (
@@ -254,7 +265,14 @@ def notify_daily_run_result(
         # granting any publication authority.
         outcome_suffix += f"; canonical_lineage={lineage_status}"
     outcome_failed = bool(outcome and int(outcome.get("exit_code") or 0) != 0)
-    if status == "success" and not warnings and not outcome_failed:
+    hard: list[str] = [f"failed step: {step}" for step in failed_steps if step]
+    for item in content_stale or []:
+        text = str(item).strip()
+        if text:
+            hard.append(f"content stale: {text}")
+    if publish_blocked:
+        hard.append(f"publish blocked: {publish_blocked}")
+    if status == "success" and not warnings and not outcome_failed and not hard:
         return
     outcome_degraded = bool(
         outcome
@@ -263,7 +281,7 @@ def notify_daily_run_result(
             or outcome.get("operational_state") == "COMPLETED_DEGRADED"
         )
     )
-    if failed_steps or outcome_failed:
+    if hard or outcome_failed:
         if outcome_degraded and not failed_steps:
             title = "System daily_run warnings"
             severity = "warning"
@@ -272,7 +290,7 @@ def notify_daily_run_result(
             severity = "error"
         if _dedup_notification(
             status=status,
-            failed_steps=failed_steps,
+            failed_steps=[*failed_steps, *hard],
             warnings=warnings,
             outcome=outcome,
         ):
@@ -280,22 +298,16 @@ def notify_daily_run_result(
             return
         notify_deviations(
             title,
-            [f"failed step: {step}" for step in failed_steps]
-            + ([f"outcome{outcome_suffix}"] if outcome_suffix else ["outcome=missing"]),
+            hard + ([f"outcome{outcome_suffix}"] if outcome_suffix else ["outcome=missing"]),
             severity=severity,
         )
         return
+    # Warnings-only: log for local runs, never push.
     if warnings:
-        if _dedup_notification(
-            status=status,
-            failed_steps=failed_steps,
-            warnings=warnings,
-            outcome=outcome,
-        ):
-            logger.info("Suppressed duplicate daily-run warning")
-            return
-        notify_deviations(
-            "System daily_run warnings",
-            [*warnings, f"outcome{outcome_suffix}", "details: Output/alerts/latest_alert.md"],
-            severity="warning",
+        print(
+            f"NOTIFY[soft]: System daily_run warnings — "
+            f"{'; '.join(str(w) for w in warnings[:4])}"
+            f"{'; +…' if len(warnings) > 4 else ''} "
+            f"(see Output/alerts/latest_alert.md)",
+            file=sys.stderr,
         )

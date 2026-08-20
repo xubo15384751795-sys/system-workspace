@@ -48,8 +48,8 @@ providers:
   direct_ofr:
     source_id: ofr
     kind: public_file
-    url: https://www.financialresearch.gov/financial-stress-index/
-    note: "Direct CSV download from OFR website."
+    url: https://www.financialresearch.gov/financial-stress-index/data/fsi.csv
+    note: "Direct CSV download from OFR website (fsi.csv export, not the HTML page)."
   external_public:
     source_id: external_public
     kind: public_api

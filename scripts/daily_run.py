@@ -29,32 +29,25 @@ import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from system_runtime.events import EventEnvelope, JsonlEventStore
-from system_runtime.run_outcome import (
-    ADMISSION_BLOCK,
-    ADMISSION_PASS,
-    EXECUTION_FAILED,
-    EXECUTION_SUCCESS,
-    EXIT_MANDATORY_SINK_FAILURE,
-    PUBLISH_COMMITTED,
-    PUBLISH_NOT_PUBLISHED,
-    REASON_EARLY_RUN_FAILURE,
-    REASON_MANDATORY_SINK_FAILED,
-    REASON_PUBLISH_NOT_COMMITTED,
-    REASON_RECOVERY_REQUIRED,
-    REASON_REQUIRED_STEP_FAILED,
-    REASON_SCHEDULE_SLOT_ALREADY_CLAIMED,
-    REASON_STEP_BLOCKED,
-    REASON_TRANSACTION_FAILED,
-    REASON_TRANSACTION_ROLLED_BACK,
-    SPEC_OK,
-    RunOutcome,
+from run_bundle import RunBundle
+
+from scripts._constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
+from scripts._current_publish import (
+    begin_candidate,
+    clear_candidate_env,
+    publish_candidate,
+    run_freshness_check,
+    should_publish,
 )
-
-logger = logging.getLogger(__name__)
-
+from scripts._daily_run_sequence import (
+    dry_run_labels,
+    load_daily_run_sequence,
+    weekly_step_ids,
+)
+from scripts._notify import notify_daily_run_result
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, surface_dir
 from system_runtime.canonical_lineage import summarize_step_lineage
+from system_runtime.events import EventEnvelope, JsonlEventStore
 from system_runtime.minimum_monitoring import (
     evaluate_minimum_monitoring,
     notification_dedup_key,
@@ -77,6 +70,26 @@ from system_runtime.publish_transaction import (
     PublishTransaction,
     TransactionState,
 )
+from system_runtime.run_outcome import (
+    ADMISSION_BLOCK,
+    ADMISSION_PASS,
+    EXECUTION_FAILED,
+    EXECUTION_SUCCESS,
+    EXIT_MANDATORY_SINK_FAILURE,
+    PUBLISH_COMMITTED,
+    PUBLISH_NOT_PUBLISHED,
+    REASON_EARLY_RUN_FAILURE,
+    REASON_MANDATORY_SINK_FAILED,
+    REASON_PUBLISH_NOT_COMMITTED,
+    REASON_RECOVERY_REQUIRED,
+    REASON_REQUIRED_STEP_FAILED,
+    REASON_SCHEDULE_SLOT_ALREADY_CLAIMED,
+    REASON_STEP_BLOCKED,
+    REASON_TRANSACTION_FAILED,
+    REASON_TRANSACTION_ROLLED_BACK,
+    SPEC_OK,
+    RunOutcome,
+)
 from system_runtime.schedule_slots import (
     ScheduledSlotStore,
     completed_session_slot_key,
@@ -85,23 +98,9 @@ from system_runtime.schedule_slots import (
     default_database as default_schedule_database,
 )
 
+logger = logging.getLogger(__name__)
 RUNTIME_DIR = ROOT / "Output" / "runtime_events"
 ALERT_DIR = ROOT / "Output" / "alerts"
-from run_bundle import RunBundle
-
-from scripts._constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
-from scripts._current_publish import (
-    begin_candidate,
-    clear_candidate_env,
-    publish_candidate,
-    should_publish,
-)
-from scripts._daily_run_sequence import (
-    dry_run_labels,
-    load_daily_run_sequence,
-    weekly_step_ids,
-)
-from scripts._notify import notify_daily_run_result
 
 
 def _diagnostic_route_policies(steps: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -230,8 +229,8 @@ def _candidate_decision_lineage(generation_dir: Path) -> dict[str, object] | Non
         result["canonical_claim_chains"] = payload["canonical_claim_chains"]
     return result
 
-
-from scripts._pipeline_runner import run_registry_step
+from scripts._pipeline_dag import classify_step_failures
+from scripts._pipeline_runner import load_registry, run_registry_step
 from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
 
 # Numbered user-facing stages in the pipeline
@@ -303,16 +302,18 @@ def check_warnings() -> list[str]:
     elif freshness["status"] == "missing":
         warnings.append("MISSING: neutral_pressure_snapshot.json does not exist")
 
-    # 2. Coverage status
+    # 2. Coverage status — ACTIVE_PARTIAL / DEGRADED_PARTIAL are normal
+    # research operating modes and must not page every nightly run.
     fw_path = surface_dir("current") / "neutral_pressure_snapshot.json"
+    _benign_coverage = {"ACTIVE_FULL", "ACTIVE_PARTIAL", "DEGRADED_PARTIAL"}
     if fw_path.exists():
         try:
             fw = json.loads(fw_path.read_text(encoding="utf-8"))
             overall = fw.get("basic", {}).get("overall", "UNKNOWN")
             quality = fw.get("basic", {}).get("quality_status", "UNKNOWN")
-            if overall != "ACTIVE_FULL":
+            if overall not in _benign_coverage:
                 warnings.append(f"COVERAGE: overall={overall}")
-            if "PROXY_REDUCED" in quality:
+            if "PROXY_REDUCED" in str(quality):
                 warnings.append(f"QUALITY: {quality}")
         except Exception:
             warnings.append("PARSE_ERROR: cannot read neutral_pressure_snapshot.json")
@@ -385,8 +386,6 @@ def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
             occurred_at=str(event.get("timestamp") or "") or None,
         )
     )
-
-
 def write_alert(
     warnings: list[str],
     steps: list[dict],
@@ -394,11 +393,19 @@ def write_alert(
     outcome: dict | None = None,
     provider_status: str | None = None,
 ) -> None:
-    """Write alert files."""
+    """Write an auditable alert, separating hard and tolerated step failures."""
     alert_dir = output_root / "alerts" if output_root else ALERT_DIR
     ensure_dir(alert_dir)
     now = datetime.now(UTC).isoformat()
-    failed_steps = [s for s in steps if s.get("status") != "success"]
+    hard_failures, soft_failures = classify_step_failures(steps)
+    known_step_ids = set(load_registry().get("steps", {}))
+    unknown_failures = [
+        step for step in soft_failures
+        if str(step.get("step") or "") not in known_step_ids
+    ]
+    if unknown_failures:
+        hard_failures.extend(unknown_failures)
+        soft_failures = [step for step in soft_failures if step not in unknown_failures]
     run_id = str((outcome or {}).get("run_id") or os.environ.get("ZCODE_BUNDLE_RUN_ID") or "")
     release_id = str(
         (outcome or {}).get("release_id")
@@ -416,12 +423,12 @@ def write_alert(
     )
     alert_status = (
         "partial_failure"
-        if failed_steps or (outcome_failed and not outcome_degraded)
+        if hard_failures or (outcome_failed and not outcome_degraded)
         else "degraded"
         if outcome_degraded
         else "success"
     )
-    failed_step_ids = [str(step.get("step", "")) for step in failed_steps]
+    failed_step_ids = [str(step.get("step", "")) for step in hard_failures]
     provider_status_value = str(
         provider_status
         or (outcome or {}).get("provider_status")
@@ -445,9 +452,9 @@ def write_alert(
 
     severity = (
         "HIGH"
-        if failed_steps or (outcome_failed and not outcome_degraded)
+        if hard_failures or (outcome_failed and not outcome_degraded)
         else "MEDIUM"
-        if warnings or outcome_degraded
+        if soft_failures or warnings or outcome_degraded
         else "LOW"
     )
     if provider_policy:
@@ -457,7 +464,7 @@ def write_alert(
             "WARNING": "MEDIUM",
             "ERROR": "HIGH",
         }[provider_policy["alert"]]
-        if outcome_degraded and not failed_steps:
+        if outcome_degraded and not hard_failures:
             # The provider policy remains visible in the alert payload, but a
             # completed/degraded run is a warning channel event, not a new
             # system-crash notification.
@@ -487,15 +494,17 @@ def write_alert(
                 "error": (s.get("stdout_tail") or "")[-300:],
                 "duration_s": s.get("duration_s", 0),
             }
-            for s in failed_steps
+            for s in hard_failures
         ],
+        "soft_failed_steps": [str(s.get("step", "")) for s in soft_failures],
         # SYS-21 reader dual-read: canonical IDs are observable context only.
         # The alert's run/release/generation fields remain the notification
         # and authority lineage contract.
         "canonical_lineage": summarize_step_lineage(steps, run_id=run_id),
         "summary": (
-            f"{len(failed_steps)} steps failed, {len(warnings)} warnings"
-            if failed_steps or warnings
+            f"{len(hard_failures)} hard failures, {len(soft_failures)} soft failures, "
+            f"{len(warnings)} warnings"
+            if hard_failures or soft_failures or warnings
             else (
                 f"Run completed in degraded mode; admission/publish remains blocked "
                 f"(exit_code={outcome.get('exit_code')})"
@@ -529,9 +538,14 @@ def write_alert(
         f"**Summary:** {alert['summary']}",
         "",
     ]
-    if failed_steps:
-        lines.append("## Failed Steps")
-        for s in failed_steps:
+    if hard_failures:
+        lines.append("## Failed Steps (HARD)")
+        for s in hard_failures:
+            lines.append(f"- {s['step']}: {s.get('status', '?')}")
+        lines.append("")
+    if soft_failures:
+        lines.append("## Soft Failures")
+        for s in soft_failures:
             lines.append(f"- {s['step']}: {s.get('status', '?')}")
         lines.append("")
     if warnings:
@@ -998,7 +1012,13 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     # the checkout has undergone the recoverable surface migration.
     freshness = check_freshness()
     warnings = check_warnings()
-    run_status = "success" if all(s.get("status") == "success" for s in steps) else "partial_failure"
+    hard_failures, soft_failures = classify_step_failures(steps)
+    for step in soft_failures:
+        warnings.append(f"soft_fail:{step.get('step')}")
+    run_status = "success" if not hard_failures else "partial_failure"
+    freshness_report = run_freshness_check(gate="publish")
+    if not freshness_report.get("verdict"):
+        freshness_report = load_json(surface_dir("quality") / "freshness_report.json") or {}
     published_current = False
     published_shadow = False
     admission_token: PublishAdmission | None = None
@@ -1007,9 +1027,6 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     transaction_failure_codes: list[str] = []
 
     if transaction is not None:
-        freshness_report = load_json(surface_dir("quality") / "freshness_report.json") or (
-            freshness if isinstance(freshness, dict) and "verdict" in freshness else {}
-        )
         transaction.write_lineage()
         evidence_digest = bundle.evidence_digest(transaction.generation_dir)
         generation_digest = transaction.generation_digest
@@ -1143,7 +1160,6 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
         # the pointer decision.
         os.environ["SYSTEM_GENERATION_MODE"] = "0"
     else:
-        freshness_report = load_json(surface_dir("quality") / "freshness_report.json") or {}
         can_publish, publish_reason = should_publish(run_status, freshness_report)
         diagnostic_routes = _diagnostic_route_policies(steps)
         if diagnostic_routes:
@@ -1189,7 +1205,7 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
             logger.warning("Skipped shadow publish (run not publishable)")
         clear_shadow_candidate_env()
 
-    failed_step_ids = [s["step"] for s in steps if s.get("status") not in ("success",)]
+    failed_step_ids = [str(s.get("step")) for s in hard_failures]
     blocked_step_ids = [s["step"] for s in steps if s.get("status") == "blocked_upstream"]
     degraded_step_ids = [s["step"] for s in steps if s.get("degraded")]
     provider_statuses = [
@@ -1278,6 +1294,17 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
 
     # Runtime event
     end_time = datetime.now(UTC)
+    content_stale = [
+        f"{item.get('name')} max={item.get('max_date')} behind={item.get('trading_days_behind')}d"
+        for item in freshness_report.get("content_freshness") or []
+        if item.get("status") == "STALE"
+    ]
+    publish_blocked: str | None = None if can_publish else publish_reason
+    if publish_blocked and not any(
+        str(w).startswith(("PUBLISH_BLOCKED:", "PUBLISH_COMMIT_FAILED:", "SHADOW_PUBLISH_FAILED:"))
+        for w in warnings
+    ):
+        warnings.append(f"PUBLISH_BLOCKED: {publish_blocked}")
     event = {
         "run_id": outcome.run_id,
         "schedule_run_id": f"daily_{start_time.strftime('%Y%m%d_%H%M')}",
@@ -1337,14 +1364,20 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     event["minimum_monitoring"] = minimum_monitoring
     write_runtime_event(event, output_root=output_root if args.output_root else None)
 
-    failed_steps = [s["step"] for s in steps if s.get("status") != "success"]
-    notify_daily_run_result(
-        status=run_status,
-        failed_steps=failed_steps,
-        warnings=warnings,
-        outcome=outcome_dict,
-        canonical_lineage=canonical_lineage,
-    )
+    notification_kwargs: dict[str, object] = {
+        "status": run_status,
+        "failed_steps": [str(s.get("step")) for s in hard_failures],
+        "warnings": warnings,
+        "outcome": outcome_dict,
+        "canonical_lineage": canonical_lineage,
+    }
+    # Keep older legacy executors and test doubles source-compatible: the new
+    # hard-notification fields are only passed when they carry evidence.
+    if content_stale:
+        notification_kwargs["content_stale"] = content_stale
+    if publish_blocked:
+        notification_kwargs["publish_blocked"] = publish_blocked
+    notify_daily_run_result(**notification_kwargs)
 
     # Finish run bundle
     bundle_dir = bundle.finish(status=run_status)
@@ -1411,7 +1444,7 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
             write_runtime_event(event, output_root=output_root if args.output_root else None)
             notify_daily_run_result(
                 status=mandatory_outcome.status,
-                failed_steps=failed_steps,
+                failed_steps=failed_step_ids,
                 warnings=[f"MANDATORY_SINK_FAILED: {type(exc).__name__}"],
                 outcome=mandatory_dict,
                 canonical_lineage=summarize_step_lineage(steps, run_id=mandatory_outcome.run_id),

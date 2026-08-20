@@ -1266,6 +1266,31 @@ check_schedule_manifest:
   description: Read-only audit of tracked and installed launchd schedule boundaries
   allowed_use:
   - schedule_boundary_audit
+clean_checkout_boundary:
+  script: scripts/commands/ci/clean_checkout_boundary.py
+  status: governance_active
+  owner: Governance
+  description: Assert clean-checkout tests do not materialize Data/ or Output/ surfaces
+  allowed_use:
+  - clean_checkout_boundary_audit
+run_etf_provider_parity:
+  script: scripts/run_etf_provider_parity.py
+  status: shadow_active
+  owner: Harvester
+  description: Run the explicit Tiingo/Massive ETF provider parity shadow comparison
+  allowed_use:
+  - provider_parity_validation
+  forbidden_use:
+  - daily_pipeline
+  - core_judgment
+  - fallback_authority
+verify_data_reliability_window:
+  script: scripts/verify_data_reliability_window.py
+  status: governance_active
+  owner: Governance
+  description: Read the real launchd evidence window without counting synthetic test runs
+  allowed_use:
+  - data_reliability_window_audit
 migrate_feedback_eligibility:
   script: scripts/commands/weekly/migrate_feedback_eligibility.py
   status: blocked

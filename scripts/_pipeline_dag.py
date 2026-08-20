@@ -68,6 +68,36 @@ def _propagates_failure(step_id: str) -> bool:
     }
 
 
+# Soft failures must not flip daily_run to partial_failure, block publish, or
+# fire a HARD desktop alert. They stay in warnings / learning feedback.
+_SOFT_FAILURE_BEHAVIORS = frozenset({"continue_with_warning", "research_only"})
+
+
+def classify_step_failures(
+    steps: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split non-success steps into (hard_failures, soft_failures).
+
+    - ``continue_with_warning`` / ``research_only`` / unset → soft
+    - ``blocked_upstream`` → omitted (cascade noise; upstream is the root)
+    - blocking failure_behavior with status failed → hard
+    """
+    hard: list[dict[str, Any]] = []
+    soft: list[dict[str, Any]] = []
+    for step in steps:
+        status = step.get("status", "")
+        if status == "success" or status == "blocked_upstream":
+            continue
+        step_id = str(step.get("step") or "")
+        fb = failure_behavior_of(step_id)
+        # Unset defaults to continue_with_warning in registry docs.
+        if not fb or fb in _SOFT_FAILURE_BEHAVIORS:
+            soft.append(step)
+        else:
+            hard.append(step)
+    return hard, soft
+
+
 @lru_cache(maxsize=1)
 def _edges() -> dict[str, list[str]]:
     """Map consumer step_id -> list of producer step_ids.
