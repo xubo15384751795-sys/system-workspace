@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -9,10 +10,12 @@ import harvester.http_gateway as gateway_module
 from harvester.http_gateway import OwnedHTTPGateway
 from harvester.providers.h41 import (
     H41_DDP_MAP,
+    H41_DDP_TABLE1_PACKAGE,
     H41_FRED_MAP,
     H41_SOURCE_NOTE,
     H41_UNITS,
     H41Provider,
+    _parse_ddp_series_csv,
 )
 
 FRED_H41_RESPONSE = {
@@ -71,6 +74,82 @@ def _allow_fake_gateway_hosts(monkeypatch):
 
 
 class TestH41Provider:
+    def test_real_ddp_table1_fixture_parses_total_and_primary_rows(self) -> None:
+        fixture = Path(__file__).parent / "fixtures" / "h41_ddp_table1_real.html"
+        text = fixture.read_text(encoding="utf-8")
+        codes = H41_DDP_MAP["discount_window"]
+        assert isinstance(codes, tuple)
+
+        total = _parse_ddp_series_csv(text, codes, "discount_window")
+        primary = _parse_ddp_series_csv(text, (H41_DDP_MAP["primary_credit"],), "primary_credit")
+
+        assert total.iloc[-1]["value"] == 5101.0
+        assert primary.iloc[-1]["value"] == 5038.0
+
+    def test_ddp_request_uses_preformatted_package_params(self, tmp_path) -> None:
+        requests: list[dict[str, str]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(dict(request.url.params))
+            return _mock_response({}, text=DDP_H41_RESPONSE)
+
+        gateway = OwnedHTTPGateway(transport=httpx.MockTransport(handler))
+        with gateway:
+            result = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway).fetch_series(
+                ["primary_credit"]
+            )[0]
+
+        assert result.fetch_error is None
+        assert requests[0]["series"] == H41_DDP_TABLE1_PACKAGE
+        assert requests[0]["type"] == "package"
+        assert requests[0]["lastobs"] == "5000"
+
+    def test_btfp_missing_from_current_table_uses_public_fred_graph(self, tmp_path) -> None:
+        graph = "DATE,H41RESPPALDKNWW\n2024-01-03,10\n2024-01-10,0\n"
+        with _gateway(
+            _mock_response({}, text=(Path(__file__).parent / "fixtures" / "h41_ddp_table1_real.html").read_text()),
+            _mock_response({}, text=graph),
+        ) as gateway:
+            result = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway).fetch_series(
+                ["btfp"]
+            )[0]
+
+        assert result.fetch_error is None
+        assert result.source_params["method"] == "fred_public_graph"
+        assert result.frame["value"].tolist() == [10.0, 0.0]
+
+    def test_btfp_graph_transport_failure_uses_captured_fred_history(self, tmp_path) -> None:
+        raw_dir = tmp_path / "raw" / "h41"
+        raw_dir.mkdir(parents=True)
+        (raw_dir / "h41_H41RESPPALDKNWW_raw.json").write_text(
+            json.dumps(
+                {
+                    "frequency": "Weekly, Ending Wednesday",
+                    "observations": [
+                        {"observation_date": "2024-01-03", "value": "10"},
+                        {"observation_date": "2024-01-10", "value": "0"},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        with _gateway(
+            _mock_response(
+                {},
+                text=(Path(__file__).parent / "fixtures" / "h41_ddp_table1_real.html").read_text(),
+            ),
+            _mock_response({}, status=503),
+        ) as gateway:
+            result = H41Provider(data_root=str(tmp_path), cache=False, gateway=gateway).fetch_series(
+                ["btfp"]
+            )[0]
+
+        assert result.fetch_error is None
+        assert result.source_params["method"] == "fred_cached_history"
+        assert result.source_params["verification_status"] == "CACHED"
+        assert result.frame["value"].tolist() == [10.0, 0.0]
+        assert "public_fred_graph_failed" in (result.fetch_fallback_reason or "")
+
     def test_field_mappings_exist(self) -> None:
         assert "discount_window" in H41_DDP_MAP
         assert "primary_credit" in H41_DDP_MAP

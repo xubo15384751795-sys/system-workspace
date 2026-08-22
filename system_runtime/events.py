@@ -15,6 +15,22 @@ ENVELOPE_SCHEMA = "system.event_envelope.v1"
 logger = logging.getLogger(__name__)
 
 
+def runtime_event_paths(runtime_dir: Path, *, include_legacy: bool = True) -> list[Path]:
+    """List runtime event files under the canonical and legacy names.
+
+    New writers use ``run_events_YYYY-MM-DD.jsonl``.  The date-only pattern is
+    retained as a read-only compatibility path for historical daily-run
+    envelopes already present in ``Output/runtime_events``.
+    """
+    root = Path(runtime_dir)
+    if not root.exists():
+        return []
+    paths = list(root.glob("run_events_*.jsonl"))
+    if include_legacy:
+        paths.extend(root.glob("????-??-??.jsonl"))
+    return sorted({path for path in paths if path.is_file()})
+
+
 @dataclass(frozen=True)
 class EventEnvelope:
     event_type: str

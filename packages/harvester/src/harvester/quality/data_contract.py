@@ -6,12 +6,14 @@ valid but stale. The release boundary must record both facts.
 """
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
 
 DATA_CONTRACT_VIOLATION = "DATA_CONTRACT_VIOLATION"
+ETF_PRE_LISTING_EXCEPTION = "ETF 上市日前无数据"
+_ALLOWED_DECLARED_EXCEPTIONS = frozenset({ETF_PRE_LISTING_EXCEPTION})
 CROSS_ASSET_REQUIRED_COLUMNS = (
     "date",
     "symbol",
@@ -37,12 +39,39 @@ def validate_cross_asset_panel_contract(
     frame: pd.DataFrame,
     *,
     expected_symbols: Iterable[str] | None = None,
+    listing_dates: Mapping[str, object] | None = None,
+    declared_exceptions: Iterable[str] | None = None,
     require_nonempty: bool = False,
     raise_on_error: bool = False,
 ) -> dict[str, Any]:
     """Validate the cross-asset panel shape and primary-key invariants."""
     violations: list[str] = []
     warnings: list[str] = []
+    declared = sorted(
+        {
+            str(item).strip()
+            for item in (declared_exceptions or [])
+            if str(item).strip()
+        }
+    )
+    unsupported_exceptions = sorted(
+        set(declared).difference(_ALLOWED_DECLARED_EXCEPTIONS)
+    )
+    if unsupported_exceptions:
+        violations.append(
+            "unsupported_declared_exceptions:" + ",".join(unsupported_exceptions)
+        )
+    if ETF_PRE_LISTING_EXCEPTION in declared and not listing_dates:
+        violations.append("pre_listing_exception_requires_listing_dates")
+
+    parsed_listing_dates: dict[str, pd.Timestamp] = {}
+    for symbol, value in (listing_dates or {}).items():
+        parsed = pd.to_datetime(value, errors="coerce")
+        if pd.isna(parsed):
+            violations.append(f"unparseable_listing_date:{symbol}")
+        else:
+            parsed_listing_dates[str(symbol)] = pd.Timestamp(parsed)
+
     missing_columns = [column for column in CROSS_ASSET_REQUIRED_COLUMNS if column not in frame.columns]
     if missing_columns:
         violations.append(f"missing_columns:{','.join(missing_columns)}")
@@ -88,12 +117,26 @@ def validate_cross_asset_panel_contract(
         expected = sorted({str(symbol) for symbol in expected_symbols if str(symbol).strip()})
         observed = sorted({str(symbol) for symbol in frame["symbol"].dropna().unique()})
         missing = sorted(set(expected) - set(observed))
+        pre_listing_symbols: list[str] = []
+        panel_end = parsed_dates.max() if not parsed_dates.empty else pd.NaT
+        if (
+            ETF_PRE_LISTING_EXCEPTION in declared
+            and pd.notna(panel_end)
+            and parsed_listing_dates
+        ):
+            pre_listing_symbols = sorted(
+                symbol
+                for symbol in missing
+                if symbol in parsed_listing_dates and panel_end < parsed_listing_dates[symbol]
+            )
+            missing = [symbol for symbol in missing if symbol not in pre_listing_symbols]
         ratio = len(set(observed) & set(expected)) / max(1, len(expected))
         coverage = {
             "expected_count": len(expected),
             "observed_count": len(observed),
             "coverage_ratio": round(ratio, 6),
             "missing_symbols": missing,
+            "pre_listing_symbols": pre_listing_symbols,
         }
         if missing:
             warnings.append(f"coverage_missing_symbols:{','.join(missing)}")
@@ -133,6 +176,7 @@ def validate_cross_asset_panel_contract(
         "violations": violations,
         "warnings": warnings,
         "coverage": coverage,
+        "declared_exceptions": declared,
         "pandera": pandera_status,
     }
     if raise_on_error and violations:
@@ -144,5 +188,6 @@ __all__ = [
     "CROSS_ASSET_REQUIRED_COLUMNS",
     "DATA_CONTRACT_VIOLATION",
     "DataContractViolation",
+    "ETF_PRE_LISTING_EXCEPTION",
     "validate_cross_asset_panel_contract",
 ]

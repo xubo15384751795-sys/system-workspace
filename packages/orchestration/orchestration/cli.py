@@ -37,6 +37,16 @@ def cmd_daily(argv: list[str]) -> int:
     from orchestration.provider_secrets import load_provider_secrets
 
     load_provider_secrets()
+    from system_runtime.observability import init_sentry
+    from system_runtime.runtime_secrets import load_runtime_secrets
+
+    load_runtime_secrets()
+    try:
+        init_sentry()
+    except Exception:  # noqa: BLE001 - observability must not block the pipeline
+        import logging
+
+        logging.getLogger(__name__).debug("Sentry initialization unavailable", exc_info=True)
     # Forward CLI flags to daily_run via env for the job op to consume.
     # Environment values cannot contain NUL bytes.  JSON preserves argument
     # boundaries safely; definitions.py still accepts the historical NUL form

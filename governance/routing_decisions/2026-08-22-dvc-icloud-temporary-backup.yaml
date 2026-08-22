@@ -1,0 +1,47 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-22"
+task_id: dvc-icloud-temporary-backup
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  The workspace had no usable second physical disk, no configured Time Machine
+  destination, and a broken same-disk DVC remote. iCloud Drive is available on
+  this Mac and is selected as the temporary cloud-backed destination.
+decision: >
+  Use iCloud Drive as a temporary DVC local-path remote and as the dated second
+  copy destination for Data/. Keep the DVC remote and backup paths separate:
+  System-DVC-remote/ for DVC objects and System-Data-backups/2026-08-22/Data/
+  for the full Data snapshot. Replace this arrangement with an object-storage
+  remote or external disk when available.
+implementation: >
+  DVC v1 tracks the repaired workspace panel and the four parquet datasets
+  behind the current exports/latest -> 2026-08-18-r2 symlink. The finalized
+  release remains read-only; root-level DVC pointers reference its immutable
+  release paths. DVC default remote is the iCloud Drive System-DVC-remote path.
+observation_window: >
+  The dated Data copy contains 4,862 files and 23,682,518,411 bytes. The
+  repaired panel and CFTC cache hashes match source bytes. DVC pushed 10 cache
+  objects, detected a deliberate panel-row modification, and restored the
+  original panel hash with dvc checkout --force; dvc status is clean.
+rollback: >
+  Remove the temporary iCloud remote from .dvc/config, replace it with the
+  approved external/object-storage remote, and retain the dated iCloud copy
+  until that replacement has passed an independent restore drill.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - DVC default remote is the iCloud Drive System-DVC-remote path
+  - dvc status is clean after checkout restoration
+  - deliberate panel corruption is detected and restored from DVC cache
+  - dated Data copy exists with matching file count, byte count and key hashes
+unresolved_risks:
+  - >
+    iCloud Drive is a synchronization service, not an immutable backup/object
+    store. macOS currently reports the dated Data copy as needs-upload, so the
+    cloud-side completion must be rechecked after iCloud finishes syncing.
+  - >
+    iCloud Drive storage quota and retention are account-level concerns; the
+    temporary snapshot must not be treated as the final disaster-recovery copy.

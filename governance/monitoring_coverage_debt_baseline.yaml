@@ -7,6 +7,7 @@ note: Known required_coverage_gaps accepted as monitoring debt. artifact_monitor
   --strict fails only on gaps NOT listed here (plus contract/unresolved/ledger breaks).
   Shrink this list when monitors are added; do not grow it without a routing decision.
 paths:
+- Data/panels/cross_asset_daily_panel.parquet.dvc
 - Data/panels/benchmark_panel_5yr.parquet
 - Data/panels/cross_asset_daily_panel.csv.gz
 - Data/panels/cross_asset_features.parquet

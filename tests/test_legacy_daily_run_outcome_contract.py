@@ -70,10 +70,21 @@ def test_legacy_dispatch_reaches_the_common_typed_outcome_sinks(monkeypatch, tmp
     def fake_event(event, *, output_root=None):
         sinks["event"] = event
 
-    def fake_notify(*, status, failed_steps, warnings, outcome, canonical_lineage=None):
+    def fake_notify(
+        *,
+        status,
+        failed_steps,
+        warnings,
+        outcome,
+        canonical_lineage=None,
+        content_stale=None,
+        publish_blocked=None,
+    ):
         sinks["notification"] = outcome
         sinks["notification_status"] = status
         sinks["notification_lineage"] = canonical_lineage
+        sinks["notification_content_stale"] = content_stale
+        sinks["notification_publish_blocked"] = publish_blocked
 
     monkeypatch.setenv("SYSTEM_USE_LEGACY_DAILY_RUN", "1")
     monkeypatch.delenv("SYSTEM_GENERATION_MODE", raising=False)
@@ -90,6 +101,12 @@ def test_legacy_dispatch_reaches_the_common_typed_outcome_sinks(monkeypatch, tmp
     monkeypatch.setattr(daily_run, "_capture_traces", lambda _bundle: None)
     monkeypatch.setattr(daily_run, "_collect_feedback_pending", lambda _bundle: None)
     monkeypatch.setattr(daily_run, "check_freshness", lambda: {"verdict": "PASS"})
+    # run_freshness_check feeds the hard-notification fields (content_stale);
+    # stub it too so the contract test stays hermetic against real workspace
+    # freshness state.
+    monkeypatch.setattr(
+        daily_run, "run_freshness_check", lambda gate=None: {"verdict": "PASS"}
+    )
     monkeypatch.setattr(daily_run, "check_warnings", lambda: [])
     monkeypatch.setattr(daily_run, "should_publish", lambda *_args: (True, "fixture"))
     monkeypatch.setattr(daily_run, "begin_candidate", lambda _run_dir: tmp_path / "candidate")

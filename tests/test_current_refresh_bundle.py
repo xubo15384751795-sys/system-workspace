@@ -4,7 +4,7 @@ Hermetic: uses sandbox workspace seeded from tests/fixtures/current_chain.
 Does not touch operator Output/.
 
 See: governance/daily_pipeline_registry.yaml
-     SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md P0-2
+     docs/history/SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md P0-2
 """
 from __future__ import annotations
 

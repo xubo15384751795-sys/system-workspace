@@ -47,6 +47,7 @@ shape_inventory:
   governance_freeze_manifest.yaml: {shape: executable_invariant, attention: zero, role: freeze_baseline}
   governance_tiers.yaml: {shape: executable_invariant, attention: zero, role: attention_classifier}
   external_route_inventory.yaml: {shape: executable_invariant, attention: zero, role: public_route_boundary_inventory}
+  external_source_monitoring.yaml: {shape: executable_invariant, attention: zero, role: monthly_endpoint_monitor}
   incentive_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   mechanism_calibration_gate.yaml: {shape: executable_invariant, attention: zero, role: machine_gate}
   ml_validation_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}

@@ -43,10 +43,17 @@ ExternalTools/qlib_benchmark_runner/__pycache__/
 /packages/Output/
 /paper-empirical-interface/output/
 
-# DVC local cache / workspace metadata (pointer JSON under Data/ may be local-only)
+# DVC cache is local/generated, while DVC project config and pointer files are
+# source-controlled so a checkout knows which datasets belong to the baseline.
 /Data/.dvc_cache/
-/.dvc/
-*.dvc
+/.dvc/*
+!/.dvc/config
+!/.dvc/.gitignore
+
+# DVC pointers under the otherwise generated Data tree.
+!/Data/panels/
+/Data/panels/*
+!/Data/panels/*.dvc
 /configs/great_expectations/.cache/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────

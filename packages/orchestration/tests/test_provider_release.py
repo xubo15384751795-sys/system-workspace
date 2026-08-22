@@ -85,8 +85,17 @@ def test_workspace_policy_is_versioned_and_explicitly_unconfigured() -> None:
     payload = load_provider_release_policy(ROOT)
     validate_provider_release_policy(payload)
     assert payload["schema_version"] == "workbench.provider_release_policy.v1"
+    assert payload["data_contract_mode"] == "shadow"
     assert len(payload["rules"]) == 12
     assert all(rule["calendar_status"] == "unconfigured" for rule in payload["rules"])
+
+
+@pytest.mark.parametrize("mode", ["observe", "", "ENFORCE_NOW"])
+def test_invalid_data_contract_mode_is_rejected(mode: str) -> None:
+    policy = _policy()
+    policy["data_contract_mode"] = mode
+    with pytest.raises(ProviderReleasePolicyError, match="data_contract_mode"):
+        validate_provider_release_policy(policy)
 
 
 def test_available_at_before_decision_is_pass() -> None:

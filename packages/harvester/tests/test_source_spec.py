@@ -6,7 +6,9 @@ import pytest
 
 from harvester.core.source_spec import (
     SourceRegistryValidationError,
+    legacy_registry_path,
     load_source_registry,
+    registry_path,
     validate_source_registry,
 )
 
@@ -28,6 +30,9 @@ def test_workspace_source_registry_is_typed_and_semantic() -> None:
     assert registry.authority_id("cboe") == "cboe"
     assert registry.get("SOFR").route_for("fred").fallback_kind == "primary"  # type: ignore[union-attr]
     assert registry.get("FRED_SERIES").route_for("fred").transport == "owned_http_gateway"  # type: ignore[union-attr]
+    assert registry.get("SRISK").route_for("nyu_vlab").acquisition_mode == "manual"  # type: ignore[union-attr]
+    assert registry.get("SRISK").frequency == "monthly"
+    assert registry.get("COVAR").route_for("nyfed").acquisition_mode == "manual"  # type: ignore[union-attr]
 
 
 def test_source_registry_rejects_unknown_route_source() -> None:
@@ -64,3 +69,12 @@ def test_source_registry_rejects_unknown_route_source() -> None:
 
     with pytest.raises(SourceRegistryValidationError, match="unknown source"):
         validate_source_registry(payload)
+
+
+def test_legacy_registry_path_bridges_to_canonical_with_deprecation(caplog: pytest.LogCaptureFixture) -> None:
+    with pytest.warns(DeprecationWarning, match="Config/data_source_registry.yaml"):
+        registry = load_source_registry(legacy_registry_path())
+
+    assert registry_path().name == "source_registry.yaml"
+    assert registry.authority_id("tiingo") == "tiingo"
+    assert any("deprecated" in record.message.lower() for record in caplog.records)

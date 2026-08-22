@@ -185,7 +185,7 @@ def test_ci_test_layers_emit_pytest_duration_evidence() -> None:
 
 
 def test_compute_device_handoff_declares_operator_timeout_and_duration_evidence() -> None:
-    handoff = (ROOT / "P0_4_COMPUTE_DEVICE_HANDOFF.md").read_text(encoding="utf-8")
+    handoff = (ROOT / "docs" / "history" / "P0_4_COMPUTE_DEVICE_HANDOFF.md").read_text(encoding="utf-8")
     for marker in (
         "PR / hermetic",
         "Package",

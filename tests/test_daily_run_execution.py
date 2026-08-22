@@ -157,6 +157,7 @@ class TestWriteRuntimeEvent:
         assert runtime_dir.exists()
         files = list(runtime_dir.glob("*.jsonl"))
         assert len(files) == 1
+        assert files[0].name.startswith("run_events_")
 
         lines = files[0].read_text(encoding="utf-8").strip().split("\n")
         assert len(lines) == 1

@@ -158,6 +158,63 @@ def test_stage_cross_asset_panel_writes_manifest_and_workspace_copy(
     assert len(copied) == 3
 
 
+def test_shadow_contract_records_block_without_replacing_workspace_mirror(
+    tmp_path: Path, monkeypatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    mirror = workspace / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+    mirror.parent.mkdir(parents=True)
+    valid = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-06-17"]),
+            "symbol": ["SPY"],
+            "open": [1.0],
+            "high": [1.0],
+            "low": [1.0],
+            "close": [1.0],
+            "volume": [2.0],
+            "return_1d": [0.0],
+            "return_5d": [0.0],
+            "return_20d": [0.0],
+            "return_60d": [0.0],
+            "volatility_20d": [0.0],
+            "drawdown_60d": [0.0],
+        }
+    )
+    valid.to_parquet(mirror, index=False)
+    before = mirror.read_bytes()
+    invalid = pd.concat([valid, valid], ignore_index=True)
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.build_cross_asset_panel",
+        lambda **_kwargs: (
+            invalid,
+            {
+                "status": "refreshed",
+                "provider": "fixture",
+                "requested_count": 1,
+                "succeeded_count": 1,
+                "failed_count": 0,
+                "failed_series": [],
+                "retrieved_at": "2026-06-18T00:00:00Z",
+            },
+        ),
+    )
+    monkeypatch.setattr("harvester.cross_asset_panel.resolve_etf_universe", lambda workspace=None: ["SPY"])
+
+    info = stage_cross_asset_panel(
+        tmp_path / "release",
+        release_id="2026-06-18-r2",
+        as_of_date="2026-06-18",
+        vintage_date="2026-06-18",
+        workspace=workspace,
+        data_contract_mode="shadow",
+    )
+
+    assert info["provider_outcome"]["data_contract"]["status"] == "BLOCK"
+    assert info["provider_outcome"]["data_contract"]["mode"] == "shadow"
+    assert mirror.read_bytes() == before
+
+
 def test_build_cross_asset_panel_returns_columns_when_seeded(tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "workspace"
     panel_dir = workspace / "Data" / "panels"
@@ -263,6 +320,40 @@ def test_registry_rows_are_adapted_to_cross_asset_prefetch(tmp_path: Path, monke
     assert prefetched.iloc[0]["close"] == pytest.approx(80.5)
 
 
+def test_registry_prefetch_filters_mixed_provider_metadata(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["HYG"],
+    )
+    registry_panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-12", "2026-08-12"]),
+            "source_series_id": ["HYG", "NFCI"],
+            "value": [80.5, 1.2],
+            "open": [80.0, 1.2],
+            "high": [81.0, 1.2],
+            "low": [79.0, 1.2],
+            "volume": [1.0, 0.0],
+        }
+    )
+    registry_panel.attrs["provider_outcome"] = {
+        "series_providers": {"HYG": "tiingo", "NFCI": "fred"},
+        "series_attempts": {"HYG": [{"provider": "tiingo"}], "NFCI": [{"provider": "fred"}]},
+        "series_source_signatures": {"HYG": {"source": "tiingo"}, "NFCI": {"source": "fred"}},
+        "providers_used": ["tiingo", "fred"],
+        "route_policy": {"diagnostic_only": True},
+    }
+
+    prefetched = prefetched_panel_from_registry(registry_panel, workspace=tmp_path)
+    outcome = prefetched.attrs["provider_outcome"]
+
+    assert outcome["series_providers"] == {"HYG": "tiingo"}
+    assert outcome["series_attempts"] == {"HYG": [{"provider": "tiingo"}]}
+    assert outcome["series_source_signatures"] == {"HYG": {"source": "tiingo"}}
+    assert outcome["providers_used"] == ["tiingo"]
+    assert "route_policy" not in outcome
+
+
 def test_sync_panel_never_mutates_finalized_canonical_release(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     canonical = (
@@ -282,7 +373,11 @@ def test_sync_panel_never_mutates_finalized_canonical_release(tmp_path: Path) ->
         {
             "date": pd.to_datetime(["2026-08-12"]),
             "symbol": ["SPY"],
+            "open": [99.0],
+            "high": [101.0],
+            "low": [98.0],
             "close": [100.0],
+            "volume": [1_000.0],
         }
     )
     mirror = sync_panel_to_workspace(panel, workspace)
@@ -290,6 +385,32 @@ def test_sync_panel_never_mutates_finalized_canonical_release(tmp_path: Path) ->
     assert mirror == workspace / "Data" / "panels" / "cross_asset_daily_panel.parquet"
     assert mirror.exists()
     assert canonical.read_bytes() == before
+
+
+def test_sync_panel_blocks_invalid_candidate_and_preserves_existing_mirror(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    panel_dir = workspace / "Data" / "panels"
+    panel_dir.mkdir(parents=True)
+    valid = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-11"]),
+            "symbol": ["SPY"],
+            "open": [99.0],
+            "high": [101.0],
+            "low": [98.0],
+            "close": [100.0],
+            "volume": [1_000.0],
+        }
+    )
+    mirror = panel_dir / "cross_asset_daily_panel.parquet"
+    valid.to_parquet(mirror, index=False)
+    before = mirror.read_bytes()
+
+    invalid = valid.drop(columns=["volume"])
+    with pytest.raises(ValueError, match="DATA_CONTRACT_VIOLATION"):
+        sync_panel_to_workspace(invalid, workspace)
+
+    assert mirror.read_bytes() == before
 
 
 def test_fetch_recent_ohlcv_accepts_provider_value_column(monkeypatch) -> None:

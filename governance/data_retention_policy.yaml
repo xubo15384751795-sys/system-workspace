@@ -1,5 +1,5 @@
 schema_version: data_retention.v1
-updated_at: "2026-06-17"
+updated_at: "2026-08-22"
 purpose: >
   Data directory retention rules.
   Prevents unbounded growth of experimental data, debug releases, and duplicate formats.
@@ -39,3 +39,15 @@ data_root:
   total_size_budget_mb: 300
   current_size_mb: 205
   headroom_mb: 95
+
+output_runs:
+  path: Output/runs
+  keep_last_n: 200
+  retention_days: null
+  action: archive
+  archive_path: Output/archive/runs
+  note: >
+    Weekly executor moves directories outside both bounds to a recoverable
+    archive. This workspace selects the recent-200 rule; set retention_days to
+    a positive integer only when an age bound is deliberately added. No run
+    directory is deleted by this policy.

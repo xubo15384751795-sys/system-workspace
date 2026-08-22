@@ -1,0 +1,5 @@
+outs:
+- md5: dc37b8a9b1d86904716957874709f20f
+  size: 2258
+  hash: md5
+  path: Data/harvester/exports/2026-08-22-r2/data/corpus_index.parquet

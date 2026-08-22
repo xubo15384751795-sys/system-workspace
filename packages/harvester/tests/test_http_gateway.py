@@ -43,6 +43,47 @@ def test_gateway_fetches_registered_endpoint_with_fake_transport(monkeypatch) ->
     assert calls[0].url.params["series_id"] == "DGS10"
 
 
+def test_gateway_preserves_registered_query_when_no_runtime_params(monkeypatch) -> None:
+    calls: list[httpx.Request] = []
+    endpoint = EndpointSpec(
+        provider="test_provider",
+        endpoint_id="cftc",
+        url="https://api.example.test/resource.json?$select=foo&$limit=10",
+        allowed_hosts=frozenset({"api.example.test"}),
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
+    with OwnedHTTPGateway(
+        {("test_provider", "cftc"): endpoint},
+        transport=httpx.MockTransport(handler),
+    ) as gateway:
+        gateway.fetch("test_provider", "cftc")
+
+    assert calls[0].url.params["$select"] == "foo"
+    assert calls[0].url.params["$limit"] == "10"
+
+
+def test_gateway_proxy_requires_explicit_credential_free_opt_in(monkeypatch) -> None:
+    endpoint = EndpointSpec(
+        provider="test_provider",
+        endpoint_id="series",
+        url="https://api.example.test/series",
+        allowed_hosts=frozenset({"api.example.test"}),
+        proxy_env_var="TEST_PROVIDER_PROXY",
+    )
+
+    monkeypatch.setenv("TEST_PROVIDER_PROXY", "http://127.0.0.1:7897")
+    assert gateway_module._configured_proxy_url(endpoint) == "http://127.0.0.1:7897"
+
+    monkeypatch.setenv("TEST_PROVIDER_PROXY", "http://user:secret@127.0.0.1:7897")
+    with pytest.raises(GatewayPolicyError, match="proxy"):
+        gateway_module._configured_proxy_url(endpoint)
+
+
 def test_gateway_public_fetch_surface_is_provider_endpoint_and_params_only() -> None:
     assert list(inspect.signature(OwnedHTTPGateway.fetch).parameters) == [
         "self", "provider", "endpoint_id", "params"

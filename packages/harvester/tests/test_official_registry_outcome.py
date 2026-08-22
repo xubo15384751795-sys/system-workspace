@@ -86,6 +86,136 @@ def test_registry_fetch_records_partial_provider_outcome(tmp_path) -> None:
     assert outcome["failed_series"] == ["BAD_SERIES"]
 
 
+def test_registry_fetch_leaves_external_managed_series_to_external_provider(tmp_path) -> None:
+    registry = SeriesRegistry(
+        schema_version="1.0",
+        series={
+            "OK_SERIES": RegistrySeries(
+                canonical_id="OK_SERIES",
+                source_series_id="OK_SERIES",
+                provider_priority=("fake",),
+                measurement_block="test",
+                structural_role="test",
+                frequency="daily",
+            ),
+            "EXTERNAL_SERIES": RegistrySeries(
+                canonical_id="EXTERNAL_SERIES",
+                source_series_id="EXTERNAL_SERIES",
+                provider_priority=("external_public",),
+                measurement_block="test",
+                structural_role="test",
+                frequency="daily",
+            ),
+        },
+        providers={},
+    )
+
+    class FakeProvider:
+        source_id = "fake"
+
+        def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
+            assert series_ids == ["OK_SERIES"]
+            return [
+                ProviderResult(
+                    "fake",
+                    "OK_SERIES",
+                    pd.DataFrame({"date": ["2026-08-01"], "value": [1.0]}),
+                )
+            ]
+
+    from harvester.official import fetch_official_series_from_registry
+
+    with (
+        patch("harvester.registry.load_registry", return_value=registry),
+        patch("harvester.official.build_provider", return_value=FakeProvider()),
+    ):
+        panel = fetch_official_series_from_registry(
+            data_root=str(tmp_path),
+            providers=["fake"],
+            cache=False,
+        )
+
+    outcome = panel.attrs["provider_outcome"]
+    assert outcome["requested_count"] == 1
+    assert outcome["succeeded_count"] == 1
+    assert outcome["failed_count"] == 0
+    assert outcome["failed_series"] == []
+
+
+def test_registry_outcome_does_not_classify_mixed_benchmark_as_etf_route(tmp_path) -> None:
+    registry = SeriesRegistry(
+        schema_version="1.0",
+        series={
+            "ETF_SERIES": RegistrySeries(
+                canonical_id="ETF_SERIES",
+                source_series_id="ETF_SERIES",
+                provider_priority=("tiingo",),
+                measurement_block="test",
+                structural_role="test",
+                frequency="daily",
+            ),
+            "MACRO_SERIES": RegistrySeries(
+                canonical_id="MACRO_SERIES",
+                source_series_id="MACRO_SERIES",
+                provider_priority=("fred",),
+                measurement_block="test",
+                structural_role="test",
+                frequency="daily",
+            ),
+        },
+        providers={},
+    )
+
+    class FakeProvider:
+        source_id = "tiingo"
+
+        def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
+            return [
+                ProviderResult(
+                    "tiingo",
+                    series_id,
+                    pd.DataFrame({"date": ["2026-08-01"], "value": [1.0]}),
+                )
+                for series_id in series_ids
+            ]
+
+    from harvester.official import fetch_official_series_from_registry
+
+    with (
+        patch("harvester.registry.load_registry", return_value=registry),
+        patch("harvester.official.build_provider", return_value=FakeProvider()),
+    ):
+        panel = fetch_official_series_from_registry(
+            data_root=str(tmp_path),
+            providers=["tiingo", "fred"],
+            cache=False,
+        )
+
+    assert "route_policy" not in panel.attrs["provider_outcome"]
+
+
+def test_manual_external_series_are_reported_without_becoming_unavailable() -> None:
+    from harvester.official import _merge_external_provider_outcome
+
+    outcome = _merge_external_provider_outcome(
+        None,
+        requested_series={"CFTC_TFF_LEV_SP"},
+        succeeded_series={"CFTC_TFF_LEV_SP": "cftc"},
+        failed_series={},
+        manual_series={"SRISK": "manual_refresh_required", "COVAR": "cached"},
+    )
+
+    assert outcome is not None
+    assert outcome["status"] == "refreshed"
+    assert outcome["requested_count"] == 1
+    assert outcome["failed_count"] == 0
+    assert outcome["failed_series"] == []
+    assert outcome["manual_series"] == {
+        "COVAR": "cached",
+        "SRISK": "manual_refresh_required",
+    }
+
+
 def test_complete_release_propagates_provider_outcome_to_artifacts(tmp_path) -> None:
     from harvester.official import stage_complete_release
 

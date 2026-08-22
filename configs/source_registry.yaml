@@ -1,3 +1,11 @@
+# Canonical workspace source/route registry.  Do not add a second root-level
+# source registry under Config/.  The old Config/data_source_registry.yaml is
+# a compatibility bridge only; its stale inventory snapshot is preserved in
+# docs/history/legacy-data-source-registry-2026-08-23.yaml.
+#
+# packages/harvester/configs/series_registry.yaml remains a different,
+# acquisition-only series catalog.  It is not a second semantic source route
+# authority and must not grow authority or freshness claims.
 schema_version: system.source_registry.v1
 description: >-
   Semantic source and route contract. This registry distinguishes equivalent
@@ -51,6 +59,24 @@ sources:
     authority_class: official_public_file
     official_url: https://cdn.cboe.com/api/global/us_indices/daily_prices/
     notes: Direct Cboe volatility-index history and delayed quote publisher.
+  h41:
+    authority_id: h41
+    authority_class: official_public_file
+    official_url: https://www.federalreserve.gov/data.htm
+    notes: Federal Reserve H.4.1 Data Download Program publisher.
+  treasury:
+    authority_id: treasury
+    authority_class: official_public_api
+    official_url: https://api.fiscaldata.treasury.gov/
+  sec:
+    authority_id: sec
+    authority_class: official_public_api
+    official_url: https://data.sec.gov/
+  derived:
+    authority_id: derived
+    authority_class: computed_observation
+    official_url: https://system.local/derived
+    notes: Derived series; never a publisher substitute for its inputs.
 series:
   ETF_EOD_ADJUSTED:
     dataset_id: cross_asset_daily_panel
@@ -123,31 +149,40 @@ series:
   COVAR:
     dataset_id: benchmark_panel
     semantic_equivalence_group: us_delta_covar
-    frequency: irregular
+    frequency: quarterly
     adjustment_policy: publisher_defined
     primary_key: [series_id, date, vintage_date]
     routes:
       - route_id: nyfed_covar_primary
         source_id: nyfed
         tier: 1
-        transport: owned_http_gateway
+        transport: manual_csv_quarterly
         fallback_kind: primary
         claim_ceiling: observed_source
         diagnostic_only: false
+        acquisition_mode: manual
+        notes: >-
+          The repaired official archive is a quarterly firm-level panel. Keep
+          the scalar benchmark route manual until an aggregate selector is
+          explicitly approved; do not average firms implicitly.
   SRISK:
     dataset_id: benchmark_panel
     semantic_equivalence_group: us_aggregate_srisk
-    frequency: weekly
+    frequency: monthly
     adjustment_policy: publisher_defined
     primary_key: [series_id, date, vintage_date]
     routes:
       - route_id: nyu_vlab_primary
         source_id: nyu_vlab
         tier: 1
-        transport: owned_http_gateway
+        transport: manual_csv_monthly
         fallback_kind: primary
         claim_ceiling: observed_source
         diagnostic_only: false
+        acquisition_mode: manual
+        notes: >-
+          V-Lab's current MCP/API path requires authenticated access; use the
+          operator-downloaded monthly aggregate CSV as the governed route.
   CFTC_TFF_LEV_SP:
     dataset_id: benchmark_panel
     semantic_equivalence_group: cftc_leveraged_funds_sp500
@@ -162,6 +197,7 @@ series:
         fallback_kind: primary
         claim_ceiling: observed_source
         diagnostic_only: false
+        notes: Socrata resource API gpe5-46if.json; response is validated before cache replacement.
   NYFED_PD_TREASURY_NET:
     dataset_id: benchmark_panel
     semantic_equivalence_group: nyfed_primary_dealer_treasury
@@ -190,6 +226,7 @@ series:
         fallback_kind: primary
         claim_ceiling: observed_source
         diagnostic_only: false
+        notes: Official static Excel export; monthly page drift is monitored and FRED quarterly equivalent remains a fallback.
   FRED_SERIES:
     dataset_id: official_panel
     semantic_equivalence_group: fred_published_series

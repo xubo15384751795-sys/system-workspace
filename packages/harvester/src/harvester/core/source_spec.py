@@ -8,6 +8,8 @@ already staged release bytes.
 from __future__ import annotations
 
 import json
+import logging
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -17,6 +19,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 
 SCHEMA_VERSION = "system.source_registry.v1"
+logger = logging.getLogger(__name__)
 _FALLBACK_KINDS = frozenset(
     {"primary", "equivalent_source", "transport_fallback", "proxy_evidence", "cache_reuse"}
 )
@@ -35,6 +38,7 @@ class SourceRoute:
     fallback_kind: str
     claim_ceiling: str
     diagnostic_only: bool
+    acquisition_mode: str = "automated"
     requires_parity_certification: bool = False
     notes: str = ""
 
@@ -48,6 +52,7 @@ class SourceRoute:
             fallback_kind=str(value["fallback_kind"]),
             claim_ceiling=str(value["claim_ceiling"]),
             diagnostic_only=bool(value["diagnostic_only"]),
+            acquisition_mode=str(value.get("acquisition_mode", "automated")),
             requires_parity_certification=bool(value.get("requires_parity_certification", False)),
             notes=str(value.get("notes", "")),
         )
@@ -141,6 +146,29 @@ def registry_path() -> Path:
     return repo_root() / "configs" / "source_registry.yaml"
 
 
+def legacy_registry_path() -> Path:
+    """Return the retired Config/ path kept for one migration window."""
+    return repo_root() / "Config" / "data_source_registry.yaml"
+
+
+def _resolve_registry_target(path: Path | str | None) -> Path:
+    target = registry_path() if path is None else Path(path).expanduser()
+    try:
+        is_legacy = target.resolve() == legacy_registry_path().resolve()
+    except OSError:
+        is_legacy = target == legacy_registry_path()
+    if not is_legacy:
+        return target
+
+    message = (
+        "Config/data_source_registry.yaml is deprecated; "
+        "use configs/source_registry.yaml"
+    )
+    logger.warning(message)
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
+    return registry_path()
+
+
 def schema_path() -> Path:
     return repo_root() / "protocols" / "source_registry.schema.json"
 
@@ -209,7 +237,7 @@ def validate_source_registry(payload: Mapping[str, Any]) -> None:
 
 
 def load_source_registry(path: Path | str | None = None) -> SourceRegistry:
-    target = Path(path) if path is not None else registry_path()
+    target = _resolve_registry_target(path)
     try:
         payload = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
@@ -238,6 +266,7 @@ __all__ = [
     "SourceRoute",
     "SourceSpec",
     "load_source_registry",
+    "legacy_registry_path",
     "registry_path",
     "schema_path",
     "validate_source_registry",

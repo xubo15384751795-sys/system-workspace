@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.horizon.daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__SYSTEM_PYTHON__</string>
+    <string>__SYSTEM_ROOT__/scripts/run_with_runtime_secrets.py</string>
+    <string>/bin/bash</string>
+    <string>__SYSTEM_ROOT__/scripts/orchestrate.sh</string>
+    <string>horizon</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__SYSTEM_ROOT__/Output/runs/launchd-horizon.log</string>
+  <key>StandardErrorPath</key>
+  <string>__SYSTEM_ROOT__/Output/runs/launchd-horizon.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>TZ</key>
+    <string>UTC</string>
+    <key>SYSTEM_ROOT</key>
+    <string>__SYSTEM_ROOT__</string>
+    <key>HORIZON_ROOT</key>
+    <string>__HORIZON_ROOT__</string>
+    <key>SENTRY_ENVIRONMENT</key>
+    <string>horizon-launchd</string>
+    <key>SYSTEM_OBSERVABILITY_SECRETS_FILE</key>
+    <string>/Users/a1/.config/system/observability.env</string>
+  </dict>
+</dict>
+</plist>

@@ -7,6 +7,7 @@ from typing import Any, cast
 import yaml
 
 from system_learning.schema import normalize_event
+from system_runtime.events import runtime_event_paths
 
 LEARNING_SUFFIXES = {".json", ".jsonl", ".md", ".txt"}
 
@@ -41,8 +42,6 @@ def event_file_paths(system_root: Path) -> list[Path]:
     patterns = [
         "Output/system_learning/runtime/records_*.jsonl",
         "Output/system_learning/events/*.jsonl",
-        # Daily operator envelopes (write_runtime_event / dual-write projection).
-        "Output/runtime_events/*.jsonl",
         "Output/deformation_runs/*/system_events.jsonl",
         "Data/harvester/exports/*/system_events.jsonl",
         "System Learning Hub/reports/codebase/latest/system_events.jsonl",
@@ -50,6 +49,9 @@ def event_file_paths(system_root: Path) -> list[Path]:
     paths: list[Path] = []
     for pattern in patterns:
         paths.extend(system_root.glob(pattern))
+    # Daily operator envelopes: canonical run_events_YYYY-MM-DD.jsonl plus
+    # the historical date-only name during the compatibility window.
+    paths.extend(runtime_event_paths(system_root / "Output" / "runtime_events"))
     return sorted(set(paths))
 
 

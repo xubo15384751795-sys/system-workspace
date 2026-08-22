@@ -1,0 +1,43 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-22"
+task_id: output-runs-retention
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Output/runs/ had 412 live run directories. The existing weekly data retention
+  audit was report-only and had no rule for this run bundle surface.
+decision: >
+  Select the recent-200 policy. Keep the newest 200 Output/runs directories and
+  move older run directories to Output/archive/runs/ through the retention
+  executor. The move is recoverable and no run directory is deleted. Finalized
+  Harvester releases under Data/harvester/exports remain report-only because
+  they are evidence artifacts with a separate operator decision boundary.
+implementation: >
+  governance/data_retention_policy.yaml declares output_runs.keep_last_n=200
+  and action=archive. The weekly data_retention_audit invokes
+  scripts/apply_data_retention_policy.py --apply.
+observation_window: >
+  On 2026-08-22 the executor moved 212 directories (about 33.0 MB) from
+  Output/runs/ to Output/archive/runs/, leaving 200 live directories.
+rollback: >
+  Move the archived directories from Output/archive/runs/ back to
+  Output/runs/ by their original directory names, then set the policy action
+  to report-only if scheduled archiving must be paused.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+acceptance:
+  - output_runs is registered in run_retention_check()["checks"]
+  - the policy leaves exactly the newest 200 run directories in Output/runs/
+  - archived directories are present under Output/archive/runs/
+  - the weekly data_retention_audit command includes --apply
+  - the executor never deletes run directories
+unresolved_risks:
+  - >
+    Output/archive/runs/ remains on the same physical disk as the workspace;
+    it is a recoverability archive, not the second physical backup requested
+    for Data/.
+  - >
+    Data/ is still about 22.6 GB and needs a real external or cloud second copy.

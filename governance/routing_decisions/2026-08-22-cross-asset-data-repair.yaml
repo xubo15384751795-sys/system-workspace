@@ -1,0 +1,117 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-22-cross-asset-data-repair
+date: "2026-08-22"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Repair the cross-asset ETF workspace mirror and the CFTC leveraged-money
+  cache after detecting duplicate (symbol, date) keys, volume==close pollution,
+  and a cache schema that its own parser could not consume. Preserve the
+  existing structural contract while recording the provider boundary and
+  restarting the default-path observation window.
+scope: >
+  Data/panels/cross_asset_daily_panel.parquet,
+  Data/harvester/raw/external_indicators/cftc_tff_lev_sp.csv,
+  packages/harvester/src/harvester/providers/external_indicators.py,
+  packages/harvester/src/harvester/quality/data_contract.py,
+  scripts/strategy_lab/paper_portfolio.py, and the one-time repair script.
+decision: >
+  Rebuild the panel from the newest clean full-history Harvester release,
+  overlay a captured full-history provider OHLCV snapshot, and let the recent
+  Tiingo raw cache win on the overlapping tail. Recompute return_1d,
+  return_5d, return_20d, return_60d, volatility_20d, and drawdown_60d before
+  the atomic workspace write. Re-export CFTC TFF E-MINI S&P 500 leveraged
+  money long/short rows in the publisher schema required by
+  _parse_cftc_tff_lev_sp. Replace the paper-portfolio Series-to-float access
+  with _scalar_at. The only declarative coverage exception admitted by
+  data_contract.py is exactly "ETF 上市日前无数据"; it requires listing_dates
+  and only classifies an expected symbol as pre-listing when the panel ends
+  before that listing date. No other structural rule is relaxed.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: true
+  provider_authority_change: false
+  observation_window_reset: true
+preregistered_expectation: >
+  The repaired workspace mirror has complete numeric OHLCV rows for its
+  declared ETF universe, unique (symbol, date) keys, zero volume==close rows,
+  recomputed derived columns, a PASS cross-asset contract, and a CFTC cache
+  that parses without schema translation. A later default-path run must not
+  silently reintroduce the old duplicate or cache-schema failures.
+observation_window: >
+  Reset the 14-day default-path evidence window from the first accepted
+  repaired artifact on 2026-08-22. This manual repair and its unit tests are
+  setup evidence, not a completed observation day. Count fourteen consecutive
+  default launchd runs after the repair, including provider failure/fallback,
+  stale-cache handling, and recovery evidence; keep the window pending until
+  those runs are observed.
+rollback: >
+  Restore the backed-up Data/panels and external_indicators directories from
+  Data/repair_backups/2026-08-22, revert the source changes and delete the
+  one-time repair record/script only after confirming no later artifact
+  depends on them. Do not restore the duplicate-key, volume==close, or
+  self-unparseable CFTC cache state as an accepted release.
+acceptance:
+  - Data/panels/cross_asset_daily_panel.parquet has 195702 rows and 33 declared symbols.
+  - validate_cross_asset_panel_contract(...) returns PASS with no warnings or violations.
+  - Duplicate (symbol, date) row count is 0 and duplicate key count is 0.
+  - volume==close row count is 0 and all five OHLCV columns are numeric/non-null.
+  - return_* and volatility_20d are recomputed after the raw merge.
+  - _parse_cftc_tff_lev_sp parses 1054 aggregated date samples from the repaired cache.
+  - paper_portfolio.py has no bare float(mom.loc[ts]) access at the momentum boundary.
+  - The exact pre-listing exception passes its focused contract test and an arbitrary exception blocks.
+  - The two requested source directories were byte/hash-verified against their dated backups at capture time; the repaired panel and CFTC cache intentionally differ afterward.
+  - The 14-day default-path window remains pending after this manual repair.
+price_convention: >
+  The repaired panel is a new close vintage, not a byte-identical replay of
+  the pre-repair series. The full-history overlay supplied split/dividend
+  adjusted OHLCV; the pre-repair workspace mirror mixed unadjusted and
+  carry-forward closes. A 2026-08-22 backup comparison found about 82.8% of
+  overlapping (symbol, date) closes changed by more than 0.1%, and about
+  11,200 rows by more than 1%, including constant per-symbol offsets such as
+  JNK at 3.78%. Adjusted close is the intended research convention. This
+  record admits the vintage change. HMM (756-day sample), CaseLab similarity,
+  and shadow outcomes that sit on this panel require requalification against
+  the new vintage; they are not automatically portable from the old mixed
+  convention.
+provider_boundary: >
+  The full-history snapshot used for historical OHLCV completeness was fetched
+  through yfinance because no Tiingo/Massive credential was configured on this
+  device. The repository's route policy remains diagnostic-only for yfinance;
+  the recent tail is overlaid from the Tiingo raw cache. This record does not
+  certify yfinance as an authoritative production route or close the provider
+  parity/human-review gate.
+unresolved_scope: >
+  The local repository exposes a single canonical 33-symbol ETF universe and
+  no D1=A/24-symbol manifest. The repair therefore ran against the configured
+  33 symbols to keep the existing contract closed. A reviewed 24-symbol list
+  must be supplied and explicitly adopted before narrowing the canonical set.
+evidence:
+  backup:
+    - Data/repair_backups/2026-08-22/panels/
+    - Data/repair_backups/2026-08-22/harvester_raw_external_indicators/
+    - Data/repair_backups/2026-08-22/provider_inputs/yahoo_cross_asset_full_ohlcv_2026-08-22.json
+  implementation:
+    - scripts/repair_cross_asset_panel.py
+    - packages/harvester/src/harvester/providers/external_indicators.py
+    - packages/harvester/src/harvester/quality/data_contract.py
+    - scripts/strategy_lab/paper_portfolio.py
+  tests:
+    - packages/harvester/tests/test_data_contract.py
+    - packages/harvester/tests/test_external_indicators.py
+  source_registry:
+    - configs/data/etf_universe.yaml
+    - configs/source_registry.yaml
+  base_release:
+    - Data/harvester/exports/2026-08-14-r1/data/cross_asset_daily_panel.parquet
+  cftc_manual_fallback:
+    - https://publicreporting.cftc.gov/Commitments-of-Traders/TFF-Futures-Only/gpe5-46if
+    - Data/harvester/raw/external_indicators/cftc_tff_lev_sp.csv
+non_goals:
+  - Treat a local manual repair, unit tests, or a PASS contract as completion of the 14-day runtime window.
+  - Certify yfinance as an authoritative Tiingo/Massive replacement.
+  - Alter research thresholds, position sizing, promotion, or judgment semantics.
+  - Invent or silently adopt a 24-symbol D1=A universe.

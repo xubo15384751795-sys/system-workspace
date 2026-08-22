@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -49,6 +51,7 @@ PROVIDER_OUTCOME_STATUSES = {
     "no_release_expected",
     "environmentally_blocked",
 }
+DATA_CONTRACT_MODES = frozenset({"shadow", "enforce"})
 
 
 def _conservative_availability(
@@ -158,10 +161,41 @@ def _return_panel(
 
 def workspace_root() -> Path:
     """Best-effort workspace root when Harvester runs from System/."""
-    cwd = Path.cwd()
-    if (cwd / "Data" / "panels").exists() or (cwd / "governance").exists():
-        return cwd
+    configured = os.environ.get("SYSTEM_WORKSPACE_ROOT", "").strip()
+    if configured:
+        candidate = Path(configured).expanduser().resolve()
+        if (candidate / "Data").exists() or (candidate / "governance").exists():
+            return candidate
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / "Data" / "panels").exists() or (
+            (candidate / "governance").exists() and (candidate / "configs").exists()
+        ):
+            return candidate
     return cwd
+
+
+def resolve_data_contract_mode(workspace: Path | None = None) -> str:
+    """Resolve the release contract mode from the shared provider policy.
+
+    A missing policy is kept backward-compatible for isolated package tests and
+    standalone callers by defaulting to ``enforce``.  The real workspace has
+    an explicit mode in ``configs/provider_release_policy.yaml``.
+    """
+    root = workspace or workspace_root()
+    policy_path = root / "configs" / "provider_release_policy.yaml"
+    if not policy_path.is_file():
+        return "enforce"
+    try:
+        payload = yaml.safe_load(policy_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError(f"unable to read provider release policy: {policy_path}") from exc
+    mode = str(payload.get("data_contract_mode", "enforce")).strip().lower()
+    if mode not in DATA_CONTRACT_MODES:
+        raise ValueError(
+            f"unsupported data_contract_mode={mode!r}; expected shadow or enforce"
+        )
+    return mode
 
 
 def resolve_etf_universe(workspace: Path | None = None) -> list[str]:
@@ -394,7 +428,34 @@ def prefetched_panel_from_registry(
     ].copy()
     result = result[result["date"].notna()]
     result, integrity = _deduplicate_panel_rows(result)
-    result.attrs["provider_outcome"] = dict(panel.attrs.get("provider_outcome", {}))
+    # The registry panel is a mixed benchmark surface.  Its provider outcome
+    # therefore contains routes for non-ETF series (FRED, H41, SEC, ...).
+    # Carrying that whole mapping into the ETF route policy makes the ETF
+    # release look like an unregistered mixed-provider route even when every
+    # prefetched ETF was acquired through an authoritative ETF provider.
+    # Keep only metadata for the rows that crossed this boundary.
+    raw_outcome = panel.attrs.get("provider_outcome")
+    prefetched_outcome = dict(raw_outcome) if isinstance(raw_outcome, dict) else {}
+    relevant_series = set(result["symbol"].astype(str))
+    for field in ("series_providers", "series_attempts", "series_source_signatures"):
+        value = prefetched_outcome.get(field)
+        if isinstance(value, dict):
+            filtered = {
+                str(key): item
+                for key, item in value.items()
+                if str(key) in relevant_series
+            }
+            if filtered:
+                prefetched_outcome[field] = filtered
+            else:
+                prefetched_outcome.pop(field, None)
+    series_providers = prefetched_outcome.get("series_providers")
+    if isinstance(series_providers, dict):
+        prefetched_outcome["providers_used"] = sorted(
+            {str(provider) for provider in series_providers.values() if str(provider).strip()}
+        )
+    prefetched_outcome.pop("route_policy", None)
+    result.attrs["provider_outcome"] = prefetched_outcome
     result.attrs["integrity"] = integrity
     return result
 
@@ -790,13 +851,48 @@ def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) 
     """
     root = workspace or workspace_root()
     path = root / "Data" / "panels" / "cross_asset_daily_panel.parquet"
-    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # This mirror is a write boundary, not a cleanup boundary.  Validate the
+    # exact candidate before touching the existing file so a malformed release
+    # cannot replace a known-good panel.  Coverage gaps remain WARN-level; the
+    # contract's BLOCK-level structural violations are the write gate.
+    from harvester.quality.data_contract import validate_cross_asset_panel_contract
+
+    data_contract = validate_cross_asset_panel_contract(
+        panel,
+        expected_symbols=resolve_etf_universe(root),
+        require_nonempty=True,
+        raise_on_error=True,
+    )
+
     panel, integrity = _deduplicate_panel_rows(panel)
     panel.attrs["integrity"] = _merge_integrity(
         panel.attrs.get("integrity") if isinstance(panel.attrs, dict) else None,
         integrity,
     )
-    panel.to_parquet(path, index=False)
+    panel.attrs["data_contract"] = data_contract
+
+    # Write beside the destination and replace it only after parquet encoding
+    # succeeds.  This keeps the previous panel intact on both contract BLOCK
+    # and serializer/disk failures.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp.parquet",
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+        panel.to_parquet(temporary_path, index=False)
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary panel file: %s", temporary_path, exc_info=True)
     return path
 
 
@@ -1035,6 +1131,7 @@ def stage_cross_asset_panel(
     workspace: Path | None = None,
     fetch_period: str = "5d",
     prefetched_panel: pd.DataFrame | None = None,
+    data_contract_mode: str | None = None,
 ) -> dict[str, Any]:
     """Build and stage cross_asset_daily_panel into an in-progress release.
 
@@ -1049,12 +1146,19 @@ def stage_cross_asset_panel(
     )
     from harvester.quality.data_contract import validate_cross_asset_panel_contract
 
+    mode = (data_contract_mode or resolve_data_contract_mode(workspace)).strip().lower()
+    if mode not in DATA_CONTRACT_MODES:
+        raise ValueError(
+            f"unsupported data_contract_mode={mode!r}; expected shadow or enforce"
+        )
     data_contract = validate_cross_asset_panel_contract(
         panel,
         expected_symbols=resolve_etf_universe(workspace),
         require_nonempty=True,
-        raise_on_error=True,
+        raise_on_error=mode == "enforce",
     )
+    data_contract["mode"] = mode
+    data_contract["enforced"] = mode == "enforce"
     provider_outcome["data_contract"] = data_contract
     data_dir = release_dir / "data"
     manifests_dir = release_dir / "manifests"
@@ -1167,11 +1271,22 @@ def stage_cross_asset_panel(
         DATASET_ID,
     )
 
-    workspace_path = sync_panel_to_workspace(panel, workspace)
+    workspace_path: Path | None = None
+    if data_contract["status"] != "BLOCK" or mode == "enforce":
+        # The workspace mirror remains an independent fail-closed write
+        # boundary.  In shadow mode a contract BLOCK is recorded in the
+        # release artifacts but cannot replace a known-good mirror.
+        workspace_path = sync_panel_to_workspace(panel, workspace)
+    else:
+        logger.warning(
+            "cross-asset data contract BLOCK recorded in shadow mode; "
+            "workspace mirror left unchanged: violations=%s",
+            data_contract.get("violations", []),
+        )
     return {
         "dataset_id": DATASET_ID,
         "data_path": str(data_path),
-        "workspace_path": str(workspace_path),
+        "workspace_path": str(workspace_path) if workspace_path is not None else None,
         "row_count": row_count,
         "symbol_count": int(panel["symbol"].nunique()) if not panel.empty else 0,
         "sha256": sha,

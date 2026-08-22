@@ -68,6 +68,18 @@ def _canonical_semantic_match(installed: dict[str, Any], rendered: dict[str, Any
     installed_copy = dict(installed)
     expected_copy["EnvironmentVariables"] = expected_without_python
     installed_copy["EnvironmentVariables"] = installed_without_python
+    expected_args = rendered.get("ProgramArguments") or []
+    installed_args = installed.get("ProgramArguments") or []
+    if (
+        expected_args
+        and installed_args
+        and expected_args[0] == "__SYSTEM_PYTHON__"
+        and expected_args != installed_args
+    ):
+        if not _is_python_313(installed_args[0]):
+            return False
+        expected_copy["ProgramArguments"] = expected_args[1:]
+        installed_copy["ProgramArguments"] = installed_args[1:]
     return installed_copy == expected_copy
 
 

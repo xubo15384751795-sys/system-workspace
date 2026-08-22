@@ -1884,14 +1884,16 @@ steps:
     order: 36.5
     status: active
     owner: Data/Output
-    # Reporting only — never deletes. The policy has declared
+    # The executor reports all policy findings and, for Output/runs only,
+    # performs the policy's recoverable archive move. It never deletes.
+    # The policy has declared
     # harvester_exports.keep_last_n_daily since 2026-06-17, but nothing
     # evaluated it, so exports grew to 883MB across 146 directories while
     # data_retention_policy.yaml still recorded current_size_mb: 205.
-    # Acting on the findings stays an operator decision: releases are
-    # finalized evidence.
+    # Finalized Harvester releases remain report-only; acting on those findings
+    # stays an operator decision.
     schedule: weekly
-    command: python scripts/apply_data_retention_policy.py
+    command: python scripts/apply_data_retention_policy.py --apply
     input: &id_data_retention_in
     - governance/data_retention_policy.yaml
     produces: &id_data_retention_out
@@ -1904,7 +1906,7 @@ steps:
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/apply_data_retention_policy.py
+      current_command: python scripts/apply_data_retention_policy.py --apply
       future_callable: scripts.apply_data_retention_policy:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal

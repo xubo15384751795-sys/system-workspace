@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from io import BytesIO
 from unittest.mock import patch
 
 import pandas as pd
@@ -8,11 +9,18 @@ import pandas as pd
 from harvester.official import build_complete_benchmark_panel
 from harvester.providers.external_indicators import (
     CISS,
+    COVAR,
+    CFTC_TFF_LEV_SP,
     EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES,
+    FINRA_MARGIN_DEBT,
     NYFED_PD_TREASURY_NET,
     OFR_FSI,
+    SRISK,
     _parse_ciss_csv,
+    _parse_cftc_tff_lev_sp,
+    _parse_finra_margin_debt,
     external_series_to_long_panel,
+    fetch_all_external,
     fetch_external_indicator,
     write_template_csv,
 )
@@ -116,6 +124,120 @@ def test_fetch_external_indicator_downloads_and_caches(tmp_path) -> None:
     assert series.iloc[-1] == 0.7
     assert (tmp_path / "ciss.csv").exists()
     assert download.called
+
+
+def test_unparseable_refresh_does_not_overwrite_valid_cache(tmp_path) -> None:
+    cache = tmp_path / "ciss.csv"
+    original = f"TIME_PERIOD,OBS_VALUE\n{TODAY},0.5\n"
+    cache.write_text(original, encoding="utf-8")
+
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value="not,a,CISS,response\nthis,is,not,parseable\n",
+    ):
+        series = fetch_external_indicator(CISS, cache_dir=tmp_path, refresh=True)
+
+    assert series.iloc[-1] == 0.5
+    assert cache.read_text(encoding="utf-8") == original
+
+
+def test_cftc_refresh_preserves_publisher_schema_for_its_parser(tmp_path) -> None:
+    text = (
+        "report_date_as_yyyy_mm_dd,market_and_exchange_names,"
+        "lev_money_positions_long,lev_money_positions_short\n"
+        f"{TODAY},E-MINI S&P 500,100,40\n"
+    )
+
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value=text,
+    ):
+        series = fetch_external_indicator(
+            CFTC_TFF_LEV_SP,
+            cache_dir=tmp_path,
+            refresh=True,
+        )
+
+    cache_text = (tmp_path / "cftc_tff_lev_sp.csv").read_text(encoding="utf-8")
+    assert series.iloc[-1] == 60
+    assert _parse_cftc_tff_lev_sp(cache_text).iloc[-1] == 60
+    assert "lev_money_positions_long" in cache_text
+
+
+def test_cftc_socrata_json_is_parsed_and_cached_as_validated_csv(tmp_path) -> None:
+    payload = (
+        "[{\"report_date_as_yyyy_mm_dd\":\"2026-08-14\","
+        "\"market_and_exchange_names\":\"E-MINI S&P 500\","
+        "\"lev_money_positions_long\":\"125\","
+        "\"lev_money_positions_short\":\"40\"}]"
+    )
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value=payload,
+    ):
+        series = fetch_external_indicator(CFTC_TFF_LEV_SP, cache_dir=tmp_path, refresh=True)
+
+    assert series.iloc[-1] == 85
+    cached = (tmp_path / "cftc_tff_lev_sp.csv").read_text(encoding="utf-8")
+    assert cached.startswith("report_date_as_yyyy_mm_dd")
+    assert _parse_cftc_tff_lev_sp(cached).iloc[-1] == 85
+
+
+def test_cftc_parser_excludes_micro_e_mini_match(tmp_path) -> None:
+    payload = (
+        "[{\"report_date_as_yyyy_mm_dd\":\"2026-08-14\","
+        "\"market_and_exchange_names\":\"E-MINI S&P 500 - CME\","
+        "\"lev_money_positions_long\":\"125\",\"lev_money_positions_short\":\"40\"},"
+        "{\"report_date_as_yyyy_mm_dd\":\"2026-08-14\","
+        "\"market_and_exchange_names\":\"MICRO E-MINI S&P 500 INDEX - CME\","
+        "\"lev_money_positions_long\":\"999\",\"lev_money_positions_short\":\"1\"}]"
+    )
+
+    assert _parse_cftc_tff_lev_sp(payload).iloc[-1] == 85
+
+
+def test_invalid_cftc_json_does_not_overwrite_valid_cache(tmp_path) -> None:
+    cache = tmp_path / "cftc_tff_lev_sp.csv"
+    original = f"report_date_as_yyyy_mm_dd,market_and_exchange_names,lev_money_positions_long,lev_money_positions_short\n{TODAY},E-MINI S&P 500,100,40\n"
+    cache.write_text(original, encoding="utf-8")
+
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value="{not valid json",
+    ):
+        series = fetch_external_indicator(CFTC_TFF_LEV_SP, cache_dir=tmp_path, refresh=True)
+
+    assert series.iloc[-1] == 60
+    assert cache.read_text(encoding="utf-8") == original
+
+
+def test_finra_official_xlsx_is_validated_then_normalized(tmp_path) -> None:
+    workbook = BytesIO()
+    pd.DataFrame(
+        {
+            "Year-Month": ["2026-07"],
+            "Debit Balances in Customers' Securities Margin Accounts": [1417225],
+        }
+    ).to_excel(workbook, index=False)
+
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value=workbook.getvalue(),
+    ):
+        series = fetch_external_indicator(FINRA_MARGIN_DEBT, cache_dir=tmp_path, refresh=True)
+
+    assert _parse_finra_margin_debt(workbook.getvalue()).iloc[-1] == 1417225
+    assert series.iloc[-1] == 1417225
+    assert (tmp_path / "finra_margin_debt.csv").read_text(encoding="utf-8").startswith("Date,value")
+
+
+def test_manual_sources_are_not_reported_as_transport_unavailable(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(external_module, "KNOWN_INDICATORS", (SRISK, COVAR))
+    results = fetch_all_external(cache_dir=tmp_path, refresh=True)
+
+    assert "SRISK" not in results
+    assert "COVAR" not in results
+    assert "__errors__" not in results
 
 
 def test_external_endpoint_identity_uses_real_publisher_authority(tmp_path) -> None:

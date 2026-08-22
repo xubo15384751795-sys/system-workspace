@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -28,8 +29,10 @@ def dvc_enabled() -> bool:
 
 
 def _run_dvc(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    executable = Path(sys.executable).with_name("dvc")
+    command = str(executable) if executable.is_file() else (shutil.which("dvc") or "dvc")
     return subprocess.run(
-        ["dvc", *args],
+        [command, *args],
         cwd=str(cwd),
         capture_output=True,
         text=True,
@@ -37,14 +40,8 @@ def _run_dvc(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def ensure_local_remote(*, root: Path = ROOT) -> Path:
-    """Ensure a local DVC remote under Data/.dvc_cache exists.
-
-    Seeds a no-scm ``.dvc/config`` from ``configs/dvc/config`` so promote works
-    even when ``dvc init`` cannot touch the parent git repository.
-    """
-    cache = root / "Data" / ".dvc_cache"
-    cache.mkdir(parents=True, exist_ok=True)
+def _configured_remote(*, root: Path = ROOT) -> tuple[str, str | Path]:
+    """Return the configured DVC default remote without changing config."""
     template = root / "configs" / "dvc" / "config"
     dvc_dir = root / ".dvc"
     dvc_dir.mkdir(parents=True, exist_ok=True)
@@ -55,25 +52,55 @@ def ensure_local_remote(*, root: Path = ROOT) -> Path:
     target = dvc_dir / "config"
     if template.exists() and (not target.exists() or "core" not in target.read_text(encoding="utf-8")):
         shutil.copy2(template, target)
-    # Prefer relative remote URL so the workspace stays portable.
-    rel_cache = os.path.relpath(cache, start=dvc_dir)
-    remote = _run_dvc(
-        ["remote", "add", "-d", "localcache", rel_cache, "-f"],
-        cwd=root,
+
+    config_text = target.read_text(encoding="utf-8") if target.exists() else ""
+    default_match = re.search(r"(?m)^\s*remote\s*=\s*([^\s#]+)\s*$", config_text)
+    remote_name = default_match.group(1).strip() if default_match else ""
+    if not remote_name:
+        raise RuntimeError("DVC default remote is not configured")
+    section = re.search(
+        rf"(?ms)^\s*(?:\[['\"]remote \"{re.escape(remote_name)}\"['\"]\]|\[remote \"{re.escape(remote_name)}\"\])\s*$"
+        r"(?P<body>.*?)(?=^\s*\[|\Z)",
+        config_text,
     )
-    if remote.returncode != 0:
-        # Fall back to writing remote into config without CLI.
-        config_text = target.read_text(encoding="utf-8") if target.exists() else ""
-        if 'remote "localcache"' not in config_text:
-            with target.open("a", encoding="utf-8") as handle:
-                handle.write(f'\n[\'remote "localcache"\']\n    url = {rel_cache}\n')
-        logger.debug("dvc remote add: %s", (remote.stderr or remote.stdout or "").strip())
-    return cache
+    if not section:
+        raise RuntimeError(f"DVC remote section is missing: {remote_name}")
+    url_match = re.search(r"(?m)^\s*url\s*=\s*(.+?)\s*$", section.group("body"))
+    if not url_match:
+        raise RuntimeError(f"DVC remote URL is missing: {remote_name}")
+    value = url_match.group(1).strip().strip('"').strip("'")
+    if "://" in value:
+        return remote_name, value
+    return remote_name, (dvc_dir / value).resolve()
+
+
+def ensure_local_remote(*, root: Path = ROOT) -> str | Path:
+    """Ensure the configured DVC remote is readable without downgrading it.
+
+    The historical function name is retained for callers/tests, but it no
+    longer creates or selects the same-disk ``Data/.dvc_cache`` remote.
+    """
+    remote_name, remote = _configured_remote(root=root)
+    logger.debug("using configured DVC remote %s: %s", remote_name, remote)
+    return remote
 
 
 def _recoverability_metadata(*, root: Path) -> dict[str, Any]:
-    """Describe the local DVC remote without overstating recovery capability."""
-    cache = _configured_local_remote(root=root)
+    """Describe the configured DVC remote without overstating recovery capability."""
+    remote = _configured_local_remote(root=root)
+    remote_text = str(remote)
+    is_cloud_path = "Mobile Documents/com~apple~CloudDocs" in remote_text
+    is_remote_uri = "://" in remote_text
+    is_off_device = is_cloud_path or is_remote_uri
+    exists = is_remote_uri or Path(remote_text).exists()
+    if is_off_device and exists:
+        return {
+            "bytes_owner": "dvc_remote",
+            "recoverability_status": "PASS",
+            "recoverability_reason_codes": [],
+            "dvc_remote_uri": remote_text,
+            "dvc_remote_same_disk_as_workspace": False,
+        }
     return {
         "bytes_owner": "UNCONFIGURED",
         "recoverability_status": "BLOCKED",
@@ -82,33 +109,18 @@ def _recoverability_metadata(*, root: Path) -> dict[str, Any]:
             "COMPLETE_BYTES_NOT_VERIFIED",
             "RESTORE_DRILL_NOT_RUN",
         ],
-        "dvc_remote_uri": str(cache),
+        "dvc_remote_uri": remote_text,
         "dvc_remote_same_disk_as_workspace": True,
     }
 
 
 def _configured_local_remote(*, root: Path) -> str | Path:
-    """Resolve the configured ``localcache`` URL without changing config."""
-    config_path = root / ".dvc" / "config"
+    """Resolve the configured default remote, retaining the legacy name."""
     try:
-        config_text = config_path.read_text(encoding="utf-8")
-    except OSError:
+        _remote_name, remote = _configured_remote(root=root)
+    except (OSError, RuntimeError):
         return (root / "Data" / ".dvc_cache").resolve()
-
-    section = re.search(
-        r"(?ms)^\s*(?:\[['\"]remote \"localcache\"['\"]\]|\[remote \"localcache\"\])\s*$"
-        r"(?P<body>.*?)(?=^\s*\[|\Z)",
-        config_text,
-    )
-    if not section:
-        return (root / "Data" / ".dvc_cache").resolve()
-    url = re.search(r"(?m)^\s*url\s*=\s*(\S+)\s*$", section.group("body"))
-    if not url:
-        return (root / "Data" / ".dvc_cache").resolve()
-    value = url.group(1)
-    if "://" in value:
-        return value
-    return (config_path.parent / value).resolve()
+    return remote
 
 
 def _sha256_file(path: Path) -> str:
@@ -323,9 +335,9 @@ def _dvc_add_paths(paths: list[Path], *, root: Path) -> dict[str, Any]:
         except ValueError:
             errors.append(f"outside_workspace:{path}")
             continue
-        add = _run_dvc(["add", rel, "-q", "--no-commit"], cwd=root)
+        add = _run_dvc(["add", rel, "-q", "--no-relink"], cwd=root)
         if add.returncode != 0:
-            # Older DVC builds may not support --no-commit; retry plain add.
+            # Older DVC builds may not support --no-relink; retry plain add.
             add = _run_dvc(["add", rel, "-q"], cwd=root)
         if add.returncode == 0:
             tracked.append(rel)

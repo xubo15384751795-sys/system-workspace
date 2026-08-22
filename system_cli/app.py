@@ -234,6 +234,10 @@ def _legacy_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
         return 1 if missing else 0
     if command == "verify":
         arguments = list(args.arguments)
+        if getattr(args, "verify_merge", False):
+            arguments.insert(0, "--merge")
+        if getattr(args, "verify_control_closure", False):
+            arguments.insert(0, "--control-closure")
         if "--control-closure" in arguments:
             return _run(paths, "scripts/verify_control_closure.py", arguments)
         return _run(paths, "scripts/verify_merge.py", arguments)
@@ -402,6 +406,13 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "refresh":
             command.add_argument("--dry-run", action="store_true")
             command.add_argument("--skip-measurement", action="store_true")
+        if name == "verify":
+            command.add_argument("--merge", dest="verify_merge", action="store_true")
+            command.add_argument(
+                "--control-closure",
+                dest="verify_control_closure",
+                action="store_true",
+            )
         command.add_argument("arguments", nargs=argparse.REMAINDER)
     return parser
 

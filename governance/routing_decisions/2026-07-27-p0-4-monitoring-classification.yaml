@@ -37,7 +37,7 @@ acceptance:
   - research uncovered with owner => WARN (not required gap)
   - content clock STALE cannot be rescued by fresh mtime
 evidence:
-  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  roadmap: docs/history/SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
   files:
     - governance/daily_pipeline_registry.yaml
     - scripts/artifact_monitoring_audit.py

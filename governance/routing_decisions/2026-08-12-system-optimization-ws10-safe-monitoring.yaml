@@ -19,7 +19,7 @@ authority_changes:
   - module: system_runtime/minimum_monitoring.py
     claim: missing or invalid lifecycle evidence blocks feedback eligibility
 references:
-  - SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
+  - docs/history/SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
   - scripts/artifact_monitoring_audit.py
   - governance/daily_pipeline_registry.yaml
   - system_runtime/feedback_lifecycle.py

@@ -226,3 +226,43 @@ def test_duplicate_degraded_notifications_are_suppressed(
 
     assert len(calls) == 1
     assert calls[0][0] == "System daily_run warnings"
+
+
+def test_duplicate_fingerprint_reescalates_after_consecutive_days(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from scripts import _notify
+
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
+    monkeypatch.setattr(_notify, "_notification_state_path", lambda: tmp_path / "state.json")
+    monkeypatch.setenv("NOTIFY_REPEAT_ESCALATION_DAYS", "3")
+    monkeypatch.setattr(
+        _notify,
+        "notify_deviations",
+        lambda title, deviations, **_kwargs: calls.append((title, "; ".join(deviations))) or True,
+    )
+    start = datetime(2026, 8, 1, 1, tzinfo=UTC)
+    moments = iter(start + timedelta(days=offset) for offset in range(3))
+    monkeypatch.setattr(_notify, "_dedup_now", lambda: next(moments))
+    outcome = {
+        "run_id": "run-repeat",
+        "status": "degraded",
+        "exit_code": 4,
+        "admission_verdict": "BLOCK",
+        "publish_status": "NOT_PUBLISHED",
+        "provider_status": "reused_after_provider_failure",
+        "reason_codes": ["ADMISSION_REJECTED"],
+    }
+
+    for _ in range(3):
+        _notify.notify_daily_run_result(
+            status="degraded",
+            failed_steps=[],
+            warnings=["provider cooldown"],
+            outcome=outcome,
+        )
+
+    assert len(calls) == 2

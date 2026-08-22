@@ -45,6 +45,38 @@ system_status:
   description: System status check
   allowed_use:
   - status_check
+cross_asset_data_contract_replay:
+  script: scripts/validate_data_contract_replay.py
+  status: active
+  owner: Harvester
+  description: Read-only replay of the cross-asset structural contract on the workspace mirror and latest release
+  allowed_use:
+  - pre_push_contract_gate
+  - read_only_data_validation
+  forbidden_use:
+  - current_output_generation
+  - data_repair
+check_external_source_endpoints:
+  script: scripts/check_external_source_endpoints.py
+  status: governance_active
+  owner: Harvester
+  description: Read-only monthly no-redirect endpoint and response-shape probe for repaired external sources
+  allowed_use:
+  - external_source_monitoring
+  - monthly_endpoint_check
+  forbidden_use:
+  - current_output_generation
+  - aggregate_covar_inference
+repair_cross_asset_panel:
+  script: scripts/repair_cross_asset_panel.py
+  status: tool_active
+  owner: Harvester
+  description: One-time guarded cross-asset panel repair with contract validation before atomic replacement
+  allowed_use:
+  - approved_data_repair
+  forbidden_use:
+  - daily_pipeline
+  - unvalidated_panel_write
 structural_replay_v2:
   script: scripts/structural_replay_v2.py
   status: archived_falsified
@@ -575,7 +607,7 @@ apply_data_retention_policy:
   script: scripts/apply_data_retention_policy.py
   status: active
   owner: Governance
-  description: Dry-run executor for data retention policy — checks Data/ against budget rules
+  description: Retention executor — reports Data/ findings and recoverably archives eligible Output/runs/
   allowed_use:
   - data_retention_enforcement
 apply_output_routing_policy:
@@ -685,6 +717,20 @@ install_daily_run_launchd:
   description: Install macOS launchd job for scheduled daily_run
   allowed_use:
   - pipeline_scheduling
+install_daily_run_deadman_launchd:
+  script: scripts/install_daily_run_deadman_launchd.sh
+  status: active
+  owner: Runtime
+  description: Install independent launchd dead-man checker for daily_run
+  allowed_use:
+    - pipeline_health_monitoring
+install_external_source_monthly_launchd:
+  script: scripts/install_external_source_monthly_launchd.sh
+  status: active
+  owner: Harvester
+  description: Install monthly no-redirect endpoint and schema probe for repaired external sources
+  allowed_use:
+    - external_source_monitoring
 claim_ladder_tracker:
   script: scripts/commands/weekly/claim_ladder_tracker.py
   status: active
@@ -1266,6 +1312,49 @@ check_schedule_manifest:
   description: Read-only audit of tracked and installed launchd schedule boundaries
   allowed_use:
   - schedule_boundary_audit
+check_daily_run_heartbeat:
+  script: scripts/check_daily_run_heartbeat.py
+  status: governance_active
+  owner: Runtime
+  description: Independent read-only dead-man check for the daily-run heartbeat
+  allowed_use:
+  - scheduled_health_monitoring
+  - dead_man_switch
+  forbidden_use:
+  - run_pipeline
+audit_launchd_reconciliation:
+  script: scripts/audit_launchd_reconciliation.py
+  status: governance_active
+  owner: Governance
+  description: Read-only reconciliation of the six scheduled records and the dead-man monitor
+  allowed_use:
+  - launchd_reconciliation
+  - schedule_boundary_audit
+test_sentry_event:
+  script: scripts/test_sentry_event.py
+  status: tool_active
+  owner: Runtime
+  description: Deliberate sanitized Sentry connectivity test; never part of daily execution
+  allowed_use:
+  - observability_connectivity_test
+  forbidden_use:
+  - daily_pipeline
+test_feishu_webhook:
+  script: scripts/test_feishu_webhook.py
+  status: tool_active
+  owner: Runtime
+  description: Deliberate Feishu connectivity test; never part of daily execution
+  allowed_use:
+  - notification_connectivity_test
+  forbidden_use:
+  - daily_pipeline
+run_with_runtime_secrets:
+  script: scripts/run_with_runtime_secrets.py
+  status: governance_active
+  owner: Runtime
+  description: Load allowlisted mode-600 sink credentials before replacing a launchd process
+  allowed_use:
+  - launchd_secret_boundary
 clean_checkout_boundary:
   script: scripts/commands/ci/clean_checkout_boundary.py
   status: governance_active

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.system.daily-run-deadman</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__SYSTEM_PYTHON__</string>
+    <string>__SYSTEM_ROOT__/scripts/run_with_runtime_secrets.py</string>
+    <string>__SYSTEM_PYTHON__</string>
+    <string>__SYSTEM_ROOT__/scripts/check_daily_run_heartbeat.py</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>9</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>WorkingDirectory</key>
+  <string>__SYSTEM_ROOT__</string>
+  <key>StandardOutPath</key>
+  <string>__SYSTEM_ROOT__/Output/runs/launchd-daily-run-deadman.log</string>
+  <key>StandardErrorPath</key>
+  <string>__SYSTEM_ROOT__/Output/runs/launchd-daily-run-deadman.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SYSTEM_ROOT</key>
+    <string>__SYSTEM_ROOT__</string>
+    <key>DAILY_RUN_HEARTBEAT_MAX_AGE_HOURS</key>
+    <string>26</string>
+    <key>SENTRY_ENVIRONMENT</key>
+    <string>system-deadman-launchd</string>
+    <key>SYSTEM_OBSERVABILITY_SECRETS_FILE</key>
+    <string>/Users/a1/.config/system/observability.env</string>
+  </dict>
+</dict>
+</plist>

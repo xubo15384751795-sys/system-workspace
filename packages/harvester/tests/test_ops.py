@@ -171,6 +171,41 @@ def test_daily_release_writes_failure_report_on_runtime_error(tmp_path: Path, mo
     assert "provider 429" in payload["error"]
 
 
+def test_daily_release_persists_structured_data_contract_report(tmp_path: Path, monkeypatch) -> None:
+    """Contract failures keep the complete report, including violations."""
+    from harvester.quality.data_contract import DataContractViolation
+
+    monkeypatch.setenv("FRED_API_KEY", "test")
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    contract_report = {
+        "schema_version": "system.data_contract.v1",
+        "contract_id": "cross_asset_daily_panel.v1",
+        "status": "BLOCK",
+        "violations": ["duplicate_symbol_date_rows:2", "non_numeric_volume:1"],
+        "warnings": [],
+        "coverage": {"symbols": 1},
+    }
+
+    def _raise(*_args, **_kwargs):
+        raise DataContractViolation("fixture contract failure", contract_report)
+
+    with patch("harvester.official.stage_complete_release", side_effect=_raise), \
+         patch("harvester.ops.finalize_release"):
+        result = run_daily_release(
+            release_id="2026-05-10-r3",
+            exports_root=exports,
+            providers=["fred"],
+            preflight=False,
+        )
+
+    assert result["status"] == "failed"
+    report = exports / ".failures" / "2026-05-10-r3.release_failed.json"
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["violations"] == contract_report["violations"]
+    assert payload["report"] == contract_report
+
+
 def test_write_failure_report_does_not_raise_on_unwritable_path(tmp_path: Path, capsys) -> None:
     """Phase 0.2: _write_failure_report swallows OSError and prints to stderr."""
     from harvester.ops import _write_failure_report

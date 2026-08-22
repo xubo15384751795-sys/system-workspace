@@ -1,0 +1,41 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-23-config-clock-hygiene
+date: "2026-08-23"
+cynefin_domain: complicated
+status: adopted
+summary: >-
+  Consolidate active workspace configuration under configs/, retire the stale
+  root Config inventory as a runtime authority while preserving a one-window
+  compatibility reader, remove the unused Python 3.14 environment, and make
+  XNYS/session and UTC evidence clocks explicit.
+scope:
+  canonical_config_root: configs/
+  legacy_bridge: Config/data_source_registry.yaml
+  archived_inventory: docs/history/legacy-data-source-registry-2026-08-23.yaml
+  archived_root_documents:
+    - docs/history/SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
+    - docs/history/SYSTEM_TECHNICAL_ARCHITECTURE_INVENTORY.md
+    - docs/history/SYSTEM_RESEARCH_MEASUREMENT_AUDIT_SUMMARY.md
+    - docs/history/SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+    - docs/history/P0_4_COMPUTE_DEVICE_HANDOFF.md
+  removed_environment: .venv-orchestration
+authority_changes:
+  - configs/source_registry.yaml is the only active workspace semantic source/route registry.
+  - packages/harvester/configs/series_registry.yaml remains acquisition metadata only; it cannot make authority or freshness claims.
+  - Config/data_source_registry.yaml resolves to configs/source_registry.yaml and emits a deprecation warning.
+  - XNYS completed-session close is the scheduling/idempotency anchor; run IDs and runtime logs are UTC.
+clock_acceptance:
+  trigger: "07:00 machine-local (Asia/Singapore)"
+  exchange_calendar: XNYS
+  winter_close_utc: "21:00"
+  winter_trigger_utc: "23:00"
+  minimum_winter_buffer_hours: 2
+  summer_buffer_hours: 3
+  conclusion: "07:00 local remains after the prior regular XNYS close in both U.S. DST regimes."
+bridge_review_by: "2026-09-06"
+rollback:
+  - Restore the five moved configuration files to their prior paths only if a named external consumer is found during the bridge window.
+  - Restore the archived Python environment only if a reproducible Python 3.13 failure proves the environment is required; do not reintroduce Python 3.14 into the scheduled runtime.
+non_goals:
+  - Change provider, freshness, admission, publication, or research thresholds.
+  - Treat the historical inventory snapshot as current data coverage evidence.

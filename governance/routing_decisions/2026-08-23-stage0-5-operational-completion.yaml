@@ -1,0 +1,88 @@
+schema_version: routing_decision_record.v1
+decision_id: 2026-08-23-stage0-5-operational-completion
+date: "2026-08-23"
+status: active
+owner: System
+title: Close the actionable Stage 0-5 recovery and operating-foundation items
+
+scope:
+  - DVC remote and restoreability
+  - dated iCloud Data second copy
+  - external source endpoint and parser repair
+  - launchd reconciliation
+  - pre-push verify command compatibility
+
+decision:
+  dvc_remote: >-
+    Keep iCloud Drive as the temporary configured DVC remote until an external
+    disk or object-storage remote is available. The workspace uses Python 3.13
+    and the matching .venv DVC executable; the previous same-disk localcache
+    remote is not selected.
+  data_backup: >-
+    Treat the dated iCloud Data copy as the current second copy. It is a
+    recoverability copy, not immutable backup storage, and must be replaced or
+    supplemented by an external disk/object store when available.
+  external_sources: >-
+    Keep H.4.1 direct Table 1 mappings for discount_window and primary_credit;
+    keep BTFP semantically separate and allow its historical FRED graph or
+    captured FRED history fallback. Keep SRISK and CoVaR explicitly manual
+    sources rather than reporting missing manual files as automated transport
+    failures. Keep CFTC on the Socrata resource API with parse-before-cache.
+  launchd: >-
+    Keep the canonical daily and dead-man jobs loaded. Keep the two historical
+    21:30/22:30 harvester records explicitly Disabled=true; they are not silent
+    missing jobs and must not be re-enabled in parallel with the 07:00 owner.
+
+evidence:
+  dvc:
+    default_remote: icloud
+    remote_uri: "/Users/a1/Library/Mobile Documents/com~apple~CloudDocs/System-DVC-remote"
+    dvc_version: "3.67.1"
+    tracked_current_release: "2026-08-22-r2"
+    push: "4 files pushed"
+    status: PASS
+    isolated_pull_restore:
+      status: PASS
+      files: 5
+      hashes_match: true
+  panel_restore_drill:
+    status: PASS
+    action: deliberate_one_byte_change_then_dvc_checkout_force
+  data_second_copy:
+    path: "/Users/a1/Library/Mobile Documents/com~apple~CloudDocs/System-Data-backups/2026-08-22/Data"
+    file_count: 4863
+    bytes: 23682518490
+    dated: true
+    status: PASS
+  restore_manifest:
+    path: governance/restore_manifest.yaml
+    status: PASS
+    recoverable: true
+  external_source_checks:
+    h41:
+      discount_window: "direct DDP, 13 rows through 2026-08-19"
+      primary_credit: "direct DDP, 13 rows through 2026-08-19"
+      btfp: "captured FRED history fallback, 1221 rows through 2026-05-06; no H41 400"
+    cftc: "Socrata pull and parser PASS, 1054 rows through 2026-08-18"
+    covar: "200/ZIP shape PASS; aggregate remains manual"
+    finra: "official XLSX parse PASS, 355 rows through 2026-07-01"
+  launchd_reconciliation:
+    status: PASS
+    report: scripts/audit_launchd_reconciliation.py
+    violations: []
+    disabled_harvester_slots:
+      - com.system.daily-run-harvester
+      - com.system.daily-run-harvester-postclose
+
+authority_boundary:
+  data_contract_strength_reduced: false
+  freshness_policy_changed: false
+  manual_source_missing_is_automated_failure: false
+  natural_observation_claimed: false
+
+unresolved_external_acceptance:
+  - Sentry real-event receipt remains blocked until SENTRY_DSN is supplied.
+  - Feishu real-message receipt remains blocked until FEISHU_WEBHOOK_URL is supplied.
+  - The one-day dead-man unload exercise and the fourteen-day evidence window
+    are intentionally pending natural/default-path observation.
+  - iCloud synchronization is not immutable disaster-recovery storage.

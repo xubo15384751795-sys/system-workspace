@@ -49,7 +49,9 @@ run_contract_subset() {
     PYTHON="${PYTHON:-$(command -v python3)}"
   fi
   ./sys pipeline validate
-  PYTHONPATH="$ROOT:packages/framework/src:packages/workbench/src:scripts${PYTHONPATH:+:$PYTHONPATH}" \
+  PYTHONPATH="$ROOT:packages/framework/src:packages/workbench/src:packages/harvester/src:scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    "$PYTHON" "$ROOT/scripts/validate_data_contract_replay.py"
+  PYTHONPATH="$ROOT:packages/framework/src:packages/workbench/src:packages/harvester/src:scripts${PYTHONPATH:+:$PYTHONPATH}" \
     "$PYTHON" -m pytest \
       tests/test_plan_apply.py \
       tests/test_python_support_contract.py \

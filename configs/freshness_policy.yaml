@@ -56,7 +56,7 @@ evidence_release:
 #
 #   In particular it does NOT satisfy P0-4 criterion 1 ("the Harvester release
 #   is finalized and OFR FSI/CISS are fresh or within their governed
-#   publication lag"). P0_4_COMPUTE_DEVICE_HANDOFF.md §3 is explicit: if OFR
+#   publication lag"). docs/history/P0_4_COMPUTE_DEVICE_HANDOFF.md §3 is explicit: if OFR
 #   FSI or CISS is unavailable, failed, empty, or older than its governed
 #   content clock, STOP — a finalized release alone is not freshness evidence.
 #   P0-4 must be run on the compute device against real, freshly acquired

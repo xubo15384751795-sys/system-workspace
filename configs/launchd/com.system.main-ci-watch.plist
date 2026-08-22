@@ -8,7 +8,7 @@
   merge-gate red on main for a full day before anyone noticed.
 
   Install:
-    cp Config/launchd/com.system.main-ci-watch.plist ~/Library/LaunchAgents/
+    cp configs/launchd/com.system.main-ci-watch.plist ~/Library/LaunchAgents/
     launchctl load ~/Library/LaunchAgents/com.system.main-ci-watch.plist
 
   Uninstall:
@@ -37,8 +37,10 @@
     -->
     <key>EnvironmentVariables</key>
     <dict>
-        <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>TZ</key>
+        <string>UTC</string>
     </dict>
     <!-- Twice a day: after the morning routine and after the evening runs. -->
     <key>StartCalendarInterval</key>

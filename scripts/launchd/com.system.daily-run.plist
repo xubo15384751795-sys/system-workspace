@@ -6,6 +6,8 @@
   <string>com.system.daily-run</string>
   <key>ProgramArguments</key>
   <array>
+    <string>__SYSTEM_PYTHON__</string>
+    <string>__SYSTEM_ROOT__/scripts/run_with_runtime_secrets.py</string>
     <string>/bin/bash</string>
     <string>__SYSTEM_ROOT__/scripts/run_daily_scheduled.sh</string>
   </array>
@@ -22,6 +24,8 @@
   <string>__SYSTEM_ROOT__/Output/runs/launchd-daily-run.err.log</string>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>TZ</key>
+    <string>UTC</string>
     <key>SYSTEM_ROOT</key>
     <string>__SYSTEM_ROOT__</string>
     <key>PAPER_ROOT</key>
@@ -34,6 +38,19 @@
     <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>PYTHON</key>
     <string>__SYSTEM_PYTHON__</string>
+    <!-- SENTRY_DSN/Feishu tokens are loaded from this mode-600 file by the
+         wrapper; never persist either secret in a tracked or installed plist. -->
+    <key>SENTRY_ENVIRONMENT</key>
+    <string>system-launchd</string>
+    <key>SYSTEM_OBSERVABILITY_SECRETS_FILE</key>
+    <string>/Users/a1/.config/system/observability.env</string>
+    <!-- Explicit opt-in proxies; installer fills these from operator config.
+         The gateway still uses trust_env=False and only reads these named
+         values for registered provider endpoints. -->
+    <key>HARVESTER_HTTP_PROXY_URL</key>
+    <string></string>
+    <key>HARVESTER_CFTC_PROXY_URL</key>
+    <string></string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

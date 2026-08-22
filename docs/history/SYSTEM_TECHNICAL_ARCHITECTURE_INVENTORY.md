@@ -3,7 +3,7 @@
 > 盘点日期：2026-08-17
 > 盘点目标：在替换自研基础设施之前，建立技术栈、运行时、状态、数据规模、代码重量、领域资产和替换边界的事实基线。
 > 工作方式：只读扫描与静态证据核对；本次只新增本文件，没有执行替换、迁移、删除、数据重算或清理工作区。
-> 相关文件：[SYSTEM_RESEARCH_MEASUREMENT_AUDIT_SUMMARY.md](/Users/a1/System/SYSTEM_RESEARCH_MEASUREMENT_AUDIT_SUMMARY.md)
+> 相关文件：[SYSTEM_RESEARCH_MEASUREMENT_AUDIT_SUMMARY.md](/Users/a1/System/docs/history/SYSTEM_RESEARCH_MEASUREMENT_AUDIT_SUMMARY.md)
 
 ## 0. 先给判断
 

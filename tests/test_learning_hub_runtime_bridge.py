@@ -49,6 +49,11 @@ def test_collectors_include_operator_runtime_events(tmp_path: Path) -> None:
     paths = event_file_paths(tmp_path)
     assert target in paths
 
+    canonical = runtime / "run_events_2026-08-11.jsonl"
+    canonical.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+    paths = event_file_paths(tmp_path)
+    assert canonical in paths
+
 
 def test_record_daily_run_event_also_appends_hub_runtime(tmp_path, monkeypatch) -> None:
     from scripts import record_daily_run_event as mod
@@ -66,6 +71,7 @@ def test_record_daily_run_event_also_appends_hub_runtime(tmp_path, monkeypatch) 
     event = mod.build_run_event(run_id="run_bridge_test")
     out = mod.record_event(event, force=True)
     assert out is not None
+    assert list((tmp_path / "Output" / "runtime_events").glob("run_events_*.jsonl"))
     hub_runtime = tmp_path / "Output" / "system_learning" / "runtime"
     files = list(hub_runtime.glob("records_*.jsonl"))
     assert files, "expected append_runtime_record dual-write"

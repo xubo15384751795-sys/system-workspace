@@ -1,0 +1,18 @@
+schema_version: external_source_monitoring.v1
+cadence: monthly
+command: python scripts/check_external_source_endpoints.py --json
+report_path: Data/system_index/external_source_endpoint_health.json
+redirect_policy: fail_closed
+targets:
+  COVAR:
+    endpoint: https://www.newyorkfed.org/medialibrary/media/research/data_indicators/data_2014_sr348_CoVaR.zip
+    transport_contract: official_zip_archive
+    semantic_contract: manual_aggregate_required
+    note: >-
+      The archive is a quarterly firm-level panel. The probe confirms endpoint
+      and archive shape; it must not invent a scalar firm aggregation.
+  FINRA_MARGIN_DEBT:
+    endpoint: https://www.finra.org/sites/default/files/2021-03/margin-statistics.xlsx
+    transport_contract: official_xlsx
+    semantic_contract: monthly_debit_balances
+    fallback: FRED:BOGZ1FL663067003Q

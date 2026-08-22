@@ -9,7 +9,7 @@ Usage:
 
 Output:
     Output/runs/{run_id}/            — atomic run bundle (new)
-    Output/runtime_events/YYYY-MM-DD.jsonl
+    Output/runtime_events/run_events_YYYY-MM-DD.jsonl
     Output/alerts/latest_alert.md
     Output/alerts/latest_alert.json
 
@@ -26,6 +26,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -39,6 +40,7 @@ from scripts._current_publish import (
     run_freshness_check,
     should_publish,
 )
+from scripts._daily_observability import publish_daily_run_observability
 from scripts._daily_run_sequence import (
     dry_run_labels,
     load_daily_run_sequence,
@@ -229,9 +231,16 @@ def _candidate_decision_lineage(generation_dir: Path) -> dict[str, object] | Non
         result["canonical_claim_chains"] = payload["canonical_claim_chains"]
     return result
 
-from scripts._pipeline_dag import classify_step_failures
-from scripts._pipeline_runner import load_registry, run_registry_step
-from scripts._pipeline_runner import run_subprocess_step as _run_subprocess_step
+from scripts._pipeline_dag import (
+    classify_step_failures,  # noqa: E402 — delayed to preserve pipeline import order
+)
+from scripts._pipeline_runner import (  # noqa: E402 — delayed to preserve pipeline import order
+    load_registry,
+    run_registry_step,
+)
+from scripts._pipeline_runner import (
+    run_subprocess_step as _run_subprocess_step,  # noqa: E402 — delayed to preserve pipeline import order
+)
 
 # Numbered user-facing stages in the pipeline
 TOTAL_STEPS = len(load_daily_run_sequence()) or 33
@@ -375,7 +384,7 @@ def write_runtime_event(event: dict, output_root: Path | None = None) -> None:
     runtime_dir = output_root / "runtime_events" if output_root else RUNTIME_DIR
     ensure_dir(runtime_dir)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    path = runtime_dir / f"{today}.jsonl"
+    path = runtime_dir / f"run_events_{today}.jsonl"
     JsonlEventStore(path).append(
         EventEnvelope.create(
             event_type=str(event.get("type") or "daily_run_completed"),
@@ -715,6 +724,13 @@ def build_early_failure_outcome(
         )
     except Exception:
         logger.exception("Failed to notify early-failure outcome")
+    publish_daily_run_observability(
+        outcome_dict,
+        output_root=output_root,
+        source="daily_run_early_failure",
+        failed_steps=[stage],
+        warnings=[warning],
+    )
 
     os.environ["SYSTEM_DAILY_OUTCOME_READY"] = "1"
     os.environ["SYSTEM_DAILY_SINKS_COMPLETE"] = "1"
@@ -824,9 +840,12 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     os.environ.pop("SYSTEM_DAILY_BUNDLE_RUN_ID", None)
 
     # Configure logging: process steps go to log, CLI summary stays as print
+    # Run IDs and log timestamps are UTC even when the launchd trigger is a
+    # machine-local calendar event.  This keeps cross-device evidence sortable.
+    logging.Formatter.converter = time.gmtime
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
+        format="%(asctime)sZ [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )
     _raise_open_file_limit()
@@ -1451,6 +1470,13 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
             )
         except Exception:
             logger.exception("Failed to publish mandatory sink failure evidence")
+        publish_daily_run_observability(
+            mandatory_dict,
+            output_root=output_root if args.output_root else None,
+            source="daily_run_mandatory_sink_failure",
+            failed_steps=failed_step_ids,
+            warnings=[f"MANDATORY_SINK_FAILED: {type(exc).__name__}"],
+        )
         os.environ["SYSTEM_DAILY_EXIT_CODE"] = str(EXIT_MANDATORY_SINK_FAILURE)
         os.environ["SYSTEM_DAILY_SINKS_COMPLETE"] = "0"
         logger.exception("Learning Hub mandatory sink failed")
@@ -1516,6 +1542,13 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     # publish semantics to diverge between bundle, event, notification, and
     # Dagster/CLI exit handling.
     logger.info("RunOutcome: exit_code=%d reason_codes=%s", outcome.exit_code, outcome.reason_codes)
+    publish_daily_run_observability(
+        outcome_dict,
+        output_root=output_root if args.output_root else None,
+        source=os.environ.get("SYSTEM_RUN_ORIGIN", "daily_run"),
+        failed_steps=[str(s.get("step")) for s in hard_failures],
+        warnings=warnings,
+    )
     os.environ["SYSTEM_DAILY_SINKS_COMPLETE"] = "1"
     return outcome
 
@@ -1581,7 +1614,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
 
                 # Compute CaseLab score gap from caselab output
                 caselab_gap = 0.0
-                _today_str = date.today().isoformat()
+                _today_str = datetime.now(UTC).date().isoformat()
                 caselab_path_today = ROOT / "Output" / "caselab" / f"{_today_str}.json"
                 if caselab_path_today.exists():
                     try:
@@ -1625,7 +1658,7 @@ def _collect_feedback_pending(bundle: RunBundle) -> None:
     caselab_dir = ROOT / "Output" / "caselab"
     if caselab_dir.exists():
         try:
-            today = date.today().isoformat()
+            today = datetime.now(UTC).date().isoformat()
             caselab_path = caselab_dir / f"{today}.json"
             if caselab_path.exists():
                 caselab = json.loads(caselab_path.read_text(encoding="utf-8"))
@@ -1734,7 +1767,9 @@ def main(argv: list[str] | None = None) -> int:
     """
     try:
         from system_runtime.observability import init_sentry
+        from system_runtime.runtime_secrets import load_runtime_secrets
 
+        load_runtime_secrets()
         init_sentry()
     except Exception:
         logger.debug("Sentry initialization unavailable", exc_info=True)

@@ -45,7 +45,7 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 | 29 | work_brief | Work brief |
 | 30 | record_daily_run_event | Hub run event + calibration snapshot |
 
-**Automation:** macOS `com.system.daily-run` launchd → `scripts/run_daily_scheduled.sh` → `scripts/run_dagster_daily.sh` → `orchestrate.sh daily` → `python -m orchestration.cli daily` (Dagster `daily_job`, default 07:00 local). Escape hatch: `SYSTEM_USE_LEGACY_DAILY_RUN=1`.
+**Automation:** macOS `com.system.daily-run` launchd → `scripts/run_daily_scheduled.sh` → `scripts/run_dagster_daily.sh` → `orchestrate.sh daily` → `python -m orchestration.cli daily` (Dagster `daily_job`, default 07:00 local). Escape hatch: `SYSTEM_USE_LEGACY_DAILY_RUN=1`. The run writes `Output/health/daily_run_heartbeat.json` and sends one Feishu summary when configured; independent `com.system.daily-run-deadman` checks the heartbeat at 09:00 with a 26-hour maximum age.
 
 ## Historical weekly snapshot (44 steps)
 

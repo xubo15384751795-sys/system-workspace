@@ -19,6 +19,11 @@ def _contract_status(release: dict[str, Any]) -> str:
     return str(contract.get("status", "UNKNOWN")).upper() if isinstance(contract, dict) else "UNKNOWN"
 
 
+def _contract_mode(release: dict[str, Any]) -> str:
+    contract = release.get("data_contract")
+    return str(contract.get("mode", "enforce")).lower() if isinstance(contract, dict) else "enforce"
+
+
 @asset_check(
     asset=harvester_release,
     name="cross_asset_structural_contract",
@@ -27,16 +32,24 @@ def _contract_status(release: dict[str, Any]) -> str:
 )
 def cross_asset_structural_contract(harvester_release: dict[str, Any]) -> AssetCheckResult:
     contract_status = _contract_status(harvester_release)
+    contract_mode = _contract_mode(harvester_release)
     integrity = harvester_release.get("integrity")
     duplicate_rows = 0
     if isinstance(integrity, dict):
         duplicate_rows = int(integrity.get("duplicate_rows_removed", 0) or 0)
-    passed = contract_status in {"PASS", "WARN"} and duplicate_rows == 0
+    # Shadow records a BLOCK for the three-day observation window but does not
+    # turn that new check into a launchd/promotion blocker.  The workspace
+    # mirror's write boundary remains independently fail-closed.
+    passed = (
+        contract_mode == "shadow"
+        or contract_status in {"PASS", "WARN"}
+    ) and duplicate_rows == 0
     return AssetCheckResult(
         passed=passed,
         description="release data has a valid structural contract and no duplicate primary keys",
         metadata={
             "contract_status": contract_status,
+            "contract_mode": contract_mode,
             "duplicate_rows_removed": duplicate_rows,
             "release_id": harvester_release.get("release_id", ""),
         },

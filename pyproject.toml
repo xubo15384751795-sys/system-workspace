@@ -106,11 +106,14 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = [
     ".",
-    "packages/framework",
-    "packages/framework/src",
     "packages/harvester/src",
     "packages/learning_hub/src",
+    # The workbench owns the canonical ``ml`` package consumed by the root
+    # tests and its package suite; keep it ahead of the legacy framework ml
+    # namespace retained for framework-only compatibility imports.
     "packages/workbench/src",
+    "packages/framework",
+    "packages/framework/src",
     "packages/orchestration",
     "scripts",
 ]

@@ -1,0 +1,5 @@
+outs:
+- md5: 92c40151c0ec5689fc9f89eb52f62280
+  size: 1865306
+  hash: md5
+  path: Data/harvester/exports/2026-08-22-r2/data/benchmark_panel.parquet

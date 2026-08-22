@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from scripts import _notify
 
 
@@ -34,6 +36,63 @@ def test_webhook_uses_owned_external_gateway(monkeypatch) -> None:
 def test_webhook_rejects_query_bearing_configuration(monkeypatch) -> None:
     monkeypatch.setenv("NOTIFY_WEBHOOK_URL", "https://hooks.example.test/events?token=secret")
     assert _notify._notify_webhook("title", "message") is False
+
+
+def test_feishu_webhook_uses_native_text_payload(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _Response:
+        status_code = 200
+
+    class _Gateway:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, endpoint_id, content, *, headers, timeout_sec):
+            captured["endpoint_id"] = endpoint_id
+            captured["body"] = json.loads(content.decode("utf-8"))
+            captured["headers"] = headers
+            captured["timeout_sec"] = timeout_sec
+            return _Response()
+
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv(
+        "FEISHU_WEBHOOK_URL",
+        "https://open.feishu.cn/open-apis/bot/v2/hook/test",
+    )
+    monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
+    monkeypatch.setattr(_notify, "OwnedExternalHTTPGateway", lambda _endpoints: _Gateway())
+
+    assert _notify.notify_feishu("title", "message") is True
+    assert captured["endpoint_id"] == "feishu_webhook"
+    assert captured["body"] == {
+        "msg_type": "text",
+        "content": {"text": "title\nmessage"},
+    }
+
+
+def test_daily_summary_always_uses_feishu_sink(monkeypatch) -> None:
+    sent: list[tuple[str, str]] = []
+    monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
+    monkeypatch.setattr(
+        _notify,
+        "_notify_feishu",
+        lambda title, message: sent.append((title, message)) or True,
+    )
+
+    assert _notify.notify_daily_run_summary(
+        status="success",
+        outcome={
+            "run_id": "daily-001",
+            "exit_code": 0,
+            "publish_status": "COMMITTED",
+        },
+    ) is True
+    assert sent[0][0] == "System daily_run 运行摘要"
+    assert "run_id=daily-001" in sent[0][1]
 
 
 def test_notification_redacts_urls_and_credentials_before_sinks(monkeypatch) -> None:

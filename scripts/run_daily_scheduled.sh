@@ -9,6 +9,9 @@ fi
 
 SYSTEM_ROOT="${SYSTEM_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 export SYSTEM_ROOT
+# launchd's StartCalendarInterval stays machine-local; the process clock used
+# by IDs, shell timestamps, and library loggers is explicitly UTC.
+export TZ=UTC
 export SYSTEM_ORCHESTRATOR="${SYSTEM_ORCHESTRATOR:-dagster}"
 export SYSTEM_SCHEDULE_LABEL="${SYSTEM_SCHEDULE_LABEL:-com.system.daily-run}"
 export SYSTEM_SCHEDULE_CALENDAR="${SYSTEM_SCHEDULE_CALENDAR:-XNYS}"

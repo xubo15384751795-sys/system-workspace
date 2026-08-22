@@ -1,0 +1,95 @@
+decision_id: 2026-08-22-external-source-repair
+title: Repair external indicator endpoints without lowering semantic gates
+status: active
+effective_date: '2026-08-22'
+owner: Harvester
+scope:
+  - packages/harvester/src/harvester/providers/h41.py
+  - packages/harvester/src/harvester/providers/external_indicators.py
+  - packages/harvester/src/harvester/official.py
+  - packages/harvester/src/harvester/http_gateway.py
+  - packages/harvester/src/harvester/cross_asset_panel.py
+  - packages/workbench/src/workbench/judgment/layer.py
+  - configs/source_registry.yaml
+  - scripts/check_external_source_endpoints.py
+decisions:
+  h41:
+    route: federal_reserve_preformatted_table1
+    ddp_package: f52e72511be65e16f71d4f5858951312
+    series:
+      discount_window: H41/H41/RESPPALD_N.WW
+      primary_credit: H41/H41/RESPPALDP_N.WW
+      btfp: H41/H41/RESPPALDK_N.WW
+    fallback: FRED public graph for historical BTFP only
+    semantic_guard: BTFP is never relabeled as total loans when absent from current Table 1
+  cftc_tff:
+    route: socrata_resource_json
+    resource: gpe5-46if
+    contract: validate_json_schema_and_exclude_micro_e_mini_before_atomic_cache_replace
+    proxy_env_var: HARVESTER_CFTC_PROXY_URL
+    proxy_policy: explicit_credential_free_http_proxy_only; trust_env_remains_false; redirects_disabled
+  srisk:
+    route: manual_csv_monthly
+    reason: V-Lab MCP/API requires authenticated access; no stable unauthenticated production export was evidenced
+  nyfed_covar:
+    route: manual_csv_quarterly
+    final_url: https://www.newyorkfed.org/medialibrary/media/research/data_indicators/data_2014_sr348_CoVaR.zip
+    reason: final archive is a quarterly individual-firm panel; aggregate scalar selector is not implicit
+  finra_margin:
+    route: official_xlsx
+    final_url: https://www.finra.org/sites/default/files/2021-03/margin-statistics.xlsx
+    fallback: FRED:BOGZ1FL663067003Q
+monitoring:
+  command: python scripts/check_external_source_endpoints.py --json
+  cadence: monthly
+  redirect_policy: fail_closed
+  report: Data/system_index/external_source_endpoint_health.json
+acceptance:
+  focused_tests: packages/harvester/tests/test_providers_h41.py, packages/harvester/tests/test_external_indicators.py, packages/harvester/tests/test_source_spec.py, tests/test_external_source_endpoints.py
+  live_evidence:
+    h41: direct Table 1 response parsed for 2026-08-19; BTFP public FRED graph parsed through 2026-05-06
+    cftc: official Socrata response had 1054 standard E-mini rows through 2026-08-18; cache micro rows 0
+    cftc_transport_boundary: >-
+      The hardened OwnedHTTPGateway direct egress returned HTTP 403 on this
+      device. The repaired route now accepts only the explicit, credential-free
+      HARVESTER_CFTC_PROXY_URL and still uses trust_env=False with redirects
+      disabled; the installed launchd plist carries the CFTC-only value. A
+      broader provider-wide proxy remains an explicit operator decision and
+      is not inferred from HTTPS_PROXY.
+    release_outcome_boundary: >-
+      External indicators are acquired by the dedicated external_indicators
+      provider, not by the generic registry adapter. The release outcome must
+      count those series exactly once and must not apply ETF parity routing to
+      the mixed-source benchmark panel; ETF route semantics remain attached to
+      cross_asset_daily_panel only.
+    finra: official Excel parsed, 355 rows through 2026-07-01
+    endpoint_probe: COVAR archive 200/zip shape valid; FINRA Excel valid; CoVaR scalar aggregation remains manual
+  release_repair_follow_up:
+    mixed_provider_boundary: >-
+      Registry benchmark provider metadata is filtered to the prefetched ETF
+      symbols before ETF route policy evaluation; this prevents FRED/H41/SEC
+      routes from being misclassified as ETF routes.
+    judgment_lineage: >-
+      Auxiliary Judgment evidence uses the supporting data release ID rather
+      than the daily generation run ID, so publish admission can verify one
+      release across all canonical claim chains.
+  scheduled_acceptance:
+    run_id: daily_pipeline_20260822_191754_139ced
+    run_origin: launchd
+    release_id: 2026-08-22-r2
+    admission_verdict: PASS
+    publish_status: COMMITTED
+    freshness: FRESH
+    runtime_warnings: []
+    cross_asset_contract: PASS
+    duplicate_key_count: 0
+    cftc_parser: PASS
+    authority_boundary_note: >-
+      The benchmark panel still has partial provider outcomes covered by the
+      approved carry-forward policy; the overall decision authority remains
+      diagnostic-only. This acceptance does not promote those sources or
+      weaken freshness/semantic gates.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  claim_ceiling: observed_source_only

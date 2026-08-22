@@ -14,7 +14,7 @@ state machine entered `main` through PR #18. The minimum source baseline is
 
 The authoritative definitions are:
 
-- `SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md`, section 7 and section 16;
+- `docs/history/SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md`, section 7 and section 16;
 - `governance/progress/validation_roadmap.yaml`, task `P0-4`;
 - `governance/daily_pipeline_registry.yaml`;
 - `governance/system_constitution.yaml`;

@@ -24,7 +24,7 @@ authority_changes:
   - module: scripts/run_bundle.py
     claim: typed RunOutcome is persisted with the run bundle
 references:
-  - SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
+  - docs/history/SYSTEM_COMPREHENSIVE_OPTIMIZATION_MASTER_PLAN.md
   - pyproject.toml [tool.pytest.ini_options]
   - .github/workflows/ci.yml
   - tests/test_run_outcome.py

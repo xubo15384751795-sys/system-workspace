@@ -53,6 +53,7 @@
         },
         "claim_ceiling": { "type": "string", "minLength": 1 },
         "diagnostic_only": { "type": "boolean" },
+        "acquisition_mode": { "enum": ["automated", "manual"] },
         "requires_parity_certification": { "type": "boolean" },
         "notes": { "type": "string" }
       }

@@ -19,6 +19,22 @@ from system_runtime.paths import WorkspacePaths
 logger = logging.getLogger(__name__)
 
 
+# These series are acquired by ``providers.external_indicators`` below rather
+# than by the generic provider adapter loop.  Keeping them out of the generic
+# loop avoids reporting a false provider failure (``external_public`` and the
+# OFR aliases are orchestration labels, not ``build_provider`` implementations).
+_EXTERNAL_MANAGED_PROVIDER_PRIORITIES = frozenset(
+    {"external_public", "direct_ofr", "openbb_if_available"}
+)
+
+
+def _is_external_managed_series(series: Any) -> bool:
+    return bool(
+        set(getattr(series, "provider_priority", ()) or ())
+        & _EXTERNAL_MANAGED_PROVIDER_PRIORITIES
+    )
+
+
 def _external_indicator_timeout_seconds() -> int:
     """Return the bounded timeout for optional publisher feeds.
 
@@ -250,13 +266,11 @@ def _provider_outcome(
         outcome["provider_chain"] = [str(item) for item in provider_chain]
     if fallback_used:
         outcome["fallback_used"] = True
-    if series_providers and any(
-        str(provider).lower() in {"tiingo", "massive", "yfinance"}
-        for provider in series_providers.values()
-    ):
-        from harvester.core.etf_parity import route_policy_for_selection
-
-        outcome["route_policy"] = route_policy_for_selection(series_providers)
+    # ETF parity is a cross-asset panel concern.  The generic benchmark
+    # outcome is intentionally mixed-source (FRED, H.4.1, Treasury, SEC,
+    # external indicators, and sometimes Tiingo ETF rows); applying the ETF
+    # route classifier to that whole outcome incorrectly turns a healthy
+    # benchmark release into a diagnostic-only route.
     outcome["availability"] = {
         "state": "STALE"
         if status in {"reused_same_content", "reused_after_provider_failure", "environmentally_blocked"}
@@ -288,6 +302,114 @@ def _failed_attempt_failure_classes(provider_outcome: dict[str, Any] | None) -> 
             if category:
                 categories.add(str(category))
     return sorted(categories)
+
+
+def _merge_external_provider_outcome(
+    provider_outcome: dict[str, Any] | None,
+    *,
+    requested_series: set[str],
+    succeeded_series: dict[str, str],
+    failed_series: dict[str, str],
+    manual_series: dict[str, str] | None = None,
+) -> dict[str, Any] | None:
+    """Fold the separately acquired external indicators into one outcome.
+
+    ``stage_complete_release`` intentionally has two acquisition paths: the
+    generic registry adapter and the public-file/API external-indicator
+    provider.  The release artifacts still need one provider outcome, but the
+    counts must not double-count the external series or leave their generic
+    adapter misses behind as false failures.
+    """
+    if not requested_series and not manual_series:
+        return provider_outcome
+
+    base = dict(provider_outcome or {})
+    base_failed = {str(item) for item in base.get("failed_series", [])}
+    combined_failed = base_failed | {str(item) for item in failed_series}
+    base_requested = int(base.get("requested_count", 0) or 0)
+    base_succeeded = int(base.get("succeeded_count", 0) or 0)
+    combined_requested = base_requested + len(requested_series)
+    combined_succeeded = base_succeeded + len(succeeded_series)
+    if combined_requested == 0:
+        status = "no_release_expected"
+    elif combined_failed and combined_succeeded == 0:
+        status = "provider_failed_no_acceptable_fallback"
+    elif combined_failed:
+        status = "partial_provider_success"
+    else:
+        status = "refreshed"
+
+    merged: dict[str, Any] = {
+        **base,
+        "status": status,
+        "provider": "harvester.complete",
+        "requested_count": combined_requested,
+        "succeeded_count": combined_succeeded,
+        "failed_count": len(combined_failed),
+        "failed_series": sorted(combined_failed),
+        "retrieved_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    }
+
+    providers_used = {
+        str(item) for item in (base.get("providers_used") or []) if str(item).strip()
+    }
+    providers_used.update(str(item) for item in succeeded_series.values() if str(item).strip())
+    if providers_used:
+        merged["providers_used"] = sorted(providers_used)
+
+    series_providers = {
+        str(key): str(value)
+        for key, value in (base.get("series_providers") or {}).items()
+    }
+    series_providers.update(
+        {str(key): str(value) for key, value in succeeded_series.items()}
+    )
+    if series_providers:
+        merged["series_providers"] = dict(sorted(series_providers.items()))
+
+    errors: list[str] = []
+    existing_error = str(base.get("error") or "").strip()
+    if existing_error:
+        errors.append(existing_error)
+    if failed_series:
+        external_errors = "; ".join(
+            f"{series_id}: {failed_series[series_id]}"
+            for series_id in sorted(failed_series)
+        )
+        errors.append(f"external indicator acquisition: {external_errors}")
+    if errors:
+        merged["error"] = "; ".join(errors)[:2000]
+    else:
+        merged.pop("error", None)
+
+    if combined_failed:
+        merged["fallback_reason"] = "some_requested_series_failed"
+    else:
+        merged.pop("fallback_reason", None)
+
+    # Manual monthly sources are an explicit acquisition mode, not a failed
+    # automated transport. Keep their state visible for operators without
+    # putting them in failed_series/unavailable or changing the release gate.
+    if manual_series:
+        merged["manual_series"] = dict(sorted(manual_series.items()))
+    else:
+        merged.pop("manual_series", None)
+
+    availability = dict(merged.get("availability") or {})
+    availability["state"] = (
+        "STALE"
+        if status in {"reused_same_content", "reused_after_provider_failure", "environmentally_blocked"}
+        else "UNKNOWN"
+    )
+    availability.setdefault("calendar_status", "UNCONFIGURED")
+    availability.setdefault("available_at", None)
+    availability.setdefault("decision_usable", False)
+    availability.setdefault(
+        "reason", "publication_calendar_or_available_at_not_evidenced"
+    )
+    availability["retrieved_at"] = merged["retrieved_at"]
+    merged["availability"] = availability
+    return merged
 
 
 def prefer_openbb() -> bool:
@@ -957,7 +1079,11 @@ def fetch_official_series_from_registry(
         enabled = set(DEFAULT_OFFICIAL_PROVIDERS)
 
     # Per-series provider attempts (ordered); fall back when preferred provider fails.
-    requested_specs = [s for s in registry.active_series() if not s.is_derived]
+    requested_specs = [
+        s
+        for s in registry.active_series()
+        if not s.is_derived and not _is_external_managed_series(s)
+    ]
     requested_series = [s.source_series_id or s.canonical_id for s in requested_specs]
     all_results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -1373,6 +1499,7 @@ def stage_complete_release(
     api_keys: dict[str, str] | None = None,
     include_external: bool = True,
     notes: str = "",
+    data_contract_mode: str | None = None,
 ) -> dict[str, Any]:
     """Stage a complete Harvester release with registry-driven acquisition.
 
@@ -1421,6 +1548,29 @@ def stage_complete_release(
     if not isinstance(provider_outcome, dict):
         provider_outcome = None
 
+    external_managed_series = {
+        str(s.source_series_id or s.canonical_id)
+        for s in registry.active_series()
+        if not s.is_derived and _is_external_managed_series(s)
+    }
+    from harvester.providers.external_indicators import KNOWN_INDICATORS
+
+    manual_external_series = {
+        indicator.series_id
+        for indicator in KNOWN_INDICATORS
+        if indicator.acquisition_mode == "manual"
+    }
+    automated_external_series = external_managed_series - manual_external_series
+    external_succeeded_series: dict[str, str] = {}
+    external_failed_series: dict[str, str] = {
+        series_id: "not_loaded"
+        for series_id in automated_external_series
+    }
+    manual_series_status: dict[str, str] = {
+        series_id: "manual_refresh_required"
+        for series_id in sorted(external_managed_series & manual_external_series)
+    }
+
     # ------------------------------------------------------------------
     # 2. Build derived series
     # ------------------------------------------------------------------
@@ -1439,15 +1589,22 @@ def stage_complete_release(
     if include_external:
         try:
             from harvester.providers.external_indicators import (
-                KNOWN_INDICATORS,
                 ManualDownloadRequired,
                 external_series_to_long_panel,
                 fetch_external_indicator,
+                read_cached_external_indicator,
             )
             ext_results: dict[str, pd.Series] = {}
             for indicator in KNOWN_INDICATORS:
                 cache_dir = harvester_raw_root() / "external_indicators"
                 cache_dir.mkdir(parents=True, exist_ok=True)
+                if indicator.acquisition_mode == "manual":
+                    result = read_cached_external_indicator(indicator, cache_dir=cache_dir)
+                    if result is not None and not result.empty:
+                        ext_results[indicator.series_id] = result
+                        if indicator.series_id in manual_series_status:
+                            manual_series_status[indicator.series_id] = "cached"
+                    continue
                 try:
                     result = fetch_external_indicator(
                         indicator,
@@ -1457,13 +1614,27 @@ def stage_complete_release(
                     )
                 except ManualDownloadRequired as exc:
                     logger.warning("external indicator unavailable: %s", exc)
+                    if indicator.series_id in automated_external_series:
+                        external_failed_series[indicator.series_id] = type(exc).__name__
                     continue
                 if result is not None and not result.empty:
                     ext_results[indicator.series_id] = result
+                    if indicator.series_id in automated_external_series:
+                        external_succeeded_series[indicator.series_id] = indicator.authority_id
+                        external_failed_series.pop(indicator.series_id, None)
             if ext_results:
                 ext_panel = external_series_to_long_panel(ext_results, vintage_date=vintage_date)
         except Exception:
             logger.warning("external indicator fetch failed", exc_info=True)
+
+    if include_external:
+        provider_outcome = _merge_external_provider_outcome(
+            provider_outcome,
+            requested_series=automated_external_series,
+            succeeded_series=external_succeeded_series,
+            failed_series=external_failed_series,
+            manual_series=manual_series_status,
+        )
 
     # ------------------------------------------------------------------
     # 4. Combine into benchmark_panel and proxy_candidate_panel
@@ -1676,6 +1847,7 @@ def stage_complete_release(
         # HYG/LQD/TLT may already have been acquired by the registry phase.
         # Reuse those rows and request only the remaining cross-asset symbols.
         prefetched_panel=prefetched_panel_from_registry(panel, workspace=workspace_root()),
+        data_contract_mode=data_contract_mode,
     )
 
     # ------------------------------------------------------------------

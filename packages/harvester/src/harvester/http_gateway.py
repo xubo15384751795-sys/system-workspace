@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
 import socket
 from dataclasses import dataclass
 from string import Formatter
@@ -44,6 +45,7 @@ class EndpointSpec:
     url: str
     allowed_hosts: frozenset[str]
     path_parameters: frozenset[str] = frozenset()
+    proxy_env_var: str = ""
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.url)
@@ -59,6 +61,8 @@ class EndpointSpec:
         }
         if fields != set(self.path_parameters):
             raise GatewayPolicyError("registered endpoint path parameters are not explicit")
+        if self.proxy_env_var and not self.proxy_env_var.isidentifier():
+            raise GatewayPolicyError("registered endpoint proxy environment name is invalid")
         if "{" in (parsed.netloc or "") or "}" in (parsed.netloc or ""):
             raise GatewayPolicyError("registered endpoint host cannot be templated")
         if host not in {item.lower() for item in self.allowed_hosts}:
@@ -90,10 +94,16 @@ DEFAULT_ENDPOINTS: dict[tuple[str, str], EndpointSpec] = {
         url="https://api.stlouisfed.org/fred/series/observations",
         allowed_hosts=frozenset({"api.stlouisfed.org"}),
     ),
+    ("fred", "series_graph"): EndpointSpec(
+        provider="fred",
+        endpoint_id="series_graph",
+        url="https://fred.stlouisfed.org/graph/fredgraph.csv",
+        allowed_hosts=frozenset({"fred.stlouisfed.org"}),
+    ),
     ("h41", "ddp_csv"): EndpointSpec(
         provider="h41",
         endpoint_id="ddp_csv",
-        url="https://www.federalreserve.gov/datadownload/Download.aspx",
+        url="https://www.federalreserve.gov/datadownload/DownloadTable.aspx",
         allowed_hosts=frozenset({"www.federalreserve.gov"}),
     ),
     ("treasury", "debt_to_penny"): EndpointSpec(
@@ -210,6 +220,36 @@ def validate_outbound_url(url: str) -> str:
     """Reject non-HTTPS, userinfo, fragments, and private DNS targets."""
     resolve_outbound_url(url)
     return url
+
+
+def _configured_proxy_url(spec: EndpointSpec) -> str | None:
+    """Return an explicitly opted-in, credential-free HTTP proxy URL.
+
+    The gateway remains ``trust_env=False`` by default.  A registered endpoint
+    may name one environment variable for a narrow exception; other registered
+    endpoints use the explicit global ``HARVESTER_HTTP_PROXY_URL`` opt-in.
+    The caller must set the selected variable deliberately.
+    """
+    proxy_env_var = spec.proxy_env_var or "HARVESTER_HTTP_PROXY_URL"
+    proxy_url = os.environ.get(proxy_env_var, "").strip()
+    if not proxy_url:
+        return None
+    parsed = urlparse(proxy_url)
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.fragment
+        or parsed.query
+        or parsed.path not in {"", "/"}
+    ):
+        raise GatewayPolicyError("configured provider proxy is invalid")
+    try:
+        _ = parsed.port
+    except ValueError as exc:
+        raise GatewayPolicyError("configured provider proxy is invalid") from exc
+    return proxy_url
 
 
 class _PinnedNetworkBackend(httpcore.NetworkBackend):
@@ -357,8 +397,17 @@ class OwnedHTTPGateway:
         query, path_params = self._partition_params(spec, params or {})
         self._validate_params(query)
         url = self._render_url(spec, path_params)
+        proxy_url: str | None = None
         if self._transport is None:
-            resolved_addresses = resolve_outbound_url(url)
+            proxy_url = _configured_proxy_url(spec)
+            if proxy_url:
+                # Keep the registered endpoint allowlist and HTTPS validation;
+                # only the TCP route changes to the explicitly configured
+                # proxy.  Do not let HTTPX read arbitrary environment values.
+                validate_outbound_url(url)
+                resolved_addresses = ()
+            else:
+                resolved_addresses = resolve_outbound_url(url)
         else:
             validate_outbound_url(url)
             resolved_addresses = ()
@@ -366,21 +415,35 @@ class OwnedHTTPGateway:
         client = self._client
         try:
             if self._transport is None:
-                pinned_transport = _PinnedHTTPTransport(
-                    expected_host=(urlparse(url).hostname or ""),
-                    addresses=resolved_addresses,
-                )
-                pinned_client = httpx.Client(
-                    headers=self._headers,
-                    transport=pinned_transport,
-                    follow_redirects=False,
-                    trust_env=False,
-                    timeout=httpx.Timeout(connect=5.0, read=self._timeout_sec, write=10.0, pool=5.0),
-                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-                )
+                if proxy_url:
+                    pinned_client = httpx.Client(
+                        headers=self._headers,
+                        proxy=proxy_url,
+                        follow_redirects=False,
+                        trust_env=False,
+                        timeout=httpx.Timeout(connect=5.0, read=self._timeout_sec, write=10.0, pool=5.0),
+                        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+                    )
+                else:
+                    pinned_transport = _PinnedHTTPTransport(
+                        expected_host=(urlparse(url).hostname or ""),
+                        addresses=resolved_addresses,
+                    )
+                    pinned_client = httpx.Client(
+                        headers=self._headers,
+                        transport=pinned_transport,
+                        follow_redirects=False,
+                        trust_env=False,
+                        timeout=httpx.Timeout(connect=5.0, read=self._timeout_sec, write=10.0, pool=5.0),
+                        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+                    )
                 client = pinned_client
             assert client is not None
-            with client.stream("GET", url, params=query) as response:
+            # Passing an empty mapping makes HTTPX rebuild the URL without a
+            # query on some versions.  ``EndpointSpec.url`` may itself carry
+            # a registered, bounded query (ECB/CFTC); preserve it explicitly.
+            request_params = query if query else None
+            with client.stream("GET", url, params=request_params) as response:
                 if 300 <= response.status_code < 400:
                     raise GatewayPolicyError("redirects are disabled for provider egress")
                 content_length = response.headers.get("content-length")

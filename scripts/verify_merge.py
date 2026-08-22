@@ -76,9 +76,26 @@ def _run_step(
     t0 = time.time()
     # Ensure subprocess steps can import scripts/ and workbench/ without each
     # command having to sys.path.insert (which the security audit forbids).
+    pythonpath_entries = [
+        str(cwd),
+        *([str(cwd / "src")] if (cwd / "src").is_dir() else []),
+        str(ROOT),
+        str(ROOT / "packages" / "framework" / "src"),
+        str(ROOT / "packages" / "workbench" / "src"),
+        str(ROOT / "packages" / "harvester" / "src"),
+        str(ROOT / "packages" / "learning_hub" / "src"),
+        str(ROOT / "packages" / "orchestration"),
+        str(ROOT / "scripts"),
+    ]
+    inherited_pythonpath = os.environ.get("PYTHONPATH", "").strip()
+    if inherited_pythonpath:
+        pythonpath_entries.append(inherited_pythonpath)
     env = {
         **os.environ,
-        "PYTHONPATH": ".:packages/framework/src:packages/workbench/src:scripts",
+        # Use absolute entries because package-suite steps run with a package
+        # directory as cwd; relative ``packages/workbench/src`` then points
+        # at a non-existent nested path.
+        "PYTHONPATH": os.pathsep.join(pythonpath_entries),
     }
     try:
         out = subprocess.run(

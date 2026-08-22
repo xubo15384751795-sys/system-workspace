@@ -10,6 +10,8 @@ are finalized evidence and removing them is an operator decision.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from scripts import apply_data_retention_policy as mod
@@ -93,3 +95,58 @@ class TestHarvesterReleaseRetention:
         """A check that is not registered reports nothing — which is how the
         rule went unevaluated for six weeks."""
         assert "harvester_release_retention" in mod.run_retention_check()["checks"]
+
+
+def test_output_runs_recent_n_reports_without_mutating(tmp_path, monkeypatch):
+    runs_dir = tmp_path / "Output" / "runs"
+    runs_dir.mkdir(parents=True)
+    for index in range(4):
+        run = runs_dir / f"run-{index}"
+        run.mkdir()
+        (run / "manifest.json").write_text("{}", encoding="utf-8")
+        os.utime(run, (1_000_000 + index, 1_000_000 + index))
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+
+    findings = mod._check_output_runs_retention(
+        {
+            "output_runs": {
+                "path": "Output/runs",
+                "keep_last_n": 2,
+                "retention_days": None,
+                "archive_path": "Output/archive/runs",
+            }
+        }
+    )
+
+    assert findings[0]["count"] == "2"
+    assert sorted(path.name for path in runs_dir.iterdir()) == [
+        "run-0",
+        "run-1",
+        "run-2",
+        "run-3",
+    ]
+
+
+def test_output_runs_apply_moves_to_recoverable_archive(tmp_path, monkeypatch):
+    runs_dir = tmp_path / "Output" / "runs"
+    runs_dir.mkdir(parents=True)
+    for index in range(3):
+        (runs_dir / f"run-{index}").mkdir()
+        os.utime(runs_dir / f"run-{index}", (1_000_000 + index, 1_000_000 + index))
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    policy = {
+        "output_runs": {
+            "path": "Output/runs",
+            "keep_last_n": 1,
+            "retention_days": None,
+            "archive_path": "Output/archive/runs",
+        }
+    }
+
+    action = mod._apply_output_runs_retention(policy)
+
+    assert action["status"] == "output_runs_archived"
+    assert action["count"] == "2"
+    assert (runs_dir / "run-2").is_dir()
+    assert (tmp_path / "Output" / "archive" / "runs" / "run-0").is_dir()
+    assert (tmp_path / "Output" / "archive" / "runs" / "run-1").is_dir()

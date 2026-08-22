@@ -1,0 +1,81 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-22-data-contract-observation-and-runtime-events
+date: "2026-08-22"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Put the new cross-asset structural contract behind an explicit shadow/enforce
+  switch, preserve its full diagnostic report, and make the default-path and
+  pre-push boundaries observable. Converge Output/runtime_events writers on
+  run_events_YYYY-MM-DD.jsonl while retaining compatibility reads of the former
+  YYYY-MM-DD.jsonl projection.
+scope: >
+  configs/provider_release_policy.yaml,
+  packages/harvester/src/harvester/ops.py,
+  packages/harvester/src/harvester/cross_asset_panel.py,
+  packages/orchestration/orchestration/quality/provider_release.py,
+  packages/orchestration/orchestration/assets/data_quality.py,
+  scripts/validate_data_contract_replay.py,
+  scripts/_pre_push_hook.sh, scripts/daily_run.py, and runtime event readers.
+decision: >
+  Start data_contract_mode at shadow. Shadow records the complete contract
+  result, including violations, in release quality/provenance artifacts and
+  does not turn that new check into a launchd/promotion blocker. The existing
+  Data/panels write boundary remains independently fail-closed: a BLOCK never
+  replaces the known-good workspace mirror. A deliberate enforce change is
+  permitted only after the same check has run beside the real launchd path for
+  at least three consecutive calendar days with clean reports, followed by an
+  explicit governance/configuration change. The pre-push gate always replays
+  the contract in read-only mode against Data/panels and exports/latest,
+  regardless of the runtime mode.
+runtime_event_naming: >
+  New Output/runtime_events writes use run_events_YYYY-MM-DD.jsonl. Readers
+  accept both the canonical run_events_ prefix and legacy date-only JSONL files
+  so existing evidence is not silently discarded or rewritten.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: true
+  ci_enforcement_change: true
+  provider_authority_change: false
+  data_contract_mode_change: true
+observation_window: >
+  Shadow evidence starts with the first real launchd run after this decision.
+  Count three consecutive default-path days, not unit tests, manual replays, or
+  pre-push runs. Any BLOCK, missing report, or launchd-path failure resets the
+  clean-day count. Keep enforce promotion pending until the three-day evidence
+  and an explicit reviewed configuration change both exist.
+current_replay:
+  status: BLOCK
+  workspace_mirror: PASS
+  latest_release: BLOCK
+  latest_release_violations:
+    - duplicate_symbol_date_rows:30
+    - non_numeric_open:190389
+    - non_numeric_high:190389
+    - non_numeric_low:190389
+    - non_numeric_volume:190389
+  note: >
+    The latest finalized release is immutable and was not rewritten by this
+    change; a new clean release must be staged/finalized before the gate can
+    become green.
+rollback: >
+  Keep shadow mode, restore the previous event reader projection if a consumer
+  cannot yet read the canonical name, and preserve the read-only pre-push gate.
+  Do not weaken the workspace write gate or delete the diagnostic reports.
+acceptance:
+  - provider_release_policy.yaml declares data_contract_mode: shadow
+  - invalid data_contract_mode values are rejected by policy validation
+  - release failure JSON contains the complete report and a violations array
+  - scripts/validate_data_contract_replay.py passes on both real data surfaces
+    without writing them
+  - the pre-push source invokes the read-only replay gate
+  - new runtime writes use run_events_YYYY-MM-DD.jsonl and readers retain the
+    legacy date-only compatibility path
+  - repeated alert fingerprints re-escalate after the configured consecutive
+    day threshold
+non_goals:
+  - Treat shadow mode as certification of malformed data
+  - Remove the existing fail-closed mirror write boundary
+  - Rename or rewrite historical runtime event files in place
+  - Treat three clean unit-test days as launchd evidence

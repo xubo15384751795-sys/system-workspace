@@ -9,10 +9,10 @@ purpose: 'Machine-checkable governance freeze baseline. Root-level governance fi
 
   '
 approved_additions_budget:
-  max_files: 21
-  reason: Cap post-freeze additions; renewed on 2026-08-19 to register the
-    route-inventory, restore-manifest, vulnerability-ledger, and monitoring
-    coverage-debt contracts.
+  max_files: 22
+  reason: Cap post-freeze additions; renewed on 2026-08-23 to register the
+    external-source monitoring contract alongside the route-inventory,
+    restore-manifest, vulnerability-ledger, and monitoring coverage-debt contracts.
 blocking_hash_files:
 - authority_registry.yaml
 - capability_registry.yaml
@@ -61,13 +61,13 @@ baseline_hashes:
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: 018b97a52b391f9c
+  daily_pipeline_registry.yaml: 02f26bf0c255c83d
   data_request_registry.yaml: 4a022aa7d9a526c8
-  data_retention_policy.yaml: 7441dd45daf12adf
+  data_retention_policy.yaml: 28012930d50bb58b
   deferred_work_register.yaml: baa2e255b97ef48f
-  entrypoint_registry.yaml: 63e5cc61537d0ca3
+  entrypoint_registry.yaml: c550c87800241012
   experimental_submission_registry.yaml: e362f89e927c1957
-  framework_output.schema.json: d7877e819c16456e
+  framework_output.schema.json: eb2fd3e2abf0f85a
   git_workspace_policy.md: 4dab5f4a7e64d803
   incentive_policy.yaml: 8d2c92e89a5f803c
   opencode_supervisor_policy.yaml: 15cb87cbd163e6c8
@@ -75,7 +75,7 @@ baseline_hashes:
   output_routing_policy.yaml: 3bbdaa96f0b57671
   pipeline_test_baseline.yaml: d476abebd64035a6
   proxy_quality_rules.yaml: 9398c8068f839cbf
-  redundancy_budget.yaml: 70df3dc1f66cac63
+  redundancy_budget.yaml: 5f2968cb55d800ea
   repo_layout_map.md: efb499cd772319c9
   run_mode_registry.yaml: 632a01d0e19496fe
   run_observability_summary.template.md: 69bb81c0d223cf9e
@@ -203,6 +203,10 @@ approved_additions:
   commit: daily-run-false-alarm-eradication
   reason: 'P0-4: known required_coverage_gaps accepted as monitoring debt so --strict
     fails only on new gaps / contracts / unresolved blind spots / ledger lag.'
+- file: external_source_monitoring.yaml
+  approved_at: '2026-08-23'
+  commit: stage0-5-operational-completion
+  reason: Monthly endpoint and schema monitoring for the repaired external data sources.
 baseline_updates:
 - file: system_constitution.yaml
   approved_at: '2026-06-18'

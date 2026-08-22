@@ -1,18 +1,15 @@
-"""Apply data retention policy — dry-run executor.
+"""Apply data retention policy — report plus recoverable run archiver.
 
 Reads governance/data_retention_policy.yaml and checks each rule against
-the actual Data/ directory.  Generates a report of violations.
-
-WARNING: --apply is NOT yet implemented. Only dry-run mode works.
-         Using --apply will print an error and exit.
+the actual Data/ and Output/ directories.  By default it generates a report;
+``--apply`` moves only eligible ``Output/runs`` directories into the dated
+archive root declared by policy.  The move is recoverable and finalized
+Harvester releases remain report-only.
 
 Usage:
     python3 scripts/apply_data_retention_policy.py              # dry-run report
     python3 scripts/apply_data_retention_policy.py --json       # JSON output
-    python3 scripts/apply_data_retention_policy.py --apply      # NOT IMPLEMENTED — exits with error
-
-This script is the executor for governance/data_retention_policy.yaml.
-First version: dry-run only (report).  --apply will be added in a future version.
+    python3 scripts/apply_data_retention_policy.py --apply      # archive old runs, then report
 """
 from __future__ import annotations
 
@@ -20,6 +17,7 @@ import argparse
 import json
 import logging
 import re
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -251,7 +249,117 @@ def _check_data_root_size(policy: dict) -> list[dict[str, str]]:
     return findings
 
 
-def run_retention_check() -> dict[str, Any]:
+def _output_runs_state(policy: dict) -> dict[str, Any]:
+    """Return the run directories outside both retention bounds."""
+    config = policy.get("output_runs", {})
+    runs_dir = ROOT / str(config.get("path", "Output/runs"))
+    if not runs_dir.exists():
+        return {
+            "runs_dir": runs_dir,
+            "archive_dir": ROOT / str(config.get("archive_path", "Output/archive/runs")),
+            "keep_last_n": 0,
+            "retention_days": 0,
+            "cutoff": None,
+            "candidates": [],
+        }
+
+    try:
+        keep_last_n = max(0, int(config.get("keep_last_n", 200)))
+        raw_retention_days = config.get("retention_days")
+        retention_days = (
+            max(0, int(raw_retention_days)) if raw_retention_days is not None else None
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError("output_runs.keep_last_n and retention_days must be integers") from exc
+
+    archive_dir = ROOT / str(config.get("archive_path", "Output/archive/runs"))
+    runs_resolved = runs_dir.resolve()
+    archive_resolved = archive_dir.resolve()
+    if archive_resolved == runs_resolved or archive_resolved.is_relative_to(runs_resolved):
+        raise ValueError("output_runs.archive_path must not be inside Output/runs")
+
+    runs: list[Path] = []
+    for item in runs_dir.iterdir():
+        if item.is_dir() and not item.is_symlink():
+            runs.append(item)
+    runs.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    cutoff = (
+        datetime.now(UTC) - timedelta(days=retention_days)
+        if retention_days
+        else None
+    )
+    candidates = [
+        item
+        for index, item in enumerate(runs)
+        if index >= keep_last_n
+        and (cutoff is None or datetime.fromtimestamp(item.stat().st_mtime, tz=UTC) < cutoff)
+    ]
+    return {
+        "runs_dir": runs_dir,
+        "archive_dir": archive_dir,
+        "keep_last_n": keep_last_n,
+        "retention_days": retention_days,
+        "cutoff": cutoff,
+        "runs": runs,
+        "candidates": candidates,
+    }
+
+
+def _check_output_runs_retention(policy: dict) -> list[dict[str, str]]:
+    """Report old run bundles without changing the run tree."""
+    config = policy.get("output_runs", {})
+    if not config:
+        return []
+    state = _output_runs_state(policy)
+    candidates = state["candidates"]
+    if not candidates:
+        return []
+    return [
+        {
+            "path": str(state["runs_dir"].relative_to(ROOT)),
+            "status": "output_runs_outside_retention",
+            "count": str(len(candidates)),
+            "total_count": str(len(state.get("runs", []))),
+            "keep_last_n": str(state["keep_last_n"]),
+            "retention_days": str(state["retention_days"]),
+            "size_mb": f"{sum(_dir_size_mb(item) for item in candidates):.1f}",
+            "archive_path": str(state["archive_dir"].relative_to(ROOT)),
+            "note": "--apply moves these directories recoverably; it never deletes them.",
+        }
+    ]
+
+
+def _apply_output_runs_retention(policy: dict) -> dict[str, str]:
+    """Move eligible run bundles to the policy archive and report the action."""
+    state = _output_runs_state(policy)
+    candidates: list[Path] = state["candidates"]
+    archive_dir: Path = state["archive_dir"]
+    if not candidates:
+        return {
+            "status": "output_runs_clean",
+            "count": "0",
+            "path": str(state["runs_dir"].relative_to(ROOT)),
+            "archive_path": str(archive_dir.relative_to(ROOT)),
+        }
+
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archived = 0
+    for source in candidates:
+        destination = archive_dir / source.name
+        if destination.exists() or destination.is_symlink():
+            suffix = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            destination = archive_dir / f"{source.name}__archived_{suffix}"
+        shutil.move(str(source), str(destination))
+        archived += 1
+    return {
+        "status": "output_runs_archived",
+        "count": str(archived),
+        "path": str(state["runs_dir"].relative_to(ROOT)),
+        "archive_path": str(archive_dir.relative_to(ROOT)),
+    }
+
+
+def run_retention_check(*, mode: str = "dry-run") -> dict[str, Any]:
     """Run all retention policy checks."""
     policy = _load_policy()
 
@@ -262,6 +370,7 @@ def run_retention_check() -> dict[str, Any]:
         "merged_data": _check_merged_data(policy),
         "panels_csv_exports": _check_panels_csv(policy),
         "data_root_size": _check_data_root_size(policy),
+        "output_runs": _check_output_runs_retention(policy),
     }
 
     total_findings = sum(len(v) for v in checks.values())
@@ -269,7 +378,7 @@ def run_retention_check() -> dict[str, Any]:
     return {
         "timestamp": datetime.now(UTC).isoformat(),
         "policy": str(POLICY_PATH.relative_to(ROOT)),
-        "mode": "dry-run",
+        "mode": mode,
         "checks": {k: {"count": len(v), "findings": v} for k, v in checks.items()},
         "summary": {
             "total_findings": total_findings,
@@ -308,16 +417,19 @@ def generate_report(results: dict[str, str]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Apply data retention policy")
     parser.add_argument("--json", action="store_true", help="JSON output")
-    parser.add_argument("--apply", action="store_true", help="Actually move files (not yet implemented)")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Move eligible Output/runs directories to the recoverable archive",
+    )
     args = parser.parse_args()
 
     if args.apply:
-        raise SystemExit(
-            "ERROR: --apply is not yet implemented. "
-            "Use --json or default output for dry-run report."
-        )
-
-    results = run_retention_check()
+        action = _apply_output_runs_retention(_load_policy())
+        results = run_retention_check(mode="apply")
+        results["actions"] = [action]
+    else:
+        results = run_retention_check()
 
     ensure_dir(OUTPUT_DIR)
     report_path = OUTPUT_DIR / "data_retention_report.md"

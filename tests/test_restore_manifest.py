@@ -57,15 +57,15 @@ def _write_manifest(tmp_path: Path, *, pass_state: bool) -> Path:
     return path
 
 
-def test_current_restore_manifest_is_blocked_and_read_only() -> None:
+def test_current_restore_manifest_is_verified_and_read_only() -> None:
     result = validate_manifest(
         Path(__file__).resolve().parents[1] / "governance/restore_manifest.yaml"
     )
-    assert result["status"] == "BLOCKED"
+    assert result["status"] == "PASS"
     assert result["read_only"] is True
-    assert "SAME_DISK_REMOTE" in result["reason_codes"]
-    assert "REMOTE_PATH_NOT_FOUND" in result["reason_codes"]
-    assert "FILE_INVENTORY_EMPTY" in result["reason_codes"]
+    assert result["recoverable"] is True
+    assert result["bytes_owner"] == "dvc_remote"
+    assert result["restore_drill_status"] == "PASS"
 
 
 def test_verified_off_device_manifest_can_pass(tmp_path: Path) -> None:

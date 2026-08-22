@@ -36,7 +36,7 @@ acceptance:
   - test_current_artifact_chain removed from STATEFUL_ROOT_TESTS
   - governance freeze approves runtime_status_contract.yaml
 evidence:
-  roadmap: SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
+  roadmap: docs/history/SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md
   files:
     - governance/runtime_status_contract.yaml
     - protocols/current_card.schema.json

@@ -1,0 +1,119 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-22-observability-feishu-deadman-launchd
+date: 2026-08-22
+status: active
+owner: Runtime
+title: Sentry and Feishu run observability with an independent daily-run dead-man switch
+
+decision:
+  summary: >-
+    Keep the typed daily-run outcome authoritative, add best-effort Sentry and
+    Feishu sinks at the runtime boundary, persist an atomic local I-ran
+    heartbeat, and check it from an independent launchd job.
+  secret_boundary: >-
+    Do not write DSN, Feishu bot tokens, or healthchecks tokens into tracked or
+    installed plist files. The plist names the 0600
+    /Users/a1/.config/system/observability.env file; the launchd wrapper loads
+    an allowlisted set into the child environment without executing the file.
+  sink_failure_policy: >-
+    Sentry, Feishu, and healthchecks delivery failures are recorded/logged but
+    never change RunOutcome or block a data publication decision.
+
+implemented:
+  - scripts/run_with_runtime_secrets.py
+  - system_runtime/runtime_secrets.py
+  - system_runtime/daily_heartbeat.py
+  - scripts/_daily_observability.py
+  - scripts/check_daily_run_heartbeat.py
+  - scripts/test_sentry_event.py
+  - scripts/launchd/com.system.daily-run-deadman.plist
+  - scripts/install_daily_run_deadman_launchd.sh
+  - scripts/launchd/com.system.daily-run.plist
+  - scripts/launchd/com.horizon.daily.plist
+
+runtime_contract:
+  daily_summary:
+    sender: scripts._notify.notify_daily_run_summary
+    channel: FEISHU_WEBHOOK_URL
+    cadence: one message after each normal, early-failure, or mandatory-sink outcome
+    payload: native Feishu text webhook payload
+  heartbeat:
+    path: Output/health/daily_run_heartbeat.json
+    writer: scripts._daily_observability.publish_daily_run_observability
+    signal: local atomic record; optional HEALTHCHECKS_DAILY_RUN_URL POST ping
+  deadman:
+    label: com.system.daily-run-deadman
+    schedule: 09:00 local daily
+    max_age_hours: 26
+    alert: scripts._notify.notify_deadman_missing
+
+launchd_reconciliation:
+  evidence_at: 2026-08-22T10:00:00+08:00
+  method: launchctl print gui/501/<label> plus installed plist and log metadata
+  six_records:
+    com.system.daily-run:
+      installed: true
+      launchctl: loaded_not_running
+      schedule: '07:00'
+      runs: 5
+      last_exit_code: 3
+      authority: canonical_system_daily_publisher
+    com.horizon.daily:
+      installed: true
+      launchctl: loaded_not_running
+      schedule: '06:30'
+      runs: 7
+      last_exit_code: 0
+      authority: independent_horizon_producer
+    com.system.paper-watch:
+      installed: true
+      launchctl: loaded_running
+      keepalive: true
+      runs: 1
+      authority: paper_sync_watcher
+    com.system.main-ci-watch:
+      installed: true
+      launchctl: loaded_not_running
+      schedule: '09:30 and 23:15'
+      runs: 14
+      last_exit_code: 1
+      authority: read_only_ci_alert
+    com.system.daily-run-harvester:
+      installed: true
+      launchctl: not_loaded
+      schedule: '22:30'
+      plist_disabled: true
+      authority: none_legacy_record
+    com.system.daily-run-harvester-postclose:
+      installed: true
+      launchctl: not_loaded
+      schedule: '21:30'
+      plist_disabled: true
+      authority: none_legacy_record
+  added_monitor:
+    label: com.system.daily-run-deadman
+    installed: true
+    launchctl: loaded_not_running
+    schedule: '09:00'
+    max_age_hours: 26
+  historical_slots:
+    2026-08-19_to_2026-08-21:
+      finding: >-
+        No 21:30 or 22:30 execution traces are expected: both installed
+        legacy records have Disabled=true and launchctl reports no service.
+      action: keep_explicitly_disabled
+      rationale: >-
+        com.system.daily-run at 07:00 owns the publisher; re-enabling either
+        historical slot would duplicate publication and provider acquisition.
+      supporting_log_metadata:
+        daily_run_harvester:
+          last_modified: 2026-08-12T06:36:39+08:00
+        daily_run_harvester_postclose:
+          last_modified: 2026-08-11T21:34:29+08:00
+
+acceptance:
+  source_and_focused_tests: PASS (37 focused tests; plist and shell syntax checks PASS)
+  launchd_installation: PASS (daily, Horizon, and dead-man labels bootstrapped)
+  sentry_real_event: blocked_until_SENTRY_DSN_is_supplied
+  feishu_real_message: blocked_until_FEISHU_WEBHOOK_URL_is_supplied
+  deadman_unload_drill: requires_explicit_operator_approval_before_disrupting_launchd

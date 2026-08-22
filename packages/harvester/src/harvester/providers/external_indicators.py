@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import logging
+import json
+import os
+import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Callable, Mapping
 from urllib.parse import urlparse
@@ -14,6 +17,9 @@ import pandas as pd
 from harvester.http_gateway import EndpointSpec, OwnedHTTPGateway
 
 logger = logging.getLogger(__name__)
+
+ExternalPayload = str | bytes
+ExternalParser = Callable[[ExternalPayload], pd.Series]
 
 
 # Calendar-day budget before a cached series is considered stale enough to
@@ -40,6 +46,9 @@ class ExternalIndicator:
     # legacy default only for third-party callers constructing an ad-hoc
     # indicator; all registered indicators below set it explicitly.
     authority_id: str = "external_public"
+    response_format: str = "text"
+    acquisition_mode: str = "automated"
+    proxy_env_var: str = ""
 
 
 class ManualDownloadRequired(RuntimeError):
@@ -72,27 +81,34 @@ CISS = ExternalIndicator(
 SRISK = ExternalIndicator(
     name="SRISK",
     series_id="SRISK",
-    description="NYU V-Lab aggregate SRISK for the US financial sector (USD billions, weekly).",
-    publisher_url="https://vlab.stern.nyu.edu/api/v2.0/aggregate?market=US&measure=SRISK",
+    description="NYU V-Lab aggregate SRISK for the US financial sector (USD billions, monthly manual snapshot).",
+    publisher_url="https://vlab.stern.nyu.edu/srisk",
     instructions=(
-        "Manual fallback: open https://vlab.stern.nyu.edu/srisk, select "
-        "'United States, Aggregate', download CSV with columns ['Date', 'SRISK'], "
-        "save as srisk.csv at the cache path."
+        "Manual monthly source: sign in at https://vlab.stern.nyu.edu/srisk, select "
+        "United States / Aggregate SRISK, download the CSV with columns ['Date', 'SRISK'], "
+        "and save it as srisk.csv at the cache path. The V-Lab MCP is not treated as an "
+        "unauthenticated production transport."
     ),
     authority_id="nyu_vlab",
+    acquisition_mode="manual",
 )
 
 COVAR = ExternalIndicator(
     name="COVAR",
     series_id="COVAR",
     description="NY Fed delta-CoVaR systemic risk measure for US financial sector.",
-    publisher_url="https://www.newyorkfed.org/medialibrary/media/research/economists/adrian/CoVaR.csv",
+    publisher_url=(
+        "https://www.newyorkfed.org/medialibrary/media/research/data_indicators/"
+        "data_2014_sr348_CoVaR.zip"
+    ),
     instructions=(
-        "Manual fallback: NY Fed publishes CoVaR estimates with the Adrian-Brunnermeier "
-        "replication package. Download a CSV with columns ['Date', 'CoVaR'] and save "
-        "as covar.csv at the cache path."
+        "The official archive is a quarterly firm-level Adrian-Brunnermeier panel, not a "
+        "single aggregate time series. Until an explicit aggregate selector is approved, "
+        "prepare a canonical CSV with columns ['Date', 'CoVaR'] and save it as covar.csv."
     ),
     authority_id="nyfed",
+    response_format="zip",
+    acquisition_mode="manual",
 )
 
 OFR_FSI = ExternalIndicator(
@@ -120,10 +136,11 @@ CFTC_TFF_LEV_SP = ExternalIndicator(
         "E-mini S&P 500 (weekly). Extreme positioning + stress onset = forced-delever risk."
     ),
     publisher_url=(
-        "https://publicreporting.cftc.gov/resource/gpe5-46if.csv?"
+        "https://publicreporting.cftc.gov/resource/gpe5-46if.json?"
         "$select=report_date_as_yyyy_mm_dd,market_and_exchange_names,"
         "lev_money_positions_long,lev_money_positions_short"
-        "&$where=upper(market_and_exchange_names)%20like%20%27%25E-MINI%20S%26P%20500%25%27"
+        "&$where=upper(market_and_exchange_names)%20like%20%27E-MINI%20S%26P%20500%25%27"
+        "%20and%20upper(market_and_exchange_names)%20not%20like%20%27MICRO%20E-MINI%25%27"
         "&$order=report_date_as_yyyy_mm_dd"
         "&$limit=50000"
     ),
@@ -133,6 +150,7 @@ CFTC_TFF_LEV_SP = ExternalIndicator(
         "and leveraged money long/short columns as cftc_tff_lev_sp.csv."
     ),
     authority_id="cftc",
+    proxy_env_var="HARVESTER_CFTC_PROXY_URL",
 )
 
 NYFED_PD_TREASURY_NET = ExternalIndicator(
@@ -176,13 +194,14 @@ FINRA_MARGIN_DEBT = ExternalIndicator(
     name="FINRA_MARGIN_DEBT",
     series_id="FINRA_MARGIN_DEBT",
     description="FINRA debit balances in customers' securities margin accounts (monthly, USD millions).",
-    publisher_url="https://www.finra.org/investors/learn-to-invest/advanced-investing/margin-statistics",
+    publisher_url="https://www.finra.org/sites/default/files/2021-03/margin-statistics.xlsx",
     instructions=(
         "Manual fallback: download FINRA Margin Statistics CSV from finra.org and save "
         "as finra_margin_debt.csv with columns Date,DebitBalances. "
         "FRED series BOGZ1FL663067003Q remains the quarterly Fed Z.1 equivalent."
     ),
     authority_id="finra",
+    response_format="xlsx",
 )
 
 KNOWN_INDICATORS: tuple[ExternalIndicator, ...] = (
@@ -203,13 +222,14 @@ EXTERNAL_ENDPOINTS: dict[tuple[str, str], EndpointSpec] = {
         endpoint_id=indicator.name,
         url=indicator.publisher_url,
         allowed_hosts=frozenset({urlparse(indicator.publisher_url).hostname or ""}),
+        proxy_env_var=indicator.proxy_env_var,
     )
     for indicator in KNOWN_INDICATORS
 }
 
 
 def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
-    """Write slim Date/value CSV so naive readers never see raw JSON/SDMX."""
+    """Write slim CSV for parsed indicators without a raw-schema contract."""
     frame = pd.DataFrame(
         {
             "Date" if indicator_name != "CISS" else "TIME_PERIOD": pd.to_datetime(series.index),
@@ -233,9 +253,48 @@ def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
 def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Series) -> None:
     """Rewrite cache to canonical CSV after a successful parse."""
     try:
-        cache_path.write_text(_canonical_cache_text(indicator_name, series), encoding="utf-8")
+        _atomic_write_text(cache_path, _canonical_cache_text(indicator_name, series))
     except OSError:
         logger.warning("Failed to normalize indicator cache: %s", cache_path, exc_info=True)
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Replace a cache only after the complete response has been written."""
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            temporary.write(text)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary indicator cache: %s", temporary_path, exc_info=True)
+
+
+def _payload_text(payload: ExternalPayload) -> str:
+    if isinstance(payload, bytes):
+        return payload.decode("utf-8-sig", errors="replace")
+    return payload
+
+
+def _read_cache_payload(cache_path: Path, indicator: ExternalIndicator) -> ExternalPayload:
+    """Read binary source caches before they are normalized to canonical CSV."""
+    raw = cache_path.read_bytes()
+    if indicator.response_format in {"xlsx", "zip"} and raw[:2] == b"PK":
+        return raw
+    return raw.decode("utf-8-sig", errors="replace")
 
 
 def _cache_is_stale(series: pd.Series, *, max_age_days: int) -> bool:
@@ -253,14 +312,14 @@ def _cache_is_stale(series: pd.Series, *, max_age_days: int) -> bool:
 
 
 def _merge_cached_history(
-    cache_path: Path, parser: Callable[[str], pd.Series], fresh: pd.Series
+    cache_path: Path, indicator: ExternalIndicator, parser: ExternalParser, fresh: pd.Series
 ) -> pd.Series:
     """Extend, never shorten: publishers that serve only a rolling window must
     not truncate the history already archived on disk."""
     if fresh.empty or not cache_path.exists():
         return fresh
     try:
-        cached = parser(cache_path.read_text(encoding="utf-8"))
+        cached = parser(_read_cache_payload(cache_path, indicator))
     except Exception:
         logger.warning("Failed to parse cached indicator history: %s", cache_path, exc_info=True)
         return fresh
@@ -268,6 +327,22 @@ def _merge_cached_history(
         return fresh
     kept = cached[~cached.index.isin(fresh.index)]
     return pd.concat([kept, fresh]).sort_index()
+
+
+def read_cached_external_indicator(
+    indicator: ExternalIndicator,
+    *,
+    cache_dir: Path | str,
+) -> pd.Series | None:
+    """Read a registered manual cache without treating it as a transport failure."""
+    cache_path = _resolve_cache(cache_dir, indicator)
+    if not cache_path.exists():
+        return None
+    try:
+        return _PARSERS[indicator.name](_read_cache_payload(cache_path, indicator))
+    except Exception:
+        logger.warning("Cached external indicator is invalid: %s", cache_path, exc_info=True)
+        return None
 
 
 def fetch_external_indicator(
@@ -282,14 +357,25 @@ def fetch_external_indicator(
     cache_path = _resolve_cache(cache_dir, indicator)
     parser = _PARSERS[indicator.name]
 
+    if indicator.acquisition_mode == "manual":
+        cached = read_cached_external_indicator(indicator, cache_dir=cache_dir)
+        if cached is not None:
+            return cached
+        raise ManualDownloadRequired(
+            indicator=indicator.name,
+            expected_path=cache_path,
+            instructions=indicator.instructions,
+        )
+
     if cache_path.exists() and not refresh:
         try:
-            series = parser(cache_path.read_text(encoding="utf-8"))
+            cached_payload = _read_cache_payload(cache_path, indicator)
+            series = parser(cached_payload)
             # Heal legacy JSON-as-csv / SDMX-wide caches in place.
-            raw_head = cache_path.read_text(encoding="utf-8")[:200].lstrip()
+            raw_head = _payload_text(cached_payload)[:200].lstrip()
             needs_normalize = raw_head.startswith("{") or (
                 indicator.name == "CISS" and "KEY,FREQ" in raw_head
-            )
+            ) or indicator.response_format in {"xlsx", "zip"} and raw_head.startswith("PK")
             if needs_normalize and not series.empty:
                 _normalize_cache_file(cache_path, indicator.name, series)
             # Only a cache inside its freshness budget short-circuits the
@@ -313,13 +399,24 @@ def fetch_external_indicator(
         finally:
             if owns_gateway:
                 client.close()
-        series = _merge_cached_history(cache_path, parser, parser(text))
+        if indicator.name == "CFTC_TFF_LEV_SP":
+            # Validate the publisher response before any replacement.  Store a
+            # readable CSV snapshot even though the Socrata transport is JSON;
+            # the cache remains self-parseable and preserves the long schema.
+            series = parser(text)
+            cache_text = _cftc_frame(text).to_csv(index=False)
+            try:
+                _atomic_write_text(cache_path, cache_text)
+            except OSError:
+                logger.warning("Failed to persist raw CFTC indicator cache: %s", cache_path, exc_info=True)
+            return series
+        series = _merge_cached_history(cache_path, indicator, parser, parser(text))
         _normalize_cache_file(cache_path, indicator.name, series)
         return series
     except Exception as exc:
         if cache_path.exists():
             try:
-                return parser(cache_path.read_text(encoding="utf-8"))
+                return parser(_read_cache_payload(cache_path, indicator))
             except Exception:
                 logger.warning("Cached indicator fallback is also invalid: %s", cache_path, exc_info=True)
         raise ManualDownloadRequired(
@@ -343,6 +440,11 @@ def fetch_all_external(
         max_response_bytes=EXTERNAL_INDICATOR_MAX_RESPONSE_BYTES,
     ) as gateway:
         for indicator in KNOWN_INDICATORS:
+            if indicator.acquisition_mode == "manual":
+                cached = read_cached_external_indicator(indicator, cache_dir=cache_dir)
+                if cached is not None:
+                    out[indicator.series_id] = cached
+                continue
             try:
                 out[indicator.series_id] = fetch_external_indicator(
                     indicator,
@@ -433,17 +535,17 @@ def _download(
     indicator: ExternalIndicator,
     *,
     gateway: OwnedHTTPGateway,
-) -> str:
+) -> ExternalPayload:
     response = gateway.fetch(
         indicator.authority_id,
         indicator.name,
     )
     response.raise_for_status()
-    return str(response.text)
+    return response.content if indicator.response_format in {"xlsx", "zip"} else str(response.text)
 
 
-def _parse_ofr_fsi_csv(text: str) -> pd.Series:
-    frame = pd.read_csv(StringIO(text))
+def _parse_ofr_fsi_csv(payload: ExternalPayload) -> pd.Series:
+    frame = pd.read_csv(StringIO(_payload_text(payload)))
     date_col = next((c for c in frame.columns if c.lower() in {"date", "time_period"}), None)
     # Accept both "OFR_FSI" (underscore, canonical cache) and "OFR FSI" (space,
     # the raw header from financialresearch.gov's CSV export) so a fresh
@@ -467,7 +569,8 @@ def _resolve_cache(cache_dir: Path | str, indicator: ExternalIndicator) -> Path:
     return base / f"{indicator.name.lower()}.csv"
 
 
-def _parse_ciss_csv(text: str) -> pd.Series:
+def _parse_ciss_csv(payload: ExternalPayload) -> pd.Series:
+    text = _payload_text(payload)
     # The ECB endpoint is documented with ``format=csvdata`` but has returned
     # both CSV and SDMX Generic XML over time (and through different gateway
     # paths).  Parse both representations so a content-negotiation change does
@@ -549,8 +652,8 @@ def _parse_ciss_sdmx_xml(text: str) -> pd.Series:
     return out.groupby(level=0).last().sort_index()
 
 
-def _parse_srisk_csv(text: str) -> pd.Series:
-    frame = pd.read_csv(StringIO(text))
+def _parse_srisk_csv(payload: ExternalPayload) -> pd.Series:
+    frame = pd.read_csv(StringIO(_payload_text(payload)))
     date_col = next((c for c in frame.columns if c.lower() in {"date", "time_period"}), None)
     value_col = next((c for c in frame.columns if c.lower() in {"srisk", "obs_value", "value"}), None)
     if date_col is None or value_col is None:
@@ -561,8 +664,13 @@ def _parse_srisk_csv(text: str) -> pd.Series:
     return out[~out.index.isna()].dropna().sort_index()
 
 
-def _parse_covar_csv(text: str) -> pd.Series:
-    frame = pd.read_csv(StringIO(text))
+def _parse_covar_csv(payload: ExternalPayload) -> pd.Series:
+    if isinstance(payload, bytes) and payload[:2] == b"PK":
+        raise ValueError(
+            "NY Fed CoVaR archive is a quarterly firm-level panel; "
+            "an explicit aggregate selector is required before scalar parsing"
+        )
+    frame = pd.read_csv(StringIO(_payload_text(payload)))
     date_col = next((c for c in frame.columns if c.lower() in {"date", "time_period"}), None)
     value_col = next(
         (c for c in frame.columns if c.lower() in {"covar", "delta_covar", "deltacovar", "obs_value", "value"}),
@@ -576,8 +684,34 @@ def _parse_covar_csv(text: str) -> pd.Series:
     return out[~out.index.isna()].dropna().sort_index()
 
 
-def _parse_cftc_tff_lev_sp(text: str) -> pd.Series:
-    frame = pd.read_csv(StringIO(text))
+def _cftc_frame(payload: ExternalPayload) -> pd.DataFrame:
+    text = _payload_text(payload).strip()
+    if text.startswith("[") or text.startswith("{"):
+        try:
+            decoded = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("CFTC Socrata response is not valid JSON") from exc
+        if isinstance(decoded, dict):
+            decoded = decoded.get("data", decoded.get("results", decoded))
+        if not isinstance(decoded, list):
+            raise ValueError("CFTC Socrata JSON response must contain a row array")
+        frame = pd.DataFrame(decoded)
+    else:
+        frame = pd.read_csv(StringIO(text))
+    market_col = next((c for c in frame.columns if c.lower() == "market_and_exchange_names"), None)
+    if market_col is not None:
+        frame = frame[~frame[market_col].astype(str).str.upper().str.startswith("MICRO E-MINI")]
+    return frame
+
+
+def _parse_cftc_tff_lev_sp(payload: ExternalPayload) -> pd.Series:
+    frame = _cftc_frame(payload)
+    market_col = next((c for c in frame.columns if c.lower() == "market_and_exchange_names"), None)
+    if market_col is not None:
+        # The Socrata wildcard for the standard contract also matches the
+        # micro E-mini. Keep the target series semantically exact even when a
+        # hand-exported response contains both instruments.
+        frame = frame[~frame[market_col].astype(str).str.upper().str.startswith("MICRO E-MINI")]
     date_col = next(
         (c for c in frame.columns if "report_date" in c.lower() or c.lower() == "date"),
         None,
@@ -594,8 +728,8 @@ def _parse_cftc_tff_lev_sp(text: str) -> pd.Series:
     return out
 
 
-def _parse_nyfed_pd_treasury(text: str, *, series_name: str = "NYFED_PD_TREASURY_NET") -> pd.Series:
-    text = text.strip()
+def _parse_nyfed_pd_treasury(payload: ExternalPayload, *, series_name: str = "NYFED_PD_TREASURY_NET") -> pd.Series:
+    text = _payload_text(payload).strip()
     if text.startswith("{"):
         import json
 
@@ -626,17 +760,22 @@ def _parse_nyfed_pd_treasury_gt11y(text: str) -> pd.Series:
     return _parse_nyfed_pd_treasury(text, series_name="NYFED_PD_TREASURY_GT11Y")
 
 
-def _parse_finra_margin_debt(text: str) -> pd.Series:
-    frame = pd.read_csv(StringIO(text))
-    date_col = next((c for c in frame.columns if c.lower() in {"date", "month", "year_month"}), None)
-    value_col = next(
-        (
-            c
-            for c in frame.columns
-            if c.lower() in {"debitbalances", "debit_balances", "margin_debt", "value", "obs_value"}
-        ),
+def _parse_finra_margin_debt(payload: ExternalPayload) -> pd.Series:
+    if isinstance(payload, bytes) and payload[:2] == b"PK":
+        frame = pd.read_excel(BytesIO(payload), sheet_name=0)
+    else:
+        frame = pd.read_csv(StringIO(_payload_text(payload)))
+    normalized = {str(column).strip().lower().replace(" ", "").replace("_", ""): column for column in frame.columns}
+    date_col = next(
+        (normalized[key] for key in ("date", "month", "yearmonth", "year-month") if key in normalized),
         None,
     )
+    value_col = next((normalized[key] for key in ("debitbalances", "margindebt", "value", "obsvalue") if key in normalized), None)
+    if value_col is None:
+        value_col = next(
+            (column for key, column in normalized.items() if "debitbalances" in key),
+            None,
+        )
     if date_col is None or value_col is None:
         raise ValueError("Unexpected FINRA margin CSV; need Date and DebitBalances")
     dates = pd.to_datetime(frame[date_col], errors="coerce")
@@ -645,7 +784,7 @@ def _parse_finra_margin_debt(text: str) -> pd.Series:
     return out[~out.index.isna()].dropna().sort_index()
 
 
-_PARSERS: dict[str, Callable[[str], pd.Series]] = {
+_PARSERS: dict[str, ExternalParser] = {
     "CISS": _parse_ciss_csv,
     "SRISK": _parse_srisk_csv,
     "COVAR": _parse_covar_csv,
@@ -674,5 +813,6 @@ __all__ = [
     "external_series_to_long_panel",
     "fetch_all_external",
     "fetch_external_indicator",
+    "read_cached_external_indicator",
     "write_template_csv",
 ]

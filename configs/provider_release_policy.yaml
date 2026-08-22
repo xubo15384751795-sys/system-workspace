@@ -5,6 +5,9 @@ description: >
   current authoring host has no approved provider publication-calendar
   evidence, so its rules remain explicitly unconfigured and must fail closed.
 default_timezone: UTC
+# New structural release checks observe first.  Promotion to enforce requires
+# the governance decision's three consecutive clean launchd days.
+data_contract_mode: shadow
 status_matrix:
   refreshed:
     diagnostic: ALLOW

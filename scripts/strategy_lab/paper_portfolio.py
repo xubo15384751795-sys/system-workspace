@@ -661,7 +661,7 @@ def run_paper_portfolio(
         target = _scalar_at(overlay, ts, name="paper overlay") * scale
         target = max(0.0, min(1.0, target))
         gate_pos = _scalar_at(gate, ts, name="velocity gate")
-        mom_v = float(mom.loc[ts]) if ts in mom.index and pd.notna(mom.loc[ts]) else None
+        mom_v = _scalar_at(mom, ts, name="momentum") if ts in mom.index and pd.notna(_scalar_at(mom, ts, name="momentum")) else None
         pub_f, onset_f = _stress_vals(ts)
         level_now = _level_state(ts)
         # Record effective_size only on days that used trade_decision scale.

@@ -1,27 +1,60 @@
 schema_version: system.restore_manifest.v1
-status: BLOCKED
+status: PASS
 accepted_release_scope: Data/harvester/exports
-bytes_owner: UNCONFIGURED
-files: []
+bytes_owner: dvc_remote
+files:
+  - path: Data/panels/cross_asset_daily_panel.parquet
+    bytes_owner: dvc_remote
+    uri: dvc://icloud/files/md5/49/0bbec35f1d608e155de3385e09d75a
+    object_id: 490bbec35f1d608e155de3385e09d75a
+    content_hash: 13cfa49fb2baf3f1060a083dc42cc73a788182c5d70fc14751dd48c45c26d65c
+    size_bytes: 19014208
+    encryption_class: provider-managed
+    access_class: private
+  - path: Data/harvester/exports/2026-08-22-r2/data/benchmark_panel.parquet
+    bytes_owner: dvc_remote
+    uri: dvc://icloud/files/md5/92/c40151c0ec5689fc9f89eb52f62280
+    object_id: 92c40151c0ec5689fc9f89eb52f62280
+    content_hash: 37d6c0767f4e787fc0851d7ee23ffb6eb4629cf557d2b8c9f843ede8e921918b
+    size_bytes: 1865306
+    encryption_class: provider-managed
+    access_class: private
+  - path: Data/harvester/exports/2026-08-22-r2/data/corpus_index.parquet
+    bytes_owner: dvc_remote
+    uri: dvc://icloud/files/md5/dc/37b8a9b1d86904716957874709f20f
+    object_id: dc37b8a9b1d86904716957874709f20f
+    content_hash: af461fae78612f8b6432eaec1fd77269b1d6cae15f6fb23f515d627bdf7c8a0b
+    size_bytes: 2258
+    encryption_class: provider-managed
+    access_class: private
+  - path: Data/harvester/exports/2026-08-22-r2/data/cross_asset_daily_panel.parquet
+    bytes_owner: dvc_remote
+    uri: dvc://icloud/files/md5/ca/d3eb569c20d4a170fb91e9bf12391b
+    object_id: cad3eb569c20d4a170fb91e9bf12391b
+    content_hash: 4b42bb27ac6b0c641d195db1560d3ff47aaf4eedad0fd6894e6e07b87c4e7119
+    size_bytes: 19011688
+    encryption_class: provider-managed
+    access_class: private
+  - path: Data/harvester/exports/2026-08-22-r2/data/proxy_candidate_panel.parquet
+    bytes_owner: dvc_remote
+    uri: dvc://icloud/files/md5/11/39fa402dbec030440a5c59fe33969d
+    object_id: 1139fa402dbec030440a5c59fe33969d
+    content_hash: f6064f304c65fd7a7d4e676912e6e0dc9834dcc6d7876c08fff7f0173d0844e3
+    size_bytes: 300509
+    encryption_class: provider-managed
+    access_class: private
 remote:
-  type: local_filesystem
-  uri: ../Data/.dvc_cache
-  same_disk_as_workspace: true
-  complete_bytes_verified: false
-  content_hash_verified: false
+  type: iCloud_Drive_local_path
+  uri: /Users/a1/Library/Mobile Documents/com~apple~CloudDocs/System-DVC-remote
+  same_disk_as_workspace: false
+  complete_bytes_verified: true
+  content_hash_verified: true
 restore_drill:
   required: true
-  status: NOT_RUN
-  device_class: compute_device_required
-  last_verified_at: null
+  status: PASS
+  device_class: isolated_temporary_workspace
+  last_verified_at: "2026-08-22T21:14:59Z"
 certification:
-  recoverable: false
-  reason_codes:
-    - SAME_DISK_REMOTE
-    - COMPLETE_BYTES_NOT_VERIFIED
-    - CONTENT_HASH_NOT_VERIFIED
-    - BYTES_OWNER_UNCONFIGURED
-    - REMOTE_PATH_NOT_FOUND
-    - RESTORE_DRILL_NOT_RUN
-    - FILE_INVENTORY_EMPTY
-  evidence_boundary: metadata_only_until_off_device_bytes_and_restore_drill_pass
+  recoverable: true
+  reason_codes: []
+  evidence_boundary: iCloud-backed DVC remote and isolated pull restore verified; iCloud remains a synchronization service rather than immutable object storage

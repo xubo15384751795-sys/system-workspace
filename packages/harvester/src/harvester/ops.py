@@ -177,7 +177,16 @@ def run_daily_release(
         # Phase 0.2: catch BaseException (not just Exception) so SystemExit-style
         # failures also leave a failure report. KeyboardInterrupt is re-raised so
         # Ctrl-C still interrupts cleanly.
-        report = _write_failure_report(root, resolved_release_id, "release_failed", {"error": repr(exc)})
+        detail: dict[str, Any] = {"error": repr(exc)}
+        # DataContractViolation carries the structured report that explains the
+        # exact violations.  Keep the complete report and promote its violations
+        # list for operators/consumers that do not know the exception type.
+        exception_report = getattr(exc, "report", None)
+        if exception_report is not None:
+            detail["report"] = exception_report
+            if isinstance(exception_report, dict) and "violations" in exception_report:
+                detail["violations"] = exception_report["violations"]
+        report = _write_failure_report(root, resolved_release_id, "release_failed", detail)
         return {
             "release_id": resolved_release_id,
             "status": "failed",
@@ -397,7 +406,10 @@ def _write_failure_report(exports_root: Path, release_id: str, reason: str, deta
     }
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
+        )
     except OSError:
         # Report-writing failure must not mask the original error. Print to
         # stderr so the operator at least sees the failure payload.

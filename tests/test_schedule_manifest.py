@@ -72,6 +72,20 @@ def test_schedule_audit_accepts_resolved_python_313_path(tmp_path: Path) -> None
     assert result["status"] == "PASS", result["violations"]
 
 
+def test_schedule_audit_accepts_resolved_python_313_wrapper_path(tmp_path: Path) -> None:
+    installed = _write_installed(tmp_path)
+    path = installed / "com.system.daily-run.plist"
+    payload = plistlib.loads(path.read_bytes())
+    payload["ProgramArguments"][0] = sys.executable
+    payload["EnvironmentVariables"]["PYTHON"] = sys.executable
+    path.write_bytes(plistlib.dumps(payload))
+
+    result = audit(root=ROOT, installed_dir=installed)
+
+    assert result["records"]["com.system.daily-run"]["semantic_match"] is True
+    assert result["status"] == "PASS", result["violations"]
+
+
 def test_schedule_audit_accepts_resolved_python_313_path_for_legacy_records(tmp_path: Path) -> None:
     installed = _write_installed(tmp_path)
     for name in (

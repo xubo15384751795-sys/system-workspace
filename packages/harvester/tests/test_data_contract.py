@@ -6,6 +6,7 @@ import pytest
 from harvester.quality.data_contract import (
     DATA_CONTRACT_VIOLATION,
     DataContractViolation,
+    ETF_PRE_LISTING_EXCEPTION,
     validate_cross_asset_panel_contract,
 )
 
@@ -44,4 +45,32 @@ def test_cross_asset_contract_raises_typed_duplicate_violation() -> None:
     assert any(
         item.startswith("duplicate_symbol_date_rows")
         for item in exc_info.value.report["violations"]
+    )
+
+
+def test_cross_asset_contract_allows_only_declared_pre_listing_gap() -> None:
+    frame = _panel().iloc[[0]].copy()
+    report = validate_cross_asset_panel_contract(
+        frame,
+        expected_symbols=["SPY", "QQQ"],
+        listing_dates={"SPY": "1993-01-29", "QQQ": "2027-01-01"},
+        declared_exceptions=[ETF_PRE_LISTING_EXCEPTION],
+        require_nonempty=True,
+    )
+
+    assert report["status"] == "PASS"
+    assert report["coverage"]["missing_symbols"] == []
+    assert report["coverage"]["pre_listing_symbols"] == ["QQQ"]
+
+
+def test_cross_asset_contract_rejects_unlisted_exception() -> None:
+    report = validate_cross_asset_panel_contract(
+        _panel(),
+        declared_exceptions=["任意放宽"],
+    )
+
+    assert report["status"] == "BLOCK"
+    assert any(
+        item.startswith("unsupported_declared_exceptions:")
+        for item in report["violations"]
     )

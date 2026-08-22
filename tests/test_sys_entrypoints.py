@@ -2,7 +2,7 @@
 
 Uses SYSTEM_WORKSPACE_ROOT / ``system_cli --workspace`` so operator Data/Output
 are never touched. See: governance/architecture_reality_decisions.md §7
-     SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md P0-2
+     docs/history/SYSTEM_LARGE_SCALE_VALIDATION_ROADMAP.md P0-2
 """
 from __future__ import annotations
 

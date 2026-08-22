@@ -527,6 +527,7 @@ def _adapter_chain(
     *,
     as_of: str,
     run_id: str,
+    source_release_id: str = "",
     source_id: str,
     series_id: str,
     value: Any,
@@ -568,7 +569,11 @@ def _adapter_chain(
         measurement_ids=[measurement["measurement_id"]],
         evidence_role=evidence_role,
         source_id=source_id,
-        release_id=run_id,
+        # ``run_id`` identifies the judgment generation.  ``release_id``
+        # identifies the data release that supports the auxiliary claim.
+        # Never fall back to run_id: an empty release stamp is omitted by
+        # admission, but a run_id stamp is a RELEASE_ID_MISMATCH.
+        release_id=source_release_id,
         status="AVAILABLE",
         provenance=provenance,
     )
@@ -602,9 +607,15 @@ def _framework_claim_chain(fw: dict[str, Any]) -> dict[str, Any]:
     m_val, d_val = _md_values(fw)
     provenance = fw.get("provenance") or {}
     run_id = str(provenance.get("run_id") or fw.get("run_id") or "judgment-adapter")
+    source_release_id = str(
+        provenance.get("source_release_id")
+        or provenance.get("release_id")
+        or ""
+    )
     return _adapter_chain(
         as_of=date_str,
         run_id=run_id,
+        source_release_id=source_release_id,
         source_id="framework:neutral_pressure",
         series_id="SYSTEM:NEUTRAL_PRESSURE_PANEL",
         value={"M": m_val, "D": d_val},
@@ -629,6 +640,14 @@ def _claim_envelopes(
     fw_provenance = fw.get("provenance") or {}
     run_id = str(fw_provenance.get("run_id") or fw.get("run_id") or "judgment-adapter")
     envelopes = [ClaimEnvelope(_framework_claim_chain(fw), role="supporting")]
+    primary_evidence = envelopes[0].canonical_chain.get("evidence") or {}
+    source_release_id = str(
+        fw_provenance.get("source_release_id")
+        or fw_provenance.get("release_id")
+        or (primary_evidence.get("source") or {}).get("release_id")
+        or (primary_evidence.get("provenance") or {}).get("source_release_id")
+        or ""
+    )
     reconciliation = (caselab or {}).get("regime_reconciliation", {}) if caselab else {}
     context: dict[str, Any] = {
         "run_id": run_id,
@@ -650,6 +669,7 @@ def _claim_envelopes(
                 _adapter_chain(
                     as_of=date_str,
                     run_id=run_id,
+                    source_release_id=source_release_id,
                     source_id="caselab:daily_signal",
                     series_id="CASELAB:TOP_MATCH_SCORE",
                     value={"label": label, "top_score": score},
@@ -675,6 +695,7 @@ def _claim_envelopes(
                 _adapter_chain(
                     as_of=date_str,
                     run_id=run_id,
+                    source_release_id=source_release_id,
                     source_id="hmm:regime_model",
                     series_id="HMM:REGIME",
                     value=regime,
@@ -700,6 +721,7 @@ def _claim_envelopes(
                 _adapter_chain(
                     as_of=date_str,
                     run_id=run_id,
+                    source_release_id=source_release_id,
                     source_id=f"deformation:{name.lower()}",
                     series_id=f"DEFORMATION:{name}",
                     value={"gate_verdict": verdict},

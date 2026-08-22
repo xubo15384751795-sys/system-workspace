@@ -40,6 +40,7 @@ _ISO_DURATION_RE = re.compile(
     r"^P(?:\d+D|T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)$"
 )
 _VALID_PROVIDER_STATUSES = set(PROVIDER_STATUSES)
+_VALID_DATA_CONTRACT_MODES = {"shadow", "enforce"}
 
 
 class ProviderReleasePolicyError(ValueError):
@@ -65,6 +66,11 @@ def validate_provider_release_policy(payload: dict[str, Any]) -> None:
         raise ProviderReleasePolicyError("provider release policy must be a mapping")
     if payload.get("schema_version") != "workbench.provider_release_policy.v1":
         raise ProviderReleasePolicyError("unsupported provider release policy schema")
+    data_contract_mode = str(payload.get("data_contract_mode", "enforce")).strip().lower()
+    if data_contract_mode not in _VALID_DATA_CONTRACT_MODES:
+        raise ProviderReleasePolicyError(
+            "provider release policy data_contract_mode must be shadow or enforce"
+        )
     rules = payload.get("rules")
     if not isinstance(rules, list) or not rules:
         raise ProviderReleasePolicyError("provider release policy requires non-empty rules")
