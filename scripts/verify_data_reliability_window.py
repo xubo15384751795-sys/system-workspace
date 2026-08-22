@@ -25,10 +25,31 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-SCHEMA_VERSION = "system.data_reliability_window.v1"
+SCHEMA_VERSION = "system.data_reliability_window.v2"
 MINIMUM_DAYS = 14
-DEFAULT_DEPLOYMENT_DATE = date(2026, 8, 19)
+# Stage 0–4 were all in place when the repaired release was accepted on
+# 2026-08-22.  The manual repair itself is setup evidence; the first real
+# launchd run on/after this date is the first eligible observation.
+DEFAULT_DEPLOYMENT_DATE = date(2026, 8, 22)
 _RUN_ID_RE = re.compile(r"^daily_pipeline_")
+
+_PROVIDER_FAILURE_STATUSES = frozenset(
+    {
+        "provider_failed_no_acceptable_fallback",
+        "reused_after_provider_failure",
+        "environmentally_blocked",
+    }
+)
+_FALLBACK_STATUSES = frozenset(
+    {
+        "partial_provider_success",
+        "reused_after_provider_failure",
+        "reused_same_content",
+    }
+)
+_COMPLETED_STEP_STATUSES = frozenset(
+    {"success", "degraded", "completed", "committed", "finalized", "reused"}
+)
 
 
 def _timestamp(value: Any) -> datetime | None:
@@ -121,6 +142,11 @@ def _run_record(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     outcome = payload.get("outcome") if isinstance(payload.get("outcome"), Mapping) else {}
     steps = _load_steps(path.parent)
     provider_outcomes = _provider_outcomes(steps)
+    step_statuses = {
+        str(step.get("step") or ""): str(step.get("status") or "").lower()
+        for step in steps
+        if step.get("step")
+    }
     all_outcomes = [dict(outcome), *provider_outcomes]
     statuses = {
         str(item.get("status") or item.get("provider_status") or "").lower()
@@ -142,6 +168,7 @@ def _run_record(path: Path) -> tuple[dict[str, Any] | None, str | None]:
         "provider_statuses": sorted(statuses),
         "route_policies": route_policies,
         "provider_outcomes": provider_outcomes,
+        "step_statuses": step_statuses,
     }, None
 
 
@@ -174,32 +201,17 @@ def _consecutive_days(days: set[date]) -> int:
 
 def _has_provider_failure(record: Mapping[str, Any]) -> bool:
     outcome = record.get("outcome") if isinstance(record.get("outcome"), Mapping) else {}
-    statuses = set(record.get("provider_statuses") or [])
-    return bool(
-        statuses
-        & {
-            "provider_failed_no_acceptable_fallback",
-            "reused_after_provider_failure",
-            "environmentally_blocked",
-        }
-        or outcome.get("execution_status") in {"FAILED", "FAILURE"}
-    )
+    statuses = {str(status).lower() for status in record.get("provider_statuses") or []}
+    provider_status = str(outcome.get("provider_status") or "").lower()
+    return bool(statuses & _PROVIDER_FAILURE_STATUSES or provider_status in _PROVIDER_FAILURE_STATUSES)
 
 
 def _has_fallback(record: Mapping[str, Any]) -> bool:
     outcome = record.get("outcome") if isinstance(record.get("outcome"), Mapping) else {}
-    if outcome.get("provider_status") in {
-        "partial_provider_success",
-        "reused_after_provider_failure",
-        "reused_same_content",
-    }:
+    if str(outcome.get("provider_status") or "").lower() in _FALLBACK_STATUSES:
         return True
     for item in record.get("provider_outcomes") or []:
-        if item.get("fallback_used") or item.get("status") in {
-            "partial_provider_success",
-            "reused_after_provider_failure",
-            "reused_same_content",
-        }:
+        if item.get("fallback_used") or str(item.get("status") or "").lower() in _FALLBACK_STATUSES:
             return True
     return any("fallback" in _tag_text(record) or "carry" in _tag_text(record) for _ in [0])
 
@@ -227,24 +239,73 @@ def _has_schema_or_parity(record: Mapping[str, Any], parity_reports: list[Path])
     return False
 
 
+def _harvester_committed(record: Mapping[str, Any]) -> bool:
+    """Return the typed evidence that the Harvester publication committed.
+
+    ``publish_status`` is the runtime's commit authority.  Requiring the
+    explicit harvester step as well prevents a manifest-only or truncated
+    bundle from being counted as a real scheduled observation.
+    """
+    outcome = record.get("outcome") if isinstance(record.get("outcome"), Mapping) else {}
+    publish_status = str(outcome.get("publish_status") or "").upper()
+    harvester_status = str((record.get("step_statuses") or {}).get("harvester") or "").lower()
+    return publish_status == "COMMITTED" and harvester_status in _COMPLETED_STEP_STATUSES
+
+
+def _core_chain_complete(record: Mapping[str, Any]) -> bool:
+    """Use RunOutcome's fail-closed core-chain completion signal.
+
+    The runtime marks a core chain complete only when execution succeeded and
+    no required step failed or was blocked.  This intentionally does not
+    infer completion from provider scenarios: a provider fallback is valid
+    only when the runtime still records a complete core chain.
+    """
+    outcome = record.get("outcome") if isinstance(record.get("outcome"), Mapping) else {}
+    explicit = str(outcome.get("core_chain_status") or "").upper()
+    if outcome.get("failed_steps") or outcome.get("blocked_steps"):
+        return False
+    if explicit:
+        return explicit in {"COMPLETE", "COMPLETED", "SUCCESS"}
+    return bool(
+        str(outcome.get("execution_status") or "").upper() == "SUCCESS"
+        and not outcome.get("failed_steps")
+        and not outcome.get("blocked_steps")
+        and str(record.get("status") or "").lower() != "partial_failure"
+    )
+
+
+def _qualification(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Classify one run without turning provider events into blockers."""
+    harvester_committed = _harvester_committed(record)
+    core_chain_complete = _core_chain_complete(record)
+    provider_failure = _has_provider_failure(record)
+    fallback = _has_fallback(record)
+    reasons: list[str] = []
+    if not harvester_committed:
+        reasons.append("HARVESTER_NOT_COMMITTED")
+    if not core_chain_complete:
+        reasons.append("CORE_CHAIN_INCOMPLETE")
+    return {
+        "qualified": harvester_committed and core_chain_complete,
+        "harvester_committed": harvester_committed,
+        "core_chain_complete": core_chain_complete,
+        "provider_failure": provider_failure,
+        "fallback_or_carry_forward": fallback,
+        "provider_failure_with_fallback_qualified": bool(
+            provider_failure and fallback and harvester_committed and core_chain_complete
+        ),
+        "reasons": reasons,
+    }
+
+
 def _has_recovery(records: list[Mapping[str, Any]], index: int) -> bool:
     if index <= 0:
         return False
     current = records[index]
-    outcome = current.get("outcome") if isinstance(current.get("outcome"), Mapping) else {}
-    current_ok = (
-        str(current.get("status")) == "success"
-        and outcome.get("execution_status") in {"SUCCESS", "DEGRADED"}
-    )
-    if not current_ok:
+    if not _qualification(current)["qualified"]:
         return False
     previous = records[index - 1]
-    previous_outcome = previous.get("outcome") if isinstance(previous.get("outcome"), Mapping) else {}
-    return bool(
-        str(previous.get("status")) != "success"
-        or previous_outcome.get("execution_status") in {"FAILED", "FAILURE"}
-        or previous_outcome.get("operational_state") in {"SYSTEM_FAILED", "COMPLETED_BLOCKED"}
-    )
+    return not _qualification(previous)["qualified"]
 
 
 def build_window_report(
@@ -263,13 +324,20 @@ def build_window_report(
     ]
     records.sort(key=lambda item: (item["started_at"], item["run_id"]))
     parity_reports = sorted((workspace / "Data" / "harvester" / "provider_parity").glob("*.json"))
-    days = {date.fromisoformat(str(record["date"])) for record in records}
+    qualification_by_run = {
+        record["run_id"]: _qualification(record)
+        for record in records
+    }
     scenario_by_run = {
         record["run_id"]: {
             "provider_failure": _has_provider_failure(record),
             "fallback_or_carry_forward": _has_fallback(record),
             "cache_expiry_or_stale": _has_stale_or_expiry(record),
             "schema_drift_or_parity": _has_schema_or_parity(record, parity_reports),
+            "qualified_run": qualification_by_run[record["run_id"]]["qualified"],
+            "provider_failure_with_fallback_qualified": qualification_by_run[record["run_id"]][
+                "provider_failure_with_fallback_qualified"
+            ],
         }
         for record in records
     }
@@ -285,7 +353,25 @@ def build_window_report(
             "recovery",
         )
     }
-    consecutive = _consecutive_days(days)
+    qualified_records = [
+        record for record in records if qualification_by_run[record["run_id"]]["qualified"]
+    ]
+    qualified_days = {
+        date.fromisoformat(str(record["date"])) for record in qualified_records
+    }
+    observed_days = {
+        date.fromisoformat(str(record["date"])) for record in records
+    }
+    consecutive = _consecutive_days(qualified_days)
+    non_qualified_runs = [
+        {
+            "run_id": record["run_id"],
+            "date": record["date"],
+            "reasons": qualification_by_run[record["run_id"]]["reasons"],
+        }
+        for record in records
+        if not qualification_by_run[record["run_id"]]["qualified"]
+    ]
     blockers = list(errors)
     if errors:
         status = "BLOCKED"
@@ -300,16 +386,32 @@ def build_window_report(
         "deployment_date": deployment_date.isoformat(),
         "minimum_days": minimum_days,
         "observed_runs": len(records),
-        "observed_days": len(days),
+        "observed_days": len(observed_days),
+        "qualified_runs": len(qualified_records),
+        "qualified_days": len(qualified_days),
         "consecutive_days": consecutive,
         "scenarios": scenarios,
+        "qualification_by_run": qualification_by_run,
         "scenario_by_run": scenario_by_run,
+        "non_qualified_runs": non_qualified_runs,
         "blockers": blockers,
         "runs": records,
         "parity_reports": [str(path) for path in parity_reports],
+        "evidence_period": {
+            "human_action": "review_daily_feishu_summary_only",
+            "automatic_failure_evidence": [
+                "Data/harvester/exports/.failures/*.json",
+                "Output/runtime_events/run_events_YYYY-MM-DD.jsonl",
+                "Output/alerts/latest_alert.json",
+            ],
+            "manual_repair_or_replay_counts": False,
+        },
         "note": (
-            "Tests, manual runs, and a single successful run do not satisfy this window. "
-            "The report remains pending until the real launchd path supplies the evidence."
+            "A qualified day requires Harvester publish_status=COMMITTED and a complete "
+            "core chain. A provider failure with a committed acceptable fallback is a "
+            "valid required window event, not a terminator; an uncommitted/incomplete "
+            "run is retained as evidence and does not count as a qualified day. "
+            "Tests, manual runs, and a single successful run do not satisfy this window."
         ),
     }
 

@@ -1,0 +1,76 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-23-data-reliability-window-reset
+date: "2026-08-23"
+effective_date: "2026-08-22"
+cynefin_domain: complicated
+status: active
+title: Reset the data-reliability evidence window on the Stage 0–4 baseline
+
+summary: >-
+  Start the fourteen-day default-path evidence period from the date on which
+  the Stage 0–4 baseline was fully landed and the repaired release was
+  accepted. Correct the window verifier so provider fallback evidence is
+  counted according to the original reliability decision rather than treated
+  as a run-ending failure.
+
+completion_basis:
+  stage_0_4_landed_date: "2026-08-22"
+  evidence:
+    - governance/routing_decisions/2026-08-22-cross-asset-data-repair.yaml
+    - governance/routing_decisions/2026-08-22-data-contract-observation-and-runtime-events.yaml
+    - governance/routing_decisions/2026-08-22-external-source-repair.yaml
+    - governance/routing_decisions/2026-08-22-observability-feishu-deadman-launchd.yaml
+    - governance/routing_decisions/2026-08-22-dvc-icloud-temporary-backup.yaml
+  accepted_launchd_run:
+    run_id: daily_pipeline_20260822_191754_139ced
+    run_origin: launchd
+    publish_status: COMMITTED
+    admission_verdict: PASS
+
+window:
+  start_date: "2026-08-22"
+  minimum_qualified_days: 14
+  source: default_launchd_only
+  qualified_run: "harvester COMMITTED + core chain complete"
+  qualification_fields:
+    harvester_committed: "outcome.publish_status == COMMITTED and harvester step completed"
+    core_chain_complete: >-
+      outcome.execution_status == SUCCESS with no failed_steps or blocked_steps;
+      an explicit core_chain_status, when present, must be COMPLETE.
+  provider_failure_with_acceptable_fallback:
+    qualified_when: >-
+      The two qualification conditions remain true and the run records a
+      provider failure plus fallback/carry-forward outcome.
+    counts_as_required_event: true
+    terminates_window: false
+  provider_failure_without_acceptable_fallback:
+    qualified: false
+    terminates_window: false
+    effect: breaks_the_consecutive_qualified_day_count_and_remains_evidence
+
+operator_rule:
+  human_action_during_window: review_the_daily_feishu_summary_only
+  automatic_failure_recording:
+    - Data/harvester/exports/.failures/*.json
+    - Output/runtime_events/run_events_YYYY-MM-DD.jsonl
+    - Output/alerts/latest_alert.json
+    - configured_runtime_alert_sinks
+  manual_repair_or_replay_counts_as_window_day: false
+
+implementation:
+  verifier: scripts/verify_data_reliability_window.py
+  regression_tests: tests/test_data_reliability_window.py
+  report_schema: system.data_reliability_window.v2
+
+authority_boundary:
+  provider_release_decision_matrix_changed: false
+  freshness_policy_changed: false
+  research_thresholds_changed: false
+  evidence_window_semantics_changed: true
+
+acceptance:
+  - DEFAULT_DEPLOYMENT_DATE is 2026-08-22.
+  - A committed run with provider failure and successful fallback is qualified.
+  - An uncommitted or incomplete run is retained but does not count as a qualified day.
+  - The report remains pending until fourteen consecutive qualified default launchd days and all required scenarios are observed.
+  - Daily summaries and automatic failure evidence remain the only operating path during the window.

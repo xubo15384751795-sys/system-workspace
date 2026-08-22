@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from verify_data_reliability_window import build_window_report
+from verify_data_reliability_window import DEFAULT_DEPLOYMENT_DATE, build_window_report
 
 
 def _write_run(
@@ -22,14 +22,21 @@ def _write_run(
     provider_status: str = "refreshed",
     operational_state: str = "FRESH_READY",
     tag: str = "daily_summary",
+    publish_status: str = "COMMITTED",
+    failed_steps: list[str] | None = None,
+    blocked_steps: list[str] | None = None,
+    fallback_used: bool | None = None,
 ) -> None:
     run_id = f"daily_pipeline_{day:%Y%m%d}_120000_{index:06x}"
     run_dir = root / "Output" / "runs" / run_id
     run_dir.mkdir(parents=True)
     outcome = {
         "execution_status": execution_status,
+        "failed_steps": failed_steps or [],
+        "blocked_steps": blocked_steps or [],
         "provider_status": provider_status,
         "operational_state": operational_state,
+        "publish_status": publish_status,
         "provider_cache_within_grace": provider_status != "reused_after_provider_failure",
     }
     manifest = {
@@ -42,33 +49,65 @@ def _write_run(
         "outcome": outcome,
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    (run_dir / "steps.jsonl").write_text("", encoding="utf-8")
+    if fallback_used is None:
+        fallback_used = provider_status in {
+            "partial_provider_success",
+            "reused_after_provider_failure",
+            "reused_same_content",
+        }
+    steps = [
+        {"step": "harvester", "status": "failed" if "harvester" in (failed_steps or []) else "success", "provider_outcome": {
+            "status": provider_status,
+            "fallback_used": fallback_used,
+            "provider": "synthetic",
+        }},
+    ]
+    (run_dir / "steps.jsonl").write_text(
+        "\n".join(json.dumps(step) for step in steps) + "\n",
+        encoding="utf-8",
+    )
 
 
 def test_manual_runs_do_not_satisfy_default_path_window(tmp_path: Path) -> None:
-    _write_run(tmp_path, date(2026, 8, 19), 0, origin="manual")
+    assert DEFAULT_DEPLOYMENT_DATE == date(2026, 8, 22)
+    _write_run(tmp_path, date(2026, 8, 22), 0, origin="manual")
     report = build_window_report(tmp_path)
     assert report["status"] == "PENDING"
     assert report["observed_runs"] == 0
+    assert report["qualified_runs"] == 0
     assert report["consecutive_days"] == 0
 
 
 def test_window_reports_complete_only_after_all_requirements(tmp_path: Path) -> None:
-    start = date(2026, 8, 19)
+    start = date(2026, 8, 22)
     _write_run(
         tmp_path,
         start,
         0,
         status="partial_failure",
         execution_status="FAILED",
-        provider_status="reused_after_provider_failure",
-        operational_state="COMPLETED_BLOCKED",
-        tag="provider_failure_stale",
+        provider_status="provider_failed_no_acceptable_fallback",
+        operational_state="SYSTEM_FAILED",
+        publish_status="NOT_PUBLISHED",
+        failed_steps=["harvester"],
+        blocked_steps=["judgment_layer"],
+        tag="provider_failure",
     )
     _write_run(
         tmp_path,
         start + timedelta(days=1),
         1,
+        status="success",
+        execution_status="SUCCESS",
+        provider_status="reused_after_provider_failure",
+        operational_state="COMPLETED_DEGRADED",
+        tag="provider_failure_stale",
+        publish_status="COMMITTED",
+    )
+    _write_run(
+        tmp_path,
+        start + timedelta(days=2),
+        2,
         provider_status="partial_provider_success",
         tag="schema_drift_parity_fixture",
     )
@@ -78,10 +117,46 @@ def test_window_reports_complete_only_after_all_requirements(tmp_path: Path) -> 
         json.dumps({"schema_version": "system.provider_parity_report.v1"}),
         encoding="utf-8",
     )
-    for index in range(2, 14):
+    for index in range(3, 15):
         _write_run(tmp_path, start + timedelta(days=index), index)
     report = build_window_report(tmp_path)
     assert report["status"] == "COMPLETE"
     assert report["consecutive_days"] == 14
-    assert report["observed_runs"] == 14
+    assert report["observed_runs"] == 15
+    assert report["qualified_runs"] == 14
+    assert report["scenario_by_run"]["daily_pipeline_20260823_120000_000001"][
+        "provider_failure_with_fallback_qualified"
+    ] is True
     assert all(report["scenarios"].values())
+
+
+def test_provider_failure_without_fallback_is_recorded_but_not_a_blocker(tmp_path: Path) -> None:
+    start = date(2026, 8, 22)
+    _write_run(
+        tmp_path,
+        start,
+        0,
+        status="partial_failure",
+        execution_status="FAILED",
+        provider_status="provider_failed_no_acceptable_fallback",
+        operational_state="SYSTEM_FAILED",
+        publish_status="NOT_PUBLISHED",
+        failed_steps=["harvester"],
+        blocked_steps=["judgment_layer"],
+    )
+    _write_run(tmp_path, start + timedelta(days=1), 1)
+
+    report = build_window_report(tmp_path)
+
+    assert report["status"] == "PENDING"
+    assert report["scenarios"]["provider_failure"] is True
+    assert report["qualified_runs"] == 1
+    assert report["consecutive_days"] == 1
+    assert report["blockers"] == []
+    assert report["non_qualified_runs"] == [
+        {
+            "run_id": "daily_pipeline_20260822_120000_000000",
+            "date": "2026-08-22",
+            "reasons": ["HARVESTER_NOT_COMMITTED", "CORE_CHAIN_INCOMPLETE"],
+        }
+    ]
