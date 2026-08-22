@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==84.0.0", "wheel==0.46.2"]
+requires = ["setuptools==84.0.0", "wheel==0.48.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -87,7 +87,7 @@ include = [
 [tool.uv]
 # Keep PEP 517 build requirements aligned with the checked-in build
 # constraints used by CI. Runtime dependencies remain governed by uv.lock.
-build-constraint-dependencies = ["setuptools==84.0.0", "wheel==0.46.2"]
+build-constraint-dependencies = ["setuptools==84.0.0", "wheel==0.48.0"]
 
 [tool.uv.workspace]
 members = [
