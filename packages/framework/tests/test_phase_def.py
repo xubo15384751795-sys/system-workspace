@@ -26,6 +26,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 PROJECT = Path(__file__).resolve().parents[1]
+REPO_ROOT = PROJECT.parents[1]
 SRC = PROJECT / "src"
 LITE_MODULE = SRC / "data" / "gateway" / "data_hub_lite.py"
 DATA_HUB_MODULE = SRC / "data" / "gateway" / "data_hub.py"
@@ -296,9 +297,9 @@ class TestConfigGuardedSwitch:
         config = {
             "data_backend": "harvester",
             "harvester": {
-                "exports_root": str(PROJECT.parent / "Data" / "harvester" / "exports"),
+                "exports_root": str(REPO_ROOT / "Data" / "harvester" / "exports"),
                 "release": "latest",
-                "contract_root": str(PROJECT.parent / "packages" / "harvester" / "contracts"),
+                "contract_root": str(REPO_ROOT / "packages" / "harvester" / "contracts"),
             },
             "mock_seed": 42,
         }
@@ -642,7 +643,7 @@ class TestFinalBoundary:
 
     def test_latest_release_has_catalog_manifest_provenance_data(self):
         """The latest Harvester release must have catalog, manifests, provenance, data."""
-        exports = PROJECT.parent / "Data" / "harvester" / "exports"
+        exports = REPO_ROOT / "Data" / "harvester" / "exports"
         if not exports.is_dir():
             pytest.skip("Harvester exports directory not found")
 
@@ -676,7 +677,7 @@ class TestFinalBoundary:
 
     def test_openbb_only_in_harvester(self):
         """OpenBB imports must only appear under harvester/providers/."""
-        harvester_src = PROJECT.parent / "Workbench" / "data_providers" / "structural-risk-harvester" / "src"
+        harvester_src = REPO_ROOT / "packages" / "harvester" / "src"
         if not harvester_src.is_dir():
             pytest.skip("Harvester source not found")
 

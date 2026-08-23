@@ -3,8 +3,12 @@ from __future__ import annotations
 import unittest
 
 import pandas as pd
+import pytest
 
-from src.ui.components.research_log_panel import build_reflexivity_tracker
+pytest.importorskip("plotly")
+pytest.importorskip("streamlit")
+
+from src.ui.components.research_log_panel import build_reflexivity_tracker  # noqa: E402
 
 
 class ReflexivityTrackerTests(unittest.TestCase):

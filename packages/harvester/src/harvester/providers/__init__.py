@@ -9,6 +9,15 @@ class ProviderError(RuntimeError):
     """Raised when a provider encounters a non-recoverable error."""
 
 
+def openbb_available() -> bool:
+    """Return whether the optional OpenBB provider runtime is importable."""
+    try:
+        import openbb  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def build_provider(name: str, **kwargs: Any) -> OfficialProvider:
     if name == "fred":
         from harvester.providers.fred import FredProvider
@@ -56,4 +65,5 @@ __all__ = [
     "ProviderError",
     "ProviderResult",
     "build_provider",
+    "openbb_available",
 ]

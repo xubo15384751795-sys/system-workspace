@@ -14,7 +14,7 @@ from harvester.core.manifest import build_manifest
 from harvester.core.observation import observation_coverage_from_frame, read_observation_coverage
 from harvester.core.provenance import build_provenance
 from harvester.core.exporter import resolve_release_dir, validate_release_id
-from harvester.providers import ProviderError, build_provider
+from harvester.providers import ProviderError, build_provider, openbb_available
 from system_runtime.paths import WorkspacePaths
 
 logger = logging.getLogger(__name__)
@@ -426,11 +426,7 @@ def prefer_openbb() -> bool:
         return False
     if raw in {"1", "true", "yes", "on"}:
         return True
-    try:
-        import openbb  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    return openbb_available()
 
 
 def order_provider_priority(priority: list[str] | tuple[str, ...]) -> list[str]:

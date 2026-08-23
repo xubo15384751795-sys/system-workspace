@@ -3,6 +3,10 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock
 
+import pytest
+
+pytest.importorskip("streamlit")
+
 from src.ui.components.regime_badge import render_reflexivity_flags
 from src.ui.components.snapshot_readout import format_sigma, reflexivity_summary
 from src.ui.components.state_cards import format_proxy_value, qualitative_label

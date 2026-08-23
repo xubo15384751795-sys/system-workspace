@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -48,17 +49,15 @@ class TestLdiProviderIntegrityPanel(unittest.TestCase):
         self.assertIn("synthetic_demo", json.dumps(prov))
 
     def test_write_json_roundtrip(self) -> None:
-        tmp = Path(__file__).resolve().parent / "_tmp_ldi_panel.json"
-        try:
-            path = write_ldi_2022_provider_integrity_panel(tmp, force_synthetic_demo=True)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = write_ldi_2022_provider_integrity_panel(
+                Path(tmpdir) / "ldi_panel.json", force_synthetic_demo=True
+            )
             self.assertTrue(path.is_file())
             data = json.loads(path.read_text(encoding="utf-8"))
             oi = data["observation_integrity"]
             self.assertTrue(oi["diagnostic_only"])
             self.assertGreaterEqual(len(oi["checks"]), 1)
-        finally:
-            if tmp.is_file():
-                tmp.unlink()
 
 
 if __name__ == "__main__":

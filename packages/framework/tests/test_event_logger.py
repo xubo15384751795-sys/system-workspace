@@ -4,6 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("streamlit")
+
 from src.ui.helpers.ui_runtime import JsonlEventLogger
 
 
