@@ -12,12 +12,12 @@
     <key>ProgramArguments</key>
     <array>
         <string>__SYSTEM_PYTHON__</string>
-        <string>/Users/a1/System/scripts/daily_run.py</string>
+        <string>__SYSTEM_ROOT__/scripts/daily_run.py</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PYTHONPATH</key>
-        <string>/Users/a1/System/system-learning-hub/src</string>
+        <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration:__SYSTEM_ROOT__/packages/harvester/src:__SYSTEM_ROOT__/packages/workbench/src</string>
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
@@ -28,11 +28,11 @@
         <integer>30</integer>
     </dict>
     <key>WorkingDirectory</key>
-    <string>/Users/a1/System</string>
+    <string>__SYSTEM_ROOT__</string>
     <key>StandardOutPath</key>
-    <string>/Users/a1/System/Output/logs/launchd/daily_run_harvester.log</string>
+    <string>__SYSTEM_ROOT__/Output/logs/launchd/daily_run_harvester.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/a1/System/Output/logs/launchd/daily_run_harvester.log</string>
+    <string>__SYSTEM_ROOT__/Output/logs/launchd/daily_run_harvester.log</string>
     <!-- launchd soft maxfiles defaults near 256; harvester/yfinance need headroom -->
     <key>SoftResourceLimits</key>
     <dict>

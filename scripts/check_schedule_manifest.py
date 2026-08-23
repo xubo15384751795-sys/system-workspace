@@ -24,6 +24,20 @@ def _load(path: Path) -> dict[str, Any]:
     return plistlib.loads(path.read_bytes())
 
 
+def _normalise_legacy_paths(value: Any, root: Path) -> Any:
+    """Treat rendered repository paths as the tracked root placeholder."""
+    if isinstance(value, dict):
+        return {key: _normalise_legacy_paths(item, root) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_normalise_legacy_paths(item, root) for item in value]
+    if isinstance(value, str):
+        path = Path(value)
+        if path.parent.name == "bin" and path.name.startswith("python"):
+            return value
+        return value.replace(str(root), "__SYSTEM_ROOT__")
+    return value
+
+
 def _is_python_313(candidate: Any) -> bool:
     """Validate an installed interpreter without importing project code."""
     if not isinstance(candidate, str) or not candidate or candidate == "__SYSTEM_PYTHON__":
@@ -240,7 +254,9 @@ def audit(
                 entry["semantic_match"] = False
                 violations.append(f"{label}: installed plist is invalid ({exc})")
                 continue
-            entry["semantic_match"] = _legacy_semantic_match(installed_payload, payload)
+            entry["semantic_match"] = _legacy_semantic_match(
+                _normalise_legacy_paths(installed_payload, root), payload
+            )
             if not entry["semantic_match"]:
                 violations.append(f"{label}: installed plist differs from tracked disabled record")
             if installed_payload.get("Disabled") is not True:

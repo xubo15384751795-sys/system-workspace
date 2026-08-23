@@ -50,12 +50,39 @@ def _script_path(paths: WorkspacePaths, relative: str) -> Path:
     return in_workspace
 
 
+def _runtime_env() -> dict[str, str]:
+    """Give child scripts the same package surface as the CLI process."""
+    code_root = _code_root()
+    entries: list[Path] = [
+        code_root,
+        code_root / "packages" / "orchestration",
+        code_root / "packages" / "framework",
+        code_root / "packages" / "framework" / "src",
+        code_root / "packages" / "harvester" / "src",
+        code_root / "packages" / "learning_hub" / "src",
+        code_root / "packages" / "workbench" / "src",
+        code_root / "scripts",
+    ]
+    inherited = os.environ.get("PYTHONPATH", "").strip()
+    if inherited:
+        entries.extend(Path(item) for item in inherited.split(os.pathsep) if item)
+    flattened: list[str] = []
+    for candidate in entries:
+        value = str(candidate)
+        if value and value not in flattened:
+            flattened.append(value)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(flattened)
+    return env
+
+
 def _run(paths: WorkspacePaths, relative: str, args: Sequence[str] = ()) -> int:
     # cwd stays on the workspace so relative writes land in the sandbox/operator root;
     # SYSTEM_WORKSPACE_ROOT (set by --workspace) keeps WorkspacePaths.discover correct.
     result = subprocess.run(
         [sys.executable, str(_script_path(paths, relative)), *args],
         cwd=paths.root,
+        env=_runtime_env(),
     )
     return result.returncode
 

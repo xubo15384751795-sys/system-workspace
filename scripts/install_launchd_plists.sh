@@ -30,7 +30,8 @@ for plist in com.system.daily-run-harvester-postclose com.system.daily-run-harve
     fi
     if [ "$APPLY" -eq 1 ]; then
         tmp="$dst.tmp"
-        sed "s|__SYSTEM_PYTHON__|${SYSTEM_PYTHON}|g" "$src" > "$tmp"
+        sed -e "s|__SYSTEM_ROOT__|${ROOT}|g" \
+              -e "s|__SYSTEM_PYTHON__|${SYSTEM_PYTHON}|g" "$src" > "$tmp"
         plutil -lint "$tmp" >/dev/null
         launchctl bootout "gui/$(id -u)/$plist" 2>/dev/null || true
         cp "$tmp" "$dst"
