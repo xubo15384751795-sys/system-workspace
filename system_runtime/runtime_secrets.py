@@ -21,6 +21,8 @@ ALLOWED_RUNTIME_KEYS = frozenset(
     {
         "SENTRY_DSN",
         "SENTRY_ENVIRONMENT",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
         "FEISHU_WEBHOOK_URL",
         "HEALTHCHECKS_DAILY_RUN_URL",
     }

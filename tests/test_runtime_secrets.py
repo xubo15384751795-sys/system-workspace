@@ -12,18 +12,32 @@ def test_runtime_secrets_allowlist_requires_mode_600_and_does_not_execute(
     path = tmp_path / "observability.env"
     path.write_text(
         "SENTRY_DSN=https://example.invalid/1\n"
+        "TELEGRAM_BOT_TOKEN=123456789:test-token\n"
+        "TELEGRAM_CHAT_ID=123456789\n"
         "FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test\n"
         "UNSAFE=$(touch /tmp/should-not-exist)\n",
         encoding="utf-8",
     )
     path.chmod(0o600)
-    for key in ("SENTRY_DSN", "FEISHU_WEBHOOK_URL"):
+    for key in (
+        "SENTRY_DSN",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
+        "FEISHU_WEBHOOK_URL",
+    ):
         monkeypatch.delenv(key, raising=False)
 
     loaded = load_runtime_secrets(path)
 
-    assert loaded == ("SENTRY_DSN", "FEISHU_WEBHOOK_URL")
+    assert loaded == (
+        "SENTRY_DSN",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
+        "FEISHU_WEBHOOK_URL",
+    )
     assert os.environ["SENTRY_DSN"] == "https://example.invalid/1"
+    assert os.environ["TELEGRAM_BOT_TOKEN"] == "123456789:test-token"
+    assert os.environ["TELEGRAM_CHAT_ID"] == "123456789"
     assert "UNSAFE" not in os.environ
 
 

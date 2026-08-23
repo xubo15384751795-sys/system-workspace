@@ -1,4 +1,4 @@
-"""Best-effort daily-run summary and heartbeat publication."""
+"""Best-effort daily-run notification summary and heartbeat publication."""
 from __future__ import annotations
 
 import logging
@@ -18,7 +18,7 @@ def publish_daily_run_observability(
     failed_steps: list[str] | None = None,
     warnings: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Record the local ``I ran`` signal and send the Feishu summary.
+    """Record the local ``I ran`` signal and send the configured summary.
 
     Both sinks are deliberately non-authoritative.  A sink failure is visible
     in logs/return metadata but never rewrites the typed daily-run outcome.
@@ -43,7 +43,7 @@ def publish_daily_run_observability(
             warnings=warnings,
         )
     except Exception:  # noqa: BLE001 - observability must not change run authority
-        logger.exception("Failed to send daily-run Feishu summary")
+        logger.exception("Failed to send daily-run notification summary")
     return result
 
 

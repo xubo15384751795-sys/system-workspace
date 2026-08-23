@@ -1339,11 +1339,11 @@ test_sentry_event:
   - observability_connectivity_test
   forbidden_use:
   - daily_pipeline
-test_feishu_webhook:
-  script: scripts/test_feishu_webhook.py
+test_notification_sink:
+  script: scripts/test_notification_sink.py
   status: tool_active
   owner: Runtime
-  description: Deliberate Feishu connectivity test; never part of daily execution
+  description: Deliberate primary notification connectivity test; never part of daily execution
   allowed_use:
   - notification_connectivity_test
   forbidden_use:

@@ -398,7 +398,7 @@ def build_window_report(
         "runs": records,
         "parity_reports": [str(path) for path in parity_reports],
         "evidence_period": {
-            "human_action": "review_daily_feishu_summary_only",
+            "human_action": "review_daily_run_summary_only",
             "automatic_failure_evidence": [
                 "Data/harvester/exports/.failures/*.json",
                 "Output/runtime_events/run_events_YYYY-MM-DD.jsonl",

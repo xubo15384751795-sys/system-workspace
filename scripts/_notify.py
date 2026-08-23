@@ -3,7 +3,8 @@
 Channels (in priority order):
   1. macOS desktop notification (osascript) — always attempted on Darwin
   2. Webhook (HTTP POST) — if NOTIFY_WEBHOOK_URL env var is set
-  3. Feishu bot webhook — if FEISHU_WEBHOOK_URL env var is set
+  3. Telegram Bot private chat — if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set
+  4. Legacy Feishu bot webhook — if FEISHU_WEBHOOK_URL env var is set and Telegram is absent
 
 Webhook payload:
   {"title": "...", "message": "...", "status": "...", "timestamp": "..."}
@@ -12,6 +13,8 @@ Configure:
   export NOTIFY_WEBHOOK_URL="https://hooks.slack.com/services/..."   # Slack
   export NOTIFY_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/..."  # Feishu
   export NOTIFY_WEBHOOK_URL="https://your-server.com/webhook"        # Generic
+  export TELEGRAM_BOT_TOKEN="123456789:..."
+  export TELEGRAM_CHAT_ID="123456789"
   export FEISHU_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/..."
 
 Observability (optional; see system_runtime.observability):
@@ -41,6 +44,8 @@ from system_runtime.external_http import (
 
 logger = logging.getLogger(__name__)
 _FEISHU_HOSTS = frozenset({"open.feishu.cn", "open.larksuite.com"})
+_TELEGRAM_HOST = "api.telegram.org"
+_TELEGRAM_MAX_TEXT = 4096
 
 
 def _notification_state_path() -> Path:
@@ -253,6 +258,58 @@ def notify_feishu(title: str, message: str) -> bool:
     return _notify_feishu(title, message)
 
 
+def _notify_telegram(title: str, message: str) -> bool:
+    """Send a bounded text message to one configured Telegram private chat."""
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not bot_token or not chat_id or any(
+        character in bot_token for character in "/?# \t\r\n"
+    ):
+        return False
+    text = redact_sink_text(f"{title}\n{message}")
+    if len(text) > _TELEGRAM_MAX_TEXT:
+        text = text[: _TELEGRAM_MAX_TEXT - 3] + "..."
+    endpoint = ExternalEndpointSpec(
+        endpoint_id="telegram_bot",
+        url=f"https://{_TELEGRAM_HOST}/bot{bot_token}/sendMessage",
+        allowed_hosts=frozenset({_TELEGRAM_HOST}),
+    )
+    payload = json.dumps(
+        {
+            "chat_id": chat_id,
+            "text": text,
+            "disable_web_page_preview": True,
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    try:
+        with OwnedExternalHTTPGateway({"telegram_bot": endpoint}) as gateway:
+            response = gateway.post(
+                "telegram_bot",
+                payload,
+                headers={"Content-Type": "application/json"},
+                timeout_sec=TIMEOUT_SHORT,
+            )
+        return 200 <= response.status_code < 300
+    except (ExternalGatewayError, ValueError) as exc:
+        logger.warning("Telegram delivery failed: %s", type(exc).__name__)
+        return False
+
+
+def notify_telegram(title: str, message: str) -> bool:
+    """Public, bounded Telegram sink used by summaries and dead-man alerts."""
+    return _notify_telegram(title, message)
+
+
+def _notify_primary_chat(title: str, message: str) -> bool:
+    """Prefer Telegram private delivery; retain Feishu as a compatibility fallback."""
+    if os.environ.get("TELEGRAM_BOT_TOKEN", "").strip() and os.environ.get(
+        "TELEGRAM_CHAT_ID", ""
+    ).strip():
+        return _notify_telegram(title, message)
+    return _notify_feishu(title, message)
+
+
 def _suppression_reason() -> str | None:
     """Why a real notification must not leave this process, or None to send.
 
@@ -300,8 +357,8 @@ def notify_failure(title: str, message: str, *, severity: str = "error") -> bool
         return False
     desktop_ok = _notify_desktop(safe_title, safe_message)
     webhook_ok = _notify_webhook(safe_title, safe_message)
-    feishu_ok = _notify_feishu(safe_title, safe_message)
-    return desktop_ok or webhook_ok or feishu_ok
+    chat_ok = _notify_primary_chat(safe_title, safe_message)
+    return desktop_ok or webhook_ok or chat_ok
 
 
 def notify_alert(title: str, message: str) -> bool:
@@ -434,7 +491,7 @@ def notify_daily_run_summary(
     failed_steps: list[str] | None = None,
     warnings: list[str] | None = None,
 ) -> bool:
-    """Send one compact Feishu summary for every completed daily run."""
+    """Send one compact Telegram summary for every completed daily run."""
     if _suppression_reason():
         return False
     outcome = outcome or {}
@@ -450,7 +507,7 @@ def notify_daily_run_summary(
         lines.append("failed_steps=" + ",".join(failed[:5]))
     if warning_items:
         lines.append("warnings=" + "; ".join(warning_items[:3]))
-    return _notify_feishu("System daily_run 运行摘要", "\n".join(lines))
+    return _notify_primary_chat("System daily_run 运行摘要", "\n".join(lines))
 
 
 def notify_deadman_missing(*, reason: str, report: dict[str, object]) -> bool:
@@ -487,5 +544,5 @@ def notify_deadman_missing(*, reason: str, report: dict[str, object]) -> bool:
     safe_message = redact_sink_text(message)
     desktop_ok = _notify_desktop(safe_title, safe_message)
     webhook_ok = _notify_webhook(safe_title, safe_message)
-    feishu_ok = _notify_feishu(safe_title, safe_message)
-    return desktop_ok or webhook_ok or feishu_ok
+    chat_ok = _notify_primary_chat(safe_title, safe_message)
+    return desktop_ok or webhook_ok or chat_ok

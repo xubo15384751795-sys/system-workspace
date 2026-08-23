@@ -65,7 +65,7 @@ baseline_hashes:
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 28012930d50bb58b
   deferred_work_register.yaml: baa2e255b97ef48f
-  entrypoint_registry.yaml: c550c87800241012
+  entrypoint_registry.yaml: e8d71741e42ca9e9
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: eb2fd3e2abf0f85a
   git_workspace_policy.md: 4dab5f4a7e64d803
@@ -83,6 +83,11 @@ baseline_hashes:
   submodule_commit_plan.md: 164a0f9110fba6d5
   system_constitution.yaml: c8157834e02e1666
 baseline_revision_history:
+- approved_at: '2026-08-23'
+  approval: user_requested_telegram_observability
+  reason: Consolidated the notification connectivity test entrypoint to preserve the existing root-script budget while Telegram became the preferred runtime sink.
+  files:
+  - entrypoint_registry.yaml
 - approved_at: '2026-07-31'
   approval: user_requested_governance_closure
   reason: 'Reconcile accumulated approved governance changes, then make critical authority

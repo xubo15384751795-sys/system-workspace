@@ -82,7 +82,8 @@ authority_boundary:
 
 unresolved_external_acceptance:
   - Sentry real-event receipt remains blocked until SENTRY_DSN is supplied.
-  - Feishu real-message receipt remains blocked until FEISHU_WEBHOOK_URL is supplied.
+  - Telegram real-message receipt remains blocked until TELEGRAM_BOT_TOKEN and
+    TELEGRAM_CHAT_ID are supplied.
   - The one-day dead-man unload exercise and the fourteen-day evidence window
     are intentionally pending natural/default-path observation.
   - iCloud synchronization is not immutable disaster-recovery storage.

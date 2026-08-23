@@ -38,7 +38,7 @@
     <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>PYTHON</key>
     <string>__SYSTEM_PYTHON__</string>
-    <!-- SENTRY_DSN/Feishu tokens are loaded from this mode-600 file by the
+    <!-- SENTRY_DSN/Telegram tokens are loaded from this mode-600 file by the
          wrapper; never persist either secret in a tracked or installed plist. -->
     <key>SENTRY_ENVIRONMENT</key>
     <string>system-launchd</string>

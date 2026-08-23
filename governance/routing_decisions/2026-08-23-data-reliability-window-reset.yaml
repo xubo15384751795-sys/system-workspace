@@ -49,7 +49,7 @@ window:
     effect: breaks_the_consecutive_qualified_day_count_and_remains_evidence
 
 operator_rule:
-  human_action_during_window: review_the_daily_feishu_summary_only
+  human_action_during_window: review_the_daily_run_summary_only
   automatic_failure_recording:
     - Data/harvester/exports/.failures/*.json
     - Output/runtime_events/run_events_YYYY-MM-DD.jsonl

@@ -74,12 +74,48 @@ def test_feishu_webhook_uses_native_text_payload(monkeypatch) -> None:
     }
 
 
-def test_daily_summary_always_uses_feishu_sink(monkeypatch) -> None:
+def test_telegram_uses_bot_api_payload(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _Response:
+        status_code = 200
+
+    class _Gateway:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, endpoint_id, content, *, headers, timeout_sec):
+            captured["endpoint_id"] = endpoint_id
+            captured["body"] = json.loads(content.decode("utf-8"))
+            captured["headers"] = headers
+            captured["timeout_sec"] = timeout_sec
+            return _Response()
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456789")
+    monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
+    monkeypatch.setattr(_notify, "OwnedExternalHTTPGateway", lambda _endpoints: _Gateway())
+
+    assert _notify.notify_telegram("title", "message") is True
+    assert captured["endpoint_id"] == "telegram_bot"
+    assert captured["body"] == {
+        "chat_id": "123456789",
+        "text": "title\nmessage",
+        "disable_web_page_preview": True,
+    }
+
+
+def test_daily_summary_prefers_telegram_sink(monkeypatch) -> None:
     sent: list[tuple[str, str]] = []
     monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456789")
     monkeypatch.setattr(
         _notify,
-        "_notify_feishu",
+        "_notify_telegram",
         lambda title, message: sent.append((title, message)) or True,
     )
 
