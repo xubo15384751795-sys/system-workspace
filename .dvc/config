@@ -2,5 +2,9 @@
     no_scm = true
     remote = icloud
     autostage = true
+    # Keep DVC's SQLite state beside the repository.  The default
+    # /var/tmp/dvc location is not writable in the launchd/sandboxed runtime.
+    # .dvc/.gitignore already excludes the tmp tree.
+    site_cache_dir = .dvc/tmp/site-cache
 ['remote "icloud"']
     url = /Users/a1/Library/Mobile Documents/com~apple~CloudDocs/System-DVC-remote

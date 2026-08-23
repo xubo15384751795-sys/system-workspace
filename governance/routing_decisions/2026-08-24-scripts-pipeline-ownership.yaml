@@ -1,0 +1,40 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-scripts-pipeline-ownership
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Close the scripts integration-layer ownership gap without changing the
+  default execution authority or moving domain-specific entrypoints in bulk.
+scope: >
+  packages/orchestration/orchestration/pipeline_runner.py,
+  packages/orchestration/orchestration/pipeline_dag.py,
+  packages/orchestration/orchestration/daily_run_sequence.py,
+  scripts/_pipeline_runner.py, scripts/_pipeline_dag.py,
+  scripts/_daily_run_sequence.py, scripts/daily_run.py,
+  governance/daily_pipeline_registry.yaml.
+decision: >
+  Orchestration is the owner of shared pipeline mechanism. The three former
+  scripts modules are compatibility imports only; scripts/daily_run.py remains
+  the documented entrypoint until a separately approved launchd/Dagster
+  cutover. Explicit depends_on declarations are authoritative for the
+  cross-asset panel chain, while path inference remains only for legacy edges.
+  Existing failure_behavior and publication boundaries are unchanged.
+authority_boundary:
+  data_contract_strength_reduced: false
+  pipeline_authority_changed: false
+  provider_authority_change: false
+  judgment_change: false
+  publication_integrity_change: false
+acceptance:
+  - direct scripts/daily_run.py --dry-run resolves the compiled registry plan
+  - compatibility imports resolve to the Orchestration implementation
+  - Harvester-to-mirror-to-first-panel-consumer ordering is explicit, with
+    remaining consumers unchanged during the staged migration
+  - legacy failure-propagation tests remain green
+  - no domain script is moved or deleted in this migration slice
+non_goals:
+  - replace the registry or custom executor with native Dagster assets
+  - migrate provider parsing to dlt
+  - delete scripts/ compatibility entrypoints
+  - change panel values, provider authority, or publication semantics

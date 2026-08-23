@@ -139,7 +139,7 @@ def merge_gate_steps() -> list[tuple[str, list[str], Path]]:
             "from _pipeline_dag import compile_dag; "
             "dag=compile_dag(); "
             "assert dag['valid'], dag; print('dag valid')"], ROOT),
-        ("governance_freeze", [py, "scripts/check_governance_freeze.py"], ROOT),
+        ("governance_freeze", [py, "-m", "scripts.check_governance_freeze"], ROOT),
         ("architecture_audit", [py, "scripts/commands/weekly/architecture_reality_audit.py"], ROOT),
         ("daily_run_dry_run", [py, "scripts/daily_run.py", "--dry-run"], ROOT),
         ("phase_a_incident_regression", [py, "-m", "pytest",

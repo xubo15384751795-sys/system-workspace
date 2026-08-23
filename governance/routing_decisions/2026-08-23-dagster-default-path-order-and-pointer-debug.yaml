@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-23-dagster-default-path-order-and-pointer-debug
+date: "2026-08-23"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Repair two deterministic default-path defects found by an end-to-end debug:
+  generation publication wrote latest_run_id.txt only at the generation root
+  while Output/current readers resolve the current surface, and the Dagster
+  graph allowed shared-surface steps to run ahead of the registry sequence.
+scope: >
+  system_runtime/publish_transaction.py,
+  packages/orchestration/orchestration/runner.py,
+  tests/test_generation_transaction_runtime.py,
+  tests/test_dagster_compiled_plan.py.
+decision: >
+  Materialize both run-pointer locations in the candidate before lineage is
+  sealed, so the root metadata pointer and Output/current compatibility
+  pointer are committed and integrity-checked together. Until current
+  writers migrate to native Dagster assets/checks with complete file-level
+  dependencies, add a generated execution barrier between consecutive
+  compiled registry steps. Keep the plan data edges and failure propagation
+  semantics unchanged; expose the barrier separately as
+  execution_upstream_steps. This is a scheduling-safety bridge, not a new
+  authority or a change to provider/data semantics.
+authority_boundary:
+  data_contract_strength_reduced: false
+  provider_authority_change: false
+  judgment_change: false
+  promotion_change: false
+  publication_integrity_change: false
+acceptance:
+  - a committed generation contains both latest_run_id.txt pointers in its lineage
+  - Output/current/latest_run_id.txt resolves after a generation commit
+  - independent compiled steps execute in registry order on the Dagster default path
+  - the plan's semantic upstream_steps remain unchanged for failure propagation
+  - focused transaction and Dagster graph tests pass
+non_goals:
+  - regenerate the historical panel or external-indicator cache
+  - promote the diagnostic provider route
+  - claim a completed launchd run or 14-day evidence window
+  - enable DuckDB or replace the registry with native assets in this debug slice
+evidence:
+  - tests/test_generation_transaction_runtime.py
+  - tests/test_dagster_compiled_plan.py
+  - Output/generations/daily_pipeline_20260822_191754_139ced/admission.json
+  - scripts/audit_launchd_reconciliation.py

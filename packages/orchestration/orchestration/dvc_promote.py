@@ -28,15 +28,36 @@ def dvc_enabled() -> bool:
     return os.environ.get("SYSTEM_DISABLE_DVC", "").strip() not in {"1", "true", "TRUE"}
 
 
+def _dvc_command() -> list[str]:
+    """Use the DVC package from the active interpreter before console scripts.
+
+    A renamed checkout can leave ``.venv/bin/dvc`` pointing at the old
+    workspace path.  The module invocation keeps DVC usable in that case and
+    still falls back to a normal executable when DVC is not installed in the
+    active interpreter.
+    """
+    try:
+        import dvc  # noqa: F401 - presence check for the active interpreter
+    except ImportError:
+        executable = Path(sys.executable).with_name("dvc")
+        return [str(executable)] if executable.is_file() else [shutil.which("dvc") or "dvc"]
+    return [sys.executable, "-c", "from dvc.cli import main; main()"]
+
+
 def _run_dvc(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    executable = Path(sys.executable).with_name("dvc")
-    command = str(executable) if executable.is_file() else (shutil.which("dvc") or "dvc")
+    command = _dvc_command()
+    env = os.environ.copy()
+    env.setdefault(
+        "DVC_SITE_CACHE_DIR",
+        str(cwd / ".dvc" / "tmp" / "site-cache"),
+    )
     return subprocess.run(
-        [command, *args],
+        [*command, *args],
         cwd=str(cwd),
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 

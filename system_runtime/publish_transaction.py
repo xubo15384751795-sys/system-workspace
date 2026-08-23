@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 from dataclasses import dataclass, field
@@ -46,6 +47,7 @@ GENERATION_SURFACES = (
 GENERATION_ENV = "SYSTEM_GENERATION_DIR"
 CURRENT_ENV = "CURRENT_OUTPUT_DIR"
 SHADOW_ENV = "SHADOW_OUTPUT_DIR"
+_SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 class CompatibilityMigrationRequired(RuntimeError):
@@ -100,6 +102,13 @@ class PublishTransaction:
     STATES = STATES
     VALID_STATES = STATES
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.run_id, str) or not _SAFE_RUN_ID.fullmatch(self.run_id):
+            raise ValueError(
+                "run_id must be a single safe path component containing only "
+                "letters, digits, '.', '_' or '-'"
+            )
+
     def prepare(self) -> None:
         """Create publish_candidate directories at run start.
 
@@ -111,6 +120,16 @@ class PublishTransaction:
             d = generation / name
             d.mkdir(parents=True, exist_ok=True)
             self.candidate_dirs[name] = d
+        # Materialize both run pointers before lineage is sealed.  The root
+        # pointer is transaction metadata; the copy under ``current`` is the
+        # compatibility pointer read through Output/current.  Keeping both in
+        # the candidate makes the pointer part of the same integrity-checked
+        # generation rather than a late, unlisted commit artifact.
+        for pointer in (
+            generation / "latest_run_id.txt",
+            self.candidate_dirs["current"] / "latest_run_id.txt",
+        ):
+            pointer.write_text(self.run_id + "\n", encoding="utf-8")
         # Compatibility aliases used by the existing daily runner while the
         # surface writers are migrated to named generation paths.
         self.candidate_dirs["diagnostic"] = self.candidate_dirs["current"]
@@ -388,7 +407,18 @@ class PublishTransaction:
         target = generations / self.run_id
         if target.exists():
             raise FileExistsError(f"generation already exists: {target}")
-        (self.generation_dir / "latest_run_id.txt").write_text(self.run_id + "\n", encoding="utf-8")
+        # Keep the pointer in both metadata locations.  The generation root is
+        # the authoritative transaction metadata surface, while
+        # ``Output/current`` resolves to ``<generation>/current`` and remains
+        # the compatibility surface used by monitoring and older consumers.
+        # Writing both from the same commit keeps those readers aligned after
+        # the live symlink switches.
+        (self.generation_dir / "latest_run_id.txt").write_text(
+            self.run_id + "\n", encoding="utf-8"
+        )
+        (self.generation_dir / "current" / "latest_run_id.txt").write_text(
+            self.run_id + "\n", encoding="utf-8"
+        )
         admission_payload = json.loads((self.generation_dir / "admission.json").read_text(encoding="utf-8"))
         (self.generation_dir / "manifest.json").write_text(
             json.dumps(

@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +24,19 @@ class ExportValidationError(ValueError):
 
 class FinalizedReleaseError(RuntimeError):
     """Raised when code attempts to mutate a finalized release."""
+
+
+_SAFE_RELEASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def validate_release_id(release_id: str) -> str:
+    """Validate a release identifier before it participates in a filesystem path."""
+    if not isinstance(release_id, str) or not _SAFE_RELEASE_ID.fullmatch(release_id):
+        raise ExportValidationError(
+            "release_id must be a single safe path component containing only "
+            "letters, digits, '.', '_' or '-'"
+        )
+    return release_id
 
 
 @dataclass(frozen=True)
@@ -55,6 +69,37 @@ def default_exports_root() -> Path:
         return repo_root() / "data" / "exports"
 
 
+def resolve_release_dir(root: Path, release_id: str) -> Path:
+    """Resolve a release directory while keeping it below the exports root."""
+    root = root.expanduser().resolve()
+    candidate = (root / validate_release_id(release_id)).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ExportValidationError(
+            f"release directory resolves outside exports root: {release_id}"
+        ) from exc
+    if candidate == root:
+        raise ExportValidationError("release directory must not be the exports root")
+    return candidate
+
+
+def _resolve_release_path(release_dir: Path, relative: str, field: str) -> Path:
+    """Resolve a release-relative path and reject symlink escapes."""
+    rel = Path(relative)
+    if rel.is_absolute() or ".." in rel.parts:
+        raise ExportValidationError(f"{field} must be a safe relative path: {relative}")
+    base = release_dir.resolve()
+    candidate = (base / rel).resolve()
+    try:
+        candidate.relative_to(base)
+    except ValueError as exc:
+        raise ExportValidationError(
+            f"{field} resolves outside release directory: {relative}"
+        ) from exc
+    return candidate
+
+
 def finalize_release(
     release_id: str,
     *,
@@ -62,13 +107,15 @@ def finalize_release(
     dry_run: bool = True,
     finalized_at: str | None = None,
 ) -> FinalizeResult:
-    root = Path(exports_root) if exports_root is not None else default_exports_root()
-    release_dir = root / release_id
+    validate_release_id(release_id)
+    root = (Path(exports_root) if exports_root is not None else default_exports_root()).expanduser().resolve()
+    release_dir = resolve_release_dir(root, release_id)
     latest_path = root / "latest"
 
     if not release_dir.exists() or not release_dir.is_dir():
         raise ExportValidationError(f"release directory does not exist: {release_dir}")
-    if (release_dir / ".finalized").exists() and not dry_run:
+    finalized_path = _resolve_release_path(release_dir, ".finalized", ".finalized")
+    if finalized_path.exists() and not dry_run:
         raise FinalizedReleaseError(f"release is already finalized: {release_dir}")
 
     checked = _validate_release_inputs(release_dir, release_id)
@@ -90,9 +137,9 @@ def finalize_release(
         return result
 
     _ensure_mutable(release_dir)
-    write_catalog(catalog, release_dir / "catalog.json")
+    write_catalog(catalog, _resolve_release_path(release_dir, "catalog.json", "catalog.json"))
     _write_release_digest(release_dir)
-    (release_dir / ".finalized").write_text(
+    _resolve_release_path(release_dir, ".finalized", ".finalized").write_text(
         json.dumps(
             {
                 "release_id": release_id,
@@ -155,9 +202,9 @@ def sha256_file(path: Path) -> str:
 
 
 def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
-    manifest_dir = release_dir / "manifests"
-    data_dir = release_dir / "data"
-    provenance_dir = release_dir / "provenance"
+    manifest_dir = _resolve_release_path(release_dir, "manifests", "manifests")
+    data_dir = _resolve_release_path(release_dir, "data", "data")
+    provenance_dir = _resolve_release_path(release_dir, "provenance", "provenance")
     for required in (manifest_dir, data_dir, provenance_dir):
         if not required.exists() or not required.is_dir():
             raise ExportValidationError(f"required release subdirectory missing: {required}")
@@ -165,6 +212,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
     manifest_paths = sorted(manifest_dir.glob("*.manifest.json"))
     declared_data_paths: set[str] = set()
     for manifest_path in manifest_paths:
+        manifest_path = _resolve_release_path(
+            release_dir,
+            manifest_path.relative_to(release_dir).as_posix(),
+            "manifest path",
+        )
         manifest = load_manifest(manifest_path)
         if manifest["release_id"] != release_id:
             raise ExportValidationError(f"{manifest_path} belongs to {manifest['release_id']}, not {release_id}")
@@ -172,13 +224,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
         if manifest_path.name != expected_manifest_name:
             raise ExportValidationError(f"manifest filename must be {expected_manifest_name}: {manifest_path}")
 
-        data_path = release_dir / manifest["data_file"]["path"]
-        try:
-            data_path.relative_to(release_dir)
-        except ValueError as exc:
-            raise ExportValidationError(
-                f"data path escapes release directory for {manifest['dataset_id']}: {data_path}"
-            ) from exc
+        data_path = _resolve_release_path(
+            release_dir,
+            manifest["data_file"]["path"],
+            f"data path for {manifest['dataset_id']}",
+        )
         declared_data_paths.add(data_path.relative_to(release_dir).as_posix())
         if not data_path.exists() or not data_path.is_file():
             raise ExportValidationError(f"data file missing for {manifest['dataset_id']}: {data_path}")
@@ -195,7 +245,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
                 dataset_id=manifest["dataset_id"],
             )
 
-        provenance_path = release_dir / manifest["lineage"]["provenance_path"]
+        provenance_path = _resolve_release_path(
+            release_dir,
+            manifest["lineage"]["provenance_path"],
+            f"provenance path for {manifest['dataset_id']}",
+        )
         if not provenance_path.exists() or not provenance_path.is_file():
             raise ExportValidationError(f"provenance file missing for {manifest['dataset_id']}: {provenance_path}")
         provenance = load_provenance(provenance_path)
@@ -219,13 +273,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
             )
         canonical_relpath = provenance.get("canonical_observation_path")
         if canonical_relpath:
-            canonical_path = release_dir / str(canonical_relpath)
-            try:
-                canonical_path.relative_to(release_dir)
-            except ValueError as exc:
-                raise ExportValidationError(
-                    f"canonical observation path escapes release directory for {manifest['dataset_id']}"
-                ) from exc
+            canonical_path = _resolve_release_path(
+                release_dir,
+                str(canonical_relpath),
+                f"canonical observation path for {manifest['dataset_id']}",
+            )
             if not canonical_path.is_file():
                 raise ExportValidationError(
                     f"canonical observation sidecar missing for {manifest['dataset_id']}: {canonical_path}"
@@ -255,13 +307,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
 
         canonical_chain_relpath = provenance.get("canonical_chain_path")
         if canonical_chain_relpath:
-            canonical_chain_path = release_dir / str(canonical_chain_relpath)
-            try:
-                canonical_chain_path.relative_to(release_dir)
-            except ValueError as exc:
-                raise ExportValidationError(
-                    f"canonical chain path escapes release directory for {manifest['dataset_id']}"
-                ) from exc
+            canonical_chain_path = _resolve_release_path(
+                release_dir,
+                str(canonical_chain_relpath),
+                f"canonical chain path for {manifest['dataset_id']}",
+            )
             if not canonical_chain_path.is_file():
                 raise ExportValidationError(
                     f"canonical chain sidecar missing for {manifest['dataset_id']}: {canonical_chain_path}"
@@ -291,13 +341,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
 
         measurement_spec_relpath = provenance.get("measurement_spec_path")
         if measurement_spec_relpath:
-            measurement_spec_path = release_dir / str(measurement_spec_relpath)
-            try:
-                measurement_spec_path.relative_to(release_dir)
-            except ValueError as exc:
-                raise ExportValidationError(
-                    f"measurement spec path escapes release directory for {manifest['dataset_id']}"
-                ) from exc
+            measurement_spec_path = _resolve_release_path(
+                release_dir,
+                str(measurement_spec_relpath),
+                f"measurement spec path for {manifest['dataset_id']}",
+            )
             if not measurement_spec_path.is_file():
                 raise ExportValidationError(
                     f"measurement spec missing for {manifest['dataset_id']}: {measurement_spec_path}"
@@ -330,7 +378,11 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
 
         quality_report_path = manifest.get("quality_report_path")
         if quality_report_path:
-            quality_path = release_dir / quality_report_path
+            quality_path = _resolve_release_path(
+                release_dir,
+                quality_report_path,
+                f"quality report path for {manifest['dataset_id']}",
+            )
             if not quality_path.exists():
                 raise ExportValidationError(f"quality report missing for {manifest['dataset_id']}: {quality_report_path}")
             quality_report = json.loads(quality_path.read_text(encoding="utf-8"))
@@ -396,15 +448,19 @@ def _compare_coverage(
 
 
 def _ensure_mutable(release_dir: Path) -> None:
-    if (release_dir / ".finalized").exists():
+    if _resolve_release_path(release_dir, ".finalized", ".finalized").exists():
         raise FinalizedReleaseError(f"release is already finalized: {release_dir}")
 
 
 def _write_release_digest(release_dir: Path) -> None:
     lines: list[str] = []
     for path in sorted(p for p in release_dir.rglob("*") if p.is_file() and p.name != "release_digest.txt"):
-        lines.append(f"{sha256_file(path)}  {path.relative_to(release_dir).as_posix()}")
-    (release_dir / "release_digest.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        relative = path.relative_to(release_dir).as_posix()
+        resolved = _resolve_release_path(release_dir, relative, "release artifact")
+        lines.append(f"{sha256_file(resolved)}  {relative}")
+    _resolve_release_path(release_dir, "release_digest.txt", "release_digest.txt").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
 
 
 def _point_latest(latest_path: Path, release_id: str) -> None:
@@ -432,6 +488,8 @@ __all__ = [
     "finalize_release",
     "list_releases",
     "repo_root",
+    "resolve_release_dir",
     "sha256_file",
+    "validate_release_id",
     "verify_file_sha256",
 ]

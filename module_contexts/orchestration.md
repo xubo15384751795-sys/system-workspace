@@ -5,7 +5,7 @@ remains the authority for step order, schedules, and failure behavior.
 
 ## Owns
 
-- `packages/orchestration/` Dagster definitions, ops, quality adapters, DVC helpers
+- `packages/orchestration/` Dagster definitions, ops, quality adapters, DVC helpers, and the canonical pipeline runner/DAG/sequence
 - in-process cutover for `scripts/daily_run.py` and `scripts/refresh_output_current.py`
 - Pandera content-clock evaluation (GE-shaped artifacts; optional GE pip extra)
 - DVC pointer recording for Harvester releases and snapshot promotes
@@ -18,7 +18,11 @@ remains the authority for step order, schedules, and failure behavior.
 - `governance/daily_pipeline_registry.yaml`
 - `configs/great_expectations/expectations/` (suite contract docs)
 - `configs/dvc/config` (local no-scm DVC remote template)
-- `scripts/daily_run.py`
+- `packages/orchestration/orchestration/pipeline_runner.py`
+- `packages/orchestration/orchestration/pipeline_dag.py`
+- `packages/orchestration/orchestration/daily_run_sequence.py`
+- `scripts/daily_run.py` (documented compatibility/default entrypoint)
+- `scripts/_pipeline_runner.py`, `scripts/_pipeline_dag.py`, `scripts/_daily_run_sequence.py` (compatibility imports only)
 - `scripts/refresh_output_current.py`
 - `scripts/archive/_legacy_daily_run_executor.py` (emergency only)
 

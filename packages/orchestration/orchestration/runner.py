@@ -24,8 +24,8 @@ from orchestration.sequence_executor import (
     execute_step,
     should_run_step,
 )
-from scripts._daily_run_sequence import load_daily_run_sequence
-from scripts._pipeline_runner import run_registry_step
+from orchestration.daily_run_sequence import load_daily_run_sequence
+from orchestration.pipeline_runner import run_registry_step
 from scripts._runtime_io import ROOT
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import CompiledPlan, load_pipeline
@@ -119,9 +119,23 @@ def build_daily_step_job(
                 for producer in resolved_plan.edges.get(step_id, ())
                 if producer in op_refs
             ]
+            # The compiled plan contains data edges, but many current steps
+            # still write side-effectful shared surfaces such as
+            # ``Output/current`` without declaring every file they read. A
+            # free Dagster scheduler can therefore start those steps out of
+            # order (for example, render a signal card before judgment has
+            # produced its artifact). Until those surfaces are migrated to
+            # native assets/checks, preserve the registry sequence as an
+            # execution barrier while keeping semantic edges separate in
+            # metadata and failure propagation.
+            execution_upstream_ids = list(upstream_ids)
+            if index > 1:
+                previous_step = sequence_ids[index - 2]
+                if previous_step not in execution_upstream_ids:
+                    execution_upstream_ids.append(previous_step)
             input_defs = {
                 _step_input_name(producer, upstream_index): In(dict)
-                for upstream_index, producer in enumerate(upstream_ids, start=1)
+                for upstream_index, producer in enumerate(execution_upstream_ids, start=1)
             }
 
             def _make_compute_step(
@@ -129,6 +143,7 @@ def build_daily_step_job(
                 current_index: int,
                 current_step: Any,
                 current_upstream_ids: tuple[str, ...],
+                current_execution_upstream_ids: tuple[str, ...],
             ):
                 def _compute_step(context, **_upstream):
                     del _upstream
@@ -157,6 +172,7 @@ def build_daily_step_job(
                             "inputs": list(current_step.inputs),
                             "outputs": list(current_step.outputs),
                             "upstream_steps": list(current_upstream_ids),
+                            "execution_upstream_steps": list(current_execution_upstream_ids),
                         }
                     )
                     if not run:
@@ -227,13 +243,14 @@ def build_daily_step_job(
                     index,
                     compiled_step,
                     tuple(upstream_ids),
+                    tuple(execution_upstream_ids),
                 )
             )
             op_defs.append(step_op)
             op_refs[step_id] = step_op(
                 **{
                     _step_input_name(producer, upstream_index): op_refs[producer]
-                    for upstream_index, producer in enumerate(upstream_ids, start=1)
+                    for upstream_index, producer in enumerate(execution_upstream_ids, start=1)
                 }
             )
 

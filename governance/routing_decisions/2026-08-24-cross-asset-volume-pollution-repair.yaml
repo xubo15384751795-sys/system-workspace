@@ -1,0 +1,46 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-cross-asset-volume-pollution-repair
+date: "2026-08-24"
+status: adopted
+summary: >-
+  Correct a release-boundary adapter defect that dropped ETF OHLCV fields from
+  registry long-form rows and then copied close into open/high/low/volume.
+  Preserve the prior immutable release as evidence, rebuild the corrected
+  cross-asset release from the reviewed clean provider snapshot, and make the
+  contract fail closed on the pollution signature.
+supersedes_evidence:
+  - release_id: 2026-08-22-r2
+    note: "Immutable prior release retained; its 30 polluted rows are the incident evidence."
+corrected_release:
+  release_id: 2026-08-22-r3
+  latest_pointer: Data/harvester/exports/latest
+  source_snapshot: Data/repair_backups/2026-08-22/provider_inputs/yahoo_cross_asset_full_ohlcv_2026-08-22.json
+  workspace_backup: Data/repair_backups/2026-08-23/panels/cross_asset_daily_panel.before-volume-fix.parquet
+  rows: 195702
+  symbols: 33
+  duplicate_key_rows: 0
+  volume_equals_close_rows: 0
+root_cause:
+  - packages/harvester/src/harvester/official.py normalized ETF results to value-only columns.
+  - packages/harvester/src/harvester/cross_asset_panel.py then filled missing OHLCV fields from close.
+  - packages/harvester/src/harvester/cross_asset_panel.py resolved the retired Config path and silently fell back to a different universe.
+fixes:
+  - Preserve optional raw OHLCV columns through registry normalization.
+  - Refuse close-only registry rows at the OHLCV prefetch boundary.
+  - Resolve configs/data/etf_universe.yaml canonically and log the legacy bridge.
+  - Add a fail-closed contract violation for exact OHLCV flatlines where volume equals close.
+  - Mirror the same pollution check in the Pandera diagnostic schema.
+  - Recompute return_* and volatility_20d through the existing deterministic repair script.
+acceptance:
+  - "validate_data_contract_replay.py --json => PASS for workspace_mirror and latest_release."
+  - "DVC status => clean after refreshing the panel pointer."
+  - "focused harvester contract, cross-asset, and registry tests pass."
+governance_boundary:
+  authority_change: false
+  price_convention_change: false
+  declared_exception: none
+  release_replay: true
+  long_horizon_requalification_required: true
+notes:
+  - "The prior adjusted-price vintage decision remains in force; this record only repairs OHLCV field integrity."
+  - "The rejected first r3 attempt with an undeclared provider_outcome field is retained under Data/repair_backups/2026-08-24/release-replay-attempts/."

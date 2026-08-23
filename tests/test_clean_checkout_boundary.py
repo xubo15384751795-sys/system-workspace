@@ -41,3 +41,21 @@ def test_clean_checkout_boundary_rejects_preexisting_broken_symlink(
 
     assert run_before(tmp_path, state) == 1
     assert run_after(tmp_path, state) == 1
+
+
+def test_clean_checkout_boundary_allows_tracked_data_inputs(monkeypatch, tmp_path: Path) -> None:
+    state = tmp_path / "runner" / "boundary.json"
+    data = tmp_path / "Data"
+    data.mkdir()
+    (data / "panel.dvc").write_text("outs: []\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "scripts.commands.ci.clean_checkout_boundary._tracked_paths",
+        lambda _root, name: {"Data/panel.dvc"} if name == "Data" else set(),
+    )
+
+    assert run_before(tmp_path, state) == 0
+    assert run_after(tmp_path, state) == 0
+
+    (data / "materialized.parquet").write_bytes(b"operator data")
+    assert run_after(tmp_path, state) == 1

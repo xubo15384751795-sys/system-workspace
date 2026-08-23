@@ -15,7 +15,7 @@ import argparse
 import json
 import sys
 
-from scripts._pipeline_runner import (  # noqa: E402
+from orchestration.pipeline_runner import (  # noqa: E402
     describe_registry_step,
     list_registry_steps,
     run_registry_step,

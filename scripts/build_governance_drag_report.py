@@ -25,10 +25,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts._daily_run_sequence import (  # noqa: E402
+from orchestration.daily_run_sequence import (  # noqa: E402
     load_daily_run_sequence,
     weekly_step_ids,
 )
+
 from scripts._runtime_io import ROOT, ensure_dir, load_yaml, surface_dir  # noqa: E402
 
 logger = logging.getLogger(__name__)

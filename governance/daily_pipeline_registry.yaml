@@ -406,6 +406,8 @@ steps:
     order: 2
     status: active
     owner: Harvester
+    depends_on:
+      - refresh_cross_asset_panel
     command: python scripts/refresh_etf_panel.py
     input: &id003
     - Data/panels/cross_asset_daily_panel.parquet
@@ -1119,6 +1121,9 @@ steps:
     order: 22
     status: active
     owner: Strategy Lab
+    depends_on:
+      - neutral_pressure_measurement
+      - trade_decision
     command: python scripts/strategy_lab/paper_portfolio.py
     input: &id_paper_port_in
     - Output/trade_decision/latest.json
@@ -1151,6 +1156,9 @@ steps:
     order: 32
     status: active
     owner: Learning Hub
+    depends_on:
+      - harvester
+      - record_trade_decision
     command: python scripts/commands/weekly/trade_decision_replay.py
     input: &id_trade_replay_in
     - Output/trade_ledger/decisions.jsonl
@@ -2019,6 +2027,8 @@ steps:
     order: 65
     status: active
     owner: Strategy Lab
+    depends_on:
+      - neutral_pressure_measurement
     command: python scripts/strategy_lab/run_backtest.py --shadow-card
     input:
     - Output/current/framework_output.json
@@ -2089,6 +2099,8 @@ steps:
     order: 67
     status: active
     owner: Strategy Lab
+    depends_on:
+      - strategy_lab_shadow
     command: python scripts/archive/build_overlay_shadow_report.py
     schedule: weekly
     input:
@@ -2183,6 +2195,9 @@ steps:
     order: 70
     status: active
     owner: Learning Hub
+    depends_on:
+      - harvester
+      - build_feedback_sample_pool
     command: python scripts/commands/weekly/evaluate_feedback_samples.py
     schedule: weekly
     input:
@@ -2796,6 +2811,8 @@ steps:
     order: 1.5
     status: active
     owner: Harvester
+    depends_on:
+      - harvester
     # Acquisition is owned by harvester.daily-release. This step only mirrors
     # the accepted immutable release and records its provider outcome.
     # Daily, not on_demand: this step is the declared owner_step of the
@@ -2899,6 +2916,8 @@ steps:
     order: 52
     status: active
     owner: Framework
+    depends_on:
+      - neutral_pressure_measurement
     command: python scripts/commands/weekly/baseline_comparison.py
     input:
       - Output/current/framework_output.json

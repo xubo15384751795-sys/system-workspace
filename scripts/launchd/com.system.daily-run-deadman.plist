@@ -30,6 +30,8 @@
   <dict>
     <key>SYSTEM_ROOT</key>
     <string>__SYSTEM_ROOT__</string>
+    <key>PYTHONPATH</key>
+    <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>DAILY_RUN_HEARTBEAT_MAX_AGE_HOURS</key>
     <string>26</string>
     <key>SENTRY_ENVIRONMENT</key>

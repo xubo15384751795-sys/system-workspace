@@ -29,6 +29,8 @@
     <string>UTC</string>
     <key>SYSTEM_ROOT</key>
     <string>__SYSTEM_ROOT__</string>
+    <key>PYTHONPATH</key>
+    <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>HORIZON_ROOT</key>
     <string>__HORIZON_ROOT__</string>
     <key>SENTRY_ENVIRONMENT</key>

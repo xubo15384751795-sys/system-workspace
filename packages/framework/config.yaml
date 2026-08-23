@@ -2,8 +2,8 @@ project_name: Structural Deformation Research System
 data_backend: harvester
 allow_legacy_fallback: false
 harvester:
-  root: "../Structural Risk Harvester"
-  exports_root: "/Users/a1/System/Data/harvester/exports"
+  root: "packages/harvester"
+  exports_root: "Data/harvester/exports"
   release: latest
   catalog_file: catalog.json
   require_finalized: true
@@ -28,20 +28,20 @@ pipeline:
   persist_extension_outputs: true
   reuse_existing_snapshot: true
 data:
-  system_root: "/Users/a1/System/Data"
-  lab_root: "/Users/a1/System/Data/structural_lab"
+  system_root: "Data"
+  lab_root: "Data/structural_lab"
   backend: legacy
   version: "bootstrap-v1"
 snapshot_store:
   # Parquet is the default authority; legacy DuckDB is migration-only.
   backend: harvester
 runtime:
-  duckdb_path: "/Users/a1/System/Data/structural_lab/runtime/system.duckdb"
-  processed_dir: "/Users/a1/System/Data/structural_lab/processed"
-  snapshots_dir: "/Users/a1/System/Data/structural_lab/snapshots"
-  calibration_dir: "/Users/a1/System/Data/structural_lab/calibration"
+  duckdb_path: "Data/structural_lab/runtime/system.duckdb"
+  processed_dir: "Data/structural_lab/processed"
+  snapshots_dir: "Data/structural_lab/snapshots"
+  calibration_dir: "Data/structural_lab/calibration"
 legacy:
-  root: "/Users/a1/System/Data/structural_lab/legacy"
+  root: "Data/structural_lab/legacy"
   allow_direct_fetch: false
   deprecated: true
   requires_explicit_opt_in: true
@@ -324,7 +324,7 @@ ml:
   reflexivity:
     method: placeholder
 output:
-  dir: "/Users/a1/System/Output"
+  dir: "Output"
   export_image: true
   image_width: 1400
 ui:
@@ -332,4 +332,4 @@ ui:
   port: 8765
   auto_open: true
 event_log:
-  path: "/Users/a1/System/Output/event_log.jsonl"
+  path: "Output/event_log.jsonl"

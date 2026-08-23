@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def hub_repo_root() -> Path:
@@ -9,8 +12,15 @@ def hub_repo_root() -> Path:
 
 
 def resolve_hub_project_root(system_root: Path) -> Path:
+    canonical = system_root / "packages" / "learning_hub"
+    if canonical.is_dir():
+        return canonical
     named = system_root / "System Learning Hub"
     if named.is_dir():
+        logger.warning(
+            "Using deprecated System Learning Hub alias; "
+            "migrate to packages/learning_hub"
+        )
         return named
     return hub_repo_root()
 

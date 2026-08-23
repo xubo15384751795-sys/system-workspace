@@ -52,6 +52,28 @@ def test_record_snapshot_pointer_writes_meta(tmp_path: Path, monkeypatch):
     assert payload["dvc_commit_status"] == "BLOCKED"
 
 
+def test_run_dvc_defaults_site_cache_to_repository_tmp(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.delenv("DVC_SITE_CACHE_DIR", raising=False)
+    captured: dict[str, object] = {}
+
+    def fake_run(*args, **kwargs):
+        captured["args"] = args
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(args[0], 0, "{}", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    dvc_promote._run_dvc(["status"], cwd=tmp_path)
+
+    env = captured["env"]
+    assert isinstance(env, dict)
+    assert env["DVC_SITE_CACHE_DIR"] == str(
+        tmp_path / ".dvc" / "tmp" / "site-cache"
+    )
+
+
 def _fake_add(paths: list[Path], *, root: Path) -> dict:
     for path in paths:
         Path(f"{path}.dvc").write_text("outs:\n- md5: test\n", encoding="utf-8")

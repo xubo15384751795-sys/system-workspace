@@ -1,0 +1,42 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-23-wave1-pandera-duckdb-compatibility
+date: "2026-08-23"
+status: adopted
+summary: >
+  Begin the Pandera and DuckDB migration as compatibility seams without
+  changing the production launchd path or the publication authority boundary.
+scope: >
+  packages/harvester/src/harvester/quality/pandera_adapter.py,
+  packages/harvester/src/harvester/quality/data_contract.py,
+  packages/harvester/src/harvester/duckdb_panel.py,
+  packages/harvester/src/harvester/cross_asset_panel.py, and their focused
+  tests.
+decision: >
+  Keep the existing data_contract.py implementation authoritative for
+  PASS/WARN/BLOCK, the single ETF pre-listing exception, and write refusal.
+  Pandera emits a complete serializable diagnostic result in shadow mode; an
+  enforce change requires separate governance approval after at least three
+  consecutive clean default-path days. Add DuckDB as an opt-in canonical
+  snapshot writer with PRIMARY KEY(symbol, date) and CHECK(close > 0). It must
+  validate before the transaction, validate the exported Parquet again, and
+  replace the compatibility mirror only after successful encoding. The
+  SYSTEM_DUCKDB_CANONICAL_PANEL flag remains off until dual-run parity and a
+  rollback drill are complete.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  storage_authority_change: false
+acceptance:
+  - existing data contract tests retain the same PASS/WARN/BLOCK semantics
+  - Pandera failures are present as structured diagnostics without changing
+    shadow-mode release authority
+  - DuckDB rejects duplicate (symbol, date) inserts at the canonical table
+  - a failed candidate leaves the existing Parquet mirror byte-identical
+  - the default launchd path remains unchanged while the flag is unset
+non_goals:
+  - delete the pipeline registry or custom runner
+  - enable DuckDB for the default path
+  - migrate provider parsing, fallback, or carry-forward into dlt
+  - enable the Dagster schedule or daemon

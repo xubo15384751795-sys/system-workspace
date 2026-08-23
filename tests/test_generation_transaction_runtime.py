@@ -32,6 +32,11 @@ def _contract_digests(tx: PublishTransaction) -> dict[str, str]:
     }
 
 
+def test_publish_transaction_rejects_unsafe_run_id_before_prepare(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="safe path component"):
+        PublishTransaction("../escaped", tmp_path / "Output" / "runs" / "escaped")
+
+
 def _admit(
     tx: PublishTransaction,
     *,
@@ -66,6 +71,12 @@ def test_generation_commit_switches_one_live_pointer_and_persists_journal(tmp_pa
         assert (tmp_path / "Output" / surface).resolve() == target / surface
     assert (tmp_path / "Output" / "ledgers").resolve() == target / "trade_ledger"
     assert (target / "latest_run_id.txt").read_text(encoding="utf-8").strip() == "run_a"
+    assert (target / "current" / "latest_run_id.txt").read_text(encoding="utf-8").strip() == "run_a"
+    lineage = json.loads((target / "lineage.json").read_text(encoding="utf-8"))
+    assert {
+        "latest_run_id.txt",
+        "current/latest_run_id.txt",
+    }.issubset({entry["path"] for entry in lineage["files"]})
     assert PublishTransaction.reconcile(tmp_path)["status"] == "complete"
     with sqlite3.connect(tx.journal_path) as db:
         assert db.execute("select count(*) from domain_transitions").fetchone()[0] >= 5

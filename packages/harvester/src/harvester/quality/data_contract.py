@@ -111,6 +111,20 @@ def validate_cross_asset_panel_contract(
         non_positive = int((close <= 0).sum())
         if non_positive:
             violations.append(f"non_positive_close:{non_positive}")
+    if {"open", "high", "low", "close", "volume"}.issubset(frame.columns):
+        ohlcv = frame[["open", "high", "low", "close", "volume"]].apply(
+            pd.to_numeric, errors="coerce"
+        )
+        # Exact equality of all five fields is the signature of the previous
+        # close-only adapter filling missing OHLCV with close. It is a
+        # fail-closed data-quality violation, not a provider warning.
+        volume_equals_close = (
+            ohlcv["volume"].eq(ohlcv["close"])
+            & ohlcv[["open", "high", "low"]].eq(ohlcv["close"], axis=0).all(axis=1)
+        )
+        polluted_rows = int(volume_equals_close.sum())
+        if polluted_rows:
+            violations.append(f"volume_equals_close_rows:{polluted_rows}")
 
     coverage: dict[str, Any] = {}
     if expected_symbols is not None and "symbol" in frame.columns:
@@ -141,27 +155,17 @@ def validate_cross_asset_panel_contract(
         if missing:
             warnings.append(f"coverage_missing_symbols:{','.join(missing)}")
 
-    # Pandera is additive here: it gives the report a common engine marker
-    # when installed, while the built-in checks remain the release authority.
-    pandera_status = "unavailable"
-    try:
-        import pandera.pandas as pa
+    # Pandera is additive in this wave: the adapter emits a complete,
+    # serializable diagnostic result while the built-in checks remain the
+    # release authority.  Promotion to an enforcing Pandera result requires a
+    # separate shadow-day governance decision.
+    from harvester.quality.pandera_adapter import (
+        validate_cross_asset_panel_with_pandera,
+    )
 
-        schema = pa.DataFrameSchema(
-            {
-                "date": pa.Column(nullable=False),
-                "symbol": pa.Column(nullable=False),
-                "close": pa.Column(float, nullable=False, coerce=True),
-            },
-            strict=False,
-            coerce=False,
-        )
-        schema.validate(frame, lazy=True)
-        pandera_status = "passed"
-    except ImportError:
-        pass
-    except Exception as exc:  # noqa: BLE001 - report the typed boundary result
-        pandera_status = f"failed:{str(exc)[:200]}"
+    pandera_report = validate_cross_asset_panel_with_pandera(frame)
+    pandera_status = str(pandera_report.get("status", "unavailable"))
+    if pandera_status == "failed":
         warnings.append("pandera_shape_check_failed")
 
     status = "BLOCK" if violations else "WARN" if warnings else "PASS"
@@ -178,6 +182,7 @@ def validate_cross_asset_panel_contract(
         "coverage": coverage,
         "declared_exceptions": declared,
         "pandera": pandera_status,
+        "pandera_report": pandera_report,
     }
     if raise_on_error and violations:
         raise DataContractViolation("cross-asset panel structural contract failed", report)

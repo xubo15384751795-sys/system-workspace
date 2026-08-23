@@ -360,7 +360,12 @@ def build_system(config: dict[str, Any], use_mock: bool = True) -> ResearchPipel
 
 
 def _load_config(path: str = "config.yaml") -> dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as handle:
+    config_path = Path(path)
+    if not config_path.is_absolute() and not config_path.exists():
+        package_config_path = Path(__file__).resolve().parents[2] / config_path
+        if package_config_path.exists():
+            config_path = package_config_path
+    with config_path.open("r", encoding="utf-8") as handle:
         cfg = yaml.safe_load(handle)
     if not isinstance(cfg, dict):
         return {}
@@ -493,14 +498,16 @@ def _build_harvester_data_hub(
         contract_root = hcfg.get("contract_root", "")
         if not contract_root:
             contract_root = str(default_harvester_contract_root(config))
+        validate_hashes = bool(hcfg.get("validate_hashes", True))
+        validate_schema = bool(hcfg.get("validate_schema", True))
 
         adapter = HarvesterAdapter(
             exports_root=Path(exports_root),
             release=str(hcfg.get("release", "latest")),
             contract_root=contract_root,
             require_finalized=True,
-            validate_hashes=False,
-            validate_schema=False,
+            validate_hashes=validate_hashes,
+            validate_schema=validate_schema,
         )
         return DataHubLite(adapter=adapter)
     except Exception as exc:

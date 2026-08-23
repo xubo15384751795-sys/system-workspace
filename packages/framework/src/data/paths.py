@@ -7,10 +7,13 @@ New code should inject RuntimePaths directly rather than calling these.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, cast
 
 from src.core.runtime_context import RuntimePaths
+
+logger = logging.getLogger(__name__)
 
 
 def _paths(config: dict[str, Any] | None = None) -> RuntimePaths:
@@ -42,8 +45,13 @@ def default_harvester_contract_root(config: dict[str, Any] | None = None) -> Pat
         project_root / "packages" / "harvester" / "contracts",
         project_root / "Structural Risk Harvester" / "contracts",
     )
-    for candidate in candidates:
+    for index, candidate in enumerate(candidates):
         if candidate.exists():
+            if index == 1:
+                logger.warning(
+                    "Using deprecated Structural Risk Harvester alias; "
+                    "migrate to packages/harvester/contracts"
+                )
             return cast(Path, candidate)
     return cast(Path, candidates[0])
 

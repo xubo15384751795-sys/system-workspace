@@ -11,9 +11,11 @@ from typing import Any
 
 from harvester.core.catalog import load_catalog
 from harvester.core.exporter import (
+    ExportValidationError,
     default_exports_root,
     finalize_release,
     list_releases,
+    validate_release_id,
 )
 from harvester.core.manifest import load_manifest
 
@@ -119,6 +121,22 @@ def run_daily_release(
     resolved_release_id = release_id or next_release_id(root)
     resolved_as_of = as_of_date or datetime.now(UTC).date().isoformat()
     resolved_vintage = vintage_date or resolved_as_of
+
+    try:
+        validate_release_id(resolved_release_id)
+    except ExportValidationError as exc:
+        report = _write_failure_report(
+            root,
+            "invalid-release-id",
+            "invalid_release_id",
+            {"error": str(exc), "requested_release_id": str(release_id)},
+        )
+        return {
+            "release_id": resolved_release_id,
+            "status": "failed",
+            "reason": "invalid_release_id",
+            "failure_report": str(report),
+        }
 
     # Phase 2.1: same-day reuse. If the caller did not explicitly request a
     # new release_id, and ``latest`` already points to a finalized release
@@ -397,7 +415,11 @@ def _write_failure_report(exports_root: Path, release_id: str, reason: str, deta
     stderr so the failure is still visible (rather than swallowed, which was
     the six-day "why is there no failure report" root cause).
     """
-    path = exports_root / ".failures" / f"{release_id}.{reason}.json"
+    try:
+        safe_release_id = validate_release_id(release_id)
+    except ExportValidationError:
+        safe_release_id = "invalid-release-id"
+    path = exports_root / ".failures" / f"{safe_release_id}.{reason}.json"
     payload = {
         "release_id": release_id,
         "reason": reason,

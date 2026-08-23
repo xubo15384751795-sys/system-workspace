@@ -72,6 +72,22 @@ def test_daily_release_writes_failure_report_when_preflight_fails(tmp_path: Path
     assert payload["reason"] == "preflight_failed"
 
 
+def test_daily_release_rejects_unsafe_release_id_before_writing_release_tree(tmp_path: Path) -> None:
+    exports = tmp_path / "exports"
+    exports.mkdir()
+
+    result = run_daily_release(
+        release_id="../escaped-release",
+        exports_root=exports,
+        preflight=False,
+    )
+
+    assert result["status"] == "failed"
+    assert result["reason"] == "invalid_release_id"
+    assert Path(result["failure_report"]).parent == exports / ".failures"
+    assert not (tmp_path / "escaped-release").exists()
+
+
 def test_daily_release_finalizes_when_stage_and_finalize_succeed(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("FRED_API_KEY", "test")
     exports = tmp_path / "exports"

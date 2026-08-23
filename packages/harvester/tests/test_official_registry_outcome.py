@@ -194,6 +194,61 @@ def test_registry_outcome_does_not_classify_mixed_benchmark_as_etf_route(tmp_pat
     assert "route_policy" not in panel.attrs["provider_outcome"]
 
 
+def test_registry_fetch_preserves_etf_ohlcv_for_cross_asset_prefetch(tmp_path) -> None:
+    registry = SeriesRegistry(
+        schema_version="1.0",
+        series={
+            "HYG": RegistrySeries(
+                canonical_id="HYG",
+                source_series_id="HYG",
+                provider_priority=("fake",),
+                measurement_block="test",
+                structural_role="etf",
+                frequency="daily",
+            )
+        },
+        providers={},
+    )
+
+    class FakeProvider:
+        source_id = "fake"
+
+        def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
+            return [
+                ProviderResult(
+                    "fake",
+                    series_ids[0],
+                    pd.DataFrame(
+                        {
+                            "date": ["2026-08-21"],
+                            "value": [79.61],
+                            "open": [79.66],
+                            "high": [79.66],
+                            "low": [79.55],
+                            "volume": [37_523_200.0],
+                        }
+                    ),
+                )
+            ]
+
+    from harvester.official import fetch_official_series_from_registry
+
+    with (
+        patch("harvester.registry.load_registry", return_value=registry),
+        patch("harvester.official.build_provider", return_value=FakeProvider()),
+    ):
+        panel = fetch_official_series_from_registry(
+            data_root=str(tmp_path),
+            providers=["fake"],
+            cache=False,
+        )
+
+    assert panel.loc[0, "open"] == 79.66
+    assert panel.loc[0, "high"] == 79.66
+    assert panel.loc[0, "low"] == 79.55
+    assert panel.loc[0, "volume"] == 37_523_200.0
+
+
 def test_manual_external_series_are_reported_without_becoming_unavailable() -> None:
     from harvester.official import _merge_external_provider_outcome
 

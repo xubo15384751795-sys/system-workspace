@@ -25,7 +25,6 @@ from system_runtime.canonical_ids import (
     build_measurement,
     build_observation,
     build_chain,
-    lineage_ids,
     validate_chain,
 )
 from workbench.judgment.synthesizer import ClaimEnvelope, JudgmentSynthesizer

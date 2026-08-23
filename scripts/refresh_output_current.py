@@ -12,12 +12,13 @@ import sys
 import time
 from datetime import UTC, datetime
 
-from scripts._admission_gate import AdmissionDecision, admit_for_consumption
-from scripts._pipeline_runner import (
+from orchestration.pipeline_runner import (
     list_profile_steps,
     load_registry,
     run_registry_step,
 )
+
+from scripts._admission_gate import AdmissionDecision, admit_for_consumption
 from scripts._runtime_io import surface_dir
 
 CURRENT = surface_dir("current")

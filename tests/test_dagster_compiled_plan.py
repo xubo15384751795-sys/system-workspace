@@ -245,3 +245,31 @@ def test_graph_shadow_matches_current_run_canonical_lineage(tmp_path, monkeypatc
     assert report.canonical_lineage_parity == "MATCH"
     assert report.status == "PASS"
     assert report.promotion_allowed is False
+
+
+def test_graph_preserves_compiled_sequence_for_independent_steps(monkeypatch) -> None:
+    """Shared output surfaces must not be rendered by an out-of-order op."""
+    steps = (
+        _step("first"),
+        _step("second"),
+        _step("third"),
+    )
+    plan = CompiledPipeline(
+        schema_version="test.v1",
+        steps=steps,
+        external_inputs=(),
+        edges={},
+        profiles={"daily": ("first", "second", "third")},
+    )
+    executed: list[str] = []
+
+    def fake_execute(step_id, context, *, plan=None):
+        del context, plan
+        executed.append(step_id)
+        return {"step": step_id, "status": "success", "duration_s": 0}
+
+    monkeypatch.setattr("orchestration.runner.execute_step", fake_execute)
+    results = run_daily_sequence_via_dagster(_payload(plan, []))
+
+    assert [result["step"] for result in results] == ["first", "second", "third"]
+    assert executed == ["first", "second", "third"]

@@ -113,6 +113,17 @@ def test_research_http_files_marked(file_path: Path) -> None:
     )
 
 
+def test_archived_replay_entrypoint_requires_admitted_release() -> None:
+    """The archived replay must not silently acquire a default provider frame."""
+    entrypoint = ROOT / "packages" / "framework" / "scripts" / "run_historical_replay.py"
+    source = entrypoint.read_text(encoding="utf-8")
+    assert "HarvesterAdapter" in source
+    assert "run_historical_replay(raw=raw)" in source
+    assert "run_historical_replay()" not in source
+    assert "Output" in source
+    assert "output/historical_replay" not in source
+
+
 # ---------------------------------------------------------------------------
 # 4. Data authority registry has research entries
 # ---------------------------------------------------------------------------

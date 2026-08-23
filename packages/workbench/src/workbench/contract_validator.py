@@ -3,22 +3,29 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 from pathlib import Path
 from workbench.paths import workbench_root as _workbench_root
 from typing import Any, cast
 
 
 ROOT = cast(Path, _workbench_root())
+logger = logging.getLogger(__name__)
 
 
 def _resolve_contracts() -> Path:
-    """Prefer legacy ``contracts/`` symlink; fall back to packages tree."""
+    """Prefer the canonical packages tree; use the legacy symlink only as a bridge."""
     candidates = (
-        ROOT / "contracts" / "workbench",
         ROOT / "packages" / "workbench" / "contracts" / "workbench",
+        ROOT / "contracts" / "workbench",
     )
-    for path in candidates:
+    for index, path in enumerate(candidates):
         if path.is_dir():
+            if index == 1:
+                logger.warning(
+                    "Using deprecated contracts symlink; "
+                    "migrate to packages/workbench/contracts"
+                )
             return path
     return candidates[0]
 

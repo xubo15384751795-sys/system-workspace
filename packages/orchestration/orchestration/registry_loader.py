@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from scripts._daily_run_sequence import (
+from orchestration.daily_run_sequence import (
     dry_run_labels,
     load_daily_run_sequence,
     weekly_step_ids,

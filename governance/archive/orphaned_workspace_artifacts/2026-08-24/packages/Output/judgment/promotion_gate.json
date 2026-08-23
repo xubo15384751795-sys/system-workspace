@@ -1,0 +1,19 @@
+{
+  "schema_version": "system.judgment_promotion_gate.v1",
+  "generated_at": "2026-07-07T13:31:49.349368+00:00",
+  "as_of": "2026-07-07",
+  "overall_status": "BLOCKED",
+  "reason": "No judgment card available",
+  "gates": {},
+  "allowed_language": [
+    "diagnostic",
+    "watch"
+  ],
+  "forbidden_language": [
+    "signal",
+    "regime call",
+    "prediction",
+    "forecast"
+  ],
+  "claim_ceiling": "diagnostic_watch_only"
+}

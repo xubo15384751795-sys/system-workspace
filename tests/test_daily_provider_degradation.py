@@ -18,7 +18,7 @@ def _write_panel(root: Path) -> None:
             "high": [1.0],
             "low": [1.0],
             "close": [1.0],
-            "volume": [1.0],
+            "volume": [1_000.0],
             "return_1d": [0.0],
             "return_5d": [0.0],
             "return_20d": [0.0],

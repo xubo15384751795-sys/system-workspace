@@ -75,7 +75,7 @@ class TestPipelineSkeleton:
     def test_governance_freeze_passes(self):
         """check_governance_freeze.py should pass (no unapproved files)."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS / "check_governance_freeze.py")],
+            [sys.executable, "-m", "scripts.check_governance_freeze"],
             capture_output=True, text=True, timeout=30, cwd=str(ROOT),
         )
         assert result.returncode == 0, f"governance freeze failed: {result.stderr}"

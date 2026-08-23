@@ -79,6 +79,22 @@ def test_finalize_release_dry_run_does_not_write(tmp_path: Path) -> None:
     assert not (exports_root / "latest").exists()
 
 
+def test_finalize_release_rejects_unsafe_release_id_before_path_access(tmp_path: Path) -> None:
+    with pytest.raises(ExportValidationError, match="safe path component"):
+        finalize_release("../outside", exports_root=tmp_path / "exports")
+
+
+def test_finalize_release_rejects_release_symlink_outside_exports_root(tmp_path: Path) -> None:
+    outside_exports = tmp_path / "outside" / "exports"
+    outside_release = create_release(outside_exports)
+    exports_root = tmp_path / "exports"
+    exports_root.mkdir()
+    (exports_root / "safe-release").symlink_to(outside_release)
+
+    with pytest.raises(ExportValidationError, match="outside exports root"):
+        finalize_release("safe-release", exports_root=exports_root)
+
+
 def test_finalize_release_writes_catalog_latest_and_seals(tmp_path: Path) -> None:
     exports_root = tmp_path / "exports"
     release_dir = create_release(exports_root)

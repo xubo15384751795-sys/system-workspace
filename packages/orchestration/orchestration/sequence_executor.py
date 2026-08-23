@@ -14,8 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, cast
 
-from scripts._daily_run_sequence import weekly_step_ids
-from scripts._pipeline_runner import run_callable_step
+from orchestration.daily_run_sequence import weekly_step_ids
+from orchestration.pipeline_runner import run_callable_step
 from scripts._runtime_io import ROOT, current_dir
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import CompiledPlan, load_pipeline

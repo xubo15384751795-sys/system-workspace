@@ -255,6 +255,43 @@ class DataAccessBoundaryTests(unittest.TestCase):
 
             self.assertEqual(adapter.list_datasets(), ["sample_panel"])
 
+    def test_harvester_dataset_catalog_exposes_bundle_compatibility_view(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root, _release_dir = _write_harvester_bundle(Path(tmp))
+
+            adapter = HarvesterAdapter(root, contract_root=HARVESTER_CONTRACTS)
+            bundle = adapter.load_bundle()
+
+            self.assertEqual(bundle.bundle_id, "2026-04-26-r1")
+            self.assertTrue(bundle.benchmark_panel.empty)
+            self.assertEqual(bundle.validation_report["catalog_mode"], "datasets")
+
+    def test_harvester_adapter_rejects_release_symlink_outside_exports_root(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            exports = root / "exports"
+            exports.mkdir()
+            outside = root / "outside"
+            outside.mkdir()
+            (outside / "catalog.json").write_text("{}\n", encoding="utf-8")
+            (exports / "latest").symlink_to(outside)
+
+            with self.assertRaises(HarvesterIntegrityError):
+                HarvesterAdapter(exports_root=exports, contract_root=HARVESTER_CONTRACTS)
+
+    def test_harvester_adapter_rejects_declared_artifact_symlink_outside_release(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root, release_dir = _write_harvester_bundle(Path(tmp))
+            outside = root / "outside.csv"
+            outside.write_text("date,value\n2026-04-25,99.0\n", encoding="utf-8")
+            data_path = release_dir / "data" / "sample_panel.csv"
+            data_path.unlink()
+            data_path.symlink_to(outside)
+
+            adapter = HarvesterAdapter(root, contract_root=HARVESTER_CONTRACTS)
+            with self.assertRaises(HarvesterIntegrityError):
+                adapter.load_dataset("sample_panel")
+
     def test_harvester_bundle_catalog_rejects_unfinalized_status(self) -> None:
         with TemporaryDirectory() as tmp:
             root, release_dir = _write_bundle_release(Path(tmp), status="draft")

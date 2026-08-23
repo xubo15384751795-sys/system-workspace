@@ -13,6 +13,7 @@ import pandas as pd
 from harvester.core.manifest import build_manifest
 from harvester.core.observation import observation_coverage_from_frame, read_observation_coverage
 from harvester.core.provenance import build_provenance
+from harvester.core.exporter import resolve_release_dir, validate_release_id
 from harvester.providers import ProviderError, build_provider
 from system_runtime.paths import WorkspacePaths
 
@@ -906,8 +907,9 @@ def stage_release(
     exports_root: str = "",
     notes: str = "",
 ) -> dict[str, Any]:
-    ex_root = Path(exports_root) if exports_root else data_root() / "exports"
-    release_dir = ex_root / release_id
+    validate_release_id(release_id)
+    ex_root = (Path(exports_root) if exports_root else data_root() / "exports").expanduser().resolve()
+    release_dir = resolve_release_dir(ex_root, release_id)
 
     for sub in ("data", "manifests", "provenance"):
         (release_dir / sub).mkdir(parents=True, exist_ok=True)
@@ -1147,6 +1149,13 @@ def fetch_official_series_from_registry(
                 "source_id",
                 "source_series_id",
                 "value",
+                # ETF provider results also carry raw OHLCV. Preserve those
+                # optional columns so the cross-asset adapter can reuse the
+                # actual bar instead of fabricating OHLCV from close.
+                "open",
+                "high",
+                "low",
+                "volume",
                 "unit",
                 "frequency",
                 "vintage_date",
@@ -1523,8 +1532,9 @@ def stage_complete_release(
         vintage_date = datetime.now(UTC).strftime("%Y-%m-%d")
     if not as_of_date:
         as_of_date = vintage_date
-    ex_root = Path(exports_root) if exports_root else data_root() / "exports"
-    release_dir = ex_root / release_id
+    validate_release_id(release_id)
+    ex_root = (Path(exports_root) if exports_root else data_root() / "exports").expanduser().resolve()
+    release_dir = resolve_release_dir(ex_root, release_id)
 
     for sub in ("data", "manifests", "provenance", "quality_reports"):
         (release_dir / sub).mkdir(parents=True, exist_ok=True)

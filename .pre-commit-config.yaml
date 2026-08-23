@@ -32,7 +32,7 @@ repos:
     hooks:
       - id: governance-freeze
         name: governance-freeze-check
-        entry: python3 scripts/check_governance_freeze.py
+        entry: env PYTHONPATH=.:packages/orchestration python3 -m scripts.check_governance_freeze
         language: system
         files: ^governance/
         pass_filenames: false

@@ -132,6 +132,28 @@ def test_refresh_and_work_cycle_entrypoints_have_no_local_step_lists() -> None:
         assert not any(token in source for token in forbidden), source_path
 
 
+def test_shared_panel_edges_are_explicit() -> None:
+    """Panel ordering must not depend on path-prefix inference."""
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import load_pipeline
+
+    root = _REGISTRY.parents[1]
+    registry = yaml.safe_load(_REGISTRY.read_text(encoding="utf-8"))
+    expected = {
+        "refresh_cross_asset_panel": ["harvester"],
+        "etf_refresh": ["refresh_cross_asset_panel"],
+        "paper_portfolio": ["neutral_pressure_measurement", "trade_decision"],
+        "strategy_lab_shadow": ["neutral_pressure_measurement"],
+        "baseline_comparison": ["neutral_pressure_measurement"],
+    }
+    for step_id, dependencies in expected.items():
+        assert registry["steps"][step_id]["depends_on"] == dependencies
+
+    plan = load_pipeline(WorkspacePaths(root=root))
+    for step_id, dependencies in expected.items():
+        assert list(plan.edges[step_id]) == dependencies
+
+
 def test_domain_operator_registry_is_governance_display_only() -> None:
     """The domain registry may inform audits, but never selects execution."""
     from system_runtime.paths import WorkspacePaths

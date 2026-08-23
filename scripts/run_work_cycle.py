@@ -33,10 +33,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from orchestration.pipeline_runner import run_registry_step
 from run_bundle import RunBundle
 
 from scripts._constants import TIMEOUT_LONG  # noqa: E402
-from scripts._pipeline_runner import run_registry_step
 
 # RunBundle integration — use auditable path management
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_yaml, surface_dir

@@ -200,8 +200,15 @@ def resolve_data_contract_mode(workspace: Path | None = None) -> str:
 
 def resolve_etf_universe(workspace: Path | None = None) -> list[str]:
     root = workspace or workspace_root()
-    config_path = root / "Config" / "data" / "etf_universe.yaml"
+    canonical_path = root / "configs" / "data" / "etf_universe.yaml"
+    legacy_path = root / "Config" / "data" / "etf_universe.yaml"
+    config_path = canonical_path if canonical_path.is_file() else legacy_path
     if config_path.is_file():
+        if config_path == legacy_path:
+            logger.warning(
+                "Config/data/etf_universe.yaml is deprecated; "
+                "use configs/data/etf_universe.yaml"
+            )
         data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         symbols: list[str] = []
         for key in ("equity", "sector", "credit", "rates", "dollar_commodity", "thematic"):
@@ -383,6 +390,19 @@ def load_latest_release_panel(
             outcome.get("retrieved_at"),
         ),
     )
+    from harvester.quality.data_contract import validate_cross_asset_panel_contract
+
+    data_contract = validate_cross_asset_panel_contract(
+        frame,
+        expected_symbols=resolve_etf_universe(root),
+        require_nonempty=True,
+    )
+    outcome["data_contract"] = data_contract
+    if data_contract["status"] == "BLOCK":
+        logger.error(
+            "finalized cross-asset release failed its read boundary: violations=%s",
+            data_contract.get("violations", []),
+        )
     outcome["integrity"] = _merge_integrity(outcome.get("integrity"), integrity)
     frame.attrs["provider_outcome"] = outcome
     frame.attrs["integrity"] = outcome["integrity"]
@@ -420,9 +440,21 @@ def prefetched_panel_from_registry(
         if "value" not in source_series.columns:
             return empty
         source_series["close"] = source_series["value"]
-    for column in ("open", "high", "low", "volume"):
-        if column not in source_series.columns:
-            source_series[column] = source_series["close"]
+
+    # A close-only long-form row is valid for benchmark_panel, but it is not
+    # an OHLCV bar. Do not fabricate volume by copying close; leave these
+    # symbols for the dedicated ETF provider chain instead.
+    ohlcv_columns = ("open", "high", "low", "volume")
+    missing_ohlcv = [column for column in ohlcv_columns if column not in source_series.columns]
+    if missing_ohlcv:
+        logger.warning(
+            "registry ETF prefetch skipped: missing raw OHLCV columns=%s",
+            ",".join(missing_ohlcv),
+        )
+        return empty
+    source_series = source_series.dropna(subset=["close", *ohlcv_columns]).copy()
+    if source_series.empty:
+        return empty
     result = source_series[
         ["date", "symbol", "open", "high", "low", "close", "volume"]
     ].copy()
@@ -840,7 +872,14 @@ def build_cross_asset_panel(
     return _return_panel(merged, outcome, return_outcome=return_outcome)
 
 
-def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) -> Path:
+def write_cross_asset_panel(
+    panel: pd.DataFrame,
+    workspace: Path | None = None,
+    *,
+    target_path: Path | None = None,
+    expected_symbols: list[str] | None = None,
+    require_nonempty: bool = True,
+) -> Path:
     """Write only the writable workspace mirror.
 
     ``Data/harvester/exports/latest`` is the immutable, finalized Harvester
@@ -850,7 +889,32 @@ def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) 
     happens to leave that directory writable.
     """
     root = workspace or workspace_root()
-    path = root / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+    path = (
+        Path(target_path)
+        if target_path is not None
+        else root / "Data" / "panels" / "cross_asset_daily_panel.parquet"
+    )
+    if not path.is_absolute():
+        path = root / path
+    symbols = expected_symbols or resolve_etf_universe(root)
+
+    # The DuckDB writer is deliberately opt-in during the migration window.
+    # The default launchd path therefore retains the existing mirror behavior;
+    # dual-run operators can enable the canonical writer explicitly and still
+    # receive the same Parquet compatibility surface.
+    from harvester.duckdb_panel import duckdb_canonical_panel_enabled
+
+    if duckdb_canonical_panel_enabled():
+        from harvester.duckdb_panel import write_canonical_panel
+
+        write_canonical_panel(
+            panel,
+            workspace=root,
+            parquet_path=path,
+            expected_symbols=symbols,
+            require_nonempty=require_nonempty,
+        )
+        return path
 
     # This mirror is a write boundary, not a cleanup boundary.  Validate the
     # exact candidate before touching the existing file so a malformed release
@@ -860,8 +924,8 @@ def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) 
 
     data_contract = validate_cross_asset_panel_contract(
         panel,
-        expected_symbols=resolve_etf_universe(root),
-        require_nonempty=True,
+        expected_symbols=symbols,
+        require_nonempty=require_nonempty,
         raise_on_error=True,
     )
 
@@ -896,8 +960,12 @@ def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) 
     return path
 
 
-def _canonical_observation_records(
-    panel: pd.DataFrame,
+def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) -> Path:
+    """Compatibility wrapper for the single cross-asset panel writer."""
+    return write_cross_asset_panel(panel, workspace)
+
+
+def _canonical_observation_records(panel: pd.DataFrame,
     *,
     release_id: str,
     vintage_date: str,

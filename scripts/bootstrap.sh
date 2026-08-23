@@ -50,7 +50,8 @@ done
 echo "[ok]     packages/{workbench,framework,harvester,learning_hub,orchestration} present"
 
 echo
-echo "=== Recreating top-level symlinks ==="
+echo "=== Recreating top-level compatibility symlinks ==="
+echo "[compat] spaced-name aliases remain read-only bridges during package-path migration"
 ensure_symlink "Structural Research Harness" "packages/workbench/agents/harness" || true
 ensure_symlink "System Learning Hub"         "packages/learning_hub" || true
 ensure_symlink "Structural Risk Harvester"   "packages/harvester" || true

@@ -87,9 +87,11 @@ class HarvesterAdapter:
             self.contract_root = self.harvester_root / "contracts"
         else:
             raise ValueError("HarvesterAdapter requires contract_root when harvester_root is not provided")
-        self.exports_root = self._resolve_exports_root(exports_root)
+        self.exports_root = self._resolve_exports_root(exports_root).expanduser().resolve()
         self.release_dir = self._resolve_release_dir()
-        self.catalog_path = self.release_dir / self._safe_catalog_file(catalog_file)
+        self.catalog_path = self._resolve_declared_path(
+            self._safe_catalog_file(catalog_file), "catalog_file"
+        )
         self.catalog = self._load_catalog()
         self.catalog_mode = "bundle" if "files" in self.catalog else "datasets"
         if self.catalog_mode == "bundle":
@@ -129,7 +131,7 @@ class HarvesterAdapter:
             return matches[0]
         entry = self._catalog_entry(name)
         self._validate_dataset_declared_paths(entry)
-        manifest_path = self.release_dir / entry["manifest_path"]
+        manifest_path = self._resolve_declared_path(entry["manifest_path"], "manifest_path")
         if not manifest_path.is_file():
             raise HarvesterIntegrityError(f"manifest missing for {name}: {manifest_path}")
         manifest = _read_json_object(manifest_path)
@@ -145,7 +147,7 @@ class HarvesterAdapter:
             raise HarvesterSchemaError(f"catalog data_path disagrees with manifest for {name}")
         if manifest["lineage"]["provenance_path"] != entry["provenance_path"]:
             raise HarvesterSchemaError(f"catalog provenance_path disagrees with manifest for {name}")
-        provenance_path = self.release_dir / entry["provenance_path"]
+        provenance_path = self._resolve_declared_path(entry["provenance_path"], "provenance_path")
         if not provenance_path.is_file():
             raise HarvesterIntegrityError(f"provenance missing for {name}: {provenance_path}")
         provenance = _read_json_object(provenance_path)
@@ -166,7 +168,7 @@ class HarvesterAdapter:
             raise HarvesterDatasetNotFoundError(f"{name!r} not available for vintage_date={vintage}")
 
         data_info = manifest["data_file"]
-        data_path = self.release_dir / data_info["path"]
+        data_path = self._resolve_declared_path(data_info["path"], "data_file.path")
         if not data_path.exists():
             raise HarvesterIntegrityError(f"data file missing for {name}: {data_path}")
         if self.validate_hashes:
@@ -181,7 +183,7 @@ class HarvesterAdapter:
 
     def load_bundle(self) -> HarvesterBundle:
         if self.catalog_mode != "bundle":
-            raise HarvesterSchemaError("active Harvester release is not a bundle catalog")
+            return self._load_dataset_catalog_bundle()
 
         manifest = self._read_bundle_manifest()
         provenance = self._read_bundle_provenance()
@@ -198,6 +200,55 @@ class HarvesterAdapter:
             proxy_candidate_panel=self._load_bundle_dataset("proxy_candidate_panel"),
             corpus_index=self._load_bundle_dataset("corpus_index"),
             validation_report=validation_report,
+        )
+
+    def _load_dataset_catalog_bundle(self) -> HarvesterBundle:
+        """Expose the dataset-style release through the bundle consumer API.
+
+        Older finalized releases use the protocol's ``datasets`` catalog
+        shape, while newer consumers ask the adapter for a bundle.  The
+        datasets are already immutable and individually validated, so this is
+        a read-only compatibility view rather than a second storage format.
+        """
+        frames: dict[str, pd.DataFrame] = {}
+        manifests: list[dict[str, Any]] = []
+        provenance: list[dict[str, Any]] = []
+        checked: list[dict[str, Any]] = []
+        available = set(self.list_datasets())
+
+        for role in ("benchmark_panel", "proxy_candidate_panel", "corpus_index"):
+            if role not in available:
+                frames[role] = pd.DataFrame()
+                continue
+            manifest = self.get_manifest(role)
+            frames[role] = self.load_dataset(role)
+            manifests.append(manifest)
+            entry = self._catalog_entry(role)
+            provenance_path = self._resolve_declared_path(
+                entry["provenance_path"], "provenance_path"
+            )
+            provenance.append(_read_json_object(provenance_path))
+            checked.append({"dataset_id": role, "status": "ok"})
+
+        release_id = str(self.catalog.get("release_id", self.release_dir.name))
+        return HarvesterBundle(
+            bundle_id=release_id,
+            catalog=self.catalog,
+            manifest=manifests,
+            provenance=provenance,
+            source_registry={
+                "status": "finalized",
+                "release_id": release_id,
+                "catalog_mode": "datasets",
+            },
+            benchmark_panel=frames["benchmark_panel"],
+            proxy_candidate_panel=frames["proxy_candidate_panel"],
+            corpus_index=frames["corpus_index"],
+            validation_report={
+                "release_id": release_id,
+                "catalog_mode": "datasets",
+                "checked_datasets": checked,
+            },
         )
 
     def _load_catalog(self) -> dict[str, Any]:
@@ -244,19 +295,32 @@ class HarvesterAdapter:
         return via_data
 
     def _resolve_release_dir(self) -> Path:
+        if not isinstance(self.release, str) or not self.release:
+            raise HarvesterSchemaError("release must be a non-empty directory name")
+        _reject_unsafe_relative_path(self.release, "release")
+        if Path(self.release).name != self.release or self.release == ".":
+            raise HarvesterSchemaError(f"release must be a directory name: {self.release}")
         release_dir = self.exports_root / self.release
-        if self.release == "latest" and release_dir.exists():
-            return release_dir.resolve()
-        return release_dir
+        try:
+            resolved = release_dir.resolve()
+            resolved.relative_to(self.exports_root)
+        except (OSError, ValueError) as exc:
+            raise HarvesterIntegrityError(
+                f"release resolves outside the exports root: {self.release}"
+            ) from exc
+        if resolved == self.exports_root:
+            raise HarvesterSchemaError(f"release must not be the exports root: {self.release}")
+        return resolved
 
     def _validate_finalized_release(self, catalog: dict[str, Any]) -> None:
         if "files" in catalog:
             if catalog.get("status") != "finalized":
                 raise HarvesterIntegrityError(f"Harvester bundle is not finalized: {self.release_dir}")
             return
-        if not (self.release_dir / ".finalized").exists():
+        finalized_path = self._resolve_declared_path(".finalized", ".finalized")
+        if not finalized_path.exists():
             raise HarvesterIntegrityError(f"Harvester release is not finalized: {self.release_dir}")
-        digest_path = self.release_dir / "release_digest.txt"
+        digest_path = self._resolve_declared_path("release_digest.txt", "release_digest.txt")
         if digest_path.exists():
             self._validate_release_digest(digest_path)
 
@@ -309,7 +373,7 @@ class HarvesterAdapter:
     def _validate_bundle_files(self) -> dict[str, Any]:
         checked: list[dict[str, Any]] = []
         for entry in self.catalog["files"]:
-            path = self.release_dir / entry["path"]
+            path = self._resolve_declared_path(entry["path"], "path")
             if not path.is_file():
                 raise HarvesterIntegrityError(f"catalog-declared file missing for {entry['role']}: {path}")
             if self.validate_hashes:
@@ -336,19 +400,19 @@ class HarvesterAdapter:
 
     def _read_bundle_manifest(self) -> list[dict[str, Any]]:
         entry = self._bundle_entry("manifest")
-        return _read_jsonl_objects(self.release_dir / entry["path"])
+        return _read_jsonl_objects(self._resolve_declared_path(entry["path"], "path"))
 
     def _read_bundle_provenance(self) -> list[dict[str, Any]]:
         entry = self._bundle_entry("provenance")
-        return _read_jsonl_objects(self.release_dir / entry["path"])
+        return _read_jsonl_objects(self._resolve_declared_path(entry["path"], "path"))
 
     def _read_bundle_source_registry(self) -> dict[str, Any]:
         entry = self._bundle_entry("source_registry")
-        return _read_json_object(self.release_dir / entry["path"])
+        return _read_json_object(self._resolve_declared_path(entry["path"], "path"))
 
     def _load_bundle_dataset(self, role: str) -> pd.DataFrame:
         entry = self._bundle_entry(role)
-        path = self.release_dir / entry["path"]
+        path = self._resolve_declared_path(entry["path"], "path")
         if not path.is_file():
             raise HarvesterIntegrityError(f"catalog-declared file missing for {role}: {path}")
         return _read_dataset(path, str(entry["format"]))
@@ -358,6 +422,23 @@ class HarvesterAdapter:
         if path.name != value or path.is_absolute() or ".." in path.parts:
             raise HarvesterSchemaError(f"catalog_file must be a filename relative to the release root: {value}")
         return value
+
+    def _resolve_declared_path(self, value: str, field: str) -> Path:
+        """Resolve a catalog-declared path without leaving the release root.
+
+        Textual ``..`` checks are not enough: a catalog entry or ``latest``
+        release may point through a symlink.  Resolve the complete path and
+        enforce containment before any reader follows it.
+        """
+        _reject_unsafe_relative_path(value, field)
+        candidate = (self.release_dir / value).resolve()
+        try:
+            candidate.relative_to(self.release_dir)
+        except ValueError as exc:
+            raise HarvesterIntegrityError(
+                f"{field} resolves outside the release directory: {value}"
+            ) from exc
+        return candidate
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:

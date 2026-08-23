@@ -17,8 +17,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -26,6 +24,7 @@ from harvester.cross_asset_panel import (
     PANEL_COLUMNS,
     compute_derived_columns,
     resolve_etf_universe,
+    write_cross_asset_panel,
 )
 from harvester.quality.data_contract import validate_cross_asset_panel_contract
 
@@ -148,23 +147,6 @@ def _read_base(root: Path, path_arg: Path | None, expected_symbols: set[str]) ->
     return path, frame
 
 
-def _atomic_write(frame: pd.DataFrame, output: Path) -> None:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=output.parent,
-            prefix=f".{output.stem}.",
-            suffix=".parquet",
-            delete=False,
-        ) as handle:
-            temp_path = Path(handle.name)
-        frame.to_parquet(temp_path, index=False)
-        os.replace(temp_path, output)
-        temp_path = None
-    finally:
-        if temp_path is not None and temp_path.exists():
-            temp_path.unlink()
 
 
 def repair_panel(
@@ -283,7 +265,16 @@ def repair_panel(
     if list(final.columns) != PANEL_COLUMNS:
         raise ValueError(f"unexpected repaired columns: {list(final.columns)}")
 
-    _atomic_write(final, current_path)
+    # All writable panel surfaces use the Harvester-owned writer.  This keeps
+    # the one-time repair command subject to the same contract, atomicity, and
+    # optional DuckDB migration seam as the normal refresh path.
+    write_cross_asset_panel(
+        final,
+        workspace=root,
+        target_path=current_path,
+        expected_symbols=expected_symbols,
+        require_nonempty=True,
+    )
     return {
         "output": str(current_path),
         "base_release": str(base_path),

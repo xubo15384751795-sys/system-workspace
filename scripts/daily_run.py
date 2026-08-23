@@ -30,6 +30,11 @@ import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from orchestration.daily_run_sequence import (
+    dry_run_labels,
+    load_daily_run_sequence,
+    weekly_step_ids,
+)
 from run_bundle import RunBundle
 
 from scripts._constants import CASELAB_USABLE_THRESHOLD, TIMEOUT_STANDARD
@@ -41,11 +46,6 @@ from scripts._current_publish import (
     should_publish,
 )
 from scripts._daily_observability import publish_daily_run_observability
-from scripts._daily_run_sequence import (
-    dry_run_labels,
-    load_daily_run_sequence,
-    weekly_step_ids,
-)
 from scripts._notify import notify_daily_run_result
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, surface_dir
 from system_runtime.canonical_lineage import summarize_step_lineage
@@ -231,14 +231,14 @@ def _candidate_decision_lineage(generation_dir: Path) -> dict[str, object] | Non
         result["canonical_claim_chains"] = payload["canonical_claim_chains"]
     return result
 
-from scripts._pipeline_dag import (
+from orchestration.pipeline_dag import (
     classify_step_failures,  # noqa: E402 — delayed to preserve pipeline import order
 )
-from scripts._pipeline_runner import (  # noqa: E402 — delayed to preserve pipeline import order
+from orchestration.pipeline_runner import (  # noqa: E402 — delayed to preserve pipeline import order
     load_registry,
     run_registry_step,
 )
-from scripts._pipeline_runner import (
+from orchestration.pipeline_runner import (
     run_subprocess_step as _run_subprocess_step,  # noqa: E402 — delayed to preserve pipeline import order
 )
 

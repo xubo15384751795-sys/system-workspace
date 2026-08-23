@@ -74,3 +74,35 @@ def test_cross_asset_contract_rejects_unlisted_exception() -> None:
         item.startswith("unsupported_declared_exceptions:")
         for item in report["violations"]
     )
+
+
+def test_cross_asset_contract_keeps_structured_pandera_diagnostics() -> None:
+    frame = _panel().copy()
+    frame["close"] = frame["close"].astype(object)
+    frame.loc[0, "close"] = "not-a-number"
+
+    report = validate_cross_asset_panel_contract(frame)
+
+    assert report["status"] == "BLOCK"
+    assert report["pandera"] == "failed"
+    assert report["pandera_report"]["failure_count"] >= 1
+    assert report["pandera_report"]["failure_cases"]
+
+
+def test_cross_asset_contract_rejects_close_as_volume_pollution() -> None:
+    frame = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-21"]),
+            "symbol": ["HYG"],
+            "open": [79.61],
+            "high": [79.61],
+            "low": [79.61],
+            "close": [79.61],
+            "volume": [79.61],
+        }
+    )
+
+    report = validate_cross_asset_panel_contract(frame, require_nonempty=True)
+
+    assert report["status"] == "BLOCK"
+    assert report["violations"] == ["volume_equals_close_rows:1"]

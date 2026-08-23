@@ -15,6 +15,7 @@ Usage::
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -23,9 +24,16 @@ import yaml
 from workbench.paths import workbench_root, workspace_root
 
 
+logger = logging.getLogger(__name__)
+
 _WB_ROOT = workbench_root()
 _WS_ROOT = workspace_root()
-REGISTRY_PATH = _WB_ROOT / "contracts" / "workbench" / "framework_registry.json"
+REGISTRY_PATH = _WB_ROOT / "packages" / "workbench" / "contracts" / "workbench" / "framework_registry.json"
+if not REGISTRY_PATH.is_file():
+    logger.warning(
+        "Using deprecated contracts symlink; migrate to packages/workbench/contracts"
+    )
+    REGISTRY_PATH = _WB_ROOT / "contracts" / "workbench" / "framework_registry.json"
 
 
 def read_json(path: Path) -> dict[str, Any]:

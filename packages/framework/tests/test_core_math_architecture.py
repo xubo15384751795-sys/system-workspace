@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import unittest
 
 import numpy as np
@@ -94,7 +95,11 @@ class CoreMathArchitectureTests(unittest.TestCase):
         self.assertGreaterEqual(persistence.stability_score, 0.0)
         self.assertAlmostEqual(state_distance({"M": 0.0, "D": 0.0}, {"M": 3.0, "D": 4.0}), 5.0)
         self.assertEqual(len(connected_components(graph)), 2)
-        self.assertIsNotNone(to_networkx(graph))
+        networkx_graph = to_networkx(graph)
+        if importlib.util.find_spec("networkx") is None:
+            self.assertIsNone(networkx_graph)
+        else:
+            self.assertIsNotNone(networkx_graph)
 
     def test_evidence_accumulation_and_examples_are_policy_free(self) -> None:
         graph = build_graph(

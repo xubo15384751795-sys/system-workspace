@@ -2,26 +2,75 @@
 """Assert that clean-checkout tests do not materialize ``Data/`` or ``Output/``.
 
 The state file belongs in the CI runner's temporary directory, not in the
-workspace.  ``os.path.lexists`` is intentional: a broken symlink is still a
-workspace surface and must not be treated as absent.
+workspace.  DVC pointers and checked-in fixture files under ``Data/`` are
+source-controlled inputs, not materialized operator data, so they are allowed.
+``os.path.lexists`` is intentional: a broken symlink is still a workspace
+surface and must not be treated as absent.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = "system.clean_checkout_boundary.v1"
+SCHEMA_VERSION = "system.clean_checkout_boundary.v2"
 SURFACES = ("Data", "Output")
 DEFAULT_ROOT = Path(__file__).resolve().parents[3]
 
 
+def _tracked_paths(root: Path, name: str) -> set[str]:
+    """Return source-controlled paths below a workspace surface."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--", f"{name}/"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+    except OSError:
+        return set()
+    if completed.returncode != 0:
+        return set()
+    return {
+        line.strip()
+        for line in completed.stdout.splitlines()
+        if line.strip()
+    }
+
+
+def _operator_surface_exists(root: Path, name: str) -> bool:
+    surface = root / name
+    if not os.path.lexists(surface):
+        return False
+    if surface.is_symlink() or not surface.is_dir():
+        return True
+
+    tracked = _tracked_paths(root, name)
+    if not tracked:
+        return True
+
+    for candidate in surface.rglob("*"):
+        if not os.path.lexists(candidate):
+            continue
+        relative = candidate.relative_to(root).as_posix()
+        if candidate.is_dir() and not candidate.is_symlink():
+            if not any(
+                tracked_path.startswith(relative + "/")
+                for tracked_path in tracked
+            ):
+                return True
+        elif relative not in tracked:
+            return True
+    return False
+
+
 def _surface_state(root: Path) -> dict[str, bool]:
     return {
-        name: os.path.lexists(root / name)
+        name: _operator_surface_exists(root, name)
         for name in SURFACES
     }
 

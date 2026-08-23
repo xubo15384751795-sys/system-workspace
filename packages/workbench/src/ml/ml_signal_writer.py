@@ -21,7 +21,12 @@ from workbench.paths import workbench_root, workspace_root
 logger = logging.getLogger(__name__)
 
 _WB_ROOT = workbench_root()
-_CONTRACTS = _WB_ROOT / "contracts" / "workbench"
+_CONTRACTS = _WB_ROOT / "packages" / "workbench" / "contracts" / "workbench"
+if not _CONTRACTS.is_dir():
+    logger.warning(
+        "Using deprecated contracts symlink; migrate to packages/workbench/contracts"
+    )
+    _CONTRACTS = _WB_ROOT / "contracts" / "workbench"
 _OUTPUT_ROOT = workspace_root() / "Output" / "ml_signals"
 _SCHEMA_FILE = _CONTRACTS / "ml_signal.schema.json"
 _MANIFEST_SCHEMA_FILE = _CONTRACTS / "ml_signal_manifest.schema.json"
