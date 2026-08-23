@@ -10,11 +10,11 @@ resolution-markers = [
 [manifest]
 members = [
     "structural-deformation-research-system",
-    "structural-deformation-system",
     "structural-risk-harvester",
     "structural-workbench",
     "system-learning-hub",
     "system-orchestration",
+    "verity",
 ]
 build-constraints = [
     { name = "setuptools", specifier = "==84.0.0" },
@@ -4361,129 +4361,6 @@ requires-dist = [
 provides-extras = ["math", "viz", "dev", "dl-core", "dl-nlp", "dl-graph", "dl-full"]
 
 [[package]]
-name = "structural-deformation-system"
-version = "0.2.0"
-source = { editable = "." }
-dependencies = [
-    { name = "exchange-calendars" },
-    { name = "httpcore" },
-    { name = "httpx" },
-    { name = "jsonschema" },
-    { name = "mcp" },
-    { name = "numpy" },
-    { name = "omegaconf" },
-    { name = "pandas" },
-    { name = "pyyaml" },
-    { name = "scikit-learn" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "hmmlearn" },
-    { name = "jsonschema" },
-    { name = "mypy" },
-    { name = "numpy" },
-    { name = "omegaconf" },
-    { name = "pandas" },
-    { name = "pytest" },
-    { name = "pyyaml" },
-    { name = "scikit-learn" },
-]
-full = [
-    { name = "dagster" },
-    { name = "dagster-webserver" },
-    { name = "dvc" },
-    { name = "exchange-calendars" },
-    { name = "hmmlearn" },
-    { name = "jsonschema" },
-    { name = "lancedb" },
-    { name = "mcp" },
-    { name = "mypy" },
-    { name = "numpy" },
-    { name = "omegaconf" },
-    { name = "pandas" },
-    { name = "pandera" },
-    { name = "pytest" },
-    { name = "pyyaml" },
-    { name = "scikit-learn" },
-    { name = "sentry-sdk" },
-    { name = "streamlit" },
-]
-ge = [
-    { name = "great-expectations" },
-]
-ml = [
-    { name = "hmmlearn" },
-    { name = "mcp" },
-]
-observability = [
-    { name = "sentry-sdk" },
-]
-orchestration = [
-    { name = "dagster" },
-    { name = "dagster-webserver" },
-    { name = "dvc" },
-    { name = "exchange-calendars" },
-    { name = "lancedb" },
-    { name = "pandera" },
-    { name = "sentry-sdk" },
-    { name = "streamlit" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-mock" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dagster", marker = "extra == 'orchestration'", specifier = ">=1.9" },
-    { name = "dagster-webserver", marker = "extra == 'orchestration'", specifier = ">=1.9" },
-    { name = "dvc", marker = "extra == 'orchestration'", specifier = ">=3.50" },
-    { name = "exchange-calendars", specifier = ">=4.5,<5" },
-    { name = "exchange-calendars", marker = "extra == 'orchestration'", specifier = ">=4.5,<5" },
-    { name = "great-expectations", marker = "python_full_version < '3.14' and extra == 'ge'", specifier = ">=1.0,<2.0" },
-    { name = "hmmlearn", marker = "extra == 'dev'", specifier = ">=0.3" },
-    { name = "hmmlearn", marker = "extra == 'ml'", specifier = ">=0.3" },
-    { name = "httpcore", specifier = ">=1.0,<2" },
-    { name = "httpx", specifier = ">=0.27,<1" },
-    { name = "jsonschema", specifier = ">=4.0" },
-    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "lancedb", marker = "extra == 'orchestration'", specifier = ">=0.12" },
-    { name = "mcp", specifier = ">=1.23,<2" },
-    { name = "mcp", marker = "extra == 'ml'", specifier = ">=1.23,<2" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "numpy", marker = "extra == 'dev'", specifier = ">=2.0" },
-    { name = "omegaconf", specifier = ">=2.3" },
-    { name = "omegaconf", marker = "extra == 'dev'", specifier = ">=2.3" },
-    { name = "pandas", specifier = ">=2.0" },
-    { name = "pandas", marker = "extra == 'dev'", specifier = ">=2.0" },
-    { name = "pandera", marker = "extra == 'orchestration'", specifier = ">=0.20" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pyyaml", specifier = ">=6.0" },
-    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
-    { name = "scikit-learn", specifier = ">=1.4" },
-    { name = "scikit-learn", marker = "extra == 'dev'", specifier = ">=1.4" },
-    { name = "sentry-sdk", marker = "extra == 'observability'", specifier = ">=2.0" },
-    { name = "sentry-sdk", marker = "extra == 'orchestration'", specifier = ">=2.0" },
-    { name = "streamlit", marker = "extra == 'orchestration'", specifier = ">=1.32" },
-    { name = "structural-deformation-system", extras = ["ml", "dev", "orchestration"], marker = "extra == 'full'" },
-]
-provides-extras = ["ml", "orchestration", "observability", "ge", "dev", "full"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.10" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-mock", specifier = ">=3.12" },
-    { name = "ruff", specifier = ">=0.15,<0.16" },
-]
-
-[[package]]
 name = "structural-risk-harvester"
 version = "0.1.0"
 source = { editable = "packages/harvester" }
@@ -5102,6 +4979,129 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/15/c0/0be24758891ef825f2065cd5db8741aaddabe3e248ee6acc5e8a80f04005/uvloop-0.22.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0530a5fbad9c9e4ee3f2b33b148c6a64d47bbad8000ea63704fa8260f4cf728e", size = 4366890, upload-time = "2025-10-16T22:16:40.547Z" },
     { url = "https://files.pythonhosted.org/packages/d2/53/8369e5219a5855869bcee5f4d317f6da0e2c669aecf0ef7d371e3d084449/uvloop-0.22.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:bc5ef13bbc10b5335792360623cc378d52d7e62c2de64660616478c32cd0598e", size = 4119472, upload-time = "2025-10-16T22:16:41.694Z" },
     { url = "https://files.pythonhosted.org/packages/f8/ba/d69adbe699b768f6b29a5eec7b47dd610bd17a69de51b251126a801369ea/uvloop-0.22.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:1f38ec5e3f18c8a10ded09742f7fb8de0108796eb673f30ce7762ce1b8550cad", size = 4239051, upload-time = "2025-10-16T22:16:43.224Z" },
+]
+
+[[package]]
+name = "verity"
+version = "0.2.0"
+source = { editable = "." }
+dependencies = [
+    { name = "exchange-calendars" },
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "mcp" },
+    { name = "numpy" },
+    { name = "omegaconf" },
+    { name = "pandas" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "hmmlearn" },
+    { name = "jsonschema" },
+    { name = "mypy" },
+    { name = "numpy" },
+    { name = "omegaconf" },
+    { name = "pandas" },
+    { name = "pytest" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+]
+full = [
+    { name = "dagster" },
+    { name = "dagster-webserver" },
+    { name = "dvc" },
+    { name = "exchange-calendars" },
+    { name = "hmmlearn" },
+    { name = "jsonschema" },
+    { name = "lancedb" },
+    { name = "mcp" },
+    { name = "mypy" },
+    { name = "numpy" },
+    { name = "omegaconf" },
+    { name = "pandas" },
+    { name = "pandera" },
+    { name = "pytest" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+    { name = "sentry-sdk" },
+    { name = "streamlit" },
+]
+ge = [
+    { name = "great-expectations" },
+]
+ml = [
+    { name = "hmmlearn" },
+    { name = "mcp" },
+]
+observability = [
+    { name = "sentry-sdk" },
+]
+orchestration = [
+    { name = "dagster" },
+    { name = "dagster-webserver" },
+    { name = "dvc" },
+    { name = "exchange-calendars" },
+    { name = "lancedb" },
+    { name = "pandera" },
+    { name = "sentry-sdk" },
+    { name = "streamlit" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dagster", marker = "extra == 'orchestration'", specifier = ">=1.9" },
+    { name = "dagster-webserver", marker = "extra == 'orchestration'", specifier = ">=1.9" },
+    { name = "dvc", marker = "extra == 'orchestration'", specifier = ">=3.50" },
+    { name = "exchange-calendars", specifier = ">=4.5,<5" },
+    { name = "exchange-calendars", marker = "extra == 'orchestration'", specifier = ">=4.5,<5" },
+    { name = "great-expectations", marker = "python_full_version < '3.14' and extra == 'ge'", specifier = ">=1.0,<2.0" },
+    { name = "hmmlearn", marker = "extra == 'dev'", specifier = ">=0.3" },
+    { name = "hmmlearn", marker = "extra == 'ml'", specifier = ">=0.3" },
+    { name = "httpcore", specifier = ">=1.0,<2" },
+    { name = "httpx", specifier = ">=0.27,<1" },
+    { name = "jsonschema", specifier = ">=4.0" },
+    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.0" },
+    { name = "lancedb", marker = "extra == 'orchestration'", specifier = ">=0.12" },
+    { name = "mcp", specifier = ">=1.23,<2" },
+    { name = "mcp", marker = "extra == 'ml'", specifier = ">=1.23,<2" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "numpy", marker = "extra == 'dev'", specifier = ">=2.0" },
+    { name = "omegaconf", specifier = ">=2.3" },
+    { name = "omegaconf", marker = "extra == 'dev'", specifier = ">=2.3" },
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "pandas", marker = "extra == 'dev'", specifier = ">=2.0" },
+    { name = "pandera", marker = "extra == 'orchestration'", specifier = ">=0.20" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "scikit-learn", specifier = ">=1.4" },
+    { name = "scikit-learn", marker = "extra == 'dev'", specifier = ">=1.4" },
+    { name = "sentry-sdk", marker = "extra == 'observability'", specifier = ">=2.0" },
+    { name = "sentry-sdk", marker = "extra == 'orchestration'", specifier = ">=2.0" },
+    { name = "streamlit", marker = "extra == 'orchestration'", specifier = ">=1.32" },
+    { name = "verity", extras = ["ml", "dev", "orchestration"], marker = "extra == 'full'" },
+]
+provides-extras = ["ml", "orchestration", "observability", "ge", "dev", "full"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.10" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-mock", specifier = ">=3.12" },
+    { name = "ruff", specifier = ">=0.15,<0.16" },
 ]
 
 [[package]]

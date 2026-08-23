@@ -2,7 +2,8 @@ schema_version: routing_decision.v1
 decision_id: 2026-08-19-verity-product-identity
 date: "2026-08-19"
 cynefin_domain: complicated
-status: adopted
+status: superseded
+superseded_by: 2026-08-23-verity-root-distribution-rename
 summary: >
   Adopt Verity as the product identity and rewrite the root README as a
   homepage for the evidence-governed research kernel. Move historical

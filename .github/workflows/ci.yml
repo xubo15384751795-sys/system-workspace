@@ -142,7 +142,7 @@ jobs:
       fail-fast: false
       matrix:
         package:
-          - structural-deformation-system
+          - verity
           - structural-deformation-research-system
           - structural-risk-harvester
           - structural-workbench
@@ -208,7 +208,7 @@ jobs:
           uv pip freeze --python "$RUNNER_TEMP/release-venv/bin/python" \
             > "$RUNNER_TEMP/installed-freeze.txt"
           "$RUNNER_TEMP/release-venv/bin/python" -c \
-            'import importlib.metadata as m, sys; expected={"structural-deformation-system","structural-deformation-research-system","structural-risk-harvester","structural-workbench","system-learning-hub","system-orchestration"}; installed={d.metadata["Name"].lower() for d in m.distributions() if d.metadata.get("Name")}; assert {x.lower() for x in expected} <= installed; assert all("/Users/a1/System" not in p for p in sys.path)'
+            'import importlib.metadata as m, sys; expected={"verity","structural-deformation-research-system","structural-risk-harvester","structural-workbench","system-learning-hub","system-orchestration"}; installed={d.metadata["Name"].lower() for d in m.distributions() if d.metadata.get("Name")}; assert {x.lower() for x in expected} <= installed; assert all("/Users/a1/System" not in p for p in sys.path)'
       - name: Build release manifest and SBOM evidence
         run: |
           python scripts/build_release_evidence.py \

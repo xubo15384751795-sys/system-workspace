@@ -17,12 +17,14 @@ validation, admission, promotion, and publication boundaries.
 | Name | Role |
 |---|---|
 | **Verity** | Product identity: the evidence-governed research kernel |
+| `verity` | Root Python distribution and canonical CLI entrypoint |
 | `system-workspace` | This Git repository |
 | `packages/*` | Implementation modules. They are not product names. |
 | Structural Risk Workbench / Deformation / System Workspace | Historical names. See [workspace lineage](docs/history/workspace-lineage.md). |
 
-The GitHub repository, Python distribution, and `packages/*` directories keep
-their current names. Those are implementation identifiers, not a second product.
+The GitHub repository remains `system-workspace`, and the domain distributions
+under `packages/*` retain their technical names. `system` remains as a
+compatibility CLI alias; new automation should use `verity` or `./sys`.
 
 ## Why Verity exists
 

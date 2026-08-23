@@ -24,7 +24,7 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_DISTRIBUTIONS = {
-    "structural-deformation-system",
+    "verity",
     "structural-deformation-research-system",
     "structural-risk-harvester",
     "structural-workbench",

@@ -3,9 +3,9 @@ requires = ["setuptools==84.0.0", "wheel==0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "structural-deformation-system"
+name = "verity"
 version = "0.2.0"
-description = "Governed structural-risk workspace application"
+description = "Verity evidence-governed research kernel"
 requires-python = ">=3.13,<3.14"
 
 # Core runtime dependencies (shared across all submodules)
@@ -23,6 +23,8 @@ dependencies = [
 ]
 
 [project.scripts]
+verity = "system_cli.app:main"
+# Compatibility entrypoint retained for existing operators and launchd jobs.
 system = "system_cli.app:main"
 
 [project.optional-dependencies]
@@ -60,7 +62,7 @@ dev = [
     "hmmlearn>=0.3",
 ]
 full = [
-    "structural-deformation-system[ml,dev,orchestration]",
+    "verity[ml,dev,orchestration]",
 ]
 
 [dependency-groups]

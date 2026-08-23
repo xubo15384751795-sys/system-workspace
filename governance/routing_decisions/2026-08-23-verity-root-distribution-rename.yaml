@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-23-verity-root-distribution-rename
+date: "2026-08-23"
+cynefin_domain: complicated
+status: adopted
+supersedes: 2026-08-19-verity-product-identity
+summary: >
+  Complete the Verity identity migration for the root Python distribution.
+  Rename only the root distribution to verity, add a canonical verity CLI
+  entrypoint, and retain compatibility for existing system invocations.
+scope: >
+  Root pyproject metadata, uv.lock, release evidence allowlists, CI package
+  assertions, README identity mapping, and this routing record. The GitHub
+  repository slug, package directories, domain distribution names, import
+  paths, launchd labels, and runtime authorities remain unchanged.
+decision: >
+  Verity is the human-facing product and the root Python distribution name.
+  The verity CLI is canonical for new automation. The system CLI remains a
+  compatibility alias so existing operators and scheduled jobs do not break.
+  This is an identity and packaging change only; it does not alter data,
+  publication, admission, or runtime judgment semantics.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: false
+  contract_enum_change: false
+  identity_surface_change: true
+preregistered_expectation: >
+  Clean workspace builds expose a verity distribution, release evidence and CI
+  accept it, and both verity and system invoke the same application entrypoint.
+acceptance:
+  - pyproject.toml names the root distribution verity.
+  - uv.lock records verity and no longer models the old root distribution name.
+  - CI and release evidence validate the renamed root distribution.
+  - README identifies verity as the product and canonical root entrypoint.
+  - Existing system CLI compatibility remains available.
+  - GitHub repository slug and domain package names remain unchanged.
+rollback: >
+  Restore the previous root distribution metadata, lockfile, CI/release
+  allowlists, README mapping, and this routing decision.
+non_goals:
+  - Rename GitHub repository system-workspace.
+  - Rename packages/framework, packages/harvester, packages/learning_hub,
+    packages/workbench, or packages/orchestration.
+  - Rename the system_cli or system_runtime import packages.
+  - Change runtime or publication authority.
