@@ -1,6 +1,7 @@
 schema_version: routing_decision_record.v1
 decision_id: 2026-08-23-stage0-5-operational-completion
 date: "2026-08-23"
+cynefin_domain: complicated
 status: active
 owner: System
 title: Close the actionable Stage 0-5 recovery and operating-foundation items
@@ -82,8 +83,9 @@ authority_boundary:
 
 unresolved_external_acceptance:
   - Sentry real-event receipt remains blocked until SENTRY_DSN is supplied.
-  - Telegram real-message receipt remains blocked until TELEGRAM_BOT_TOKEN and
-    TELEGRAM_CHAT_ID are supplied.
+  - >-
+    Telegram real-message receipt: PASS on 2026-08-23 through the explicit local
+    credential-free proxy; credentials remain only in the mode-600 local file.
   - The one-day dead-man unload exercise and the fourteen-day evidence window
     are intentionally pending natural/default-path observation.
   - iCloud synchronization is not immutable disaster-recovery storage.

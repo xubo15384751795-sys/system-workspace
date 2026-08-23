@@ -1,6 +1,7 @@
 schema_version: routing_decision.v1
 decision_id: 2026-08-22-observability-feishu-deadman-launchd
 date: 2026-08-22
+cynefin_domain: complicated
 status: active
 owner: Runtime
 title: Sentry and Telegram run observability with an independent daily-run dead-man switch
@@ -12,7 +13,9 @@ decision:
     heartbeat, and check it from an independent launchd job.
   secret_boundary: >-
     Do not write DSN, Telegram bot tokens, Feishu compatibility tokens, or healthchecks tokens into tracked or
-    installed plist files. The plist names the 0600
+    installed plist files. The optional TELEGRAM_HTTP_PROXY_URL must be an
+    explicit credential-free HTTP(S) proxy; ambient HTTPS_PROXY is ignored.
+    The plist names the 0600
     /Users/a1/.config/system/observability.env file; the launchd wrapper loads
     an allowlisted set into the child environment without executing the file.
   sink_failure_policy: >-
@@ -36,6 +39,7 @@ runtime_contract:
   daily_summary:
     sender: scripts._notify.notify_daily_run_summary
     channel: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
+    transport: optional explicit TELEGRAM_HTTP_PROXY_URL; gateway keeps trust_env_false
     cadence: one message after each normal, early-failure, or mandatory-sink outcome
     payload: Telegram Bot API sendMessage text payload
   heartbeat:
@@ -116,5 +120,5 @@ acceptance:
   source_and_focused_tests: PASS (37 focused tests; plist and shell syntax checks PASS)
   launchd_installation: PASS (daily, Horizon, and dead-man labels bootstrapped)
   sentry_real_event: blocked_until_SENTRY_DSN_is_supplied
-  telegram_real_message: blocked_until_TELEGRAM_BOT_TOKEN_and_TELEGRAM_CHAT_ID_are_supplied
+  telegram_real_message: PASS (2026-08-23; scripts/test_notification_sink.py; Bot API sendMessage via explicit local proxy)
   deadman_unload_drill: requires_explicit_operator_approval_before_disrupting_launchd

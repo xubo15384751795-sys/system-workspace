@@ -43,6 +43,33 @@ class ExternalGatewayResponseTooLarge(ExternalGatewayPolicyError):
     """Raised when a sink response exceeds the configured byte budget."""
 
 
+def _validate_proxy_url(proxy_url: str | None) -> str | None:
+    """Validate an explicit credential-free HTTP(S) proxy URL."""
+    if proxy_url is None:
+        return None
+    value = proxy_url.strip()
+    if not value:
+        return None
+    parsed = urlparse(value)
+    if (
+        parsed.scheme.casefold() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in {"", "/"}
+    ):
+        raise ExternalGatewayPolicyError(
+            "external proxy must be a credential-free HTTP(S) URL"
+        )
+    try:
+        _ = parsed.port
+    except ValueError as exc:
+        raise ExternalGatewayPolicyError("external proxy port is invalid") from exc
+    return value
+
+
 @dataclass(frozen=True)
 class ExternalEndpointSpec:
     """A code-owned, configured endpoint for one non-data sink."""
@@ -227,6 +254,7 @@ class OwnedExternalHTTPGateway:
         endpoints: Mapping[str, ExternalEndpointSpec],
         *,
         transport: httpx.BaseTransport | None = None,
+        proxy_url: str | None = None,
         max_request_bytes: int = 2_000_000,
         max_response_bytes: int = 2_000_000,
     ) -> None:
@@ -234,19 +262,31 @@ class OwnedExternalHTTPGateway:
             raise ValueError("external gateway byte budgets must be positive")
         self._endpoints = dict(endpoints)
         self._transport = transport
+        self._proxy_url = _validate_proxy_url(proxy_url)
+        if self._transport is not None and self._proxy_url is not None:
+            raise ExternalGatewayPolicyError(
+                "external proxy cannot be combined with a custom transport"
+            )
         self._max_request_bytes = max_request_bytes
         self._max_response_bytes = max_response_bytes
-        self._client = (
-            httpx.Client(
+        if transport is not None:
+            self._client = httpx.Client(
                 transport=transport,
                 follow_redirects=False,
                 trust_env=False,
                 timeout=httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5.0),
                 limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
             )
-            if transport is not None
-            else None
-        )
+        elif self._proxy_url is not None:
+            self._client = httpx.Client(
+                proxy=self._proxy_url,
+                follow_redirects=False,
+                trust_env=False,
+                timeout=httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5.0),
+                limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
+            )
+        else:
+            self._client = None
 
     def post(
         self,
@@ -277,7 +317,7 @@ class OwnedExternalHTTPGateway:
         addresses: tuple[str, ...] = ()
         pinned_client: httpx.Client | None = None
         client = self._client
-        if self._transport is None:
+        if self._transport is None and self._proxy_url is None:
             addresses = resolve_external_url(spec.url)
             host = (urlparse(spec.url).hostname or "").casefold()
             pinned_client = httpx.Client(

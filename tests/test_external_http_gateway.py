@@ -56,6 +56,34 @@ def test_external_endpoint_rejects_non_https_query_and_unallowlisted_host() -> N
         ExternalEndpointSpec("sink", "https://other.example.test/events", frozenset({"sink.example.test"}))
 
 
+def test_external_proxy_requires_credential_free_http_url() -> None:
+    with pytest.raises(ExternalGatewayPolicyError):
+        OwnedExternalHTTPGateway({"sink": _endpoint()}, proxy_url="socks5://127.0.0.1:7897")
+    with pytest.raises(ExternalGatewayPolicyError):
+        OwnedExternalHTTPGateway({"sink": _endpoint()}, proxy_url="http://user:pass@127.0.0.1:7897")
+    with pytest.raises(ExternalGatewayPolicyError):
+        OwnedExternalHTTPGateway({"sink": _endpoint()}, proxy_url="http://127.0.0.1:7897/path")
+
+
+def test_external_gateway_uses_explicit_proxy_without_ambient_environment(monkeypatch) -> None:
+    created: dict[str, object] = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            created.update(kwargs)
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(gateway_module.httpx, "Client", FakeClient)
+    with OwnedExternalHTTPGateway(
+        {"sink": _endpoint()}, proxy_url="http://127.0.0.1:7897"
+    ):
+        pass
+    assert created["proxy"] == "http://127.0.0.1:7897"
+    assert created["trust_env"] is False
+
+
 def test_external_gateway_blocks_redirect_and_response_overflow() -> None:
     def redirect(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(302, headers={"location": "https://secret.example/"})

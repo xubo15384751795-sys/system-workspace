@@ -38,8 +38,9 @@
     <string>__SYSTEM_ROOT__:__SYSTEM_ROOT__/packages/orchestration</string>
     <key>PYTHON</key>
     <string>__SYSTEM_PYTHON__</string>
-    <!-- SENTRY_DSN/Telegram tokens are loaded from this mode-600 file by the
-         wrapper; never persist either secret in a tracked or installed plist. -->
+    <!-- SENTRY_DSN/Telegram tokens and the explicit Telegram proxy are loaded
+         from this mode-600 file by the wrapper; never persist secrets in a
+         tracked or installed plist. -->
     <key>SENTRY_ENVIRONMENT</key>
     <string>system-launchd</string>
     <key>SYSTEM_OBSERVABILITY_SECRETS_FILE</key>

@@ -14,6 +14,7 @@ def test_runtime_secrets_allowlist_requires_mode_600_and_does_not_execute(
         "SENTRY_DSN=https://example.invalid/1\n"
         "TELEGRAM_BOT_TOKEN=123456789:test-token\n"
         "TELEGRAM_CHAT_ID=123456789\n"
+        "TELEGRAM_HTTP_PROXY_URL=http://127.0.0.1:7897\n"
         "FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/test\n"
         "UNSAFE=$(touch /tmp/should-not-exist)\n",
         encoding="utf-8",
@@ -23,6 +24,7 @@ def test_runtime_secrets_allowlist_requires_mode_600_and_does_not_execute(
         "SENTRY_DSN",
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
+        "TELEGRAM_HTTP_PROXY_URL",
         "FEISHU_WEBHOOK_URL",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -33,11 +35,13 @@ def test_runtime_secrets_allowlist_requires_mode_600_and_does_not_execute(
         "SENTRY_DSN",
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
+        "TELEGRAM_HTTP_PROXY_URL",
         "FEISHU_WEBHOOK_URL",
     )
     assert os.environ["SENTRY_DSN"] == "https://example.invalid/1"
     assert os.environ["TELEGRAM_BOT_TOKEN"] == "123456789:test-token"
     assert os.environ["TELEGRAM_CHAT_ID"] == "123456789"
+    assert os.environ["TELEGRAM_HTTP_PROXY_URL"] == "http://127.0.0.1:7897"
     assert "UNSAFE" not in os.environ
 
 

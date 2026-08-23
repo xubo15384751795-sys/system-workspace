@@ -96,6 +96,7 @@ def test_telegram_uses_bot_api_payload(monkeypatch) -> None:
 
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:test-token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456789")
+    monkeypatch.delenv("TELEGRAM_HTTP_PROXY_URL", raising=False)
     monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
     monkeypatch.setattr(_notify, "OwnedExternalHTTPGateway", lambda _endpoints: _Gateway())
 
@@ -106,6 +107,32 @@ def test_telegram_uses_bot_api_payload(monkeypatch) -> None:
         "text": "title\nmessage",
         "disable_web_page_preview": True,
     }
+
+
+def test_telegram_passes_only_explicit_proxy(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _Gateway:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, *_args, **_kwargs):
+            return type("_Response", (), {"status_code": 200})()
+
+    def _factory(_endpoints, **kwargs):
+        captured.update(kwargs)
+        return _Gateway()
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456789")
+    monkeypatch.setenv("TELEGRAM_HTTP_PROXY_URL", "http://127.0.0.1:7897")
+    monkeypatch.setattr(_notify, "OwnedExternalHTTPGateway", _factory)
+
+    assert _notify.notify_telegram("title", "message") is True
+    assert captured == {"proxy_url": "http://127.0.0.1:7897"}
 
 
 def test_daily_summary_prefers_telegram_sink(monkeypatch) -> None:
@@ -150,6 +177,9 @@ def test_notification_redacts_urls_and_credentials_before_sinks(monkeypatch) -> 
 
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.delenv("NOTIFY_DISABLE", raising=False)
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    monkeypatch.delenv("TELEGRAM_HTTP_PROXY_URL", raising=False)
     monkeypatch.setenv("NOTIFY_WEBHOOK_URL", "https://hooks.example.test/events")
     monkeypatch.setattr(_notify, "_notify_observability", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(_notify, "_notify_desktop", lambda *_args, **_kwargs: False)

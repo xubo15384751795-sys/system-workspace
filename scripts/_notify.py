@@ -274,6 +274,8 @@ def _notify_telegram(title: str, message: str) -> bool:
         url=f"https://{_TELEGRAM_HOST}/bot{bot_token}/sendMessage",
         allowed_hosts=frozenset({_TELEGRAM_HOST}),
     )
+    proxy_url = os.environ.get("TELEGRAM_HTTP_PROXY_URL", "").strip()
+    gateway_kwargs = {"proxy_url": proxy_url} if proxy_url else {}
     payload = json.dumps(
         {
             "chat_id": chat_id,
@@ -283,7 +285,9 @@ def _notify_telegram(title: str, message: str) -> bool:
         ensure_ascii=False,
     ).encode("utf-8")
     try:
-        with OwnedExternalHTTPGateway({"telegram_bot": endpoint}) as gateway:
+        with OwnedExternalHTTPGateway(
+            {"telegram_bot": endpoint}, **gateway_kwargs
+        ) as gateway:
             response = gateway.post(
                 "telegram_bot",
                 payload,
