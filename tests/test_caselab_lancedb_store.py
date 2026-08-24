@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("lancedb")
+
 from caselab_context.lancedb_store import migrate_payload_to_lancedb, search_lancedb
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from scripts.professional_methods import (
     bocpd_change_probability,
@@ -107,6 +108,7 @@ def test_forward_event_and_logic_is_stricter_than_or() -> None:
 
 
 def test_sticky_hmm_and_jump_regime_emit_probabilities() -> None:
+    pytest.importorskip("hmmlearn")
     from scripts.professional_methods import (
         jump_cluster_regime_probability,
         sticky_gaussian_hmm_probability,
