@@ -1827,6 +1827,7 @@ steps:
     command: python scripts/commands/weekly/build_next_actions.py
     input: &id049
     - Output/system_learning/latest/
+    - Output/current/status.json
     produces: &id050
     - Output/current/NEXT_ACTIONS.md
     artifact_path: Output/current/NEXT_ACTIONS.md

@@ -21,7 +21,7 @@ from typing import Any
 
 import pandas as pd
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir
+from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json
 from scripts.build_current_status import gather_status
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,21 @@ def _load_open_improvements() -> pd.DataFrame:
     if frame.empty or "lifecycle_state" not in frame.columns:
         return frame
     return frame[frame["lifecycle_state"].astype(str).isin(ACTIVE_IMPROVEMENT_STATES)]
+
+
+def _load_current_status() -> dict[str, Any]:
+    """Read the status snapshot produced by the same pipeline run.
+
+    ``status.json`` is the canonical hand-off from ``current_status`` to
+    ``next_actions``.  Falling back to source aggregation keeps the standalone
+    command useful before the first status snapshot exists, while the scheduled
+    pipeline uses the explicit registry edge and therefore cannot silently read
+    a different set of source files.
+    """
+    status = load_json(OUTPUT_DIR / "status.json")
+    if isinstance(status, dict):
+        return status
+    return gather_status()
 
 
 def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
@@ -259,7 +274,7 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Print status JSON to stdout.")
     args = parser.parse_args()
 
-    status = gather_status()
+    status = _load_current_status()
     actions = determine_next_actions(status)
 
     ensure_dir(OUTPUT_DIR)

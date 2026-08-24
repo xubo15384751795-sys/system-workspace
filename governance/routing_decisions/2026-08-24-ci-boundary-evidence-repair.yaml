@@ -1,0 +1,40 @@
+schema_version: routing_decision_record.v1
+date: "2026-08-24"
+task_id: ci-boundary-evidence-repair
+status: ACCEPTED
+cynefin_domain: complicated
+scope: >
+  Close the independently identified CI and governance evidence gaps: make the
+  generation-writer inventory importable in CI, keep root tests inside the
+  Data/Output boundary, declare the compiled status handoff for next actions,
+  and record recent same-state validation evidence.
+decision: >
+  Keep the existing validation and generation contracts authoritative. Repair
+  only the workflow environment, test isolation, compiled pipeline input edge,
+  roadmap evidence API/ledger projection, and status-to-next-actions handoff.
+  No runtime judgment, research verdict, promotion, or publication authority is
+  changed by this repair.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+acceptance:
+  - the generation-writer inventory passes under the CI invocation
+  - root golden-sample tests leave committed Data/ and Output/ unchanged
+  - the framework dependency extra remains installed by Nightly
+  - same-state validation evidence is accepted and rendered in the ledger view
+  - NEXT_ACTIONS uses the canonical status decision and the compiled edge is declared
+  - focused contracts and clean-checkout boundary checks pass
+rollback: >
+  Revert this repair commit. The prior CI workflow, test execution path,
+  generated status handoff, and evidence ledger remain available for review;
+  no runtime data or publication artifact is deleted.
+evidence:
+  files:
+    - .github/workflows/ci.yml
+    - governance/daily_pipeline_registry.yaml
+    - governance/progress/validation_progress_events.jsonl
+    - scripts/commands/weekly/build_next_actions.py
+    - scripts/roadmap_progress.py
+    - tests/test_golden_samples.py

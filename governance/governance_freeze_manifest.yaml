@@ -61,7 +61,7 @@ baseline_hashes:
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: 114a395ff496e989
+  daily_pipeline_registry.yaml: ff8280b2bd3a5235
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 28012930d50bb58b
   deferred_work_register.yaml: baa2e255b97ef48f

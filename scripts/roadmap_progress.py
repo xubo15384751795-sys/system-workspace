@@ -140,10 +140,20 @@ def validate_events(roadmap: dict[str, Any], events: list[dict[str, Any]]) -> No
             if event_type != "bootstrap" or event.get("from_state") is not None:
                 raise RoadmapProgressError(f"{event_id} must bootstrap the task from null")
         else:
-            if event_type != "transition" or event.get("from_state") != current:
-                raise RoadmapProgressError(f"{event_id} from_state does not match current {current}")
-            if to_state not in transitions[current]:
-                raise RoadmapProgressError(f"illegal transition for {task_id}: {current} -> {to_state}")
+            if event_type == "evidence":
+                if event.get("from_state") != current or to_state != current:
+                    raise RoadmapProgressError(
+                        f"{event_id} evidence must preserve current state {current}"
+                    )
+                if not event.get("evidence"):
+                    raise RoadmapProgressError(f"{event_id} evidence event must cite evidence")
+            elif event_type == "transition":
+                if event.get("from_state") != current:
+                    raise RoadmapProgressError(f"{event_id} from_state does not match current {current}")
+                if to_state not in transitions[current]:
+                    raise RoadmapProgressError(f"illegal transition for {task_id}: {current} -> {to_state}")
+            else:
+                raise RoadmapProgressError(f"{event_id} has unsupported event_type {event_type!r}")
         task_states[task_id] = to_state
 
         criterion_ids = {str(item["id"]) for item in tasks[task_id]["criteria"]}
@@ -291,8 +301,9 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
             "python3 scripts/roadmap_progress.py validate",
             "```",
             "",
-            "Transitions must be appended through the state-machine command or an equivalent "
-            "reviewed JSONL event. Generated percentages are evidence-derived.",
+            "Transitions and same-state evidence records must be appended through the "
+            "state-machine command or an equivalent reviewed JSONL event. Generated "
+            "percentages are evidence-derived.",
             "",
         ]
     )
@@ -353,6 +364,53 @@ def append_transition(
     return event
 
 
+def append_evidence(
+    roadmap: dict[str, Any],
+    events: list[dict[str, Any]],
+    *,
+    task_id: str,
+    reason: str,
+    actor: str,
+    evidence: list[str],
+    criterion_updates: dict[str, str],
+    blockers: list[str] | None,
+    next_gate: str | None,
+    commit_sha: str | None,
+    path: Path = EVENTS_PATH,
+) -> dict[str, Any]:
+    """Append evidence without claiming a roadmap state transition."""
+    snapshot = build_snapshot(roadmap, events)
+    current = next((task for task in snapshot["tasks"] if task["id"] == task_id), None)
+    if current is None:
+        raise RoadmapProgressError(f"unknown task: {task_id}")
+    if not evidence:
+        raise RoadmapProgressError("evidence event must cite at least one evidence item")
+    occurred_at = datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    suffix = commit_sha[:12] if commit_sha else occurred_at.replace(":", "").replace("-", "")
+    event = {
+        "schema_version": EVENT_SCHEMA,
+        "event_id": f"{task_id.lower()}-evidence-{suffix}",
+        "occurred_at": occurred_at,
+        "task_id": task_id,
+        "event_type": "evidence",
+        "from_state": current["state"],
+        "to_state": current["state"],
+        "actor": actor,
+        "reason": reason,
+        "commit_sha": commit_sha,
+        "evidence": evidence,
+        "criterion_updates": criterion_updates,
+    }
+    if blockers is not None:
+        event["blockers"] = blockers
+    if next_gate is not None:
+        event["next_gate"] = next_gate
+    validate_events(roadmap, [*events, event])
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
+    return event
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command")
@@ -371,6 +429,15 @@ def build_parser() -> argparse.ArgumentParser:
     transition.add_argument("--blocker", action="append")
     transition.add_argument("--next-gate")
     transition.add_argument("--commit-sha")
+    evidence = sub.add_parser("evidence")
+    evidence.add_argument("task_id")
+    evidence.add_argument("--reason", required=True)
+    evidence.add_argument("--actor", required=True)
+    evidence.add_argument("--evidence", action="append", default=[])
+    evidence.add_argument("--criterion", action="append", default=[])
+    evidence.add_argument("--blocker", action="append")
+    evidence.add_argument("--next-gate")
+    evidence.add_argument("--commit-sha")
     return parser
 
 
@@ -400,6 +467,21 @@ def main(argv: list[str] | None = None) -> int:
                 events,
                 task_id=args.task_id,
                 to_state=args.to_state,
+                reason=args.reason,
+                actor=args.actor,
+                evidence=args.evidence,
+                criterion_updates=_parse_criterion_updates(args.criterion),
+                blockers=args.blocker,
+                next_gate=args.next_gate,
+                commit_sha=args.commit_sha,
+            )
+            print(json.dumps(event, ensure_ascii=False, indent=2))
+            return 0
+        if command == "evidence":
+            event = append_evidence(
+                roadmap,
+                events,
+                task_id=args.task_id,
                 reason=args.reason,
                 actor=args.actor,
                 evidence=args.evidence,

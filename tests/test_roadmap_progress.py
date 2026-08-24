@@ -64,7 +64,7 @@ def test_illegal_transition_is_rejected() -> None:
     bad = {
         "schema_version": progress.EVENT_SCHEMA,
         "event_id": "illegal-close",
-        "occurred_at": "2026-07-30T16:00:00Z",
+        "occurred_at": "2026-08-23T20:00:00Z",
         "task_id": "P0-4",
         "event_type": "transition",
         "from_state": "CI_GREEN",
@@ -84,7 +84,7 @@ def test_unknown_criterion_is_rejected() -> None:
     bad = {
         "schema_version": progress.EVENT_SCHEMA,
         "event_id": "unknown-criterion",
-        "occurred_at": "2026-07-30T16:00:00Z",
+        "occurred_at": "2026-08-23T20:00:00Z",
         "task_id": "P1-1",
         "event_type": "transition",
         "from_state": "READY",
@@ -120,6 +120,32 @@ def test_append_transition_writes_one_valid_event(tmp_path: Path) -> None:
 
     written = json.loads(target.read_text(encoding="utf-8"))
     assert written == event
+    progress.validate_events(roadmap, [*events, event])
+
+
+def test_append_evidence_writes_same_state_event(tmp_path: Path) -> None:
+    roadmap = _definition()
+    events = _events()
+    target = tmp_path / "events.jsonl"
+
+    event = progress.append_evidence(
+        roadmap,
+        events,
+        task_id="P1-4",
+        reason="Record a reviewed hardening commit without advancing acceptance state.",
+        actor="test",
+        evidence=["git:abc123"],
+        criterion_updates={},
+        blockers=None,
+        next_gate=None,
+        commit_sha="abc123456789",
+        path=target,
+    )
+
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written == event
+    assert event["event_type"] == "evidence"
+    assert event["from_state"] == event["to_state"] == "READY"
     progress.validate_events(roadmap, [*events, event])
 
 

@@ -80,6 +80,8 @@ jobs:
           --select E,F,W
           --ignore E501,E402
       - name: Generation writer inventory
+        env:
+          PYTHONPATH: ".:scripts"
         run: python scripts/check_generation_writer_inventory.py --json
       - name: Pipeline documentation authority check
         run: python -m system_cli pipeline docs --check

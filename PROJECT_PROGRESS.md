@@ -4,7 +4,7 @@
 
 - Overall completion: **37.1%**
 - Remaining: **62.9%**
-- Latest evidence event: `2026-07-30T15:35:08Z`
+- Latest evidence event: `2026-08-23T19:39:42Z`
 
 ## Phase summary
 
@@ -65,4 +65,4 @@ Validate and display:
 python3 scripts/roadmap_progress.py validate
 ```
 
-Transitions must be appended through the state-machine command or an equivalent reviewed JSONL event. Generated percentages are evidence-derived.
+Transitions and same-state evidence records must be appended through the state-machine command or an equivalent reviewed JSONL event. Generated percentages are evidence-derived.

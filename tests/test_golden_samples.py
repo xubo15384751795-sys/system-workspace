@@ -21,17 +21,31 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from caselab_context.build_embeddings import (
-    EMBEDDINGS_PATH,
-    build_from_index,
-    save_embeddings,
-)
+import caselab_context.retrieve_context as retrieve_context
+from caselab_context.build_embeddings import build_from_index, save_embeddings
 from caselab_context.index_paper import build_index
 from caselab_context.resolve_meaning import build_context_packet
 
-# Ensure embeddings exist for similar_notes tests
-_records = build_index()
-save_embeddings(EMBEDDINGS_PATH, build_from_index(_records, backend="tfidf"))
+
+@pytest.fixture(scope="module", autouse=True)
+def _isolated_embeddings(tmp_path_factory: pytest.TempPathFactory):
+    """Seed retrieval data outside the authoring/operator workspace.
+
+    This module is an operator suite, but pytest imports it while collecting
+    marker-selected root tests.  Building embeddings at module import used to
+    create repo-root ``Data/`` (and, when available, LanceDB) before marker
+    deselection.  Keep the stateful fixture for the operator run while making
+    collection and hermetic root runs side-effect free.
+    """
+    embeddings_path = tmp_path_factory.mktemp("caselab-context") / "embeddings.json"
+    original_path = retrieve_context.EMBEDDINGS_PATH
+    retrieve_context.EMBEDDINGS_PATH = embeddings_path
+    try:
+        records = build_index()
+        save_embeddings(embeddings_path, build_from_index(records, backend="tfidf"))
+        yield
+    finally:
+        retrieve_context.EMBEDDINGS_PATH = original_path
 
 FULL_REGIME = {
     "liquidity": "abundant",
