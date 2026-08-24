@@ -69,6 +69,18 @@ def _has_no_close_as_volume_flatlines(frame: pd.DataFrame) -> bool:
     return not bool(polluted.any())
 
 
+def _dates_monotonic_by_symbol(frame: pd.DataFrame) -> bool:
+    if not {"symbol", "date"}.issubset(frame.columns):
+        return True
+    parsed = pd.to_datetime(frame["date"], errors="coerce")
+    ordered = frame.assign(_contract_date=parsed)
+    return bool(
+        ordered.groupby("symbol", sort=False)["_contract_date"].apply(
+            lambda values: values.is_monotonic_increasing
+        ).all()
+    )
+
+
 def build_cross_asset_panel_schema() -> Any:
     """Build the Pandera schema without importing Pandera at module import time."""
     import pandera.pandas as pa
@@ -81,7 +93,13 @@ def build_cross_asset_panel_schema() -> Any:
         {
             column: pa.Column(float, nullable=False)
             for column in _NUMERIC_COLUMNS
+            if column != "close"
         }
+    )
+    columns["close"] = pa.Column(
+        float,
+        nullable=False,
+        checks=[pa.Check.gt(0, error="close must be positive")],
     )
     return pa.DataFrameSchema(
         columns,
@@ -96,6 +114,11 @@ def build_cross_asset_panel_schema() -> Any:
                 _has_no_close_as_volume_flatlines,
                 element_wise=False,
                 error="volume is copied from close for an OHLCV flatline",
+            ),
+            pa.Check(
+                _dates_monotonic_by_symbol,
+                element_wise=False,
+                error="dates are not monotonic by symbol",
             ),
         ],
     )

@@ -1,0 +1,50 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-slice-0-1
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Start the replacement-map landing as a shadow observation counter, Pandera
+  diagnostic alignment, and an offline DuckDB parity drill. Do not change the
+  default launchd path, contract mode, or storage flag.
+scope: >
+  packages/orchestration/orchestration/quality/contract_observation.py,
+  scripts/_daily_observability.py,
+  packages/harvester/src/harvester/quality/pandera_adapter.py,
+  packages/harvester/src/harvester/duckdb_panel.py, and their tests.
+decision: >
+  Count consecutive launchd days whose same-UTC-day quality report has a
+  PASS/WARN structural contract. The counter may mark ready_for_enforce_review
+  after three days; it must not write provider_release_policy.yaml or set
+  data_contract_mode=enforce. Align Pandera diagnostics with positive close
+  and per-symbol date monotonicity while data_contract.py remains PASS/WARN/BLOCK
+  authority. Add an offline DuckDB PK/CHECK/rollback drill that never consults
+  SYSTEM_DUCKDB_CANONICAL_PANEL and never writes the workspace canonical path.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  storage_authority_change: false
+  data_contract_mode_change: false
+  pipeline_authority_changed: false
+acceptance:
+  - three consecutive launchd clean days set ready_for_enforce_review without
+    changing data_contract_mode
+  - BLOCK, missing, stale, or failed launchd days reset the count
+  - manual daily_run sources do not increment or reset the window
+  - Pandera fails non-positive close and non-monotonic symbol dates as diagnostics
+  - offline DuckDB drill rejects duplicate keys and preserves parquet bytes
+  - default launchd storage flag remains unset
+non_goals:
+  - enable SYSTEM_DUCKDB_CANONICAL_PANEL on the default path
+  - migrate provider parsing to dlt
+  - replace the registry executor with native Dagster assets
+  - enable the Dagster schedule or daemon
+  - write healthchecks or Sentry credentials into the repository
+rollback: >
+  Revert this slice. Heartbeat publication remains the I-ran signal. Contract
+  mode stays shadow. DuckDB stays opt-in.
+observation_window: >
+  Count only real launchd days after this change lands. Do not treat unit tests
+  or manual replays as window evidence.

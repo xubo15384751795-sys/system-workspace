@@ -184,10 +184,77 @@ def duckdb_canonical_panel_enabled() -> bool:
     }
 
 
+def run_offline_parity_drill(
+    frame: pd.DataFrame,
+    *,
+    scratch: Path,
+    expected_symbols: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Prove PK/CHECK/rollback in an isolated directory.
+
+    The drill never consults ``SYSTEM_DUCKDB_CANONICAL_PANEL`` and never writes
+    the workspace canonical database.  Default launchd storage is unchanged.
+    """
+    scratch = scratch.resolve()
+    scratch.mkdir(parents=True, exist_ok=True)
+    database_path = scratch / "parity.duckdb"
+    parquet_path = scratch / "parity.parquet"
+    first = write_canonical_panel(
+        frame,
+        workspace=scratch,
+        database_path=database_path,
+        parquet_path=parquet_path,
+        expected_symbols=expected_symbols,
+        require_nonempty=True,
+    )
+    before = parquet_path.read_bytes()
+    duplicate_rejected = False
+    with duckdb.connect(str(database_path)) as connection:
+        row = connection.execute(
+            f"SELECT date, symbol, open, high, low, close, volume "
+            f"FROM {CANONICAL_TABLE} LIMIT 1"
+        ).fetchone()
+        try:
+            connection.execute(
+                f"INSERT INTO {CANONICAL_TABLE} "
+                "(date, symbol, open, high, low, close, volume) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                list(row),
+            )
+        except duckdb.ConstraintException:
+            duplicate_rejected = True
+    invalid = frame.copy()
+    if "close" in invalid.columns and len(invalid):
+        invalid.iloc[0, invalid.columns.get_loc("close")] = 0.0
+    blocked_without_clobber = False
+    try:
+        write_canonical_panel(
+            invalid,
+            workspace=scratch,
+            database_path=database_path,
+            parquet_path=parquet_path,
+            expected_symbols=expected_symbols,
+            require_nonempty=True,
+        )
+    except (ValueError, duckdb.Error):
+        blocked_without_clobber = parquet_path.read_bytes() == before
+    return {
+        "database_path": str(database_path),
+        "parquet_path": str(parquet_path),
+        "row_count": first["row_count"],
+        "data_contract": first["data_contract"],
+        "duplicate_rejected": duplicate_rejected,
+        "blocked_without_clobber": blocked_without_clobber,
+        "canonical_flag_consulted": False,
+        "workspace_canonical_written": False,
+    }
+
+
 __all__ = [
     "CANONICAL_DB_RELATIVE",
     "CANONICAL_TABLE",
     "canonical_panel_db_path",
     "duckdb_canonical_panel_enabled",
+    "run_offline_parity_drill",
     "write_canonical_panel",
 ]

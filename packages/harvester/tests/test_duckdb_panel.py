@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from harvester.cross_asset_panel import sync_panel_to_workspace
-from harvester.duckdb_panel import write_canonical_panel
+from harvester.duckdb_panel import duckdb_canonical_panel_enabled, write_canonical_panel
 
 
 def _panel(close: float = 100.0) -> pd.DataFrame:
@@ -98,3 +98,21 @@ def test_duckdb_writer_is_only_used_by_explicit_opt_in_flag(
     assert mirror.exists()
     assert (tmp_path / "Data" / "canonical" / "panels.duckdb").exists()
     assert len(pd.read_parquet(mirror)) == 2
+
+
+def test_offline_parity_drill_does_not_touch_workspace_canonical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SYSTEM_DUCKDB_CANONICAL_PANEL", raising=False)
+    from harvester.duckdb_panel import run_offline_parity_drill
+
+    result = run_offline_parity_drill(
+        _panel(),
+        scratch=tmp_path / "drill",
+        expected_symbols=["SPY"],
+    )
+    assert result["duplicate_rejected"] is True
+    assert result["blocked_without_clobber"] is True
+    assert result["canonical_flag_consulted"] is False
+    assert not (tmp_path / "Data" / "canonical").exists()
+    assert duckdb_canonical_panel_enabled() is False
