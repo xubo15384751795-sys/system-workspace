@@ -13,7 +13,7 @@ import shlex
 import subprocess
 import sys
 import time
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from scripts._constants import TIMEOUT_LONG
 from system_runtime.paths import WorkspacePaths
@@ -73,7 +73,7 @@ def resolve_callable(callable_spec: str) -> Callable[..., Any]:
     return _resolve_installed_callable(callable_spec)
 
 
-def _build_argv_for_callable(target: Callable[..., Any], argv: list[str] | None) -> list[str]:
+def _build_argv_for_callable(target: Callable[..., Any], argv: list[str] | None) -> list[Any]:
     if not argv:
         return []
     signature = inspect.signature(target)
@@ -194,7 +194,7 @@ def run_subprocess_step(
 def load_registry() -> dict[str, Any]:
     import yaml
 
-    return yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8")))
 
 
 def load_step_execution(step_id: str) -> dict[str, Any]:

@@ -213,7 +213,8 @@ class TestUvLock:
         constraints = (ROOT / "constraints" / "build-constraints.txt").read_text(encoding="utf-8")
         assert "setuptools==84.0.0" in constraints
         assert "wheel==0.46.2" in constraints
-        assert constraints.count("--hash=sha256:") == 4
+        assert "packaging==26.3" in constraints
+        assert constraints.count("--hash=sha256:") == 6
 
         ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         assert ci.count("--build-constraints constraints/build-constraints.txt") == 2

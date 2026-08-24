@@ -13,7 +13,7 @@ import json
 import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from scripts._runtime_io import current_dir, surface_dir
 from system_runtime.canonical_ids import lineage_ids, validate_chain
@@ -37,7 +37,7 @@ def _output_path(raw_path: str | os.PathLike[str]) -> Path:
             # candidate surfaces, so a previous published Output/current is
             # never read accidentally during a transactional run.
             surface = current_dir() if parts[1] == "current" else surface_dir(parts[1])
-            return surface / parts[2]
+            return cast(Path, surface / parts[2])
         return ROOT / path
     return ROOT / path
 

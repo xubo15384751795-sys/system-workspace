@@ -33,8 +33,10 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -49,6 +51,20 @@ from scripts._runtime_io import (  # noqa: E402
 
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 AUDIT_MD_PATH = surface_dir("system_learning") / "latest" / "experiment_core_judgment_audit.md"
+
+
+def _audit_report_paths() -> tuple[Path, Path]:
+    """Audit report (markdown, JSON) paths, isolated on ephemeral CI runners.
+
+    GitHub Actions runs this check inside a fresh checkout where the
+    clean-checkout boundary contract (scripts/commands/ci/clean_checkout_boundary.py)
+    forbids materializing ``Output/`` content; reports land in a temporary
+    directory there instead of the workspace surface.
+    """
+    md_path = AUDIT_MD_PATH
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        md_path = Path(tempfile.mkdtemp(prefix="experiment-core-judgment-audit-")) / AUDIT_MD_PATH.name
+    return md_path, md_path.with_suffix(".json")
 
 # Patterns that indicate experimental module output in core judgment paths.
 EXPERIMENTAL_INDICATORS = [
@@ -377,7 +393,8 @@ def verify_core_judgment(root: Path) -> tuple[list[dict], list[dict]]:
 
 def write_audit_report(audit_entries: list[dict], violations: list[dict]) -> None:
     """Write the classification audit report to Output/system_learning/latest/."""
-    ensure_dir(AUDIT_MD_PATH.parent)
+    audit_md_path, audit_json_path = _audit_report_paths()
+    ensure_dir(audit_md_path.parent)
     now = datetime.now(UTC).isoformat()
 
     summary = {
@@ -436,11 +453,10 @@ def write_audit_report(audit_entries: list[dict], violations: list[dict]) -> Non
         "*Authority: governance/system_constitution.yaml → hard_authority_rule*",
     ])
 
-    AUDIT_MD_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    audit_md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     # Also write JSON
-    json_path = AUDIT_MD_PATH.with_suffix(".json")
-    write_json(json_path, {
+    write_json(audit_json_path, {
         "schema_version": "experiment_core_judgment_audit.v1",
         "generated_at": now,
         "summary": summary,

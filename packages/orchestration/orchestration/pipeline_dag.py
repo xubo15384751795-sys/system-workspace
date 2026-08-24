@@ -124,10 +124,10 @@ def _edges() -> dict[str, list[str]]:
     producer_outputs: list[tuple[str, list[str]]] = []
     for sid, s in steps.items():
         outs = [p.rstrip("/") for p in _contract_paths(s, "outputs") if p]
-        ins = {p.rstrip("/") for p in _contract_paths(s, "inputs") if p}
+        input_paths = {p.rstrip("/") for p in _contract_paths(s, "inputs") if p}
         # Exclude in-place-mutated paths: a step that reads and rewrites the
         # same file is not the authoritative producer for other consumers.
-        outs = [o for o in outs if o not in ins]
+        outs = [o for o in outs if o not in input_paths]
         if outs:
             producer_outputs.append((sid, outs))
 
@@ -285,13 +285,13 @@ def compile_dag() -> dict[str, Any]:
         if s.get("status", "active") in ("archived",):
             continue
         ins = [p.rstrip("/") for p in _contract_paths(s, "inputs") if p]
-        producers = set(edges.get(sid, []))
+        producer_ids = set(edges.get(sid, []))
         for inp in ins:
-            if not producers and not _is_external_input(inp, external_inputs):
+            if not producer_ids and not _is_external_input(inp, external_inputs):
                 # Check if ANY step produces this input.
                 if not _has_producer(inp, steps):
                     missing_producers.append({"step": sid, "input": inp})
-            elif not any(_path_produced_by(inp, p, steps) for p in producers):
+            elif not any(_path_produced_by(inp, p, steps) for p in producer_ids):
                 if not _is_external_input(inp, external_inputs):
                     missing_producers.append({"step": sid, "input": inp})
 

@@ -1,0 +1,41 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-ci-lint-pyyaml
+date: "2026-08-24"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Close CI lint, wheel-build, and clean-checkout failures without adding a
+  second dependency installer or changing judgment authority.
+scope: >
+  .github/workflows/ci.yml lint steps, constraints/build-constraints.txt,
+  packages/harvester/pyproject.toml, architecture_reality_audit and
+  verify_experiment_core_judgment report writers, and their contract tests.
+decision: >
+  Lint scripts that need the workspace run through uv run --locked after the
+  existing uv sync, not through python -m pip. Pin packaging 26.3 in
+  build-constraints with the two uv.lock hashes (sdist and wheel). Declare
+  pandera on Harvester so quality diagnostics resolve. On GitHub Actions,
+  audit reports write to a temporary directory so they do not materialize
+  Output/ in a clean checkout. Type-boundary annotations stay local to the
+  mypy surface.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+acceptance:
+  - lint inventory and pipeline-docs steps use uv run --locked
+  - tests/test_dependency_lock.py forbids project pip installs in workflows
+  - packaging 26.3 hashes match uv.lock and do not reuse the wheel 0.46.2 digest
+  - audit writers stay outside Output/ when GITHUB_ACTIONS is set
+rollback: >
+  Revert this commit. No runtime data or publication artifact is deleted.
+evidence:
+  files:
+    - .github/workflows/ci.yml
+    - constraints/build-constraints.txt
+    - packages/harvester/pyproject.toml
+    - scripts/commands/weekly/architecture_reality_audit.py
+    - scripts/verify_experiment_core_judgment.py
+    - tests/test_ci_workflow_contracts.py
+    - tests/test_dependency_lock.py

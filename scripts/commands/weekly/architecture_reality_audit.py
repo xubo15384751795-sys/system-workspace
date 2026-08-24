@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,19 @@ CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 DAILY_PIPELINE_REGISTRY = ROOT / "governance" / "daily_pipeline_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
 OUTPUT_DIR = surface_dir("system_learning") / "latest"
+
+
+def _report_output_dir() -> Path:
+    """Report directory, isolated from the checkout on ephemeral CI runners.
+
+    GitHub Actions runs this audit inside a fresh checkout where the
+    clean-checkout boundary contract (scripts/commands/ci/clean_checkout_boundary.py)
+    forbids materializing ``Output/`` content; reports land in a temporary
+    directory there instead of the workspace surface.
+    """
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        return Path(tempfile.mkdtemp(prefix="architecture-reality-audit-"))
+    return OUTPUT_DIR
 
 
 def _framework_self_check_heartbeat() -> dict[str, Any]:
@@ -689,13 +703,14 @@ def main() -> None:
 
     results = run_audit()
 
+    output_dir = _report_output_dir()
     # Write markdown report
-    ensure_dir(OUTPUT_DIR)
-    report_path = OUTPUT_DIR / "architecture_reality_audit.md"
+    ensure_dir(output_dir)
+    report_path = output_dir / "architecture_reality_audit.md"
     report_path.write_text(generate_markdown_report(results), encoding="utf-8")
 
     # Write JSON
-    json_path = OUTPUT_DIR / "architecture_reality_audit.json"
+    json_path = output_dir / "architecture_reality_audit.json"
     json_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
 
     if args.json:

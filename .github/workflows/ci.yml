@@ -82,9 +82,9 @@ jobs:
       - name: Generation writer inventory
         env:
           PYTHONPATH: ".:scripts"
-        run: python scripts/check_generation_writer_inventory.py --json
+        run: uv run --locked python scripts/check_generation_writer_inventory.py --json
       - name: Pipeline documentation authority check
-        run: python -m system_cli pipeline docs --check
+        run: uv run --locked python -m system_cli pipeline docs --check
 
   lock-integrity:
     runs-on: ubuntu-latest

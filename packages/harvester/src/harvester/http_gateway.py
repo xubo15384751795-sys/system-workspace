@@ -405,7 +405,7 @@ class OwnedHTTPGateway:
                 # only the TCP route changes to the explicitly configured
                 # proxy.  Do not let HTTPX read arbitrary environment values.
                 validate_outbound_url(url)
-                resolved_addresses = ()
+                resolved_addresses: tuple[str, ...] = ()
             else:
                 resolved_addresses = resolve_outbound_url(url)
         else:
