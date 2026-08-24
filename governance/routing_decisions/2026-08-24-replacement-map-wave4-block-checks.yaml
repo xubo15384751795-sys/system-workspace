@@ -1,0 +1,49 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave4-block-checks
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Compile one non-core block_* registry leaf into a blocking Dagster check that
+  records blocked_upstream before skip, without changing daily_job or launchd.
+scope: >
+  governance/daily_pipeline_registry.yaml,
+  packages/orchestration/orchestration/assets/registry_block_checks.py,
+  packages/orchestration/orchestration/definitions.py, and focused tests.
+decision: >
+  Tag signal_consensus with execution.dagster_asset_check=blocking_pilot. The
+  compiler builds a registry_block graph whose check is blocking=True, writes
+  registry-shaped blocked_upstream rows for DAG consumers, then lets Dagster
+  skip those shadow consumers. Records go to an injectable sink (live default:
+  Output/health/registry_block_shadow.jsonl), never daily steps.jsonl.
+  Core-judgment, hold_flat, claim-ceiling, and continue_with_warning tags are
+  refused. freshness_validator and quality_validation stay on the registry
+  executor.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+acceptance:
+  - daily_job still contains only daily_job_entry
+  - live registry compiles signal_consensus plus its freshness_validator consumer
+  - the compiled check is blocking=True
+  - a failed check skips the shadow consumer and still records
+    status=blocked_upstream, blocked_by=[signal_consensus]
+  - tagging continue_with_warning, core-judgment, or a leaf with no DAG
+    consumer raises at compile time
+non_goals:
+  - enable the Dagster schedule or daemon
+  - map hold_flat / lower_claim_ceiling (Wave 4 batch D)
+  - replace freshness_validator or quality_validation on the default path
+  - write blocked_upstream into daily steps.jsonl from the shadow graph
+  - set data_contract_mode=enforce or SYSTEM_DUCKDB_CANONICAL_PANEL
+rollback: >
+  Remove the blocking_pilot tag and the BLOCK_REGISTRY_* registration.
+  daily_job and launchd remain the default path.
+observation_window: >
+  Operator materialization of registry_block assets may run beside launchd.
+  Shadow blocked_upstream rows are diagnostic only until a later dual-track
+  decision.

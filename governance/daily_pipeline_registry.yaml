@@ -2016,6 +2016,7 @@ steps:
       mode: subprocess
       current_command: python scripts/signal_consensus.py
       future_callable: scripts.signal_consensus:main
+      dagster_asset_check: blocking_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
