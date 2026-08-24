@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verity.local/protocols/experiment_result.schema.json",
+  "title": "System Experiment Result Artifact",
+  "description": "Evidence-bound result emitted by an external experiment adapter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "status",
+    "engine",
+    "spec_sha256",
+    "dataset",
+    "runs",
+    "evidence",
+    "limitations",
+    "governance"
+  ],
+  "properties": {
+    "schema_version": {"const": "system.experiment_result.v1"},
+    "experiment_id": {"type": "string", "pattern": "^EXP-[A-Z0-9][A-Z0-9._-]*$"},
+    "status": {"type": "string", "enum": ["completed", "failed", "inconclusive"]},
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter"],
+      "properties": {
+        "adapter": {"type": "string"},
+        "executor": {"type": "string"},
+        "version": {"type": "string"}
+      }
+    },
+    "spec_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "input_artifacts"],
+      "properties": {
+        "release": {"type": "string"},
+        "input_artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact_ref"}}
+      }
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["run_id", "model_id", "status", "metrics"],
+        "properties": {
+          "run_id": {"type": "string"},
+          "model_id": {"type": "string"},
+          "status": {"type": "string", "enum": ["completed", "failed", "blocked", "inconclusive"]},
+          "metrics": {"type": "object", "additionalProperties": {"type": ["number", "null"]}},
+          "artifact_refs": {"type": "array", "items": {"$ref": "#/$defs/artifact_ref"}},
+          "diagnostics": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "summary"],
+      "properties": {
+        "verdict": {"type": "string", "enum": ["supporting", "neutral", "contradictory", "inconclusive"]},
+        "summary": {"type": "string"},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "artifact_refs": {"type": "array", "items": {"$ref": "#/$defs/artifact_ref"}}
+      }
+    },
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_only", "judgment_authority", "feedback_usable", "promotion_eligible"],
+      "properties": {
+        "evidence_only": {"const": true},
+        "judgment_authority": {"const": false},
+        "feedback_usable": {"type": "boolean"},
+        "promotion_eligible": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "role": {"type": "string"}
+      }
+    }
+  }
+}

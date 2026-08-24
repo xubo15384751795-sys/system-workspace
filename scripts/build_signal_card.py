@@ -43,6 +43,7 @@ TRADE_DECISION = surface_dir("trade_decision")
 CASELAB = ROOT / "Output" / "caselab"
 HMM = ROOT / "Output" / "ml_signals" / "latest"
 VALIDATION = ROOT / "Output" / "validation"
+MARKET_FEEDBACK = ROOT / "Output" / "market_feedback" / "feedback_decision.json"
 SHADOW_OUTCOMES = ROOT / "Output" / "strategy_lab" / "shadow_outcomes_90d.json"
 SHADOW_CARD_LATEST = ROOT / "Output" / "strategy_lab" / "shadow_cards" / "latest.json"
 
@@ -544,6 +545,7 @@ def _build_experimental_validation() -> dict[str, Any]:
     wf = load_json(VALIDATION / "walk_forward_report.json")
     shadow = load_json(SHADOW_OUTCOMES)
     bridge = load_json(VALIDATION / "qlib_structural_bridge.json")
+    market_feedback = load_json(MARKET_FEEDBACK)
 
     wf_summary = None
     if wf and wf.get("status") == "complete":
@@ -566,12 +568,41 @@ def _build_experimental_validation() -> dict[str, Any]:
     bridge_summary = None
     if bridge:
         bridge_summary = {
+            "status": "available",
             "bridge_verdict": bridge.get("bridge_verdict"),
             "deformation_features_add_value": (bridge.get("experiment_summary") or {}).get(
                 "deformation_features_add_value"
             ),
             "overlay_improves_sharpe": (bridge.get("backtest_summary") or {}).get("overlay_improves_sharpe"),
             "anti_gaming_checks": bridge.get("anti_gaming_checks", []),
+        }
+    else:
+        bridge_summary = {
+            "status": "missing",
+            "path": "Output/validation/qlib_structural_bridge.json",
+            "bridge_verdict": None,
+            "deformation_features_add_value": None,
+            "overlay_improves_sharpe": None,
+            "anti_gaming_checks": ["bridge_artifact_missing"],
+        }
+
+    market_feedback_summary = {
+        "status": "missing",
+        "path": "Output/market_feedback/feedback_decision.json",
+        "source": "none",
+    }
+    if market_feedback and market_feedback.get("source") not in (None, "", "none"):
+        market_feedback_summary = {
+            "status": "available",
+            "source": market_feedback.get("source"),
+            "feedback_type": market_feedback.get("feedback_type"),
+            "qlib_feedback_type": market_feedback.get(
+                "qlib_feedback_type", market_feedback.get("feedback_type")
+            ),
+            "feedback_usable": market_feedback.get("qlib_feedback_type") != "inconclusive",
+            "generated_at": market_feedback.get("generated_at"),
+            "source_path": market_feedback.get("source_path"),
+            "diagnostics": market_feedback.get("diagnostics", {}),
         }
 
     return {
@@ -580,6 +611,7 @@ def _build_experimental_validation() -> dict[str, Any]:
         "walk_forward": wf_summary,
         "shadow_outcomes_90d": shadow_summary,
         "qlib_structural_bridge": bridge_summary,
+        "market_feedback": market_feedback_summary,
     }
 
 
@@ -875,7 +907,15 @@ def generate_markdown(card: dict[str, Any]) -> str:
         if bridge:
             lines.append(
                 f"- **Qlib bridge:** verdict={bridge.get('bridge_verdict')} "
+                f"status={bridge.get('status')} "
                 f"deform_auc+={bridge.get('deformation_features_add_value')}"
+            )
+        feedback = ev.get("market_feedback")
+        if feedback:
+            lines.append(
+                f"- **Market feedback:** status={feedback.get('status')} "
+                f"source={feedback.get('source')} "
+                f"type={feedback.get('qlib_feedback_type') or feedback.get('feedback_type')}"
             )
         lines.append("")
 

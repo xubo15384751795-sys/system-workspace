@@ -1,0 +1,43 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-freeze-attention-admission
+date: "2026-08-24"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Align freeze admission with the attention-shape model. Root file count is
+  inventory, not a gate. Hash blocking covers authority-lock files only.
+scope: >
+  scripts/_governance_freeze.py, governance/governance_freeze_manifest.yaml,
+  governance/governance_tiers.yaml, governance/experiment_registry.yaml,
+  governance/experiments/, tests/test_governance_freeze.py.
+decision: >
+  Shape inventory is the admission list. A classified machine file with a
+  code or test consumer does not need freeze-allowlist membership and does
+  not consume approved_additions_budget. That budget is advisory ledger.
+  blocking_hash_files is authority_registry, incentive_policy,
+  output_routing_policy, and system_constitution. Experiment instance specs
+  live under governance/experiments/; the registry remains a root machine
+  invariant. Judgment, promotion, and shadow authority are unchanged.
+supersedes:
+  - freeze_allowlist_as_admission
+  - approved_additions_budget_as_gate
+  - operational_registry_hash_blocking
+authority_boundary:
+  judgment_authority_changed: false
+  publication_authority_changed: false
+  promotion_authority_changed: false
+  data_contract_strength_reduced: false
+acceptance:
+  - unclassified root governance files still fail freeze
+  - experiment_registry.yaml is admitted by shape without freeze-allowlist membership
+  - approved_additions_budget_exceeded is medium and does not fail freeze
+  - daily_pipeline_registry.yaml and entrypoint_registry.yaml are not hash-blocking
+  - the Qlib real spec is not a governance root file
+non_goals:
+  - loosen experiment-to-current promotion
+  - raise or reset the additions ledger cap as a gate
+  - activate experimental_submission_registry as an escape hatch
+rollback: >
+  Restore the freeze allowlist high-severity gate, restore operational
+  registries to blocking_hash_files, and move the experiment spec back to
+  the governance root. Judgment paths do not depend on this change.

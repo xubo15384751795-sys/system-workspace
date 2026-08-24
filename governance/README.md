@@ -7,10 +7,12 @@ first and read only the returned module context:
 python3 packages/workbench/agents/harness/entrypoints/routing_cli.py "<task>"
 ```
 
-`governance_tiers.yaml` classifies every root artifact by enforcement shape.
-The freeze check rejects unclassified artifacts, machine-shaped rules without
-a code/test consumer, shape-6 growth above budget, or an always-read surface
-larger than one page.
+`governance_tiers.yaml` is the admission list: every root artifact must declare
+an enforcement shape. The freeze check rejects unclassified artifacts,
+machine-shaped rules without a code/test consumer, shape-6 growth above budget,
+or an always-read surface larger than one page. Root file count is inventory,
+not a gate. Authority-lock hashes cover constitution, authority_registry,
+output_routing_policy, and incentive_policy.
 
 ## Six shapes
 

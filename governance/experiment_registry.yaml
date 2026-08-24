@@ -1,0 +1,23 @@
+schema_version: system.experiment_registry.v1
+spec_schema: protocols/experiment_spec.schema.json
+result_schema: protocols/experiment_result.schema.json
+
+policy:
+  default_promotion_target: candidate_evidence
+  judgment_write_allowed: false
+  require_result_artifact: true
+
+adapters:
+  qlib:
+    status: active
+    executor: ExternalTools/qlib_benchmark_runner/run_qlib_benchmark.py
+    communication: file_interface_subprocess
+    judgment_write_allowed: false
+    result_schema: protocols/experiment_result.schema.json
+
+experiments:
+  - experiment_id: EXP-QLIB-REAL-20260824
+    adapter: qlib
+    spec_path: governance/experiments/experiment_spec_qlib_real_20260824.json
+    result_path: Output/benchmarks/market_feedback/qlib_real_20260824/experiment_result.json
+    status: completed

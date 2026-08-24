@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check governance freeze — fail if unapproved governance files exist."""
+"""Check governance freeze — fail if unclassified or unconsumed machine rules exist."""
 from __future__ import annotations
 
 import sys
@@ -11,7 +11,7 @@ from scripts._runtime_io import ROOT
 def main() -> None:
     report = check_governance_freeze(ROOT)
     if report["unapproved_new_files"]:
-        print("Unapproved governance files:")
+        print("Unclassified governance files (admission is shape_inventory):")
         for name in report["unapproved_new_files"]:
             print(f"  - {name}")
     if report["violations"]:

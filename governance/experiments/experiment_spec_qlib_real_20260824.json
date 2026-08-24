@@ -1,0 +1,70 @@
+{
+  "schema_version": "system.experiment_spec.v1",
+  "experiment_id": "EXP-QLIB-REAL-20260824",
+  "title": "Qlib deformation-feature benchmark",
+  "research_question": "Does the deformation feature add measurable value beyond the Alpha158 baseline?",
+  "hypothesis": {
+    "claim": "Adding the deformation feature improves out-of-sample market signal quality or risk characteristics.",
+    "variables": {
+      "deformation_feature": "structural deformation measurement",
+      "baseline_features": "Qlib Alpha158 feature set"
+    },
+    "targets": ["rank_ic", "sharpe", "max_drawdown"],
+    "expected_direction": "positive"
+  },
+  "engine": {
+    "adapter": "qlib",
+    "executor": "ExternalTools/qlib_benchmark_runner/run_qlib_benchmark.py",
+    "mode": "isolated"
+  },
+  "dataset": {
+    "release": "cross_asset_daily_panel@working-tree-2026-08-24",
+    "universe": ["SPY", "TLT", "QQQ", "HYG", "LQD", "GLD"],
+    "start_date": "2010-01-04",
+    "end_date": "2025-12-31",
+    "frequency": "daily",
+    "features": ["alpha158", "deformation_feature"],
+    "label": "forward_return_1d",
+    "point_in_time": true,
+    "availability_policy": "official_release_time"
+  },
+  "models": [
+    {
+      "model_id": "baseline_alpha158_lightgbm",
+      "config": "baseline_lightgbm.yaml",
+      "role": "baseline"
+    },
+    {
+      "model_id": "treatment_alpha158_deformation_lightgbm",
+      "config": "treatment_lightgbm.yaml",
+      "role": "treatment"
+    }
+  ],
+  "evaluation": {
+    "metrics": ["rank_ic", "rank_icir", "sharpe", "max_drawdown", "annual_return", "information_ratio"],
+    "splits": {
+      "train": "2010-01-04/2022-12-30",
+      "test": "2023-01-03/2025-12-31"
+    },
+    "stability_checks": ["walk_forward", "regime_split"]
+  },
+  "governance": {
+    "evidence_only": true,
+    "judgment_authority": false,
+    "isolation_required": true,
+    "promotion_target": "candidate_evidence",
+    "human_review_required": true
+  },
+  "provenance": {
+    "owner": "system",
+    "created_at": "2026-08-24T00:00:00Z",
+    "source_refs": [
+      "Output/benchmarks/market_feedback/qlib_real_20260824/benchmark_manifest.json",
+      "cross_asset_daily_panel@working-tree-2026-08-24"
+    ]
+  },
+  "tags": {
+    "status": "real_run_completed",
+    "deformation_feature_integration": "integrated"
+  }
+}

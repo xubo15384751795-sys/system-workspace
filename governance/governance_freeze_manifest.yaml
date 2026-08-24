@@ -1,23 +1,22 @@
 schema_version: governance_freeze_manifest.v2
-updated_at: '2026-08-19'
+updated_at: '2026-08-24'
 freeze_commit: 06e91e906d0f8ce6562240b27db556366edb3e2b
 freeze_date: '2026-06-17'
 review_after: '2026-09-19'
-purpose: 'Machine-checkable governance freeze baseline. Root-level governance files
-  must appear in baseline_root_files or approved_additions. Generated overlays and
-  historical snapshots are exempt.  v2: adds file hashes for content integrity.
+purpose: 'Machine-checkable governance freeze baseline. Root-level admission is
+  shape_inventory plus consumers. baseline_root_files and approved_additions are
+  historical ledger. Generated overlays and historical snapshots are exempt.
+  Authority-lock hashes cover constitution, authority_registry, output_routing_policy,
+  and incentive_policy.
 
   '
 approved_additions_budget:
   max_files: 22
-  reason: Cap post-freeze additions; renewed on 2026-08-23 to register the
-    external-source monitoring contract alongside the route-inventory,
-    restore-manifest, vulnerability-ledger, and monitoring coverage-debt contracts.
+  enforcement: advisory
+  reason: Historical ledger inventory only. Admission is shape classification
+    plus consumers; this count is not a freeze gate.
 blocking_hash_files:
 - authority_registry.yaml
-- capability_registry.yaml
-- daily_pipeline_registry.yaml
-- entrypoint_registry.yaml
 - incentive_policy.yaml
 - output_routing_policy.yaml
 - system_constitution.yaml
@@ -83,6 +82,12 @@ baseline_hashes:
   submodule_commit_plan.md: 164a0f9110fba6d5
   system_constitution.yaml: c8157834e02e1666
 baseline_revision_history:
+- approved_at: '2026-08-24'
+  approval: user_requested_freeze_attention_admission
+  reason: Admission is shape_inventory; file-count additions budget is advisory;
+    operational registries leave the hash-blocking set.
+  files:
+  - governance_freeze_manifest.yaml
 - approved_at: '2026-08-24'
   approval: user_requested_pipeline_boundary_repairs
   reason: Record the explicit pipeline dependency seam and the single-writer/data-boundary repairs committed with the governed daily runtime.

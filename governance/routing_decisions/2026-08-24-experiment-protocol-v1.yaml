@@ -1,0 +1,48 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-experiment-protocol-v1
+date: "2026-08-24"
+cynefin_domain: complicated
+status: adopted
+summary: >-
+  Establish an engine-neutral Experiment Protocol as the governed boundary for
+  Qlib and future NLP, time-series, ML, and simulation adapters.
+scope: >-
+  protocols/experiment_spec.schema.json,
+  protocols/experiment_result.schema.json,
+  protocols/experiment_registry.schema.json,
+  governance/experiment_registry.yaml, and the Workbench protocol validator.
+decision: >-
+  System owns research questions, hypotheses, dataset declarations, evaluation
+  criteria, provenance, and governance flags. An external adapter owns only
+  execution inside its declared boundary. Adapter output must be wrapped as an
+  Experiment Result Artifact before it can be read as candidate evidence.
+authority_boundary:
+  experiment_can_write_judgment: false
+  experiment_can_write_current_state: false
+  experiment_can_promote: false
+  qlib_is_core_runtime: false
+  new_external_service: false
+acceptance:
+  - Experiment specifications validate against system.experiment_spec.v1.
+  - Result artifacts validate against system.experiment_result.v1.
+  - The adapter registry validates and declares file-interface isolation.
+  - An inconclusive or feedback-blocked result cannot enter Learning Hub.
+implementation:
+  qlib_adapter:
+    custom_handler: ExternalTools/qlib_benchmark_runner/runner/deformation_handler.py
+    treatment_input: sandbox_input/deformation_features.parquet
+    workspace_policy: rebuild_qlib_snapshot_per_run
+  real_validation:
+    experiment_id: EXP-QLIB-REAL-20260824
+    result_status: completed
+    feedback_type: negative_increment
+    gate_passed: true
+    promotion_eligible: false
+non_goals:
+  - Replace Qlib internals or expose Qlib APIs to core judgment code.
+  - Add an Observation Store, model gateway, or time-series engine in this change.
+  - Treat a model metric as a judgment or trading instruction.
+rollback: >-
+  Stop registering new experiment specs and continue reading the existing Qlib
+  market_feedback.v1 compatibility projection; no judgment or publication
+  authority depends on this protocol.

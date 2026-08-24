@@ -36,10 +36,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from scripts._runtime_io import ROOT, ensure_dir
+from scripts.experiment_tracker import ExperimentTracker
 from system_runtime.paths import output_surface
+
+logger = logging.getLogger(__name__)
 
 RUNS_DIR = ROOT / "Output" / "runs"
 LATEST_POINTER = output_surface(ROOT, "current") / "latest_run_id.txt"
@@ -123,6 +124,21 @@ class RunBundle:
         self._evidence_digest: str | None = None
         self._generation_digest: str | None = None
         self._admission_digest: str | None = None
+        self._experiment_tracker = ExperimentTracker(
+            self.run_dir / "experiment.json",
+            run_id=self.run_id,
+            experiment_name=self.mode,
+            started_at=self.started_at,
+            params={
+                "mode": self.mode,
+                "tag": self.tag,
+                "run_origin": self.origin,
+            },
+            tags={
+                "mode": self.mode,
+                "run_origin": self.origin,
+            },
+        )
 
     # ── lifecycle ──────────────────────────────────────────────
 
@@ -272,6 +288,29 @@ class RunBundle:
         if self._step_file:
             with self._step_file.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        if name:
+            self._experiment_tracker.log_metric(
+                f"step.{name}.duration_s",
+                duration_s,
+            )
+
+    def log_param(self, name: str, value: Any) -> None:
+        """Record a reproducibility parameter in the canonical run record."""
+        self._experiment_tracker.log_param(name, value)
+
+    def log_metric(
+        self,
+        name: str,
+        value: float | int,
+        *,
+        step: int | None = None,
+    ) -> None:
+        """Record a numeric metric and append its history point."""
+        self._experiment_tracker.log_metric(name, value, step=step)
+
+    def set_tag(self, name: str, value: Any) -> None:
+        """Attach a searchable, non-authoritative run tag."""
+        self._experiment_tracker.set_tag(name, value)
 
     def capture_decision_trace(self, data: dict[str, Any]) -> None:
         """Capture a judgment/trade decision snapshot."""
@@ -376,6 +415,7 @@ class RunBundle:
             json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        self._experiment_tracker.log_artifact(entry)
 
     def set_contract_digests(
         self,
@@ -551,6 +591,23 @@ class RunBundle:
         # the old convenience of finalizing it here.
         self.finalize_evidence()
 
+        statuses = [s.get("status") for s in self._steps]
+        self._experiment_tracker.finish(
+            status=status,
+            finished_at=now,
+            duration_s=round(elapsed, 1),
+            metrics={
+                "run.duration_s": round(elapsed, 1),
+                "steps.count": len(self._steps),
+                "steps.succeeded": sum(1 for value in statuses if value == "success"),
+                "steps.failed": sum(
+                    1 for value in statuses if value not in ("success", "blocked_upstream")
+                ),
+                "steps.blocked": sum(1 for value in statuses if value == "blocked_upstream"),
+            },
+            tags={"status": status},
+        )
+
         # Overwrite manifest with final data
         self._write_manifest(
             finished_at=now.isoformat(),
@@ -572,6 +629,13 @@ class RunBundle:
             json.dumps(self._outcome, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        exit_code = outcome.get("exit_code")
+        if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+            self._experiment_tracker.log_metric("outcome.exit_code", exit_code)
+        for key in ("execution_status", "admission_verdict", "publish_status", "authority_mode"):
+            value = outcome.get(key)
+            if value is not None:
+                self._experiment_tracker.set_tag(f"outcome.{key}", value)
 
     # ── internal ───────────────────────────────────────────────
 
@@ -595,6 +659,7 @@ class RunBundle:
             json.dumps(snapshot, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        self._experiment_tracker.set_inputs(snapshot)
 
     def _write_manifest(
         self,
@@ -632,6 +697,7 @@ class RunBundle:
             "signal_traces": len(self._signal_traces),
             "run_dir": _safe_relative(self.run_dir, self._root),
             "contract_digests": self.contract_digests,
+            "experiment_record": "experiment.json",
         }
         (self.run_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",

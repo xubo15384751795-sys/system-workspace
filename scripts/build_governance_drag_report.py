@@ -30,6 +30,7 @@ from orchestration.daily_run_sequence import (  # noqa: E402
     weekly_step_ids,
 )
 
+from scripts._governance_freeze import _machine_consumer_evidence  # noqa: E402
 from scripts._runtime_io import ROOT, ensure_dir, load_yaml, surface_dir  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -65,33 +66,6 @@ def _count_governance_yamls(root: Path) -> int:
         1 for f in gov_dir.iterdir()
         if f.is_file() and f.suffix in (".yaml", ".yml")
     )
-
-
-def _machine_consumer_evidence(root: Path, names: set[str]) -> dict[str, list[str]]:
-    """Find code, tests, hooks, or CI that actually consume a governance file."""
-    evidence = {name: [] for name in names}
-    search_roots = ("scripts", "packages", "system_runtime", "system_cli", "tests", ".github")
-    candidates: list[Path] = []
-    for relative in search_roots:
-        base = root / relative
-        if base.is_dir():
-            candidates.extend(path for path in base.rglob("*") if path.is_file())
-    candidates.extend(
-        path for path in (root / "pyproject.toml", root / "Makefile", root / "Justfile")
-        if path.is_file()
-    )
-    allowed_suffixes = {".py", ".sh", ".yaml", ".yml", ".toml"}
-    for path in candidates:
-        if path.suffix not in allowed_suffixes and path.name not in {"Makefile", "Justfile"}:
-            continue
-        try:
-            content = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        for name in names:
-            if name in content:
-                evidence[name].append(str(path.relative_to(root)))
-    return {name: sorted(paths) for name, paths in evidence.items()}
 
 
 def _governance_shape_metrics(root: Path) -> dict[str, Any]:

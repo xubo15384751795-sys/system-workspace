@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verity.local/protocols/experiment_registry.schema.json",
+  "title": "System Experiment Registry",
+  "description": "Governance registry for experiment adapters and registered specifications.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "spec_schema", "result_schema", "policy", "adapters", "experiments"],
+  "properties": {
+    "schema_version": {"const": "system.experiment_registry.v1"},
+    "spec_schema": {"const": "protocols/experiment_spec.schema.json"},
+    "result_schema": {"const": "protocols/experiment_result.schema.json"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_promotion_target", "judgment_write_allowed", "require_result_artifact"],
+      "properties": {
+        "default_promotion_target": {"const": "candidate_evidence"},
+        "judgment_write_allowed": {"const": false},
+        "require_result_artifact": {"const": true}
+      }
+    },
+    "adapters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "executor", "communication", "judgment_write_allowed"],
+        "properties": {
+          "status": {"type": "string", "enum": ["active", "planned", "retired"]},
+          "executor": {"type": "string"},
+          "communication": {"type": "string", "enum": ["file_interface_subprocess", "in_process"]},
+          "judgment_write_allowed": {"const": false},
+          "result_schema": {"const": "protocols/experiment_result.schema.json"}
+        }
+      }
+    },
+    "experiments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["experiment_id", "adapter", "spec_path", "status"],
+        "properties": {
+          "experiment_id": {"type": "string", "pattern": "^EXP-[A-Z0-9][A-Z0-9._-]*$"},
+          "adapter": {"type": "string"},
+          "spec_path": {"type": "string"},
+          "result_path": {"type": "string"},
+          "status": {"type": "string", "enum": ["registered", "running", "completed", "inconclusive", "retired"]}
+        }
+      }
+    }
+  }
+}

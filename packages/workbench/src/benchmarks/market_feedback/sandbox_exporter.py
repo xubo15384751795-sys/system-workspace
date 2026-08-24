@@ -126,7 +126,9 @@ def _build_joined_features(sandbox_dir: Path) -> None:
     market = pd.read_parquet(sandbox_dir / "market_panel.parquet")
     deform = pd.read_parquet(sandbox_dir / "deformation_features.parquet")
 
-    if "date" not in market.columns or "date" not in deform.columns:
+    market = _normalize_date_column(market, pd)
+    deform = _normalize_date_column(deform, pd)
+    if market is None or deform is None:
         return
     market["date"] = pd.to_datetime(market["date"], errors="coerce")
     deform["date"] = pd.to_datetime(deform["date"], errors="coerce")
@@ -147,7 +149,7 @@ def _build_joined_features(sandbox_dir: Path) -> None:
         .mean(numeric_only=True)
     )
     deform_daily = deform_daily.rename(
-        columns={c: f"deform_{c}" for c in deform_value_cols}
+        columns={c: c if c.startswith("deform_") else f"deform_{c}" for c in deform_value_cols}
     )
 
     if "instrument" not in market.columns:
@@ -162,6 +164,16 @@ def _build_joined_features(sandbox_dir: Path) -> None:
         os.chmod(target, 0o644)
     joined.to_parquet(target, index=False)
     os.chmod(target, 0o444)
+
+
+def _normalize_date_column(frame, pd):
+    """Normalize a named date column or a DatetimeIndex to ``date``."""
+    if "date" in frame.columns:
+        return frame
+    if not isinstance(frame.index, pd.DatetimeIndex):
+        return None
+    frame = frame.reset_index()
+    return frame.rename(columns={frame.columns[0]: "date"})
 
 
 # Preserved alias for callers that imported the placeholder by name.

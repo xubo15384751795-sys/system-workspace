@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -29,18 +30,130 @@ from scripts._runtime_io import (
     write_json,
 )
 
-QLIB_OUTPUT_DIR = ROOT / "ExternalTools" / "qlib_benchmark_runner" / "qlib_output"
+logger = logging.getLogger(__name__)
+
+# Workbench Qlib benchmarks are written per benchmark ID. Keep the old
+# ExternalTools location as a read-only compatibility path for older runs,
+# but do not make it the canonical source.
+QLIB_BENCHMARKS_DIR = ROOT / "Output" / "benchmarks" / "market_feedback"
+LEGACY_QLIB_OUTPUT_DIR = ROOT / "ExternalTools" / "qlib_benchmark_runner" / "qlib_output"
+# Compatibility for callers that imported the old constant.
+QLIB_OUTPUT_DIR = LEGACY_QLIB_OUTPUT_DIR
 TRADE_LEDGER_PATH = surface_dir("trade_ledger") / "decisions.jsonl"
 CALIBRATION_REPORT_PATH = surface_dir("trade_ledger") / "calibration_report.json"
 OUTPUT_DIR = ROOT / "Output" / "market_feedback"
 
 
+def _qlib_feedback_candidates(root: Path | None = None) -> list[Path]:
+    """Return canonical and legacy Qlib feedback paths."""
+    workspace = root or ROOT
+    benchmark_root = workspace / "Output" / "benchmarks" / "market_feedback"
+    candidates = list(benchmark_root.glob("*/feedback/feedback_decision.json"))
+    # Short-lived older layout: decision directly under the benchmark folder.
+    candidates.extend(benchmark_root.glob("*/feedback_decision.json"))
+    legacy = workspace / "ExternalTools" / "qlib_benchmark_runner" / "qlib_output" / "feedback_decision.json"
+    if legacy.exists():
+        candidates.append(legacy)
+    return sorted({path for path in candidates if path.is_file()})
+
+
+def _relative_path(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def _adapt_qlib_feedback(raw: dict[str, Any], path: Path, root: Path) -> dict[str, Any]:
+    """Adapt the benchmark decision to the operator-facing market contract."""
+    if raw.get("schema_version") == "market_feedback.v1":
+        result = dict(raw)
+        result.setdefault("source", "qlib")
+        result.setdefault("source_path", _relative_path(path, root))
+        return result
+
+    deltas = raw.get("metric_deltas") or {}
+    details: list[dict[str, Any]] = []
+    for metric, value in deltas.items():
+        if isinstance(value, bool):
+            continue
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            continue
+        details.append(
+            {
+                "item_id": f"qlib_{metric}",
+                "description": "Qlib treatment-minus-baseline metric delta",
+                "metric": str(metric),
+                "value": numeric_value,
+                "interpretation": f"Qlib metric delta for {metric}: {numeric_value}",
+                "action_implication": "; ".join(raw.get("recommended_action") or []),
+            }
+        )
+
+    generated_at = raw.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        generated_at = utc_now().isoformat()
+    return {
+        "schema_version": "market_feedback.v1",
+        "generated_at": generated_at,
+        "feedback_type": "qlib_benchmark",
+        "source": "qlib",
+        "source_note": "Adapted from the isolated Workbench Qlib benchmark decision",
+        "source_path": _relative_path(path, root),
+        "benchmark_id": raw.get("benchmark_id"),
+        "qlib_feedback_type": raw.get("feedback_type"),
+        "summary": {
+            "feature_promotion_candidates": [],
+            "gate_threshold_adjustments": {},
+        },
+        "details": details,
+        "recommended_action": raw.get("recommended_action") or [],
+    }
+
+
+def _read_qlib_feedback_with_status() -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """Read the newest Qlib decision and return an explicit lookup status."""
+    candidates = _qlib_feedback_candidates()
+    if not candidates:
+        status = {
+            "status": "missing",
+            "searched_root": "Output/benchmarks/market_feedback",
+            "legacy_path_checked": "ExternalTools/qlib_benchmark_runner/qlib_output/feedback_decision.json",
+        }
+        logger.warning("Qlib market feedback missing: %s", status)
+        return None, status
+
+    loaded: list[tuple[Path, dict[str, Any]]] = []
+    for path in candidates:
+        payload = load_json(path)
+        if isinstance(payload, dict):
+            loaded.append((path, payload))
+
+    if not loaded:
+        status = {"status": "invalid", "candidate_count": len(candidates)}
+        logger.warning("Qlib market feedback candidates are invalid: %s", candidates)
+        return None, status
+
+    path, raw = max(
+        loaded,
+        key=lambda item: (
+            str(item[1].get("generated_at") or ""),
+            item[0].stat().st_mtime_ns,
+        ),
+    )
+    return _adapt_qlib_feedback(raw, path, ROOT), {
+        "status": "found",
+        "path": _relative_path(path, ROOT),
+        "candidate_count": len(candidates),
+    }
+
+
 def read_qlib_feedback() -> dict[str, Any] | None:
-    """Read feedback from Qlib benchmark runner."""
-    feedback_path = QLIB_OUTPUT_DIR / "feedback_decision.json"
-    if feedback_path.exists():
-        return load_json(feedback_path)
-    return None
+    """Read the newest feedback from the isolated Qlib benchmark runner."""
+    feedback, _ = _read_qlib_feedback_with_status()
+    return feedback
 
 
 def read_calibration_feedback() -> dict[str, Any] | None:
@@ -103,8 +216,10 @@ def build_market_feedback(sample: bool = False) -> dict[str, Any]:
 
     now = utc_now()
 
-    # Try to read Qlib feedback
-    qlib_feedback = read_qlib_feedback()
+    # Keep lookup status in the operator artifact even when a replay fallback
+    # is selected; missing Qlib feedback must not look like a successful empty
+    # benchmark.
+    qlib_feedback, qlib_status = _read_qlib_feedback_with_status()
 
     # Try to read calibration feedback
     calibration_feedback = read_calibration_feedback()
@@ -112,6 +227,7 @@ def build_market_feedback(sample: bool = False) -> dict[str, Any]:
     if qlib_feedback:
         # Add source field if not present
         qlib_feedback["source"] = qlib_feedback.get("source", "qlib")
+        qlib_feedback["diagnostics"] = {"qlib_feedback": qlib_status}
         return qlib_feedback
 
     if calibration_feedback:
@@ -147,6 +263,10 @@ def build_market_feedback(sample: bool = False) -> dict[str, Any]:
                     "action_implication": "Monitor for decision quality",
                 },
             ],
+            "diagnostics": {
+                "qlib_feedback": qlib_status,
+                "calibration_feedback": {"status": "found"},
+            },
         }
 
     # No feedback available
@@ -163,6 +283,10 @@ def build_market_feedback(sample: bool = False) -> dict[str, Any]:
             "gate_threshold_adjustments": {},
         },
         "details": [],
+        "diagnostics": {
+            "qlib_feedback": qlib_status,
+            "calibration_feedback": {"status": "missing"},
+        },
     }
 
 

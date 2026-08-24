@@ -1,0 +1,99 @@
+schema_version: workbench.provider_release_calendar.v1
+description: >-
+  Official provider publication schedules used as a shadow freshness clock.
+  This file supplies expected release times only; an event still needs an
+  explicit available_at timestamp before it can be decision-usable.
+default_timezone: America/New_York
+mode: shadow
+rules:
+  - rule_id: h41.weekly_public_release
+    provider_id: h41
+    series_id: "*"
+    dataset_id: official_panel
+    evidence_status: verified
+    observation_weekday: 2
+    release_offset_days: 1
+    release_weekday: 3
+    release_timezone: America/New_York
+    release_cutoff_local: "16:30"
+    nominal_publication_lag: PT0S
+    business_calendar_basis: US_FEDERAL
+    official_evidence_url: https://www.federalreserve.gov/releases/h41/
+    evidence_checked_at: "2026-08-24"
+    note: >-
+      H.4.1 is generally released Thursday at 4:30 p.m. Eastern. The Federal
+      Reserve says a federal-holiday release moves to the next business day.
+
+  - rule_id: cftc.tff.weekly_public_release
+    provider_id: external_public
+    provider_aliases:
+      - cftc
+    series_id: CFTC_TFF_LEV_SP
+    dataset_id: benchmark_panel
+    evidence_status: verified
+    observation_weekday: 1
+    release_offset_days: 3
+    release_weekday: 4
+    release_timezone: America/New_York
+    release_cutoff_local: "15:30"
+    nominal_publication_lag: PT0S
+    business_calendar_basis: US_FEDERAL
+    official_evidence_url: https://www.cftc.gov/MarketReports/CommitmentsofTraders/ReleaseSchedule/index.htm
+    evidence_checked_at: "2026-08-24"
+    official_release_dates:
+      - "2026-01-05"
+      - "2026-01-09"
+      - "2026-01-16"
+      - "2026-01-23"
+      - "2026-01-30"
+      - "2026-02-06"
+      - "2026-02-13"
+      - "2026-02-20"
+      - "2026-02-27"
+      - "2026-03-06"
+      - "2026-03-13"
+      - "2026-03-20"
+      - "2026-03-27"
+      - "2026-04-03"
+      - "2026-04-10"
+      - "2026-04-17"
+      - "2026-04-24"
+      - "2026-05-01"
+      - "2026-05-08"
+      - "2026-05-15"
+      - "2026-05-22"
+      - "2026-05-29"
+      - "2026-06-05"
+      - "2026-06-12"
+      - "2026-06-22"
+      - "2026-06-26"
+      - "2026-07-06"
+      - "2026-07-10"
+      - "2026-07-17"
+      - "2026-07-24"
+      - "2026-07-31"
+      - "2026-08-07"
+      - "2026-08-14"
+      - "2026-08-21"
+      - "2026-08-28"
+      - "2026-09-04"
+      - "2026-09-11"
+      - "2026-09-18"
+      - "2026-09-25"
+      - "2026-10-02"
+      - "2026-10-09"
+      - "2026-10-16"
+      - "2026-10-23"
+      - "2026-10-30"
+      - "2026-11-06"
+      - "2026-11-16"
+      - "2026-11-20"
+      - "2026-11-30"
+      - "2026-12-04"
+      - "2026-12-11"
+      - "2026-12-18"
+      - "2026-12-28"
+    note: >-
+      TFF is a COT report. CFTC documents the public release at 3:30 p.m.
+      Eastern, normally Friday using the preceding Tuesday's data; the dated
+      schedule above is authoritative for 2026 holiday shifts.

@@ -1,5 +1,5 @@
 outs:
-- md5: 7201697ee251404a28b4393db32a9808
-  size: 19006056
+- md5: a20d6c8f075657b725fd50248fca9c07
+  size: 19015252
   hash: md5
   path: cross_asset_daily_panel.parquet

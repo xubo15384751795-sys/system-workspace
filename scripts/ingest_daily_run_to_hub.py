@@ -114,7 +114,14 @@ def ingest_daily_run_bundle(
 
     bundle_copy_dir = HUB_RUNS / run_id
     ensure_dir(bundle_copy_dir)
-    for name in ("manifest.json", "steps.jsonl", "feedback_pending.json", "decision_trace.json", "signal_trace.json"):
+    for name in (
+        "manifest.json",
+        "experiment.json",
+        "steps.jsonl",
+        "feedback_pending.json",
+        "decision_trace.json",
+        "signal_trace.json",
+    ):
         _copy_if_exists(bundle_dir / name, bundle_copy_dir / name)
     _copy_if_exists(ALERT_JSON, bundle_copy_dir / "latest_alert.json")
 

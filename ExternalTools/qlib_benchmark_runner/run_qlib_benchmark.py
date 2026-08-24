@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import json
+import math
+import os
 import sys
 from pathlib import Path
 
@@ -110,7 +112,18 @@ def prepare_qlib_data(input_dir: Path, workspace_dir: Path) -> None:
     instruments_file = input_dir / "instruments.json"
     if instruments_file.exists():
         import shutil
-        shutil.copy2(instruments_file, qlib_data_dir / "instruments.json")
+        instruments_target = qlib_data_dir / "instruments.json"
+        # The sandbox input is intentionally read-only.  Do not preserve that
+        # mode on the mutable workspace copy, otherwise a rerun cannot replace
+        # the previous workspace file.
+        if instruments_target.exists():
+            instruments_target.chmod(0o644)
+        shutil.copyfile(instruments_file, instruments_target)
+        instruments_target.chmod(0o644)
+
+    # Rebuild the mutable Qlib snapshot on every invocation so a rerun with a
+    # new sandbox release cannot silently reuse stale custom features.
+    _convert_market_panel_to_qlib(input_dir, qlib_data_dir)
 
 
 def run_experiment(
@@ -130,10 +143,69 @@ def run_experiment(
     experiment_output.mkdir(parents=True, exist_ok=True)
 
     try:
-        import qlib
-        return _run_real_qlib_experiment(name, config_name, input_dir, workspace_dir, experiment_output)
+        _configure_mlflow_tracking(workspace_dir)
+        __import__("qlib")
     except ImportError:
         return _run_placeholder_experiment(name, config_name, input_dir, experiment_output)
+    return _run_real_qlib_experiment(
+        name,
+        config_name,
+        input_dir,
+        workspace_dir,
+        experiment_output,
+        spec,
+    )
+
+
+def _configure_mlflow_tracking(workspace_dir: Path) -> str:
+    """Keep Qlib's recorder inside the benchmark sandbox.
+
+    Qlib 0.9.7 delegates ``R.start`` to MLflow.  New MLflow releases reject
+    the legacy ``./mlruns`` file store, so use a per-benchmark SQLite file
+    instead of relying on a global working-directory default or a service.
+    The artifact root is explicit as well: MLflow's direct client API falls
+    back to ``Path.cwd()/mlruns`` when creating an experiment, which would
+    leak runner state into the repository root.
+    """
+    tracking_db = (workspace_dir / "mlflow.db").resolve()
+    tracking_uri = f"sqlite:///{tracking_db}"
+    artifact_root = (workspace_dir / "mlflow_artifacts").resolve()
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
+    # MLflow's SQLAlchemy store uses this server-side override when it creates
+    # the built-in Default experiment.  Keep that metadata inside the same
+    # sandbox too; the runner must not even register a repository-root path.
+    os.environ["_MLFLOW_SERVER_ARTIFACT_ROOT"] = artifact_root.as_uri()
+    os.environ["MLFLOW_DEFAULT_ARTIFACT_ROOT"] = artifact_root.as_uri()
+    return tracking_uri
+
+
+def _ensure_mlflow_experiment(
+    tracking_uri: str,
+    experiment_name: str,
+    artifact_root: Path,
+) -> None:
+    """Create the Qlib experiment with a sandbox-local artifact location.
+
+    Qlib's ``MLflowExpManager.create_exp`` does not pass an artifact location
+    to MLflow.  Create the experiment first through the MLflow client so that
+    Qlib reuses it without falling back to a process-working-directory path.
+    An existing experiment pointing elsewhere is rejected instead of being
+    silently reused.
+    """
+    import mlflow
+
+    artifact_uri = artifact_root.resolve().as_uri()
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        client.create_experiment(experiment_name, artifact_location=artifact_uri)
+        return
+    if experiment.artifact_location.rstrip("/") != artifact_uri.rstrip("/"):
+        raise RuntimeError(
+            f"MLflow experiment {experiment_name!r} points outside the sandbox: "
+            f"{experiment.artifact_location}; expected {artifact_uri}"
+        )
 
 
 def _run_placeholder_experiment(
@@ -169,12 +241,80 @@ def _run_placeholder_experiment(
     return metrics
 
 
+def _read_deformation_features(input_dir: Path):
+    """Load the market-level deformation snapshot from the sandbox.
+
+    The source has appeared both with a named ``date`` column and with dates
+    stored in a DatetimeIndex.  Normalize both forms here so the adapter does
+    not silently skip the feature file.
+    """
+    import pandas as pd
+
+    feature_path = input_dir / "deformation_features.parquet"
+    if not feature_path.exists():
+        return None, [], "missing_input"
+    try:
+        frame = pd.read_parquet(feature_path)
+    except Exception as exc:
+        return None, [], f"read_error:{type(exc).__name__}"
+
+    if "date" not in frame.columns:
+        if not isinstance(frame.index, pd.DatetimeIndex):
+            return None, [], "missing_date"
+        frame = frame.reset_index()
+        index_column = frame.columns[0]
+        frame = frame.rename(columns={index_column: "date"})
+
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame = frame.dropna(subset=["date"])
+    fields = [
+        str(column)
+        for column in frame.columns
+        if column not in {"date", "timestamp", "instrument"}
+        and pd.api.types.is_numeric_dtype(frame[column])
+    ]
+    if not fields:
+        return None, [], "missing_numeric_fields"
+    return frame[["date", *fields]], fields, None
+
+
+def _has_deformation_fields(qlib_data_dir: Path, fields: list[str]) -> bool:
+    """Check that every requested custom field was written to Qlib storage."""
+    if not fields:
+        return False
+    features_root = qlib_data_dir / "features"
+    if not features_root.exists():
+        return False
+    feature_dirs = [path for path in features_root.iterdir() if path.is_dir()]
+    if not feature_dirs:
+        return False
+    return all(any((directory / f"{field.lower()}.day.bin").exists() for directory in feature_dirs) for field in fields)
+
+
+def _deformation_feature_status(
+    name: str,
+    input_dir: Path,
+    qlib_data_dir: Path | None = None,
+) -> tuple[str, bool, str | None]:
+    """Describe whether the treatment handler consumed deformation features."""
+    if "treatment" not in name.lower():
+        return "not_applicable", False, None
+    feature_path = input_dir / "deformation_features.parquet"
+    _frame, fields, source_error = _read_deformation_features(input_dir)
+    if source_error:
+        return source_error, False, str(feature_path)
+    if qlib_data_dir is None or not _has_deformation_fields(qlib_data_dir, fields):
+        return "not_integrated", False, str(feature_path)
+    return "integrated", True, str(feature_path)
+
+
 def _run_real_qlib_experiment(
     name: str,
     config_name: str,
     input_dir: Path,
     workspace_dir: Path,
     output_dir: Path,
+    spec: dict,
 ) -> dict:
     """Run a Qlib experiment via workflow APIs when available.
 
@@ -189,12 +329,63 @@ def _run_real_qlib_experiment(
     from qlib.utils import init_instance_by_config
 
     qlib_data_dir = workspace_dir / "qlib_data"
-    if not (qlib_data_dir / "features").exists():
+    has_treatment = "treatment" in name.lower()
+    has_treatment_in_spec = any(
+        "treatment" in str(experiment.get("name", "")).lower()
+        for experiment in spec.get("experiments", [])
+    )
+    _frame, deformation_fields, source_error = _read_deformation_features(input_dir)
+    if not (qlib_data_dir / "features").exists() or (
+        has_treatment_in_spec and not _has_deformation_fields(qlib_data_dir, deformation_fields)
+    ):
         _convert_market_panel_to_qlib(input_dir, qlib_data_dir)
+
+    feature_status = "not_applicable"
+    feature_used = False
+    feature_path = None
+    if has_treatment:
+        feature_path = str(input_dir / "deformation_features.parquet")
+        if source_error:
+            feature_status = source_error
+        elif not _has_deformation_fields(qlib_data_dir, deformation_fields):
+            feature_status = "not_integrated"
+        else:
+            feature_status = "integrated"
+            feature_used = True
 
     provider_uri = str(qlib_data_dir.resolve())
     qlib.init(provider_uri=provider_uri, region=REG_CN)
+    tracking_uri = _configure_mlflow_tracking(workspace_dir)
     market = "csi300" if (qlib_data_dir / "instruments" / "csi300.txt").exists() else "all"
+    benchmark = "SH000300" if market == "csi300" else _select_benchmark_instrument(qlib_data_dir)
+    backtest_end = _last_backtest_date(qlib_data_dir)
+
+    handler = {
+        "class": "Alpha158",
+        "module_path": "qlib.contrib.data.handler",
+        "kwargs": {
+            "start_time": "2010-01-01",
+            "end_time": "2025-12-31",
+            "fit_start_time": "2010-01-01",
+            "fit_end_time": "2020-12-31",
+            "instruments": market,
+        },
+    }
+    if has_treatment:
+        if not feature_used:
+            raise RuntimeError(f"Treatment deformation features are not ready: {feature_status}")
+        handler = {
+            "class": "DeformationAlpha158",
+            "module_path": "runner.deformation_handler",
+            "kwargs": {
+                "start_time": "2010-01-01",
+                "end_time": "2025-12-31",
+                "fit_start_time": "2010-01-01",
+                "fit_end_time": "2020-12-31",
+                "instruments": market,
+                "deformation_fields": deformation_fields,
+            },
+        }
 
     task = {
         "model": {
@@ -212,17 +403,7 @@ def _run_real_qlib_experiment(
             "class": "DatasetH",
             "module_path": "qlib.data.dataset",
             "kwargs": {
-                "handler": {
-                    "class": "Alpha158",
-                    "module_path": "qlib.contrib.data.handler",
-                    "kwargs": {
-                        "start_time": "2010-01-01",
-                        "end_time": "2025-12-31",
-                        "fit_start_time": "2010-01-01",
-                        "fit_end_time": "2020-12-31",
-                        "instruments": market,
-                    },
-                },
+                "handler": handler,
                 "segments": {
                     "train": ("2010-01-01", "2020-12-31"),
                     "valid": ("2021-01-01", "2022-12-31"),
@@ -244,7 +425,13 @@ def _run_real_qlib_experiment(
         model = init_instance_by_config(task["model"])
         dataset = init_instance_by_config(task["dataset"])
         if R is not None:
-            with R.start(experiment_name=f"system_{name}"):
+            experiment_name = f"system_{name}"
+            _ensure_mlflow_experiment(
+                tracking_uri,
+                experiment_name,
+                workspace_dir / "mlflow_artifacts",
+            )
+            with R.start(experiment_name=experiment_name, uri=tracking_uri):
                 model.fit(dataset)
                 pred = model.predict(dataset)
                 R.save_objects(**{f"{name}_pred.pkl": pred})
@@ -265,9 +452,9 @@ def _run_real_qlib_experiment(
             },
             strategy=strategy,
             start_time="2023-01-01",
-            end_time="2025-12-31",
+            end_time=backtest_end,
             account=100_000_000,
-            benchmark="SH000300" if market == "csi300" else None,
+            benchmark=benchmark,
             exchange_kwargs={
                 "freq": "day",
                 "limit_threshold": 0.095,
@@ -277,25 +464,37 @@ def _run_real_qlib_experiment(
                 "min_cost": 5,
             },
         )
-        analysis = risk_analysis(portfolio_metric["portfolio"])
+        portfolio_entry = next(iter(portfolio_metric.values()))
+        portfolio_frame = portfolio_entry[0]
+        risk = risk_analysis(portfolio_frame["return"].dropna())["risk"]
+        rank_ic, rank_icir = _calculate_prediction_metrics(dataset, pred)
         metrics = {
             "experiment": name,
             "config": config_name,
             "executor_status": "qlib_workflow",
             "placeholder": False,
-            "feedback_blocked": False,
             "workflow": "qlib.workflow" if R is not None else "init_instance_by_config",
-            "rank_ic": float(analysis.get("information_ratio", {}).get("IC", 0.0) or 0.0),
-            "rank_icir": float(analysis.get("information_ratio", {}).get("ICIR", 0.0) or 0.0),
-            "sharpe": float(
-                analysis.get("excess_return_without_cost", {}).get("annualized_ratio", 0.0) or 0.0
-            ),
-            "max_drawdown": float(analysis.get("max_drawdown", 0.0) or 0.0),
-            "annual_return": float(
-                analysis.get("excess_return_without_cost", {}).get("annualized_return", 0.0) or 0.0
-            ),
-            "information_ratio": float(analysis.get("information_ratio", {}).get("ICIR", 0.0) or 0.0),
+            "rank_ic": rank_ic,
+            "rank_icir": rank_icir,
+            "sharpe": float(risk["information_ratio"]),
+            "max_drawdown": float(risk["max_drawdown"]),
+            "annual_return": float(risk["annualized_return"]),
+            "information_ratio": float(risk["information_ratio"]),
         }
+        blocked_reasons = []
+        if rank_ic is None or rank_icir is None:
+            blocked_reasons.append("missing_rank_ic_metrics")
+        if feature_status not in {"not_applicable", "integrated"}:
+            blocked_reasons.append(f"deformation_features_{feature_status}")
+        metrics.update(
+            {
+            "feedback_blocked": bool(blocked_reasons),
+            "feedback_block_reasons": blocked_reasons,
+            "deformation_feature_status": feature_status,
+                "deformation_features_used": feature_used,
+                "deformation_feature_path": feature_path,
+            }
+        )
         del TaskManager  # imported for workflow surface; unused intentionally
     except Exception:
         metrics = {
@@ -311,11 +510,65 @@ def _run_real_qlib_experiment(
             "max_drawdown": None,
             "annual_return": None,
             "information_ratio": None,
+            "deformation_feature_status": feature_status,
+            "deformation_features_used": feature_used,
+            "deformation_feature_path": feature_path,
+            "feedback_block_reasons": (
+                [f"deformation_features_{feature_status}"]
+                if has_treatment and feature_status != "integrated"
+                else ["qlib_error"]
+            ),
         }
 
     metrics_path = output_dir / f"{name}_metrics.json"
     metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     return metrics
+
+
+def _calculate_prediction_metrics(dataset, pred) -> tuple[float | None, float | None]:
+    """Calculate cross-sectional Rank IC and Rank ICIR on Qlib's test split."""
+    import pandas as pd
+
+    label = dataset.prepare("test", col_set="label")
+    if isinstance(label, pd.DataFrame):
+        label = label.iloc[:, 0]
+    if isinstance(pred, pd.DataFrame):
+        pred = pred.iloc[:, 0]
+    frame = pd.concat([pred.rename("score"), label.rename("label")], axis=1).dropna()
+    if frame.empty or "datetime" not in frame.index.names:
+        return None, None
+
+    rank_ic_by_day = frame.groupby(level="datetime", group_keys=False).apply(
+        lambda group: group["score"].corr(group["label"], method="spearman")
+    ).dropna()
+    if rank_ic_by_day.empty:
+        return None, None
+    rank_ic = float(rank_ic_by_day.mean())
+    std = float(rank_ic_by_day.std(ddof=1))
+    rank_icir = rank_ic if not math.isfinite(std) or std == 0.0 else rank_ic / std * math.sqrt(238)
+    if not math.isfinite(rank_ic) or not math.isfinite(rank_icir):
+        return None, None
+    return rank_ic, rank_icir
+
+
+def _select_benchmark_instrument(qlib_data_dir: Path) -> str:
+    """Select a real instrument for non-CN universes instead of Qlib's default."""
+    instrument_file = qlib_data_dir / "instruments" / "all.txt"
+    if instrument_file.exists():
+        for line in instrument_file.read_text(encoding="utf-8").splitlines():
+            symbol = line.split("\t", 1)[0].strip()
+            if symbol:
+                return symbol
+    raise ValueError(f"No benchmark instrument found in {instrument_file}")
+
+
+def _last_backtest_date(qlib_data_dir: Path) -> str:
+    """Use the penultimate calendar date because Qlib needs a next-step date."""
+    calendar_file = qlib_data_dir / "calendars" / "day.txt"
+    dates = [line.strip() for line in calendar_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if len(dates) < 2:
+        raise ValueError(f"Qlib backtest needs at least two calendar dates: {calendar_file}")
+    return dates[-2]
 
 
 def _convert_market_panel_to_qlib(input_dir: Path, qlib_data_dir: Path, *, freq: str = "day") -> None:
@@ -349,6 +602,34 @@ def _convert_market_panel_to_qlib(input_dir: Path, qlib_data_dir: Path, *, freq:
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
+
+    deformation_frame, deformation_fields, deformation_error = _read_deformation_features(input_dir)
+    if deformation_error not in {None, "missing_input"}:
+        raise ValueError(f"Invalid deformation feature input: {deformation_error}")
+    deformation_manifest = None
+    if deformation_frame is not None:
+        deformation_daily = (
+            deformation_frame[["date", *deformation_fields]]
+            .groupby("date", as_index=False)
+            .mean(numeric_only=True)
+        )
+        collisions = sorted(set(deformation_fields).intersection(df.columns))
+        if collisions:
+            raise ValueError(f"Deformation feature names collide with market fields: {collisions}")
+        market_dates = df["date"].drop_duplicates()
+        matched_dates = market_dates.isin(deformation_daily["date"]).sum()
+        if matched_dates == 0:
+            raise ValueError("Deformation feature dates do not overlap the market panel")
+        df = df.merge(deformation_daily, on="date", how="left", validate="many_to_one")
+        deformation_manifest = {
+            "source": "deformation_features.parquet",
+            "fields": deformation_fields,
+            "source_rows": int(len(deformation_frame)),
+            "market_dates": int(len(market_dates)),
+            "matched_market_dates": int(matched_dates),
+            "date_min": deformation_daily["date"].min().strftime("%Y-%m-%d"),
+            "date_max": deformation_daily["date"].max().strftime("%Y-%m-%d"),
+        }
 
     if "instrument" not in df.columns:
         df["instrument"] = "_ALL"
@@ -417,6 +698,11 @@ def _convert_market_panel_to_qlib(input_dir: Path, qlib_data_dir: Path, *, freq:
         "\n".join(f"{sym}\t{start}\t{end}" for sym, start, end in instrument_rows) + "\n",
         encoding="utf-8",
     )
+    if deformation_manifest is not None:
+        (qlib_data_dir / "deformation_features_manifest.json").write_text(
+            json.dumps(deformation_manifest, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
 
 
 def export_metrics(output_dir: Path, results: list[dict]) -> Path:

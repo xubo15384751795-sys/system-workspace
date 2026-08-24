@@ -68,3 +68,4 @@ class ProviderAvailabilityResult(TypedDict):
     reason_code: str
     errors: list[str]
     status_policy: NotRequired[dict[str, str]]
+    release_calendar: NotRequired[dict[str, object]]

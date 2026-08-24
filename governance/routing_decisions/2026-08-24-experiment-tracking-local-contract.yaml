@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-experiment-tracking-local-contract
+date: "2026-08-24"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Add an MLflow-level, filesystem-backed experiment record to every RunBundle
+  without installing a second tracking service or moving publication authority.
+scope: >
+  scripts/experiment_tracker.py, scripts/run_bundle.py,
+  scripts/ingest_daily_run_to_hub.py, and focused contract tests.
+decision: >
+  RunBundle's experiment.json is the canonical per-run record for parameters,
+  metric history, tags, input fingerprints, artifact references, status, and
+  timing. Existing run_events JSONL remains the operational event and
+  notification projection for compatibility; it is not the experiment metric
+  store. No experiment artifact can grant judgment, admission, or publication
+  authority.
+authority_boundary:
+  publication_authority_changed: false
+  judgment_authority_changed: false
+  provider_authority_changed: false
+  new_external_service: false
+  run_events_deleted: false
+acceptance:
+  - RunBundle start/step/artifact/finish writes an atomic experiment.json.
+  - Metrics retain latest values and append metric_history with optional steps.
+  - Artifacts are deduplicated by path and retain existing provenance references.
+  - Learning Hub ingestion copies experiment.json beside the existing run bundle.
+  - Existing operational run_events and run bundle contract tests remain green.
+non_goals:
+  - install MLflow, a database, or a tracking server.
+  - replace operational event envelopes or governance ledgers.
+  - track secret values or raw market-data bytes inside the experiment record.
+rollback: >
+  Stop consuming experiment.json and remove the compatibility copy from
+  Learning Hub. RunBundle manifests, steps, artifacts, and operational events
+  remain valid and continue to provide the previous audit path.
+evidence:
+  implementation:
+    - scripts/experiment_tracker.py
+    - scripts/run_bundle.py
+    - scripts/ingest_daily_run_to_hub.py
+  tests:
+    - tests/test_experiment_tracker.py
+    - tests/test_run_bundle.py
+    - tests/test_learning_hub_runtime_bridge.py

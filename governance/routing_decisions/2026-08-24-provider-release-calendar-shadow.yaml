@@ -1,0 +1,55 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-provider-release-calendar-shadow
+date: "2026-08-24"
+cynefin_domain: complicated
+status: adopted
+summary: >
+  Add a declarative provider publication-calendar shadow clock to the existing
+  causal availability evaluator. Seed only schedules verified against current
+  official Federal Reserve H.4.1 and CFTC COT/TFF documentation.
+scope: >
+  configs/provider_release_calendar.yaml,
+  packages/orchestration/orchestration/quality/provider_release_calendar.py,
+  packages/orchestration/orchestration/quality/provider_release.py, and their
+  focused contract tests.
+decision: >
+  The calendar computes expected_release_at and expected_available_at and
+  reports when a release is due. It must never populate an event's explicit
+  available_at field, substitute retrieval time, or grant decision usability.
+  The existing provider_release_policy remains unconfigured for all providers
+  until the governance evidence window and real launchd observations support
+  promotion.
+authority_boundary:
+  data_contract_strength_reduced: false
+  availability_authority_changed: false
+  publication_authority_changed: false
+  freshness_threshold_changed: false
+  shadow_only: true
+configured_schedules:
+  h41:
+    evidence_url: https://www.federalreserve.gov/releases/h41/
+    semantics: "Thursday 16:30 America/New_York; federal-holiday release rolls forward"
+  cftc_tff:
+    evidence_url: https://www.cftc.gov/MarketReports/CommitmentsofTraders/ReleaseSchedule/index.htm
+    semantics: "Friday 15:30 America/New_York with the checked 2026 official holiday schedule"
+acceptance:
+  - provider release calendar YAML validates.
+  - H.4.1 daylight-saving and federal-holiday calculations pass.
+  - CFTC TFF alias resolution and 2026 official holiday dates pass.
+  - provider evaluator exposes the expected schedule while still blocking missing explicit available_at.
+  - no existing provider policy rule is promoted to configured by this decision.
+non_goals:
+  - infer actual publication from a successful retrieval.
+  - configure FRED, Treasury, SEC, Cboe, OFR, manual, or ETF calendars without source-specific evidence.
+  - alter research thresholds, provider authority, freshness budgets, or release gates.
+rollback: >
+  Remove the calendar configuration and evaluator shadow attachment. Keep the
+  existing explicit available_at requirement and unconfigured policy behavior.
+evidence:
+  implementation:
+    - configs/provider_release_calendar.yaml
+    - packages/orchestration/orchestration/quality/provider_release_calendar.py
+    - packages/orchestration/orchestration/quality/provider_release.py
+  tests:
+    - packages/orchestration/tests/test_provider_release_calendar.py
+    - packages/orchestration/tests/test_provider_release.py

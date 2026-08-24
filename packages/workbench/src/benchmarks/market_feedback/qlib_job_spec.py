@@ -9,8 +9,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from workbench.paths import workspace_root as _workspace_root
 from typing import Any, Optional, cast
+
+from benchmarks.experiment_protocol import load_registry, validate_spec
+from workbench.paths import workspace_root as _workspace_root
 
 BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
 
@@ -29,6 +31,7 @@ def generate_job_spec(
     benchmark_id: str,
     experiments: Optional[list[dict]] = None,
     fail_policy: Optional[dict] = None,
+    experiment_spec: Optional[dict[str, Any]] = None,
 ) -> dict:
     if experiments is None:
         experiments = [
@@ -54,6 +57,17 @@ def generate_job_spec(
         "fail_policy": fail_policy,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    if experiment_spec is not None:
+        protocol_errors = validate_spec(experiment_spec)
+        if protocol_errors:
+            raise ValueError("Invalid Experiment Spec: " + "; ".join(protocol_errors))
+        adapter_name = experiment_spec["engine"]["adapter"]
+        adapter = load_registry().get("adapters", {}).get(adapter_name)
+        if not isinstance(adapter, dict) or adapter.get("status") != "active":
+            raise ValueError(f"Experiment adapter is not active in the registry: {adapter_name}")
+        if adapter.get("judgment_write_allowed") is not False:
+            raise ValueError(f"Experiment adapter cannot write Judgment: {adapter_name}")
+        spec["experiment_spec"] = experiment_spec
     return spec
 
 
@@ -82,6 +96,10 @@ def validate_job_spec_paths(spec: dict) -> list[str]:
     input_dir = spec.get("input_dir", "")
     if input_dir and "/sandbox_input" not in input_dir:
         errors.append(f"input_dir must contain /sandbox_input: {input_dir}")
+
+    if "experiment_spec" in spec:
+        protocol_errors = validate_spec(spec["experiment_spec"])
+        errors.extend(f"experiment_spec: {error}" for error in protocol_errors)
 
     return errors
 

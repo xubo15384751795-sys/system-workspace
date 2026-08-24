@@ -20,6 +20,9 @@ from system_runtime.provider_status import (
     ProviderStatusPolicyError,
     validate_provider_status_matrix,
 )
+from orchestration.quality.provider_release_calendar import (
+    evaluate_provider_release_calendar,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 POLICY_RELATIVE_PATH = Path("configs/provider_release_policy.yaml")
@@ -234,6 +237,20 @@ def evaluate_provider_availability(
         "reason_code": "UNKNOWN_PROVIDER_OUTCOME",
         "errors": [],
     }
+    # The publication calendar is a shadow schedule oracle.  Keep its
+    # expected clock attached to the evaluator result, but never copy it into
+    # event["available_at"]: the provider must still evidence causal
+    # availability explicitly before this evaluator can PASS.
+    result["release_calendar"] = evaluate_provider_release_calendar(
+        {
+            "provider_id": provider,
+            "series_id": series_id,
+            "dataset_id": dataset_id,
+            "observation_date": event.get("observation_date"),
+        },
+        decision_time=decision_time,
+        root=root,
+    )
     if provider_status not in _VALID_PROVIDER_STATUSES:
         result["errors"].append("unknown_provider_status")
         return result

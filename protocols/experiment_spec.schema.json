@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verity.local/protocols/experiment_spec.schema.json",
+  "title": "System Experiment Specification",
+  "description": "Governed, engine-neutral specification for a research experiment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "research_question",
+    "hypothesis",
+    "engine",
+    "dataset",
+    "models",
+    "evaluation",
+    "governance"
+  ],
+  "properties": {
+    "schema_version": {"const": "system.experiment_spec.v1"},
+    "experiment_id": {
+      "type": "string",
+      "pattern": "^EXP-[A-Z0-9][A-Z0-9._-]*$"
+    },
+    "title": {"type": "string", "minLength": 1},
+    "research_question": {"type": "string", "minLength": 1},
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim"],
+      "properties": {
+        "claim": {"type": "string", "minLength": 1},
+        "null_hypothesis": {"type": "string"},
+        "variables": {"type": "object"},
+        "targets": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "expected_direction": {
+          "type": "string",
+          "enum": ["positive", "negative", "non_directional", "unknown"]
+        }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter"],
+      "properties": {
+        "adapter": {"type": "string", "minLength": 1},
+        "executor": {"type": "string", "minLength": 1},
+        "version": {"type": "string"},
+        "mode": {"type": "string", "enum": ["isolated", "in_process"]}
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "universe", "start_date", "end_date", "frequency"],
+      "properties": {
+        "release": {"type": "string", "minLength": 1},
+        "universe": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "start_date": {"type": "string", "format": "date"},
+        "end_date": {"type": "string", "format": "date"},
+        "frequency": {"type": "string", "minLength": 1},
+        "features": {"type": "array", "items": {"type": "string"}},
+        "label": {"type": "string"},
+        "point_in_time": {"type": "boolean"},
+        "availability_policy": {"type": "string"}
+      }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["model_id"],
+        "properties": {
+          "model_id": {"type": "string", "minLength": 1},
+          "config": {"type": "string"},
+          "role": {"type": "string", "enum": ["baseline", "treatment", "ablation", "other"]},
+          "parameters": {"type": "object"}
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics"],
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "splits": {"type": "object"},
+        "cost_model": {"type": "object"},
+        "stability_checks": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_only", "judgment_authority", "isolation_required", "promotion_target"],
+      "properties": {
+        "evidence_only": {"const": true},
+        "judgment_authority": {"const": false},
+        "isolation_required": {"const": true},
+        "promotion_target": {
+          "type": "string",
+          "enum": ["candidate_evidence", "shadow_outcome", "none"]
+        },
+        "human_review_required": {"type": "boolean"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "owner": {"type": "string"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "tags": {"type": "object"}
+  }
+}

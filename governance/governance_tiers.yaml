@@ -40,6 +40,7 @@ shape_inventory:
   deferred_work_register.yaml: {shape: feedback_loop, attention: deviation_only, role: deferred_review_queue}
   entrypoint_registry.yaml: {shape: executable_invariant, attention: zero, role: execution_registry}
   event_replay_windows.yaml: {shape: executable_invariant, attention: zero, role: machine_config}
+  experiment_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
   experimental_submission_registry.yaml: {shape: feedback_loop, attention: deviation_only, role: review_queue}
   feedback_sampling_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   framework_output.schema.json: {shape: executable_invariant, attention: zero, role: schema}

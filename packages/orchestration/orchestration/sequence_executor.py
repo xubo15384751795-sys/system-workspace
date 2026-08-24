@@ -46,7 +46,19 @@ def _replay_env() -> dict[str, str]:
 
 
 def _harvester_env() -> dict[str, str]:
-    return {"PYTHONPATH": str(ROOT / "packages" / "harvester" / "src")}
+    # The Harvester finalization path records the release pointer through
+    # orchestration.dvc_promote. Keep the scheduler subprocess on the same
+    # import surface as the direct wrapper; otherwise the release succeeds
+    # but silently skips its DVC pointer.
+    return {
+        "PYTHONPATH": os.pathsep.join(
+            [
+                str(ROOT),
+                str(ROOT / "packages" / "orchestration"),
+                str(ROOT / "packages" / "harvester" / "src"),
+            ]
+        )
+    }
 
 
 def _workbench_env() -> dict[str, str]:
