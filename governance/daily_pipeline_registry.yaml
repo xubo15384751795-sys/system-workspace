@@ -1050,6 +1050,7 @@ steps:
       mode: callable
       current_command: python scripts/trade_decision_layer.py
       future_callable: scripts.trade_decision_layer:main
+      dagster_asset_check: degrade_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:

@@ -1,0 +1,50 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave4-degrade-policy
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Compile one hold_flat registry leaf into a degrade-and-continue Dagster graph
+  so a failed source cannot skip trade consumers or drop degraded_by.
+scope: >
+  governance/daily_pipeline_registry.yaml,
+  packages/orchestration/orchestration/assets/registry_degrade_checks.py,
+  packages/orchestration/orchestration/definitions.py, and focused tests.
+decision: >
+  Tag trade_decision with execution.dagster_asset_check=degrade_pilot. The
+  compiler builds a registry_degrade graph whose check is blocking=False.
+  Shadow consumers, including risk_gate, still materialize and are recorded as
+  status=success, degraded=true, degraded_by=[trade_decision] — the same shape
+  the daily sequence executor uses. Records go to an injectable sink (live
+  default: Output/health/registry_degrade_shadow.jsonl), never daily
+  steps.jsonl. block_*, continue_with_warning, research_only, and explicit
+  blocking tags are refused. daily_job still runs the real trade_decision
+  callable.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+acceptance:
+  - daily_job still contains only daily_job_entry
+  - live registry compiles trade_decision plus its DAG consumers including
+    risk_gate
+  - the compiled check is blocking=False
+  - a failed hold_flat source still materializes risk_gate with
+    degraded_by=[trade_decision]
+  - tagging block_current_readout, research_only, or dagster_check_blocking
+    raises at compile time
+non_goals:
+  - enable the Dagster schedule or daemon
+  - replace trade_decision or risk_gate on the launchd path
+  - map research_only as degrade-and-continue (it does not propagate)
+  - write degraded rows into daily steps.jsonl from the shadow graph
+  - set data_contract_mode=enforce or SYSTEM_DUCKDB_CANONICAL_PANEL
+rollback: >
+  Remove the degrade_pilot tag and the DEGRADE_REGISTRY_* registration.
+  daily_job and launchd remain the default path.
+observation_window: >
+  Operator materialization of registry_degrade assets may run beside launchd.
+  Shadow degraded rows are diagnostic only until a later dual-track decision.
