@@ -11,6 +11,7 @@ from dagster import Definitions, Failure, job, op
 
 from orchestration.assets.boundary_pilot import BOUNDARY_ASSETS, BOUNDARY_CHECKS
 from orchestration.assets.data_quality import DATA_QUALITY_CHECKS
+from orchestration.assets.registry_quality_checks import REGISTRY_QUALITY_CHECKS
 from orchestration.assets.registry_shadow import SHADOW_REGISTRY_ASSETS
 from orchestration.ops.refresh_chain import refresh_admission_op, refresh_producers_op
 from orchestration.schedules import daily_schedule
@@ -60,5 +61,5 @@ defs = Definitions(
     jobs=[daily_job, refresh_current_job],
     schedules=[daily_schedule],
     assets=[*BOUNDARY_ASSETS, *SHADOW_REGISTRY_ASSETS],
-    asset_checks=[*BOUNDARY_CHECKS, *DATA_QUALITY_CHECKS],
+    asset_checks=[*BOUNDARY_CHECKS, *DATA_QUALITY_CHECKS, *REGISTRY_QUALITY_CHECKS],
 )

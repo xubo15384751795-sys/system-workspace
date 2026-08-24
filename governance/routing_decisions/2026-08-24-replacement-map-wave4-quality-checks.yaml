@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave4-quality-checks
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Compile quality evaluations into non-blocking Dagster asset checks without
+  changing daily_job, launchd, or promotion authority.
+scope: >
+  governance/daily_pipeline_registry.yaml,
+  packages/orchestration/orchestration/assets/registry_quality_checks.py,
+  packages/orchestration/orchestration/definitions.py, and focused tests.
+decision: >
+  Tag measurement_quality_report with execution.dagster_asset_check=shadow_pilot.
+  The compiler also exposes the registry content_freshness table as
+  content_freshness_shadow. Every compiled check attaches to harvester_release,
+  reads existing evidence, writes nothing, and has blocking=False. block_promotion,
+  block_core_judgment, hold_flat, and explicit dagster_check_blocking tags are
+  refused. The existing cross_asset_structural_contract check stays blocking for
+  the asset graph; daily_job still does not materialize that graph.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+acceptance:
+  - daily_job still contains only daily_job_entry
+  - compiled quality checks are all blocking=False
+  - tagging quality_validation or freshness_validator raises at compile time
+  - a failed non-blocking quality check still materializes downstream assets
+  - artifact checks do not create or replace Output files
+  - cross_asset_structural_contract remains blocking=True on the asset graph
+non_goals:
+  - enable the Dagster schedule or daemon
+  - map block_* steps (Wave 4 batch C)
+  - replace freshness_validator failure_behavior with a Dagster skip
+  - set data_contract_mode=enforce or SYSTEM_DUCKDB_CANONICAL_PANEL
+  - migrate provider parsing to dlt
+rollback: >
+  Remove the dagster_asset_check tag and the REGISTRY_QUALITY_CHECKS
+  registration. daily_job and launchd remain the default path.
+observation_window: >
+  Operator materialization of harvester_release checks may run beside launchd.
+  A FAIL on content_freshness_shadow or registry_quality_* is diagnostic only
+  until a later dual-track decision.

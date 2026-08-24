@@ -872,6 +872,7 @@ steps:
       mode: callable
       current_command: python scripts/commands/weekly/build_measurement_quality_report.py
       future_callable: scripts.commands.weekly.build_measurement_quality_report:main
+      dagster_asset_check: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
