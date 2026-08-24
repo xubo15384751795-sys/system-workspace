@@ -1238,6 +1238,7 @@ steps:
       mode: subprocess
       current_command: python scripts/commands/weekly/build_data_gaps.py
       future_callable: scripts.commands.weekly.build_data_gaps:main
+      dagster_asset: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:

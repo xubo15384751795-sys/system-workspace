@@ -1,0 +1,46 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave4-shadow-asset
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Compile one continue_with_warning registry leaf into a shadow Dagster asset
+  without changing daily_job, launchd, or failure_behavior authority.
+scope: >
+  governance/daily_pipeline_registry.yaml,
+  packages/orchestration/orchestration/assets/registry_shadow.py,
+  packages/orchestration/orchestration/definitions.py, and focused tests.
+decision: >
+  Tag build_data_gaps with execution.dagster_asset=shadow_pilot. The compiler
+  wraps run_registry_step and refuses hold_flat, claim-ceiling, or core-judgment
+  tags. The asset is registered on Definitions for operator materialization and
+  is not a node of daily_job. The 07:00 schedule stays STOPPED. Registry YAML
+  remains the step-list and failure-behavior authority.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+acceptance:
+  - daily_job still contains only daily_job_entry
+  - the live registry compiles exactly one shadow asset, build_data_gaps
+  - tagging hold_flat or a core-judgment step raises at compile time
+  - materializing the shadow asset calls run_registry_step and records
+    authority=shadow_only
+  - shadow_parity MATCH is required to keep the tag; status / blocked_by /
+    degraded mismatch is a stop condition, not a promotion signal
+non_goals:
+  - enable the Dagster schedule or daemon
+  - migrate hold_flat / claim-ceiling steps
+  - replace steps.jsonl with the Dagster event log
+  - enable SYSTEM_DUCKDB_CANONICAL_PANEL or data_contract_mode=enforce
+  - migrate provider parsing to dlt
+rollback: >
+  Remove the dagster_asset tag and the SHADOW_REGISTRY_ASSETS registration.
+  daily_job and launchd remain the default path.
+observation_window: >
+  Operator materialization may run beside launchd. Do not count asset
+  materialization as a replacement for the daily sequence until a later
+  dual-track decision.
