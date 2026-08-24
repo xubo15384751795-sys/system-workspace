@@ -1,0 +1,71 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave3-dlt-shadow-pilot
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complex
+summary: >
+  Pilot dlt as a shadow ingestion path for the CFTC TFF Leveraged-Funds
+  E-mini S&P 500 indicator without changing the default acquisition route,
+  the provider directory, or any scheduled pipeline.
+scope: >
+  packages/harvester/pyproject.toml (optional `dlt` extra only),
+  packages/harvester/src/harvester/ingestion/external_dlt_source.py,
+  packages/harvester/tests/test_external_dlt_source.py, and uv.lock additions.
+decision: >
+  Add dlt as an optional extra (`dlt>=1.30,<2`) so core environments stay
+  clean. Implement a shadow dlt source that mirrors
+  _parse_cftc_tff_lev_sp normalization exactly (micro E-mini exclusion,
+  net = lev long - lev short, per-date sum aggregation) into a staging table
+  cftc_cot_shadow with append + incremental-on-date loading. The date/value
+  columns carry evolution_strategy=freeze, which maps to the repo's BLOCK
+  tier: type or nullability drift fails the load instead of migrating the
+  table. Nothing wires this source into fetch_external_indicator, the
+  registry, Dagster assets, or launchd.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+probe:
+  scope: >
+    harvester.ingestion.external_dlt_source shadow module, its offline parity
+    tests, and the optional dlt extra only. No provider file, registry step,
+    or default fetch path is in scope.
+  preregistered_expectation: >
+    The dlt-loaded CFTC rows match the legacy parser's normalization on the
+    parity fixture; duplicate dates aggregate identically; freeze-tier schema
+    contracts reject type drift without touching existing tables; the dlt
+    dependency stays confined to an optional extra and adds no upgrades to
+    pre-existing locked packages.
+  observation_window: >
+    Shadow window of one month from adoption (through 2026-09-24): rerun the
+    offline drill on freshly fetched CFTC payloads beside the legacy path
+    before any default-path consideration.
+  rollback: >
+    Remove the ingestion module, its tests, and the dlt extra; revert uv.lock.
+    No runtime artifact or provider behavior is affected by this pilot.
+acceptance:
+  - uv.lock diff contains additions only; no pre-existing package is upgraded or downgraded
+  - dlt is an optional extra, not a core dependency of structural-risk-harvester
+  - the offline test suite loads a fabricated Socrata payload through dlt's duckdb destination inside tmp_path and passes with no network access
+  - loaded rows match the legacy parser output for the same payload, including duplicate-date sum aggregation
+  - loaded user columns are exactly date (DATE) and value (DOUBLE), both not null, with freeze contracts registered in the schema
+  - no file under packages/harvester/src/harvester/providers/ is created or modified
+non_goals:
+  - replace fetch_external_indicator or any provider transport
+  - touch packages/harvester/src/harvester/providers/ (import-purity contract)
+  - wire the shadow source into daily_job, launchd, or the pipeline registry
+  - enable live CFTC fetching through dlt
+  - change cache layout, provenance records, or release bundles
+rollback: >
+  Delete harvester/ingestion/, the test file, and the `dlt` extra from
+  packages/harvester/pyproject.toml, then run `uv lock` to drop the added
+  subtree. The default path never referenced this code, so rollback has no
+  runtime effect.
+observation_window: >
+  Shadow runs are operator-initiated and diagnostic only. Compare the
+  cftc_cot_shadow table against the legacy cached series across several
+  weekly CFTC reports before any dual-track decision; freeze-contract
+  failures during this window are evidence for the evaluation, not incidents.

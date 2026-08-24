@@ -30,6 +30,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dlt = [
+    "dlt>=1.30,<2",
+]
 openbb = [
     "openbb>=4.7,<5",
 ]
