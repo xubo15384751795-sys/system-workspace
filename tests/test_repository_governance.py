@@ -108,7 +108,7 @@ def test_ci_checks_pipeline_documentation_authority() -> None:
     workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
     lint_steps = workflow["jobs"]["lint"]["steps"]
     runs = [str(step.get("run", "")) for step in lint_steps if isinstance(step, dict)]
-    assert "python -m system_cli pipeline docs --check" in runs
+    assert "uv run --locked python -m system_cli pipeline docs --check" in runs
 
 
 def test_ci_header_describes_merge_gate_as_aggregate_authority() -> None:
