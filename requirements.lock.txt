@@ -45,7 +45,7 @@ packaging==25.0
 pandas==2.3.3
 pathspec==1.1.1
 pluggy==1.6.0
-pyarrow==23.0.1
+pyarrow==25.0.1
 pydantic==2.13.2
 pydantic-core==2.46.2
 pydantic-settings==2.14.1
