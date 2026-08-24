@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave2-duckdb-default
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Make the canonical DuckDB writer (PRIMARY KEY(symbol,date), CHECK(close>0))
+  the default cross-asset panel write path, keeping the exported Parquet file
+  as an unchanged compatibility surface for all downstream readers.
+scope: >
+  packages/harvester/src/harvester/duckdb_panel.py,
+  packages/harvester/src/harvester/cross_asset_panel.py (comment only),
+  packages/harvester/tests/test_duckdb_panel.py,
+  governance/daily_pipeline_registry.yaml (refresh_cross_asset_panel outputs).
+decision: >
+  Flip SYSTEM_DUCKDB_CANONICAL_PANEL from opt-in to default-on with an explicit
+  escape hatch {0,false,no,off} that restores the legacy parquet mirror branch
+  verbatim. The DuckDB export casts date to TIMESTAMP so the compatibility
+  parquet keeps legacy dtypes; all-NA derived columns may read back float64
+  instead of object. Registry declares Data/canonical/panels.duckdb among the
+  refresh step's produced artifacts.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+acceptance:
+  - duckdb_canonical_panel_enabled() defaults true and honors explicit off values
+  - exported parquet matches legacy column set, row order, and date dtype on a parity fixture
+  - duplicate (symbol,date) inserts are rejected by the database constraint
+  - a contract-violating candidate leaves the existing parquet byte-identical
+  - harvester suite, replay, callable-e2e, and provider-degradation tests pass with the new default
+non_goals:
+  - run the first production refresh or re-add the DVC pointer (separate operator action)
+  - change any consumer to read panels.duckdb directly
+  - remove the legacy mirror branch
+  - migrate provider parsing to dlt
+rollback: >
+  Set SYSTEM_DUCKDB_CANONICAL_PANEL=0 in the launchd environment or revert this
+  commit; the legacy dedup-and-mirror branch is preserved unchanged behind the
+  same write seam.
+observation_window: >
+  One scheduled daily run must produce Data/canonical/panels.duckdb alongside a
+  readable mirror before the DVC pointer is refreshed; dvc status drift on
+  Data/panels/cross_asset_daily_panel.parquet is expected until that re-add.

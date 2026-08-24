@@ -2831,6 +2831,7 @@ steps:
       - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
     produces:
       - Data/panels/cross_asset_daily_panel.parquet
+      - Data/canonical/panels.duckdb
     ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -2847,6 +2848,7 @@ steps:
         - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
       outputs:
         - Data/panels/cross_asset_daily_panel.parquet
+        - Data/canonical/panels.duckdb
       emits_run_event: true
     authority:
       affects_core_judgment: false

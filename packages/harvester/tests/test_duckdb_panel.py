@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-
 from harvester.cross_asset_panel import sync_panel_to_workspace
 from harvester.duckdb_panel import duckdb_canonical_panel_enabled, write_canonical_panel
 
@@ -115,4 +114,54 @@ def test_offline_parity_drill_does_not_touch_workspace_canonical(
     assert result["blocked_without_clobber"] is True
     assert result["canonical_flag_consulted"] is False
     assert not (tmp_path / "Data" / "canonical").exists()
+    assert duckdb_canonical_panel_enabled() is True
+
+
+@pytest.mark.parametrize("value", ["0", "false", "no", "off"])
+def test_canonical_writer_escape_hatch_disables_flag(
+    value: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SYSTEM_DUCKDB_CANONICAL_PANEL", value)
     assert duckdb_canonical_panel_enabled() is False
+
+
+@pytest.mark.parametrize("value", ["maybe", ""])
+def test_canonical_writer_unknown_values_stay_enabled(
+    value: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SYSTEM_DUCKDB_CANONICAL_PANEL", value)
+    assert duckdb_canonical_panel_enabled() is True
+
+
+def test_duckdb_export_matches_legacy_mirror_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frame = _panel()
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["SPY"],
+    )
+
+    monkeypatch.setenv("SYSTEM_DUCKDB_CANONICAL_PANEL", "0")
+    legacy = sync_panel_to_workspace(frame, tmp_path / "legacy")
+
+    monkeypatch.delenv("SYSTEM_DUCKDB_CANONICAL_PANEL", raising=False)
+    modern = sync_panel_to_workspace(frame, tmp_path / "modern")
+
+    legacy_frame = pd.read_parquet(legacy)
+    modern_frame = pd.read_parquet(modern)
+
+    assert set(modern_frame.columns) == set(legacy_frame.columns)
+    assert len(modern_frame) == len(legacy_frame)
+
+    keys = ["symbol", "date"]
+    assert (
+        modern_frame[keys].sort_values(keys).reset_index(drop=True)
+        .equals(legacy_frame[keys].sort_values(keys).reset_index(drop=True))
+    )
+    assert modern_frame["close"].tolist() == pytest.approx(legacy_frame["close"].tolist())
+    for column in modern_frame.columns:
+        if column in ("symbol", "date"):
+            continue
+        if modern_frame[column].notna().any():
+            assert pd.api.types.is_float_dtype(modern_frame[column])

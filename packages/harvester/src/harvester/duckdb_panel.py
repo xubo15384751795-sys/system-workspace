@@ -136,7 +136,8 @@ def write_canonical_panel(
             ) as temporary:
                 temporary_path = Path(temporary.name)
             connection.execute(
-                f"COPY (SELECT * FROM {CANONICAL_TABLE} "
+                f"COPY (SELECT * REPLACE (CAST(date AS TIMESTAMP) AS date) "
+                f"FROM {CANONICAL_TABLE} "
                 "ORDER BY symbol, date) TO ? (FORMAT PARQUET)",
                 [str(temporary_path)],
             )
@@ -175,12 +176,16 @@ def write_canonical_panel(
 
 
 def duckdb_canonical_panel_enabled() -> bool:
-    """Return whether the opt-in canonical writer flag is enabled."""
-    return os.environ.get("SYSTEM_DUCKDB_CANONICAL_PANEL", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
+    """Return whether the canonical DuckDB writer is enabled.
+
+    Defaults to enabled. Set ``SYSTEM_DUCKDB_CANONICAL_PANEL`` to
+    0/false/no/off to fall back to the legacy parquet mirror path.
+    """
+    return os.environ.get("SYSTEM_DUCKDB_CANONICAL_PANEL", "").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
     }
 
 

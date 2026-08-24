@@ -898,10 +898,10 @@ def write_cross_asset_panel(
         path = root / path
     symbols = expected_symbols or resolve_etf_universe(root)
 
-    # The DuckDB writer is deliberately opt-in during the migration window.
-    # The default launchd path therefore retains the existing mirror behavior;
-    # dual-run operators can enable the canonical writer explicitly and still
-    # receive the same Parquet compatibility surface.
+    # The DuckDB writer is the default canonical path; the legacy parquet
+    # mirror branch below remains as the rollback escape hatch via
+    # SYSTEM_DUCKDB_CANONICAL_PANEL=0. Both paths emit the same Parquet
+    # compatibility surface for downstream readers.
     from harvester.duckdb_panel import duckdb_canonical_panel_enabled
 
     if duckdb_canonical_panel_enabled():
