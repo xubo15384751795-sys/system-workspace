@@ -1459,35 +1459,6 @@ wheels = [
 ]
 
 [[package]]
-name = "great-expectations"
-version = "1.20.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "altair" },
-    { name = "cryptography" },
-    { name = "jinja2" },
-    { name = "jsonschema" },
-    { name = "marshmallow" },
-    { name = "mistune" },
-    { name = "numpy" },
-    { name = "packaging" },
-    { name = "pandas" },
-    { name = "pydantic" },
-    { name = "pyparsing" },
-    { name = "python-dateutil" },
-    { name = "requests" },
-    { name = "ruamel-yaml" },
-    { name = "scipy" },
-    { name = "tqdm" },
-    { name = "typing-extensions" },
-    { name = "tzlocal" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8a/b6/07e8ad9775826c2e261e28e2d572eb1fe80bd19d1858f2b068311dac2f8a/great_expectations-1.20.0.tar.gz", hash = "sha256:d6d6ed6a6437b81a452b6dbc201bd4403c3f96562788a1fcaf10848e96629864", size = 36310883, upload-time = "2026-08-07T14:08:14.021Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/57/351beba1b367e86183ee1e00cf64c286bac22dbc23b6ea02d971db06108a/great_expectations-1.20.0-py3-none-any.whl", hash = "sha256:cb6948e287826a039ea32f2f33add10fe276faf4278439431750250d46d74dd1", size = 4953172, upload-time = "2026-08-07T14:08:11.392Z" },
-]
-
-[[package]]
 name = "greenlet"
 version = "3.5.5"
 source = { registry = "https://pypi.org/simple" }
@@ -2173,18 +2144,6 @@ wheels = [
 ]
 
 [[package]]
-name = "marshmallow"
-version = "3.26.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
-]
-
-[[package]]
 name = "matplotlib"
 version = "3.11.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2249,15 +2208,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
-]
-
-[[package]]
-name = "mistune"
-version = "3.3.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7b/92/328a294a6de83bacb95bed01f04e0eaff4e3616ee359fc821a5dfc539b02/mistune-3.3.4.tar.gz", hash = "sha256:58b5c96d6fcb61190dfe5fae498d2b2065f99cf61e9649418fd54cf1ada86dfe", size = 121426, upload-time = "2026-07-22T05:22:30.89Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/e4/288365afae98953bc01de09f686f40d8ee84578135aa7767d5d4e60b5278/mistune-3.3.4-py3-none-any.whl", hash = "sha256:ee015381e955e370962968befe1d729ab60fafb6a715ac6751763fbce38c8d4a", size = 66862, upload-time = "2026-07-22T05:22:29.419Z" },
 ]
 
 [[package]]
@@ -4550,9 +4500,6 @@ dev = [
     { name = "dagster-webserver" },
     { name = "pytest" },
 ]
-ge = [
-    { name = "great-expectations" },
-]
 quality = [
     { name = "exchange-calendars" },
     { name = "pandas" },
@@ -4567,14 +4514,13 @@ requires-dist = [
     { name = "dagster", specifier = ">=1.9" },
     { name = "dagster-webserver", marker = "extra == 'dev'", specifier = ">=1.9" },
     { name = "exchange-calendars", marker = "extra == 'quality'", specifier = ">=4.5,<5" },
-    { name = "great-expectations", marker = "python_full_version < '3.14' and extra == 'ge'", specifier = ">=1.0,<2.0" },
     { name = "pandas", marker = "extra == 'quality'", specifier = ">=2.0" },
     { name = "pandera", marker = "extra == 'quality'", specifier = ">=0.20" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "streamlit", marker = "extra == 'ui'", specifier = ">=1.32" },
 ]
-provides-extras = ["quality", "ge", "ui", "dev"]
+provides-extras = ["quality", "ui", "dev"]
 
 [[package]]
 name = "tabulate"
@@ -5032,9 +4978,6 @@ full = [
     { name = "sentry-sdk" },
     { name = "streamlit" },
 ]
-ge = [
-    { name = "great-expectations" },
-]
 ml = [
     { name = "hmmlearn" },
     { name = "mcp" },
@@ -5068,7 +5011,6 @@ requires-dist = [
     { name = "dvc", marker = "extra == 'orchestration'", specifier = ">=3.50" },
     { name = "exchange-calendars", specifier = ">=4.5,<5" },
     { name = "exchange-calendars", marker = "extra == 'orchestration'", specifier = ">=4.5,<5" },
-    { name = "great-expectations", marker = "python_full_version < '3.14' and extra == 'ge'", specifier = ">=1.0,<2.0" },
     { name = "hmmlearn", marker = "extra == 'dev'", specifier = ">=0.3" },
     { name = "hmmlearn", marker = "extra == 'ml'", specifier = ">=0.3" },
     { name = "httpcore", specifier = ">=1.0,<2" },
@@ -5096,7 +5038,7 @@ requires-dist = [
     { name = "streamlit", marker = "extra == 'orchestration'", specifier = ">=1.32" },
     { name = "verity", extras = ["ml", "dev", "orchestration"], marker = "extra == 'full'" },
 ]
-provides-extras = ["ml", "orchestration", "observability", "ge", "dev", "full"]
+provides-extras = ["ml", "orchestration", "observability", "dev", "full"]
 
 [package.metadata.requires-dev]
 dev = [

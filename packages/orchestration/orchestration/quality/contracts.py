@@ -39,7 +39,6 @@ class QualityResult(TypedDict):
     evaluator: Literal["orchestration.quality.content_freshness"]
     suite: str
     suite_document: str | None
-    great_expectations_ignored: Literal[True]
     status: Literal["PASS", "FAIL"]
     evaluated_at: str
     success: bool

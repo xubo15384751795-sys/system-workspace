@@ -538,7 +538,7 @@ def build_freshness_report(
 
     quality_suite: dict[str, Any]
     try:
-        from orchestration.quality.ge_suite import (
+        from orchestration.quality.content_freshness_suite import (
             run_content_freshness_quality_suite,
             write_quality_validation_artifact,
         )

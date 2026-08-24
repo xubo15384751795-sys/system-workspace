@@ -1,0 +1,55 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-24-replacement-map-wave1-retire-great-expectations
+date: "2026-08-24"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Retire great_expectations from the workspace. The package was never invoked:
+  ge_suite guarded its import, emitted Pandera results, and hardcoded
+  great_expectations_ignored=True. The suite moves to
+  orchestration.quality.content_freshness_suite with identical behavior minus
+  the dead flag.
+scope: >
+  packages/orchestration/orchestration/quality/ge_suite.py (deleted),
+  packages/orchestration/orchestration/quality/content_freshness_suite.py (new),
+  packages/orchestration/orchestration/quality/contracts.py,
+  packages/orchestration/orchestration/assets/registry_quality_checks.py,
+  scripts/freshness_validator.py,
+  packages/orchestration/tests/test_ge_suite.py (replaced by
+  test_content_freshness_suite.py), root pyproject.toml and
+  packages/orchestration/pyproject.toml (ge extra removed), uv.lock.
+decision: >
+  Re-home run_content_freshness_quality_suite and
+  write_quality_validation_artifact into content_freshness_suite.py; drop the
+  _ge_available guard, backward-compat aliases, and the
+  great_expectations_ignored payload field; remove the optional ge extra from
+  both distributions and purge the dependency from uv.lock.
+  configs/great_expectations/expectations/content_freshness_suite.json is
+  retained as the suite_document contract; its path stays stable so existing
+  artifacts keep resolving. quality_result.v1 keeps its schema_version: the
+  removed field was a constant boolean no consumer branches on; readers of
+  engine/status/success/critical_failures are unaffected.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  provider_authority_change: false
+  pipeline_authority_changed: false
+  publication_integrity_change: false
+acceptance:
+  - no first-party import of great_expectations remains
+  - freshness_validator still hard-fails when the suite errors (EVALUATOR_UNAVAILABLE path preserved)
+  - content_freshness_shadow asset check still compiles and reads engine pandera
+  - suite shape test passes without the removed field
+  - uv lock resolves without great-expectations and its transitives
+non_goals:
+  - rename or move configs/great_expectations/
+  - change Output/quality/quality_content_freshness.json location
+  - alter content-clock definitions or freshness budgets
+rollback: >
+  Revert this commit to restore ge_suite.py, the contracts field, the ge
+  extras, and the previous uv.lock.
+observation_window: >
+  One scheduled daily run must emit quality_content_freshness.json with
+  success reflecting current clock states before the archived_retire cleanup
+  of legacy ge artifacts proceeds.

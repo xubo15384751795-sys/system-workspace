@@ -186,7 +186,9 @@ def _build_content_freshness_check(suite_runner: ContentSuite) -> AssetChecksDef
 
 
 def _default_content_suite(*, root: Path) -> dict[str, Any]:
-    from orchestration.quality.ge_suite import run_content_freshness_quality_suite
+    from orchestration.quality.content_freshness_suite import (
+        run_content_freshness_quality_suite,
+    )
 
     return run_content_freshness_quality_suite(root=root)
 
