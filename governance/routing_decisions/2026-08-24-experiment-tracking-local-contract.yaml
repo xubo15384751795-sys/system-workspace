@@ -7,7 +7,7 @@ summary: >
   Add an MLflow-level, filesystem-backed experiment record to every RunBundle
   without installing a second tracking service or moving publication authority.
 scope: >
-  scripts/experiment_tracker.py, scripts/run_bundle.py,
+  scripts/_experiment_tracker.py, scripts/run_bundle.py,
   scripts/ingest_daily_run_to_hub.py, and focused contract tests.
 decision: >
   RunBundle's experiment.json is the canonical per-run record for parameters,
@@ -38,7 +38,7 @@ rollback: >
   remain valid and continue to provide the previous audit path.
 evidence:
   implementation:
-    - scripts/experiment_tracker.py
+    - scripts/_experiment_tracker.py
     - scripts/run_bundle.py
     - scripts/ingest_daily_run_to_hub.py
   tests:

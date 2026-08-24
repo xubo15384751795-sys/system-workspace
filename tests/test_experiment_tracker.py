@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.experiment_tracker import ExperimentTracker, ExperimentTrackingError
+from scripts._experiment_tracker import ExperimentTracker, ExperimentTrackingError
 from scripts.run_bundle import RunBundle
 
 
