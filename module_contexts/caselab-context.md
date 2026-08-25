@@ -40,7 +40,7 @@ Use this thread when the task mentions:
 ## CLI
 
 ```bash
-cd /Users/a1/System
+cd /Users/a1/Verity
 python3 -m caselab_context.index_paper
 python3 -m caselab_context.build_embeddings --reindex
 python3 -m caselab_context.resolve_meaning --actor "Goldman Sachs" --verb ipo --object public_market --json

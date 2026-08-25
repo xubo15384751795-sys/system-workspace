@@ -77,6 +77,19 @@ def _causal_zscore(series: pd.Series, window: int = 756, min_periods: int = 126)
 
 
 def build_pressure_history(panel: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
+    panel_dates = pd.to_datetime(panel["date"], utc=True, errors="coerce").dt.tz_convert(None).dropna()
+    if panel_dates.empty:
+        raise ValueError("neutral pressure panel has no usable dates")
+    # Build every gauge on one shared business-day calendar.  Without this
+    # reindex, ``ffill(limit=5)`` can only carry a component to dates already
+    # present in that gauge, so a daily D observation can make a weekly M
+    # observation look unavailable even though it is within the declared
+    # carry-forward window.
+    shared_calendar = pd.date_range(
+        panel_dates.min().normalize(),
+        panel_dates.max().normalize(),
+        freq="B",
+    )
     components: dict[str, pd.Series] = {}
     metadata: dict[str, Any] = {}
     for key, spec in GAUGES.items():
@@ -102,7 +115,12 @@ def build_pressure_history(panel: pd.DataFrame) -> tuple[pd.DataFrame, dict[str,
             # Align mixed daily/weekly evidence without looking forward. Five
             # business days is the maximum carry window; longer gaps remain
             # visibly unavailable and lower the claim ceiling.
-            aligned = pd.concat(gauge_components, axis=1).sort_index().ffill(limit=5)
+            aligned = (
+                pd.concat(gauge_components, axis=1)
+                .sort_index()
+                .reindex(shared_calendar)
+                .ffill(limit=5)
+            )
             gauge = aligned.mean(axis=1, skipna=True)
             minimum = 2 if len(gauge_components) >= 2 else 1
             gauge = gauge.where(aligned.notna().sum(axis=1) >= minimum)
@@ -386,6 +404,28 @@ def compatibility_framework_output(snapshot: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def write_snapshot_files(
+    snapshot: dict[str, Any],
+    history: pd.DataFrame,
+    *,
+    output_dir: Path,
+    history_path: Path,
+) -> tuple[Path, Path, Path]:
+    """Write a snapshot using an explicit output boundary.
+
+    ``build_snapshot`` remains the calculation authority.  This helper is the
+    migration seam used by the Dagster shadow path; it never resolves
+    ``current_dir()`` or the legacy run directory itself.
+    """
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    history.to_parquet(history_path)
+    snapshot_path = output_dir / "neutral_pressure_snapshot.json"
+    framework_path = output_dir / "framework_output.json"
+    write_json(snapshot_path, snapshot)
+    write_json(framework_path, compatibility_framework_output(snapshot))
+    return snapshot_path, framework_path, history_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build neutral macro-pressure gauges")
     parser.add_argument("--panel", type=Path, default=DEFAULT_PANEL)
@@ -398,10 +438,12 @@ def main() -> None:
     history_path = args.history_output or ROOT / "Output" / "runs" / run_id / "neutral_pressure" / "pressure_history.parquet"
     output_dir = args.current_output or current_dir()
     snapshot, history = build_snapshot(args.panel, history_path)
-    history_path.parent.mkdir(parents=True, exist_ok=True)
-    history.to_parquet(history_path)
-    write_json(output_dir / "neutral_pressure_snapshot.json", snapshot)
-    write_json(output_dir / "framework_output.json", compatibility_framework_output(snapshot))
+    write_snapshot_files(
+        snapshot,
+        history,
+        output_dir=output_dir,
+        history_path=history_path,
+    )
     if args.json:
         print(json.dumps(snapshot, indent=2, ensure_ascii=False))
     else:

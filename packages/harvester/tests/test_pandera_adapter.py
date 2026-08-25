@@ -39,3 +39,13 @@ def test_pandera_adapter_rejects_non_monotonic_symbol_dates() -> None:
     report = validate_cross_asset_panel_with_pandera(frame)
     assert report["status"] == "failed"
     assert report["failure_count"] >= 1
+
+
+def test_pandera_adapter_mirrors_required_nonempty_contract() -> None:
+    report = validate_cross_asset_panel_with_pandera(
+        _panel().iloc[0:0],
+        require_nonempty=True,
+    )
+
+    assert report["status"] == "failed"
+    assert report["failure_count"] >= 1

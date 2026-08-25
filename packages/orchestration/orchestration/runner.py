@@ -49,6 +49,7 @@ class DailyRunPayload:
     benchmark_panel_path: Path
     run_id: str = ""
     plan: CompiledPlan | None = None
+    dry_run: bool = False
 
 
 def _safe_node_name(prefix: str, value: str, index: int) -> str:
@@ -104,6 +105,7 @@ def build_daily_step_job(
         benchmark_panel_path=payload.benchmark_panel_path,
         run_id=payload.run_id,
         plan=resolved_plan,
+        dry_run=payload.dry_run,
     )
     observed_results: list[dict[str, Any]] = []
 
@@ -291,6 +293,10 @@ def build_daily_step_job(
 
 def run_daily_sequence_via_dagster(payload: DailyRunPayload) -> list[dict[str, Any]]:
     """Default-path daily sequence: compiled per-step Dagster graph."""
+    if use_native_daily_assets():
+        from orchestration.native_daily import run_daily_sequence_via_native_assets
+
+        return run_daily_sequence_via_native_assets(payload)
     plan = payload.plan or load_pipeline(WorkspacePaths(root=ROOT))
     captured: list[dict[str, Any]] = []
 
@@ -319,6 +325,7 @@ def run_daily_sequence_direct(payload: DailyRunPayload) -> list[dict[str, Any]]:
         benchmark_panel_path=payload.benchmark_panel_path,
         run_id=payload.run_id,
         plan=payload.plan,
+        dry_run=payload.dry_run,
     )
     return cast(list[dict[str, Any]], execute_daily_sequence(ctx, plan=payload.plan))
 
@@ -399,6 +406,13 @@ def sequence_length() -> int:
     return len(load_daily_run_sequence()) or 33
 
 
+def use_native_daily_assets() -> bool:
+    """Return whether the reversible native-asset execution flag is enabled."""
+    from orchestration.native_daily import use_native_daily_assets as _use_native_daily_assets
+
+    return _use_native_daily_assets()
+
+
 __all__ = [
     "DailyRunPayload",
     "build_daily_step_job",
@@ -406,5 +420,6 @@ __all__ = [
     "run_daily_sequence_via_dagster",
     "run_refresh_via_dagster",
     "sequence_length",
+    "use_native_daily_assets",
     "use_legacy_daily_run",
 ]

@@ -1,0 +1,41 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-dual-run-comparator
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add the read-only evidence comparator required before a native daily graph
+  can be promoted. It consumes two already-completed isolated run bundles and
+  compares execution semantics, canonical lineage, input/release/vintage
+  identity, and generation/current surfaces without launching either path.
+scope:
+  - packages/orchestration/orchestration/run_parity.py
+  - packages/orchestration/tests/test_run_parity.py
+  - packages/orchestration/orchestration/operators/compare_daily_run_parity.py
+  - governance/entrypoint_registry.yaml
+authority_boundary:
+  runners_invoked: false
+  current_output_written: false
+  steps_jsonl_written: false
+  promotion_allowed: false
+decision: >
+  Require both run manifests, run outcomes, input snapshots, steps.jsonl,
+  lineage.json, admission.json, and generation surfaces. Compare the step
+  result semantics through the existing shadow comparator, require canonical
+  lineage to be present on both paths, require equal plan/release/vintage
+  identity, and compare all generation surfaces after removing only explicitly
+  declared JSON ephemera. Missing evidence is INCOMPLETE; any divergence is
+  MISMATCH; only a complete all-dimension match is MATCH.
+acceptance:
+  - identical isolated fixtures produce MATCH with promotion_allowed=false
+  - blocked or failed step divergence produces MISMATCH
+  - missing lineage or identity evidence produces INCOMPLETE
+  - the command performs no subprocess, callable, publication, or current write
+  - the comparator is registered as a shadow-only operator entry
+rollback: >
+  Remove the comparator entry and module. Existing native/generated runners and
+  their rollback flags remain unchanged.
+observation_window: >
+  Run the comparator for every native/current pair during the one-week window;
+  promotion additionally requires no unexplained mismatch and remote/default
+  path validation.

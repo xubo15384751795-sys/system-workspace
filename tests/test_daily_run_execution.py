@@ -68,7 +68,7 @@ def test_transaction_commit_state_maps_to_typed_reason(mod, state_name, expected
 def test_generation_evidence_finalizes_before_live_pointer_commit() -> None:
     source = (ROOT / "scripts" / "daily_run.py").read_text(encoding="utf-8")
     assert source.index("bundle.finalize_evidence()") < source.index(
-        "transaction.commit_generation(ROOT)"
+        "transaction.commit_generation("
     )
 
 

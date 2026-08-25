@@ -1,5 +1,5 @@
 # Historical pip lock — 2026-05-05.  The workspace authoritative resolver is
-# /Users/a1/System/uv.lock; this file is retained only for migration/reference
+# uv.lock at the repository root; this file is retained only for migration/reference
 # and is not read by packages/framework/pyproject.toml.
 # Regenerate: pip freeze | grep -E '^(numpy|scipy|pandas|pyyaml|duckdb|polars|jax|jaxlib|diffrax|equinox|numpyro|blackjax|networkx|scikit-learn|ruptures|plotly|streamlit|fastapi|uvicorn|pytest|mypy|ruff)=='
 #

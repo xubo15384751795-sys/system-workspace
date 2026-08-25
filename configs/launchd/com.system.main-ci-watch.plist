@@ -29,7 +29,7 @@
         <string>scripts.commands.ci.check_main_ci_status</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/a1/System</string>
+    <string>/Users/a1/Verity</string>
     <!--
       launchd does not inherit the login shell's PATH, so `gh` (Homebrew) is
       not found without this. Verified: without it the job reports
@@ -59,8 +59,8 @@
         </dict>
     </array>
     <key>StandardOutPath</key>
-    <string>/Users/a1/System/Output/logs/launchd/main_ci_watch.log</string>
+    <string>/Users/a1/Verity/Output/logs/launchd/main_ci_watch.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/a1/System/Output/logs/launchd/main_ci_watch.log</string>
+    <string>/Users/a1/Verity/Output/logs/launchd/main_ci_watch.log</string>
 </dict>
 </plist>

@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # Phase 3.2: production worktree separation (⚠️ persistent config).
 #
-# Creates /Users/a1/System-prod as a git worktree on main, so the nightly
+# Creates a sibling git worktree on main, so the nightly
 # launchd jobs run ONLY committed, tested code - not the dirty dev worktree.
 # This is the mechanism-level fix for "保存即部署" (save = deploy).
 #
 # This script is DRY-RUN by default. Pass --apply to actually create the
 # worktree and re-point the plists. Review carefully: the nightly jobs will
-# switch to running from System-prod, so any uncommitted change in the dev
-# worktree stops affecting production immediately.
+# switch to running from the prod worktree, so any uncommitted change in the
+# dev worktree stops affecting production immediately.
 #
 # Prerequisites:
 #   - Phase 3.1 commits landed (the prod worktree should run committed code).
 #   - Data/ and Output/ are shared via symlinks (data not in git).
 set -euo pipefail
-DEV="/Users/a1/System"
-PROD="/Users/a1/System-prod"
+DEV="${SYSTEM_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+PROD="${SYSTEM_PROD_ROOT:-${DEV}-prod}"
 APPLY=0
 if [ "${1:-}" = "--apply" ]; then APPLY=1; fi
 

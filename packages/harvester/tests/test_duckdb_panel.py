@@ -83,7 +83,7 @@ def test_duckdb_writer_validates_export_and_preserves_existing_parquet_on_block(
     assert parquet_path.read_bytes() == before
 
 
-def test_duckdb_writer_is_only_used_by_explicit_opt_in_flag(
+def test_duckdb_writer_is_default_and_can_be_explicitly_enabled(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("SYSTEM_DUCKDB_CANONICAL_PANEL", "1")
@@ -97,6 +97,21 @@ def test_duckdb_writer_is_only_used_by_explicit_opt_in_flag(
     assert mirror.exists()
     assert (tmp_path / "Data" / "canonical" / "panels.duckdb").exists()
     assert len(pd.read_parquet(mirror)) == 2
+
+
+def test_duckdb_writer_is_default_when_rollback_flag_is_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SYSTEM_DUCKDB_CANONICAL_PANEL", raising=False)
+    monkeypatch.setattr(
+        "harvester.cross_asset_panel.resolve_etf_universe",
+        lambda workspace=None: ["SPY"],
+    )
+
+    mirror = sync_panel_to_workspace(_panel(), tmp_path)
+
+    assert mirror.exists()
+    assert (tmp_path / "Data" / "canonical" / "panels.duckdb").is_file()
 
 
 def test_offline_parity_drill_does_not_touch_workspace_canonical(

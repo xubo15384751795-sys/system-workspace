@@ -4,7 +4,7 @@ Reads all CaseLab content through the adapter and produces five
 training/calibration datasets that System's models can consume.
 
 Run:
-    cd /Users/a1/System
+    cd /Users/a1/Verity
     python -m nlp.caselab.converter
 
 Output (written to Data/nlp/caselab_training/):

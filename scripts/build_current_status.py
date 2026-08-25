@@ -16,10 +16,19 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, surface_dir
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    write_json,
+)
 
 JUDGMENT_PATH = surface_dir("judgment") / "latest.json"
 PROMOTION_GATE_PATH = surface_dir("judgment") / "promotion_gate.json"
@@ -29,6 +38,43 @@ X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
 HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
 CASELAB_DIR = ROOT / "Output" / "caselab"
 OUTPUT_DIR = current_dir()
+
+_PATH_KEYS = (
+    "judgment",
+    "promotion_gate",
+    "index",
+    "k_gate",
+    "x_gate",
+    "hmm_audit",
+    "caselab",
+    "output",
+)
+
+
+def _default_paths() -> dict[str, Path]:
+    """Return legacy-compatible input/output path bindings."""
+    return {
+        "judgment": JUDGMENT_PATH,
+        "promotion_gate": PROMOTION_GATE_PATH,
+        "index": INDEX_PATH,
+        "k_gate": K_GATE_PATH,
+        "x_gate": X_GATE_PATH,
+        "hmm_audit": HMM_AUDIT_PATH,
+        "caselab": CASELAB_DIR,
+        "output": OUTPUT_DIR,
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve explicit generation paths without changing no-arg behavior."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown current-status path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -40,17 +86,18 @@ def _as_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def gather_status() -> dict[str, Any]:
+def gather_status(paths: Mapping[str, Path] | None = None) -> dict[str, Any]:
     """Gather current system status."""
+    resolved = _resolve_paths(paths)
     now = datetime.now(UTC).isoformat()
-    judgment = load_json(JUDGMENT_PATH)
+    judgment = load_json(resolved["judgment"])
     date_str = str((judgment or {}).get("as_of") or now)[:10]
-    promotion_gate = load_json(PROMOTION_GATE_PATH)
-    _ = load_json(INDEX_PATH)
-    k_gate = load_json(K_GATE_PATH)
-    x_gate = load_json(X_GATE_PATH)
-    hmm_audit = load_json(HMM_AUDIT_PATH)
-    caselab = load_json(CASELAB_DIR / f"{date_str}.json")
+    promotion_gate = load_json(resolved["promotion_gate"])
+    _ = load_json(resolved["index"])
+    k_gate = load_json(resolved["k_gate"])
+    x_gate = load_json(resolved["x_gate"])
+    hmm_audit = load_json(resolved["hmm_audit"])
+    caselab = load_json(resolved["caselab"] / f"{date_str}.json")
 
     return {
         "generated_at": now,
@@ -102,16 +149,26 @@ def gather_status() -> dict[str, Any]:
     }
 
 
+def write_status(
+    status: dict[str, Any],
+    *,
+    output_dir: Path | None = None,
+) -> Path:
+    """Write status.json to an explicit current-output surface."""
+    target_dir = output_dir or OUTPUT_DIR
+    ensure_dir(target_dir)
+    status_path = target_dir / "status.json"
+    write_json(status_path, status)
+    return status_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build Output/current/status.json.")
     parser.add_argument("--json", action="store_true", help="Print status JSON to stdout.")
     args = parser.parse_args()
 
     status = gather_status()
-    ensure_dir(OUTPUT_DIR)
-
-    status_path = OUTPUT_DIR / "status.json"
-    status_path.write_text(json.dumps(status, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    status_path = write_status(status)
 
     if args.json:
         print(json.dumps(status, indent=2, ensure_ascii=False))

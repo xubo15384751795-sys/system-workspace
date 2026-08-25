@@ -1,0 +1,38 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-native-parity
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add an operator-only parity record for the registry-tagged Dagster native
+  asset batch. It materializes native reports and compares them with the
+  existing registry artifacts without invoking the legacy runner or writing
+  Output/current.
+scope:
+  - packages/orchestration/orchestration/native_parity.py
+  - packages/orchestration/tests/test_native_parity.py
+  - packages/orchestration/orchestration/operators/run_native_batch_shadow_parity.py
+  - governance/entrypoint_registry.yaml
+decision: >
+  Ignore only generated_at, require both sides to exist, expose deterministic
+  digests and full mismatching payloads, and return INCOMPLETE for missing
+  artifacts. The result is shadow_only and promotion_allowed=false regardless
+  of MATCH status.
+authority_boundary:
+  legacy_runner_invoked: false
+  legacy_output_written: false
+  daily_job_changed: false
+  promotion_allowed: false
+acceptance:
+  - timestamp-only differences produce MATCH
+  - missing legacy artifacts produce INCOMPLETE, never MATCH
+  - payload differences produce MISMATCH with both reports visible
+  - operator command is not in daily_job or any active schedule
+  - explicit same-inputs mode can rebuild the legacy pure reports in a temporary generation and compare all selected reports without writing Output/current
+observation_window: >
+  Run this record beside the registry executor for at least one week; promotion
+  requires matching payloads on the same inputs and a separate authority
+  decision.
+rollback: >
+  Remove the operator entry, parity module, and routing decision. Native assets
+  remain shadow-only and the registry executor remains unchanged.

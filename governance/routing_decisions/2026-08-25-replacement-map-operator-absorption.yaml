@@ -1,0 +1,54 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-operator-absorption
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complex
+summary: >
+  Absorb the twelve replacement-map shadow and evidence operators from the
+  root scripts surface into the Harvester and Orchestration packages. Preserve
+  their explicit operator commands through python -m entry points, keep the
+  hand-maintained registry authoritative, and close the one-in-one-out root
+  script budget without changing daily authority or promotion semantics.
+scope:
+  - packages/harvester/src/harvester/operators/
+  - packages/orchestration/orchestration/operators/
+  - governance/entrypoint_registry.yaml
+  - governance/redundancy_budget.yaml
+  - tests/test_governance_runtime_contracts.py
+  - governance/replacement_map_progress.md
+authority_boundary:
+  acquisition_transport_changed: false
+  parser_authority_changed: false
+  provider_authority_changed: false
+  default_daily_path_changed: false
+  native_default_enabled: false
+  shadow_operator_authority_changed: false
+  promotion_allowed: false
+probe:
+  scope: >
+    Package-local operator modules, python -m entry points, the hand-maintained
+    entrypoint registry, and the root-script budget. Daily dispatch, provider
+    parsers, current writers, and promotion state are out of scope.
+  preregistered_expectation: >
+    All twelve replacement-map operators remain invocable after the path-only
+    move; daily_job still uses the default Dagster path; dlt/native/DVC/dual-track
+    operators stay shadow-only; root Python and public command counts stay at
+    the recorded budget.
+  observation_window: >
+    Keep the absorbed operators shadow/evidence-only through at least the next
+    scheduled daily run and one operator-focused test pass before adding any
+    new root scripts or changing promotion flags.
+  rollback: >
+    Restore the twelve operator files under scripts/ and revert registry path
+    entries. Do not change provider parsers, daily flags, current writers, or
+    promotion state.
+acceptance:
+  - root Python count is 118 and public root command count is 90
+  - all moved operators remain present in the hand-maintained entrypoint registry
+  - package module imports and operator-focused tests pass
+  - dlt, Dagster native, DVC and dual-track operators remain shadow/evidence-only
+  - old root operator paths are absent and documented commands use python -m
+rollback: >
+  Revert the path-only absorption and restore the twelve operator files under
+  scripts/; do not change provider parsers, daily dispatch flags, current
+  writers, canonical data, or promotion state.

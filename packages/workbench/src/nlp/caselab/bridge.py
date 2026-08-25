@@ -6,7 +6,7 @@ Connects the five CaseLab datasets to System's existing NLP/ML pipeline:
 3. NarrativeDrift  — feedback templates → baseline narratives
 
 Run:
-    cd /Users/a1/System
+    cd /Users/a1/Verity
     python -m nlp.caselab.bridge
 """
 from __future__ import annotations

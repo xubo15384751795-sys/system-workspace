@@ -10,6 +10,17 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_PANEL = (
+    _WORKSPACE_ROOT
+    / "Data"
+    / "harvester"
+    / "exports"
+    / "latest"
+    / "data"
+    / "benchmark_panel.parquet"
+)
+
 
 @dataclass
 class ProxyConfig:
@@ -61,7 +72,7 @@ class ProxyComputer:
 
     def __init__(
         self,
-        data_path: str | Path = "/Users/a1/System/Data/harvester/exports/latest/data/benchmark_panel.parquet",
+        data_path: str | Path = _DEFAULT_PANEL,
         window: int = 260,
     ):
         self.data_path = Path(data_path)

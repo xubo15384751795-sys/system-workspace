@@ -1,0 +1,61 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave3-dlt-window
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complex
+summary: >
+  Add a fail-closed observation-window gate for the dlt provider migration.
+  Cache-only shadow reports remain useful diagnostics but cannot satisfy the
+  real daily-capture window required before a provider route can be promoted.
+scope:
+  - packages/harvester/src/harvester/operators/aggregate_dlt_shadow_window.py
+  - packages/harvester/src/harvester/operators/run_cftc_dlt_shadow_parity.py
+  - packages/harvester/src/harvester/operators/run_external_indicators_dlt_shadow.py
+  - packages/harvester/src/harvester/ingestion/dlt_observation.py
+  - packages/harvester/src/harvester/providers/external_indicators.py
+  - packages/harvester/tests/test_cftc_dlt_operator.py
+  - packages/harvester/tests/test_dlt_shadow_window.py
+  - packages/harvester/tests/test_dlt_observation.py
+  - packages/harvester/tests/test_external_indicators.py
+  - governance/entrypoint_registry.yaml
+decision: >
+  Accept only supported dlt parity report schemas with MATCH status, stable
+  series identity and schema contract, shadow-only authority, explicit real
+  provider-capture provenance, UTC-consistent observation timestamps,
+  persisted incremental state, and a verified idempotent second load. Require
+  at least seven consecutive UTC dates. The gate is read-only and never grants
+  production authority.
+authority_boundary:
+  acquisition_transport_changed: false
+  parser_authority_changed: false
+  provider_authority_changed: false
+  cache_authority_changed: false
+  default_daily_path_changed: false
+  promotion_allowed: false
+probe:
+  scope: >
+    dlt observation-window gate, CFTC/external-indicator shadow operators, and
+    their tests. Legacy provider cache, default daily fetch, and promotion
+    remain out of scope.
+  preregistered_expectation: >
+    Cache-only or missing-capture reports stay INCOMPLETE; only MATCH reports
+    with real provider-capture provenance, UTC-complete dates, and verified
+    idempotent reload can pass the window; the gate never grants production
+    authority.
+  observation_window: >
+    Collect consecutive UTC shadow reports for at least seven dates before any
+    provider-route or default-path decision. Incomplete windows are evidence,
+    not promotion.
+  rollback: >
+    Remove the window operator and its registry entry. Legacy provider cache
+    and the dlt shadow staging database remain unchanged.
+acceptance:
+  - cache-only or missing-capture reports return INCOMPLETE
+  - a missing UTC date, duplicate capture, or identity drift cannot pass
+  - all series in an external-indicators report must be MATCH
+  - capture manifest SHA-256 must match the actual CFTC payload or cache bytes
+  - provider-capture sidecars are written only after a successful fresh cache write; cache hits and fallback reads cannot create a new observation
+  - incremental state persistence and idempotence must be explicit evidence
+rollback: >
+  Remove the window operator and its registry entry; existing legacy provider
+  cache and the dlt shadow staging database remain unchanged.

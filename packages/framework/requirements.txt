@@ -1,4 +1,4 @@
 # Historical pip compatibility input. The workspace authoritative resolver is
-# /Users/a1/System/uv.lock; package builds do not read this file.
+# uv.lock at the repository root; package builds do not read this file.
 # Do not install this file directly; use `uv sync --locked --all-packages`.
 -r requirements/lock.txt

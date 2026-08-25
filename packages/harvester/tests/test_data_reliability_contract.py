@@ -4,7 +4,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from harvester.core.availability import AvailabilityContractError, build_availability
+from harvester.core.availability import (
+    AvailabilityContractError,
+    build_availability,
+    select_latest_vintage_as_of,
+)
 from harvester.core.source_drift import compare_normalized_frames, compare_source_signatures
 
 
@@ -47,6 +51,110 @@ def test_configured_availability_requires_causal_ordering() -> None:
             calendar_status="CONFIGURED",
             decision_usable=True,
         )
+
+
+def test_as_of_selection_does_not_leak_a_future_revision() -> None:
+    def row(vintage: str, value: float) -> dict:
+        available_at = f"{vintage}T01:00:00Z"
+        return {
+            "series_id": "CISS",
+            "observation_date": "2026-08-18",
+            "source_vintage_at": vintage,
+            "value": value,
+            "availability": build_availability(
+                state="AVAILABLE",
+                observation_date="2026-08-18",
+                source_vintage_at=vintage,
+                published_at=f"{vintage}T00:30:00Z",
+                available_at=available_at,
+                retrieved_at=f"{vintage}T02:00:00Z",
+                calendar_status="CONFIGURED",
+            ),
+        }
+
+    revisions = [row("2026-08-19", 100.0), row("2026-08-20", 110.0)]
+
+    before_revision = select_latest_vintage_as_of(
+        revisions,
+        as_of="2026-08-19T12:00:00Z",
+    )
+    after_revision = select_latest_vintage_as_of(
+        revisions,
+        as_of="2026-08-21T00:00:00Z",
+    )
+
+    assert [item["value"] for item in before_revision] == [100.0]
+    assert [item["value"] for item in after_revision] == [110.0]
+
+
+def test_as_of_selection_never_uses_retrieval_as_availability() -> None:
+    record = {
+        "series_id": "CISS",
+        "observation_date": "2026-08-18",
+        "source_vintage_at": "2026-08-19",
+        "value": 100.0,
+        "availability": {
+            "state": "UNKNOWN",
+            "observation_date": "2026-08-18",
+            "source_vintage_at": "2026-08-19",
+            "published_at": None,
+            "available_at": None,
+            "retrieved_at": "2026-08-19T01:00:00Z",
+            "calendar_status": "UNCONFIGURED",
+            "release_timezone": None,
+            "release_cutoff_local": None,
+            "decision_usable": False,
+        },
+    }
+
+    assert select_latest_vintage_as_of([record], as_of="2026-08-20") == []
+
+
+def test_as_of_selection_fails_closed_on_missing_key() -> None:
+    record = {
+        "source_vintage_at": "2026-08-19",
+        "availability": build_availability(
+            state="AVAILABLE",
+            observation_date="2026-08-18",
+            source_vintage_at="2026-08-19",
+            available_at="2026-08-19T01:00:00Z",
+            retrieved_at="2026-08-19T02:00:00Z",
+            calendar_status="CONFIGURED",
+        ),
+    }
+
+    with pytest.raises(AvailabilityContractError, match="PIT key fields"):
+        select_latest_vintage_as_of([record], as_of="2026-08-20")
+
+
+def test_as_of_selection_fails_closed_on_duplicate_visible_vintage() -> None:
+    availability = build_availability(
+        state="AVAILABLE",
+        observation_date="2026-08-18",
+        source_vintage_at="2026-08-19",
+        available_at="2026-08-19T01:00:00Z",
+        retrieved_at="2026-08-19T02:00:00Z",
+        calendar_status="CONFIGURED",
+    )
+    records = [
+        {
+            "series_id": "CISS",
+            "observation_date": "2026-08-18",
+            "source_vintage_at": "2026-08-19",
+            "value": 100.0,
+            "availability": availability,
+        },
+        {
+            "series_id": "CISS",
+            "observation_date": "2026-08-18",
+            "source_vintage_at": "2026-08-19",
+            "value": 101.0,
+            "availability": availability,
+        },
+    ]
+
+    with pytest.raises(AvailabilityContractError, match="duplicate visible vintage"):
+        select_latest_vintage_as_of(records, as_of="2026-08-20")
 
 
 def test_source_signature_change_is_visible() -> None:

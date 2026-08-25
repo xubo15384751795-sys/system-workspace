@@ -20,6 +20,10 @@ destination.
 from __future__ import annotations
 
 import json
+import math
+import os
+import tempfile
+from pathlib import Path
 from typing import Any, Iterator
 
 import dlt
@@ -90,10 +94,132 @@ def _iter_normalized_rows(payload_json: str | list[dict[str, Any]]) -> Iterator[
         value -= pd.to_numeric(pd.Series([row.get(short_col)]), errors="coerce").iloc[0]
         if pd.isna(observed_at) or pd.isna(value):
             continue
-        per_date[observed_at.normalize()] = per_date.get(observed_at.normalize(), 0.0) + float(value)
+        day = observed_at.normalize()
+        per_date[day] = per_date.get(day, 0.0) + float(value)
 
     for day in sorted(per_date):
         yield {"date": day.date(), "value": per_date[day]}
+
+
+def _legacy_cftc_series(payload_json: str | list[dict[str, Any]]) -> pd.Series:
+    """Load the legacy parser without making the dlt path a provider route."""
+    from harvester.providers.external_indicators import _parse_cftc_tff_lev_sp
+
+    payload: str | bytes
+    if isinstance(payload_json, list):
+        payload = json.dumps(payload_json)
+    else:
+        payload = payload_json
+    legacy = _parse_cftc_tff_lev_sp(payload)
+    if legacy.empty:
+        return pd.Series(dtype="float64", name="CFTC_TFF_LEV_SP")
+    # The legacy parser receives report-date strings.  Normalize here so the
+    # comparison is about the canonical daily key, not an incidental timestamp
+    # representation in a captured response.
+    index = pd.to_datetime(legacy.index, errors="coerce").normalize()
+    values = pd.to_numeric(legacy, errors="coerce")
+    return (
+        pd.Series(values.to_numpy(), index=index, name="CFTC_TFF_LEV_SP")
+        .dropna()
+        .groupby(level=0)
+        .sum()
+        .sort_index()
+    )
+
+
+def _shadow_cftc_series(payload_json: str | list[dict[str, Any]]) -> pd.Series:
+    rows = list(_iter_normalized_rows(payload_json))
+    if not rows:
+        return pd.Series(dtype="float64", name="CFTC_TFF_LEV_SP")
+    return pd.Series(
+        [float(row["value"]) for row in rows],
+        index=pd.to_datetime([row["date"] for row in rows]),
+        name="CFTC_TFF_LEV_SP",
+        dtype="float64",
+    ).sort_index()
+
+
+def build_cftc_shadow_parity_report(
+    payload_json: str | list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compare the dlt shadow normalization with the legacy parser.
+
+    This is deliberately a pure, offline comparison.  It does not run a dlt
+    pipeline, fetch a URL, update a cache, or grant the shadow source any
+    provider or publication authority.
+    """
+    legacy = _legacy_cftc_series(payload_json)
+    shadow = _shadow_cftc_series(payload_json)
+    legacy_values = {
+        pd.Timestamp(day).date().isoformat(): float(value)
+        for day, value in legacy.items()
+    }
+    shadow_values = {
+        pd.Timestamp(day).date().isoformat(): float(value)
+        for day, value in shadow.items()
+    }
+    legacy_dates = set(legacy_values)
+    shadow_dates = set(shadow_values)
+    missing_in_shadow = sorted(legacy_dates - shadow_dates)
+    extra_in_shadow = sorted(shadow_dates - legacy_dates)
+    value_mismatches = [
+        {
+            "date": day,
+            "legacy": legacy_values[day],
+            "dlt_shadow": shadow_values[day],
+        }
+        for day in sorted(legacy_dates & shadow_dates)
+        if not math.isclose(
+            legacy_values[day],
+            shadow_values[day],
+            rel_tol=1e-12,
+            abs_tol=1e-12,
+        )
+    ]
+    matched = not missing_in_shadow and not extra_in_shadow and not value_mismatches
+    return {
+        "schema_version": "system.harvester_dlt_shadow_parity.v1",
+        "authority": "shadow_only",
+        "provider": "cftc",
+        "series_id": "CFTC_TFF_LEV_SP",
+        "status": "MATCH" if matched else "MISMATCH",
+        "execution_parity": "MATCH" if matched else "MISMATCH",
+        "legacy_row_count": len(legacy_values),
+        "dlt_shadow_row_count": len(shadow_values),
+        "missing_in_shadow": missing_in_shadow,
+        "extra_in_shadow": extra_in_shadow,
+        "value_mismatches": value_mismatches,
+        "promotion_allowed": False,
+    }
+
+
+def write_cftc_shadow_parity_report(
+    payload_json: str | list[dict[str, Any]],
+    output_path: Path,
+) -> dict[str, Any]:
+    """Atomically write a diagnostic parity record and return its payload."""
+    report = build_cftc_shadow_parity_report(payload_json)
+    output_path = output_path.resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=output_path.parent,
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            mode="w",
+            encoding="utf-8",
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            json.dump(report, temporary, indent=2, sort_keys=True)
+            temporary.write("\n")
+        os.replace(temporary_path, output_path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+    return report
 
 
 @dlt.source(name="cftc_external")
@@ -119,4 +245,9 @@ def cftc_cot_source(payload_json: str | list[dict[str, Any]]):
     yield cftc_cot_shadow
 
 
-__all__ = ["SHADOW_TABLE_NAME", "cftc_cot_source"]
+__all__ = [
+    "SHADOW_TABLE_NAME",
+    "build_cftc_shadow_parity_report",
+    "cftc_cot_source",
+    "write_cftc_shadow_parity_report",
+]

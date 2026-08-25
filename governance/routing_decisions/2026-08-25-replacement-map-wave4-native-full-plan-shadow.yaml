@@ -1,0 +1,50 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-native-full-plan-shadow
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add a safe operator evidence gate for the complete compiled daily plan. Both
+  Dagster orchestration paths resolve the real registry sequence and invocation
+  metadata, but every provider callable and subprocess is suppressed by an
+  explicit dry-run context.
+scope:
+  - packages/orchestration/orchestration/sequence_executor.py
+  - packages/orchestration/orchestration/runner.py
+  - packages/orchestration/orchestration/native_daily.py
+  - packages/orchestration/orchestration/native_daily_checks.py
+  - packages/orchestration/orchestration/definitions.py
+  - packages/orchestration/orchestration/operators/run_native_daily_plan_shadow.py
+  - packages/orchestration/tests/test_native_daily_plan_shadow.py
+  - packages/orchestration/tests/test_native_daily.py
+  - governance/entrypoint_registry.yaml
+authority_boundary:
+  default_daily_path_changed: false
+  provider_execution: false
+  current_output_written: false
+  steps_jsonl_authority_changed: false
+  promotion_allowed: false
+decision: >
+  Use the dry-run command to establish structural parity for the full
+  CompiledPlan before attempting an isolated generation dual-run. The command
+  must compare native and generated step IDs and resolved invocation results,
+  fingerprint Output/current before and after, and restore any native opt-in
+  flag it temporarily clears. A MATCH is evidence of orchestration structure,
+  not evidence of provider, publication, lineage, or steps.jsonl parity.
+acceptance:
+  - the real compiled plan is used without a second hand-written step list
+  - native and generated paths resolve the same complete step sequence
+  - dry-run mode never calls run_step_fn, a provider callable, or a subprocess
+  - Output/current fingerprint is unchanged
+  - the report is shadow_only and promotion_allowed=false
+  - the operator entry is not in daily_job or an active schedule
+  - native_daily_shadow_job exposes all compiled steps while its schedule is STOPPED
+  - the durable report counts one non-blocking result check per native asset
+  - an isolated test proves a failed blocking check prevents downstream materialization
+rollback: >
+  Remove the operator entry and dry-run flag plumbing. The existing generated-op
+  default path and explicit native opt-in remain unchanged.
+observation_window: >
+  This gate is structural only. A separate isolated-generation dual-run must
+  still compare actual execution results, canonical lineage, publication, and
+  steps.jsonl for at least one week before any native promotion decision.

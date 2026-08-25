@@ -161,6 +161,9 @@ series:
         claim_ceiling: observed_source
         diagnostic_only: false
         acquisition_mode: manual
+        owner: Harvester
+        ttl_days: 180
+        fallback_policy: manual_snapshot_only_no_implicit_aggregate
         notes: >-
           The repaired official archive is a quarterly firm-level panel. Keep
           the scalar benchmark route manual until an aggregate selector is
@@ -180,6 +183,9 @@ series:
         claim_ceiling: observed_source
         diagnostic_only: false
         acquisition_mode: manual
+        owner: Harvester
+        ttl_days: 75
+        fallback_policy: manual_snapshot_only_no_transport_fallback
         notes: >-
           V-Lab's current MCP/API path requires authenticated access; use the
           operator-downloaded monthly aggregate CSV as the governed route.
@@ -212,6 +218,36 @@ series:
         fallback_kind: primary
         claim_ceiling: observed_source
         diagnostic_only: false
+  NYFED_PD_TREASURY_LE2Y:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: nyfed_primary_dealer_treasury_le2y
+    frequency: weekly
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: nyfed_pd_le2y_primary
+        source_id: nyfed
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+        notes: NY Fed PDPOSGSC-L2; partial-maturity route, not a substitute for the total Treasury route.
+  NYFED_PD_TREASURY_GT11Y:
+    dataset_id: benchmark_panel
+    semantic_equivalence_group: nyfed_primary_dealer_treasury_gt11y
+    frequency: weekly
+    adjustment_policy: publisher_defined
+    primary_key: [series_id, date, vintage_date]
+    routes:
+      - route_id: nyfed_pd_gt11y_primary
+        source_id: nyfed
+        tier: 1
+        transport: owned_http_gateway
+        fallback_kind: primary
+        claim_ceiling: observed_source
+        diagnostic_only: false
+        notes: NY Fed PDPOSGSC-G11; partial-maturity route, not a substitute for the total Treasury route.
   FINRA_MARGIN_DEBT:
     dataset_id: benchmark_panel
     semantic_equivalence_group: finra_margin_debt

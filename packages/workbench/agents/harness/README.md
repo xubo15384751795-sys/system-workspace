@@ -16,5 +16,5 @@ It is not the Structural Deformation Framework. It may inspect and route
 Framework artifacts only through protocol-shaped files and governed tool
 interfaces.
 
-The old top-level path `/Users/a1/System/Structural Research Harness` is a
-compatibility symlink to this folder.
+The old top-level path `/Users/a1/System/Structural Research Harness` was a
+compatibility symlink to this folder before the workspace was renamed to Verity.

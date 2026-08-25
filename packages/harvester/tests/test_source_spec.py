@@ -30,9 +30,19 @@ def test_workspace_source_registry_is_typed_and_semantic() -> None:
     assert registry.authority_id("cboe") == "cboe"
     assert registry.get("SOFR").route_for("fred").fallback_kind == "primary"  # type: ignore[union-attr]
     assert registry.get("FRED_SERIES").route_for("fred").transport == "owned_http_gateway"  # type: ignore[union-attr]
-    assert registry.get("SRISK").route_for("nyu_vlab").acquisition_mode == "manual"  # type: ignore[union-attr]
+    srisk_route = registry.get("SRISK").route_for("nyu_vlab")  # type: ignore[union-attr]
+    assert srisk_route.acquisition_mode == "manual"  # type: ignore[union-attr]
+    assert srisk_route.owner == "Harvester"  # type: ignore[union-attr]
+    assert srisk_route.ttl_days == 75  # type: ignore[union-attr]
+    assert srisk_route.fallback_policy == "manual_snapshot_only_no_transport_fallback"  # type: ignore[union-attr]
     assert registry.get("SRISK").frequency == "monthly"
-    assert registry.get("COVAR").route_for("nyfed").acquisition_mode == "manual"  # type: ignore[union-attr]
+    covar_route = registry.get("COVAR").route_for("nyfed")  # type: ignore[union-attr]
+    assert covar_route.acquisition_mode == "manual"  # type: ignore[union-attr]
+    assert covar_route.owner == "Harvester"  # type: ignore[union-attr]
+    assert covar_route.ttl_days == 180  # type: ignore[union-attr]
+    assert covar_route.fallback_policy == "manual_snapshot_only_no_implicit_aggregate"  # type: ignore[union-attr]
+    assert registry.get("NYFED_PD_TREASURY_LE2Y").route_for("nyfed").transport == "owned_http_gateway"  # type: ignore[union-attr]
+    assert registry.get("NYFED_PD_TREASURY_GT11Y").route_for("nyfed").transport == "owned_http_gateway"  # type: ignore[union-attr]
 
 
 def test_source_registry_rejects_unknown_route_source() -> None:

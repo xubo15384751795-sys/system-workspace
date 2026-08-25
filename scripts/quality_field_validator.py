@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from typing import Any
 
 from scripts._constants import CASELAB_USABLE_THRESHOLD
@@ -99,11 +100,15 @@ def check_quality_fields(fw: dict[str, Any]) -> list[dict[str, Any]]:
     return issues
 
 
-def check_caselab_gate(date_str: str) -> list[dict[str, Any]]:
+def check_caselab_gate(
+    date_str: str,
+    *,
+    caselab_dir: Path | None = None,
+) -> list[dict[str, Any]]:
     """Check CaseLab match quality gate."""
     issues = []
 
-    caselab_path = CASELAB_DIR / f"{date_str}.json"
+    caselab_path = (caselab_dir or CASELAB_DIR) / f"{date_str}.json"
     caselab = load_json(caselab_path)
     if not caselab:
         return [{"rule": "CASELAB_MISSING", "severity": "INFO", "message": "No CaseLab output for today"}]
@@ -137,11 +142,11 @@ def check_caselab_gate(date_str: str) -> list[dict[str, Any]]:
     return issues
 
 
-def check_hmm_gate() -> list[dict[str, Any]]:
+def check_hmm_gate(*, hmm_path: Path | None = None) -> list[dict[str, Any]]:
     """Check HMM output gates."""
     issues = []
 
-    hmm = load_json(HMM_PATH)
+    hmm = load_json(hmm_path or HMM_PATH)
     if not hmm:
         return [{"rule": "HMM_MISSING", "severity": "INFO", "message": "No HMM output found"}]
 
@@ -170,17 +175,23 @@ def check_hmm_gate() -> list[dict[str, Any]]:
     return issues
 
 
-def build_validation_report(fw: dict[str, Any] | None, date_str: str) -> dict[str, Any]:
+def build_validation_report(
+    fw: dict[str, Any] | None,
+    date_str: str,
+    *,
+    caselab_dir: Path | None = None,
+    hmm_path: Path | None = None,
+) -> dict[str, Any]:
     """Build complete validation report."""
     all_issues = []
 
     if fw:
         all_issues.extend(check_quality_fields(fw))
-        all_issues.extend(check_caselab_gate(date_str))
+        all_issues.extend(check_caselab_gate(date_str, caselab_dir=caselab_dir))
     else:
         all_issues.append({"rule": "FRAMEWORK_MISSING", "severity": "ERROR", "message": "framework_output.json not found"})
 
-    all_issues.extend(check_hmm_gate())
+    all_issues.extend(check_hmm_gate(hmm_path=hmm_path))
 
     errors = [i for i in all_issues if i["severity"] == "ERROR"]
     warnings = [i for i in all_issues if i["severity"] == "WARNING"]
@@ -202,6 +213,17 @@ def build_validation_report(fw: dict[str, Any] | None, date_str: str) -> dict[st
     }
 
 
+def write_validation_report(
+    report: dict[str, Any],
+    *,
+    output_path: Path = OUTPUT_PATH,
+) -> Path:
+    """Persist a validation report at an explicit path."""
+    ensure_dir(output_path.parent)
+    write_json(output_path, report)
+    return output_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate quality fields in daily output.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
@@ -217,8 +239,7 @@ def main() -> None:
 
     report = build_validation_report(fw, date_str)
 
-    ensure_dir(OUTPUT_PATH.parent)
-    write_json(OUTPUT_PATH, report)
+    write_validation_report(report)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

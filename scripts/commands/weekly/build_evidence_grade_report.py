@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -41,14 +43,89 @@ HARVESTER_CATALOG_PATH = ROOT / "Data" / "harvester" / "exports" / "latest" / "c
 DATA_REQUEST_PATH = ROOT / "governance" / "data_request_registry.yaml"
 OUTPUT_PATH = current_dir() / "evidence_grade_report.json"
 
+_PATH_KEYS = (
+    "judgment",
+    "promotion_gate",
+    "trade_decision",
+    "k_gate",
+    "x_gate",
+    "hmm_audit",
+    "freshness",
+    "paper_manifest",
+    "harvester_catalog",
+    "data_request",
+    "output",
+)
+
+
+def _default_paths() -> dict[str, Path]:
+    """Return the legacy-compatible input/output path bindings.
+
+    The mapping is built at call time so tests and bounded execution adapters
+    can replace module-level bindings without changing the report semantics.
+    """
+    return {
+        "judgment": JUDGMENT_PATH,
+        "promotion_gate": PROMOTION_GATE_PATH,
+        "trade_decision": TRADE_DECISION_PATH,
+        "k_gate": K_GATE_PATH,
+        "x_gate": X_GATE_PATH,
+        "hmm_audit": HMM_AUDIT_PATH,
+        "freshness": FRESHNESS_PATH,
+        "paper_manifest": PAPER_MANIFEST_PATH,
+        "harvester_catalog": HARVESTER_CATALOG_PATH,
+        "data_request": DATA_REQUEST_PATH,
+        "output": OUTPUT_PATH,
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve optional explicit paths while preserving the no-arg contract."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown evidence-grade path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
+
+
+def _contract_path(path: Path) -> str:
+    """Keep provenance paths stable across repository and temp generations."""
+    raw_generation = os.environ.get("SYSTEM_GENERATION_DIR", "").strip()
+    if raw_generation:
+        generation = Path(raw_generation).expanduser().resolve()
+        try:
+            return str(Path("Output") / path.resolve().relative_to(generation))
+        except ValueError:
+            pass
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 CONTRIBUTOR_ARTIFACTS: dict[str, list[str]] = {
-    "paper_world_model": [str(PAPER_MANIFEST_PATH.relative_to(ROOT))],
-    "hmm_stability": [str(HMM_AUDIT_PATH.relative_to(ROOT))],
-    "k_measurement_gate": [str(K_GATE_PATH.relative_to(ROOT))],
-    "x_measurement_gate": [str(X_GATE_PATH.relative_to(ROOT))],
-    "data_freshness": [str(FRESHNESS_PATH.relative_to(ROOT))],
-    "harvester_evidence": [str(HARVESTER_CATALOG_PATH.relative_to(ROOT))],
+    "paper_world_model": [_contract_path(PAPER_MANIFEST_PATH)],
+    "hmm_stability": [_contract_path(HMM_AUDIT_PATH)],
+    "k_measurement_gate": [_contract_path(K_GATE_PATH)],
+    "x_measurement_gate": [_contract_path(X_GATE_PATH)],
+    "data_freshness": [_contract_path(FRESHNESS_PATH)],
+    "harvester_evidence": [_contract_path(HARVESTER_CATALOG_PATH)],
 }
+
+
+def _contributor_artifacts(paths: Mapping[str, Path]) -> dict[str, list[str]]:
+    """Build provenance paths for the active execution surface."""
+    return {
+        "paper_world_model": [_contract_path(paths["paper_manifest"])],
+        "hmm_stability": [_contract_path(paths["hmm_audit"])],
+        "k_measurement_gate": [_contract_path(paths["k_gate"])],
+        "x_measurement_gate": [_contract_path(paths["x_gate"])],
+        "data_freshness": [_contract_path(paths["freshness"])],
+        "harvester_evidence": [_contract_path(paths["harvester_catalog"])],
+    }
 
 
 def _load_yaml_safe(path: Path) -> dict[str, Any]:
@@ -69,12 +146,14 @@ def _build_contributors(
     hmm_audit: dict | None,
     freshness: dict | None,
     harvester_catalog: dict | None,
+    *,
+    paper_manifest_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Build list of evidence contributors with weights."""
     contributors: list[dict[str, Any]] = []
 
     # Paper world model — foundational evidence source
-    paper_manifest = load_json(PAPER_MANIFEST_PATH)
+    paper_manifest = load_json(paper_manifest_path or PAPER_MANIFEST_PATH)
     paper_entry: dict[str, Any] = {
         "source": "paper_world_model",
         "weight": 0.25,
@@ -166,8 +245,11 @@ def _build_contributors(
 def _build_contributor_drill_down(
     contributors: list[dict[str, Any]],
     blockers: list[dict[str, Any]],
+    *,
+    artifact_paths: Mapping[str, list[str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Per-contributor drill-down for evidence grade transparency."""
+    artifacts = artifact_paths or CONTRIBUTOR_ARTIFACTS
     drill_down: list[dict[str, Any]] = []
     for contributor in contributors:
         source = contributor["source"]
@@ -192,7 +274,7 @@ def _build_contributor_drill_down(
                 "weight": contributor["weight"],
                 "admitted": contributor["admitted"],
                 "status": contributor["status"],
-                "artifact_paths": CONTRIBUTOR_ARTIFACTS.get(source, []),
+                "artifact_paths": artifacts.get(source, []),
                 "details": contributor.get("details", {}),
                 "related_blockers": related,
                 "grade_if_admitted": grade_if_admitted,
@@ -207,6 +289,8 @@ def _build_blockers(
     promotion_gate: dict | None,
     trade_decision: dict | None,
     contributors: list[dict[str, Any]],
+    *,
+    data_request_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Build machine-readable blocker list."""
     blockers: list[dict[str, Any]] = []
@@ -253,7 +337,7 @@ def _build_blockers(
             })
 
     # Data request blockers from registry
-    data_requests = _load_yaml_safe(DATA_REQUEST_PATH)
+    data_requests = _load_yaml_safe(data_request_path or DATA_REQUEST_PATH)
     for req in data_requests.get("requests", []):
         if req.get("status") in ("pending", "sourcing", "transitional"):
             if req.get("core_judgment_priority", "").startswith("blocked"):
@@ -338,27 +422,49 @@ def _build_paper_support_status(trade_decision: dict | None) -> dict[str, Any]:
     }
 
 
-def build_evidence_grade_report() -> dict[str, Any]:
-    """Build the complete evidence grade report."""
+def build_evidence_grade_report(
+    paths: Mapping[str, Path] | None = None,
+) -> dict[str, Any]:
+    """Build the complete evidence grade report.
+
+    ``paths`` is an explicit generation boundary for the native Dagster
+    adapter.  The no-argument form remains the compatibility callable used by
+    the existing runner and tests.
+    """
     now = utc_now()
+    resolved_paths = _resolve_paths(paths)
 
     # Load all inputs
-    judgment = load_json(JUDGMENT_PATH)
-    promotion_gate = load_json(PROMOTION_GATE_PATH)
-    trade_decision = load_json(TRADE_DECISION_PATH)
-    k_gate = load_json(K_GATE_PATH)
-    x_gate = load_json(X_GATE_PATH)
-    hmm_audit = load_json(HMM_AUDIT_PATH)
-    freshness = load_json(FRESHNESS_PATH)
-    harvester_catalog = load_json(HARVESTER_CATALOG_PATH)
+    judgment = load_json(resolved_paths["judgment"])
+    promotion_gate = load_json(resolved_paths["promotion_gate"])
+    trade_decision = load_json(resolved_paths["trade_decision"])
+    k_gate = load_json(resolved_paths["k_gate"])
+    x_gate = load_json(resolved_paths["x_gate"])
+    hmm_audit = load_json(resolved_paths["hmm_audit"])
+    freshness = load_json(resolved_paths["freshness"])
+    harvester_catalog = load_json(resolved_paths["harvester_catalog"])
+    contributor_artifacts = _contributor_artifacts(resolved_paths)
 
     # Build contributors
     contributors = _build_contributors(
-        judgment, promotion_gate, k_gate, x_gate, hmm_audit, freshness, harvester_catalog
+        judgment,
+        promotion_gate,
+        k_gate,
+        x_gate,
+        hmm_audit,
+        freshness,
+        harvester_catalog,
+        paper_manifest_path=resolved_paths["paper_manifest"],
     )
 
     # Build blockers
-    blockers = _build_blockers(judgment, promotion_gate, trade_decision, contributors)
+    blockers = _build_blockers(
+        judgment,
+        promotion_gate,
+        trade_decision,
+        contributors,
+        data_request_path=resolved_paths["data_request"],
+    )
 
     # Compute grade
     computed_grade = _compute_grade(contributors, blockers)
@@ -376,11 +482,27 @@ def build_evidence_grade_report() -> dict[str, Any]:
         "admitted_weight": round(sum(c["weight"] for c in contributors if c["admitted"]), 2),
         "total_weight": round(sum(c["weight"] for c in contributors), 2),
         "contributors": contributors,
-        "contributor_drill_down": _build_contributor_drill_down(contributors, blockers),
+        "contributor_drill_down": _build_contributor_drill_down(
+            contributors,
+            blockers,
+            artifact_paths=contributor_artifacts,
+        ),
         "blockers": blockers,
         "paper_support_status": paper_support,
         "what_would_upgrade": _build_upgrade_path(contributors, blockers, computed_grade),
     }
+
+
+def write_evidence_grade_report(
+    report: dict[str, Any],
+    *,
+    output_path: Path | None = None,
+) -> Path:
+    """Write a report to an explicit output surface and return its path."""
+    target = output_path or OUTPUT_PATH
+    ensure_dir(target.parent)
+    write_json(target, report)
+    return target
 
 
 def _build_upgrade_path(
@@ -459,13 +581,12 @@ def main() -> None:
     args = parser.parse_args()
 
     report = build_evidence_grade_report()
-    ensure_dir(OUTPUT_PATH.parent)
-    write_json(OUTPUT_PATH, report)
+    output_path = write_evidence_grade_report(report)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
-        print(f"Evidence Grade Report: {OUTPUT_PATH}")
+        print(f"Evidence Grade Report: {output_path}")
         print(f"  Grade: {report['grade']} (trade decision: {report['trade_decision_grade']})")
         print(f"  Match: {report['grade_match']}")
         print(f"  Admitted weight: {report['admitted_weight']}/{report['total_weight']}")

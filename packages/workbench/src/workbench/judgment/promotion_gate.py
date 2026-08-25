@@ -11,6 +11,7 @@ Usage:
 
     report = run_promotion_gate(date_str)
 """
+
 from __future__ import annotations
 
 from system_runtime.paths import WorkspacePaths, output_surface
@@ -72,7 +73,13 @@ def check_confidence(judgment: dict[str, Any]) -> dict[str, Any]:
                     f"Trade confidence is low, but mechanism_confidence={mech_conf} — "
                     f"mechanism hypothesis allowed, trade blocked"
                 ),
-                "blocked_terms": ["signal", "regime call", "prediction", "forecast", "position"],
+                "blocked_terms": [
+                    "signal",
+                    "regime call",
+                    "prediction",
+                    "forecast",
+                    "position",
+                ],
             }
         return {
             "status": "BLOCKED",
@@ -104,14 +111,27 @@ def check_claim_ceiling(judgment: dict[str, Any]) -> dict[str, Any]:
         return {
             "status": "WATCH",
             "reason": "Claim ceiling is mechanism_hypothesis — mechanism language allowed, operational blocked",
-            "blocked_terms": ["signal", "regime call", "prediction", "forecast", "position", "strong claim"],
+            "blocked_terms": [
+                "signal",
+                "regime call",
+                "prediction",
+                "forecast",
+                "position",
+                "strong claim",
+            ],
         }
 
     if claim_ceiling in {"diagnostic_watch_only", policy_labels.get(0)}:
         return {
             "status": "BLOCKED",
             "reason": "Claim ceiling is diagnostic_watch_only",
-            "blocked_terms": ["signal", "regime call", "prediction", "forecast", "strong claim"],
+            "blocked_terms": [
+                "signal",
+                "regime call",
+                "prediction",
+                "forecast",
+                "strong claim",
+            ],
         }
 
     if claim_ceiling in {"structural_diagnostic_with_caveats", policy_labels.get(2)}:
@@ -124,11 +144,19 @@ def check_claim_ceiling(judgment: dict[str, Any]) -> dict[str, Any]:
     return {"status": "PASS", "blocked_terms": []}
 
 
-def check_caselab(date_str: str) -> dict[str, Any]:
-    caselab_path = CASELAB_DIR / f"{date_str}.json"
+def check_caselab(
+    date_str: str,
+    *,
+    caselab_dir: Path = CASELAB_DIR,
+) -> dict[str, Any]:
+    caselab_path = caselab_dir / f"{date_str}.json"
     caselab = load_json(caselab_path)
     if not caselab:
-        return {"status": "BLOCKED", "reason": "No CaseLab output", "blocked_terms": ["historical analogy"]}
+        return {
+            "status": "BLOCKED",
+            "reason": "No CaseLab output",
+            "blocked_terms": ["historical analogy"],
+        }
     match_quality = caselab.get("match_quality", {})
     label = match_quality.get("label", "unknown")
     top_score = _as_float(match_quality.get("top_score", 0))
@@ -149,15 +177,19 @@ def check_caselab(date_str: str) -> dict[str, Any]:
     return {"status": "PASS", "blocked_terms": []}
 
 
-def check_hmm() -> dict[str, Any]:
+def check_hmm(
+    *,
+    hmm_path: Path = HMM_PATH,
+    hmm_audit_path: Path = HMM_AUDIT_PATH,
+) -> dict[str, Any]:
     """Check HMM gate with claim-type-aware blocking.
 
     HMM blocks REGIME claims when model_health is FAIL or calibration
     is INSUFFICIENT_HISTORY. But it does NOT block mechanism hypothesis,
     M/D structural readout, or watch conditions.
     """
-    hmm = load_json(HMM_PATH)
-    hmm_audit = load_json(HMM_AUDIT_PATH)
+    hmm = load_json(hmm_path)
+    hmm_audit = load_json(hmm_audit_path)
     if not hmm:
         return {
             "status": "BLOCKED",
@@ -202,7 +234,9 @@ def check_hmm() -> dict[str, Any]:
 
     # Use calibrated confidence when available; fall back to raw probability
     calibrated = regime.get("calibrated_confidence")
-    raw_prob = _as_float(regime.get("raw_probability", regime.get("current_probability", 0)))
+    raw_prob = _as_float(
+        regime.get("raw_probability", regime.get("current_probability", 0))
+    )
 
     if calibrated:
         calibration_passed = regime.get("calibration_passed", False)
@@ -217,7 +251,9 @@ def check_hmm() -> dict[str, Any]:
                     f"regime claims blocked, mechanism hypothesis allowed"
                 ),
                 "blocked_terms": ["regime", "crisis", "compression", "certain"],
-                "supportable_claims": hmm_audit.get("hmm_supportable_claims", []) if hmm_audit else [],
+                "supportable_claims": hmm_audit.get("hmm_supportable_claims", [])
+                if hmm_audit
+                else [],
             }
     else:
         if raw_prob >= 0.99:
@@ -234,17 +270,21 @@ def check_hmm() -> dict[str, Any]:
             "status": "WATCH",
             "reason": "HMM indicates crisis — verify with M/D/K/X",
             "blocked_terms": [],
-            "supportable_claims": hmm_audit.get("hmm_supportable_claims", []) if hmm_audit else [],
+            "supportable_claims": hmm_audit.get("hmm_supportable_claims", [])
+            if hmm_audit
+            else [],
         }
     return {
         "status": "PASS",
         "blocked_terms": [],
-        "supportable_claims": hmm_audit.get("hmm_supportable_claims", []) if hmm_audit else [],
+        "supportable_claims": hmm_audit.get("hmm_supportable_claims", [])
+        if hmm_audit
+        else [],
     }
 
 
-def check_k_gate() -> dict[str, Any]:
-    k_gate = load_json(K_GATE_PATH)
+def check_k_gate(*, k_gate_path: Path = K_GATE_PATH) -> dict[str, Any]:
+    k_gate = load_json(k_gate_path)
     if not k_gate:
         return {
             "status": "RESEARCH_ONLY",
@@ -261,8 +301,8 @@ def check_k_gate() -> dict[str, Any]:
     }
 
 
-def check_x_gate() -> dict[str, Any]:
-    x_gate = load_json(X_GATE_PATH)
+def check_x_gate(*, x_gate_path: Path = X_GATE_PATH) -> dict[str, Any]:
+    x_gate = load_json(x_gate_path)
     if not x_gate:
         return {
             "status": "RESEARCH_ONLY",
@@ -349,7 +389,14 @@ def determine_allowed_language(
         allowed = ["diagnostic", "watch", "observation", "monitor", "research note"]
         forbidden = sorted(all_blocked)
     else:
-        allowed = ["signal", "regime call", "prediction", "forecast", "diagnostic", "watch"]
+        allowed = [
+            "signal",
+            "regime call",
+            "prediction",
+            "forecast",
+            "diagnostic",
+            "watch",
+        ]
         forbidden = []
 
     # Merge claim ladder language (ladder can ADD allowed terms at higher tiers)
@@ -371,8 +418,7 @@ def determine_allowed_language(
         allowlist_phrases = {"shadow position"}
         forbidden_set = set(forbidden)
         allowed = [
-            t for t in allowed
-            if t not in forbidden_set or t in allowlist_phrases
+            t for t in allowed if t not in forbidden_set or t in allowlist_phrases
         ]
         for phrase in allowlist_phrases:
             if phrase in ladder_allowed and phrase not in allowed:
@@ -382,7 +428,14 @@ def determine_allowed_language(
 
 
 def determine_claim_ceiling(gates: dict[str, dict]) -> str:
-    priority_gates = ["confidence", "claim_ceiling", "caselab", "hmm", "k_gate", "x_gate"]
+    priority_gates = [
+        "confidence",
+        "claim_ceiling",
+        "caselab",
+        "hmm",
+        "k_gate",
+        "x_gate",
+    ]
     for gate_name in priority_gates:
         gate = gates.get(gate_name, {})
         if gate.get("status") == "BLOCKED":
@@ -394,10 +447,19 @@ def determine_claim_ceiling(gates: dict[str, dict]) -> str:
     return "structural_diagnostic"
 
 
-def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
+def run_promotion_gate(
+    date_str: str | None = None,
+    *,
+    judgment_path: Path = JUDGMENT_PATH,
+    caselab_dir: Path = CASELAB_DIR,
+    hmm_path: Path = HMM_PATH,
+    hmm_audit_path: Path = HMM_AUDIT_PATH,
+    k_gate_path: Path = K_GATE_PATH,
+    x_gate_path: Path = X_GATE_PATH,
+) -> dict[str, Any]:
     if not date_str:
         date_str = datetime.now(UTC).strftime("%Y-%m-%d")
-    judgment = load_json(JUDGMENT_PATH)
+    judgment = load_json(judgment_path)
     if not judgment:
         return {
             "schema_version": "system.judgment_promotion_gate.v1",
@@ -413,14 +475,18 @@ def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
     gates = {
         "confidence": check_confidence(judgment),
         "claim_ceiling": check_claim_ceiling(judgment),
-        "caselab": check_caselab(date_str),
-        "hmm": check_hmm(),
-        "k_gate": check_k_gate(),
-        "x_gate": check_x_gate(),
+        "caselab": check_caselab(date_str, caselab_dir=caselab_dir),
+        "hmm": check_hmm(hmm_path=hmm_path, hmm_audit_path=hmm_audit_path),
+        "k_gate": check_k_gate(k_gate_path=k_gate_path),
+        "x_gate": check_x_gate(x_gate_path=x_gate_path),
         "epistemic_promotion": check_epistemic_promotion(judgment),
     }
-    blocked_gates = [name for name, gate in gates.items() if gate.get("status") == "BLOCKED"]
-    watch_gates = [name for name, gate in gates.items() if gate.get("status") == "WATCH"]
+    blocked_gates = [
+        name for name, gate in gates.items() if gate.get("status") == "BLOCKED"
+    ]
+    watch_gates = [
+        name for name, gate in gates.items() if gate.get("status") == "WATCH"
+    ]
     if blocked_gates:
         overall_status = "BLOCKED"
     elif watch_gates:
@@ -454,7 +520,9 @@ def run_promotion_gate(date_str: str | None = None) -> dict[str, Any]:
         "allowed_language": language["allowed"],
         "forbidden_language": language["forbidden"],
         "claim_ceiling": claim_ceiling,
-        "epistemic_authority": gates["epistemic_promotion"].get("authority", "DIAGNOSTIC_ONLY"),
+        "epistemic_authority": gates["epistemic_promotion"].get(
+            "authority", "DIAGNOSTIC_ONLY"
+        ),
     }
 
 
@@ -506,6 +574,8 @@ def write_outputs(report: dict[str, Any]) -> dict[str, Path]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     json_path = OUTPUT_DIR / "promotion_gate.json"
     md_path = OUTPUT_DIR / "promotion_gate.md"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    json_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     md_path.write_text(format_markdown(report), encoding="utf-8")
     return {"json": json_path, "markdown": md_path}

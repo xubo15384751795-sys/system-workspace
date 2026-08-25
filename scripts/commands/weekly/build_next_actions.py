@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,28 @@ OUTPUT_DIR = current_dir()
 IMPROVEMENT_LEDGER = ROOT / "Data" / "system_learning" / "ledgers" / "improvement_queue.parquet"
 ACTIVE_IMPROVEMENT_STATES = frozenset({"proposed", "approved", "open", "in_progress"})
 
+_PATH_KEYS = ("output", "improvement_ledger")
+
+
+def _default_paths() -> dict[str, Path]:
+    """Return legacy-compatible input/output path bindings."""
+    return {
+        "output": OUTPUT_DIR,
+        "improvement_ledger": IMPROVEMENT_LEDGER,
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve explicit generation paths without changing no-arg behavior."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown next-actions path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
+
 
 def _write_text_file(path: Path, content: str) -> None:
     if path.is_symlink():
@@ -37,16 +60,17 @@ def _write_text_file(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _load_open_improvements() -> pd.DataFrame:
-    if not IMPROVEMENT_LEDGER.is_file():
+def _load_open_improvements(ledger_path: Path | None = None) -> pd.DataFrame:
+    ledger = ledger_path or IMPROVEMENT_LEDGER
+    if not ledger.is_file():
         return pd.DataFrame()
-    frame = pd.read_parquet(IMPROVEMENT_LEDGER)
+    frame = pd.read_parquet(ledger)
     if frame.empty or "lifecycle_state" not in frame.columns:
         return frame
     return frame[frame["lifecycle_state"].astype(str).isin(ACTIVE_IMPROVEMENT_STATES)]
 
 
-def _load_current_status() -> dict[str, Any]:
+def _load_current_status(output_dir: Path | None = None) -> dict[str, Any]:
     """Read the status snapshot produced by the same pipeline run.
 
     ``status.json`` is the canonical hand-off from ``current_status`` to
@@ -55,13 +79,17 @@ def _load_current_status() -> dict[str, Any]:
     pipeline uses the explicit registry edge and therefore cannot silently read
     a different set of source files.
     """
-    status = load_json(OUTPUT_DIR / "status.json")
+    status = load_json((output_dir or OUTPUT_DIR) / "status.json")
     if isinstance(status, dict):
         return status
     return gather_status()
 
 
-def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
+def determine_next_actions(
+    status: dict[str, Any],
+    *,
+    improvement_ledger: Path | None = None,
+) -> list[dict[str, str]]:
     """Determine next actions based on current status."""
     actions = []
 
@@ -114,7 +142,7 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
         })
 
     # Learning Hub improvement queue — read parquet ledger (not stale markdown)
-    open_items = _load_open_improvements()
+    open_items = _load_open_improvements(improvement_ledger)
     if not open_items.empty:
         top = open_items.iloc[0]
         subsystem = top.get("subsystem", "unknown")
@@ -161,6 +189,19 @@ def determine_next_actions(status: dict[str, Any]) -> list[dict[str, str]]:
         })
 
     return actions
+
+
+def build_next_actions(
+    paths: Mapping[str, Path] | None = None,
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Build next actions against legacy or explicit generation paths."""
+    resolved = _resolve_paths(paths)
+    status = _load_current_status(resolved["output"])
+    actions = determine_next_actions(
+        status,
+        improvement_ledger=resolved["improvement_ledger"],
+    )
+    return status, actions
 
 
 def build_next_actions_md(status: dict[str, Any], actions: list[dict[str, str]]) -> str:
@@ -269,20 +310,26 @@ def build_next_actions_md(status: dict[str, Any], actions: list[dict[str, str]])
     return "\n".join(lines) + "\n"
 
 
+def write_next_actions(
+    status: dict[str, Any],
+    actions: list[dict[str, str]],
+    *,
+    output_path: Path | None = None,
+) -> Path:
+    """Write NEXT_ACTIONS.md to an explicit current-output surface."""
+    target = output_path or (OUTPUT_DIR / "NEXT_ACTIONS.md")
+    ensure_dir(target.parent)
+    _write_text_file(target, build_next_actions_md(status, actions))
+    return target
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build NEXT_ACTIONS.md.")
     parser.add_argument("--json", action="store_true", help="Print status JSON to stdout.")
     args = parser.parse_args()
 
-    status = _load_current_status()
-    actions = determine_next_actions(status)
-
-    ensure_dir(OUTPUT_DIR)
-
-    # Write NEXT_ACTIONS.md
-    next_actions_md = build_next_actions_md(status, actions)
-    next_actions_path = OUTPUT_DIR / "NEXT_ACTIONS.md"
-    _write_text_file(next_actions_path, next_actions_md)
+    status, actions = build_next_actions()
+    next_actions_path = write_next_actions(status, actions)
 
     if args.json:
         print(json.dumps({"status": status, "actions": actions}, indent=2, ensure_ascii=False))

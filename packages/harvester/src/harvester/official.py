@@ -1164,43 +1164,86 @@ def fetch_official_series_from_registry(
     for s in requested_specs:
         source_id = s.source_series_id or s.canonical_id
         got = False
+        route_attempts: list[dict[str, Any]] = []
         for provider_name in order_provider_priority(s.provider_priority):
             if provider_name not in enabled:
                 continue
             try:
                 prov = _provider(provider_name)
             except ProviderError as exc:
+                route_attempts.append(
+                    {
+                        "provider": provider_name,
+                        "source_id": provider_name,
+                        "outcome": "failed",
+                        "reason": "provider_init_error",
+                        "error": str(exc)[:300],
+                    }
+                )
                 errors.append({"provider": provider_name, "series_id": source_id, "error": str(exc)})
                 continue
             results = prov.fetch_series([source_id])
             result = results[0] if results else None
             if result is None:
+                route_attempts.append(
+                    {
+                        "provider": provider_name,
+                        "source_id": str(getattr(prov, "source_id", provider_name)),
+                        "outcome": "failed",
+                        "reason": "empty_provider_result",
+                        "error": "",
+                    }
+                )
                 errors.append({
                     "provider": provider_name,
                     "series_id": source_id,
                     "error": "empty_provider_result",
                 })
                 continue
+            provider_identity = str(result.provider or getattr(prov, "source_id", provider_name))
+            route_attempt: dict[str, Any] = {
+                "provider": provider_name,
+                "source_id": provider_identity,
+                "outcome": "failed",
+                "reason": str(result.fetch_fallback_reason or "provider_error"),
+                "error": str(result.fetch_error or "")[:300],
+            }
+            source_params = result.source_params if isinstance(result.source_params, dict) else {}
+            source_engine = source_params.get("source_engine")
+            if source_engine:
+                route_attempt["source_engine"] = str(source_engine)
+            if result.source_url:
+                route_attempt["source_url"] = str(result.source_url)
             normalized = _normalize_result(result, prov)
             if normalized is not None:
+                route_attempt["outcome"] = "success"
+                # ``series_attempts`` is embedded in the release manifest;
+                # successful attempts still need a non-empty reason under the
+                # frozen provider-outcome contract.
+                route_attempt["reason"] = "success"
+                provider_attempts = source_params.get("provider_attempts")
+                if isinstance(provider_attempts, list) and provider_attempts:
+                    route_attempts.extend(provider_attempts)
+                else:
+                    route_attempts.append(route_attempt)
                 all_results.append(normalized)
                 succeeded_series.append(source_id)
-                selected_provider = str(result.provider or provider_name)
+                selected_provider = provider_identity
                 providers_used.add(selected_provider)
                 series_providers[source_id] = selected_provider
-                source_signature = result.source_params.get("source_signature")
+                source_signature = source_params.get("source_signature")
                 if isinstance(source_signature, dict):
                     series_source_signatures[source_id] = dict(source_signature)
-                provider_attempts = result.source_params.get("provider_attempts")
-                if isinstance(provider_attempts, list) and provider_attempts:
-                    series_attempts[source_id] = provider_attempts
-                    fallback_used = fallback_used or len(provider_attempts) > 1
+                series_attempts[source_id] = route_attempts
+                fallback_used = fallback_used or len(route_attempts) > 1
                 got = True
                 break
-            provider_attempts = result.source_params.get("provider_attempts")
+            provider_attempts = source_params.get("provider_attempts")
             if isinstance(provider_attempts, list) and provider_attempts:
-                series_attempts[source_id] = provider_attempts
-                fallback_used = fallback_used or len(provider_attempts) > 1
+                route_attempts.extend(provider_attempts)
+            else:
+                route_attempts.append(route_attempt)
+            fallback_used = fallback_used or len(route_attempts) > 1
             errors.append({
                 "provider": provider_name,
                 "series_id": source_id,
@@ -1208,6 +1251,8 @@ def fetch_official_series_from_registry(
                 "fallback_reason": result.fetch_fallback_reason,
             })
         if not got:
+            if route_attempts:
+                series_attempts[source_id] = route_attempts
             failed_series.append(source_id)
             logger.debug("no provider succeeded for %s", source_id)
 

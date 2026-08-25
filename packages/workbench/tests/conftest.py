@@ -13,8 +13,12 @@ import pytest
 
 # Real workspace roots — used only to copy read-only assets (contracts, configs)
 # into the isolated tmp workspace so validators can load their schemas.
-_WORKBENCH_ROOT = Path(__file__).resolve().parents[1]  # Workbench/
-_SYSTEM_ROOT = _WORKBENCH_ROOT.parent                  # System/
+_WORKBENCH_ROOT = Path(__file__).resolve().parents[1]  # packages/workbench
+_SYSTEM_ROOT = (
+    _WORKBENCH_ROOT.parent.parent
+    if _WORKBENCH_ROOT.parent.name == "packages"
+    else _WORKBENCH_ROOT.parent
+)
 
 
 @pytest.fixture(autouse=True)

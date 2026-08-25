@@ -86,6 +86,80 @@ def test_registry_fetch_records_partial_provider_outcome(tmp_path) -> None:
     assert outcome["failed_series"] == ["BAD_SERIES"]
 
 
+def test_registry_fetch_records_route_fallback_attempts(tmp_path, monkeypatch) -> None:
+    registry = SeriesRegistry(
+        schema_version="1.0",
+        series={
+            "FALLBACK_SERIES": RegistrySeries(
+                canonical_id="FALLBACK_SERIES",
+                source_series_id="FALLBACK_SERIES",
+                provider_priority=("fred", "openbb_fred"),
+                measurement_block="test",
+                structural_role="test",
+                frequency="daily",
+            )
+        },
+        providers={},
+    )
+
+    class FakeProvider:
+        def __init__(self, name: str, succeeds: bool) -> None:
+            self.source_id = name
+            self.succeeds = succeeds
+
+        def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
+            if self.succeeds:
+                return [
+                    ProviderResult(
+                        "fred",
+                        series_ids[0],
+                        pd.DataFrame({"date": ["2026-08-01"], "value": [1.0]}),
+                        source_url="https://example.test/fred",
+                        source_params={"source_engine": "fred"},
+                    )
+                ]
+            return [
+                ProviderResult(
+                    "openbb",
+                    series_ids[0],
+                    pd.DataFrame(),
+                    fetch_error="OpenBB fetch failed: 502",
+                    fetch_fallback_reason="openbb_error",
+                    source_url="openbb:economy.fred_series",
+                    source_params={"source_engine": "openbb"},
+                )
+            ]
+
+    monkeypatch.setenv("HARVESTER_PREFER_OPENBB", "1")
+    from harvester.official import fetch_official_series_from_registry
+
+    def build_provider(name: str, **_kwargs):
+        return FakeProvider(name, succeeds=name == "fred")
+
+    with (
+        patch("harvester.registry.load_registry", return_value=registry),
+        patch("harvester.official.build_provider", side_effect=build_provider),
+    ):
+        panel = fetch_official_series_from_registry(
+            data_root=str(tmp_path),
+            providers=["fred", "openbb_fred"],
+            cache=False,
+        )
+
+    outcome = panel.attrs["provider_outcome"]
+    attempts = outcome["series_attempts"]["FALLBACK_SERIES"]
+    assert outcome["status"] == "refreshed"
+    assert outcome["fallback_used"] is True
+    assert outcome["series_providers"] == {"FALLBACK_SERIES": "fred"}
+    assert [attempt["provider"] for attempt in attempts] == ["openbb_fred", "fred"]
+    assert attempts[0]["outcome"] == "failed"
+    assert attempts[0]["reason"] == "openbb_error"
+    assert attempts[0]["source_engine"] == "openbb"
+    assert attempts[1]["outcome"] == "success"
+    assert attempts[1]["reason"] == "success"
+    assert attempts[1]["source_engine"] == "fred"
+
+
 def test_registry_fetch_leaves_external_managed_series_to_external_provider(tmp_path) -> None:
     registry = SeriesRegistry(
         schema_version="1.0",

@@ -16,18 +16,52 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, surface_dir
+
+logger = logging.getLogger(__name__)
 
 CURRENT = current_dir()  # Phase 1.1: honor CURRENT_OUTPUT_DIR candidate redirect
 JUDGMENT = surface_dir("judgment")
 TRADE = surface_dir("trade_decision")
 ML_SIGNALS = ROOT / "Output" / "ml_signals"
+
+_PATH_KEYS = (
+    "current",
+    "judgment",
+    "trade",
+    "ml_signals",
+    "caselab",
+    "harvester_catalog",
+)
+
+
+def _default_paths() -> dict[str, Path]:
+    """Return legacy-compatible input/output path bindings."""
+    return {
+        "current": CURRENT,
+        "judgment": JUDGMENT,
+        "trade": TRADE,
+        "ml_signals": ML_SIGNALS,
+        "caselab": ROOT / "Output" / "caselab",
+        "harvester_catalog": ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json",
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve explicit generation paths without changing no-arg behavior."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown work-brief path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
 
 
 def _load(path: Path) -> dict[str, Any] | None:
@@ -170,9 +204,9 @@ def _sigma_snapshot(fw: dict | None) -> dict[str, Any] | None:
     }
 
 
-def _hmm_signal() -> dict[str, Any] | None:
+def _hmm_signal(ml_signals_dir: Path | None = None) -> dict[str, Any] | None:
     """Read latest HMM signal and extract degeneracy-relevant summary."""
-    hmm_path = ML_SIGNALS / "latest" / "regime_hmm.json"
+    hmm_path = (ml_signals_dir or ML_SIGNALS) / "latest" / "regime_hmm.json"
     hmm = _load(hmm_path)
     if not hmm:
         return None
@@ -272,7 +306,14 @@ def _mechanism_hypothesis(judgment: dict | None, caselab: dict | None) -> dict[s
     return result
 
 
-def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any]:
+def _needs_full_refresh(
+    fw: dict | None,
+    judgment: dict | None,
+    *,
+    current_dir_path: Path | None = None,
+    judgment_dir: Path | None = None,
+    harvester_catalog_path: Path | None = None,
+) -> dict[str, Any]:
     """Check if a full refresh is needed based on artifact freshness."""
     result: dict[str, Any] = {
         "needed": False,
@@ -283,7 +324,9 @@ def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any
     now = datetime.now(UTC).timestamp()
 
     # Check framework_output freshness
-    fw_path = CURRENT / "framework_output.json"
+    current = current_dir_path or CURRENT
+    judgment_root = judgment_dir or JUDGMENT
+    fw_path = current / "framework_output.json"
     if fw_path.exists():
         age_hours = (now - fw_path.stat().st_mtime) / 3600
         if age_hours > 48:
@@ -296,7 +339,7 @@ def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any
         result["reasons"].append("No framework_output found")
 
     # Check judgment freshness
-    judgment_path = JUDGMENT / "latest.json"
+    judgment_path = judgment_root / "latest.json"
     if judgment_path.exists():
         age_hours = (now - judgment_path.stat().st_mtime) / 3600
         if age_hours > 48:
@@ -307,7 +350,9 @@ def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any
         result["reasons"].append("No judgment artifact found")
 
     # Check Harvester freshness
-    harvester_catalog = ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
+    harvester_catalog = harvester_catalog_path or (
+        ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
+    )
     if harvester_catalog.exists():
         age_hours = (now - harvester_catalog.stat().st_mtime) / 3600
         if age_hours > 72:
@@ -317,7 +362,7 @@ def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any
         result["reasons"].append("No Harvester release found (may be OK for quick mode)")
 
     # Check data gaps freshness
-    gaps_path = CURRENT / "data_gaps.json"
+    gaps_path = current / "data_gaps.json"
     if gaps_path.exists():
         age_hours = (now - gaps_path.stat().st_mtime) / 3600
         if age_hours > 24:
@@ -333,21 +378,26 @@ def _needs_full_refresh(fw: dict | None, judgment: dict | None) -> dict[str, Any
     return result
 
 
-def _load_caselab() -> dict[str, Any] | None:
+def _load_caselab(caselab_dir: Path | None = None) -> dict[str, Any] | None:
     """Load today's CaseLab signal if available."""
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    path = ROOT / "Output" / "caselab" / f"{today}.json"
+    path = (caselab_dir or ROOT / "Output" / "caselab") / f"{today}.json"
     return _load(path)
 
 
-def build_work_brief() -> dict[str, Any]:
-    status = _load(CURRENT / "status.json")
-    fw = _load(CURRENT / "framework_output.json")
-    judgment = _load(JUDGMENT / "latest.json")
-    trade = _load(TRADE / "latest.json")
-    quality = _load(CURRENT / "quality_validation.json")
-    hmm = _hmm_signal()
-    caselab = _load_caselab()
+def build_work_brief(paths: Mapping[str, Path] | None = None) -> dict[str, Any]:
+    """Build the work brief against legacy or explicit generation paths."""
+    resolved = _resolve_paths(paths)
+    current = resolved["current"]
+    judgment_dir = resolved["judgment"]
+    trade_dir = resolved["trade"]
+    status = _load(current / "status.json")
+    fw = _load(current / "framework_output.json")
+    judgment = _load(judgment_dir / "latest.json")
+    trade = _load(trade_dir / "latest.json")
+    quality = _load(current / "quality_validation.json")
+    hmm = _hmm_signal(resolved["ml_signals"])
+    caselab = _load_caselab(resolved["caselab"])
 
     reaction = _current_reaction(status, fw, judgment, trade)
     reasons = _why(status, judgment, quality)
@@ -358,7 +408,13 @@ def build_work_brief() -> dict[str, Any]:
     can_say = _can_say(judgment)
     cannot_say = _cannot_say(judgment)
     mechanism_hypothesis = _mechanism_hypothesis(judgment, caselab)
-    refresh_check = _needs_full_refresh(fw, judgment)
+    refresh_check = _needs_full_refresh(
+        fw,
+        judgment,
+        current_dir_path=current,
+        judgment_dir=judgment_dir,
+        harvester_catalog_path=resolved["harvester_catalog"],
+    )
 
     result: dict[str, Any] = {
         "generated_at": datetime.now(UTC).isoformat(),
@@ -538,10 +594,11 @@ def to_markdown(b: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _check_closure_chain() -> None:
+def _check_closure_chain(paths: Mapping[str, Path] | None = None) -> None:
     """Warn if running standalone and upstream artifacts are newer."""
-    judgment_path = JUDGMENT / "latest.json"
-    current_brief = CURRENT / "work_brief.json"
+    resolved = _resolve_paths(paths)
+    judgment_path = resolved["judgment"] / "latest.json"
+    current_brief = resolved["current"] / "work_brief.json"
 
     if not judgment_path.exists():
         print("WARNING: No judgment card found. Run the full pipeline first.")
@@ -557,6 +614,24 @@ def _check_closure_chain() -> None:
             )
 
 
+def write_work_brief(
+    brief: dict[str, Any],
+    *,
+    output_dir: Path | None = None,
+) -> tuple[Path, Path]:
+    """Write JSON and Markdown to an explicit current-output surface."""
+    target_dir = output_dir or CURRENT
+    ensure_dir(target_dir)
+    json_path = target_dir / "work_brief.json"
+    json_path.write_text(
+        json.dumps(brief, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    md_path = target_dir / "work_brief.md"
+    md_path.write_text(to_markdown(brief), encoding="utf-8")
+    return json_path, md_path
+
+
 def main() -> None:
     json_mode = "--json" in sys.argv
 
@@ -565,12 +640,8 @@ def main() -> None:
 
     brief = build_work_brief()
 
-    ensure_dir(CURRENT)
-    (CURRENT / "work_brief.json").write_text(
-        json.dumps(brief, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    md = to_markdown(brief)
-    (CURRENT / "work_brief.md").write_text(md, encoding="utf-8")
+    _json_path, md_path = write_work_brief(brief)
+    md = md_path.read_text(encoding="utf-8")
 
     if json_mode:
         print(json.dumps(brief, indent=2, ensure_ascii=False))

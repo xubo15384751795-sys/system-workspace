@@ -1,0 +1,53 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave1-4-batch
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Land the next reversible replacement-map batch: align the Pandera diagnostic
+  with the existing non-empty contract, add a source-controlled DVC pointer
+  for the canonical DuckDB panel, add offline dlt parity evidence for the CFTC
+  shadow source, and materialize one non-core Dagster native asset with a
+  native retry policy.
+scope:
+  - packages/harvester/src/harvester/quality/pandera_adapter.py
+  - packages/harvester/src/harvester/quality/data_contract.py
+  - Data/canonical/panels.duckdb.dvc
+  - packages/harvester/src/harvester/ingestion/external_dlt_source.py
+  - packages/harvester/src/harvester/operators/run_cftc_dlt_shadow_parity.py
+  - packages/orchestration/orchestration/assets/native_batch.py
+  - packages/orchestration/orchestration/definitions.py
+decision: >
+  Keep data_contract.py as the PASS/WARN/BLOCK authority and keep Pandera
+  additive and diagnostic. Keep dlt CFTC ingestion shadow-only and operator
+  invoked; it may write a parity report but cannot update provider caches,
+  releases, or the scheduled registry path. Register build_data_gaps as a
+  Dagster native asset under a separate key with one retry, but keep it out of
+  daily_job until a bounded dual-run window is complete.
+authority_boundary:
+  data_contract_mode_changed: false
+  provider_authority_changed: false
+  publication_integrity_changed: false
+  default_daily_job_changed: false
+  dagster_schedule_enabled: false
+  native_asset_promotion_allowed: false
+  dlt_shadow_promotion_allowed: false
+acceptance:
+  - focused Harvester contract/Pandera/DuckDB tests pass on ai-box
+  - focused dlt shadow tests pass with the optional dlt extra and no network I/O
+  - focused orchestration asset/check tests pass on ai-box
+  - Data/canonical/panels.duckdb.dvc exists and local DVC status is clean
+  - native build_data_gaps materializes without writing Output/current
+external_acceptance_pending:
+  - DVC push and restore verification require explicit operator approval for the configured external remote
+  - Sentry real-event receipt requires SENTRY_DSN outside the repository
+  - healthchecks dead-man receipt and natural launchd observation remain pending
+  - CFTC parity command requires a device containing the raw CFTC cache; no cache is copied by the code sync
+observation_window: >
+  Keep the dlt and native asset paths shadow-only through their existing
+  observation windows. Compare outputs beside the legacy route before any
+  provider, registry, schedule, or daily_job authority change.
+rollback: >
+  Remove the native asset registration and parity command, delete the DVC
+  pointer from the source-controlled change, and leave the existing Pandera,
+  registry executor, provider route, and Parquet compatibility surface intact.

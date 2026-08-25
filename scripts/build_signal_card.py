@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from scripts._constants import (
@@ -47,11 +49,36 @@ MARKET_FEEDBACK = ROOT / "Output" / "market_feedback" / "feedback_decision.json"
 SHADOW_OUTCOMES = ROOT / "Output" / "strategy_lab" / "shadow_outcomes_90d.json"
 SHADOW_CARD_LATEST = ROOT / "Output" / "strategy_lab" / "shadow_cards" / "latest.json"
 
+_PATH_KEYS = ("current", "judgment", "trade_decision", "caselab", "hmm")
 
-def _load_caselab_today() -> dict[str, Any] | None:
+
+def _default_paths() -> dict[str, Path]:
+    """Return the legacy-compatible input/output path bindings."""
+    return {
+        "current": CURRENT,
+        "judgment": JUDGMENT,
+        "trade_decision": TRADE_DECISION,
+        "caselab": CASELAB,
+        "hmm": HMM,
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve explicit generation paths without changing the no-arg contract."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown signal-card path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
+
+
+def _load_caselab_today(caselab_dir: Path | None = None) -> dict[str, Any] | None:
     """Load today's CaseLab artifact."""
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    return load_json(CASELAB / f"{today}.json")
+    return load_json((caselab_dir or CASELAB) / f"{today}.json")
 
 
 def _decompose_channels(fw: dict) -> list[dict[str, Any]]:
@@ -471,13 +498,18 @@ def _analyze_counterfactuals(judgment: dict, fw: dict, hmm_data: dict | None,
     return counterfactuals
 
 
-def _identify_evidence_list(judgment: dict, fw: dict) -> list[dict[str, str]]:
+def _identify_evidence_list(
+    judgment: dict,
+    fw: dict,
+    hmm_dir: Path | None = None,
+) -> list[dict[str, str]]:
     """List all evidence that supports the current judgment."""
     evidence = []
 
     # HMM signal with degeneracy status
-    hmm_path = HMM / "regime_hmm.json"
-    hmm_sig = load_json(hmm_path) if HMM.exists() else None
+    hmm_root = hmm_dir or HMM
+    hmm_path = hmm_root / "regime_hmm.json"
+    hmm_sig = load_json(hmm_path) if hmm_root.exists() else None
     if hmm_sig:
         regime = hmm_sig.get("regime", {})
         degeneracy = hmm_sig.get("degeneracy", {})
@@ -632,13 +664,19 @@ def _build_velocity_gate_section() -> dict[str, Any]:
         }
 
 
-def build_signal_card() -> dict[str, Any]:
+def build_signal_card(paths: Mapping[str, Path] | None = None) -> dict[str, Any]:
     """Build the complete signal card with channel decomposition and gate classification."""
-    judgment = load_json(JUDGMENT / "latest.json")
-    fw = load_json(CURRENT / "framework_output.json")
-    trade = load_json(TRADE_DECISION / "latest.json")
-    hmm_data = load_json(HMM / "regime_hmm.json")
-    caselab_data = _load_caselab_today()
+    resolved = _resolve_paths(paths)
+    current = resolved["current"]
+    judgment_dir = resolved["judgment"]
+    trade_decision_dir = resolved["trade_decision"]
+    hmm_dir = resolved["hmm"]
+
+    judgment = load_json(judgment_dir / "latest.json")
+    fw = load_json(current / "framework_output.json")
+    trade = load_json(trade_decision_dir / "latest.json")
+    hmm_data = load_json(hmm_dir / "regime_hmm.json")
+    caselab_data = _load_caselab_today(resolved["caselab"])
 
     if not judgment:
         return {
@@ -667,7 +705,7 @@ def build_signal_card() -> dict[str, Any]:
         "velocity_gate": velocity_gate,
         "channel_decomposition": _decompose_channels(fw),
         "gate_classification": _classify_gates(judgment, fw, hmm_data, caselab_data),
-        "evidence": _identify_evidence_list(judgment, fw),
+        "evidence": _identify_evidence_list(judgment, fw, hmm_dir),
         "contributing_factors": _rank_contributing_factors(judgment, fw, hmm_data),
         "blockers": [
             b for b in (judgment.get("confidence") or {}).get("reasons", [])
@@ -929,14 +967,15 @@ def generate_markdown(card: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _check_closure_chain() -> None:
+def _check_closure_chain(paths: Mapping[str, Path] | None = None) -> None:
     """Warn if running standalone and upstream artifacts are newer than current outputs.
 
     This helps detect partial refreshes where the signal card is rebuilt
     but the judgment/trade_decision haven't been updated.
     """
-    judgment_path = JUDGMENT / "latest.json"
-    current_card = CURRENT / "signal_card.json"
+    resolved = _resolve_paths(paths)
+    judgment_path = resolved["judgment"] / "latest.json"
+    current_card = resolved["current"] / "signal_card.json"
 
     if not judgment_path.exists():
         print("WARNING: No judgment card found. Run the full pipeline first.")
@@ -952,6 +991,21 @@ def _check_closure_chain() -> None:
             )
 
 
+def write_signal_card(
+    card: dict[str, Any],
+    *,
+    output_dir: Path | None = None,
+) -> tuple[Path, Path]:
+    """Write JSON and Markdown to an explicit current-output surface."""
+    target_dir = output_dir or CURRENT
+    ensure_dir(target_dir)
+    json_path = target_dir / "signal_card.json"
+    write_json(json_path, card)
+    md_path = target_dir / "signal_card.md"
+    md_path.write_text(generate_markdown(card), encoding="utf-8")
+    return json_path, md_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build signal card")
     parser.add_argument("--json", action="store_true", help="JSON output")
@@ -962,13 +1016,7 @@ def main() -> None:
 
     card = build_signal_card()
 
-    ensure_dir(CURRENT)
-
-    json_path = CURRENT / "signal_card.json"
-    write_json(json_path, card)
-
-    md_path = CURRENT / "signal_card.md"
-    md_path.write_text(generate_markdown(card), encoding="utf-8")
+    json_path, md_path = write_signal_card(card)
 
     if args.json:
         print(json.dumps(card, indent=2, ensure_ascii=False))

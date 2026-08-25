@@ -363,19 +363,25 @@ class PublishTransaction:
                 violations.append(f"{relative}: missing")
         return violations
 
-    def commit_generation(self, root: Path) -> Path:
+    def commit_generation(self, root: Path, *, output_root: Path | None = None) -> Path:
         """Commit the candidate by switching one ``Output/live`` pointer.
 
         Compatibility paths are stable links to ``live/<surface>``.  Existing
         real directories are deliberately rejected until the explicit,
         recoverable migration command has converted them; silently replacing
         those directories would make rollback and lineage ambiguous.
+
+        ``root`` remains the workspace root used by the default path.  When a
+        caller runs with an isolated ``--output-root`` (for example, for a
+        legacy/native dual track), all generation pointers and compatibility
+        links are committed under that output root instead of accidentally
+        touching ``root / "Output"``.
         """
         if self.state != TransactionState.ADMITTED:
             self._journal("commit_generation", f"rejected: state={self.state.value}")
             raise RuntimeError(f"generation commit requires ADMITTED, got {self.state.value}")
 
-        output = root / "Output"
+        output = output_root or (root / "Output")
         generations = output / "generations"
         generations.mkdir(parents=True, exist_ok=True)
         compatibility = {
@@ -496,9 +502,9 @@ class PublishTransaction:
         return target
 
     @staticmethod
-    def reconcile(root: Path) -> dict[str, Any]:
+    def reconcile(root: Path, *, output_root: Path | None = None) -> dict[str, Any]:
         """Classify startup state without mutating any surface."""
-        output = root / "Output"
+        output = output_root or (root / "Output")
         live = output / "live"
         generations = output / "generations"
 

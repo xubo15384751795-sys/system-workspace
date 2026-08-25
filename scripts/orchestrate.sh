@@ -66,7 +66,19 @@ case "${cmd}" in
         export SYSTEM_GENERATION_MODE=0
       fi
     fi
-    "${PY}" "${SYSTEM_ROOT}/scripts/reconcile_generation.py" --fail-on-recovery
+    # A dry-run is deliberately non-authoritative and must remain usable even
+    # when a shared Output tree contains an old recovery marker. Real runs
+    # retain the fail-closed reconciliation gate below this boundary.
+    dry_run_requested=0
+    for arg in "${@:2}"; do
+      if [[ "${arg}" == "--dry-run" ]]; then
+        dry_run_requested=1
+        break
+      fi
+    done
+    if [[ "${dry_run_requested}" != "1" ]]; then
+      "${PY}" "${SYSTEM_ROOT}/scripts/reconcile_generation.py" --fail-on-recovery
+    fi
     if [[ "${SYSTEM_USE_LEGACY_DAILY_RUN:-}" == "1" ]]; then
       echo "[orchestrate] SYSTEM_USE_LEGACY_DAILY_RUN=1 — bypassing Dagster CLI"
       exec "${PY}" scripts/daily_run.py "${@:2}"

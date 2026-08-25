@@ -1,0 +1,59 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave3-series-shadow
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complex
+summary: >
+  Extend the dlt pilot from one CFTC fixture to a reusable cache-only source
+  for normalized external indicators. Provider transport and all H41/FRED/
+  external-indicator parsers remain owned by Harvester; dlt owns only staging
+  state, incremental cursors, primary keys, and the selected schema contract.
+scope:
+  - packages/harvester/src/harvester/ingestion/dlt_series_source.py
+  - packages/harvester/tests/test_dlt_series_source.py
+  - packages/harvester/src/harvester/operators/run_external_indicators_dlt_shadow.py
+  - governance/entrypoint_registry.yaml
+decision: >
+  Use a dlt DuckDB staging destination for already-parsed series. The operator
+  command reads existing provider caches only, carries forward the full parsed
+  history, and writes a shadow parity report. Freeze is the default contract;
+  evolve and discard remain explicit testable choices; the repository-level
+  discard name maps to dlt 1.30's discard_value contract at the adapter
+  boundary. No provider, registry, launchd, Dagster daily asset, release, or
+  publication path imports this module during the observation window.
+authority_boundary:
+  acquisition_transport_changed: false
+  parser_authority_changed: false
+  provider_authority_changed: false
+  cache_authority_changed: false
+  default_daily_path_changed: false
+  promotion_allowed: false
+probe:
+  scope: >
+    Cache-only dlt series source, the external-indicators shadow operator, and
+    their tests. Provider transport, H41/FRED parsers, launchd, and daily_job
+    are out of scope.
+  preregistered_expectation: >
+    Normalized rows stay deterministic and unique by date; dlt persists cursor
+    and primary-key state in a DuckDB staging destination; cache-only runs make
+    no HTTP requests; missing caches produce PARTIAL_MATCH/NO_DATA rather than
+    a false green result.
+  observation_window: >
+    Run beside the legacy provider cache for at least one month and compare
+    each available series before considering a provider-route or default-path
+    change.
+  rollback: >
+    Remove the generic dlt source, operator command, and registry entries. The
+    legacy external_indicators parser/cache path remains unchanged.
+acceptance:
+  - normalized rows are deterministic, sorted, non-null, and unique by date
+  - dlt persists date cursor state and primary key in a DuckDB staging destination
+  - freeze/evolve/discard schema contract strategies are registered explicitly
+  - cache-only operator runs do not make HTTP requests or alter provider caches
+  - missing caches produce PARTIAL_MATCH/NO_DATA rather than a false green result
+observation_window: >
+  Run beside the legacy provider cache for at least one month and compare each
+  available series before considering a provider-route or default-path change.
+rollback: >
+  Remove the generic dlt source, operator command, and registry entries. The
+  legacy external_indicators parser/cache path remains unchanged.

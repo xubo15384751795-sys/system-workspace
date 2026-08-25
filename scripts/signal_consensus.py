@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from scripts._constants import CASELAB_USABLE_THRESHOLD, CASELAB_WEAK_THRESHOLD
@@ -38,12 +40,52 @@ PROB_CONTEXT_PATH = ROOT / "Output" / "probabilistic_context" / "latest.json"
 # CaseLab uses dated files
 CASELAB_DIR = ROOT / "Output" / "caselab"
 
+_PATH_KEYS = (
+    "output",
+    "framework_output",
+    "judgment",
+    "promotion_gate",
+    "hmm",
+    "k_gate",
+    "x_gate",
+    "prob_context",
+    "caselab",
+)
 
-def _latest_caselab() -> dict[str, Any] | None:
+
+def _default_paths() -> dict[str, Path]:
+    """Return the legacy-compatible input/output path bindings."""
+    return {
+        "output": OUTPUT_CURRENT,
+        "framework_output": FRAMEWORK_OUTPUT,
+        "judgment": JUDGMENT_PATH,
+        "promotion_gate": PROMOTION_GATE_PATH,
+        "hmm": HMM_PATH,
+        "k_gate": K_GATE_PATH,
+        "x_gate": X_GATE_PATH,
+        "prob_context": PROB_CONTEXT_PATH,
+        "caselab": CASELAB_DIR,
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve explicit generation paths without changing the no-arg contract."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown signal-consensus path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
+
+
+def _latest_caselab(caselab_dir: Path | None = None) -> dict[str, Any] | None:
     """Load the most recent CaseLab output."""
-    if not CASELAB_DIR.exists():
+    root = caselab_dir or CASELAB_DIR
+    if not root.exists():
         return None
-    files = sorted(CASELAB_DIR.glob("*.json"), reverse=True)
+    files = sorted(root.glob("*.json"), reverse=True)
     for f in files:
         data = _load_json(f)
         if data:
@@ -80,17 +122,26 @@ def _classify_signal(
     return {"status": "adopted", "reason": "passed all gates"}
 
 
-def build_consensus() -> dict[str, Any]:
+def build_consensus(paths: Mapping[str, Path] | None = None) -> dict[str, Any]:
     """Build the signal consensus report."""
+    resolved = _resolve_paths(paths)
+    framework_output = resolved["framework_output"]
+    judgment_path = resolved["judgment"]
+    promotion_gate_path = resolved["promotion_gate"]
+    hmm_path = resolved["hmm"]
+    k_gate_path = resolved["k_gate"]
+    x_gate_path = resolved["x_gate"]
+    prob_context_path = resolved["prob_context"]
+
     # Load all sources
-    fw = _load_json(FRAMEWORK_OUTPUT)
-    judgment = _load_json(JUDGMENT_PATH)
-    promo = _load_json(PROMOTION_GATE_PATH)
-    hmm = _load_json(HMM_PATH)
-    k_gate = _load_json(K_GATE_PATH)
-    x_gate = _load_json(X_GATE_PATH)
-    prob_ctx = _load_json(PROB_CONTEXT_PATH)
-    caselab = _latest_caselab()
+    fw = _load_json(framework_output)
+    judgment = _load_json(judgment_path)
+    promo = _load_json(promotion_gate_path)
+    hmm = _load_json(hmm_path)
+    k_gate = _load_json(k_gate_path)
+    x_gate = _load_json(x_gate_path)
+    prob_ctx = _load_json(prob_context_path)
+    caselab = _latest_caselab(resolved["caselab"])
 
     signals: list[dict[str, Any]] = []
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -105,7 +156,7 @@ def build_consensus() -> dict[str, Any]:
 
         signals.append({
             "name": "M/D primary readout",
-            "source": str(FRAMEWORK_OUTPUT),
+            "source": str(framework_output),
             "value": {
                 "state": primary.get("state"),
                 "M": round(m_val, 3) if m_val is not None else None,
@@ -119,7 +170,7 @@ def build_consensus() -> dict[str, Any]:
     else:
         signals.append({
             "name": "M/D primary readout",
-            "source": str(FRAMEWORK_OUTPUT),
+            "source": str(framework_output),
             "value": None,
             "classification": "rejected",
             "supports": [],
@@ -154,7 +205,7 @@ def build_consensus() -> dict[str, Any]:
 
         signals.append({
             "name": "HMM regime hint",
-            "source": str(HMM_PATH),
+            "source": str(hmm_path),
             "value": {
                 "current": regime.get("current"),
                 "probability": regime.get("probability"),
@@ -171,7 +222,7 @@ def build_consensus() -> dict[str, Any]:
     else:
         signals.append({
             "name": "HMM regime hint",
-            "source": str(HMM_PATH),
+            "source": str(hmm_path),
             "value": None,
             "classification": "rejected",
             "supports": [],
@@ -190,7 +241,7 @@ def build_consensus() -> dict[str, Any]:
 
         signals.append({
             "name": "K gate",
-            "source": str(K_GATE_PATH),
+            "source": str(k_gate_path),
             "value": {
                 "gate_verdict": k_verdict,
                 "K": round(k_val, 3) if k_val is not None else None,
@@ -204,7 +255,7 @@ def build_consensus() -> dict[str, Any]:
     else:
         signals.append({
             "name": "K gate",
-            "source": str(K_GATE_PATH),
+            "source": str(k_gate_path),
             "value": None,
             "classification": "rejected",
             "supports": [],
@@ -234,7 +285,7 @@ def build_consensus() -> dict[str, Any]:
 
         signals.append({
             "name": "X gate",
-            "source": str(X_GATE_PATH),
+            "source": str(x_gate_path),
             "value": {
                 "gate_verdict": x_verdict,
                 "X_agg": round(x_val, 3) if x_val is not None else None,
@@ -248,7 +299,7 @@ def build_consensus() -> dict[str, Any]:
     else:
         signals.append({
             "name": "X gate",
-            "source": str(X_GATE_PATH),
+            "source": str(x_gate_path),
             "value": None,
             "classification": "rejected",
             "supports": [],
@@ -302,7 +353,7 @@ def build_consensus() -> dict[str, Any]:
 
         signals.append({
             "name": "probabilistic context",
-            "source": str(PROB_CONTEXT_PATH),
+            "source": str(prob_context_path),
             "value": {
                 "overall_risk_level": risk_level,
                 "tail_risk_detected": tail_risk,
@@ -316,7 +367,7 @@ def build_consensus() -> dict[str, Any]:
     else:
         signals.append({
             "name": "probabilistic context",
-            "source": str(PROB_CONTEXT_PATH),
+            "source": str(prob_context_path),
             "value": None,
             "classification": "rejected",
             "supports": [],
@@ -403,6 +454,21 @@ def build_consensus() -> dict[str, Any]:
     }
 
     return result
+
+
+def write_signal_consensus(
+    result: dict[str, Any],
+    *,
+    output_dir: Path | None = None,
+) -> tuple[Path, Path]:
+    """Write JSON and Markdown to an explicit current-output surface."""
+    target_dir = output_dir or OUTPUT_CURRENT
+    ensure_dir(target_dir)
+    json_path = target_dir / "signal_consensus.json"
+    md_path = target_dir / "signal_consensus.md"
+    write_json(json_path, result)
+    md_path.write_text(format_markdown(result), encoding="utf-8")
+    return json_path, md_path
 
 
 def format_markdown(result: dict[str, Any]) -> str:
@@ -523,13 +589,7 @@ def main() -> None:
 
     result = build_consensus()
 
-    ensure_dir(OUTPUT_CURRENT)
-
-    json_path = OUTPUT_CURRENT / "signal_consensus.json"
-    md_path = OUTPUT_CURRENT / "signal_consensus.md"
-
-    write_json(json_path, result)
-    md_path.write_text(format_markdown(result), encoding="utf-8")
+    json_path, md_path = write_signal_consensus(result)
 
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))

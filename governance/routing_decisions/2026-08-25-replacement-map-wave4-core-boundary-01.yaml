@@ -1,0 +1,57 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-core-boundary-01
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add a separate, stopped Dagster-native shadow pilot for the two first core
+  current writers: neutral_pressure_measurement and quality_validation.
+  Existing calculation and validation rules remain the authority; only the
+  generation-local file boundary and native blocking-check semantics are
+  introduced.
+scope:
+  - governance/daily_pipeline_registry.yaml
+  - scripts/neutral_pressure_measurement.py
+  - scripts/quality_field_validator.py
+  - packages/orchestration/orchestration/native_core_boundaries.py
+  - packages/orchestration/orchestration/assets/native_core.py
+  - packages/orchestration/orchestration/native_daily.py
+  - packages/orchestration/orchestration/definitions.py
+  - packages/orchestration/tests/test_native_core_boundaries.py
+  - packages/orchestration/tests/test_native_daily.py
+  - packages/orchestration/orchestration/operators/run_native_core_shadow.py
+authority_boundary:
+  default_path_changed: false
+  legacy_builder_semantics_changed: false
+  default_current_writer_changed: false
+  native_core_boundary_flag_default: false
+  native_core_pilot_schedule_enabled: false
+  native_asset_promotion_allowed: false
+decision: >
+  Registry entries use execution.native_core_boundary=shadow_pilot and are
+  accepted only when active, core-authoritative, and declared with a blocking
+  failure_behavior. neutral_pressure_measurement reuses build_snapshot and
+  writes the snapshot/framework compatibility files plus generation-local
+  shadow history. quality_validation reuses its existing rules and writes the
+  report at an explicit path. A second opt-in flag,
+  SYSTEM_USE_NATIVE_CORE_BOUNDARIES, is required before the full native daily
+  graph can use these writers; the existing non-core file-boundary flag cannot
+  activate them accidentally.
+acceptance:
+  - registry selection fails closed for unknown, non-core, or soft-failure tags
+  - core adapters never write steps.jsonl, legacy run directories, or promotion state
+  - isolated generation tests prove neutral and quality outputs stay inside the active generation
+  - missing panel becomes a typed shadow error
+  - quality FAIL becomes a failed blocking asset check inside the stopped pilot graph
+  - daily_job remains the existing generated-op entry and both pilot schedules remain STOPPED
+  - real workspace evidence is persisted as PASS/BLOCKED_UPSTREAM/FAIL without changing Output/current
+rollback: >
+  Remove the two native_core_boundary tags or leave
+  SYSTEM_USE_NATIVE_CORE_BOUNDARIES unset/false. Existing scripts, runner
+  behavior, generated-op daily path, and current compatibility surfaces remain
+  available.
+observation_window: >
+  Run the core boundaries beside the existing registry executor on identical
+  isolated inputs. Compare snapshot/report payloads, release/vintage inputs,
+  canonical lineage, blocked_upstream behavior, publication, and current
+  surfaces before considering any default authority change.

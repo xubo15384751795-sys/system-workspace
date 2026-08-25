@@ -1,0 +1,49 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-dual-track-operator
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add an explicit operator for the first real native/current observation pair.
+  The operator requires separate workspace and output roots, runs the existing
+  Dagster daily entry twice with native assets disabled/enabled, then invokes
+  the read-only bundle comparator. It does not become a scheduler or a
+  publication authority.
+scope:
+  - system_runtime/publish_transaction.py
+  - scripts/daily_run.py
+  - scripts/reconcile_generation.py
+  - packages/orchestration/orchestration/operators/run_daily_dual_track.py
+  - packages/orchestration/orchestration/run_parity.py
+  - packages/orchestration/tests/test_daily_dual_track.py
+  - packages/orchestration/tests/test_run_parity.py
+  - governance/entrypoint_registry.yaml
+authority_boundary:
+  default_is_preflight_only: true
+  separate_workspace_roots_required: true
+  separate_output_roots_required: true
+  generation_mode_forced: true
+  current_output_written: false
+  promotion_allowed: false
+decision: >
+  The isolated output-root bug in PublishTransaction.commit_generation is fixed
+  with a backwards-compatible output_root parameter; daily_run passes it only
+  for an explicit --output-root. The dual-track operator may execute only
+  after no-write preflight passes. It records runner exit codes, bundle and
+  generation paths, stdout/stderr tails, and comparator status. It treats a
+  missing bundle as INCOMPLETE and never turns a failed run into MATCH.
+acceptance:
+  - default transaction tests still commit under root/Output
+  - explicit output_root commits all live/current compatibility links under that root
+  - reconcile accepts the isolated output root and blocks recovery/rollback states in preflight
+  - mtime-only input snapshot differences do not create a false parity mismatch
+  - preflight performs no directory creation or runner invocation
+  - entry is registered as shadow_operator and forbidden from scheduler/current/promotion use
+rollback: >
+  Do not enable the operator as launchd or Dagster schedule. Remove the
+  entrypoint and routing decision if the isolated observation workflow is
+  retired; the native flag-off rollback remains unchanged.
+observation_window: >
+  Run on ai-box with two prepared workspace copies and frozen/same input
+  snapshots. Retain each report for the one-week native/current parity window;
+  no default-path or authority change follows from a single MATCH.

@@ -163,7 +163,10 @@ def validate_cross_asset_panel_contract(
         validate_cross_asset_panel_with_pandera,
     )
 
-    pandera_report = validate_cross_asset_panel_with_pandera(frame)
+    pandera_report = validate_cross_asset_panel_with_pandera(
+        frame,
+        require_nonempty=require_nonempty,
+    )
     pandera_status = str(pandera_report.get("status", "unavailable"))
     if pandera_status == "failed":
         warnings.append("pandera_shape_check_failed")

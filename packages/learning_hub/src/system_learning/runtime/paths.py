@@ -1,10 +1,30 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def default_system_root() -> Path:
+    """Resolve the workspace without a hardcoded machine path.
+
+    ``SYSTEM_ROOT`` / ``SYSTEM_WORKSPACE_ROOT`` win only when they still look
+    like this repository.  A stale pointer at the emptied ``/Users/a1/System``
+    rename leftover is ignored so CLIs land on Verity.
+    """
+    from system_runtime.paths import WORKSPACE_MARKER, WorkspacePaths
+
+    for key in ("SYSTEM_WORKSPACE_ROOT", "SYSTEM_ROOT"):
+        raw = os.environ.get(key, "").strip()
+        if not raw:
+            continue
+        root = Path(raw).expanduser().resolve()
+        if (root / WORKSPACE_MARKER).is_file():
+            return root
+    return WorkspacePaths.discover().root
 
 
 def hub_repo_root() -> Path:
@@ -38,12 +58,12 @@ class HubPaths:
     @classmethod
     def resolve(
         cls,
-        system_root: Path,
+        system_root: Path | None = None,
         *,
         ledger_dir: Path | None = None,
         report_dir: Path | None = None,
     ) -> HubPaths:
-        root = system_root.expanduser().resolve()
+        root = (system_root or default_system_root()).expanduser().resolve()
         return cls(
             system_root=root,
             ledger_dir=(ledger_dir or root / "Data" / "system_learning" / "ledgers").resolve(),

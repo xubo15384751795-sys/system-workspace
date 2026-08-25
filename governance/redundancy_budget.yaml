@@ -1,5 +1,5 @@
 schema_version: redundancy_budget.v1
-updated_at: "2026-08-19"
+updated_at: "2026-08-25"
 purpose: >
   Hard rules for entry, artifact, and data governance.
   Any new script, Output directory, or Data directory must be registered
@@ -8,6 +8,7 @@ purpose: >
 # ── Root Scripts ──────────────────────────────────────────────────────────────
 root_scripts:
   max_visible: 118  # Stage 0-5 adds the bounded data/endpoint/observability gates; reduce through the registered archive queue.
+  public_max_visible: 90  # Public command surface; private underscore helpers are counted by max_visible only.
   require_registry_entry: true
   allowed_statuses:
     - daily_active        # daily_run.py directly uses

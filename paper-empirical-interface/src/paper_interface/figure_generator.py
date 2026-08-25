@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+_PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_FIGURES = _PACKAGE_ROOT / "output" / "figures"
+
 # 论文风格设置
 PAPER_STYLE = {
     "figure.figsize": (10, 6),
@@ -45,8 +48,8 @@ class FigureGenerator:
     - 输出标准格式的图表
     """
 
-    def __init__(self, output_dir: str | Path = "/Users/a1/System/paper-empirical-interface/output/figures"):
-        self.output_dir = Path(output_dir)
+    def __init__(self, output_dir: str | Path | None = None):
+        self.output_dir = Path(output_dir or _DEFAULT_FIGURES)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # 应用论文风格

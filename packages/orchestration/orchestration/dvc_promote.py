@@ -152,6 +152,15 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _md5_file(path: Path) -> str:
+    """Return the DVC content hash for a local file."""
+    digest = hashlib.md5(usedforsecurity=False)
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _dvc_pointer_path(path: Path) -> Path:
     return Path(f"{path}.dvc")
 
@@ -205,6 +214,20 @@ def _verify_dvc_remote(pointer_paths: list[Path], *, root: Path) -> tuple[bool, 
     if isinstance(remote_diff, dict):
         if remote_diff.get("not_in_remote") or remote_diff.get("not_in_cache"):
             return False, "DVC_REMOTE_DIGEST_MISMATCH"
+        # Recent DVC versions report per-output cloud state as
+        # {"path/to/file": "new"} instead of the older not_in_remote list.
+        # Treat any non-clean per-output state as a digest/recovery failure,
+        # never as an unknown green result.
+        per_output_states = {
+            str(key): str(value).strip().lower()
+            for key, value in remote_diff.items()
+            if str(key) not in {"committed", "uncommitted", "unchanged"}
+        }
+        if per_output_states and any(
+            value not in {"unchanged", "committed", ""}
+            for value in per_output_states.values()
+        ):
+            return False, "DVC_REMOTE_DIGEST_MISMATCH"
         known_keys = {
             "not_in_remote",
             "not_in_cache",
@@ -219,6 +242,76 @@ def _verify_dvc_remote(pointer_paths: list[Path], *, root: Path) -> tuple[bool, 
     if remote_diff in ({}, [], None):
         return True, ""
     return False, "DVC_REMOTE_STATUS_INVALID"
+
+
+def verify_canonical_panel_pointer(
+    *,
+    database_path: Path,
+    root: Path = ROOT,
+) -> dict[str, Any]:
+    """Read-only verification of the canonical DuckDB DVC pointer.
+
+    ``dvc status`` without ``--cloud`` only compares the workspace file with
+    its pointer.  This gate also checks the pointer's MD5 and the configured
+    remote object state, so a clean local status cannot masquerade as a
+    recoverable snapshot.
+    """
+    import yaml
+
+    database_path = database_path.resolve()
+    pointer_path = _dvc_pointer_path(database_path)
+    result: dict[str, Any] = {
+        "schema_version": "system.dvc_canonical_panel_verify.v1",
+        "authority": "evidence_only",
+        "promotion_allowed": False,
+        "status": "BLOCKED",
+        "database_path": str(database_path),
+        "pointer_path": str(pointer_path),
+        "reasons": [],
+    }
+    if not database_path.is_file():
+        result["reasons"].append("DATABASE_MISSING")
+        return result
+    if not pointer_path.is_file():
+        result["reasons"].append("DVC_POINTER_MISSING")
+        return result
+
+    try:
+        pointer = yaml.safe_load(pointer_path.read_text(encoding="utf-8")) or {}
+        output = (pointer.get("outs") or [])[0]
+        expected_md5 = str(output.get("md5") or "")
+        expected_size = int(output.get("size")) if output.get("size") is not None else None
+    except (OSError, ValueError, TypeError, IndexError, AttributeError, yaml.YAMLError):
+        result["reasons"].append("DVC_POINTER_INVALID")
+        return result
+
+    actual_md5 = _md5_file(database_path)
+    actual_size = database_path.stat().st_size
+    result.update(
+        {
+            "expected_md5": expected_md5,
+            "actual_md5": actual_md5,
+            "expected_size": expected_size,
+            "actual_size": actual_size,
+            "workspace_digest_match": expected_md5 == actual_md5,
+            "workspace_size_match": expected_size in (None, actual_size),
+        }
+    )
+    if expected_md5 != actual_md5:
+        result["reasons"].append("DVC_POINTER_DIGEST_MISMATCH")
+    if expected_size not in (None, actual_size):
+        result["reasons"].append("DVC_POINTER_SIZE_MISMATCH")
+
+    try:
+        remote_ok, remote_reason = _verify_dvc_remote([pointer_path], root=root)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        remote_ok, remote_reason = False, f"DVC_REMOTE_STATUS_ERROR_{type(exc).__name__}"
+    result["remote_verified"] = remote_ok
+    if remote_reason:
+        result["reasons"].append(remote_reason)
+    if not result["reasons"] and remote_ok:
+        result["status"] = "PASS"
+    return result
 
 
 def _commit_dvc_pointer(
@@ -434,4 +527,41 @@ def record_snapshot_pointer(
         payload=payload,
         root=root,
         operation=f"snapshot:{snapshot_id}",
+    )
+
+
+def record_canonical_panel_pointer(
+    *,
+    database_path: Path,
+    snapshot_id: str | None = None,
+    root: Path = ROOT,
+) -> dict[str, Any]:
+    """Track the canonical DuckDB file without changing the runtime pointer.
+
+    The DuckDB file is the durable source snapshot after the Wave 2 storage
+    cutover.  This helper deliberately does not run from the panel writer:
+    operators can verify the candidate and approve the external DVC remote
+    push separately from the local Parquet compatibility update.
+    """
+    database_path = database_path.resolve()
+    meta_dir = database_path.parent / ".dvc_meta"
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    meta_path = meta_dir / "latest_panel_pointer.json"
+    effective_snapshot_id = snapshot_id
+    if effective_snapshot_id is None and database_path.exists():
+        effective_snapshot_id = str(database_path.stat().st_mtime_ns)
+    payload: dict[str, Any] = {
+        "schema_version": "dvc_canonical_panel_pointer.v1",
+        "snapshot_id": effective_snapshot_id,
+        "database_path": str(database_path),
+        "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "engine": "dvc",
+    }
+    payload.update(_recoverability_metadata(root=root))
+    return _commit_dvc_pointer(
+        pointer_path=meta_path,
+        paths=[database_path],
+        payload=payload,
+        root=root,
+        operation=f"canonical_panel:{database_path.name}",
     )

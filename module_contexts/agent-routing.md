@@ -80,7 +80,7 @@ lives under `packages/workbench/agents/harness/`.
 For normal work:
 
 ```text
-Open one IDE folder: /Users/a1/System
+Open one IDE folder: /Users/a1/Verity
 Read one routing file: MODULES.md
 Activate one module context: module_contexts/<module>.md
 Add protocols and artifacts as needed

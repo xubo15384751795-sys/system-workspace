@@ -64,6 +64,7 @@ shape_inventory:
   proxy_quality_rules.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   redundancy_budget.yaml: {shape: executable_invariant, attention: zero, role: machine_budget}
   repo_layout_map.md: {shape: precedent, attention: on_demand, role: migration_record}
+  replacement_map_progress.md: {shape: precedent, attention: on_demand, role: migration_ledger}
   restore_manifest.yaml: {shape: feedback_loop, attention: deviation_only, role: restore_readiness_contract}
   runtime_status_contract.yaml: {shape: executable_invariant, attention: zero, role: status_enum_authority}
   run_mode_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}

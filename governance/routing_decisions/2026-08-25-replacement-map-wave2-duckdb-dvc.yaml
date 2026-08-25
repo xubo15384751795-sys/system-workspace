@@ -1,0 +1,52 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave2-duckdb-dvc
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Make DuckDB the canonical cross-asset panel write path, retain Parquet as a
+  compatibility export, and establish a DVC pointer for the durable DuckDB
+  snapshot. This closes the storage-layer duplicate-key and close-value
+  constraints without changing consumer file paths.
+scope:
+  - packages/harvester/src/harvester/duckdb_panel.py
+  - packages/harvester/src/harvester/cross_asset_panel.py
+  - packages/harvester/tests/test_duckdb_panel.py
+  - Data/canonical/panels.duckdb.dvc
+  - packages/orchestration/orchestration/dvc_promote.py
+  - packages/orchestration/orchestration/operators/promote_canonical_panel_dvc.py
+  - packages/harvester/src/harvester/operators/verify_duckdb_default_path.py
+  - packages/harvester/tests/test_duckdb_default_path_evidence.py
+decision: >
+  The default writer creates cross_asset_daily_panel in Data/canonical with
+  PRIMARY KEY (symbol, date) and CHECK (close > 0), then exports an ordered
+  Parquet compatibility view. The legacy Parquet writer remains available only
+  through SYSTEM_DUCKDB_CANONICAL_PANEL=0. DVC tracking is an explicit
+  operator action and is fail-closed until push, remote status, and pointer
+  digest verification pass.
+authority_boundary:
+  canonical_writer_changed: true
+  consumer_parquet_path_changed: false
+  duplicate_keys_can_land: false
+  invalid_close_can_land: false
+  dvc_push_in_daily_job: false
+  dvc_remote_verified: false
+acceptance:
+  - default and explicit DuckDB writer tests pass
+  - primary-key duplicate insert is rejected by DuckDB
+  - close <= 0 is blocked before an existing Parquet view is clobbered
+  - offline parity drill proves rollback without touching workspace canonical storage
+  - isolated default-path evidence reads the compatibility Parquet as a legacy consumer and proves no-clobber on a bad candidate
+  - Data/canonical/panels.duckdb.dvc exists and local dvc status is clean
+  - the operator verify-only gate distinguishes clean local status from a missing remote object
+external_acceptance_pending:
+  - DVC push to the configured external remote requires explicit operator approval
+  - restore/pull verification must run on a clean checkout after the push
+observation_window: >
+  Observe the default DuckDB writer and compatibility export through the next
+  real scheduled/default-path refresh before removing the rollback flag or
+  changing consumer readers.
+rollback: >
+  Set SYSTEM_DUCKDB_CANONICAL_PANEL=0 for the affected run and retain the
+  existing Parquet mirror. Do not delete the DuckDB snapshot or DVC pointer
+  while investigating a failed write.

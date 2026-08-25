@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -53,4 +55,57 @@ def test_default_path_fails_closed_when_dagster_is_unavailable(tmp_path: Path) -
 def test_legacy_path_requires_explicit_audited_flag(tmp_path: Path) -> None:
     result = _run_orchestrate(_fake_python_without_dagster(tmp_path), legacy=True)
     assert result.returncode == 0
+    assert "DRY RUN - would execute:" in result.stdout
+
+
+def test_definitions_load_when_generation_mode_has_no_directory() -> None:
+    pytest.importorskip("dagster")
+    env = os.environ.copy()
+    env.update(
+        {
+            "SYSTEM_ROOT": str(ROOT),
+            "PYTHONPATH": f"{ROOT}:{ROOT / 'packages/orchestration'}",
+            "SYSTEM_GENERATION_MODE": "1",
+        }
+    )
+    env.pop("SYSTEM_GENERATION_DIR", None)
+    env.pop("SYSTEM_USE_LEGACY_DAILY_RUN", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from orchestration.definitions import daily_job, defs",
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "generation mode requires SYSTEM_GENERATION_DIR" not in result.stderr
+
+
+def test_default_dry_run_loads_when_generation_mode_has_no_directory() -> None:
+    pytest.importorskip("dagster")
+    env = os.environ.copy()
+    env.update(
+        {
+            "SYSTEM_ROOT": str(ROOT),
+            "PYTHON": sys.executable,
+            "PYTHONPATH": f"{ROOT}:{ROOT / 'packages/orchestration'}",
+            "SYSTEM_GENERATION_MODE": "1",
+        }
+    )
+    env.pop("SYSTEM_GENERATION_DIR", None)
+    env.pop("SYSTEM_USE_LEGACY_DAILY_RUN", None)
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "orchestrate.sh"), "daily", "--dry-run"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
     assert "DRY RUN - would execute:" in result.stdout

@@ -10,7 +10,7 @@
 # At run start the script writes config_snapshot.json into output.dir,
 # closing the "config_snapshot was backfilled" governance gap.
 
-project_root: ${oc.env:STRUCTURAL_PROJECT,/Users/a1/System}
+project_root: ${oc.env:STRUCTURAL_PROJECT}
 
 panel:
   release_id: 2026-05-05-r1

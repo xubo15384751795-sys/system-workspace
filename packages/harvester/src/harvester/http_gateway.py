@@ -9,6 +9,7 @@ import ipaddress
 import json
 import os
 import socket
+import time
 from dataclasses import dataclass
 from string import Formatter
 from typing import Any, Iterable, Iterator, Mapping
@@ -450,7 +451,10 @@ class OwnedHTTPGateway:
                 if content_length and int(content_length) > self._max_response_bytes:
                     raise GatewayResponseTooLarge("provider response exceeds byte budget")
                 body = bytearray()
+                response_started_at = time.monotonic()
                 for chunk in response.iter_bytes():
+                    if time.monotonic() - response_started_at > self._timeout_sec:
+                        raise httpx.ReadTimeout("provider response exceeded total timeout")
                     body.extend(chunk)
                     if len(body) > self._max_response_bytes:
                         raise GatewayResponseTooLarge("provider response exceeds byte budget")

@@ -1,0 +1,43 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-file-boundary-01
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Migrate the first shared Output/current writer, build_data_gaps, behind an
+  explicit materialization-time file boundary. The existing report builder
+  remains the business logic; only path resolution and declared artifact
+  writes are separated for native Dagster observation.
+scope:
+  - scripts/commands/weekly/build_data_gaps.py
+  - packages/orchestration/orchestration/native_file_boundaries.py
+  - packages/orchestration/orchestration/native_daily.py
+  - packages/orchestration/tests/test_native_file_boundaries.py
+  - governance/daily_pipeline_registry.yaml
+authority_boundary:
+  default_native_assets: unchanged
+  default_generated_op_graph: unchanged
+  file_boundary_env: SYSTEM_USE_NATIVE_FILE_BOUNDARIES
+  file_boundary_default: false
+  writes_only_active_generation: true
+  promotion_allowed: false
+decision: >
+  build_data_gaps now accepts explicit current/judgment/registry paths and
+  exposes a writer that returns the two declared files. The native adapter
+  resolves current and judgment surfaces at materialization time, writes only
+  the active generation candidate, emits a typed step result, and retains
+  shadow-only authority. When the boundary flag is absent, native_daily keeps
+  the existing execute_step path and metadata marks the legacy writer path.
+acceptance:
+  - no-argument build_data_gaps compatibility behavior remains available
+  - active-generation adapter writes data_gaps.json and data_gaps.md only to the candidate
+  - boundary errors become typed step errors and do not grant promotion
+  - default flag-off metadata and executor behavior remain unchanged
+  - focused boundary and native daily tests pass
+rollback: >
+  Unset SYSTEM_USE_NATIVE_FILE_BOUNDARIES or remove the registry tag; the
+  existing native asset graph and generated-op default path remain available.
+observation_window: >
+  Include this step in the first isolated legacy/native dual-run pair. Do not
+  remove the sequence barrier or promote the boundary until one-week parity
+  covers both declared files, canonical lineage, and publication state.

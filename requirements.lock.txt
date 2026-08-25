@@ -1,6 +1,6 @@
 # Historical compatibility dependency pins; not the workspace authority.
 #
-# The authoritative resolver is /Users/a1/System/uv.lock. This file is not
+# The authoritative resolver is uv.lock at the repository root. This file is not
 # consumed by CI or workspace runtime and is retained only for migration and
 # audit reference.
 #

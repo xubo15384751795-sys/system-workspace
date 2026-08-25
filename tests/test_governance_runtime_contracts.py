@@ -426,13 +426,15 @@ class TestCodeGovernance:
         )
 
     def test_root_scripts_budget(self):
-        """Root scripts must not exceed 90. One-in-one-out rule."""
+        """Public root commands must not exceed the public command budget."""
+        budget = _load("redundancy_budget.yaml")
+        max_visible = budget["root_scripts"]["public_max_visible"]
         scripts_dir = ROOT / "scripts"
         root_scripts = [
             f for f in scripts_dir.glob("*.py")
             if not f.name.startswith("_") and f.name != "__init__.py"
         ]
-        assert len(root_scripts) <= 90, (
-            f"Root scripts count {len(root_scripts)} exceeds budget of 90. "
+        assert len(root_scripts) <= max_visible, (
+            f"Public root command count {len(root_scripts)} exceeds budget of {max_visible}. "
             f"Archive or module-absorb a script before adding new ones."
         )

@@ -1,0 +1,38 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-cross-wave-pit
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Close the local fixture gap for vintage and point-in-time selection without
+  claiming that DuckDB or DVC provides bitemporal semantics. The availability
+  contract now exposes one conservative selector for decision-usable records.
+scope:
+  - packages/harvester/src/harvester/core/availability.py
+  - packages/harvester/tests/test_data_reliability_contract.py
+authority_boundary:
+  canonical_storage_changed: false
+  daily_pipeline_changed: false
+  core_judgment_enabled: false
+  revision_aware_publication_changed: false
+  promotion_allowed: false
+decision: >
+  For an explicit as-of cutoff, select at most one latest visible vintage per
+  caller-provided logical key. A record must carry AVAILABLE state, an explicit
+  decision_usable flag, available_at no later than the cutoff, and source
+  vintage no later than the cutoff. Retrieval time is observational only and
+  cannot make an otherwise unknown record usable.
+acceptance:
+  - two-vintage fixture returns the old value before the revision is available
+  - the newer revision is returned only after its vintage and available_at
+    pass the as-of cutoff
+  - retrieval-only or UNKNOWN records are excluded
+  - missing PIT keys and duplicate visible vintages fail closed
+  - no DuckDB schema, provider route, or publication authority changes
+rollback: >
+  Remove the selector and fixture; existing availability records and the
+  conservative UNKNOWN behavior remain unchanged.
+observation_window: >
+  Apply the selector only to a future revision-aware consumer after DVC
+  snapshot restore evidence exists; do not route its output into core judgment
+  during this replacement-map migration.

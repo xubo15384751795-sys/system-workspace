@@ -14,15 +14,20 @@ class ModelRegistryError(RuntimeError):
 
 
 def resolve_ml_models_root(config: dict[str, Any]) -> Path:
+    from src.core.runtime_context import RuntimePaths
+
     paths = config.get("paths")
     if isinstance(paths, dict):
         raw = paths.get("ml_models_root")
         if raw:
-            return Path(str(raw)).expanduser()
+            path = Path(str(raw)).expanduser()
+            if path.is_absolute():
+                return path
+            return RuntimePaths.discover().project_root / path
     out = config.get("output")
     if isinstance(out, dict) and out.get("dir"):
         return Path(str(out["dir"])).expanduser() / "ml_models"
-    return Path("Output/ml_models")
+    return RuntimePaths.discover().output_root / "ml_models"
 
 
 def _resolve_release_dir(root: Path, model_release: str) -> Path:

@@ -118,15 +118,25 @@ def build_report() -> dict[str, Any]:
     }
 
 
+def write_report(
+    report: dict[str, Any],
+    *,
+    output_path: Path | None = None,
+) -> Path:
+    """Write the report to an explicit current-output surface."""
+    target = output_path or _output_path()
+    ensure_dir(target.parent)
+    write_json(target, report)
+    return target
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build measurement quality sidecar report.")
     parser.add_argument("--json", action="store_true", help="Print JSON to stdout.")
     args = parser.parse_args()
 
     report = build_report()
-    output_path = _output_path()
-    ensure_dir(output_path.parent)
-    write_json(output_path, report)
+    output_path = write_report(report)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
@@ -134,7 +144,7 @@ def main() -> None:
         print(f"Measurement quality: {report['overall_status']}")
         print(f"  K: {report['channels']['K']['gate_verdict']}")
         print(f"  X_agg: {report['channels']['X_agg']['gate_verdict']}")
-        print(f"  Wrote: {output_path.relative_to(_rio.ROOT)}")
+        print(f"  Wrote: {_rel(output_path)}")
 
 
 if __name__ == "__main__":

@@ -289,12 +289,13 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
             except ImportError:
                 validate_observation = None
             try:
-                for line in canonical_path.read_text(encoding="utf-8").splitlines():
-                    if line.strip():
-                        record = json.loads(line)
-                        if validate_observation is not None:
-                            validate_observation(record)
-                        actual_count += 1
+                with canonical_path.open(encoding="utf-8") as handle:
+                    for line in handle:
+                        if line.strip():
+                            record = json.loads(line)
+                            if validate_observation is not None:
+                                validate_observation(record)
+                            actual_count += 1
             except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
                 raise ExportValidationError(
                     f"canonical observation sidecar invalid for {manifest['dataset_id']}: {canonical_path}"
@@ -323,12 +324,13 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
             except ImportError:
                 validate_chain = None
             try:
-                for line in canonical_chain_path.read_text(encoding="utf-8").splitlines():
-                    if line.strip():
-                        record = json.loads(line)
-                        if validate_chain is not None:
-                            validate_chain(record)
-                        actual_chain_count += 1
+                with canonical_chain_path.open(encoding="utf-8") as handle:
+                    for line in handle:
+                        if line.strip():
+                            record = json.loads(line)
+                            if validate_chain is not None:
+                                validate_chain(record)
+                            actual_chain_count += 1
             except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
                 raise ExportValidationError(
                     f"canonical chain sidecar invalid for {manifest['dataset_id']}: {canonical_chain_path}"

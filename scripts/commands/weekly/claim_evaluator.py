@@ -459,11 +459,14 @@ def write_failures_to_feedback_pending(
     return failures
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate past claims")
-    parser.add_argument("--json", action="store_true", help="JSON output only")
-    args = parser.parse_args()
+def run_claim_evaluator() -> dict[str, Any] | None:
+    """Evaluate claims and persist the same side effects as the CLI.
 
+    The function form lets generation-local orchestration reuse this legacy
+    callable without spawning a subprocess or escaping the active generation.
+    ``None`` means there was no ledger to evaluate, matching the CLI's
+    warning-only behavior.
+    """
     # Load data
     ledger_entries = load_jsonl(TRADE_LEDGER_PATH)
     evaluation_entries = dedupe_entries(ledger_entries)
@@ -472,7 +475,7 @@ def main() -> None:
 
     if not evaluation_entries:
         logger.warning("No trade ledger entries to evaluate")
-        return
+        return None
 
     # Evaluate claims
     result = evaluate_claims(evaluation_entries, current_state, current_caselab_score)
@@ -494,9 +497,22 @@ def main() -> None:
         result["evaluations"], result.get("module_contributions", {})
     )
 
+    return result
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Evaluate past claims")
+    parser.add_argument("--json", action="store_true", help="JSON output only")
+    args = parser.parse_args()
+
+    result = run_claim_evaluator()
+    if result is None:
+        return
+
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
+        output_path = OUTPUT_DIR / "claim_evaluation.json"
         print(f"Claim evaluation: {output_path}")
         s = result["summary"]
         print(f"  Total: {s['total_evaluations']}")

@@ -98,6 +98,7 @@ def load_cfg() -> DictConfig:
         python scripts/structural_replay_v2.py panel.release_id=2026-04-22-r1
         python scripts/structural_replay_v2.py run.tag=weekly output.subdir=runs/weekly
     """
+    os.environ.setdefault("STRUCTURAL_PROJECT", str(REPO_ROOT))
     base = OmegaConf.load(CONFIG_PATH)
     overrides = OmegaConf.from_cli(sys.argv[1:])
     return OmegaConf.merge(base, overrides)

@@ -12,7 +12,12 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 import pytest
-from harvester.ingestion.external_dlt_source import SHADOW_TABLE_NAME, cftc_cot_source
+from harvester.ingestion.external_dlt_source import (
+    SHADOW_TABLE_NAME,
+    build_cftc_shadow_parity_report,
+    cftc_cot_source,
+    write_cftc_shadow_parity_report,
+)
 from harvester.providers.external_indicators import _parse_cftc_tff_lev_sp
 
 FIXTURE_ROWS = [
@@ -177,3 +182,51 @@ def test_no_writes_outside_tmp_path(shadow_pipeline, tmp_path: Path, monkeypatch
     assert (tmp_path / "pipelines").exists()
     assert not (repo_root / ".dlt").exists()
     assert not (repo_root / "shadow.duckdb").exists()
+
+
+def test_parity_report_matches_legacy_parser_and_is_shadow_only() -> None:
+    report = build_cftc_shadow_parity_report(FIXTURE_JSON)
+
+    assert report["status"] == "MATCH"
+    assert report["execution_parity"] == "MATCH"
+    assert report["authority"] == "shadow_only"
+    assert report["promotion_allowed"] is False
+    assert report["legacy_row_count"] == report["dlt_shadow_row_count"] == 2
+    assert report["missing_in_shadow"] == []
+    assert report["extra_in_shadow"] == []
+    assert report["value_mismatches"] == []
+
+
+def test_parity_report_exposes_value_drift_without_promoting_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "harvester.ingestion.external_dlt_source._shadow_cftc_series",
+        lambda _payload: pd.Series(
+            [1350.5, 400.0],
+            index=pd.to_datetime(["2026-08-04", "2026-08-11"]),
+            name="CFTC_TFF_LEV_SP",
+        ),
+    )
+
+    report = build_cftc_shadow_parity_report(FIXTURE_JSON)
+
+    assert report["status"] == "MISMATCH"
+    assert report["value_mismatches"] == [
+        {
+            "date": "2026-08-04",
+            "legacy": 1350.0,
+            "dlt_shadow": 1350.5,
+        }
+    ]
+    assert report["promotion_allowed"] is False
+
+
+def test_parity_report_writer_replaces_target_atomically(tmp_path: Path) -> None:
+    output_path = tmp_path / "health" / "cftc_dlt_parity.json"
+
+    report = write_cftc_shadow_parity_report(FIXTURE_JSON, output_path)
+
+    assert output_path.is_file()
+    assert json.loads(output_path.read_text(encoding="utf-8")) == report
+    assert not list(output_path.parent.glob("*.tmp"))

@@ -19,7 +19,7 @@ bash scripts/daily_release.sh 2026-05-10
 Cron example:
 
 ```cron
-30 22 * * 1-5 cd /Users/a1/System/structural-risk-harvester && bash scripts/daily_release.sh >> /Users/a1/System/Data/harvester/ops.log 2>&1
+30 22 * * 1-5 cd /Users/a1/Verity/packages/harvester && bash scripts/daily_release.sh >> /Users/a1/Verity/Data/harvester/ops.log 2>&1
 ```
 
 Release ids follow UTC calendar dates and increment within the day:

@@ -1,0 +1,39 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-dual-track-window
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add a read-only window gate over the isolated legacy/native dual-track
+  reports. The gate requires real execution, complete parity dimensions, a
+  stable plan/release/vintage identity, and at least seven consecutive UTC
+  observation dates before the migration can be considered for promotion.
+scope:
+  - packages/orchestration/orchestration/operators/run_daily_dual_track.py
+  - packages/orchestration/orchestration/operators/aggregate_daily_dual_track_window.py
+  - packages/orchestration/tests/test_daily_dual_track.py
+  - governance/entrypoint_registry.yaml
+authority_boundary:
+  default_daily_path_changed: false
+  provider_execution: false
+  current_output_written: false
+  promotion_allowed: false
+decision: >
+  Persist observation_date and observed_at on each dual-track report, then use
+  the aggregate command as the only one-week gate. A missing day, preflight
+  report, missing parity dimension, identity drift, or any mismatch remains
+  INCOMPLETE/MISMATCH and cannot be converted to success by the operator.
+acceptance:
+  - the pair operator still defaults to no-write preflight
+  - the aggregate command never launches either track
+  - seven consecutive real execution reports are required for MATCH
+  - all reports remain authority=shadow_only and promotion_allowed=false
+  - input, identity, steps, lineage, publication, and generation dimensions are MATCH
+  - plan/release/vintage identity is stable across the window
+rollback: >
+  Remove the aggregation entrypoint or ignore its report. The existing
+  generated-op default path and native flag-off rollback are unchanged.
+observation_window: >
+  Run one pair per UTC day on ai-box using frozen/same input snapshots. Keep
+  every daily pair report and the aggregate report; do not make a default-path
+  or authority decision from the first successful pair alone.

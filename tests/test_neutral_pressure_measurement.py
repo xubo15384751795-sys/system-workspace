@@ -48,3 +48,35 @@ def test_snapshot_is_neutral_and_excludes_research_candidates(tmp_path: Path, mo
     assert snapshot["canonical_ids"]["claim_id"].startswith("clm_")
     assert snapshot["canonical_chain"]["claim"]["provenance"]["claim_ceiling"] == "bounded_neutral_measurement"
     assert snapshot["canonical_chain"]["claim"]["provenance"]["promotion_allowed"] is False
+
+
+def test_mixed_gauge_dates_use_bounded_common_business_calendar(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    panel = _panel()
+    next_date = panel["date"].max() + pd.offsets.BDay()
+    # D receives a newer daily observation while M remains on the prior
+    # business day.  The declared five-day carry window should keep both
+    # gauges live at the common snapshot date.
+    d_rows = pd.DataFrame(
+        [
+            {"date": next_date, "series_id": series_id, "value": 5.0}
+            for series_id in (
+                "FRED:NFCIRISK",
+                "CBOE:MOVE",
+                "DERIVED:SPX_ROLL_SPREAD",
+            )
+        ]
+    )
+    panel_path = tmp_path / "panel.parquet"
+    history_path = tmp_path / "history.parquet"
+    pd.concat([panel, d_rows], ignore_index=True).to_parquet(panel_path)
+    monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "test-mixed-gauge-dates")
+
+    snapshot, history = build_snapshot(panel_path, history_path)
+
+    assert snapshot["status"] == "active_partial"
+    assert snapshot["advanced"]["channel_coverage"]["complete"] is True
+    assert history.loc[next_date, "M"] == history.loc[panel["date"].max(), "M"]
+    assert pd.notna(history.loc[next_date, "D"])

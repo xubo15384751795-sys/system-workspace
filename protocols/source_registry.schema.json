@@ -55,7 +55,10 @@
         "diagnostic_only": { "type": "boolean" },
         "acquisition_mode": { "enum": ["automated", "manual"] },
         "requires_parity_certification": { "type": "boolean" },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "owner": { "type": "string", "minLength": 1 },
+        "ttl_days": { "type": "integer", "minimum": 1 },
+        "fallback_policy": { "type": "string", "minLength": 1 }
       }
     },
     "series": {

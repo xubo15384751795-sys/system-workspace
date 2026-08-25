@@ -1144,7 +1144,10 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
                 # for the final outcome manifest after commit, but it must not
                 # be the first writer of these evidence files post-publish.
                 bundle.finalize_evidence()
-                transaction.commit_generation(ROOT)
+                transaction.commit_generation(
+                    ROOT,
+                    output_root=output_root if args.output_root else None,
+                )
                 published_current = True
                 published_shadow = True
                 logger.info(

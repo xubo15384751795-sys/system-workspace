@@ -91,6 +91,20 @@ def _resolve_velocity_gate_state() -> dict[str, Any]:
         from strategy_lab.risk_gate import latest_velocity_gate_state
 
         return latest_velocity_gate_state()
+    except ModuleNotFoundError:
+        try:
+            from scripts.strategy_lab.risk_gate import latest_velocity_gate_state
+
+            return latest_velocity_gate_state()
+        except Exception as exc:  # noqa: BLE001 — ledger must still write
+            return {
+                "state": "UNKNOWN",
+                "position": None,
+                "trigger": None,
+                "trigger_reason": f"unavailable: {exc}",
+                "source": "error",
+                "as_of_date": None,
+            }
     except Exception as exc:  # noqa: BLE001 — ledger must still write
         return {
             "state": "UNKNOWN",

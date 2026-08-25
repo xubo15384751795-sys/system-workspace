@@ -27,4 +27,4 @@ detectors:
       channel_threshold: 0.6
 
 paths:
-  ml_models_root: "/Users/a1/System/Output/ml_models"
+  ml_models_root: Output/ml_models

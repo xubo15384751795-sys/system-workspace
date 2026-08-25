@@ -2,7 +2,7 @@ schema_version: routing_decision_record.v1
 date: "2026-07-18"
 task_id: e3-three-replication-protocol
 status: FROZEN
-amends: /Users/a1/System/governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
+amends: governance/routing_decisions/2026-07-12-nonlinear-framework-prereg.yaml
 mission: >
   Clarify the previously underspecified lead-time comparison before the
   scheduled three-run E3 replication. This record does not alter the frozen
@@ -40,5 +40,5 @@ known_diagnostic: >
   20-day maximum against a pointwise q95 threshold may produce a common,
   rather than rare, label. This is a failure-domain disclosure.
 artifacts:
-  runner: /Users/a1/System/scripts/run_e3_three_replication.py
-  verdict: /Users/a1/System/Output/validation/e3_three_replication/verdict.json
+  runner: scripts/run_e3_three_replication.py
+  verdict: Output/validation/e3_three_replication/verdict.json

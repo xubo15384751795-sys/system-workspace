@@ -1,0 +1,5 @@
+outs:
+- md5: d6ecc1405cffb050333e6d592ca8a1b7
+  size: 18362368
+  hash: md5
+  path: panels.duckdb

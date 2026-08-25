@@ -19,6 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from paper_interface import CaseAnalyzer, FigureGenerator, ProxyComputer, SignatureQuantities
 
+_PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+
 
 def main():
     parser = argparse.ArgumentParser(description="Paper Empirical Interface")
@@ -29,7 +31,12 @@ def main():
     parser.add_argument("--figures", action="store_true", help="Generate figures")
     parser.add_argument("--start", type=str, default="2015-01-01", help="Start date")
     parser.add_argument("--end", type=str, default="", help="End date")
-    parser.add_argument("--output", type=str, default="/Users/a1/System/paper-empirical-interface/output", help="Output directory")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=str(_PACKAGE_ROOT / "output"),
+        help="Output directory",
+    )
 
     args = parser.parse_args()
 

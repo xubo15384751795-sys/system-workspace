@@ -17,7 +17,7 @@ Use Harvester acquisition commands to publish admitted evidence, then consume
 the resulting release through Deformation's src/data_access/ boundary.
 
 Suggested Harvester command for Phase A external indicators:
-  cd /Users/a1/System/Structural\\ Risk\\ Harvester
+  cd packages/harvester
   python -m harvester fetch-external-indicators --write-templates
 """
 

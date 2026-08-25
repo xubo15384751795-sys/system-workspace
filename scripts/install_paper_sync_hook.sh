@@ -3,7 +3,7 @@
 #
 # Usage:
 #   bash scripts/install_paper_sync_hook.sh
-#   PAPER_ROOT=/path/to/Paper SYSTEM_ROOT=/path/to/System bash scripts/install_paper_sync_hook.sh
+#   PAPER_ROOT=/path/to/Paper SYSTEM_ROOT=/path/to/Verity bash scripts/install_paper_sync_hook.sh
 
 set -euo pipefail
 

@@ -1,0 +1,51 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-file-boundary-03
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Extend the reversible native file-boundary shadow from the first four
+  non-core current writers to the earlier measurement_quality_report step and
+  the next two readout writers, signal_card and signal_consensus. Existing
+  builders remain the business authority; Dagster receives only explicit
+  generation-local output paths.
+scope:
+  - governance/daily_pipeline_registry.yaml
+  - scripts/commands/weekly/build_measurement_quality_report.py
+  - scripts/build_signal_card.py
+  - scripts/signal_consensus.py
+  - packages/orchestration/orchestration/native_file_boundaries.py
+  - packages/orchestration/tests/test_native_file_boundaries.py
+authority_boundary:
+  default_path_changed: false
+  legacy_builder_semantics_changed: false
+  current_output_written_by_native_boundary: false
+  native_file_boundary_flag_default: false
+  native_asset_promotion_allowed: false
+  production_schedule_enabled: false
+decision: >
+  Registry declarations use execution.native_file_boundary=shadow_pilot and are
+  accepted only when an explicit adapter exists. measurement_quality_report
+  exposes write_report() while native quality continues to compute/check only.
+  signal_card and signal_consensus accept explicit read/write path bindings but
+  preserve their no-argument legacy entry points. Adapters write only the
+  active generation current directory and do not write shared Output/current,
+  steps.jsonl, publication pointers, compatibility links, or canonical data.
+acceptance:
+  - registry-driven selection fails closed for an unimplemented boundary
+  - all seven boundary adapters return typed shadow-only results
+  - no-argument legacy builder calls remain available
+  - isolated generation tests prove no shared Output directory is created
+  - native batch same-inputs parity remains MATCH for its five selected assets
+  - full-plan native dry-run remains MATCH for the 71-step compiled plan
+  - orchestration suite passes and promotion remains false
+observation_window: >
+  Run these boundaries beside the existing registry executor for at least one
+  week with identical inputs. Compare report payloads, generation lineage,
+  failure behavior, publication evidence, and consumer readouts before adding
+  any default-path authority or removing the sequence barrier.
+rollback: >
+  Remove the new native_file_boundary tags or set
+  SYSTEM_USE_NATIVE_FILE_BOUNDARIES=0. Existing legacy builders, native
+  quality shadow, generated-op/default runner paths, and Output/current writers
+  remain available; do not delete their outputs or compatibility surfaces.

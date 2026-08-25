@@ -8,13 +8,19 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Any, Callable, Mapping
 from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
 
 from harvester.http_gateway import EndpointSpec, OwnedHTTPGateway
+from harvester.ingestion.dlt_observation import (
+    load_capture_manifest,
+    new_capture_manifest,
+    payload_sha256,
+    write_capture_manifest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -250,12 +256,14 @@ def _canonical_cache_text(indicator_name: str, series: pd.Series) -> str:
     return str(frame.to_csv(index=False))
 
 
-def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Series) -> None:
+def _normalize_cache_file(cache_path: Path, indicator_name: str, series: pd.Series) -> bool:
     """Rewrite cache to canonical CSV after a successful parse."""
     try:
         _atomic_write_text(cache_path, _canonical_cache_text(indicator_name, series))
+        return True
     except OSError:
         logger.warning("Failed to normalize indicator cache: %s", cache_path, exc_info=True)
+        return False
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -353,9 +361,16 @@ def fetch_external_indicator(
     timeout_sec: int = 90,
     max_cache_age_days: int = DEFAULT_MAX_CACHE_AGE_DAYS,
     gateway: OwnedHTTPGateway | None = None,
+    capture_context: dict[str, Any] | None = None,
 ) -> pd.Series:
     cache_path = _resolve_cache(cache_dir, indicator)
     parser = _PARSERS[indicator.name]
+    owns_capture_context = capture_context is None
+    active_capture = (
+        capture_context
+        if capture_context is not None
+        else _capture_context_for(cache_dir, indicator)
+    )
 
     if indicator.acquisition_mode == "manual":
         cached = read_cached_external_indicator(indicator, cache_dir=cache_dir)
@@ -405,13 +420,31 @@ def fetch_external_indicator(
             # the cache remains self-parseable and preserves the long schema.
             series = parser(text)
             cache_text = _cftc_frame(text).to_csv(index=False)
+            cache_written = False
             try:
                 _atomic_write_text(cache_path, cache_text)
+                cache_written = True
             except OSError:
                 logger.warning("Failed to persist raw CFTC indicator cache: %s", cache_path, exc_info=True)
+            if cache_written:
+                _record_capture_bytes(
+                    cache_path=cache_path,
+                    indicator=indicator,
+                    cache_dir=cache_dir,
+                    capture_manifest=active_capture,
+                    write_sidecar=owns_capture_context,
+                )
             return series
         series = _merge_cached_history(cache_path, indicator, parser, parser(text))
-        _normalize_cache_file(cache_path, indicator.name, series)
+        cache_written = _normalize_cache_file(cache_path, indicator.name, series)
+        if cache_written:
+            _record_capture_bytes(
+                cache_path=cache_path,
+                indicator=indicator,
+                cache_dir=cache_dir,
+                capture_manifest=active_capture,
+                write_sidecar=owns_capture_context,
+            )
         return series
     except Exception as exc:
         if cache_path.exists():
@@ -434,6 +467,7 @@ def fetch_all_external(
 ) -> dict[str, pd.Series]:
     out: dict[str, pd.Series] = {}
     errors: dict[str, str] = {}
+    capture_context = _capture_context_for(cache_dir, CISS)
     with OwnedHTTPGateway(
         endpoint_registry=EXTERNAL_ENDPOINTS,
         headers={"User-Agent": "StructuralRiskHarvester/0.1.0"},
@@ -451,11 +485,20 @@ def fetch_all_external(
                     cache_dir=cache_dir,
                     refresh=refresh,
                     gateway=gateway,
+                    capture_context=capture_context,
                 )
             except ManualDownloadRequired as exc:
                 if not skip_unavailable:
                     raise
                 errors[indicator.name] = str(exc)
+    if capture_context.get("payload_digests"):
+        try:
+            write_capture_manifest(
+                _capture_manifest_path(cache_dir, "external_indicators"),
+                capture_context,
+            )
+        except (OSError, ValueError):
+            logger.warning("Failed to persist external provider capture manifest", exc_info=True)
     if errors:
         out["__errors__"] = pd.Series(errors)  # type: ignore[assignment]
     return out
@@ -567,6 +610,78 @@ def _resolve_cache(cache_dir: Path | str, indicator: ExternalIndicator) -> Path:
     base = Path(cache_dir)
     base.mkdir(parents=True, exist_ok=True)
     return base / f"{indicator.name.lower()}.csv"
+
+
+def _capture_manifest_path(cache_dir: Path | str, provider: str) -> Path:
+    base = Path(cache_dir)
+    if provider == "cftc":
+        return base / "cftc_tff_lev_sp.capture.json"
+    return base / "external_indicators.capture.json"
+
+
+def _capture_provider(indicator: ExternalIndicator) -> str:
+    return "cftc" if indicator.name == "CFTC_TFF_LEV_SP" else "external_indicators"
+
+
+def _capture_context_for(
+    cache_dir: Path | str,
+    indicator: ExternalIndicator,
+) -> dict[str, Any]:
+    """Reuse today's external batch context across direct provider calls.
+
+    The legacy official loader calls ``fetch_external_indicator`` once per
+    series. Reusing the same-day sidecar lets those independent calls form one
+    daily capture without changing the parser or acquisition API. CFTC keeps a
+    separate single-payload manifest.
+    """
+    provider = _capture_provider(indicator)
+    current = new_capture_manifest(provider=provider)
+    if provider != "external_indicators":
+        return current
+    try:
+        existing = load_capture_manifest(
+            _capture_manifest_path(cache_dir, provider),
+            expected_provider=provider,
+        )
+    except ValueError:
+        return current
+    if existing.get("observation_date") == current.get("observation_date"):
+        return existing
+    return current
+
+
+def _record_capture_bytes(
+    *,
+    cache_path: Path,
+    indicator: ExternalIndicator,
+    cache_dir: Path | str,
+    capture_manifest: dict[str, Any],
+    write_sidecar: bool,
+) -> bool:
+    digest = payload_sha256(cache_path)
+    if digest is None:
+        return False
+    if indicator.name == "CFTC_TFF_LEV_SP" and capture_manifest.get("provider") == "cftc":
+        capture_manifest["payload_sha256"] = digest
+    else:
+        payload_digests = capture_manifest.setdefault("payload_digests", {})
+        if not isinstance(payload_digests, dict):
+            return False
+        payload_digests[indicator.series_id] = digest
+    if write_sidecar:
+        try:
+            write_capture_manifest(
+                _capture_manifest_path(cache_dir, str(capture_manifest["provider"])),
+                capture_manifest,
+            )
+        except (OSError, ValueError):
+            logger.warning(
+                "Failed to persist provider capture manifest for %s",
+                indicator.name,
+                exc_info=True,
+            )
+            return False
+    return True
 
 
 def _parse_ciss_csv(payload: ExternalPayload) -> pd.Series:

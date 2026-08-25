@@ -5,7 +5,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
+from scripts._runtime_io import write_json
 from system_runtime.observability import capture_exception, init_sentry
 from system_runtime.runtime_secrets import load_runtime_secrets
 
@@ -18,6 +21,11 @@ def main(argv: list[str] | None = None) -> int:
         help="non-sensitive test message",
     )
     parser.add_argument("--flush-timeout", type=float, default=10.0)
+    parser.add_argument(
+        "--receipt",
+        type=Path,
+        help="Optional JSON path for a sanitized event-id receipt.",
+    )
     args = parser.parse_args(argv)
 
     load_runtime_secrets()
@@ -40,6 +48,17 @@ def main(argv: list[str] | None = None) -> int:
     if not event_id:
         print("Sentry did not produce an event id", file=sys.stderr)
         return 1
+    if args.receipt is not None:
+        write_json(
+            args.receipt.expanduser().resolve(),
+            {
+                "schema_version": "system.sentry_event_receipt.v1",
+                "event_id": str(event_id),
+                "sent_at": datetime.now(UTC).isoformat(),
+                "environment": os.environ.get("SENTRY_ENVIRONMENT", "system"),
+                "source": "scripts.test_sentry_event",
+            },
+        )
     print(f"Sentry event flushed: {event_id}")
     return 0
 

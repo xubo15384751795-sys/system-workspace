@@ -9,6 +9,7 @@ conservative ``UNKNOWN`` state and is not decision-usable.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from collections.abc import Sequence
 from typing import Any, Mapping
 
 AVAILABILITY_STATES = frozenset(
@@ -47,6 +48,27 @@ def _timestamp(value: Any, *, field: str) -> str | None:
             raise AvailabilityContractError(f"{field} must be timezone-aware")
         return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
     return str(parsed)
+
+
+def _clock(value: Any, *, field: str) -> datetime:
+    """Parse a date/timestamp for causal comparisons without guessing retrieval."""
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime(value.year, value.month, value.day, tzinfo=UTC)
+    elif isinstance(value, str) and value.strip():
+        text = value.strip().replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError as exc:
+            raise AvailabilityContractError(f"{field} must be an ISO date/timestamp") from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+    else:
+        raise AvailabilityContractError(f"{field} must be an ISO date/timestamp")
+    if parsed.tzinfo is None:
+        raise AvailabilityContractError(f"{field} must be timezone-aware")
+    return parsed.astimezone(UTC)
 
 
 def build_availability(
@@ -147,10 +169,79 @@ def validate_availability(value: Mapping[str, Any]) -> None:
     )
 
 
+def select_latest_vintage_as_of(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    as_of: str | date | datetime,
+    key_fields: tuple[str, ...] = ("series_id", "observation_date"),
+    vintage_field: str = "source_vintage_at",
+) -> list[dict[str, Any]]:
+    """Select the latest decision-usable vintage visible at ``as_of``.
+
+    A record is eligible only when its explicit ``available_at`` and source
+    vintage are both no later than ``as_of``.  ``retrieved_at`` is never used
+    as a proxy for availability.  Missing keys or duplicate visible vintages
+    fail closed so a caller cannot silently mix revisions.
+    """
+    if not key_fields:
+        raise AvailabilityContractError("key_fields must not be empty")
+    cutoff = _clock(as_of, field="as_of")
+    selected: dict[tuple[Any, ...], tuple[datetime, datetime, dict[str, Any]]] = {}
+
+    for index, raw_record in enumerate(records):
+        if not isinstance(raw_record, Mapping):
+            raise AvailabilityContractError(f"record[{index}] must be an object")
+        availability = raw_record.get("availability")
+        if not isinstance(availability, Mapping):
+            continue
+        validate_availability(availability)
+        if (
+            str(availability.get("state", "")).upper() != "AVAILABLE"
+            or not bool(availability.get("decision_usable"))
+        ):
+            continue
+        missing_keys = [field for field in key_fields if field not in raw_record]
+        if missing_keys:
+            raise AvailabilityContractError(
+                f"record[{index}] missing PIT key fields: {missing_keys}"
+            )
+        key = tuple(raw_record[field] for field in key_fields)
+        vintage_value = raw_record.get(vintage_field)
+        if vintage_value is None:
+            vintage_value = availability.get("source_vintage_at")
+        if vintage_value is None:
+            raise AvailabilityContractError(
+                f"record[{index}] missing vintage field: {vintage_field}"
+            )
+        vintage = _clock(vintage_value, field=f"record[{index}].{vintage_field}")
+        available_value = availability.get("available_at")
+        if available_value is None:
+            raise AvailabilityContractError(
+                f"record[{index}] decision-usable record missing availability.available_at"
+            )
+        available = _clock(available_value, field=f"record[{index}].availability.available_at")
+        if vintage > cutoff or available > cutoff:
+            continue
+        candidate = dict(raw_record)
+        previous = selected.get(key)
+        if previous is not None:
+            previous_vintage, previous_available, _ = previous
+            if (vintage, available) == (previous_vintage, previous_available):
+                raise AvailabilityContractError(
+                    f"duplicate visible vintage for PIT key {key!r}"
+                )
+            if (vintage, available) <= (previous_vintage, previous_available):
+                continue
+        selected[key] = (vintage, available, candidate)
+
+    return [item[2] for item in selected.values()]
+
+
 __all__ = [
     "AVAILABILITY_STATES",
     "CALENDAR_STATES",
     "AvailabilityContractError",
     "build_availability",
+    "select_latest_vintage_as_of",
     "validate_availability",
 ]

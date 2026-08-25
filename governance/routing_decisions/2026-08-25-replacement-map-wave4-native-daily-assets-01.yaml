@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-native-daily-assets-01
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add the first full-plan Dagster native asset graph as an explicit opt-in
+  execution seam. It compiles the existing CompiledPlan into one asset per
+  scheduled step, retains the generated sequence barrier for shared legacy
+  surfaces, and preserves the existing step implementations and run-record
+  writer while native execution is observed.
+scope:
+  - packages/orchestration/orchestration/native_daily.py
+  - packages/orchestration/orchestration/runner.py
+  - packages/orchestration/orchestration/definitions.py
+  - packages/orchestration/tests/test_native_daily.py
+authority_boundary:
+  default_daily_path_changed: false
+  native_pilot_job_registered: true
+  native_pilot_schedule_default: STOPPED
+  native_flag: SYSTEM_USE_NATIVE_DAILY_ASSETS
+  native_flag_default: false
+  legacy_runner_removed: false
+  steps_jsonl_authority_changed: false
+  native_asset_promotion_allowed: false
+decision: >
+  Keep the current Dagster generated-op graph as the default until a bounded
+  native-vs-current parity window passes. The opt-in graph uses the same
+  CompiledPlan, semantic failure interpretation, output-lineage helper, and
+  record callback. Every asset has one Dagster retry and native dependencies;
+  the previous sequence step remains an execution barrier until shared
+  Output/current writers migrate to file-level assets.
+acceptance:
+  - the flag is false by default and the current default path is unchanged
+  - the full compiled sequence materializes as native assets with one retry
+  - native asset output matches the direct executor on a hermetic success plan
+  - blocking failures produce the same blocked_upstream chain
+  - the native_pilot_job and native_pilot_schedule are registered only for observation and remain stopped
+  - no production schedule or daily_job definition is changed
+rollback: >
+  Unset SYSTEM_USE_NATIVE_DAILY_ASSETS or remove the native_daily module and
+  dispatch branch. The current Dagster op graph and explicit legacy emergency
+  flag remain available.
+observation_window: >
+  Run the opt-in graph beside the current Dagster op graph on identical inputs
+  for at least one week. Require execution parity, canonical lineage parity,
+  and no publication/steps.jsonl divergence before making it the default.

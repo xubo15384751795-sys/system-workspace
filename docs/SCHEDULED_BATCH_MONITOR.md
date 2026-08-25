@@ -65,7 +65,7 @@ python3 scripts/daily_run.py --dry-run
 
 ```bash
 # Daily at 08:30
-30 8 * * * cd /Users/a1/System && python3 scripts/daily_run.py >> /tmp/daily_run.log 2>&1
+30 8 * * * cd /Users/a1/Verity && python3 scripts/daily_run.py >> /tmp/daily_run.log 2>&1
 ```
 
 ## Automation with macOS launchd
@@ -81,7 +81,7 @@ python3 scripts/daily_run.py --dry-run
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/python3</string>
-        <string>/Users/a1/System/scripts/daily_run.py</string>
+        <string>/Users/a1/Verity/scripts/daily_run.py</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
@@ -91,7 +91,7 @@ python3 scripts/daily_run.py --dry-run
         <integer>30</integer>
     </dict>
     <key>WorkingDirectory</key>
-    <string>/Users/a1/System</string>
+    <string>/Users/a1/Verity</string>
     <key>StandardOutPath</key>
     <string>/tmp/daily_run.log</string>
     <key>StandardErrorPath</key>

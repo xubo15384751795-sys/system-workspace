@@ -19,6 +19,7 @@ import argparse
 import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 try:
@@ -223,9 +224,9 @@ def _extract_gaps_from_judgment(judgment: dict, fw: dict) -> list[dict[str, Any]
 # Existing request registry reading (fixed)
 # ---------------------------------------------------------------------------
 
-def _check_existing_requests() -> list[dict[str, Any]]:
+def _check_existing_requests(data_request_path: Path | None = None) -> list[dict[str, Any]]:
     """Check what data requests already exist in the registry."""
-    reg = _load_yaml(DATA_REQUEST_PATH)
+    reg = _load_yaml(data_request_path or DATA_REQUEST_PATH)
     if not reg:
         return []
 
@@ -277,9 +278,9 @@ def _match_gaps_to_requests(
 # Data authority gap checking
 # ---------------------------------------------------------------------------
 
-def _check_data_authority_gaps() -> list[dict[str, str]]:
+def _check_data_authority_gaps(data_authority_path: Path | None = None) -> list[dict[str, str]]:
     """Check authority_registry for data sources needing Harvester migration."""
-    reg = _load_yaml(DATA_AUTHORITY_PATH)
+    reg = _load_yaml(data_authority_path or DATA_AUTHORITY_PATH)
     if not reg:
         return []
 
@@ -303,10 +304,24 @@ def _check_data_authority_gaps() -> list[dict[str, str]]:
 # Main build
 # ---------------------------------------------------------------------------
 
-def build_data_gaps() -> dict[str, Any]:
-    """Build the complete data gaps report with request candidates."""
-    judgment = _load_json(JUDGMENT / "latest.json")
-    fw = _load_json(CURRENT / "framework_output.json")
+def build_data_gaps(
+    *,
+    current_path: Path | None = None,
+    judgment_path: Path | None = None,
+    data_authority_path: Path | None = None,
+    data_request_path: Path | None = None,
+) -> dict[str, Any]:
+    """Build the complete data gaps report with request candidates.
+
+    The optional paths are an explicit execution boundary for Dagster native
+    assets.  The no-argument compatibility callable resolves the same default
+    surfaces at call time, so a generation candidate selected after module
+    import is still honored.
+    """
+    current = current_path or current_dir()
+    judgment_dir = judgment_path or surface_dir("judgment")
+    judgment = _load_json(judgment_dir / "latest.json")
+    fw = _load_json(current / "framework_output.json")
 
     if not judgment:
         return {
@@ -330,7 +345,7 @@ def build_data_gaps() -> dict[str, Any]:
         if candidate:
             request_candidates.append(candidate)
 
-    existing_requests = _check_existing_requests()
+    existing_requests = _check_existing_requests(data_request_path)
     gap_request_matches = _match_gaps_to_requests(gaps, existing_requests)
 
     # Count non-harvester flags
@@ -346,7 +361,7 @@ def build_data_gaps() -> dict[str, Any]:
         "request_candidates": request_candidates,
         "existing_requests": existing_requests,
         "gap_request_matches": gap_request_matches,
-        "authority_gaps": _check_data_authority_gaps(),
+        "authority_gaps": _check_data_authority_gaps(data_authority_path),
         "summary": {
             "total_gaps": len(gaps),
             "high_priority": sum(1 for g in gaps if g.get("priority") == "high"),
@@ -362,7 +377,11 @@ def build_data_gaps() -> dict[str, Any]:
 # Request candidate → registry sync
 # ---------------------------------------------------------------------------
 
-def write_request_candidates_to_registry(report: dict[str, Any]) -> int:
+def write_request_candidates_to_registry(
+    report: dict[str, Any],
+    *,
+    data_request_path: Path | None = None,
+) -> int:
     """Write new request candidates into data_request_registry.yaml.
 
     Only adds candidates whose request_id is not already in the registry.
@@ -372,7 +391,8 @@ def write_request_candidates_to_registry(report: dict[str, Any]) -> int:
         logger.warning("pyyaml not installed; cannot write registry")
         return 0
 
-    reg = _load_yaml(DATA_REQUEST_PATH)
+    request_path = data_request_path or DATA_REQUEST_PATH
+    reg = _load_yaml(request_path)
     if not reg:
         reg = {
             "schema_version": "data_request.v1",
@@ -418,7 +438,7 @@ def write_request_candidates_to_registry(report: dict[str, Any]) -> int:
     if new_count > 0:
         # Update timestamp
         reg["updated_at"] = datetime.now(UTC).strftime("%Y-%m-%d")
-        DATA_REQUEST_PATH.write_text(
+        request_path.write_text(
             yaml.dump(reg, default_flow_style=False, allow_unicode=True, sort_keys=False),
             encoding="utf-8",
         )
@@ -590,6 +610,24 @@ def generate_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def write_data_gaps_files(
+    report: dict[str, Any],
+    *,
+    current_path: Path | None = None,
+) -> tuple[Path, Path]:
+    """Write the two declared current-surface artifacts and return their paths."""
+    current = current_path or current_dir()
+    ensure_dir(current)
+    json_path = current / "data_gaps.json"
+    json_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    md_path = current / "data_gaps.md"
+    md_path.write_text(generate_markdown(report), encoding="utf-8")
+    return json_path, md_path
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -611,14 +649,7 @@ def main() -> None:
     args = parser.parse_args()
 
     report = build_data_gaps()
-
-    ensure_dir(CURRENT)
-
-    json_path = CURRENT / "data_gaps.json"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-    md_path = CURRENT / "data_gaps.md"
-    md_path.write_text(generate_markdown(report), encoding="utf-8")
+    write_data_gaps_files(report)
 
     if args.write_requests:
         n = write_request_candidates_to_registry(report)

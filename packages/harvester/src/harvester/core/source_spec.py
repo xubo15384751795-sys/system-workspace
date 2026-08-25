@@ -41,6 +41,9 @@ class SourceRoute:
     acquisition_mode: str = "automated"
     requires_parity_certification: bool = False
     notes: str = ""
+    owner: str = ""
+    ttl_days: int | None = None
+    fallback_policy: str = ""
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "SourceRoute":
@@ -55,6 +58,9 @@ class SourceRoute:
             acquisition_mode=str(value.get("acquisition_mode", "automated")),
             requires_parity_certification=bool(value.get("requires_parity_certification", False)),
             notes=str(value.get("notes", "")),
+            owner=str(value.get("owner", "")),
+            ttl_days=(int(value["ttl_days"]) if value.get("ttl_days") is not None else None),
+            fallback_policy=str(value.get("fallback_policy", "")),
         )
 
 
@@ -225,6 +231,14 @@ def validate_source_registry(payload: Mapping[str, Any]) -> None:
                     f"{series_id}: unsupported fallback_kind {fallback_kind!r}"
                 )
             tiers.append(int(route["tier"]))
+            if "ttl_days" in route and int(route["ttl_days"]) < 1:
+                raise SourceRegistryValidationError(
+                    f"{series_id}: route {route_id} ttl_days must be positive"
+                )
+            if "owner" in route and not str(route["owner"]).strip():
+                raise SourceRegistryValidationError(
+                    f"{series_id}: route {route_id} owner must not be empty"
+                )
             authoritative += int(not bool(route["diagnostic_only"]))
         if tiers != sorted(tiers) or len(set(tiers)) != len(tiers):
             raise SourceRegistryValidationError(

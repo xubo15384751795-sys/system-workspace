@@ -96,8 +96,9 @@ def main() -> None:
     if args.bull_modulation:
         gate_kwargs["bull_modulation"] = True
         print("  Bull modulation ON (threshold 1.5→2.0 in calm bulls)")
+    signal_cols = [c for c in ["M", "D", "K", "X"] if c in data.columns]
     risk_pos = compute_position_series(
-        data[["M", "D", "K", "X"]],
+        data[signal_cols],
         close=data["close"],
         **gate_kwargs,
     )

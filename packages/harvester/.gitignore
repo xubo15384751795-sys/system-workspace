@@ -1,5 +1,5 @@
 # The data/ symlink points to a non-versioned data volume
-# (/Users/a1/System/Data/harvester/). Nothing under it is part of the repo.
+# (Data/harvester/). Nothing under it is part of the repo.
 data
 data/
 

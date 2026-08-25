@@ -5,7 +5,7 @@ WRITES: Data/nlp/caselab_experiments/ ONLY
 DOES NOT modify System code, data, or outputs.
 
 Usage:
-    cd /Users/a1/System
+    cd /Users/a1/Verity
     python3 -m nlp.caselab.experiments.run_all
 """
 from __future__ import annotations

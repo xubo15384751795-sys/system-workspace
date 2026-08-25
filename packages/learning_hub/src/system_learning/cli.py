@@ -11,7 +11,7 @@ from system_learning.ledger.store import read_existing_improvement_queue
 from system_learning.ml_integrity import run_pollution_check
 from system_learning.runtime.context import new_run_context
 from system_learning.runtime.manifest import read_last_run_id
-from system_learning.runtime.paths import HubPaths
+from system_learning.runtime.paths import HubPaths, default_system_root
 from system_learning.runtime.pipeline import PipelinePlan, execute_pipeline
 from system_learning.variation import build_variation_health, write_variation_health
 
@@ -60,7 +60,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--system-root", type=Path, default=Path("/Users/a1/System"))
+    common.add_argument("--system-root", type=Path, default=None)
 
     run = sub.add_parser("run", parents=[common], help="Default pipeline: ingest runtime log → ledger → reports.")
     run.add_argument("--ledger-dir", type=Path)
@@ -130,11 +130,16 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _system_root(args: argparse.Namespace) -> Path:
+    root = args.system_root or default_system_root()
+    return Path(root).expanduser().resolve()
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     if args.cartography_only:
         return _cmd_scan_codebase(args)
 
-    paths = HubPaths.resolve(args.system_root, ledger_dir=args.ledger_dir, report_dir=args.report_dir)
+    paths = HubPaths.resolve(_system_root(args), ledger_dir=args.ledger_dir, report_dir=args.report_dir)
     context = new_run_context(mode="full", run_id=args.run_id)
     plan = PipelinePlan(
         run_cartography=args.with_cartography,
@@ -181,13 +186,13 @@ def _cmd_record(args: argparse.Namespace) -> int:
             "run_id": args.run_id,
             **extra,
         }
-    path = append_runtime_record(args.system_root.resolve(), record)
+    path = append_runtime_record(_system_root(args), record)
     print(path)
     return 0
 
 
 def _cmd_scan_codebase(args: argparse.Namespace) -> int:
-    paths = HubPaths.resolve(args.system_root)
+    paths = HubPaths.resolve(_system_root(args))
     scan_root = (args.scan_root or paths.system_root).resolve()
     project_root = (args.project_root or paths.hub_project_root).resolve()
     outputs = run_cartography(scan_root=scan_root, project_root=project_root)
@@ -198,7 +203,7 @@ def _cmd_scan_codebase(args: argparse.Namespace) -> int:
 
 
 def _cmd_check_ml_integrity(args: argparse.Namespace) -> int:
-    paths = HubPaths.resolve(args.system_root)
+    paths = HubPaths.resolve(_system_root(args))
     report = run_pollution_check(
         signals_root=paths.system_root / "Output" / "ml_signals",
         runs_root=paths.system_root / "Output" / "deformation_runs",
@@ -213,7 +218,7 @@ def _cmd_check_ml_integrity(args: argparse.Namespace) -> int:
 
 
 def _cmd_verify_lifecycle(args: argparse.Namespace) -> int:
-    paths = HubPaths.resolve(args.system_root, ledger_dir=args.ledger_dir)
+    paths = HubPaths.resolve(_system_root(args), ledger_dir=args.ledger_dir)
     import pandas as pd
 
     queue = read_existing_improvement_queue(paths.ledger_dir)
@@ -225,7 +230,7 @@ def _cmd_verify_lifecycle(args: argparse.Namespace) -> int:
 
 
 def _cmd_rebuild_ledger(args: argparse.Namespace) -> int:
-    paths = HubPaths.resolve(args.system_root, ledger_dir=args.ledger_dir, report_dir=args.report_dir)
+    paths = HubPaths.resolve(_system_root(args), ledger_dir=args.ledger_dir, report_dir=args.report_dir)
     context = new_run_context(mode="rebuild-ledger", run_id=args.run_id)
     plan = PipelinePlan(
         collect_events=False,
@@ -237,7 +242,7 @@ def _cmd_rebuild_ledger(args: argparse.Namespace) -> int:
 
 
 def _cmd_replay(args: argparse.Namespace) -> int:
-    paths = HubPaths.resolve(args.system_root, ledger_dir=args.ledger_dir, report_dir=args.report_dir)
+    paths = HubPaths.resolve(_system_root(args), ledger_dir=args.ledger_dir, report_dir=args.report_dir)
     context = new_run_context(mode="replay", run_id=args.run_id)
     plan = PipelinePlan(
         run_cartography=args.with_cartography,
@@ -258,7 +263,7 @@ def _cmd_governance_audit(args: argparse.Namespace) -> int:
     from system_learning.guards import run_governance_audit, write_report
     from system_learning.guards.audit import REPORT_DIR_RELPATH
 
-    system_root = args.system_root.resolve()
+    system_root = _system_root(args)
     report = run_governance_audit(system_root, registry_path=args.registry)
     paths = write_report(report, system_root / REPORT_DIR_RELPATH)
 
@@ -277,7 +282,7 @@ def _cmd_governance_audit(args: argparse.Namespace) -> int:
 def _cmd_research_posture(args: argparse.Namespace) -> int:
     from system_learning.guards import run_research_posture
 
-    system_root = args.system_root.resolve()
+    system_root = _system_root(args)
     digest, paths = run_research_posture(system_root, registry_path=args.registry)
     print(f"research-posture: overall={digest.overall_posture} ({digest.overall_reason})")
     print(f"  entries: {len(digest.entries)}")
@@ -290,7 +295,7 @@ def _cmd_variation_health(args: argparse.Namespace) -> int:
     """Write a full metric artifact; keep normal scheduled stdout silent."""
     import json
 
-    system_root = args.system_root.resolve()
+    system_root = _system_root(args)
     report = build_variation_health(system_root, days=args.days)
     evidence_path = write_variation_health(report, system_root)
     if args.json:

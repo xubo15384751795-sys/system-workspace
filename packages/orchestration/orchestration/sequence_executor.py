@@ -116,6 +116,7 @@ class DailyRunContext:
     step_index: int = 0
     run_id: str = ""
     plan: CompiledPlan | None = None
+    dry_run: bool = False
 
     @property
     def force_weekly(self) -> bool:
@@ -247,6 +248,22 @@ def execute_step(
 ) -> dict[str, Any]:
     resolved_plan = plan or ctx.plan
     mode, cmd_or_argv, env = build_step_invocation(step_id, ctx, plan=resolved_plan)
+    if ctx.dry_run:
+        compiled_step = (resolved_plan or load_pipeline(WorkspacePaths(root=ROOT))).step(step_id)
+        result: dict[str, Any] = {
+            "step": step_id,
+            "status": "success",
+            "mode": "dry_run",
+            "execution_mode": mode,
+            "duration_s": 0,
+        }
+        if mode == "callable":
+            result["callable"] = compiled_step.callable_spec
+            result["argv"] = list(cmd_or_argv or [])
+        else:
+            result["command"] = list(cmd_or_argv or [])
+            result["env_keys"] = sorted((env or {}).keys())
+        return result
     if mode == "callable":
         compiled_step = (resolved_plan or load_pipeline(WorkspacePaths(root=ROOT))).step(step_id)
         return cast(

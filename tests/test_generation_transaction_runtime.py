@@ -82,6 +82,25 @@ def test_generation_commit_switches_one_live_pointer_and_persists_journal(tmp_pa
         assert db.execute("select count(*) from domain_transitions").fetchone()[0] >= 5
 
 
+def test_generation_commit_can_target_an_isolated_output_root(tmp_path: Path) -> None:
+    isolated_output = tmp_path / "dual-track" / "native" / "Output"
+    tx = PublishTransaction("run_isolated", isolated_output / "runs" / "run_isolated")
+    assert _admit(tx)
+    try:
+        target = tx.commit_generation(tmp_path, output_root=isolated_output)
+
+        assert target == isolated_output / "generations" / "run_isolated"
+        assert (isolated_output / "live").resolve() == target
+        assert (isolated_output / "current").resolve() == target / "current"
+        assert PublishTransaction.reconcile(
+            tmp_path,
+            output_root=isolated_output,
+        )["status"] == "complete"
+        assert not (tmp_path / "Output").exists()
+    finally:
+        tx.deactivate()
+
+
 def test_prepare_failure_never_exposes_a_live_pointer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

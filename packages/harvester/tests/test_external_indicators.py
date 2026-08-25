@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
+from harvester.ingestion.dlt_observation import load_capture_manifest, payload_sha256
 from harvester.official import build_complete_benchmark_panel
 from harvester.providers.external_indicators import (
     CISS,
@@ -125,6 +126,13 @@ def test_fetch_external_indicator_downloads_and_caches(tmp_path) -> None:
     assert (tmp_path / "ciss.csv").exists()
     assert download.called
 
+    manifest = load_capture_manifest(
+        tmp_path / "external_indicators.capture.json",
+        expected_provider="external_indicators",
+    )
+    assert manifest["capture_kind"] == "daily_provider_capture"
+    assert manifest["payload_digests"]["CISS"] == payload_sha256(tmp_path / "ciss.csv")
+
 
 def test_unparseable_refresh_does_not_overwrite_valid_cache(tmp_path) -> None:
     cache = tmp_path / "ciss.csv"
@@ -162,6 +170,14 @@ def test_cftc_refresh_preserves_publisher_schema_for_its_parser(tmp_path) -> Non
     assert series.iloc[-1] == 60
     assert _parse_cftc_tff_lev_sp(cache_text).iloc[-1] == 60
     assert "lev_money_positions_long" in cache_text
+
+    manifest = load_capture_manifest(
+        tmp_path / "cftc_tff_lev_sp.capture.json",
+        expected_provider="cftc",
+    )
+    assert manifest["payload_sha256"] == payload_sha256(
+        tmp_path / "cftc_tff_lev_sp.csv"
+    )
 
 
 def test_cftc_socrata_json_is_parsed_and_cached_as_validated_csv(tmp_path) -> None:
@@ -238,6 +254,46 @@ def test_manual_sources_are_not_reported_as_transport_unavailable(tmp_path, monk
     assert "SRISK" not in results
     assert "COVAR" not in results
     assert "__errors__" not in results
+
+
+def test_fetch_all_external_writes_one_capture_manifest_for_fresh_series(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(external_module, "KNOWN_INDICATORS", (CISS,))
+    with patch(
+        "harvester.providers.external_indicators._download",
+        return_value="TIME_PERIOD,OBS_VALUE\n2024-01-01,0.7\n",
+    ):
+        results = fetch_all_external(cache_dir=tmp_path, refresh=True)
+
+    assert results["CISS"].iloc[-1] == 0.7
+    manifest = load_capture_manifest(
+        tmp_path / "external_indicators.capture.json",
+        expected_provider="external_indicators",
+    )
+    assert manifest["payload_digests"]["CISS"] == payload_sha256(tmp_path / "ciss.csv")
+
+
+def test_direct_provider_calls_merge_same_day_capture_context(tmp_path) -> None:
+    with patch(
+        "harvester.providers.external_indicators._download",
+        side_effect=[
+            "TIME_PERIOD,OBS_VALUE\n2024-01-01,0.7\n",
+            "Date,OFR FSI\n2024-01-01,-1.5\n",
+        ],
+    ):
+        fetch_external_indicator(CISS, cache_dir=tmp_path, refresh=True)
+        fetch_external_indicator(OFR_FSI, cache_dir=tmp_path, refresh=True)
+
+    manifest = load_capture_manifest(
+        tmp_path / "external_indicators.capture.json",
+        expected_provider="external_indicators",
+    )
+    assert set(manifest["payload_digests"]) == {"CISS", "OFR_FSI"}
+    assert manifest["payload_digests"]["CISS"] == payload_sha256(tmp_path / "ciss.csv")
+    assert manifest["payload_digests"]["OFR_FSI"] == payload_sha256(
+        tmp_path / "ofr_fsi.csv"
+    )
 
 
 def test_external_endpoint_identity_uses_real_publisher_authority(tmp_path) -> None:

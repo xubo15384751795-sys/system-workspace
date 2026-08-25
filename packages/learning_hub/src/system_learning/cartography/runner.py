@@ -6,7 +6,7 @@ from typing import cast
 
 from system_learning.cartography.report import write_cartography_outputs
 from system_learning.cartography.scanner import scan_project
-from system_learning.runtime.paths import resolve_hub_project_root
+from system_learning.runtime.paths import default_system_root, resolve_hub_project_root
 
 
 def run_cartography(*, scan_root: Path, project_root: Path) -> dict[str, Path]:
@@ -16,11 +16,11 @@ def run_cartography(*, scan_root: Path, project_root: Path) -> dict[str, Path]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Codebase cartography sensor (standalone).")
-    parser.add_argument("--scan-root", type=Path, default=Path("/Users/a1/System"))
+    parser.add_argument("--scan-root", type=Path, default=None)
     parser.add_argument("--project-root", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    scan_root = args.scan_root.expanduser().resolve()
+    scan_root = (args.scan_root or default_system_root()).expanduser().resolve()
     project_root = (args.project_root or resolve_hub_project_root(scan_root)).resolve()
     outputs = run_cartography(scan_root=scan_root, project_root=project_root)
 

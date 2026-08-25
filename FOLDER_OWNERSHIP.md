@@ -1,6 +1,6 @@
 # Folder Ownership
 
-Directory-level boundary map for `/Users/a1/System`. This file describes **what
+Directory-level boundary map for `/Users/a1/Verity`. This file describes **what
 is on disk now**, not a future nested layout under `packages/workbench/`.
 
 Last aligned: 2026-05-22. See `governance/repo_layout_map.md` for the full

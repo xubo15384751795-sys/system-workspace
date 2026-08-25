@@ -535,6 +535,7 @@ steps:
       mode: subprocess
       current_command: python scripts/neutral_pressure_measurement.py
       future_callable: scripts.neutral_pressure_measurement:main
+      native_core_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -692,6 +693,7 @@ steps:
       mode: subprocess
       current_command: python scripts/quality_field_validator.py
       future_callable: scripts.quality_field_validator:main
+      native_core_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -873,6 +875,9 @@ steps:
       current_command: python scripts/commands/weekly/build_measurement_quality_report.py
       future_callable: scripts.commands.weekly.build_measurement_quality_report:main
       dagster_asset_check: shadow_pilot
+      dagster_native_asset: native_quality_pilot
+      native_file_boundary: shadow_pilot
+      native_callable: scripts.commands.weekly.build_measurement_quality_report:build_report
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -932,6 +937,7 @@ steps:
       mode: callable
       current_command: python scripts/judgment_layer.py
       future_callable: scripts.judgment_layer:main
+      native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -991,6 +997,7 @@ steps:
       mode: callable
       current_command: python scripts/judgment_promotion_gate.py
       future_callable: scripts.judgment_promotion_gate:main
+      native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1051,6 +1058,7 @@ steps:
       current_command: python scripts/trade_decision_layer.py
       future_callable: scripts.trade_decision_layer:main
       dagster_asset_check: degrade_pilot
+      native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1079,7 +1087,8 @@ steps:
     execution:
       mode: subprocess
       current_command: python scripts/trade_risk_gate.py
-      future_callable: workbench.judgment.risk_gate:run
+      future_callable: scripts.trade_risk_gate:main
+      native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1109,6 +1118,7 @@ steps:
       mode: subprocess
       current_command: python scripts/record_trade_decision.py
       future_callable: scripts.record_trade_decision:main
+      native_adjacent_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1144,6 +1154,7 @@ steps:
       mode: subprocess
       current_command: python scripts/strategy_lab/paper_portfolio.py
       future_callable: scripts.strategy_lab.paper_portfolio:main
+      native_adjacent_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1241,6 +1252,9 @@ steps:
       current_command: python scripts/commands/weekly/build_data_gaps.py
       future_callable: scripts.commands.weekly.build_data_gaps:main
       dagster_asset: shadow_pilot
+      dagster_native_asset: native_pilot
+      native_file_boundary: shadow_pilot
+      native_callable: scripts.commands.weekly.build_data_gaps:build_data_gaps
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1638,6 +1652,7 @@ steps:
       mode: callable
       current_command: python scripts/commands/weekly/build_readme_first.py
       future_callable: scripts.commands.weekly.build_readme_first:main
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1673,6 +1688,9 @@ steps:
       mode: callable
       current_command: python scripts/commands/weekly/build_evidence_grade_report.py
       future_callable: scripts.commands.weekly.build_evidence_grade_report:main
+      dagster_native_asset: native_pilot
+      native_callable: scripts.commands.weekly.build_evidence_grade_report:build_evidence_grade_report
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1703,6 +1721,9 @@ steps:
       mode: callable
       current_command: python scripts/commands/weekly/build_artifact_registry.py
       future_callable: scripts.commands.weekly.build_artifact_registry:main
+      dagster_native_asset: native_pilot
+      native_callable: scripts.commands.weekly.build_artifact_registry:build_artifact_registry
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1842,6 +1863,7 @@ steps:
       mode: callable
       current_command: python scripts/commands/weekly/build_next_actions.py
       future_callable: scripts.commands.weekly.build_next_actions:main
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1982,6 +2004,7 @@ steps:
       mode: subprocess
       current_command: python scripts/build_signal_card.py
       future_callable: scripts.build_signal_card:main
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2018,6 +2041,7 @@ steps:
       current_command: python scripts/signal_consensus.py
       future_callable: scripts.signal_consensus:main
       dagster_asset_check: blocking_pilot
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2259,6 +2283,7 @@ steps:
       mode: callable
       current_command: python scripts/build_current_status.py
       future_callable: scripts.build_current_status:main
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2290,6 +2315,7 @@ steps:
       mode: subprocess
       current_command: python scripts/build_work_brief.py
       future_callable: scripts.build_work_brief:main
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2795,6 +2821,9 @@ steps:
       mode: subprocess
       current_command: python scripts/commands/weekly/build_change_analysis.py
       future_callable: scripts.commands.weekly.build_change_analysis:main
+      dagster_native_asset: native_pilot
+      native_callable: scripts.commands.weekly.build_change_analysis:build_change_analysis
+      native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:

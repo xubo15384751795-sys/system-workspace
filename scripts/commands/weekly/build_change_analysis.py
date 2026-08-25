@@ -15,13 +15,19 @@ Outputs:
 """
 from __future__ import annotations
 
-import json
 import logging
 import statistics
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts._runtime_io import ROOT, current_dir, load_json, surface_dir  # noqa: E402
+from scripts._runtime_io import (
+    ROOT,
+    current_dir,
+    ensure_dir,
+    load_json,
+    surface_dir,
+    write_json,
+)  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -243,16 +249,52 @@ def _analyze_caselab_progression(caselabs: list[tuple[str, dict]]) -> list[dict]
     return progression
 
 
-def build_change_analysis() -> dict:
-    """Build the full change analysis."""
+def _append_active_judgment(
+    judgments: list[tuple[str, dict]],
+    active_judgment_path: Path | None,
+    *,
+    fallback_date: str,
+) -> list[tuple[str, dict]]:
+    """Overlay a generation-local latest judgment onto read-only history."""
+    if active_judgment_path is None:
+        return judgments
+    active = load_json(active_judgment_path)
+    if not active:
+        return judgments
+    raw_date = active.get("as_of") or active.get("generated_at") or fallback_date
+    date = str(raw_date)[:10]
+    combined = [(item_date, item) for item_date, item in judgments if item_date != date]
+    combined.append((date, active))
+    combined.sort(key=lambda item: item[0])
+    return combined[-LOOKBACK_DAYS:]
+
+
+def build_change_analysis(
+    *,
+    judgment_dir: Path | None = None,
+    caselab_dir: Path | None = None,
+    current_path: Path | None = None,
+    active_judgment_path: Path | None = None,
+) -> dict:
+    """Build the full change analysis.
+
+    The optional paths are an explicit generation boundary for the native
+    Dagster adapter.  Historical judgment/CaseLab data remains read-only, and
+    the active generation's latest judgment can be overlaid for parity.
+    """
     now = datetime.now(UTC)
 
     # Collect historical data
-    judgments = _collect_daily_files(JUDGMENT_DIR)
-    caselabs = _collect_daily_files(CASELAB_DIR)
+    judgments = _collect_daily_files(judgment_dir or JUDGMENT_DIR)
+    judgments = _append_active_judgment(
+        judgments,
+        active_judgment_path,
+        fallback_date=now.strftime("%Y-%m-%d"),
+    )
+    caselabs = _collect_daily_files(caselab_dir or CASELAB_DIR)
 
     # Current framework output
-    fw_path = CURRENT_DIR / "framework_output.json"
+    fw_path = (current_path or CURRENT_DIR) / "framework_output.json"
     fw = load_json(fw_path)
     current_sigma = _extract_sigma_vector(fw) if fw else {}
 
@@ -464,19 +506,24 @@ def _build_markdown(analysis: dict) -> str:
     return "\n".join(lines)
 
 
+def write_change_analysis(
+    analysis: dict,
+    *,
+    output_dir: Path | None = None,
+) -> tuple[Path, Path]:
+    """Write JSON and Markdown reports to an explicit output surface."""
+    target_dir = output_dir or CURRENT_DIR
+    ensure_dir(target_dir)
+    json_path = target_dir / "change_analysis.json"
+    write_json(json_path, analysis)
+    md_path = target_dir / "change_analysis.md"
+    md_path.write_text(_build_markdown(analysis), encoding="utf-8")
+    return json_path, md_path
+
+
 def main() -> None:
     analysis = build_change_analysis()
-
-    # Write JSON
-    json_path = CURRENT_DIR / "change_analysis.json"
-    json_path.write_text(
-        json.dumps(analysis, indent=2, ensure_ascii=False, default=str),
-        encoding="utf-8",
-    )
-
-    # Write Markdown
-    md_path = CURRENT_DIR / "change_analysis.md"
-    md_path.write_text(_build_markdown(analysis), encoding="utf-8")
+    json_path, md_path = write_change_analysis(analysis)
 
     print("Change analysis written:")
     print(f"  {json_path}")

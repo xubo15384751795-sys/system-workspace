@@ -54,6 +54,9 @@ ExternalTools/qlib_benchmark_runner/__pycache__/
 !/Data/panels/
 /Data/panels/*
 !/Data/panels/*.dvc
+!/Data/canonical/
+/Data/canonical/*
+!/Data/canonical/*.dvc
 /configs/great_expectations/.cache/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────

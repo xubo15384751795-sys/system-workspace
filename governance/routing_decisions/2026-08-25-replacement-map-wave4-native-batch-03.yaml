@@ -1,0 +1,47 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-native-batch-03
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Add two read-only, non-core report builders to the reversible Dagster-native
+  pilot: evidence_grade_report and change_analysis. Both expose pure
+  zero-argument report builders, retain the legacy registry artifact as the
+  comparison authority, and are not allowed to write Output/current from the
+  native asset.
+scope:
+  - governance/daily_pipeline_registry.yaml
+  - packages/orchestration/orchestration/assets/native_batch.py
+  - packages/orchestration/orchestration/definitions.py
+  - packages/orchestration/tests/test_native_batch.py
+decision: >
+  Extend the existing native_pilot compiler without changing its eligibility
+  boundary: status=active, continue_with_warning, non-core, direct
+  module:function callable. The compiler also accepts an explicit
+  execution.native_depends_on edge only when every referenced step is in the
+  same native batch; Dagster then owns execution ordering and upstream failure
+  propagation. Materialize the assets with the existing single retry policy
+  and non-blocking contract checks. Compare their reports against the registry
+  artifact paths through the existing shadow parity command; do not schedule,
+  promote, or remove the legacy subprocess paths.
+authority_boundary:
+  registry_executor_changed: false
+  daily_job_graph_changed: false
+  steps_jsonl_authority_changed: false
+  legacy_output_written_by_native_asset: false
+  native_asset_promotion_allowed: false
+acceptance:
+  - live registry compiles exactly four native_pilot assets
+  - evidence_grade_report and change_analysis invoke their direct report builders
+  - explicit native_depends_on edges reject unknown steps and prevent downstream execution after upstream failure
+  - native contract checks remain blocking=false
+  - native shadow parity records all four assets and returns promotion_allowed=false
+  - focused orchestration and root governance tests pass
+observation_window: >
+  Run the four native assets beside the registry executor for at least one week.
+  Investigate any mismatch as evidence drift before changing artifact ownership
+  or adding a Dagster schedule.
+rollback: >
+  Remove the two native_pilot tags and the native batch registration/checks.
+  Existing registry subprocess execution and Output/current writers remain
+  unchanged.

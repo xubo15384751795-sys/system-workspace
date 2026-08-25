@@ -197,6 +197,23 @@ def test_gateway_enforces_response_size(monkeypatch) -> None:
             gateway.fetch("test_provider", "series", {})
 
 
+def test_gateway_enforces_total_response_timeout(monkeypatch) -> None:
+    monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
+    clock = iter((0.0, 2.0))
+    monkeypatch.setattr(gateway_module.time, "monotonic", lambda: next(clock, 2.0))
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"slow")
+
+    with OwnedHTTPGateway(
+        {("test_provider", "series"): _endpoint()},
+        transport=httpx.MockTransport(handler),
+        timeout_sec=1,
+    ) as gateway:
+        with pytest.raises(GatewayError, match="provider transport failed"):
+            gateway.fetch("test_provider", "series", {})
+
+
 def test_gateway_wraps_transport_errors_without_credentials(monkeypatch) -> None:
     monkeypatch.setattr(gateway_module, "validate_outbound_url", lambda url: url)
 

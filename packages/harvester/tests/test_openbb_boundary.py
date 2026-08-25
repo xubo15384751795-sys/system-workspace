@@ -16,10 +16,10 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 HERE = Path(__file__).resolve().parent
-HARVESTER_ROOT = HERE.parent  # structural-risk-harvester/
+HARVESTER_ROOT = HERE.parent  # packages/harvester
 HARVESTER_SRC = HARVESTER_ROOT / "src" / "harvester"
-SYSTEM_ROOT = HARVESTER_ROOT.parent.parent.parent  # /Users/a1/System
-DEFORMATION_SRC = SYSTEM_ROOT / "Structural Deformation Research System" / "src"
+SYSTEM_ROOT = HARVESTER_ROOT.parent.parent  # workspace root
+DEFORMATION_SRC = SYSTEM_ROOT / "packages" / "framework" / "src"
 
 # Directories where openbb imports are ALLOWED.
 ALLOWED_OPENBB_DIRS: tuple[Path, ...] = (
@@ -101,7 +101,11 @@ def test_openbb_imports_only_in_harvester_providers():
                 offenders.append(rel)
 
     # Scan other System locations (scripts, Workbench outside Harvester, etc.)
-    for root_dir in (SYSTEM_ROOT / "scripts", SYSTEM_ROOT / "Workbench", SYSTEM_ROOT / "configs"):
+    for root_dir in (
+        SYSTEM_ROOT / "scripts",
+        SYSTEM_ROOT / "packages" / "workbench",
+        SYSTEM_ROOT / "configs",
+    ):
         if not root_dir.exists():
             continue
         for path in _py_files_under(root_dir):

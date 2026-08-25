@@ -1,9 +1,10 @@
-"""Opt-in DuckDB canonical storage for the cross-asset panel.
+"""DuckDB canonical storage for the cross-asset panel.
 
-This is the first storage migration seam.  It is not enabled by default: the
-existing Parquet mirror remains the production path until dual-run evidence is
-complete.  Every candidate is checked before the DuckDB transaction begins;
-the Parquet export is checked again before the existing mirror is replaced.
+The DuckDB writer is the default storage path after the Wave 2 cutover.  The
+existing Parquet file remains a compatibility view and
+``SYSTEM_DUCKDB_CANONICAL_PANEL=0`` is the rollback escape hatch. Every
+candidate is checked before the DuckDB transaction begins; the Parquet export
+is checked again before the existing mirror is replaced.
 """
 from __future__ import annotations
 
@@ -103,6 +104,7 @@ def write_canonical_panel(
         raise_on_error=True,
     )
     candidate = _normalise_for_duckdb(frame)
+    compatibility_date_dtype = candidate["date"].dtype
     db_path = (database_path or canonical_panel_db_path(workspace)).resolve()
     output_path = parquet_path.resolve() if parquet_path is not None else None
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -142,8 +144,23 @@ def write_canonical_panel(
                 [str(temporary_path)],
             )
             exported = pd.read_parquet(temporary_path)
+            # Keep the compatibility view at the input/legacy Parquet
+            # timestamp precision. Pandas 2.x commonly uses ns while pandas
+            # 3.x commonly uses us; hard-coding either unit makes an otherwise
+            # identical key frame fail pandas ``DataFrame.equals`` on one of
+            # the supported runtimes. Validate a separate ns-normalized copy
+            # because Pandera's contract is about calendar semantics, not the
+            # consumer-facing physical timestamp unit.
+            exported["date"] = pd.to_datetime(
+                exported["date"], errors="coerce"
+            ).astype(compatibility_date_dtype)
+            exported.to_parquet(temporary_path, index=False)
+            exported_for_validation = exported.copy()
+            exported_for_validation["date"] = pd.to_datetime(
+                exported_for_validation["date"], errors="coerce"
+            ).astype("datetime64[ns]")
             exported_report = validate_cross_asset_panel_contract(
-                exported,
+                exported_for_validation,
                 expected_symbols=expected_symbols,
                 require_nonempty=require_nonempty,
                 raise_on_error=True,

@@ -74,15 +74,20 @@ def _dates_monotonic_by_symbol(frame: pd.DataFrame) -> bool:
         return True
     parsed = pd.to_datetime(frame["date"], errors="coerce")
     ordered = frame.assign(_contract_date=parsed)
-    return bool(
-        ordered.groupby("symbol", sort=False)["_contract_date"].apply(
-            lambda values: values.is_monotonic_increasing
-        ).all()
+    return all(
+        bool(values.is_monotonic_increasing)
+        for _, values in ordered.groupby("symbol", sort=False)['_contract_date']
     )
 
 
-def build_cross_asset_panel_schema() -> Any:
-    """Build the Pandera schema without importing Pandera at module import time."""
+def build_cross_asset_panel_schema(*, require_nonempty: bool = False) -> Any:
+    """Build the Pandera schema without importing Pandera at module import time.
+
+    ``require_nonempty`` mirrors the existing data-contract option.  The
+    default remains permissive because an empty frame is a valid intermediate
+    diagnostic input; release writers pass ``True`` when an empty candidate is
+    already a contract violation.
+    """
     import pandera.pandas as pa
 
     columns = {
@@ -101,30 +106,43 @@ def build_cross_asset_panel_schema() -> Any:
         nullable=False,
         checks=[pa.Check.gt(0, error="close must be positive")],
     )
+    checks = [
+        pa.Check(
+            _has_unique_primary_key,
+            element_wise=False,
+            error="duplicate composite key: (symbol, date)",
+        ),
+        pa.Check(
+            _has_no_close_as_volume_flatlines,
+            element_wise=False,
+            error="volume is copied from close for an OHLCV flatline",
+        ),
+        pa.Check(
+            _dates_monotonic_by_symbol,
+            element_wise=False,
+            error="dates are not monotonic by symbol",
+        ),
+    ]
+    if require_nonempty:
+        checks.append(
+            pa.Check(
+                lambda value: len(value) > 0,
+                element_wise=False,
+                error="frame must not be empty",
+            )
+        )
     return pa.DataFrameSchema(
         columns,
         strict=False,
-        checks=[
-            pa.Check(
-                _has_unique_primary_key,
-                element_wise=False,
-                error="duplicate composite key: (symbol, date)",
-            ),
-            pa.Check(
-                _has_no_close_as_volume_flatlines,
-                element_wise=False,
-                error="volume is copied from close for an OHLCV flatline",
-            ),
-            pa.Check(
-                _dates_monotonic_by_symbol,
-                element_wise=False,
-                error="dates are not monotonic by symbol",
-            ),
-        ],
+        checks=checks,
     )
 
 
-def validate_cross_asset_panel_with_pandera(frame: pd.DataFrame) -> dict[str, Any]:
+def validate_cross_asset_panel_with_pandera(
+    frame: pd.DataFrame,
+    *,
+    require_nonempty: bool = False,
+) -> dict[str, Any]:
     """Return a stable diagnostic result for the Pandera panel schema."""
     try:
         import pandera.pandas as pa
@@ -136,7 +154,9 @@ def validate_cross_asset_panel_with_pandera(frame: pd.DataFrame) -> dict[str, An
         }
 
     try:
-        validated = build_cross_asset_panel_schema().validate(
+        validated = build_cross_asset_panel_schema(
+            require_nonempty=require_nonempty,
+        ).validate(
             _candidate_for_schema(frame),
             lazy=True,
         )

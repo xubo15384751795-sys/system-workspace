@@ -1,0 +1,37 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-native-quality-01
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Move the existing measurement_quality_report quality pilot one seam closer
+  to Dagster-native execution: build the pure quality report as a shadow asset
+  and evaluate its overall status with a non-blocking native asset check.
+scope:
+  - governance/daily_pipeline_registry.yaml
+  - packages/orchestration/orchestration/assets/native_quality.py
+  - packages/orchestration/orchestration/definitions.py
+  - packages/orchestration/tests/test_native_quality.py
+decision: >
+  The native quality asset calls build_report directly, never calls the legacy
+  main() writer, keeps one retry, and returns authority=shadow_only. Its asset
+  check maps OK/PASS/WARN/SUCCESS/WATCH to pass and treats DEGRADED, missing,
+  or unknown status as a non-blocking failure. The existing registry quality
+  check and daily writer remain unchanged.
+authority_boundary:
+  quality_check_blocking: false
+  legacy_quality_artifact_written: false
+  daily_job_changed: false
+  promotion_allowed: false
+acceptance:
+  - live registry compiles only measurement_quality_report for this pilot
+  - the direct builder and native check materialize without Output/current writes
+  - degraded quality is visible as a failed non-blocking check
+  - daily_job remains daily_job_entry only
+observation_window: >
+  Compare native report payloads and check evaluations with the legacy quality
+  artifact for at least one week before changing the existing quality writer
+  or any blocking/promotion behavior.
+rollback: >
+  Remove the native_quality_pilot tag, native quality module, and Definitions
+  registration. The existing registry quality check and writer remain intact.

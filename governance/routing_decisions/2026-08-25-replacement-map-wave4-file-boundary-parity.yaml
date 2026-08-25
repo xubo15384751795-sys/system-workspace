@@ -1,0 +1,48 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-file-boundary-parity
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >-
+  Add a read-only operator parity gate for the eleven registry-tagged
+  generation-local current-surface writers. The gate compares the native
+  explicit writer adapter with the existing future_callable writer under
+  identical copied inputs and separate temporary generations.
+scope:
+  - packages/orchestration/orchestration/operators/run_native_file_boundary_shadow.py
+  - scripts/commands/weekly/build_artifact_registry.py
+  - packages/orchestration/orchestration/native_file_boundaries.py
+  - governance/replacement_map_progress.md
+authority_boundary:
+  default_path_changed: false
+  output_current_written: false
+  native_file_boundary_flag_default: false
+  promotion_allowed: false
+  network_io: false
+decision: >-
+  The operator executes only the pure report builders and their explicit
+  writers. It compares JSON after removing generated_at and temporary
+  generation prefixes, and compares Markdown after normalizing timestamps.
+  The eleven writers must all return MATCH and the shared Output/current
+  fingerprint must remain unchanged before a full daily dual-track run is
+  considered ready. A generation-aware default path in
+  build_artifact_registry prevents existence checks from falling back to the
+  published compatibility surface during generation mode.
+evidence:
+  command: >-
+    env PYTHONPATH=.:packages/orchestration:packages/harvester/src:packages/workbench/src
+    python3 -m orchestration.operators.run_native_file_boundary_shadow
+    --report Output/health/native_file_boundary_shadow.json
+  observed_at: "2026-08-25"
+  status: MATCH
+  step_count: 11
+  workspace_current_unchanged: true
+  promotion_allowed: false
+rollback: >-
+  Leave SYSTEM_USE_NATIVE_FILE_BOUNDARIES unset or set it to 0; the generated
+  Dagster-op default and existing legacy writer remain authoritative until a
+  separate dual-track decision promotes the native boundary.
+observation_window: >-
+  Repeat this same-inputs gate after source or writer changes, then compare
+  the same eleven boundaries beside a real legacy/native daily pair for at
+  least one week. This result does not authorize production schedule changes.

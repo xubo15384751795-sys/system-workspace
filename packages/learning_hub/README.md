@@ -138,11 +138,11 @@ The Hub is read-only with respect to peer systems. It may propose, prioritize, a
 
 The Hub reads only standardized event and report files from shared locations such as:
 
-- `/Users/a1/System/Output/deformation_runs/*/system_events.jsonl`
-- `/Users/a1/System/Data/harvester/exports/*/system_events.jsonl`
-- `/Users/a1/System/**/reports/governance/*/violations.json`
-- `/Users/a1/System/**/reports/learning/*`
-- `/Users/a1/System/Output/system_learning/events/ml_*.json` (ML integrity checks)
+- `Output/deformation_runs/*/system_events.jsonl`
+- `Data/harvester/exports/*/system_events.jsonl`
+- `**/reports/governance/*/violations.json`
+- `**/reports/learning/*`
+- `Output/system_learning/events/ml_*.json` (ML integrity checks)
 
 ## Standard `system_event` Schema
 
@@ -179,7 +179,7 @@ Governance signal fields let external tools act as sensors while the Hub keeps t
 
 ## Ledgers
 
-Running the Hub writes Parquet ledgers under `/Users/a1/System/Data/system_learning/ledgers`:
+Running the Hub writes Parquet ledgers under `Data/system_learning/ledgers`:
 
 - `system_event_ledger.parquet`
 - `violation_ledger.parquet`
@@ -214,7 +214,7 @@ Planned additions should stay incremental:
 
 ## Reports
 
-Running the Hub writes Markdown reports under `/Users/a1/System/Output/system_learning/latest`:
+Running the Hub writes Markdown reports under `Output/system_learning/latest`:
 
 - `system_health_report.md`
 - `improvement_queue.md`
@@ -271,9 +271,9 @@ system-learning-hub
 Optional arguments:
 
 ```bash
-PYTHONPATH=src python3 -m system_learning --system-root /Users/a1/System
-PYTHONPATH=src python3 -m system_learning --ledger-dir /Users/a1/System/Data/system_learning/ledgers
-PYTHONPATH=src python3 -m system_learning --report-dir /Users/a1/System/Output/system_learning/latest
+PYTHONPATH=src python3 -m system_learning --system-root /Users/a1/Verity
+PYTHONPATH=src python3 -m system_learning --ledger-dir /Users/a1/Verity/Data/system_learning/ledgers
+PYTHONPATH=src python3 -m system_learning --report-dir /Users/a1/Verity/Output/system_learning/latest
 PYTHONPATH=src python3 -m system_learning --run-ml-pollution-check
 ```
 

@@ -17,6 +17,7 @@ Output:
     Output/trade_decision/latest.json
     Output/trade_decision/latest.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,8 +27,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from paper_freshness import check_paper_world_model_freshness
-from pending_evaluation import write_pending_evaluation
+
+try:
+    from paper_freshness import check_paper_world_model_freshness
+except ModuleNotFoundError:  # package/module execution from the workspace root
+    from scripts.paper_freshness import check_paper_world_model_freshness
+try:
+    from pending_evaluation import write_pending_evaluation
+except ModuleNotFoundError:  # package/module execution from the workspace root
+    from scripts.pending_evaluation import write_pending_evaluation
 from workbench.judgment.trade_decision import (  # noqa: E402
     build_quality_inputs,
     compose_trade_fields,
@@ -62,10 +70,12 @@ OUTPUT_DIR = surface_dir("trade_decision")
 PAPER_SUPPORT_REGISTRY = ROOT / "governance" / "paper_support_registry.yaml"
 
 
-def _load_approved_case_ids() -> set[str]:
-    if not PAPER_SUPPORT_REGISTRY.exists():
+def _load_approved_case_ids(
+    support_registry_path: Path = PAPER_SUPPORT_REGISTRY,
+) -> set[str]:
+    if not support_registry_path.exists():
         return set()
-    data = yaml.safe_load(PAPER_SUPPORT_REGISTRY.read_text(encoding="utf-8")) or {}
+    data = yaml.safe_load(support_registry_path.read_text(encoding="utf-8")) or {}
     return {str(case_id) for case_id in data.get("approved_case_ids", [])}
 
 
@@ -91,6 +101,9 @@ def _is_governance_approved(case: dict[str, Any], approved_ids: set[str]) -> boo
 def find_paper_sources(
     caselab: dict[str, Any] | None,
     judgment: dict[str, Any],
+    *,
+    paper_world_model_dir: Path = PAPER_WORLD_MODEL_DIR,
+    support_registry_path: Path = PAPER_SUPPORT_REGISTRY,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Find relevant Paper sources for the decision.
 
@@ -101,9 +114,9 @@ def find_paper_sources(
     approved_sources: list[dict[str, Any]] = []
     background_sources: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
-    approved_ids = _load_approved_case_ids()
+    approved_ids = _load_approved_case_ids(support_registry_path)
 
-    cases = load_jsonl(PAPER_WORLD_MODEL_DIR / "cases.jsonl")
+    cases = load_jsonl(paper_world_model_dir / "cases.jsonl")
 
     def _append(case: dict[str, Any], *, relevance: str) -> None:
         case_id = str(case.get("case_id", ""))
@@ -144,27 +157,61 @@ def find_paper_sources(
 
 
 def _build_system_sources(
-    judgment: dict, k_gate: dict | None, x_gate: dict | None,
-    hmm_audit: dict | None, caselab: dict | None,
+    judgment: dict,
+    k_gate: dict | None,
+    x_gate: dict | None,
+    hmm_audit: dict | None,
+    caselab: dict | None,
 ) -> list[dict[str, Any]]:
     """Build list of system sources that informed the decision."""
     sources = []
     if judgment:
-        sources.append({"source": "judgment_layer", "type": "system", "status": judgment.get("decision", "UNKNOWN")})
+        sources.append(
+            {
+                "source": "judgment_layer",
+                "type": "system",
+                "status": judgment.get("decision", "UNKNOWN"),
+            }
+        )
     if k_gate:
-        sources.append({"source": "k_gate", "type": "gate", "status": k_gate.get("gate_verdict", k_gate.get("verdict", "UNKNOWN"))})
+        sources.append(
+            {
+                "source": "k_gate",
+                "type": "gate",
+                "status": k_gate.get("gate_verdict", k_gate.get("verdict", "UNKNOWN")),
+            }
+        )
     if x_gate:
-        sources.append({"source": "x_gate", "type": "gate", "status": x_gate.get("gate_verdict", x_gate.get("verdict", "UNKNOWN"))})
+        sources.append(
+            {
+                "source": "x_gate",
+                "type": "gate",
+                "status": x_gate.get("gate_verdict", x_gate.get("verdict", "UNKNOWN")),
+            }
+        )
     if hmm_audit:
-        sources.append({"source": "hmm_stability", "type": "audit", "status": hmm_audit.get("stability_grade", "UNKNOWN")})
+        sources.append(
+            {
+                "source": "hmm_stability",
+                "type": "audit",
+                "status": hmm_audit.get("stability_grade", "UNKNOWN"),
+            }
+        )
     if caselab:
-        caselab_label = caselab.get("label") or caselab.get("match_quality", {}).get("label", "UNKNOWN")
-        sources.append({"source": "caselab", "type": "analogy", "status": caselab_label})
+        caselab_label = caselab.get("label") or caselab.get("match_quality", {}).get(
+            "label", "UNKNOWN"
+        )
+        sources.append(
+            {"source": "caselab", "type": "analogy", "status": caselab_label}
+        )
     return sources
 
 
 def _build_trade_thesis(
-    decision: str, judgment: dict, approved_sources: list, system_sources: list,
+    decision: str,
+    judgment: dict,
+    approved_sources: list,
+    system_sources: list,
 ) -> dict[str, Any]:
     """Build trade thesis from decision and supporting evidence."""
     conf = judgment.get("confidence", {})
@@ -173,7 +220,9 @@ def _build_trade_thesis(
     meaning = judgment.get("meaning", [])
     ladder = judgment.get("claim_ladder", {})
 
-    hypothesis = meaning[0] if meaning else f"Decision: {decision} at confidence={conf_level}"
+    hypothesis = (
+        meaning[0] if meaning else f"Decision: {decision} at confidence={conf_level}"
+    )
 
     thesis = {
         "hypothesis": hypothesis,
@@ -188,7 +237,9 @@ def _build_trade_thesis(
             "tier": ladder.get("tier", 0),
             "label": ladder.get("label", "diagnostic_claim"),
             "claim_statement": ladder.get("claim_statement", ""),
-            "md_values": dict(judgment.get("md_values") or ladder.get("md_values") or {}),
+            "md_values": dict(
+                judgment.get("md_values") or ladder.get("md_values") or {}
+            ),
         }
         if judgment.get("md_values"):
             thesis["md_values"] = dict(judgment["md_values"])
@@ -206,6 +257,25 @@ def _resolve_velocity_gate_state() -> dict[str, Any]:
         from strategy_lab.risk_gate import latest_velocity_gate_state
 
         return latest_velocity_gate_state()
+    except ModuleNotFoundError:
+        # Native package execution exposes the repository package as
+        # ``scripts.strategy_lab`` rather than adding ``scripts/`` itself to
+        # PYTHONPATH.  Keep the same velocity source on both entry paths.
+        try:
+            from scripts.strategy_lab.risk_gate import latest_velocity_gate_state
+
+            return latest_velocity_gate_state()
+        except Exception as exc:  # noqa: BLE001 - decision remains fail-closed
+            return {
+                "state": "UNKNOWN",
+                "position": None,
+                "trigger": None,
+                "trigger_reason": f"unavailable: {exc}",
+                "velocity_20d": None,
+                "n_deteriorating": None,
+                "source": "error",
+                "as_of_date": None,
+            }
     except Exception as exc:  # noqa: BLE001 — decision must still emit
         return {
             "state": "UNKNOWN",
@@ -219,9 +289,11 @@ def _resolve_velocity_gate_state() -> dict[str, Any]:
         }
 
 
-def _load_sigma_vector() -> dict[str, Any] | None:
+def _load_sigma_vector(
+    snapshot_path: Path = surface_dir("current") / "neutral_pressure_snapshot.json",
+) -> dict[str, Any] | None:
     """Load compatibility gauge vector from the neutral pressure snapshot."""
-    fw = load_json(surface_dir("current") / "neutral_pressure_snapshot.json")
+    fw = load_json(snapshot_path)
     if not isinstance(fw, dict):
         return None
     adv = fw.get("advanced") or {}
@@ -229,20 +301,32 @@ def _load_sigma_vector() -> dict[str, Any] | None:
     return sv if isinstance(sv, dict) else None
 
 
-def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
+def build_trade_decision(
+    date_str: str | None = None,
+    *,
+    judgment_path: Path = JUDGMENT_PATH,
+    promotion_gate_path: Path = PROMOTION_GATE_PATH,
+    hmm_audit_path: Path = HMM_AUDIT_PATH,
+    caselab_path: Path | None = None,
+    sigma_snapshot_path: Path = surface_dir("current")
+    / "neutral_pressure_snapshot.json",
+    paper_world_model_dir: Path = PAPER_WORLD_MODEL_DIR,
+    support_registry_path: Path = PAPER_SUPPORT_REGISTRY,
+) -> dict[str, Any]:
     """Build complete trade decision (stance × size)."""
     if not date_str:
         date_str = utc_now().strftime("%Y-%m-%d")
 
-    judgment = load_json(JUDGMENT_PATH)
-    promotion_gate = load_json(PROMOTION_GATE_PATH)
+    judgment = load_json(judgment_path)
+    promotion_gate = load_json(promotion_gate_path)
     # K/X are research-only candidates and cannot size the operational path.
     k_gate = None
     x_gate = None
-    hmm_audit = load_json(HMM_AUDIT_PATH)
-    caselab = load_json(CASELAB_DIR / f"{date_str}.json")
+    hmm_audit = load_json(hmm_audit_path)
+    resolved_caselab_path = caselab_path or (CASELAB_DIR / f"{date_str}.json")
+    caselab = load_json(resolved_caselab_path)
     velocity_gate = _resolve_velocity_gate_state()
-    sigma_vector = _load_sigma_vector()
+    sigma_vector = _load_sigma_vector(sigma_snapshot_path)
     if isinstance(sigma_vector, dict) and velocity_gate.get("velocity_20d"):
         sigma_vector = {**sigma_vector, "velocity_20d": velocity_gate["velocity_20d"]}
         if velocity_gate.get("n_deteriorating") is not None:
@@ -287,7 +371,12 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
             "learning_trace": learning_trace,
         }
 
-    approved_sources, background_sources = find_paper_sources(caselab, judgment)
+    approved_sources, background_sources = find_paper_sources(
+        caselab,
+        judgment,
+        paper_world_model_dir=paper_world_model_dir,
+        support_registry_path=support_registry_path,
+    )
     # Live freshness wins over judgment-card cache — otherwise a recovered
     # paper_sync cannot undo permanent size step-down (constitution: stale→step-down,
     # but only while actually stale).
@@ -310,7 +399,9 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     )
     if quality.get("promotion_hard_blocked"):
         blocked = (promotion_gate or {}).get("blocked_gates") or []
-        risk_notes.append(f"Promotion gate hard-blocked: {', '.join(map(str, blocked))}")
+        risk_notes.append(
+            f"Promotion gate hard-blocked: {', '.join(map(str, blocked))}"
+        )
     if not quality.get("has_approved_paper"):
         risk_notes.append("No approved Paper sources — size discounted")
     if quality.get("hmm_grade") in ("WEAK", "UNKNOWN"):
@@ -329,10 +420,16 @@ def build_trade_decision(date_str: str | None = None) -> dict[str, Any]:
     evidence_grade = evidence_grade_for_size(composed["size"], decision)
 
     system_sources = _build_system_sources(judgment, k_gate, x_gate, hmm_audit, caselab)
-    trade_thesis = _build_trade_thesis(decision, judgment, approved_sources, system_sources)
+    trade_thesis = _build_trade_thesis(
+        decision, judgment, approved_sources, system_sources
+    )
     # Prefer workbench thesis wording for stance labels
-    wb_thesis = _wb_build_trade_thesis(decision, judgment, approved_sources, system_sources)
-    trade_thesis["hypothesis"] = wb_thesis.get("hypothesis", trade_thesis.get("hypothesis"))
+    wb_thesis = _wb_build_trade_thesis(
+        decision, judgment, approved_sources, system_sources
+    )
+    trade_thesis["hypothesis"] = wb_thesis.get(
+        "hypothesis", trade_thesis.get("hypothesis")
+    )
 
     time_horizon = "1w" if decision in ("RISK_ON", "RISK_REDUCE", "RISK_OFF") else "1d"
     asset_scope = ["SPY", "HYG", "TLT"]
@@ -466,7 +563,8 @@ def main() -> None:
         print(f"Evidence Grade: {decision['evidence_grade']}")
         paper = decision.get("paper_sources") or {}
         n_paper = (
-            len(paper.get("approved_support", [])) + len(paper.get("background_context", []))
+            len(paper.get("approved_support", []))
+            + len(paper.get("background_context", []))
             if isinstance(paper, dict)
             else len(paper)
         )

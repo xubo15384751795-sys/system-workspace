@@ -77,10 +77,43 @@ def _producer_map(pipeline: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return mapping
 
 
-def build_artifact_registry() -> dict[str, Any]:
-    routing = _load_yaml(ROUTING_POLICY_PATH)
-    pipeline = _load_yaml(PIPELINE_REGISTRY_PATH)
+def build_artifact_registry(
+    *,
+    root: Path | None = None,
+    routing_policy_path: Path | None = None,
+    pipeline_registry_path: Path | None = None,
+    current_path: Path | None = None,
+) -> dict[str, Any]:
+    """Build the registry against an explicit current output surface.
+
+    The optional paths are used by the bounded native asset adapter.  The
+    no-argument form keeps the existing runner and test contract, including
+    module-level path overrides.
+    """
+    workspace_root = root or ROOT
+    routing_path = routing_policy_path or (
+        workspace_root / "governance" / "output_routing_policy.yaml"
+        if root is not None
+        else ROUTING_POLICY_PATH
+    )
+    pipeline_path = pipeline_registry_path or (
+        workspace_root / "governance" / "daily_pipeline_registry.yaml"
+        if root is not None
+        else PIPELINE_REGISTRY_PATH
+    )
+    routing = _load_yaml(routing_path)
+    pipeline = _load_yaml(pipeline_path)
     producers = _producer_map(pipeline)
+    # Resolve the default through the generation-aware runtime helper.  With
+    # no generation active this is the same legacy Output/current path; during
+    # an isolated generation run it prevents existence checks from leaking
+    # back to the published compatibility surface.
+    if current_path is not None:
+        current = current_path
+    elif root is None:
+        current = current_dir()
+    else:
+        current = workspace_root / "Output" / "current"
 
     allowed = (
         routing.get("groups", {})
@@ -101,7 +134,7 @@ def build_artifact_registry() -> dict[str, Any]:
                 "owner": meta.get("owner", "Workbench"),
                 "ttl_hours": meta.get("ttl_hours", 24),
                 "classification": meta.get("classification", "current"),
-                "exists": (ROOT / rel_path).exists(),
+                "exists": (current / name).exists(),
             }
         )
 
@@ -115,20 +148,39 @@ def build_artifact_registry() -> dict[str, Any]:
     }
 
 
+def write_artifact_registry(
+    registry: dict[str, Any],
+    *,
+    output_path: Path | None = None,
+) -> Path:
+    """Write an artifact registry to an explicit output surface."""
+    target = output_path or OUTPUT_PATH
+    ensure_dir(target.parent)
+    write_json(target, registry)
+    return target
+
+
+def _display_path(path: Path) -> str:
+    """Render an output path without assuming it lives under the workspace."""
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build Output/current artifact registry.")
     parser.add_argument("--json", action="store_true", help="Print registry to stdout.")
     args = parser.parse_args()
 
     registry = build_artifact_registry()
-    ensure_dir(OUTPUT_PATH.parent)
-    write_json(OUTPUT_PATH, registry)
+    output_path = write_artifact_registry(registry)
 
     if args.json:
         print(json.dumps(registry, indent=2, ensure_ascii=False))
     else:
         missing = [a["name"] for a in registry["artifacts"] if not a["exists"]]
-        print(f"Artifact registry: {OUTPUT_PATH.relative_to(ROOT)}")
+        print(f"Artifact registry: {_display_path(output_path)}")
         print(f"  Registered: {registry['artifact_count']}")
         if missing:
             print(f"  Missing on disk: {', '.join(missing)}")

@@ -106,3 +106,4 @@ def test_cross_asset_contract_rejects_close_as_volume_pollution() -> None:
 
     assert report["status"] == "BLOCK"
     assert report["violations"] == ["volume_equals_close_rows:1"]
+    assert report["pandera"] == "failed"

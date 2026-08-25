@@ -35,17 +35,20 @@ def main() -> None:
 
 
 def _refresh_output_current() -> None:
-    refresh_script = Path("/Users/a1/System/scripts/refresh_output_current.py")
+    from src.core.runtime_context import RuntimePaths
+
+    workspace = RuntimePaths.discover().project_root
+    refresh_script = workspace / "scripts" / "refresh_output_current.py"
     if not refresh_script.exists():
         print("Run:")
-        print("  /Users/a1/System/sys refresh")
+        print(f"  {workspace / 'sys'} refresh")
         return
     try:
         subprocess.run(["python3", str(refresh_script)], check=True)
     except Exception as exc:
         print(f"Warning: could not refresh Output/current: {exc}")
         print("Try:")
-        print("  /Users/a1/System/sys refresh")
+        print(f"  {workspace / 'sys'} refresh")
 
 
 if __name__ == "__main__":

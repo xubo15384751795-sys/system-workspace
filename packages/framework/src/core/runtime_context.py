@@ -1,6 +1,6 @@
 """Runtime context: paths, config, and environment injection.
 
-Replaces scattered hardcoded `/Users/a1/System/...` strings with a single
+Replaces scattered hardcoded machine-local workspace paths with a single
 injectable RuntimePaths dataclass.  Every module that needs to read or write
 files receives a RuntimePaths (or the full RuntimeContext) via its
 constructor — never by importing a module-level constant.

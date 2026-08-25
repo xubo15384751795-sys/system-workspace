@@ -75,6 +75,6 @@ python -m paper_interface.main --all --start 2018-01-01 --end 2024-01-01
 ## 安装
 
 ```bash
-cd /Users/a1/System/paper-empirical-interface
+cd /Users/a1/Verity/paper-empirical-interface
 pip install -e .
 ```

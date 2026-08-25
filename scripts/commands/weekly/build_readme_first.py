@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from scripts._runtime_io import ROOT, current_dir, ensure_dir, load_json, surface_dir
@@ -27,6 +29,38 @@ CURRENT = current_dir()
 FRAMEWORK_OUTPUT_PATH = CURRENT / "framework_output.json"
 EVIDENCE_REPORT_PATH = CURRENT / "evidence_grade_report.json"
 OUTPUT_PATH = CURRENT / "00_READ_ME_FIRST.md"
+
+_PATH_KEYS = (
+    "index",
+    "current",
+    "framework_output",
+    "evidence_report",
+    "trade_decision",
+)
+
+
+def _default_paths() -> dict[str, Path]:
+    """Return legacy-compatible input/output path bindings."""
+    current = current_dir()
+    return {
+        "index": INDEX_PATH,
+        "current": current,
+        "framework_output": current / "framework_output.json",
+        "evidence_report": current / "evidence_grade_report.json",
+        "trade_decision": surface_dir("trade_decision") / "latest.json",
+    }
+
+
+def _resolve_paths(paths: Mapping[str, Path] | None = None) -> dict[str, Path]:
+    """Resolve explicit generation paths without changing no-arg behavior."""
+    resolved = _default_paths()
+    if paths is None:
+        return resolved
+    unknown = sorted(set(paths) - set(_PATH_KEYS))
+    if unknown:
+        raise ValueError(f"unknown readme path keys: {', '.join(unknown)}")
+    resolved.update({key: Path(value) for key, value in paths.items()})
+    return resolved
 
 
 def _mapping(value: Any) -> dict[str, Any]:
@@ -44,6 +78,8 @@ def build_readme_from_index(
     index: dict[str, Any],
     framework_output: dict[str, Any] | None = None,
     evidence_report: dict[str, Any] | None = None,
+    *,
+    trade_decision_path: Path | None = None,
 ) -> str:
     """Build README from System Index."""
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
@@ -150,7 +186,7 @@ def build_readme_from_index(
     # What would change the decision (invalidation conditions in plain words)
     invalidation_plain = []
     # Read invalidation from the trade_decision v3 file directly for plain mapping
-    td_path = surface_dir("trade_decision") / "latest.json"
+    td_path = trade_decision_path or (surface_dir("trade_decision") / "latest.json")
     td_data = _mapping(load_json(td_path)) if td_path.exists() else {}
     for inv in td_data.get("invalidation", []):
         plain = {
@@ -291,19 +327,43 @@ def build_readme_from_index(
     return "\n".join(lines) + "\n"
 
 
+def build_readme_content(paths: Mapping[str, Path] | None = None) -> str | None:
+    """Build README content against legacy or explicit generation paths."""
+    resolved = _resolve_paths(paths)
+    index = load_json(resolved["index"])
+    if not index:
+        return None
+    framework_output = load_json(resolved["framework_output"])
+    evidence_report = load_json(resolved["evidence_report"])
+    return build_readme_from_index(
+        index,
+        framework_output,
+        evidence_report,
+        trade_decision_path=resolved["trade_decision"],
+    )
+
+
+def write_readme(
+    content: str,
+    *,
+    output_path: Path | None = None,
+) -> Path:
+    """Write README content to an explicit current-output surface."""
+    target = output_path or (current_dir() / "00_READ_ME_FIRST.md")
+    ensure_dir(target.parent)
+    target.write_text(content, encoding="utf-8")
+    return target
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build 00_READ_ME_FIRST.md from System Index.")
     parser.add_argument("--json", action="store_true", help="Print index context as JSON.")
     args = parser.parse_args()
 
-    # Re-resolve at call time — module-level CURRENT can be stale if the env
-    # was set after import (callable runner).
-    current = current_dir()
+    paths = _resolve_paths()
+    current = paths["current"]
     output_path = current / "00_READ_ME_FIRST.md"
-    framework_output = load_json(current / "framework_output.json")
-    evidence_report = load_json(current / "evidence_grade_report.json")
-
-    index = load_json(INDEX_PATH)
+    index = load_json(paths["index"])
     if not index:
         print("No System Index found. Run: python3 scripts/build_system_index.py")
         return
@@ -311,10 +371,11 @@ def main() -> None:
     if args.json:
         print(json.dumps(index, indent=2, ensure_ascii=False))
     else:
-        md = build_readme_from_index(index, framework_output, evidence_report)
-        ensure_dir(output_path.parent)
-        output_path.write_text(md, encoding="utf-8")
-        print(f"Wrote: {output_path}")
+        md = build_readme_content(paths)
+        if md is None:  # pragma: no cover - guarded by the index check above
+            return
+        written_path = write_readme(md, output_path=output_path)
+        print(f"Wrote: {written_path}")
 
 
 if __name__ == "__main__":

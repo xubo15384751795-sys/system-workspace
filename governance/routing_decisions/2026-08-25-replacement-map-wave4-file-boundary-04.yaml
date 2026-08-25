@@ -1,0 +1,51 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-file-boundary-04
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Extend the reversible native file-boundary shadow to the remaining non-core
+  current-surface readout writers in the current registry sequence:
+  work_brief, current_status, readme_first, and next_actions. Core current
+  writers remain outside this batch until their authority and failure semantics
+  are separately proven.
+scope:
+  - governance/daily_pipeline_registry.yaml
+  - scripts/build_work_brief.py
+  - scripts/build_current_status.py
+  - scripts/commands/weekly/build_readme_first.py
+  - scripts/commands/weekly/build_next_actions.py
+  - packages/orchestration/orchestration/native_file_boundaries.py
+  - packages/orchestration/tests/test_native_file_boundaries.py
+authority_boundary:
+  default_path_changed: false
+  legacy_builder_semantics_changed: false
+  current_output_written_by_native_boundary: false
+  native_file_boundary_flag_default: false
+  native_asset_promotion_allowed: false
+  production_schedule_enabled: false
+decision: >
+  Each registry declaration uses execution.native_file_boundary=shadow_pilot
+  and is accepted only with an explicit adapter. work_brief, current_status,
+  readme_first, and next_actions preserve no-argument legacy entry points while
+  exposing generation-local path bindings. next_actions consumes the same
+  generation status.json when present; readme_first uses the same generation's
+  framework/evidence and read-only trade decision input. Adapters write only
+  the active generation current directory and never write shared Output/current,
+  steps.jsonl, publication pointers, compatibility links, or canonical data.
+acceptance:
+  - registry-driven selection fails closed for an unimplemented boundary
+  - all eleven non-core boundary adapters return typed shadow-only results
+  - no-argument legacy writer calls remain available
+  - isolated generation tests prove no shared Output directory is created
+  - writer-chain and orchestration regression suites pass
+  - full-plan native dry-run remains MATCH and promotion remains false
+observation_window: >
+  Run the eleven boundaries beside the existing registry executor for at least
+  one week with identical inputs. Compare readout payloads, generation
+  lineage, failure behavior, publication evidence, and consumer output before
+  adding default-path authority or removing the sequence barrier.
+rollback: >
+  Remove the four new native_file_boundary tags or set
+  SYSTEM_USE_NATIVE_FILE_BOUNDARIES=0. Existing legacy writers, generated-op
+  default runner paths, and current compatibility surfaces remain available.

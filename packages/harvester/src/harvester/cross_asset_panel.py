@@ -960,9 +960,18 @@ def write_cross_asset_panel(
     return path
 
 
-def sync_panel_to_workspace(panel: pd.DataFrame, workspace: Path | None = None) -> Path:
+def sync_panel_to_workspace(
+    panel: pd.DataFrame,
+    workspace: Path | None = None,
+    *,
+    expected_symbols: list[str] | None = None,
+) -> Path:
     """Compatibility wrapper for the single cross-asset panel writer."""
-    return write_cross_asset_panel(panel, workspace)
+    return write_cross_asset_panel(
+        panel,
+        workspace,
+        expected_symbols=expected_symbols,
+    )
 
 
 def _canonical_observation_records(panel: pd.DataFrame,

@@ -2,7 +2,7 @@
 """Enrich agent run reports with world-model context before Obsidian write-back.
 
 Usage:
-    cd /Users/a1/System
+    cd /Users/a1/Verity
     python3 -m caselab_context.enrich_agent_context --date 2026-06-16
 """
 from __future__ import annotations

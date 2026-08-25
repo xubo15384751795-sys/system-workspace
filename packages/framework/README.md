@@ -443,7 +443,7 @@ python3 assembly.py
 Outputs are written to the configured `output.dir`, usually:
 
 ```text
-/Users/a1/System/Output
+/Users/a1/Verity/Output
 ```
 
 Each exported run can write:

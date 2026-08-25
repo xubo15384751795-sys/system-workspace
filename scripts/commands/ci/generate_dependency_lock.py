@@ -61,7 +61,7 @@ LOCKED_EXTRAS = ("dev",)
 HEADER = """\
 # Historical compatibility dependency pins; not the workspace authority.
 #
-# The workspace authority is /Users/a1/System/uv.lock. Use
+# The workspace authority is uv.lock at the repository root. Use
 # `uv sync --locked --all-packages`; do not install this file directly.
 #
 # Generated — do not edit by hand:

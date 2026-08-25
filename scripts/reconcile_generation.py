@@ -14,6 +14,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Optional isolated Output root; defaults to <root>/Output.",
+    )
+    parser.add_argument(
         "--require-complete",
         action="store_true",
         help="Return non-zero unless a complete active generation is present.",
@@ -24,7 +30,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Return non-zero only when reconciliation identifies recovery work.",
     )
     args = parser.parse_args(argv)
-    state = PublishTransaction.reconcile(args.root.expanduser().resolve())
+    state = PublishTransaction.reconcile(
+        args.root.expanduser().resolve(),
+        output_root=args.output_root.expanduser().resolve() if args.output_root else None,
+    )
     print(json.dumps(state, indent=2, ensure_ascii=False))
     if args.require_complete and state.get("status") not in {"complete", "complete_legacy_baseline"}:
         return 1

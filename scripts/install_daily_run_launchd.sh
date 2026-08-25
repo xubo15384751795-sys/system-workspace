@@ -40,7 +40,7 @@ general_proxy_url = (
     or ""
 ).strip()
 cftc_proxy_url = (
-    os.environ.get("HARVESTER_CFTC_PROXY_URL")
+    os.environ.get("HARVESTER_CFTC_PROXY_URL") or ""
 ).strip()
 for proxy_name, proxy_url in (
     ("HARVESTER_HTTP_PROXY_URL", general_proxy_url),

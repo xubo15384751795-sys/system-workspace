@@ -31,6 +31,29 @@ promote_snapshot:
   description: Snapshot promotion with gate validation
   allowed_use:
   - snapshot_promotion
+promote_canonical_panel_dvc:
+  script: packages/orchestration/orchestration/operators/promote_canonical_panel_dvc.py
+  status: tool_active
+  owner: Harvester
+  description: Explicit DVC tracking and remote verification for the canonical DuckDB panel snapshot
+  allowed_use:
+  - canonical_panel_snapshot
+  - dvc_recovery_evidence
+  forbidden_use:
+  - daily_pipeline
+  - unapproved_external_push
+verify_duckdb_default_path:
+  script: packages/harvester/src/harvester/operators/verify_duckdb_default_path.py
+  status: shadow_active
+  owner: Harvester
+  description: Isolated evidence run for the default DuckDB writer, Parquet compatibility consumer, and no-clobber contract
+  allowed_use:
+  - duckdb_default_path_validation
+  - canonical_storage_observation
+  forbidden_use:
+  - daily_pipeline
+  - shared_current_output_generation
+  - release_promotion
 list_latest:
   script: scripts/list_latest.py
   status: active
@@ -67,6 +90,162 @@ check_external_source_endpoints:
   forbidden_use:
   - current_output_generation
   - aggregate_covar_inference
+run_cftc_dlt_shadow_parity:
+  script: packages/harvester/src/harvester/operators/run_cftc_dlt_shadow_parity.py
+  status: shadow_active
+  owner: Harvester
+  description: Offline legacy-vs-dlt parity record for a captured CFTC payload
+  allowed_use:
+  - dlt_shadow_validation
+  - provider_parity_observation
+  forbidden_use:
+  - live_provider_fetch
+  - daily_pipeline
+  - release_promotion
+run_external_indicators_dlt_shadow:
+  script: packages/harvester/src/harvester/operators/run_external_indicators_dlt_shadow.py
+  status: shadow_active
+  owner: Harvester
+  description: Cache-only dlt shadow load and parity report for normalized external indicators
+  allowed_use:
+  - dlt_shadow_validation
+  - incremental_state_observation
+  forbidden_use:
+  - live_provider_fetch
+  - daily_pipeline
+  - release_promotion
+aggregate_dlt_shadow_window:
+  script: packages/harvester/src/harvester/operators/aggregate_dlt_shadow_window.py
+  status: shadow_active
+  owner: Harvester
+  description: Read-only gate over real provider-capture dlt parity reports and incremental-state evidence
+  allowed_use:
+  - dlt_shadow_validation
+  - provider_parity_observation
+  forbidden_use:
+  - live_provider_fetch
+  - daily_pipeline
+  - release_promotion
+run_native_batch_shadow_parity:
+  script: packages/orchestration/orchestration/operators/run_native_batch_shadow_parity.py
+  status: shadow_active
+  owner: Orchestration
+  description: Read-only Dagster native-pilot versus registry-artifact parity record
+  allowed_use:
+  - dagster_native_shadow_validation
+  - orchestration_migration_observation
+  forbidden_use:
+  - daily_pipeline
+  - release_promotion
+run_native_daily_plan_shadow:
+  script: packages/orchestration/orchestration/operators/run_native_daily_plan_shadow.py
+  status: shadow_active
+  owner: Orchestration
+  description: Dry-run parity of the full compiled daily plan between native assets and generated Dagster ops
+  allowed_use:
+  - dagster_native_shadow_validation
+  - orchestration_migration_observation
+  forbidden_use:
+  - daily_pipeline
+  - provider_execution
+  - current_output_generation
+  - release_promotion
+compare_daily_run_parity:
+  script: packages/orchestration/orchestration/operators/compare_daily_run_parity.py
+  status: shadow_active
+  owner: Orchestration
+  description: Read-only comparison of two isolated daily bundles across steps.jsonl, lineage, release/vintage identity, and generation surfaces
+  allowed_use:
+  - dagster_native_shadow_validation
+  - orchestration_migration_observation
+  forbidden_use:
+  - daily_pipeline
+  - current_output_generation
+  - release_promotion
+run_daily_dual_track:
+  script: packages/orchestration/orchestration/operators/run_daily_dual_track.py
+  status: shadow_active
+  owner: Orchestration
+  description: Explicitly preflight or execute one isolated legacy/native daily pair and invoke the read-only parity comparator
+  allowed_use:
+  - isolated_dual_track_observation
+  - dagster_native_shadow_validation
+  forbidden_use:
+  - default_scheduler
+  - shared_current_output_generation
+  - release_promotion
+aggregate_daily_dual_track_window:
+  script: packages/orchestration/orchestration/operators/aggregate_daily_dual_track_window.py
+  status: shadow_active
+  owner: Orchestration
+  description: Read-only seven-day gate over isolated legacy/native dual-track parity reports
+  allowed_use:
+  - isolated_dual_track_observation
+  - dagster_native_shadow_validation
+  forbidden_use:
+  - default_scheduler
+  - shared_current_output_generation
+  - release_promotion
+run_native_core_shadow:
+  script: packages/orchestration/orchestration/operators/run_native_core_shadow.py
+  status: shadow_active
+  owner: Orchestration
+  description: Health-only native core-boundary pilot report with blocking-check propagation evidence
+  allowed_use:
+  - dagster_native_shadow_validation
+  - core_boundary_observation
+  forbidden_use:
+  - daily_pipeline
+  - shared_current_output_generation
+  - release_promotion
+run_native_file_boundary_shadow:
+  script: packages/orchestration/orchestration/operators/run_native_file_boundary_shadow.py
+  status: shadow_active
+  owner: Orchestration
+  description: Same-inputs comparator for generation-local native current-surface writers and legacy callables
+  allowed_use:
+  - dagster_native_shadow_validation
+  - orchestration_migration_observation
+  forbidden_use:
+  - daily_pipeline
+  - shared_current_output_generation
+  - release_promotion
+run_native_decision_shadow:
+  script: packages/orchestration/orchestration/operators/run_native_decision_shadow.py
+  status: shadow_active
+  owner: Orchestration
+  description: Health-only native judgment-to-risk pilot with blocking artifact checks and shared-surface fingerprint evidence
+  allowed_use:
+  - dagster_native_shadow_validation
+  - decision_boundary_observation
+  forbidden_use:
+  - daily_pipeline
+  - shared_current_output_generation
+  - release_promotion
+run_native_adjacent_shadow:
+  script: packages/orchestration/orchestration/operators/run_native_adjacent_shadow.py
+  status: shadow_active
+  owner: Orchestration
+  description: Health-only native ledger and paper-position pilot with generation-local state and admission/path-rebase evidence
+  allowed_use:
+  - dagster_native_shadow_validation
+  - decision_adjacent_observation
+  forbidden_use:
+  - daily_pipeline
+  - shared_current_output_generation
+  - release_promotion
+compare_native_decision_parity:
+  script: packages/orchestration/orchestration/operators/compare_native_decision_parity.py
+  status: shadow_active
+  owner: Orchestration
+  description: Same-inputs temporary-generation parity comparator for native decision and adjacent boundaries
+  allowed_use:
+  - dagster_native_shadow_validation
+  - decision_boundary_parity_observation
+  forbidden_use:
+  - daily_pipeline
+  - shared_current_output_generation
+  - release_promotion
 repair_cross_asset_panel:
   script: scripts/repair_cross_asset_panel.py
   status: tool_active

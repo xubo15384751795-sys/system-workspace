@@ -110,7 +110,7 @@ clean pass.
 From the workspace root:
 
 ```bash
-cd /Users/a1/System
+cd /Users/a1/Verity
 
 # After each submodule commits, update parent gitlink:
 git add Workbench

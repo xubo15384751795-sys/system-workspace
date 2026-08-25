@@ -1,0 +1,42 @@
+schema_version: routing_decision.v1
+decision_id: 2026-08-25-replacement-map-wave4-native-batch-02
+date: "2026-08-25"
+status: adopted
+cynefin_domain: complicated
+summary: >
+  Compile a second reversible Dagster-native asset batch from explicit
+  registry tags. Add build_artifact_registry beside build_data_gaps because
+  both are active, non-core, continue_with_warning leaves with pure report
+  builders. Add non-blocking native contract checks for the batch so the
+  Dagster surface records the shadow and legacy-write boundaries.
+scope:
+  - governance/daily_pipeline_registry.yaml
+  - packages/orchestration/orchestration/assets/native_batch.py
+  - packages/orchestration/orchestration/definitions.py
+  - packages/orchestration/tests/test_native_batch.py
+decision: >
+  The native compiler accepts only active native_pilot tags with a direct
+  module:function callable, continue_with_warning semantics, and no core
+  judgment authority. Assets invoke the callable directly without
+  pipeline_runner or steps.jsonl, use one Dagster retry, and remain
+  shadow_only. Contract checks are blocking=false and do not enter daily_job.
+authority_boundary:
+  registry_executor_changed: false
+  daily_job_graph_changed: false
+  steps_jsonl_authority_changed: false
+  legacy_output_written_by_native_asset: false
+  native_asset_promotion_allowed: false
+acceptance:
+  - live registry compiles exactly build_data_gaps and build_artifact_registry
+  - invalid native tags fail closed for inactive, blocking, core, or missing-callable steps
+  - both assets invoke direct pure builders and retain shadow metadata
+  - each native asset has a non-blocking native contract check
+  - focused orchestration tests pass; daily_job remains daily_job_entry only
+observation_window: >
+  Run the two assets beside the registry executor for at least one week and
+  compare report payloads before adding dependencies, schedules, or any
+  default-path authority.
+rollback: >
+  Remove the native_pilot tags, native batch registration, and native checks.
+  The registry subprocess path and all existing Output/current writers remain
+  the only scheduled authority.
