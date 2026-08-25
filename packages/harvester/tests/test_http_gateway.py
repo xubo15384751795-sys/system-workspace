@@ -252,6 +252,8 @@ def test_pinned_network_backend_never_redials_original_hostname() -> None:
 
 
 def test_default_gateway_uses_single_resolved_address_snapshot(monkeypatch) -> None:
+    monkeypatch.delenv("HARVESTER_HTTP_PROXY_URL", raising=False)
+    monkeypatch.delenv("HARVESTER_CFTC_PROXY_URL", raising=False)
     resolved: list[str] = []
     constructed: list[tuple[str, tuple[str, ...]]] = []
 
