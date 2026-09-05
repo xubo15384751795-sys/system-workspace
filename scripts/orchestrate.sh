@@ -127,6 +127,7 @@ case "${cmd}" in
     # non-zero whenever any requested installer failed.
     run_installer "daily System launchd" bash "${SYSTEM_ROOT}/scripts/install_daily_run_launchd.sh"
     run_installer "daily-run dead-man launchd" bash "${SYSTEM_ROOT}/scripts/install_daily_run_deadman_launchd.sh"
+    run_installer "caffeinate KeepAlive" bash "${SYSTEM_ROOT}/scripts/install_caffeinate_launchd.sh"
     run_installer "Horizon launchd" bash "${SYSTEM_ROOT}/scripts/install_horizon_launchd.sh"
     run_installer "Paper post-commit sync hook" bash "${SYSTEM_ROOT}/scripts/install_paper_sync_hook.sh"
     run_installer "Paper pre-commit lint hook" bash "${SYSTEM_ROOT}/scripts/install_paper_lint_hook.sh"

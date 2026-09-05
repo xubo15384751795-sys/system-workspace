@@ -20,6 +20,7 @@ EXPECTED_LABELS = (
     "com.system.daily-run-harvester",
     "com.system.daily-run-harvester-postclose",
     "com.system.daily-run-deadman",
+    "com.system.caffeinate",
 )
 DISABLED_LABELS = frozenset(
     {"com.system.daily-run-harvester", "com.system.daily-run-harvester-postclose"}

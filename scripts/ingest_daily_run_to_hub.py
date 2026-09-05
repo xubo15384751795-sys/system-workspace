@@ -108,7 +108,11 @@ def ingest_daily_run_bundle(
         "status": run_status,
         "manifest": manifest,
         "failed_steps": [s.get("step") for s in failed],
-        "bundle_dir": str(bundle_dir.relative_to(ROOT)),
+        "bundle_dir": (
+            str(bundle_dir.relative_to(ROOT))
+            if bundle_dir.is_relative_to(ROOT)
+            else str(bundle_dir)
+        ),
     }
     write_json(hub_manifest, hub_payload)
 

@@ -904,6 +904,13 @@ install_daily_run_deadman_launchd:
   description: Install independent launchd dead-man checker for daily_run
   allowed_use:
     - pipeline_health_monitoring
+install_caffeinate_launchd:
+  script: scripts/install_caffeinate_launchd.sh
+  status: active
+  owner: Runtime
+  description: Install KeepAlive caffeinate -s so 07:00 launchd runs are not missed on AC power
+  allowed_use:
+    - pipeline_health_monitoring
 install_external_source_monthly_launchd:
   script: scripts/install_external_source_monthly_launchd.sh
   status: active
@@ -1424,7 +1431,10 @@ check_pace_routing:
   script: scripts/commands/ci/check_pace_routing.py
   status: governance_active
   owner: Governance
-  description: Enforce PACE routing declarations for staged changes
+  description: >-
+    Enforce PACE routing declarations for staged changes. An active epoch
+    decision may cover later in-scope L3 commits so they do not each need
+    a new routing-decision file.
   allowed_use:
   - commit_routing_validation
 validate_current_schemas:

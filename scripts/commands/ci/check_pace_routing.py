@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -24,6 +24,8 @@ REQUIRED_PROBE_FIELDS = {
     "observation_window",
     "rollback",
 }
+ACTIVE_EPOCH_STATUSES = frozenset({"active", "adopted"})
+EPOCH_LAYERS_DEFAULT = ("L3",)
 
 
 def load_pace(path: Path = PACE_PATH) -> dict[str, Any]:
@@ -87,6 +89,73 @@ def is_pace_decision(path: Path) -> bool:
     return isinstance(data, dict) and "cynefin_domain" in data
 
 
+def _load_decision_mapping(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _decision_files(root: Path) -> list[Path]:
+    directory = root / DECISION_PREFIX.rstrip("/")
+    if not directory.is_dir():
+        return []
+    return sorted(
+        path
+        for path in directory.iterdir()
+        if path.is_file() and path.suffix in {".yaml", ".yml"}
+    )
+
+
+def epoch_covers_path(path: str, coverage: Mapping[str, Any]) -> bool:
+    normalized = path.replace("\\", "/").lstrip("./")
+    excluded = [
+        str(item).replace("\\", "/").lstrip("./")
+        for item in coverage.get("exclude_paths") or coverage.get("excluded_paths") or []
+    ]
+    if normalized in excluded:
+        return False
+    exact = {
+        str(item).replace("\\", "/").lstrip("./")
+        for item in coverage.get("paths") or []
+    }
+    if normalized in exact:
+        return True
+    prefixes = [
+        str(item).replace("\\", "/").lstrip("./")
+        for item in coverage.get("path_prefixes") or []
+    ]
+    return any(normalized.startswith(prefix) for prefix in prefixes if prefix)
+
+
+def load_covering_epoch_decisions(root: Path) -> list[tuple[Path, dict[str, Any]]]:
+    """Return on-disk epoch decisions that cover later L3 commits.
+
+    An epoch decision is an intentional load reduction: one Cynefin-complex
+    probe preregisters a bounded L3 scope so later in-scope commits do not
+    each need a new routing-decision file. Out-of-scope L3 and all L4 paths
+    still require a decision in the same change.
+    """
+    found: list[tuple[Path, dict[str, Any]]] = []
+    for path in _decision_files(root):
+        data = _load_decision_mapping(path)
+        if data is None:
+            continue
+        coverage = data.get("epoch_coverage")
+        if not isinstance(coverage, dict):
+            continue
+        if not coverage.get("covers_subsequent_commits"):
+            continue
+        status = str(data.get("status") or coverage.get("status") or "").strip().lower()
+        if status not in ACTIVE_EPOCH_STATUSES:
+            continue
+        found.append((path, data))
+    return found
+
+
 def check_paths(paths: list[str], root: Path = ROOT) -> list[str]:
     pace = load_pace(root / "PACE.md")
     classified = {path: classify_path(path, pace) for path in paths}
@@ -110,6 +179,28 @@ def check_paths(paths: list[str], root: Path = ROOT) -> list[str]:
     ]
 
     if not decision_refs:
+        uncovered: dict[str, str] = {}
+        covering_epochs: list[Path] = []
+        epochs = load_covering_epoch_decisions(root)
+        for path, layer in slow.items():
+            matched = False
+            for epoch_path, data in epochs:
+                coverage = data.get("epoch_coverage") or {}
+                layers = coverage.get("layers") or list(EPOCH_LAYERS_DEFAULT)
+                allowed_layers = {str(item) for item in layers}
+                if layer not in allowed_layers:
+                    continue
+                if epoch_covers_path(path, coverage):
+                    covering_epochs.append(epoch_path)
+                    matched = True
+                    break
+            if not matched:
+                uncovered[path] = layer
+        if not uncovered and covering_epochs:
+            errors: list[str] = []
+            for epoch_path in sorted(set(covering_epochs)):
+                errors.extend(validate_decision(epoch_path))
+            return errors
         details = ", ".join(f"{path} ({layer})" for path, layer in sorted(slow.items()))
         return [
             "PACE violation: L3/L4 change has no PACE routing decision "

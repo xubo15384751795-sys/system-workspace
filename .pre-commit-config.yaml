@@ -32,14 +32,14 @@ repos:
     hooks:
       - id: governance-freeze
         name: governance-freeze-check
-        entry: env PYTHONPATH=.:packages/orchestration python3 -m scripts.check_governance_freeze
+        entry: env PYTHONPATH=.:packages/orchestration uv run --locked python -m scripts.check_governance_freeze
         language: system
         files: ^governance/
         pass_filenames: false
         always_run: false
       - id: pace-routing-decision
         name: pace L3/L4 routing-decision check
-        entry: python3 -m scripts.commands.ci.check_pace_routing
+        entry: uv run --locked python -m scripts.commands.ci.check_pace_routing
         language: system
         files: ^(PACE\.md|ROUTING_CONSTITUTION\.md|MODULES\.md|FOLDER_OWNERSHIP\.md|governance/|protocols/|module_contexts/|system_runtime/|\.github/workflows/|\.pre-commit-config\.yaml)
         # With no explicit paths the checker reads the staged diff. This keeps
@@ -48,7 +48,14 @@ repos:
         pass_filenames: false
         always_run: false
 
-      # Pre-push only. Branch protection is unavailable on this repo (private
+      - id: just-preflight
+        name: just preflight (make test + isolated daily_run)
+        entry: just preflight
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Pre-push only. Branch protection is unavailable on this repo (private)
       # on a free plan: the branch-protection API returns 403), so nothing
       # server-side can stop a red commit reaching main — as happened with
       # 0e3b9c2, which broke test_consumes_traceable_to_upstream and left

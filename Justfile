@@ -2,11 +2,32 @@
 # Requires: just, pytest-xdist, semgrep.
 # Fast path: just smoke -> just promotion -> just nightly.
 
-SHELL := [zsh, -c, '-u', '-o', 'pipefail']
-set -euo pipefail
+set shell := ["zsh", "-eu", "-o", "pipefail", "-c"]
 
 # All project commands use the locked Python 3.13 environment.
 PY := "uv run --locked python"
+
+# Commit gate: make test + isolated skip-harvester daily_run.
+# --output-root keeps SYSTEM_RUN_ORIGIN=manual so the run is not a window day.
+# Isolated chain health is green when steps succeed; admission BLOCK is the
+# current default-path baseline (Phase 1.8), not a preflight failure.
+preflight:
+    #!/usr/bin/env zsh
+    set -e
+    echo "=== preflight: make test ==="
+    make test
+    echo "=== preflight: isolated daily_run --skip-harvester ==="
+    set +e
+    TELEGRAM_BOT_TOKEN= TELEGRAM_CHAT_ID= FEISHU_WEBHOOK_URL= NOTIFY_WEBHOOK_URL= \
+    SYSTEM_OBSERVABILITY_SECRETS_FILE= \
+      {{PY}} scripts/daily_run.py --skip-harvester --output-root /tmp/verity-preflight
+    run_status=$?
+    set -e
+    if [[ $run_status -eq 0 ]]; then
+      echo "isolated daily_run exit 0"
+      exit 0
+    fi
+    {{PY}} scripts/commands/ci/_check_preflight_isolated_run.py
 
 # Fast feedback loop.
 smoke:

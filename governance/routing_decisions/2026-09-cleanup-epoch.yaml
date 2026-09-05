@@ -1,0 +1,137 @@
+schema_version: routing_decision.v1
+decision_id: 2026-09-cleanup-epoch
+date: "2026-09-06"
+cynefin_domain: complex
+status: active
+title: Cleanup epoch covering Phase 1–3 L3 changes
+
+summary: >
+  One Cynefin-complex probe covers the Phase 1–3 cleanup/migration L3 surface
+  so later in-scope commits do not each require a new routing-decision file.
+  This is intentional governance load reduction, not a bypass: scope,
+  expected observation, observation window, and rollback are preregistered
+  here. Out-of-scope L3 files and every L4 identity file still need their
+  own decision in the same change.
+
+reason_this_is_not_a_bypass: >
+  PACE requires a routing decision when a change touches L3/L4 so that slow
+  layers do not absorb unprobed meaning. The cleanup epoch is itself that
+  probe. Requiring a new YAML per file during a declared multi-week cleanup
+  would recreate the governance load the epoch is meant to cut (principle 4
+  of the cleanup plan). Coverage is bounded to listed L3 prefixes; L4
+  constitution/ownership/identity files remain per-change. A closure record
+  is required when the post-migration 14-day window ends.
+
+scope:
+  phases: [1, 2, 3]
+  layers: [L3]
+  description: >
+    All L3 files Phase 1–3 of the cleanup plan are expected to touch:
+    registry/sequence/retention/entrypoint/freeze edits (Phase 1–2),
+    protocol schema version coexistence for provenance delta+digest
+    (Phase 1.4), module_contexts and system_runtime path/run-origin
+    coordination (Phase 2–3), CI workflows and the pre-commit gate
+    (Phase 0.2 / 2 / 3).
+  l3_files_phase_1:
+    - governance/daily_pipeline_registry.yaml
+    - governance/daily_run_sequence.yaml
+    - protocols/evidence.schema.json
+    - protocols/canonical_chain.schema.json
+    - protocols/evidence_release.schema.json
+    - .pre-commit-config.yaml
+  l3_files_phase_2:
+    - governance/output_routing_policy.yaml
+    - governance/entrypoint_registry.yaml
+    - governance/governance_freeze_manifest.yaml
+    - governance/redundancy_budget.yaml
+    - governance/operator_registry.yaml
+    - governance/run_mode_registry.yaml
+    - governance/capability_registry.yaml
+    - governance/authority_registry.yaml
+    - governance/data_retention_policy.yaml
+    - governance/data_request_registry.yaml
+    - governance/deferred_work_register.yaml
+    - governance/open_threads.yaml
+    - governance/repo_layout_map.md
+    - module_contexts/
+    - system_runtime/
+    - protocols/
+    - .github/workflows/
+    - .pre-commit-config.yaml
+  l3_files_phase_3:
+    - system_runtime/
+    - governance/runtime_status_contract.yaml
+    - governance/pipeline_schedule.md
+    - .github/workflows/
+
+epoch_coverage:
+  covers_subsequent_commits: true
+  layers: [L3]
+  path_prefixes:
+    - governance/
+    - protocols/
+    - module_contexts/
+    - system_runtime/
+    - .github/workflows/
+  paths:
+    - .pre-commit-config.yaml
+  exclude_paths:
+    - governance/system_constitution.yaml
+  does_not_cover:
+    - PACE.md
+    - ROUTING_CONSTITUTION.md
+    - MODULES.md
+    - FOLDER_OWNERSHIP.md
+    - governance/system_constitution.yaml
+
+probe:
+  scope: >
+    Phase 1–3 L3 paths listed above: pipeline registries, protocol schemas
+    for provenance coexistence, module contracts, runtime coordination, CI
+    workflows, and the pre-commit preflight gate. L2 package/script work
+    is not gated by this decision. L4 identity files are excluded.
+  preregistered_expectation: >
+    In-scope L3 commits during the epoch reuse this decision. Scheduled
+    07:00 runs stay COMMITTED. Isolated `just preflight` stays green.
+    After Phase 3 cutover, fourteen consecutive default-path days accumulate
+    without a new per-file routing decision. A change outside this scope,
+    or any L4 identity file, still fails check_pace_routing.py unless it
+    carries its own PACE decision.
+  observation_window: >
+    Fourteen consecutive default-path scheduled days after Phase 3 cutover
+    (migration onto the new device). The window starts on the first
+    committed scheduled run on the new publisher, not on this commit.
+  rollback: >
+    Each Phase 1–3 step is one git commit and may be reverted on its own.
+    If a scheduled run is not COMMITTED, revert that day's step commit the
+    same day. Reverting this epoch decision restores per-commit PACE
+    routing requirements for subsequent L3 changes.
+
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+  contract_enum_change: false
+  pace_per_commit_decision_required_for_in_scope_l3: false
+
+non_goals:
+  - Cover L4 identity files (constitution, PACE, MODULES, FOLDER_OWNERSHIP, ROUTING_CONSTITUTION)
+  - Authorize Phase 4 runner replacement or Dagster native cutover
+  - Patch or delete Deformation v1 evidence
+  - Treat tests or a single preflight as the 14-day window
+
+acceptance:
+  - check_pace_routing.py accepts a later in-scope L3 change that does not restage this file
+  - an L4 change or an L3 path outside epoch_coverage still requires a new decision
+  - this record declares Cynefin complex with a complete probe
+  - rollback remains per-step git revert
+
+closure:
+  required_at: end_of_post_migration_14_day_window
+  record: governance/routing_decisions/ (dated cleanup-epoch-closure)
+
+references:
+  - PACE.md
+  - scripts/commands/ci/check_pace_routing.py
+  - tests/test_pace_routing.py
