@@ -1,5 +1,5 @@
 schema_version: daily_pipeline_registry.v3
-updated_at: '2026-07-30'
+updated_at: '2026-09-06'
 generated_views:
   - governance/daily_run_sequence.yaml
 # Known external inputs — paths consumed by steps but not produced by any
@@ -2162,7 +2162,11 @@ steps:
       - Output/strategy_lab/overlay_shadow_report.json
   build_event_replay_factory:
     order: 68
-    status: active
+    status: archived
+    archive_reason: >-
+      Deformation v1 weekly replay factory; 4.8h Monday cost. Existing
+      Output/sandbox/event_replay/ files remain readable by
+      build_feedback_sample_pool; the factory no longer runs on the default path.
     owner: Deformation Framework
     command: python scripts/archive/build_event_replay_factory.py
     schedule: weekly
@@ -2921,7 +2925,8 @@ steps:
 
   asof_integrity_check:
     order: 51
-    status: active
+    status: archived
+    archive_reason: "Framework-owned weekly as-of leakage check; v1 structural_replay input, not on the live path"
     owner: Framework
     command: python scripts/commands/weekly/asof_integrity_checker.py
     input:
@@ -2952,7 +2957,11 @@ steps:
 
   baseline_comparison:
     order: 52
-    status: active
+    status: archived
+    archive_reason: >-
+      Framework-owned review-only diagnostic. No live consumer of
+      Output/validation/baseline_comparison.json or the system_learning copy;
+      not retained as a Learning Hub weekly.
     owner: Framework
     depends_on:
       - neutral_pressure_measurement
@@ -3054,7 +3063,8 @@ steps:
 
   threshold_review_bridge:
     order: 55
-    status: active
+    status: archived
+    archive_reason: "Framework-owned weekly threshold-review bridge; human-review-only, not on the live path"
     owner: Framework
     command: python scripts/commands/weekly/threshold_review_bridge.py
     input:

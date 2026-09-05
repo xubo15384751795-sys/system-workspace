@@ -73,15 +73,9 @@ steps:
   schedule: weekly
 - id: collect_reviews
   schedule: weekly
-- id: asof_integrity_check
-  schedule: weekly
-- id: baseline_comparison
-  schedule: weekly
 - id: walk_forward_validation
   schedule: weekly
 - id: qlib_structural_bridge
-  schedule: weekly
-- id: threshold_review_bridge
   schedule: weekly
 - id: evidence_grade_report
 - id: build_artifact_registry
@@ -92,8 +86,6 @@ steps:
 - id: strategy_lab_shadow
 - id: shadow_outcomes_90d
 - id: build_overlay_shadow_report
-  schedule: weekly
-- id: build_event_replay_factory
   schedule: weekly
 - id: build_feedback_sample_pool
   schedule: weekly

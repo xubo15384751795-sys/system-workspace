@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -20,6 +21,15 @@ from system_runtime.plan_apply import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+_UPDATED_AT_RE = re.compile(r"updated_at:\s*'[0-9-]+'")
+
+
+def _bump_registry_updated_at(registry: Path) -> None:
+    text = registry.read_text(encoding="utf-8")
+    bumped, count = _UPDATED_AT_RE.subn("updated_at: '2099-01-01'", text, count=1)
+    if count != 1 or bumped == text:
+        raise AssertionError(f"{registry} has no replaceable updated_at field")
+    registry.write_text(bumped, encoding="utf-8")
 
 
 def _workspace(tmp_path: Path) -> WorkspacePaths:
@@ -64,13 +74,7 @@ def test_policy_change_rejects_saved_plan(tmp_path: Path) -> None:
     paths = _workspace(tmp_path)
     artifact = build_plan(paths)
     target = write_plan(artifact, paths.root / ".system/plans/plan.json", root=paths.root)
-    registry = paths.root / "governance/daily_pipeline_registry.yaml"
-    registry.write_text(
-        registry.read_text(encoding="utf-8").replace(
-            "updated_at: '2026-07-30'", "updated_at: '2026-07-31'"
-        ),
-        encoding="utf-8",
-    )
+    _bump_registry_updated_at(paths.root / "governance/daily_pipeline_registry.yaml")
 
     result = validate_plan(load_plan(target), paths)
 
@@ -142,13 +146,7 @@ def test_apply_rejects_stale_plan_before_reading_evidence(tmp_path: Path) -> Non
     paths = _workspace(tmp_path)
     artifact = build_plan(paths)
     plan_path = write_plan(artifact, paths.root / ".system/plans/plan.json", root=paths.root)
-    registry = paths.root / "governance/daily_pipeline_registry.yaml"
-    registry.write_text(
-        registry.read_text(encoding="utf-8").replace(
-            "updated_at: '2026-07-30'", "updated_at: '2026-08-01'"
-        ),
-        encoding="utf-8",
-    )
+    _bump_registry_updated_at(paths.root / "governance/daily_pipeline_registry.yaml")
 
     with pytest.raises(PlanApplyError, match="stale plan rejected"):
         validate_apply(

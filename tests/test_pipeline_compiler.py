@@ -144,7 +144,6 @@ def test_shared_panel_edges_are_explicit() -> None:
         "etf_refresh": ["refresh_cross_asset_panel"],
         "paper_portfolio": ["neutral_pressure_measurement", "trade_decision"],
         "strategy_lab_shadow": ["neutral_pressure_measurement"],
-        "baseline_comparison": ["neutral_pressure_measurement"],
     }
     for step_id, dependencies in expected.items():
         assert registry["steps"][step_id]["depends_on"] == dependencies

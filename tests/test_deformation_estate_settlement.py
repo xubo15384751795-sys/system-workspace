@@ -39,6 +39,27 @@ def test_default_pipeline_uses_neutral_measurement_and_archives_v1() -> None:
     assert registry["judgment_layer"]["contracts"]["inputs"][0] == "Output/current/neutral_pressure_snapshot.json"
 
 
+def test_no_active_framework_owned_pipeline_steps() -> None:
+    """Estate settlement: Deformation Framework / Framework must not own an active step."""
+    registry = yaml.safe_load((ROOT / "governance" / "daily_pipeline_registry.yaml").read_text())["steps"]
+    forbidden_owners = {"Deformation Framework", "Framework"}
+    still_active: list[str] = []
+    for step_id, step in registry.items():
+        if not isinstance(step, dict) or step.get("status") != "active":
+            continue
+        owners = {str(step.get("owner") or "")}
+        authority = step.get("authority") or {}
+        if isinstance(authority, dict):
+            owners.add(str(authority.get("owner") or ""))
+        owners.discard("")
+        if owners & forbidden_owners:
+            still_active.append(step_id)
+    assert still_active == [], (
+        "owner in {Deformation Framework, Framework} must not be active: "
+        + ", ".join(still_active)
+    )
+
+
 def test_archive_guard_denies_unapproved_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     from scripts._deformation_archive_guard import require_archived_reproduction
 
