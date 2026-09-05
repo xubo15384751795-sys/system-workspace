@@ -199,7 +199,15 @@ def load_official_panel(panel_path: Path) -> pd.DataFrame:
 # CHANNELS for backward compatibility (audit, downstream code) but every proxy
 # pointed at them is marked canonical_status='extension_beyond_canonical', so
 # they evaluate to NaN under the canonical voting rule.
-from replay.scoring import CHANNELS  # noqa: E402, F401
+CHANNELS: list[str] = [
+    "M",
+    "D_contraction",
+    "K",
+    "X_agg",
+    "X_PRE",
+    "X_REALIZED",
+    "Pi_t",
+]
 
 from scripts._replay_transforms import (  # noqa: E402
     _accel_abs,

@@ -41,11 +41,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Deny ordinary execution before importing any archived framework dependency.
 # This makes governance failure deterministic even when the legacy runtime is
 # not installed or importable.
-if __name__ == "__main__":
-    from scripts._deformation_archive_guard import require_archived_reproduction
+def _bootstrap_archive_imports() -> None:
+    from scripts._deformation_archive_guard import prepend_archive_src, require_archived_reproduction  # noqa: I001
 
-    require_archived_reproduction()
+    if __name__ == "__main__":
+        require_archived_reproduction()
+    prepend_archive_src()
 
+
+_bootstrap_archive_imports()
 
 from replay.scoring import (  # noqa: E402
     compute_contract_violations,

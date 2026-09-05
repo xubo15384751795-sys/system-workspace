@@ -2,11 +2,21 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from scripts._runtime_io import surface_dir
 
 ARCHIVE_ENV = "ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION"
+ARCHIVE_SRC = Path(__file__).resolve().parents[1] / "packages" / "framework_v1_archive" / "src"
+
+
+def prepend_archive_src() -> None:
+    """Let isolated archive entrypoints import their own implementation tree."""
+    value = str(ARCHIVE_SRC)
+    if ARCHIVE_SRC.is_dir() and value not in sys.path:
+        sys.path.insert(0, value)
+
 
 
 def require_archived_reproduction(*, current_writer: bool = False) -> None:
