@@ -48,10 +48,12 @@ def test_reduced_proxy_and_weak_caselab_forces_watch_only() -> None:
     assert card["claim_ceiling"] == "diagnostic_watch_only"
     assert any("CaseLab match is weak" in reason for reason in card["confidence"]["reasons"])
     assert any("Do not use this output as a trading signal." in item for item in card["actionability"]["forbidden"])
+    assert card["caselab_diagnostic"]["operational"] == "ignored"
+    assert card["caselab_diagnostic"]["divergence"] is True
 
 
-def test_strong_caselab_with_full_proxy() -> None:
-    """Strong CaseLab + full proxy quality → higher confidence."""
+def test_strong_caselab_does_not_raise_decision_or_ceiling() -> None:
+    """Strong CaseLab is diagnostic; it cannot raise decision or claim_ceiling."""
     fw = {
         "as_of": "2026-06-16T00:00:00+00:00",
         "basic": {
@@ -83,9 +85,13 @@ def test_strong_caselab_with_full_proxy() -> None:
     }
 
     card = build_judgment(fw, caselab)
+    without = build_judgment(fw, None)
 
-    assert card["decision"] in ("WATCH_ONLY", "RESEARCH_REVIEW", "ACTIVE_WATCH")
-    assert card["confidence"]["level"] in ("low", "medium", "high")
+    assert card["decision"] == without["decision"] == "WATCH_ONLY"
+    assert card["claim_ceiling"] == without["claim_ceiling"]
+    assert card["decision"] != "RESEARCH_REVIEW"
+    assert card["caselab_diagnostic"]["operational"] == "ignored"
+    assert card["caselab_diagnostic"]["match_quality"]["label"] == "strong"
 
 
 def test_empty_caselab_graceful_degradation() -> None:
@@ -138,5 +144,12 @@ def test_card_has_required_keys() -> None:
 
     card = build_judgment(fw, caselab)
 
-    required_keys = {"decision", "confidence", "claim_ceiling", "gate_status", "actionability"}
+    required_keys = {
+        "decision",
+        "confidence",
+        "claim_ceiling",
+        "caselab_diagnostic",
+        "gate_status",
+        "actionability",
+    }
     assert required_keys.issubset(card.keys()), f"Missing keys: {required_keys - card.keys()}"

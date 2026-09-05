@@ -107,6 +107,13 @@ def _fingerprint(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _seed_harvester_panels(tmp_path: Path) -> None:
+    data = tmp_path / "Data" / "harvester" / "exports" / "latest" / "data"
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "benchmark_panel.parquet").write_bytes(b"")
+    (data / "cross_asset_daily_panel.parquet").write_bytes(b"")
+
+
 def _seed_measurement_gates(
     tmp_path: Path, *, k_pass: bool = True, x_pass: bool = True
 ) -> Path:
@@ -160,20 +167,25 @@ def test_main_chain_step_is_callable(step_id: str) -> None:
 
 def test_measurement_quality_report_callable_runs(tmp_path, monkeypatch) -> None:
     out = _seed_measurement_gates(tmp_path)
+    _seed_harvester_panels(tmp_path)
     _patch_sandbox(monkeypatch, tmp_path, out)
 
     from scripts.commands.weekly.build_measurement_quality_report import build_report
 
     report = build_report()
-    assert report["overall_status"] in {"OK", "DEGRADED"}
-    assert report["channels"]["K"]["gate_verdict"] == "PASS"
-    assert report["channels"]["X_agg"]["gate_verdict"] == "PASS"
+    assert report["channels"]["K"]["gate_verdict"] == "NOT_WIRED"
+    assert report["channels"]["X_agg"]["gate_verdict"] == "NOT_WIRED"
+    assert report["channels"]["K"]["archived_artifact"]["gate_verdict"] == "PASS"
+    assert report["channels"]["X_agg"]["archived_artifact"]["gate_verdict"] == "PASS"
+    assert report["data_request_status"]["K_measurement_quality"] == "not_wired"
+    assert report["data_request_status"]["X_agg_measurement_quality"] == "research_only"
+    assert report["overall_status"] == "OK"
 
 
 def test_measurement_quality_degraded_when_k_gate_missing(
     tmp_path, monkeypatch
 ) -> None:
-    """P0-3 degraded scenario: missing K gate → overall DEGRADED, X still readable."""
+    """K/X stay NOT_WIRED even if one disk file is missing; overall follows panels."""
     out = _seed_measurement_gates(tmp_path, k_pass=False, x_pass=True)
     _patch_sandbox(monkeypatch, tmp_path, out)
 
@@ -181,8 +193,10 @@ def test_measurement_quality_degraded_when_k_gate_missing(
 
     report = build_report()
     assert report["overall_status"] == "DEGRADED"
-    assert report["channels"]["K"]["gate_verdict"] == "MISSING"
-    assert report["channels"]["X_agg"]["gate_verdict"] == "PASS"
+    assert report["channels"]["K"]["gate_verdict"] == "NOT_WIRED"
+    assert report["channels"]["X_agg"]["gate_verdict"] == "NOT_WIRED"
+    assert report["channels"]["K"]["archived_artifact"] is None
+    assert report["channels"]["X_agg"]["archived_artifact"]["gate_verdict"] == "PASS"
 
 
 @pytest.mark.parametrize("step_id", EXECUTABLE_LIGHT_STEPS)

@@ -133,6 +133,9 @@ def test_md_persistence_confirmed(_isolated_dirs):
     result = check_md_persistence(item, judgment)
     assert result["persisted"] is True
     assert result["status"] == "confirmed"
+    assert result["authority"] == "none"
+    assert result["theory"] == "deformation_v1_frozen"
+    assert result["operational"] == "ignored"
 
 
 def test_md_persistence_reversed(_isolated_dirs):
@@ -141,6 +144,9 @@ def test_md_persistence_reversed(_isolated_dirs):
     result = check_md_persistence(item, judgment)
     assert result["persisted"] is False
     assert result["status"] == "reversed"
+    assert result["authority"] == "none"
+    assert result["theory"] == "deformation_v1_frozen"
+    assert result["operational"] == "ignored"
 
 
 # ── check_caselab_improvement ───────────────────────────────────────────────
@@ -238,7 +244,17 @@ def test_evaluate_progression_tracking(_isolated_dirs):
     judgment = _make_judgment(meaning=["M shows stress relief pattern"])
     results = evaluate_progression(items, judgment)
     assert len(results) == 1
-    assert results[0]["overall_status"] in ("tracking", "progressing")
+    assert results[0]["checks"]["md_persistence"]["status"] == "confirmed"
+    assert results[0]["overall_status"] == "tracking"
+
+
+def test_evaluate_progression_md_reversed_stays_tracking(_isolated_dirs):
+    items = [_make_claim_item("stress_relief hypothesis")]
+    judgment = _make_judgment(meaning=["M shows stress building pattern"])
+    results = evaluate_progression(items, judgment)
+    assert results[0]["checks"]["md_persistence"]["status"] == "reversed"
+    assert results[0]["checks"]["invalidation"]["status"] != "triggered"
+    assert results[0]["overall_status"] == "tracking"
 
 
 def test_evaluate_progression_invalidated(_isolated_dirs):
@@ -246,15 +262,14 @@ def test_evaluate_progression_invalidated(_isolated_dirs):
     (hmm_dir / "regime_hmm.json").write_text(json.dumps({"regime": "stress"}))
 
     items = [_make_claim_item("stress_building hypothesis")]
-    items[0]["metadata"]["invalidation_conditions"] = ["M reverses sign"]
+    items[0]["metadata"]["invalidation_conditions"] = ["HMM stability degrades"]
     judgment = _make_judgment(
         meaning=["M shows stress relief pattern"],
         gate_status={"hmm_stability": "WEAK"},
     )
     results = evaluate_progression(items, judgment)
     assert len(results) == 1
-    # Should be invalidated or reversed
-    assert results[0]["overall_status"] in ("invalidated", "reversed")
+    assert results[0]["overall_status"] == "invalidated"
 
 
 def test_evaluate_progression_empty(_isolated_dirs):

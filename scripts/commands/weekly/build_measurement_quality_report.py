@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Build measurement_quality.json — K/X gate summary for Harvester data requests.
+"""Build measurement_quality.json — live panel presence plus K/X research-only stamp.
 
-Aggregates k_measurement_gate and x_measurement_gate outputs with Harvester
-release metadata.  Feeds evidence_grade_report and closes K/X data_request
-quality tracking.
+K/X disk gates are archived artifacts, not live quality. A July PASS on disk
+does not make overall OK and is not a fulfilled data request.
 
 Usage:
     python3 scripts/commands/weekly/build_measurement_quality_report.py
@@ -56,21 +55,32 @@ def _harvester_release() -> dict[str, Any]:
     }
 
 
-def _gate_summary(path: Path, channel: str) -> dict[str, Any]:
+def _archived_gate(path: Path) -> dict[str, Any] | None:
     if not path.exists():
-        return {"channel": channel, "present": False, "gate_verdict": "MISSING"}
+        return None
     data = load_json(path)
     if not data:
-        return {"channel": channel, "present": False, "gate_verdict": "MISSING"}
+        return None
     tests = data.get("tests") or {}
-    pass_count = sum(1 for t in tests.values() if t.get("status") == "PASS")
     return {
-        "channel": channel,
-        "present": True,
+        "path": _rel(path),
         "gate_verdict": data.get("gate_verdict", "UNKNOWN"),
-        "tests_passed": pass_count,
+        "tests_passed": sum(1 for item in tests.values() if item.get("status") == "PASS"),
         "tests_total": len(tests),
         "generated_at": data.get("generated_at"),
+    }
+
+
+def _research_only_channel(path: Path, channel: str) -> dict[str, Any]:
+    """K/X are not live quality. Disk PASS stays archived, never gate_verdict."""
+    return {
+        "channel": channel,
+        "present": False,
+        "gate_verdict": "NOT_WIRED",
+        "readout_role": "research_only",
+        "theory_authority": "none",
+        "operational_wiring": "denied",
+        "archived_artifact": _archived_gate(path),
     }
 
 
@@ -83,18 +93,12 @@ def _rel(path: Path) -> str:
 
 def build_report() -> dict[str, Any]:
     harvester = _harvester_release()
-    k_summary = _gate_summary(_k_gate_path(), "K")
-    x_summary = _gate_summary(_x_gate_path(), "X_agg")
+    k_summary = _research_only_channel(_k_gate_path(), "K")
+    x_summary = _research_only_channel(_x_gate_path(), "X_agg")
     cross_asset = resolve_cross_asset_panel_path()
     benchmark = resolve_benchmark_panel_path()
 
-    overall = "OK"
-    if k_summary["gate_verdict"] not in ("PASS", "WATCH"):
-        overall = "DEGRADED"
-    if x_summary["gate_verdict"] not in ("PASS", "WATCH", "BACKGROUND_ONLY"):
-        overall = "DEGRADED"
-    if not cross_asset.exists() or not benchmark.exists():
-        overall = "DEGRADED"
+    overall = "OK" if cross_asset.exists() and benchmark.exists() else "DEGRADED"
 
     return {
         "schema_version": "system.measurement_quality.v1",
@@ -112,8 +116,8 @@ def build_report() -> dict[str, Any]:
             "X_agg": x_summary,
         },
         "data_request_status": {
-            "K_measurement_quality": "fulfilled" if overall == "OK" else "in_progress",
-            "X_agg_measurement_quality": "fulfilled" if overall == "OK" else "in_progress",
+            "K_measurement_quality": "not_wired",
+            "X_agg_measurement_quality": "research_only",
         },
     }
 

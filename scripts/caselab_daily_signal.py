@@ -61,6 +61,12 @@ from scripts._runtime_io import (
 )
 
 OUTPUT_DIR = ROOT / "Output" / "caselab"
+FROZEN_V1_STAMP = {
+    "theory_authority": False,
+    "falsified_claim_set": "deformation_v1_four_channel_universal_predictor",
+    "direction_formula": "archived_v1_mdkx_mean",
+    "operational_use": "diagnostic_only",
+}
 
 # Scoring policy thresholds — canonical values in _constants.py
 STRONG_THRESHOLD = CASELAB_STRONG_THRESHOLD
@@ -69,11 +75,11 @@ WEAK_THRESHOLD = CASELAB_WEAK_THRESHOLD
 
 
 def get_latest_state() -> dict:
-    """Read latest M/D/K/X from framework_output.json (preferred) or proxy_readings (fallback).
+    """Read the compatibility copy of M/D/K/X from framework_output.json.
 
-    framework_output.json is updated by the bridge script after each daily run
-    and contains the most current M/D/K/X values from the structural replay.
-    proxy_readings.parquet may be stale if the data pipeline has gaps.
+    This is not a live Deformation snapshot and is not recomputed here.
+    Downstream direction still uses the frozen v1 (M+K+X)/3 composite, which
+    has no theory authority. proxy_readings.parquet remains a stale fallback.
     """
     framework_path = surface_dir("current") / "framework_output.json"
     proxy_path = ROOT / "Data" / "structural_lab" / "processed" / "proxies" / "proxy_readings.parquet"
@@ -544,6 +550,11 @@ def build_context_packet(state: dict, vec: dict, reconciliation: dict) -> dict[s
             "unified_regime": reconciliation.get("unified_regime", "unknown"),
         },
         "claim_ceiling": "diagnostic_watch_only",
+        "direction_label_source": "archived_v1_mdkx_mean",
+        "direction_label_note": (
+            "direction_label comes from the frozen v1 (M+K+X)/3 composite "
+            "and has no theory authority."
+        ),
         "needs_mechanism_type": _what_to_look_for(
             detect_mechanism_types(state).get("mechanism_types", [])
         ),
@@ -868,6 +879,7 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
 
     # 5. Build output
     output = {
+        **FROZEN_V1_STAMP,
         "timestamp": utc_now().isoformat(),
         "system_state": {
             "date": state.get("date"),
@@ -969,6 +981,9 @@ def _format_markdown(output: dict) -> str:
     mq = output["match_quality"]
     lines = [
         f"# CaseLab Daily Signal — {output['timestamp'][:10]}",
+        "",
+        f"- **Theory authority:** {output.get('theory_authority', False)}",
+        f"- **Direction formula:** {output.get('direction_formula', 'archived_v1_mdkx_mean')} (diagnostic only)",
         "",
         "## System State",
         f"- **Date:** {s['date']}",

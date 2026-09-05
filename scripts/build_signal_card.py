@@ -169,8 +169,6 @@ def _classify_gates(judgment: dict, fw: dict, hmm_data: dict | None,
     """Classify HMM, CaseLab, K/X gates as adopted / rejected / monitoring-only."""
     gates = []
     gate_status = judgment.get("gate_status", {})
-    adv = fw.get("advanced", {}) if fw else {}
-    eligibility = adv.get("sigma_vector", {}).get("measurement_eligibility", {})
 
     # HMM stability
     hmm_val = gate_status.get("hmm_stability", "UNKNOWN")
@@ -211,38 +209,20 @@ def _classify_gates(judgment: dict, fw: dict, hmm_data: dict | None,
         "degeneracy": hmm_degeneracy,
     })
 
-    # K gate
-    k_val = gate_status.get("k_gate", "UNKNOWN")
-    k_elig = eligibility.get("K", {})
-    k_role = k_elig.get("readout_role", "unknown")
-    k_class = "adopted" if k_val == "PASS" and k_role == "primary_readout" \
-        else "monitoring_only" if k_val == "PASS" and k_role != "primary_readout" \
-        else "rejected"
+    # K/X are research-only. Disk PASS is not a live verdict.
     gates.append({
         "gate": "K_measurement",
-        "verdict": k_val,
-        "classification": k_class,
-        "detail": f"K gate={k_val}, role={k_role}",
-        "effect_on_judgment": "contributes" if k_class == "adopted"
-            else "diagnostic_only" if k_class == "monitoring_only"
-            else "blocked_from_primary",
+        "verdict": "NOT_WIRED",
+        "classification": "research_only",
+        "detail": "K gate=NOT_WIRED, role=research_only; operational wiring denied",
+        "effect_on_judgment": "excluded_from_readout",
     })
-
-    # X gate
-    x_val = gate_status.get("x_gate", "UNKNOWN")
-    x_elig = eligibility.get("X_agg", {})
-    x_role = x_elig.get("readout_role", "unknown")
-    x_class = "adopted" if x_val == "PASS" and x_role == "primary_readout" \
-        else "monitoring_only" if x_val == "PASS" and x_role != "primary_readout" \
-        else "rejected"
     gates.append({
         "gate": "X_measurement",
-        "verdict": x_val,
-        "classification": x_class,
-        "detail": f"X gate={x_val}, role={x_role}",
-        "effect_on_judgment": "contributes" if x_class == "adopted"
-            else "diagnostic_only" if x_class == "monitoring_only"
-            else "blocked_from_primary",
+        "verdict": "NOT_WIRED",
+        "classification": "research_only",
+        "detail": "X gate=NOT_WIRED, role=research_only; operational wiring denied",
+        "effect_on_judgment": "excluded_from_readout",
     })
 
     # CaseLab
@@ -536,7 +516,10 @@ def _identify_evidence_list(
 
     # Gate statuses
     for gate, value in judgment.get("gate_status", {}).items():
-        if value == "ADEQUATE":
+        if gate in ("k_gate", "x_gate"):
+            value = "NOT_WIRED"
+            reliability = "research_only"
+        elif value == "ADEQUATE":
             reliability = "model health passed; calibration still limited"
         elif value == "PASS":
             reliability = "high"

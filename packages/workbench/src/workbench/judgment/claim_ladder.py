@@ -401,10 +401,7 @@ def evaluate_claim_tier(
     _, persistence_count = _check_persistence(run_history, direction)
     invalidation_conditions = _derive_invalidation_conditions(m_val, d_val, direction, mechanism_types)
     assessment = dict(evidence_context or {})
-    reconciliation = (caselab or {}).get("regime_reconciliation", {}) if caselab else {}
-    hmm_conflict = bool(reconciliation.get("divergence", False))
-    if isinstance(hmm, dict):
-        hmm_conflict = hmm_conflict or bool(hmm.get("conflict", False))
+    hmm_conflict = bool(hmm.get("conflict", False)) if isinstance(hmm, dict) else False
     assessment.setdefault("caselab_top_score", top_score)
     assessment.setdefault("active_mechanism_count", len(mechanism_types))
     assessment.setdefault("md_direction", direction)

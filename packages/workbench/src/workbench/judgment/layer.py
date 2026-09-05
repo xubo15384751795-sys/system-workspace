@@ -238,12 +238,9 @@ def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
         caselab_score = _as_float((caselab.get("match_quality") or {}).get("top_score", 0))
         if caselab_label == "weak":
             reasons.append(f"CaseLab match is weak (top_score={caselab_score}).")
-        recon = caselab.get("regime_reconciliation") or {}
-        if recon.get("divergence"):
-            reasons.append(
-                f"HMM and neutral pressure gauges diverge: HMM={recon.get('hmm_regime')}, "
-                f"gauges={recon.get('mdx_regime')}."
-            )
+        reasons.append(
+            "CaseLab match_quality is diagnostic-only and does not set decision or claim_ceiling."
+        )
     else:
         reasons.append("CaseLab context is unavailable.")
 
@@ -265,24 +262,17 @@ def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
     if "PROXY_REDUCED" in str(quality):
         diagnostic_confidence = "medium_low"
 
-    # Mechanism: can we form mechanism hypotheses?
-    mechanism_confidence = "medium_low"  # base level
-    if caselab_label in ("weak", "usable", "strong") and caselab_score >= 0.30:
-        mechanism_confidence = "medium_low"
-    if caselab_label in ("usable", "strong") and caselab_score >= 0.55:
-        mechanism_confidence = "medium"
-    if caselab_label == "no_reliable_analogy" or caselab_score < 0.20:
-        mechanism_confidence = "low"
-    # HMM model health helps mechanism confidence
-    if hmm and hmm_grade in ("ADEQUATE", "HIGH"):
-        # Don't downgrade mechanism confidence for calibration-only issues
-        pass
+    # Mechanism: CaseLab match_quality does not raise or lower this layer.
+    mechanism_confidence = "medium_low"
 
-    # Trade: can we make operational decisions?
-    trade_confidence = "low"  # default: can't trade
-    if hmm_grade in ("ADEQUATE", "HIGH") and caselab_label in ("usable", "strong"):
+    # Trade: measurement and HMM only. CaseLab cannot promote or demote.
+    trade_confidence = "low"
+    measurement_reduced = (
+        "PROXY_REDUCED" in str(quality) or "LOW_CONFIDENCE" in str(measurement_quality)
+    )
+    if not measurement_reduced and hmm_grade in ("ADEQUATE", "HIGH"):
         trade_confidence = "medium"
-    if hmm_grade == "WEAK" or caselab_label == "no_reliable_analogy":
+    if hmm_grade == "WEAK" or measurement_reduced:
         trade_confidence = "low"
     # K/X are research-only profiles. Their gate state is reported for review
     # but cannot promote or demote the neutral measurement judgment.
@@ -347,10 +337,9 @@ def _claim_ceiling(fw: dict[str, Any], confidence: str,
 
 
 def _decision(confidence: str, caselab: dict[str, Any] | None) -> str:
+    del caselab  # CaseLab is diagnostic-only; it cannot select the decision.
     if confidence == "low":
         return "WATCH_ONLY"
-    if caselab and (caselab.get("match_quality") or {}).get("label") == "usable":
-        return "RESEARCH_REVIEW"
     return "ACTIVE_WATCH"
 
 
@@ -647,7 +636,6 @@ def _claim_envelopes(
         or (primary_evidence.get("provenance") or {}).get("source_release_id")
         or ""
     )
-    reconciliation = (caselab or {}).get("regime_reconciliation", {}) if caselab else {}
     context: dict[str, Any] = {
         "run_id": run_id,
         "data_quality_grade": (
@@ -655,7 +643,7 @@ def _claim_envelopes(
             or (fw.get("basic") or {}).get("quality_status")
             or "C"
         ),
-        "hmm_conflict": bool(reconciliation.get("divergence", False)),
+        "hmm_conflict": False,
         "claim_source_count": 1,
     }
 
@@ -678,7 +666,7 @@ def _claim_envelopes(
                     derivation="MODELED",
                     evidence_role="SECONDARY",
                 ),
-                role="conflicting" if context["hmm_conflict"] else "supporting",
+                role="supporting",
             )
         )
         context["caselab_top_score"] = score
@@ -751,10 +739,40 @@ def _credibility_assessment(
         "freshness": "available" if fw.get("as_of") else "unknown",
         "measurement_validity": basic.get("validity_scope", "unknown"),
         "evidence_independence": "multiple_sources" if len(claims) > 1 else "single_source",
-        "contradiction": "present" if (caselab or {}).get("regime_reconciliation", {}).get("divergence") else "none",
+        "contradiction": "none",
         "coverage": basic.get("overall", basic.get("quality_status", "unknown")),
         "semantic_fit": "bounded_neutral_measurement",
         "statistical_support": (caselab or {}).get("match_quality", {}).get("label", "unavailable"),
+    }
+
+
+def _caselab_diagnostic(caselab: dict[str, Any] | None) -> dict[str, Any]:
+    """CaseLab frozen-v1 direction and match_quality, never a decision input."""
+    if not caselab:
+        return {
+            "operational": "ignored",
+            "available": False,
+            "note": "CaseLab context unavailable; it would not set decision or claim_ceiling.",
+        }
+    packet = caselab.get("context_packet") or {}
+    structural = packet.get("structural_state") or {}
+    recon = caselab.get("regime_reconciliation") or {}
+    match = caselab.get("match_quality") or {}
+    return {
+        "operational": "ignored",
+        "available": True,
+        "theory": "deformation_v1_frozen",
+        "match_quality": {
+            "label": match.get("label"),
+            "top_score": match.get("top_score"),
+        },
+        "direction_label": structural.get("direction_label"),
+        "mdx_regime": recon.get("mdx_regime"),
+        "divergence": recon.get("divergence"),
+        "note": (
+            "CaseLab direction_label / mdx_regime / divergence / match_quality "
+            "are diagnostic attachments and do not set decision or claim_ceiling."
+        ),
     }
 
 
@@ -798,7 +816,9 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
     )
 
     decision = _decision(confidence, caselab)
-    claim_ceiling = _claim_ceiling(fw, confidence, layered_confidence, claim_ladder.tier)
+    # Claim-ladder tier may still record CaseLab scores as evidence, but the
+    # card ceiling is measurement-only: CaseLab cannot raise it.
+    claim_ceiling = _claim_ceiling(fw, confidence, layered_confidence, claim_ladder_tier=0)
     meaning = _meaning(fw, confidence)
     invalidation = _invalidation(fw, caselab)
     primary_claim_id = claims[0].canonical_chain["claim"]["claim_id"]
@@ -860,6 +880,7 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
         "credibility_assessment": credibility,
         "calibration": calibration,
         "claim_ceiling": claim_ceiling,
+        "caselab_diagnostic": _caselab_diagnostic(caselab),
         "claim_ladder": claim_ladder.to_dict(),
         "meaning": meaning,
         "risk": _risks(fw, caselab),

@@ -148,6 +148,9 @@ def check_md_persistence(
         "current_direction": curr_dir,
         "persisted": persisted,
         "status": "confirmed" if persisted else "reversed",
+        "authority": "none",
+        "theory": "deformation_v1_frozen",
+        "operational": "ignored",
     }
 
 
@@ -774,16 +777,12 @@ def evaluate_progression(
             "invalidation": check_invalidation(item, current_judgment),
         }
 
-        # Determine overall status
+        # md_persistence is a frozen-theory trace, not an operational gate.
         overall = "tracking"
         if checks["invalidation"]["status"] == "triggered":
             overall = "invalidated"
         elif checks["hmm_conflict"]["status"] == "conflict":
             overall = "conflict"
-        elif checks["md_persistence"]["status"] == "confirmed" and checks["caselab_improvement"]["status"] == "improved":
-            overall = "progressing"
-        elif checks["md_persistence"]["status"] == "reversed":
-            overall = "reversed"
 
         results.append({
             "previous_run_claim": {
