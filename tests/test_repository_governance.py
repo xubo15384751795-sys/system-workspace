@@ -56,7 +56,7 @@ def test_codeowners_covers_high_risk_runtime_and_egress_paths() -> None:
         "/governance/",
         "/system_runtime/",
         "/scripts/daily_run.py",
-        "/packages/framework/src/data_access/",
+        "/packages/framework_v1_archive/src/data_access/",
         "/packages/harvester/src/harvester/providers/",
     ):
         assert marker in text
@@ -85,7 +85,6 @@ def test_ci_type_checks_owned_package_boundaries_and_merges_the_result() -> None
     )
     for marker in (
         "system_runtime",
-        "packages/framework/src/api",
         "packages/harvester/src/harvester/core/manifest.py",
         "packages/workbench/src/workbench/external_http.py",
         "packages/orchestration/orchestration",

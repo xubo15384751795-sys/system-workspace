@@ -23,6 +23,8 @@ groups:
       - latest_summary.md
       - quality_validation.json
       - model_run.json
+      - model_run_macro_pressure_measurement.json
+      - workbench_framework_output_macro_pressure_measurement.json
       - decision_trace.json
       - work_brief.md
       - work_brief.json

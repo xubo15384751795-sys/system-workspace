@@ -25,6 +25,7 @@ FORBIDDEN_PATTERNS = [
     "/configs/",
     "/protocols/",
     "/packages/framework/",
+    "/packages/framework_v1_archive/",
     "/packages/harvester/",
     "/packages/learning_hub/",
     "/packages/orchestration/",
@@ -241,16 +242,26 @@ def _run_placeholder_experiment(
     return metrics
 
 
-def _read_deformation_features(input_dir: Path):
-    """Load the market-level deformation snapshot from the sandbox.
+PRESSURE_FEATURE_FILES = ("pressure_features.parquet", "structural_features.parquet")
 
-    The source has appeared both with a named ``date`` column and with dates
-    stored in a DatetimeIndex.  Normalize both forms here so the adapter does
-    not silently skip the feature file.
+
+def _pressure_feature_path(input_dir: Path):
+    for name in PRESSURE_FEATURE_FILES:
+        candidate = input_dir / name
+        if candidate.exists():
+            return candidate
+    return input_dir / PRESSURE_FEATURE_FILES[0]
+
+
+def _read_pressure_features(input_dir: Path):
+    """Load the market-level pressure-feature snapshot from the sandbox.
+
+    inherited_theory_authority is false: these are measurement overlays,
+    not Deformation v1 host theory.
     """
     import pandas as pd
 
-    feature_path = input_dir / "deformation_features.parquet"
+    feature_path = _pressure_feature_path(input_dir)
     if not feature_path.exists():
         return None, [], "missing_input"
     try:
@@ -278,7 +289,7 @@ def _read_deformation_features(input_dir: Path):
     return frame[["date", *fields]], fields, None
 
 
-def _has_deformation_fields(qlib_data_dir: Path, fields: list[str]) -> bool:
+def _has_pressure_fields(qlib_data_dir: Path, fields: list[str]) -> bool:
     """Check that every requested custom field was written to Qlib storage."""
     if not fields:
         return False
@@ -291,21 +302,27 @@ def _has_deformation_fields(qlib_data_dir: Path, fields: list[str]) -> bool:
     return all(any((directory / f"{field.lower()}.day.bin").exists() for directory in feature_dirs) for field in fields)
 
 
-def _deformation_feature_status(
+def _pressure_feature_status(
     name: str,
     input_dir: Path,
     qlib_data_dir: Path | None = None,
 ) -> tuple[str, bool, str | None]:
-    """Describe whether the treatment handler consumed deformation features."""
+    """Describe whether the treatment handler consumed pressure features."""
     if "treatment" not in name.lower():
         return "not_applicable", False, None
-    feature_path = input_dir / "deformation_features.parquet"
-    _frame, fields, source_error = _read_deformation_features(input_dir)
+    feature_path = _pressure_feature_path(input_dir)
+    _frame, fields, source_error = _read_pressure_features(input_dir)
     if source_error:
         return source_error, False, str(feature_path)
-    if qlib_data_dir is None or not _has_deformation_fields(qlib_data_dir, fields):
+    if qlib_data_dir is None or not _has_pressure_fields(qlib_data_dir, fields):
         return "not_integrated", False, str(feature_path)
     return "integrated", True, str(feature_path)
+
+
+# Compatibility aliases for older tests.
+_read_deformation_features = _read_pressure_features
+_deformation_feature_status = _pressure_feature_status
+_has_deformation_fields = _has_pressure_fields
 
 
 def _run_real_qlib_experiment(
@@ -344,7 +361,7 @@ def _run_real_qlib_experiment(
     feature_used = False
     feature_path = None
     if has_treatment:
-        feature_path = str(input_dir / "deformation_features.parquet")
+        feature_path = str(_pressure_feature_path(input_dir))
         if source_error:
             feature_status = source_error
         elif not _has_deformation_fields(qlib_data_dir, deformation_fields):
@@ -622,7 +639,8 @@ def _convert_market_panel_to_qlib(input_dir: Path, qlib_data_dir: Path, *, freq:
             raise ValueError("Deformation feature dates do not overlap the market panel")
         df = df.merge(deformation_daily, on="date", how="left", validate="many_to_one")
         deformation_manifest = {
-            "source": "deformation_features.parquet",
+            "source": _pressure_feature_path(input_dir).name,
+            "inherited_theory_authority": False,
             "fields": deformation_fields,
             "source_rows": int(len(deformation_frame)),
             "market_dates": int(len(market_dates)),
@@ -699,7 +717,7 @@ def _convert_market_panel_to_qlib(input_dir: Path, qlib_data_dir: Path, *, freq:
         encoding="utf-8",
     )
     if deformation_manifest is not None:
-        (qlib_data_dir / "deformation_features_manifest.json").write_text(
+        (qlib_data_dir / "pressure_features_manifest.json").write_text(
             json.dumps(deformation_manifest, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )

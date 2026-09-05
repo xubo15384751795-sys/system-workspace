@@ -88,7 +88,7 @@ build-constraint-dependencies = ["setuptools==84.0.0", "wheel==0.46.2"]
 
 [tool.uv.workspace]
 members = [
-    "packages/framework",
+    "packages/framework_v1_archive",
     "packages/harvester",
     "packages/learning_hub",
     "packages/workbench",
@@ -106,11 +106,9 @@ pythonpath = [
     "packages/harvester/src",
     "packages/learning_hub/src",
     # The workbench owns the canonical ``ml`` package consumed by the root
-    # tests and its package suite; keep it ahead of the legacy framework ml
-    # namespace retained for framework-only compatibility imports.
+    # tests and its package suite. Archived Deformation v1 is a workspace
+    # member for installability only; do not path-inject it here.
     "packages/workbench/src",
-    "packages/framework",
-    "packages/framework/src",
     "packages/orchestration",
     "scripts",
 ]
@@ -122,6 +120,7 @@ norecursedirs = [
     "Data",
     "Output",
     "Workbench",
+    "packages/framework_v1_archive",
     "Structural Deformation Research System",
     "Structural Risk Harvester",
     "Structural Research Harness",

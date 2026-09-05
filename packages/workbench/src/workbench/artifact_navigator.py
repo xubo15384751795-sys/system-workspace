@@ -121,6 +121,7 @@ def _artifacts_from_registry() -> list[dict[str, Any]] | None:
         "benchmark_evidence_dashboard.md": "Benchmark evidence dashboard",
         "benchmark_evidence_dashboard.html": "Benchmark evidence HTML",
         "model_run.json": "Workbench model run",
+        "model_run_macro_pressure_measurement.json": "Neutral macro pressure model run",
     }
     artifacts: list[dict[str, Any]] = []
     for entry in entries:
@@ -145,7 +146,9 @@ def _artifacts_from_registry() -> list[dict[str, Any]] | None:
 
 def build() -> dict[str, Path]:
     WORKBENCH.mkdir(parents=True, exist_ok=True)
-    model_run = _read_json(CURRENT / "model_run.json")
+    model_run = _read_json(CURRENT / "model_run_macro_pressure_measurement.json")
+    if not model_run:
+        model_run = _read_json(CURRENT / "model_run.json")
     artifacts = _artifacts_from_registry()
     if artifacts is None:
         artifacts = [
@@ -159,7 +162,7 @@ def build() -> dict[str, Path]:
             _artifact("Learning summary", "Output/system_learning/latest/learning_summary.md", "markdown"),
             _artifact("Benchmark evidence dashboard", "Output/current/benchmark_evidence_dashboard.md", "markdown", True),
             _artifact("Benchmark evidence HTML", "Output/current/benchmark_evidence_dashboard.html", "html"),
-            _artifact("Workbench model run", "Output/current/model_run.json", "json"),
+            _artifact("Neutral macro pressure model run", "Output/current/model_run_macro_pressure_measurement.json", "json"),
             _artifact("System latest index", "Data/system_index/latest.json", "json"),
             _artifact("System catalog", "Data/system_index/system_catalog.json", "json"),
             _artifact("Lineage graph", "Data/system_index/lineage_graph.json", "json"),

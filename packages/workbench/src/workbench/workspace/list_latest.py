@@ -11,8 +11,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from ._paths import (
-    DEFORMATION_LATEST,
+    ARCHIVE_RUNS,
     HARVESTER_LATEST,
+    NEUTRAL_PRESSURE_SNAPSHOT,
     SANDBOX_OPENBB_RUNS,
     SANDBOX_QLIB_RUNS,
 )
@@ -41,8 +42,11 @@ def main() -> int:
     h_latest = _resolve(HARVESTER_LATEST)
     rows.append(("harvester_release", str(h_latest) if h_latest else "<missing>"))
 
-    d_latest = _resolve(DEFORMATION_LATEST)
-    rows.append(("deformation_run", str(d_latest) if d_latest else "<missing>"))
+    n_latest = _resolve(NEUTRAL_PRESSURE_SNAPSHOT)
+    rows.append(("neutral_pressure", str(n_latest) if n_latest else "<missing>"))
+
+    archive_latest = _latest_run_in(ARCHIVE_RUNS)
+    rows.append(("archive_runs", str(archive_latest) if archive_latest else "<none>"))
 
     o_latest = _latest_run_in(SANDBOX_OPENBB_RUNS)
     rows.append(("sandbox_openbb_run", str(o_latest) if o_latest else "<none>"))

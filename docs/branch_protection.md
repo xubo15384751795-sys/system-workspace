@@ -23,12 +23,16 @@ dependencies of `merge-gate`; requiring them separately allows divergence).
 
 ### Why only `merge-gate`
 
-`merge-gate` (`.github/workflows/ci.yml` job `merge-gate`) `needs:`
-`[pre-commit, lint, workbench, deformation, harvester, hub, integration]`.
+`merge-gate` (`.github/workflows/ci.yml` job `merge-gate`) `needs:` the live
+jobs (`pre-commit`, `lint`, `workbench`, `harvester`, `hub`, `integration`,
+and the lock/type/wheel/security jobs). It does **not** need `deformation`.
+Archived Deformation v1 reproduction runs on nightly / workflow_dispatch with
+`ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION=1` in an isolated directory.
+
 Requiring the individual jobs separately lets them be re-run independently and
 diverge from the aggregate. Requiring only `merge-gate` makes the AND-aggregate
-unbypassable: all 7 upstream jobs must pass for `merge-gate` to even run, and
-`merge-gate` itself re-runs `verify_merge.py --merge` (full root pytest + all
+unbypassable: every live upstream job must pass for `merge-gate` to even run, and
+`merge-gate` itself re-runs `verify_merge.py --merge` (full root pytest + live
 package suites + DAG compile + governance freeze + architecture audit +
 daily-run dry-run + incident regression) emitting a SHA-bound manifest.
 

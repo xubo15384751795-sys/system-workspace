@@ -103,8 +103,8 @@ def _legacy_environment(root: Path, generation_root: Path) -> dict[str, str]:
         str(root / "packages" / "harvester" / "src"),
         str(root / "packages" / "workbench" / "src"),
         str(root / "packages" / "learning_hub" / "src"),
-        str(root / "packages" / "framework"),
-        str(root / "packages" / "framework" / "src"),
+        str(root / "packages" / "framework_v1_archive"),
+        str(root / "packages" / "framework_v1_archive" / "src"),
     ]
     existing = [
         part for part in environment.get("PYTHONPATH", "").split(os.pathsep) if part

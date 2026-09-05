@@ -43,14 +43,14 @@ Harvester, DataHub, and manifest boundary specialist. Read-only auditor for data
 | `harvester.inspect_release` | Deep catalog inspection |
 | `harvester.verify_release` | Integrity and schema verification |
 | `harvester.diff_releases` | Release comparison and drift detection |
-| `deformation.inspect_snapshot` | Verify snapshot consumed correct release |
+| `deformation.inspect_snapshot` | Verify archived snapshot consumed the admitted release |
 | `learning_hub.inspect_queue` | Check for data-related queue items |
 | `learning_hub.query_recurrence` | Query data-related recurrence patterns |
 
 ## Forbidden Actions
 
 - Code editing or data mutation (`write_access: false`)
-- Deformation proxy computation (out of scope)
+- Deformation proxy computation or `deformation.run_snapshot` (ARCHIVED_FALSIFIED)
 - Paper claim generation (out of scope)
 - Modifying any manifest, catalog, or release artifact
 

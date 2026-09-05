@@ -20,17 +20,17 @@ The binding decision is
 
 ## Primary Paths
 
-- `packages/framework/src/core/`
-- `packages/framework/src/derivation/`
-- `packages/framework/src/dynamics/`
-- `packages/framework/src/operators/`
-- `packages/framework/src/diagnostics/`
-- `packages/framework/src/interpretation/`
-- `packages/framework/src/claims/`
-- `packages/framework/src/data_access/`
-- `packages/framework/tests/`
-- `packages/framework/wiki/`
-- `packages/framework/papers/`
+- `packages/framework_v1_archive/src/core/`
+- `packages/framework_v1_archive/src/derivation/`
+- `packages/framework_v1_archive/src/dynamics/`
+- `packages/framework_v1_archive/src/operators/`
+- `packages/framework_v1_archive/src/diagnostics/`
+- `packages/framework_v1_archive/src/interpretation/`
+- `packages/framework_v1_archive/src/claims/`
+- `packages/framework_v1_archive/src/data_access/`
+- `packages/framework_v1_archive/tests/`
+- `packages/framework_v1_archive/wiki/`
+- `packages/framework_v1_archive/papers/`
 
 ## Reads
 

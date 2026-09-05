@@ -341,11 +341,12 @@ def _check_feature_gates(
             feat = get_feature(feature_name)
             if feat is None:
                 return None
-            if feat.is_disabled:
+            if feat.is_disabled or feat.is_archived_denied:
+                status = feat.status
                 return PolicyDecision(
                     decision="deny",
-                    reason=f"Feature '{feature_name}' is disabled — cannot execute",
-                    rule_id=f"feature_flag.{feature_name}.disabled",
+                    reason=f"Feature '{feature_name}' is {status} — cannot execute as a live host",
+                    rule_id=f"feature_flag.{feature_name}.{status}",
                     by_hook="feature_flags",
                 )
             if feat.is_denied_for_release and mode in ("release", "publish", "finalize"):

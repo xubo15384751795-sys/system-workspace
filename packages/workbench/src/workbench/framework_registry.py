@@ -56,16 +56,28 @@ def load_registry(path: Path | None = None) -> dict[str, Any]:
 
     for entry in registry.get("frameworks", []):
         contract_rel = entry.get("contract_path", "")
-        contract_abs = (_WS_ROOT / contract_rel).resolve()
-        if contract_abs.exists():
+        contract_abs = (_WS_ROOT / contract_rel).resolve() if contract_rel else None
+        archived = _is_archived_framework(entry)
+        if contract_abs is not None and contract_abs.exists():
             with contract_abs.open("r", encoding="utf-8") as handle:
                 entry["contract"] = yaml.safe_load(handle) or {}
             entry["contract_resolved_path"] = str(contract_abs)
         else:
+            # Archived entries do not require a live executable contract.
             entry["contract"] = {}
             entry["contract_resolved_path"] = None
+            if not archived and contract_rel:
+                logger.warning("Missing live framework contract: %s", contract_rel)
 
     return registry
+
+
+def _is_archived_framework(entry: dict[str, Any]) -> bool:
+    if entry.get("active") is False:
+        return True
+    if str(entry.get("archive_status") or "").upper() == "ARCHIVED_FALSIFIED":
+        return True
+    return entry.get("executable") in {False, "denied"}
 
 
 def active_frameworks(registry: dict[str, Any] | None = None) -> list[dict[str, Any]]:

@@ -10,11 +10,13 @@ pytestmark = pytest.mark.report
 
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from workbench.c005_morphology_replay import (
+from scripts.archive.c005_morphology_replay import (
     RESIDUAL_SPECS,
     THRESHOLD_BENCHMARK_DOMINANCE,
     compute_operator_diagnostics,
@@ -26,7 +28,7 @@ from workbench.c005_morphology_replay import (
     run_replay,
     spearman,
 )
-from workbench.c005_morphology_report import load_evidence
+from scripts.archive.c005_morphology_report import load_evidence
 
 REAL_RESULTS = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "results.json"
 

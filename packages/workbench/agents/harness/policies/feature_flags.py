@@ -8,6 +8,7 @@ Feature lifecycle statuses govern where output may flow:
     experimental         → sandbox only
     disabled             → cannot run at all
     denied_for_release   → can run but denied in release/publish context
+    archived_denied      → archived evidence only; cannot execute as a live host
 
 The engine is NOT just a dictionary lookup — it enforces the output hierarchy
 so that the agent cannot accidentally route exploratory results to paper.
@@ -41,6 +42,7 @@ STATUS_RANK = {
     "experimental": 2,
     "disabled": 1,
     "denied_for_release": 0,
+    "archived_denied": -1,
 }
 
 OUTPUT_RANK = {
@@ -70,6 +72,10 @@ class FeatureSpec:
     @property
     def is_disabled(self) -> bool:
         return self.status == "disabled"
+
+    @property
+    def is_archived_denied(self) -> bool:
+        return self.status == "archived_denied"
 
     @property
     def is_denied_for_release(self) -> bool:
@@ -169,6 +175,8 @@ def is_enabled(feature_name: str) -> bool:
     feat = _get_feature(feature_name)
     if feat is None:
         return False
+    if feat.is_archived_denied:
+        return False
     return not feat.is_disabled and feat.default_enabled
 
 
@@ -190,6 +198,19 @@ def can_promote(feature_name: str, target_output: str) -> GateResult:
             feature_status="unknown",
             target_output=target_output,
             reason=f"Feature '{feature_name}' is not registered in feature_flags.yaml",
+        )
+
+    if feat.is_archived_denied:
+        return GateResult(
+            allowed=False,
+            feature_name=feature_name,
+            feature_status=feat.status,
+            target_output=target_output,
+            reason=(
+                f"Feature '{feature_name}' is archived_denied — "
+                "ARCHIVED_FALSIFIED evidence only, not a live host"
+            ),
+            promotion_requires=feat.promotion_requires,
         )
 
     # disabled: cannot run at all
@@ -236,6 +257,7 @@ def _compute_max_output(status: str) -> str:
         "experimental": "sandbox",
         "disabled": "none",
         "denied_for_release": "experiment",
+        "archived_denied": "none",
     }
     return status_to_max.get(status, "sandbox")
 
@@ -311,6 +333,22 @@ def evaluate_output_gate(
 
     mode = ctx.get("mode", "")
     release_context = ctx.get("release_context", False) or mode in RELEASE_CONTEXT_MODES
+
+    if feat.is_archived_denied:
+        return PolicyDecision(
+            decision="deny",
+            reason=(
+                f"Feature '{feature_name}' is archived_denied. "
+                "ARCHIVED_FALSIFIED — inspect evidence only, never execute as a live host."
+            ),
+            rule_id=f"feature_flag.{feature_name}.archived_denied",
+            by_hook="feature_flags",
+            metadata={
+                "feature_name": feature_name,
+                "feature_status": feat.status,
+                "mode": mode,
+            },
+        )
 
     # denied_for_release: deny in any release-like context
     if feat.is_denied_for_release and release_context:

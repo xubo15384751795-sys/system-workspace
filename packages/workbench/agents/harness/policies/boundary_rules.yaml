@@ -58,21 +58,19 @@ rules:
       Finalized releases are immutable audit records.  Any correction must
       produce a new release with explicit version chaining.
 
-  # ── Signal Integrity: benchmark/control must not silently enter proxy ─
-  - id: boundary.deny.benchmark-silent-proxy-entry
+  # ── Archive: live snapshot execution is permanently denied ────────────
+  - id: boundary.deny.deformation-run-snapshot
     description: >
-      Benchmark or control-deformation runs must not silently enter the
-      proxy core Sigma_t computation loop.
+      deformation.run_snapshot is permanently denied. Deformation v1 is an
+      ARCHIVED_FALSIFIED evidence archive, not a live host.
     priority: deny
     scope:
-      caller_subsystem: deformation
+      caller_subsystem: any
     conditions:
-      - input_key_equals: { run_purpose: "benchmark" }
       - tool_id_in: ["deformation.run_snapshot"]
     reason: >
-      Benchmark/control runs simulate deformation under known conditions for
-      calibration purposes.  Their output must never be routed into live Sigma_t
-      without explicit flag: benchmark_to_proxy=true and manual review.
+      ARCHIVED_FALSIFIED: inspect archived v1 snapshots only. Never run, fetch,
+      or analyze Deformation v1 as an operational host.
 
   # ── Output Boundary: exploratory must not enter paper main output ─────
   - id: boundary.deny.exploratory-not-paper-output

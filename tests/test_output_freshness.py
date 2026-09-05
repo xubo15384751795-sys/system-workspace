@@ -213,8 +213,7 @@ def test_validate_current_schemas_modes():
     env = {
         **os.environ,
         "PYTHONPATH": (
-            f".{os.pathsep}packages/framework/src{os.pathsep}"
-            f"packages/workbench/src{os.pathsep}scripts"
+            f".{os.pathsep}packages/workbench/src{os.pathsep}scripts"
         ),
     }
     require = subprocess.run(

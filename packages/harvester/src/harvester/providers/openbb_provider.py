@@ -86,7 +86,7 @@ DEFAULT_OPENBB_ROUTES: dict[str, OpenBBSeriesRoute] = {
         unit="percent",
         frequency="daily",
     ),
-    # M channel — funding / transmission
+    # Policy and funding rates (SOFR, CP, T-bill, prime, IORB)
     "DCPF3M": OpenBBSeriesRoute(
         series_id="DCPF3M",
         obb_path="economy.fred_series",
@@ -117,7 +117,7 @@ DEFAULT_OPENBB_ROUTES: dict[str, OpenBBSeriesRoute] = {
         unit="percent",
         frequency="daily",
     ),
-    # D channel — depth / deformation
+    # Credit and funding-path spreads (ICE BofA OAS)
     "BAMLC0A0CM": OpenBBSeriesRoute(
         series_id="BAMLC0A0CM",
         obb_path="economy.fred_series",

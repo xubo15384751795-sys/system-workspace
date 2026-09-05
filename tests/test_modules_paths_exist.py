@@ -114,7 +114,7 @@ def test_modules_paths_exist(modules_text: str) -> None:
 
 def test_packages_layout_has_core_modules() -> None:
     """WB-C: the packages/ monorepo must contain the 4 core module dirs."""
-    required = ["workbench", "framework", "harvester", "learning_hub"]
+    required = ["workbench", "framework_v1_archive", "harvester", "learning_hub"]
     missing = [m for m in required if not (ROOT / "packages" / m).is_dir()]
     assert not missing, (
         f"packages/ is missing core module dirs: {missing}. "

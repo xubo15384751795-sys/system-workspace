@@ -8,6 +8,7 @@
 #   experimental         — Very early; sandbox only
 #   disabled             — Turned off; cannot run at all
 #   denied_for_release   — Can run internally, denied in release/publish context
+#   archived_denied      — Archived evidence only; cannot execute as a live host
 #
 # Target output buckets (in decreasing trust):
 #   paper/main_output   — final paper figures, tables, narrative output
@@ -63,116 +64,78 @@ flags:
 # ── Feature Definitions ──────────────────────────────────────────────────
 
 features:
-  # ── Deformation Subsystem ──────────────────────────────────────────────
+  # ── Deformation v1 archive (ARCHIVED_FALSIFIED) ────────────────────────
   deformation.ode_diffrax:
-    owner: deformation_team
-    status: engineering_required
-    default_enabled: true
+    owner: deformation_v1_archive
+    status: archived_denied
+    default_enabled: false
     description: >
-      ODE solver backend using Diffrax (JAX-based).  Correctness validated
-      against analytic benchmarks in simulation mode, but solver stability
-      under singular (sigma_t → 1) regimes needs additional hardening.
-    allowed_outputs:
-      - sandbox
-      - experiment
-      - benchmark_report
+      ARCHIVED_FALSIFIED — Diffrax ODE backend is historical evidence only.
+      Not an operational host feature.
+    allowed_outputs: []
     promotion_requires:
-      - singular_regime_stability_test
-      - comparison_vs_scipy_odeint_reference
-      - paper_alignment_review
+      - N/A — archived_denied
 
   deformation.operator_noncommutativity:
-    owner: deformation_team
-    status: paper_aligned
-    default_enabled: true
+    owner: deformation_v1_archive
+    status: archived_denied
+    default_enabled: false
     description: >
-      Operator noncommutativity measurement across proxy channels (M, D, K, X).
-      Core method from the paper; validated against 100+ synthetic deformations.
-    allowed_outputs:
-      - sandbox
-      - experiment
-      - benchmark_report
-      - paper/main_output
-      - paper/supplementary
-    promotion_requires: []
+      ARCHIVED_FALSIFIED — operator noncommutativity evidence may be inspected
+      in the archive; it has no live execution or paper authority.
+    allowed_outputs: []
+    promotion_requires:
+      - N/A — archived_denied
 
   deformation.shadow_maturity_profile:
-    owner: deformation_team
-    status: paper_aligned
-    default_enabled: true
+    owner: deformation_v1_archive
+    status: archived_denied
+    default_enabled: false
     description: >
-      Shadow maturity profile analysis (SMP) measuring information-theoretic
-      aging of deformation histories.  Published in paper.
-    allowed_outputs:
-      - sandbox
-      - experiment
-      - benchmark_report
-      - paper/main_output
-      - paper/supplementary
-    promotion_requires: []
+      ARCHIVED_FALSIFIED — shadow maturity profile is historical evidence only.
+    allowed_outputs: []
+    promotion_requires:
+      - N/A — archived_denied
 
   deformation.gnn_benchmark:
-    owner: deformation_team
-    status: exploratory
+    owner: deformation_v1_archive
+    status: archived_denied
     default_enabled: false
     description: >
-      GNN-based benchmark for comparing structural deformation patterns
-      against known fragility signatures.  Currently exploratory — not yet
-      validated for paper-level confidence.
-    allowed_outputs:
-      - sandbox
-      - experiment
+      ARCHIVED_FALSIFIED — GNN benchmark is historical evidence only.
+    allowed_outputs: []
     promotion_requires:
-      - benchmark_dataset_freeze
-      - cross_validation_report
-      - independent_audit
-      - paper_alignment_review
+      - N/A — archived_denied
 
   deformation.narrative_detector:
-    owner: deformation_team
-    status: exploratory
+    owner: deformation_v1_archive
+    status: archived_denied
     default_enabled: false
     description: >
-      Narrative detector that classifies deformation runs into narrative
-      archetypes (fragility, resilience, cyclic, latent).  Exploratory ML
-      pipeline — outputs are suggestive, not conclusive.
-    allowed_outputs:
-      - sandbox
-      - experiment
+      ARCHIVED_FALSIFIED — narrative detector is historical evidence only.
+    allowed_outputs: []
     promotion_requires:
-      - labeled_validation_dataset
-      - false_positive_rate_analysis
-      - narrative_stability_test
-      - paper_alignment_review
+      - N/A — archived_denied
 
   deformation.simulated_data_fallback:
-    owner: deformation_team
-    status: denied_for_release
+    owner: deformation_v1_archive
+    status: archived_denied
     default_enabled: false
     description: >
-      Fallback mode that generates synthetic deformation data when live
-      inputs are unavailable.  Essential for CI/development but MUST NOT
-      enter any release or paper output.
-    allowed_outputs:
-      - sandbox
+      ARCHIVED_FALSIFIED — simulated fallback cannot execute as a live host.
+    allowed_outputs: []
     promotion_requires:
-      - N/A — permanently denied for release contexts
+      - N/A — archived_denied
 
   deformation.benchmark_dominance:
-    owner: deformation_team
-    status: engineering_required
-    default_enabled: true
+    owner: deformation_v1_archive
+    status: archived_denied
+    default_enabled: false
     description: >
-      Benchmark dominance analysis comparing deformation run outputs against
-      known control baselines.  Used for calibration; requires engineering
-      review before feeding into Sigma_t.
-    allowed_outputs:
-      - sandbox
-      - experiment
-      - benchmark_report
+      ARCHIVED_FALSIFIED — benchmark dominance is historical evidence only.
+    allowed_outputs: []
     promotion_requires:
-      - benchmark_variance_report
-      - control_group_size_analysis
+      - N/A — archived_denied
 
   # ── Harvester Subsystem ────────────────────────────────────────────────
 

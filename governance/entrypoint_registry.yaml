@@ -2,10 +2,9 @@ schema_version: entrypoint_registry.v1
 daily_run:
   script: scripts/daily_run.py
   status: active
-  owner: Deformation Framework
+  owner: Orchestration
   description: Daily pipeline entry point
   allowed_use:
-  - daily_deformation_run
   - current_output_generation
 refresh_output_current:
   script: scripts/refresh_output_current.py
@@ -18,7 +17,7 @@ dual_path_compare:
   script: scripts/dual_path_compare.py
   status: compatibility_wrapper
   owner: Harvester
-  description: Compatibility entrypoint for the canonical Framework dual-path comparison implementation
+  description: Compatibility entrypoint for Harvester dual-path comparison and archived Framework reproduction
   allowed_use:
   - dual_path_validation
   forbidden_use:
@@ -259,8 +258,9 @@ repair_cross_asset_panel:
 structural_replay_v2:
   script: scripts/structural_replay_v2.py
   status: archived_falsified
-  owner: Deformation Framework
-  target_location: packages/framework/scripts/
+  owner: Deformation v1 Evidence Archive
+  target_location: packages/framework_v1_archive/scripts/
+  immutable_archive: true
   allowed_use:
   - legacy_replay
   forbidden_use:
@@ -269,12 +269,13 @@ structural_replay_v2:
   - promotion
   replacement:
   - scripts/daily_run.py
-  retire_after: '2026-07-15'
+  note: retained as evidence, no retirement-by-deletion
 bridge_replay_to_current:
   script: scripts/bridge_replay_to_current.py
   status: archived_falsified
   owner: Workbench
   target_location: packages/workbench/scripts/
+  immutable_archive: true
   allowed_use:
   - historical_reproduction_only
   forbidden_use:
@@ -283,7 +284,7 @@ bridge_replay_to_current:
   - promotion
   replacement:
   - scripts/refresh_output_current.py
-  retire_after: '2026-07-15'
+  note: retained as evidence, no retirement-by-deletion
 neutral_pressure_measurement:
   script: scripts/neutral_pressure_measurement.py
   status: active
@@ -462,7 +463,7 @@ claim_evaluator:
   - claim_evaluation
   - forward_outcome_tracking
 legacy_data_sources:
-  script: packages/framework/src/_legacy/data/data_sources.py
+  script: packages/framework_v1_archive/src/_legacy/data/data_sources.py
   status: legacy_sealed
   owner: Deformation Framework
   allowed_use:
@@ -597,16 +598,16 @@ build_readme_first:
   - current_artifact_generation
 k_measurement_gate:
   script: scripts/k_measurement_gate.py
-  status: active
+  status: experimental
   owner: ML Signals
-  description: K measurement gate — diagnostic rebuild role
+  description: Independent K proxy requalification diagnostics; inherited_theory_authority false
   allowed_use:
   - k_gate_diagnostics
 x_measurement_gate:
   script: scripts/x_measurement_gate.py
-  status: active
+  status: experimental
   owner: ML Signals
-  description: X measurement gate — background-only
+  description: Independent X proxy requalification diagnostics; inherited_theory_authority false; background-only
   allowed_use:
   - x_gate_diagnostics
 market_feedback:

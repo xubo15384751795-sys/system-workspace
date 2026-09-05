@@ -20,8 +20,12 @@ REPORTS_DIR = OUTPUT_DIR / "reports"
 HARVESTER_EXPORTS = DATA_DIR / "harvester" / "exports"
 HARVESTER_LATEST = HARVESTER_EXPORTS / "latest"
 
+CURRENT_DIR = OUTPUT_DIR / "current"
+NEUTRAL_PRESSURE_SNAPSHOT = CURRENT_DIR / "neutral_pressure_snapshot.json"
+
+# Archived Deformation v1 run packages. Not a live latest pointer.
 DEFORMATION_RUNS = OUTPUT_DIR / "deformation_runs"
-DEFORMATION_LATEST = DEFORMATION_RUNS / "latest"
+ARCHIVE_RUNS = DEFORMATION_RUNS
 
 CANONICAL_SNAPSHOTS = DATA_DIR / "deformation" / "snapshots"
 CANONICAL_SNAPSHOT_INDEX = CANONICAL_SNAPSHOTS / "index.json"

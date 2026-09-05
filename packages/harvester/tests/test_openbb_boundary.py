@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 HARVESTER_ROOT = HERE.parent  # packages/harvester
 HARVESTER_SRC = HARVESTER_ROOT / "src" / "harvester"
 SYSTEM_ROOT = HARVESTER_ROOT.parent.parent  # workspace root
-DEFORMATION_SRC = SYSTEM_ROOT / "packages" / "framework" / "src"
+DEFORMATION_SRC = SYSTEM_ROOT / "packages" / "framework_v1_archive" / "src"
 
 # Directories where openbb imports are ALLOWED.
 ALLOWED_OPENBB_DIRS: tuple[Path, ...] = (

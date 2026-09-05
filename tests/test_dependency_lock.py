@@ -153,8 +153,8 @@ class TestUvLock:
         historical_files = (
             ROOT / "requirements.lock.txt",
             ROOT / "requirements-dev.txt",
-            ROOT / "packages" / "framework" / "requirements.txt",
-            ROOT / "packages" / "framework" / "requirements" / "lock.txt",
+            ROOT / "packages" / "framework_v1_archive" / "requirements.txt",
+            ROOT / "packages" / "framework_v1_archive" / "requirements" / "lock.txt",
         )
         for path in historical_files:
             header = "\n".join(path.read_text(encoding="utf-8").splitlines()[:8]).lower()
@@ -193,7 +193,7 @@ class TestUvLock:
 
     def test_framework_dependencies_are_declared_in_project_metadata(self) -> None:
         """The Framework build surface must not consume legacy lock inputs."""
-        project = (ROOT / "packages" / "framework" / "pyproject.toml").read_text(
+        project = (ROOT / "packages" / "framework_v1_archive" / "pyproject.toml").read_text(
             encoding="utf-8"
         )
         assert "[project]" in project

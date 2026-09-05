@@ -137,9 +137,9 @@ the operator record.
 
 ## Wiring
 
-- Registry entry: `packages/framework/src/operators/operator_registry.py`,
+- Registry entry: `packages/framework_v1_archive/src/operators/operator_registry.py`,
   operator name `FUNDING_PATH_STRESS`, family `compression`.
-- Detector: `packages/framework/src/operators/mechanism/funding_path_stress.py`.
+- Detector: `packages/framework_v1_archive/src/operators/mechanism/funding_path_stress.py`.
 - Panel column contract: see §1 table. The detector must fail loudly if any of
   the top-3 series is missing from the panel.
 - Governance: initial rollout is `allowed_to_affect_core_judgment: false`. To

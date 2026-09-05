@@ -45,11 +45,11 @@ def export_sandbox_input(
 
     # Deformation features
     if deformation_features_source and deformation_features_source.exists():
-        dest = sandbox_dir / "deformation_features.parquet"
+        dest = sandbox_dir / "pressure_features.parquet"
         shutil.copy2(deformation_features_source, dest)
         os.chmod(dest, 0o444)
         files_written.append({
-            "path": "deformation_features.parquet",
+            "path": "pressure_features.parquet",
             "source": str(deformation_features_source),
             "mode": "copied_snapshot",
         })
@@ -78,7 +78,7 @@ def export_sandbox_input(
 
     # Joined features (if both market + deformation present)
     market_panel = sandbox_dir / "market_panel.parquet"
-    deformation_features = sandbox_dir / "deformation_features.parquet"
+    deformation_features = sandbox_dir / "pressure_features.parquet"
     if market_panel.exists() and deformation_features.exists():
         _build_joined_features(sandbox_dir)
         files_written.append({
@@ -124,7 +124,7 @@ def _build_joined_features(sandbox_dir: Path) -> None:
     import pandas as pd
 
     market = pd.read_parquet(sandbox_dir / "market_panel.parquet")
-    deform = pd.read_parquet(sandbox_dir / "deformation_features.parquet")
+    deform = pd.read_parquet(sandbox_dir / "pressure_features.parquet")
 
     market = _normalize_date_column(market, pd)
     deform = _normalize_date_column(deform, pd)

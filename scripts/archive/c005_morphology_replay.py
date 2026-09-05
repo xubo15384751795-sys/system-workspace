@@ -35,7 +35,6 @@ from typing import Any
 
 from workbench.workspace._paths import DEFORMATION_RUNS, OUTPUT_DIR, WORKSPACE_ROOT
 
-
 REPLAY_RESULTS = OUTPUT_DIR / "sandbox" / "structural_replay_v2" / "results.json"
 
 # Thresholds for rejection flags. Each is a Spearman |r| cutoff above which

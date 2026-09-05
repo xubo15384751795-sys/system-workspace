@@ -205,7 +205,6 @@ def create_output_dirs(root: Path) -> None:
     """Ensure Output/ directory structure exists."""
     dirs = [
         root / "Output" / "current",
-        root / "Output" / "deformation_runs" / "latest",
         root / "Output" / "workbench" / "benchmark_evidence",
     ]
     for d in dirs:
@@ -277,8 +276,8 @@ def _patch_paths(root: Path, monkeypatch: Any) -> None:
             "ROOT": root,
             "POLICY_PATH": root / "configs" / "freshness_policy.yaml",
             "HARVESTER_LATEST": data / "harvester" / "exports" / "latest",
-            "DEFORMATION_LATEST": output / "deformation_runs" / "latest",
             "CURRENT": output / "current",
+            "NEUTRAL_PRESSURE_SNAPSHOT": output / "current" / "neutral_pressure_snapshot.json",
         }),
         (_ed, {
             "ROOT": root,

@@ -18,7 +18,7 @@ rules:
       - python
     paths:
       exclude:
-        - '**/packages/framework/src/data_access/http_gateway.py'
+        - '**/packages/framework_v1_archive/src/data_access/http_gateway.py'
         - '**/packages/harvester/src/harvester/http_gateway.py'
         - '**/system_runtime/external_http.py'
         - '**/packages/workbench/src/workbench/external_http.py'

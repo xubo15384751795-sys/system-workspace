@@ -12,7 +12,7 @@ external_inputs:
   - governance/operator_registry.yaml
   - governance/
   - scripts/
-  - "packages/framework/src/"
+  - "packages/framework_v1_archive/src/"
   - Output/runs/
   - Output/current/latest_run_id.txt
   - Output/system_learning/latest/supervisor_check.json
@@ -797,7 +797,8 @@ steps:
     order: 13
     status: experimental
     schedule: on_demand
-    owner: Workbench
+    owner: ML Signals
+    description: Independent K proxy requalification diagnostics; inherited_theory_authority false
     command: python scripts/k_measurement_gate.py
     input: &id019
     - Data/harvester/exports/latest/
@@ -822,12 +823,13 @@ steps:
     authority:
       affects_core_judgment: false
       failure_behavior: research_only
-      owner: Workbench
+      owner: ML Signals
   x_measurement_gate:
     order: 14
     status: experimental
     schedule: on_demand
-    owner: Workbench
+    owner: ML Signals
+    description: Independent X proxy requalification diagnostics; inherited_theory_authority false
     command: python scripts/x_measurement_gate.py
     input: &id020
     - Data/harvester/exports/latest/
@@ -852,7 +854,7 @@ steps:
     authority:
       affects_core_judgment: false
       failure_behavior: research_only
-      owner: Workbench
+      owner: ML Signals
   measurement_quality_report:
     order: 15
     status: active
@@ -1960,7 +1962,7 @@ steps:
     input: &id052
     - governance/
     - scripts/
-    - packages/framework/src/
+    - packages/framework_v1_archive/src/
     produces: &id053
     - Output/system_learning/latest/architecture_reality_audit.md
     - Output/system_learning/latest/architecture_reality_audit.json

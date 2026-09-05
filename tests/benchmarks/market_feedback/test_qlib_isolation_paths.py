@@ -112,7 +112,14 @@ class TestJobSpecIsolation:
 
 
 def test_external_runner_rejects_canonical_workspace_packages() -> None:
-    for package in ("framework", "harvester", "learning_hub", "orchestration", "workbench"):
+    for package in (
+        "framework",
+        "framework_v1_archive",
+        "harvester",
+        "learning_hub",
+        "orchestration",
+        "workbench",
+    ):
         assert f"/packages/{package}/" in FORBIDDEN_PATTERNS
         with pytest.raises(RuntimeError):
             assert_no_forbidden(Path("/tmp") / "packages" / package / "input")

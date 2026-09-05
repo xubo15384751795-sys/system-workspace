@@ -56,8 +56,6 @@ def _runtime_env() -> dict[str, str]:
     entries: list[Path] = [
         code_root,
         code_root / "packages" / "orchestration",
-        code_root / "packages" / "framework",
-        code_root / "packages" / "framework" / "src",
         code_root / "packages" / "harvester" / "src",
         code_root / "packages" / "learning_hub" / "src",
         code_root / "packages" / "workbench" / "src",

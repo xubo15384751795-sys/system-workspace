@@ -5,16 +5,14 @@ This workspace separates user-facing tools from framework-specific theory.
 ## Layer Model
 
 ```text
-Frameworks
-  -> Workbench protocols
-  -> Product tools
-  -> Data provider protocols
-  -> Data providers
+Harvester
+  -> Protocols
+  -> Neutral Macro Pressure / Workbench
 ```
 
 The Product / Workbench layer is the neutral operating surface. It should be
-useful even when the user does not accept, understand, or use the Structural
-Deformation Framework.
+useful even when the user does not accept, understand, or use archived
+Deformation v1 theory.
 
 ## Product / Workbench
 
@@ -55,36 +53,33 @@ Production consumption:
   OpenBB or other external providers
     -> Harvester acquisition / normalization / provenance
     -> Data/harvester/exports/<release_id>/
-    -> Deformation data_access adapter
-    -> Deformation run output
+    -> Protocols
+    -> Neutral Macro Pressure / Workbench
+```
+
+### Historical consumption (archived)
+
+Deformation v1 historically consumed admitted Harvester releases and wrote
+run output. That path is an evidence archive only. It is not the production
+chain.
+
+```text
+Historical consumption (archived):
+  Harvester admitted release
+    -> archived Deformation data_access adapter
+    -> archived Deformation run output
 
 Secondary audit:
   OpenBB raw or sandbox probe data
-    -> Workbench audit comparison against Deformation outputs
+    -> Workbench audit comparison against archived Deformation outputs
     -> Learning Hub event / ledger / improvement queue
 ```
 
-Deformation must not negotiate with, import, or directly understand OpenBB.
-OpenBB data can be used to audit Deformation outputs only from the Workbench /
+Archived Deformation must not negotiate with, import, or directly understand OpenBB.
+OpenBB data can be used to audit archived Deformation outputs only from the Workbench /
 Learning Hub side. Audit findings may create Learning Hub records and proposed
-improvements; they do not become Deformation input unless Harvester publishes a
+improvements; they do not become archived Deformation input unless Harvester publishes a
 finalized release.
-
-## Framework Core
-
-Owns theory and model semantics:
-
-- M / D / K / X channels
-- Sigma and morphology
-- structural primitive state
-- shadow pressure and mean-field gap
-- event operators and non-commutativity
-- singular regime detection
-- structural interpretation
-- claim registry, wiki, and papers
-
-Frameworks may implement Workbench protocols, but they do not own generic
-product workflows.
 
 ## Data Providers
 
@@ -131,15 +126,15 @@ Protocol / Contracts:
   artifacts.json
   dashboard_snapshot.json
 
-Framework Core:
-  packages/framework/src/proxies/
-  packages/framework/src/derivation/
-  packages/framework/src/operators/
-  packages/framework/src/diagnostics/
-  packages/framework/src/dynamics/
-  packages/framework/src/interpretation/
-  packages/framework/wiki/
-  packages/framework/papers/
+Historical consumption (archived):
+  packages/framework_v1_archive/src/proxies/
+  packages/framework_v1_archive/src/derivation/
+  packages/framework_v1_archive/src/operators/
+  packages/framework_v1_archive/src/diagnostics/
+  packages/framework_v1_archive/src/dynamics/
+  packages/framework_v1_archive/src/interpretation/
+  packages/framework_v1_archive/wiki/
+  packages/framework_v1_archive/papers/
 
 Data Provider:
   packages/harvester/
@@ -165,7 +160,7 @@ Governance Memory:
 6. Missing public evidence is shown as missing, not silently hidden.
 7. Secondary OpenBB audits are observe-only: OpenBB output **must not** be
    consumed by Deformation directly. These audits compare raw/provider evidence
-   to released Deformation outputs and write Learning Hub records; they must
+   to archived Deformation outputs and write Learning Hub records; they must
    not become model input.
 8. `Output/current/` remains a pointer and cockpit layer; it does not copy large
    report artifacts.

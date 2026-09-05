@@ -54,9 +54,9 @@ OFFICIAL_SERIES_MAP: dict[str, dict[str, Any]] = {
     "fred": {
         "series": [
             "T10Y2Y", "DFF", "TEDRATE", "BAMLH0A0HYM2", "VIXCLS",
-            # M channel — funding / transmission
+            # Policy and funding rates (SOFR, CP, T-bill, prime, IORB)
             "SOFR", "DCPF3M", "DGS3MO", "DPRIME", "IORB",
-            # D channel — depth / deformation
+            # Credit and funding-path spreads (ICE BofA OAS, Moody's Baa/Aaa)
             "BAMLC0A0CM", "BAMLC0A4CBBB", "DBAA", "DAAA", "BAA10YM",
             # cross-channel benchmarks
             "STLFSI4",

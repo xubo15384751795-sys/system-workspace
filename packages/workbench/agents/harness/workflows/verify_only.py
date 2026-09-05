@@ -150,20 +150,18 @@ class CheckSelector:
 
     def _deformation_snapshot_checks(self, files: list[str]) -> list[CheckSpec]:
         return [
-            CheckSpec("snapshot_validate", "tool_run",
-                      command="deformation.validate_snapshot", description="Snapshot schema validation"),
             CheckSpec("snapshot_inspect", "tool_run",
-                      command="deformation.inspect_snapshot", description="Snapshot proxy/state inspection"),
-            CheckSpec("operator_trace", "tool_run",
-                      command="deformation.inspect_operator_trace", description="Operator trace inspection"),
+                      command="deformation.inspect_snapshot", description="Inspect archived v1 snapshot"),
+            CheckSpec("archive_replay", "tool_run",
+                      command="deformation.evaluate_replay", description="Read-only archive replay evaluation"),
         ]
 
     def _benchmark_checks(self, files: list[str]) -> list[CheckSpec]:
         return [
-            CheckSpec("no_lookahead", "tool_run",
-                      command="deformation.validate_snapshot", description="No-lookahead validation"),
-            CheckSpec("proxy_boundary", "tool_run",
-                      command="deformation.inspect_operator_trace", description="Benchmark leakage check"),
+            CheckSpec("archive_inspect", "tool_run",
+                      command="deformation.inspect_snapshot", description="Inspect archived benchmark snapshot"),
+            CheckSpec("archive_replay", "tool_run",
+                      command="deformation.evaluate_replay", description="Read-only archive replay evaluation"),
             CheckSpec(
                 "baseline_rank",
                 "manual_required",

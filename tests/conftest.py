@@ -24,8 +24,6 @@ _ROOT = Path(__file__).resolve().parents[1]
 _paths_to_add = [
     str(_ROOT / "scripts"),
     str(_ROOT / "packages" / "orchestration"),
-    str(_ROOT / "packages" / "framework"),
-    str(_ROOT / "packages" / "framework" / "src"),
     str(_ROOT / "packages" / "harvester" / "src"),
     str(_ROOT / "packages" / "learning_hub" / "src"),
     str(_ROOT / "packages" / "workbench" / "src"),
@@ -35,9 +33,8 @@ for _p in _paths_to_add:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-# Structural NLP lives under workbench as top-level ``nlp``. Framework's former
-# ``src.nlp`` package was renamed to ``src.framework_nlp``; still force
-# workbench/src to the front in case PYTHONPATH already contained framework/src.
+# Structural NLP lives under workbench as top-level ``nlp``. Do not inject
+# archived Deformation ``packages/framework_v1_archive/src`` into the root test path.
 _WORKBENCH_SRC = str(_ROOT / "packages" / "workbench" / "src")
 if _WORKBENCH_SRC in sys.path:
     sys.path.remove(_WORKBENCH_SRC)

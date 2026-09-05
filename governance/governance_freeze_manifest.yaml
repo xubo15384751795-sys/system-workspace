@@ -56,32 +56,45 @@ baseline_root_files:
 baseline_hashes:
   architecture_cleanup_decisions.md: daae955ec8d5ce78
   architecture_reality_decisions.md: 278ddbca99ba35c1
-  authority_registry.yaml: 887e57de13a5f57c
+  authority_registry.yaml: 4f5a23c00dd95ffd
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: ff8280b2bd3a5235
+  daily_pipeline_registry.yaml: c7619bacf5a1b7a3
   data_request_registry.yaml: 4a022aa7d9a526c8
   data_retention_policy.yaml: 28012930d50bb58b
   deferred_work_register.yaml: baa2e255b97ef48f
-  entrypoint_registry.yaml: e8d71741e42ca9e9
+  entrypoint_registry.yaml: e84a0dd0f52d9ea3
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: eb2fd3e2abf0f85a
-  git_workspace_policy.md: 4dab5f4a7e64d803
+  git_workspace_policy.md: 4cdf0f672a191f31
   incentive_policy.yaml: 8d2c92e89a5f803c
   opencode_supervisor_policy.yaml: 15cb87cbd163e6c8
   operator_registry.yaml: b4b935cb1a0dfc97
-  output_routing_policy.yaml: 3bbdaa96f0b57671
+  output_routing_policy.yaml: c51a31358a2e2fc5
   pipeline_test_baseline.yaml: d476abebd64035a6
   proxy_quality_rules.yaml: 9398c8068f839cbf
   redundancy_budget.yaml: 5f2968cb55d800ea
-  repo_layout_map.md: efb499cd772319c9
+  repo_layout_map.md: d3000c9c6ef69077
   run_mode_registry.yaml: 632a01d0e19496fe
   run_observability_summary.template.md: 69bb81c0d223cf9e
   semantic_registry.json: 5b24fdeafa56fe1b
   submodule_commit_plan.md: 164a0f9110fba6d5
   system_constitution.yaml: c8157834e02e1666
 baseline_revision_history:
+- approved_at: '2026-09-05'
+  approval: user_requested_deformation_v1_archive_directory_rename
+  reason: >
+    Point live governance maps at packages/framework_v1_archive after the
+    git-mv identity rename. Evidence stays in-repo; the tree is no longer a
+    live package path.
+  files:
+  - authority_registry.yaml
+  - daily_pipeline_registry.yaml
+  - entrypoint_registry.yaml
+  - git_workspace_policy.md
+  - output_routing_policy.yaml
+  - repo_layout_map.md
 - approved_at: '2026-08-24'
   approval: user_requested_freeze_attention_admission
   reason: Admission is shape_inventory; file-count additions budget is advisory;
@@ -223,6 +236,36 @@ approved_additions:
   commit: stage0-5-operational-completion
   reason: Monthly endpoint and schema monitoring for the repaired external data sources.
 baseline_updates:
+- file: authority_registry.yaml
+  approved_at: '2026-09-05'
+  old_hash: 887e57de13a5f57c
+  new_hash: 4f5a23c00dd95ffd
+  reason: Research HTTP paths now live under packages/framework_v1_archive.
+- file: daily_pipeline_registry.yaml
+  approved_at: '2026-09-05'
+  old_hash: ff8280b2bd3a5235
+  new_hash: c7619bacf5a1b7a3
+  reason: External inputs and architecture audit scan the archive src tree.
+- file: entrypoint_registry.yaml
+  approved_at: '2026-09-05'
+  old_hash: e8d71741e42ca9e9
+  new_hash: e84a0dd0f52d9ea3
+  reason: Archived replay and legacy data_sources paths follow the directory rename.
+- file: git_workspace_policy.md
+  approved_at: '2026-09-05'
+  old_hash: 4dab5f4a7e64d803
+  new_hash: 4cdf0f672a191f31
+  reason: Repository map lists Deformation v1 as an evidence archive.
+- file: output_routing_policy.yaml
+  approved_at: '2026-09-05'
+  old_hash: 3bbdaa96f0b57671
+  new_hash: c51a31358a2e2fc5
+  reason: Routing comments follow the archived package path.
+- file: repo_layout_map.md
+  approved_at: '2026-09-05'
+  old_hash: efb499cd772319c9
+  new_hash: d3000c9c6ef69077
+  reason: Canonical workspace map names packages/framework_v1_archive.
 - file: system_constitution.yaml
   approved_at: '2026-06-18'
   old_hash: 943992af108ce6b6

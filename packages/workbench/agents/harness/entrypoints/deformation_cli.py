@@ -1,7 +1,7 @@
-"""deformation_cli — fast-path commands for deformation-framework.
+"""deformation_cli — read-only archive browser for Deformation v1 snapshots.
 
-list-snapshots / inspect-snapshot  use stdlib JSON + filesystem only.
-fetch / run / analyze              dynamically import deformation packages (JAX/Diffrax).
+list-snapshots / inspect-snapshot use stdlib JSON + filesystem only.
+There is no run, fetch, or analyze path.
 """
 
 from __future__ import annotations
@@ -16,11 +16,14 @@ WORKBENCH_ROOT = HARNESS_ROOT.parent.parent
 RUNS_ROOT = WORKBENCH_ROOT / "Output" / "deformation_runs"
 logger = logging.getLogger(__name__)
 
-HELP = """system deformation — deformation-framework commands
+HELP = """ARCHIVED_FALSIFIED — inspect archived v1 snapshots only.
 
-  list-snapshots [--json]              List all deformation snapshots
-  inspect-snapshot <id|latest> [--json]  Inspect a snapshot
+system deformation — read-only archive browser (not a live host)
 
+  list-snapshots [--json]                 List archived v1 snapshots
+  inspect-snapshot <id|latest> [--json]   Inspect an archived snapshot
+
+Never run, fetch, or analyze Deformation v1 as an operational host.
 Exit codes:  0 success  1 runtime error  2 bad arguments"""
 
 

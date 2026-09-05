@@ -24,7 +24,7 @@ MODULE_TOOL_CANDIDATES: dict[str, dict[str, list[str]]] = {
         "run": ["workbench.refresh_current", "workbench.run_pipeline_step"],
         "edit": ["workbench.refresh_current", "workbench.run_pipeline_step"],
     },
-    "Deformation Framework": {
+    "Deformation v1 Evidence Archive": {
         "explore": ["deformation.list_snapshots", "deformation.inspect_snapshot"],
         "verify": ["deformation.inspect_snapshot", "deformation.evaluate_replay"],
         "implement": [],

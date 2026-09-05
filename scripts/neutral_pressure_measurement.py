@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build neutral macro-pressure gauges from an admitted Harvester panel.
 
-This producer is intentionally independent of ``packages/framework`` and the
+This producer is intentionally independent of ``packages/framework_v1_archive`` and the
 archived Deformation v1 claim set.  ``M`` and ``D`` appear only as temporary
 compatibility keys for downstream consumers; their product meanings are
 funding-mismatch pressure and market-constraint pressure.

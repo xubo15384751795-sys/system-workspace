@@ -214,7 +214,7 @@ def test_data_and_non_data_gateways_have_separate_transport_ownership() -> None:
 
     root = Path(__file__).resolve().parents[1]
     data_sources = (
-        root / "packages/framework/src/data_access/http_gateway.py",
+        root / "packages/framework_v1_archive/src/data_access/http_gateway.py",
         root / "packages/harvester/src/harvester/http_gateway.py",
     )
     non_data_sources = (

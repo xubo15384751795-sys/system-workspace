@@ -39,7 +39,7 @@ def _replay_env() -> dict[str, str]:
                 str(ROOT),
                 str(ROOT / "scripts"),
                 str(ROOT / "packages" / "workbench" / "src"),
-                str(ROOT / "packages" / "framework" / "src"),
+                str(ROOT / "packages" / "framework_v1_archive" / "src"),
             ]
         ),
     }

@@ -5,7 +5,7 @@ scripts/proxy_quality_scorer.py — archived on 2026-06-18 in 7023b75 as one of
 eight dead scripts, and not present in scripts/archive/ either. That file's
 ten tests had been skipping ever since under the reason "replay.scoring not
 available", which pointed at a module that does exist
-(packages/framework/src/replay/scoring.py), so the gap read as an environment
+(packages/framework_v1_archive/src/replay/scoring.py), so the gap read as an environment
 problem rather than as missing coverage.
 
 The rules these lock are the operational form of the principle stated in

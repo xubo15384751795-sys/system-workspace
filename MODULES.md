@@ -22,7 +22,7 @@ owner, paths, and allowed communication points.
 |---|---|---|---|---|---|
 | Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views, Streamlit UI | `packages/workbench/`, domain entrypoints under `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
 | Orchestration | `CANONICAL` | Pipeline compilation/execution, Dagster daily/refresh jobs, Pandera/GE quality adapters, DVC promote helpers, optional Sentry/Datadog notify sinks | `packages/orchestration/`, `scripts/daily_run.py` compatibility entrypoint, `system_runtime/observability.py` | `module_contexts/orchestration.md` | 8 |
-| Deformation v1 evidence archive | `ARCHIVED_FALSIFIED` | Falsified host-theory evidence, reproducibility, postmortem | `packages/framework/` | `module_contexts/framework.md` | archive-only |
+| Deformation v1 evidence archive | `ARCHIVED_FALSIFIED` | Falsified host-theory evidence, reproducibility, postmortem | `packages/framework_v1_archive/` | `module_contexts/framework.md` | archive-only |
 | Neutral Macro Pressure | `ACTIVE_PARTIAL` | Funding-mismatch and market-constraint gauges | `scripts/neutral_pressure_measurement.py`, `docs/measurements/` | `module_contexts/workbench.md` | requalification |
 | Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `packages/harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
 | Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `packages/workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
@@ -33,7 +33,7 @@ owner, paths, and allowed communication points.
 | NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift (top-level `nlp`; framework translator is `framework_nlp`) | `packages/workbench/src/nlp/` | — | 3 |
 | ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `packages/workbench/src/ml/` | — | 3 |
 | Funding Endogenous Boundary v2 | `REAL_EXPERIMENTAL` | X stock, absorption capacity, non-commutativity candidates under preregistration | `scripts/`, `Output/validation/` | — | validation-only |
-| Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/`, `packages/framework/scripts/run_historical_replay.py` | — | — |
+| Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/` | — | — |
 | Qlib Benchmark | `REAL_EXPERIMENTAL` | Isolated benchmark runner (workflow API), alpha metrics | `ExternalTools/qlib_benchmark_runner/` | — | 1 |
 | Research Terminal | `ARCHIVED` | Legacy HTML research terminal (replaced by Streamlit) | `governance/archive/research_terminal/` | — | — |
 | Visualization demos | `ARCHIVED` | Legacy Plotly/ECharts demos (replaced by Streamlit) | `governance/archive/Visualization/` | — | — |
@@ -101,33 +101,27 @@ For structural NLP (extraction, event cards, candidate ledger, promotion):
 
 Do not read first:
 
-- `packages/framework/src/core/`
-- `packages/framework/src/dynamics/`
+- `packages/framework_v1_archive/src/core/`
+- `packages/framework_v1_archive/src/dynamics/`
 - provider acquisition internals
 
-## Deformation Framework
+## Deformation v1 Evidence Archive
 
-Use this thread when the task mentions:
+This thread is not a live module. Open `module_contexts/framework.md` only
+when the task explicitly asks to reproduce v1 falsified evidence or to read
+the estate settlement.
 
-- M / D / K / X
-- Sigma
-- morphology
-- operators
-- diagnostics
-- dynamics
-- structural replay
-- theory, interpretation, claims, wiki, or papers
+When M / D / K / X appear as historical symbols, first reads are the estate
+record and current measurements, not archived implementation source:
 
-Read first:
-
-- `module_contexts/framework.md`
-- `protocols/framework_output.schema.json`
-- `packages/framework/src/core/`
-- `packages/framework/src/diagnostics/`
-- `packages/framework/src/operators/`
+- `governance/routing_decisions/2026-07-18-deformation-v1-estate-settlement.yaml`
+- `docs/measurements/`
 
 Do not read first:
 
+- `packages/framework_v1_archive/src/core/`
+- `packages/framework_v1_archive/src/dynamics/`
+- `packages/framework_v1_archive/src/operators/`
 - `packages/workbench/src/workbench/`
 - Harvester provider code
 - generic dashboard renderers

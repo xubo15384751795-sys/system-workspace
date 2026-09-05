@@ -3,7 +3,8 @@
 
 Inputs read:
   - Data/harvester/exports/<release_id>/catalog.json (each release dir)
-  - Output/deformation_runs/<run_id>/run_manifest.json (each run dir)
+  - Output/current/neutral_pressure_snapshot.json
+  - Output/deformation_runs/<run_id>/run_manifest.json (archive_runs only)
   - Data/deformation/snapshots/index.json
   - Output/system_learning/latest/summary.json
   - Output/sandbox/openbb/runs/<run_id>/run_manifest.json
@@ -25,11 +26,13 @@ from typing import Any, cast
 
 from ._paths import (
     CANONICAL_SNAPSHOT_INDEX,
+    CURRENT_DIR,
     DEFORMATION_RUNS,
     HARVESTER_EXPORTS,
     HARVESTER_LATEST,
     LEARNING_SUMMARY,
     LINEAGE_GRAPH,
+    NEUTRAL_PRESSURE_SNAPSHOT,
     SANDBOX_OPENBB_RUNS,
     SANDBOX_QLIB_RUNS,
     SYSTEM_CATALOG,
@@ -79,7 +82,7 @@ def _resolved_latest_release_id() -> str | None:
     return HARVESTER_LATEST.resolve().name
 
 
-def _deformation_runs() -> list[dict]:
+def _archive_runs() -> list[dict]:
     if not DEFORMATION_RUNS.exists():
         return []
     out: list[dict] = []
@@ -170,14 +173,14 @@ def build() -> None:
     """Rebuild Data/system_index/ from authoritative artifacts.
 
     Writes latest.json, system_catalog.json, and lineage_graph.json.
-    Reads from harvester exports, deformation runs, snapshot index, and
-    learning hub summary.
+    Reads from harvester exports, current/neutral pressure, archived runs,
+    snapshot index, and learning hub summary.
     """
     SYSTEM_INDEX_DIR.mkdir(parents=True, exist_ok=True)
     now = _now()
 
     releases = _harvester_releases()
-    runs = _deformation_runs()
+    runs = _archive_runs()
     snapshot_entries = _snapshot_index_entries()
     snapshots = [entry for entry in snapshot_entries if entry.get("status") == "canonical"]
     learning = _learning()
@@ -191,6 +194,8 @@ def build() -> None:
     qlib_latest = _sandbox_latest(SANDBOX_QLIB_RUNS)
 
     canonical_snapshot = snapshots[-1] if snapshots else None
+    neutral_exists = NEUTRAL_PRESSURE_SNAPSHOT.exists()
+    current_exists = CURRENT_DIR.exists()
 
     latest_payload = {
         "schema_version": "system.index.latest.v1",
@@ -207,12 +212,23 @@ def build() -> None:
                 if latest_release
                 else None
             ),
-            "deformation_run": (
+            "neutral_pressure": (
+                {
+                    "path": _ws_rel(NEUTRAL_PRESSURE_SNAPSHOT),
+                    "status": "present" if neutral_exists else "missing",
+                }
+                if current_exists or neutral_exists
+                else None
+            ),
+            "current": {
+                "path": _ws_rel(CURRENT_DIR),
+                "status": "present" if current_exists else "missing",
+            },
+            "archive_runs": (
                 {
                     "id": latest_run["run_id"],
                     "path": latest_run["path"],
                     "run_manifest_path": f"{latest_run['path']}/run_manifest.json",
-                    "harvester_release": latest_run["harvester_release"],
                     "status": latest_run["status"],
                     "gaps": latest_run["gaps"],
                 }
@@ -230,7 +246,7 @@ def build() -> None:
                     "id": None,
                     "path": None,
                     "status": "no_canonical_snapshot",
-                    "reason": "No deformation run has been promoted yet. Use scripts/promote_snapshot.py once a run is judged canonical.",
+                    "reason": "Archived Deformation snapshots are historical evidence only.",
                 }
             ),
             "learning_report": {
@@ -250,7 +266,7 @@ def build() -> None:
         "generated_at": now,
         "generated_by": "scripts/build_system_index.py",
         "harvester_releases": releases,
-        "deformation_runs": runs,
+        "archive_runs": runs,
         "deformation_canonical_snapshots": snapshots,
         "deformation_snapshot_entries": snapshot_entries,
         "learning_hub": {

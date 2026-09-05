@@ -5,7 +5,7 @@ allowed_tools:
   - harvester.inspect_release
   - harvester.diff_releases
   - deformation.inspect_snapshot
-  - deformation.inspect_operator_trace
+  - deformation.evaluate_replay
   - learning_hub.inspect_queue
   - learning_hub.query_recurrence
 write_access: false
@@ -30,8 +30,8 @@ Strictly read-only agent for data inspection, listing, and querying.
 | `harvester.list_releases` | Inventory all releases |
 | `harvester.inspect_release` | Deep inspect one release catalog |
 | `harvester.diff_releases` | Compare two releases |
-| `deformation.inspect_snapshot` | Inspect snapshot metadata and proxy |
-| `deformation.inspect_operator_trace` | Inspect operator trace |
+| `deformation.inspect_snapshot` | Inspect archived v1 snapshot (read-only) |
+| `deformation.evaluate_replay` | Read-only archive replay evaluation |
 | `learning_hub.inspect_queue` | Inspect improvement queue |
 | `learning_hub.query_recurrence` | Query recurrence patterns |
 
@@ -39,7 +39,7 @@ Strictly read-only agent for data inspection, listing, and querying.
 
 - Any tool with `mutates_artifacts: true`
 - Any tool not in `allowed_modes: ["explore"]`
-- `deformation.run_snapshot`, `learning_hub.ingest_events`, `learning_hub.write_verification_record`
+- `deformation.run_snapshot` (ARCHIVED_FALSIFIED — permanently denied), `learning_hub.ingest_events`, `learning_hub.write_verification_record`
 - Modifying any file on disk
 
 ## Output

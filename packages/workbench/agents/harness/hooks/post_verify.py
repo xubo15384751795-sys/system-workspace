@@ -1,6 +1,6 @@
 """post_verify — post-verification hook for the Tool Registry.
 
-Invoked after harvester.verify_release or deformation.validate_snapshot.
+Invoked after harvester.verify_release or deformation.inspect_snapshot.
 Records structured verification evidence and writes a verification_result
 event to the Learning Hub event log.
 
@@ -21,7 +21,7 @@ def post_verify(
 ) -> PostHookResult:
     """Post-verification hook: record verification results and emit event.
 
-    Called after harvester.verify_release or deformation.validate_snapshot
+    Called after harvester.verify_release or deformation.inspect_snapshot
     completes.  Extracts check-level evidence, determines PASS/FAIL/PARTIAL
     verdict, and writes a verification_result event.
     """

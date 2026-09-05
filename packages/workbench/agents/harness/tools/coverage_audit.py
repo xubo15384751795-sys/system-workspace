@@ -35,11 +35,11 @@ class SurfaceRule:
 SURFACE_RULES: list[SurfaceRule] = [
     SurfaceRule(
         script="scripts/promote_snapshot.py",
-        expected_tool_ids=["artifact.promote_snapshot", "deformation.promote_snapshot"],
+        expected_tool_ids=["artifact.promote_snapshot"],
         subsystem="data_output",
         risk_category="snapshot_publish",
         priority="critical",
-        rationale="Promotion changes canonical Data state and must not stay as a bare script.",
+        rationale="Archived v1 promotion is denied; the governed surface is artifact.promote_snapshot (quarantine/inspect), not a live deformation.promote_snapshot.",
     ),
     SurfaceRule(
         script="scripts/validate_workbench_contract.py",
@@ -98,7 +98,7 @@ SURFACE_RULES: list[SurfaceRule] = [
         rationale="Status inspection should be available as a governed read-only tool.",
     ),
     SurfaceRule(
-        script="packages/workbench/src/workbench/openbb_secondary_audit.py",
+        script="scripts/archive/openbb_secondary_audit.py",
         expected_tool_ids=["learning_hub.openbb_secondary_audit"],
         subsystem="learning_hub",
         risk_category="read_only",

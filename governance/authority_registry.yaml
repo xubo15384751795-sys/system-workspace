@@ -143,7 +143,7 @@ data_sources:
 
   - path: Data/merged_data/benchmark_panel_with_etfs.parquet
     authority: archived_legacy
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [archive]
     forbidden_use: [core_judgment_primary_input, research]
     data_request_id: merged_data_proxy_inputs
@@ -151,19 +151,19 @@ data_sources:
 
   - path: Data/merged_data/benchmark_panel_backup.parquet
     authority: archived_legacy
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [archive]
     forbidden_use: [core_judgment_primary_input, research]
 
   - path: Data/merged_data/benchmark_panel_merged.parquet
     authority: archived_legacy
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [archive]
     forbidden_use: [core_judgment_primary_input, research]
 
   - path: Data/structural_lab/runtime/system.duckdb
     authority: legacy_runtime_store
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [runtime_snapshot]
     forbidden_use: []
     note: "46MB DuckDB; actively used by DuckDBSnapshotStore"
@@ -171,7 +171,7 @@ data_sources:
 
   - path: Data/structural_lab/runtime/fred_cache/
     authority: legacy_runtime_cache
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [runtime_cache]
     forbidden_use: [core_judgment_primary_input]
     data_request_id: fred_cached_data
@@ -186,18 +186,18 @@ data_sources:
       Archived 2026-07-11 — last row 2025-12-30, zero code consumers.
       Live ETF prices come from Data/panels/cross_asset_daily_panel.parquet.
 
-  - path: "packages/framework/src/benchmarks/historical_replay.py"
+  - path: "packages/framework_v1_archive/src/benchmarks/historical_replay.py"
     authority: research_only_non_harvester
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [research, benchmark, historical_replay]
     forbidden_use: [core_judgment_primary_input, active_pipeline]
     note: >
       Fetches FRED macro data through the research-only owned gateway for
       historical replay. Active macro data must come through Harvester.
 
-  - path: "packages/framework/src/research_corpus/providers/brevan_howard.py"
+  - path: "packages/framework_v1_archive/src/research_corpus/providers/brevan_howard.py"
     authority: research_only_non_harvester
-    owner: Deformation Framework
+    owner: Deformation v1 Evidence Archive
     allowed_use: [research, corpus_archival]
     forbidden_use: [core_judgment_primary_input, active_pipeline]
     note: >

@@ -49,7 +49,7 @@ def test_deformation_index_is_normalized_and_written_for_each_instrument(tmp_pat
             "deform_stress_level": np.linspace(1.0, 2.0, len(dates)),
         },
         index=pd.DatetimeIndex(dates),
-    ).to_parquet(sandbox / "deformation_features.parquet")
+    ).to_parquet(sandbox / "pressure_features.parquet")
 
     frame, fields, error = _read_deformation_features(sandbox)
     assert error is None
@@ -69,12 +69,13 @@ def test_deformation_index_is_normalized_and_written_for_each_instrument(tmp_pat
         )
         assert len(payload) == len(dates) + 1
 
-    manifest = json.loads((qlib_data / "deformation_features_manifest.json").read_text())
+    manifest = json.loads((qlib_data / "pressure_features_manifest.json").read_text())
     assert manifest["matched_market_dates"] == len(dates)
+    assert manifest["inherited_theory_authority"] is False
     assert _deformation_feature_status("treatment_alpha158", sandbox, qlib_data) == (
         "integrated",
         True,
-        str(sandbox / "deformation_features.parquet"),
+        str(sandbox / "pressure_features.parquet"),
     )
 
 
@@ -86,7 +87,7 @@ def test_deformation_dates_without_market_overlap_fail_closed(tmp_path: Path) ->
     pd.DataFrame(
         {"deform_M": [1.0, 2.0]},
         index=pd.date_range("2025-01-02", periods=2, freq="B"),
-    ).to_parquet(sandbox / "deformation_features.parquet")
+    ).to_parquet(sandbox / "pressure_features.parquet")
 
     with pytest.raises(ValueError, match="do not overlap"):
         _convert_market_panel_to_qlib(sandbox, tmp_path / "qlib_data")

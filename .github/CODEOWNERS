@@ -9,6 +9,6 @@
 /scripts/_shadow_publish.py @xubo15384751795-sys
 /scripts/daily_run.py @xubo15384751795-sys
 /scripts/migrate_output_to_generations.py @xubo15384751795-sys
-/packages/framework/src/api/ @xubo15384751795-sys
-/packages/framework/src/data_access/ @xubo15384751795-sys
+/packages/framework_v1_archive/src/api/ @xubo15384751795-sys
+/packages/framework_v1_archive/src/data_access/ @xubo15384751795-sys
 /packages/harvester/src/harvester/providers/ @xubo15384751795-sys

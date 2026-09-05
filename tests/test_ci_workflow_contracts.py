@@ -33,13 +33,32 @@ def test_lint_pipeline_docs_use_locked_workspace_interpreter() -> None:
     assert "python -m pip install \"pyyaml" not in lint
 
 
-def test_nightly_framework_suite_installs_its_viz_extra() -> None:
+def test_nightly_archive_reproduction_is_isolated() -> None:
     workflow = (ROOT / ".github/workflows/nightly.yml").read_text(encoding="utf-8")
-    framework = (ROOT / "packages/framework/pyproject.toml").read_text(encoding="utf-8")
-    deformation = workflow.split("  deformation:", 1)[1].split("  harvester:", 1)[0]
+    framework = (ROOT / "packages/framework_v1_archive/pyproject.toml").read_text(encoding="utf-8")
+    archive = workflow.split("  archive-reproduction:", 1)[1].split("  harvester:", 1)[0]
 
-    assert "uv sync --locked --all-packages --extra viz" in deformation
+    assert "uv sync --locked --all-packages --extra viz" in archive
+    assert "ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION" in archive
+    assert "CURRENT_OUTPUT_DIR" in archive
+    assert "working-directory: packages/framework_v1_archive" in archive
+    assert "--directory" in archive
+    assert "--package structural-deformation-research-system" in archive
     assert 'viz = ["plotly>=5", "streamlit>=1.30"' in framework
+
+
+def test_merge_gate_does_not_need_deformation_job() -> None:
+    import yaml
+
+    ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    nightly = yaml.safe_load((ROOT / ".github/workflows/nightly.yml").read_text(encoding="utf-8"))
+    assert "deformation" not in ci["jobs"]
+    assert "deformation" not in ci["jobs"]["merge-gate"]["needs"]
+    assert "archive-reproduction" in nightly["jobs"]
+    assert "archive-reproduction" not in nightly["jobs"]["full-integration"]["needs"]
+    ci_text = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "packages/framework/src" not in ci_text
+    assert "packages/framework_v1_archive/src" not in ci_text
 
 
 @pytest.mark.governance_loop

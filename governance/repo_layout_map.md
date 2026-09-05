@@ -16,7 +16,7 @@ sections, or bootstrap history disagree with the tree on disk.
 |---|---|---|
 | `system-workspace` | `/` | root docs, protocols, scripts, configs, governance |
 | `structural-workbench` | `packages/workbench/` | product, NLP, contracts, agent harness |
-| `Structural-Deformation-Research-System` | `packages/framework/` | framework core |
+| `Structural-Deformation-Research-System` | `packages/framework_v1_archive/` | Deformation v1 evidence archive |
 | `structural-risk-harvester` | `packages/harvester/` | data providers and release production |
 | `system-learning-hub` | `packages/learning_hub/` | reliability and governance memory |
 | `system-orchestration` | `packages/orchestration/` | Dagster/runtime orchestration |
@@ -83,7 +83,7 @@ should exist on a fresh bootstrap checkout.
 | Agent harness | `packages/workbench/agents/harness/` | hooks, tools, routing helpers |
 | Harvester | `packages/harvester/` | `Data/harvester/exports/` |
 | Learning Hub | `packages/learning_hub/` | see §4 |
-| Deformation Framework | `packages/framework/` | `Output/deformation_runs/`, promoted `Data/deformation/` |
+| Deformation v1 evidence archive | `packages/framework_v1_archive/` | `Output/deformation_runs/`, promoted `Data/deformation/` |
 | Orchestration | `packages/orchestration/` | Dagster jobs and runtime entrypoints |
 | Workspace protocols | `protocols/` + `packages/workbench/contracts/workbench/` | JSON schemas |
 | Workspace constitution | `governance/` | authority registries, proxy spec |
@@ -136,7 +136,7 @@ system_status.py
 
 ### Module-owned scripts and entrypoints
 
-Active package-owned code is under `packages/framework/`,
+Package-owned code is under `packages/framework_v1_archive/` (evidence archive),
 `packages/harvester/`, `packages/learning_hub/`, and `packages/workbench/`.
 Root compatibility scripts remain where the runtime and `sys` surface require
 them. The current script ownership and lifecycle inventory is

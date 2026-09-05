@@ -22,6 +22,10 @@ def test_v1_is_archived_falsified_and_has_no_active_framework_authority() -> Non
     )
     by_id = {entry["framework_id"]: entry for entry in registry["frameworks"]}
     assert by_id["structural_deformation"]["active"] is False
+    assert by_id["structural_deformation"]["executable"] == "denied"
+    assert by_id["structural_deformation"]["contract_path"].endswith(
+        "structural_deformation.archive.yaml"
+    )
     assert by_id["macro_pressure_measurement"]["active"] is True
 
 

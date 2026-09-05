@@ -14,8 +14,8 @@ from workbench.paths import workspace_root as _workspace_root
 ROOT = _workspace_root()
 POLICY_PATH = ROOT / "configs" / "freshness_policy.yaml"
 HARVESTER_LATEST = ROOT / "Data" / "harvester" / "exports" / "latest"
-DEFORMATION_LATEST = ROOT / "Output" / "deformation_runs" / "latest"
 CURRENT = output_surface(ROOT, "current")
+NEUTRAL_PRESSURE_SNAPSHOT = CURRENT / "neutral_pressure_snapshot.json"
 
 STATUSES = {"fresh", "acceptable_lag", "stale", "missing", "retired_or_unavailable"}
 
@@ -333,8 +333,12 @@ def write_release_freshness_manifest(release_dir: Path | None = None, **kwargs: 
     return path
 
 
-def write_model_run_freshness_manifest(run_dir: Path | None = None, release_dir: Path | None = None) -> Path:
-    run = (run_dir or DEFORMATION_LATEST).resolve()
+def write_model_run_freshness_manifest(run_dir: Path, release_dir: Path | None = None) -> Path:
+    """Write freshness onto an explicit archived or research run directory.
+
+    `run_dir` is required. There is no silent default to deformation_runs/latest.
+    """
+    run = run_dir.resolve()
     manifest = read_json(run / "run_manifest.json")
     release = (release_dir or (ROOT / "Data" / "harvester" / "exports" / str(manifest.get("harvester_release")))).resolve()
     freshness = build_release_freshness_manifest(

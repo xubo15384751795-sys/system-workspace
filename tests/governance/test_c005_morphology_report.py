@@ -10,17 +10,18 @@ pytestmark = pytest.mark.report
 
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 WORKBENCH_SRC = ROOT / "packages" / "workbench" / "src"
 if str(WORKBENCH_SRC) not in sys.path:
     sys.path.insert(0, str(WORKBENCH_SRC))
 
-from workbench.c005_morphology_report import (  # noqa: E402
+from scripts.archive.c005_morphology_report import (  # noqa: E402
     evidence_payload,
     load_evidence,
     render_report,
     write_report,
 )
-
 from system_runtime.canonical_ids import validate_claim  # noqa: E402
 
 

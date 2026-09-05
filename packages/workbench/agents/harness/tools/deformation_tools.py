@@ -1,4 +1,4 @@
-"""deformation_tools — governed read-only tools for Deformation run artifacts."""
+"""deformation_tools — governed read-only archive browser for Deformation v1."""
 
 from __future__ import annotations
 
@@ -112,11 +112,11 @@ def _load_trace_header_and_count(path: Path) -> tuple[dict[str, Any], int, list[
     return header, record_count, errors
 
 
-def _compare_snapshots(run_snapshot: dict[str, Any], canonical_snapshot: dict[str, Any]) -> list[str]:
+def _compare_snapshots(archived_snapshot: dict[str, Any], canonical_snapshot: dict[str, Any]) -> list[str]:
     mismatches: list[str] = []
     keys = ["run_date", "run_type", "escalation", "snapshot_core"]
     for key in keys:
-        if run_snapshot.get(key) != canonical_snapshot.get(key):
+        if archived_snapshot.get(key) != canonical_snapshot.get(key):
             mismatches.append(f"snapshot field mismatch: {key}")
     return mismatches
 
@@ -236,7 +236,7 @@ def _h_evaluate_replay(input: dict, dry_run: bool) -> ToolResult:
     artifacts = _read_json(artifacts_path)
     config = _read_json(config_path)
     freshness = _read_json(freshness_path)
-    run_snapshot = _read_json(snapshot_path) if snapshot_path else {}
+    archived_snapshot = _read_json(snapshot_path) if snapshot_path else {}
 
     canonical_entry = _canonical_snapshot_entry(run_dir.name, snapshot_id)
     canonical_path_raw = canonical_entry.get("snapshot_path") if canonical_entry else ""
@@ -247,7 +247,7 @@ def _h_evaluate_replay(input: dict, dry_run: bool) -> ToolResult:
     elif canonical_path is None or not canonical_path.is_file():
         errors.append(f"canonical snapshot file missing: {canonical_path_raw}")
     else:
-        mismatches.extend(_compare_snapshots(run_snapshot, canonical_snapshot))
+        mismatches.extend(_compare_snapshots(archived_snapshot, canonical_snapshot))
 
     trace_header, trace_record_count, trace_errors = _load_trace_header_and_count(trace_path)
     errors.extend(trace_errors)
@@ -282,7 +282,7 @@ def _h_evaluate_replay(input: dict, dry_run: bool) -> ToolResult:
         "artifacts": {
             "run_manifest": {"path": _rel(manifest_path), "exists": manifest_path.is_file()},
             "output_manifest": {"path": _rel(artifacts_path), "exists": artifacts_path.is_file()},
-            "run_snapshot": {"path": _rel(snapshot_path) if snapshot_path else None, "exists": snapshot_path is not None},
+            "archived_snapshot": {"path": _rel(snapshot_path) if snapshot_path else None, "exists": snapshot_path is not None},
             "canonical_snapshot": {
                 "path": canonical_path_raw or None,
                 "exists": bool(canonical_path and canonical_path.is_file()),
@@ -326,7 +326,7 @@ def _h_evaluate_replay(input: dict, dry_run: bool) -> ToolResult:
 
 _register(ToolSpec(
     id="deformation.list_snapshots",
-    description="List deformation run snapshots from Output/deformation_runs",
+    description="List archived Deformation v1 snapshots (read-only evidence browser)",
     subsystem="deformation",
     risk_level="low",
     read_only=True,
@@ -340,7 +340,7 @@ _register(ToolSpec(
 
 _register(ToolSpec(
     id="deformation.inspect_snapshot",
-    description="Inspect a deformation snapshot by id or latest",
+    description="Inspect an archived Deformation v1 snapshot by id or latest (read-only)",
     subsystem="deformation",
     risk_level="low",
     read_only=True,
@@ -355,8 +355,8 @@ _register(ToolSpec(
 _register(ToolSpec(
     id="deformation.evaluate_replay",
     description=(
-        "Evaluate replay readiness and canonical snapshot consistency for a "
-        "Deformation run without mutating artifacts"
+        "Read-only archive replay evaluation for a Deformation v1 run; "
+        "does not restore operational authority"
     ),
     subsystem="deformation",
     risk_level="low",
@@ -367,4 +367,32 @@ _register(ToolSpec(
     required_prechecks=[],
     postchecks=["write_event"],
     handler=_h_evaluate_replay,
+))
+
+
+def _h_run_snapshot(input: dict, dry_run: bool) -> ToolResult:
+    """Permanently deny live snapshot execution. Archive inspect only."""
+    return ToolResult(
+        ok=False,
+        tool_id="deformation.run_snapshot",
+        summary="ARCHIVED_FALSIFIED: deformation.run_snapshot is permanently denied",
+        errors=[
+            "Deformation v1 is ARCHIVED_FALSIFIED. Inspect archived snapshots only; "
+            "never run, fetch, or analyze as a live host."
+        ],
+    )
+
+
+_register(ToolSpec(
+    id="deformation.run_snapshot",
+    description="ARCHIVED_FALSIFIED: permanently denied. Inspect archived v1 snapshots only.",
+    subsystem="deformation",
+    risk_level="high",
+    read_only=True,
+    mutates_artifacts=False,
+    requires_approval=True,
+    allowed_modes=["explore", "verify", "implement", "run", "release"],
+    required_prechecks=[],
+    postchecks=["write_event"],
+    handler=_h_run_snapshot,
 ))

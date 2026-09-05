@@ -66,11 +66,15 @@ def build_index() -> dict:
     k_gate = check_path(OUTPUT_DIR / "k_measurement" / "k_measurement_gate.json")
     x_gate = check_path(OUTPUT_DIR / "x_measurement" / "x_measurement_gate.json")
 
-    # Structural replay
-    replay_latest = None
-    replay_dirs = sorted(OUTPUT_DIR.glob("deformation_runs/run_*"), reverse=True)
-    if replay_dirs:
-        replay_latest = check_path(replay_dirs[0] / "framework_output.json")
+    # Live current / neutral pressure
+    neutral_pressure = check_path(OUTPUT_DIR / "current" / "neutral_pressure_snapshot.json")
+
+    # Archived Deformation v1 runs (historical column only)
+    archive_run_latest = None
+    archive_dirs = sorted((OUTPUT_DIR / "deformation_runs").glob("*"), reverse=True) if (OUTPUT_DIR / "deformation_runs").exists() else []
+    archive_dirs = [d for d in archive_dirs if d.is_dir() and d.name != "latest"]
+    if archive_dirs:
+        archive_run_latest = check_path(archive_dirs[0] / "run_manifest.json")
 
     # Learning hub
     # The canonical learning summary file is comprehensive_summary.json (the
@@ -280,8 +284,12 @@ def build_index() -> dict:
         "next_actions": next_actions,
         "status_json": status_json,
         "harvester": harvester_latest,
-        "structural_replay": {
-            "latest": replay_latest,
+        "current": {
+            "framework_output": current_output,
+            "neutral_pressure_snapshot": neutral_pressure,
+        },
+        "archive_runs": {
+            "latest": archive_run_latest,
         },
         "paper_world_model": {
             "cases": paper_cases,

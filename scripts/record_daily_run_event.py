@@ -3,7 +3,7 @@
 
 Writes a structured event to Output/system_learning/events/ after each
 pipeline run with: evidence grade, blockers, trade decision, run_id,
-git_sha, and submodule pins.
+git_sha, and live package pins.
 
 Usage:
     python3 scripts/record_daily_run_event.py
@@ -55,20 +55,30 @@ def _get_git_sha() -> str:
         return "unknown"
 
 
-def _get_submodule_pins() -> dict[str, str]:
-    """Get submodule SHAs."""
+def _get_package_pins() -> dict[str, str]:
+    """Pin live package trees (not archived Deformation v1)."""
     pins: dict[str, str] = {}
-    for submodule in ["deformation-framework", "structural-risk-harvester", "system-learning-hub", "Workbench"]:
+    for package in (
+        "packages/harvester",
+        "packages/workbench",
+        "packages/learning_hub",
+        "packages/orchestration",
+    ):
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "--short", f"HEAD:{submodule}"],
+                ["git", "rev-parse", "--short", f"HEAD:{package}"],
                 capture_output=True, text=True, cwd=str(ROOT), timeout=5,
             )
             if result.returncode == 0:
-                pins[submodule] = result.stdout.strip()
+                pins[package] = result.stdout.strip()
         except Exception:
-            pins[submodule] = "unknown"
+            pins[package] = "unknown"
     return pins
+
+
+def _get_submodule_pins() -> dict[str, str]:
+    """Compatibility alias for older tests."""
+    return _get_package_pins()
 
 
 def build_run_event(run_id: str | None = None) -> dict[str, Any]:
@@ -94,6 +104,7 @@ def build_run_event(run_id: str | None = None) -> dict[str, Any]:
             blockers.append({"code": f"pg_{g}", "category": "promotion_gate",
                             "message": f"Promotion gate blocked: {g}"})
 
+    pins = _get_package_pins()
     event = {
         "schema_version": "run_event.v1",
         "event_type": "pipeline_run",
@@ -106,7 +117,8 @@ def build_run_event(run_id: str | None = None) -> dict[str, Any]:
         "confidence": trade_decision.get("confidence", "unknown") if trade_decision else "unknown",
         "blockers": blockers,
         "git_sha": _get_git_sha(),
-        "submodule_pins": _get_submodule_pins(),
+        "package_pins": pins,
+        "submodule_pins": pins,
         "paper_support": evidence_grade.get("paper_support_status", {}) if evidence_grade else {},
     }
 
@@ -229,7 +241,7 @@ def main() -> None:
         print(f"  Decision: {event['trade_decision']} ({event['confidence']})")
         print(f"  Blockers: {len(event['blockers'])}")
         print(f"  Git SHA: {event['git_sha']}")
-        print(f"  Submodule pins: {event['submodule_pins']}")
+        print(f"  Package pins: {event.get('package_pins') or event.get('submodule_pins')}")
 
 
 if __name__ == "__main__":

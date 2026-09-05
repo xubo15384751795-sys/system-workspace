@@ -28,8 +28,7 @@ def _cli(sandbox: Path, *args: str, timeout: int = 60) -> subprocess.CompletedPr
         **os.environ,
         "SYSTEM_WORKSPACE_ROOT": str(sandbox),
         "PYTHONPATH": (
-            f"{ROOT}{os.pathsep}{ROOT / 'packages' / 'framework' / 'src'}"
-            f"{os.pathsep}{ROOT / 'packages' / 'workbench' / 'src'}"
+            f"{ROOT}{os.pathsep}{ROOT / 'packages' / 'workbench' / 'src'}"
             f"{os.pathsep}{ROOT / 'scripts'}"
         ),
     }

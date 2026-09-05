@@ -1,7 +1,9 @@
 # Structural Deformation Research System
 
+> **ARCHIVED_FALSIFIED — evidence only, not an operational host.**
+
 Framework does not fetch the world.
-Framework consumes admitted evidence.
+Deformation v1 is a historical consumer of admitted evidence (archived).
 
 For the data boundary, see `DATA_BOUNDARY.md`.
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "structural-deformation-research-system"
 version = "0.1.0"
-description = "Code-managed research system for structural financial deformation diagnostics."
+description = "ARCHIVED_FALSIFIED — evidence only, not an operational host."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [

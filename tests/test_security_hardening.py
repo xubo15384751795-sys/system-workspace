@@ -19,7 +19,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework_v1_archive" / "src"
 REGISTRY_PATH = ROOT / "governance" / "authority_registry.yaml"
 
 
@@ -115,7 +115,7 @@ def test_research_http_files_marked(file_path: Path) -> None:
 
 def test_archived_replay_entrypoint_requires_admitted_release() -> None:
     """The archived replay must not silently acquire a default provider frame."""
-    entrypoint = ROOT / "packages" / "framework" / "scripts" / "run_historical_replay.py"
+    entrypoint = ROOT / "packages" / "framework_v1_archive" / "scripts" / "run_historical_replay.py"
     source = entrypoint.read_text(encoding="utf-8")
     assert "HarvesterAdapter" in source
     assert "run_historical_replay(raw=raw)" in source
@@ -137,8 +137,8 @@ def test_data_authority_registry_has_research_entries() -> None:
     paths = {e.get("path", "") for e in entries}
 
     research_files = [
-        "packages/framework/src/benchmarks/historical_replay.py",
-        "packages/framework/src/research_corpus/providers/brevan_howard.py",
+        "packages/framework_v1_archive/src/benchmarks/historical_replay.py",
+        "packages/framework_v1_archive/src/research_corpus/providers/brevan_howard.py",
     ]
     missing = [f for f in research_files if not any(f in p for p in paths)]
     assert not missing, (
@@ -202,8 +202,8 @@ def test_audit_has_all_hardening_checks() -> None:
 
 def test_api_security_module_exists() -> None:
     """Terminal API security helpers must exist in deformation-framework."""
-    security = ROOT / "packages" / "framework" / "src" / "api" / "security.py"
-    assert security.exists(), "packages/framework/src/api/security.py missing"
+    security = ROOT / "packages" / "framework_v1_archive" / "src" / "api" / "security.py"
+    assert security.exists(), "packages/framework_v1_archive/src/api/security.py missing"
     source = security.read_text(encoding="utf-8")
     assert "assert_bind_allowed" in source
     assert "install_api_key_middleware" in source

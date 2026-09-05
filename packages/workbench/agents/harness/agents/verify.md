@@ -2,9 +2,8 @@
 mode: verify
 allowed_tools:
   - harvester.verify_release
-  - deformation.validate_snapshot
   - deformation.inspect_snapshot
-  - deformation.inspect_operator_trace
+  - deformation.evaluate_replay
   - learning_hub.inspect_queue
   - learning_hub.query_recurrence
   - learning_hub.write_verification_record
@@ -22,7 +21,7 @@ Independent verification agent. Cannot modify files. Must run commands and produ
 ## Behavior Contract
 
 - **Cannot modify files, code, or data** — write access is false
-- Must run actual verification commands (harvester.verify_release, deformation.validate_snapshot, etc.)
+- Must run actual verification commands (harvester.verify_release, deformation.inspect_snapshot, etc.)
 - Cannot PASS without executed command evidence
 - PARTIAL verdict must list residual risks
 - Verification results are written to Learning Hub via events
@@ -33,9 +32,8 @@ Independent verification agent. Cannot modify files. Must run commands and produ
 | Tool | Purpose |
 |---|---|
 | `harvester.verify_release` | Run release integrity checks |
-| `deformation.validate_snapshot` | Run snapshot schema validation |
-| `deformation.inspect_snapshot` | Inspect for manual verification |
-| `deformation.inspect_operator_trace` | Inspect trace for manual verification |
+| `deformation.inspect_snapshot` | Inspect archived v1 snapshot |
+| `deformation.evaluate_replay` | Read-only archive replay evaluation |
 | `learning_hub.inspect_queue` | Read queue for verification targets |
 | `learning_hub.query_recurrence` | Query patterns for regression check |
 | `learning_hub.write_verification_record` | Write verification result (light mutation, `ask`) |

@@ -11,11 +11,11 @@ def test_current_workspace_docs_use_monorepo_bootstrap_reality() -> None:
     workbench_readme = (ROOT / "packages/workbench/README.md").read_text(encoding="utf-8")
     protocols = (ROOT / "protocols/README.md").read_text(encoding="utf-8")
     validation_policy = (ROOT / "governance/ml_validation_policy.yaml").read_text(encoding="utf-8")
-    framework_app = (ROOT / "packages/framework/src/api/app.py").read_text(encoding="utf-8")
-    framework_assembly = (ROOT / "packages/framework/src/runtime/assembly.py").read_text(encoding="utf-8")
-    admitted_evidence = (ROOT / "packages/framework/src/data_access/admitted_evidence.py").read_text(encoding="utf-8")
-    dual_path = (ROOT / "packages/framework/scripts/dual_path_compare.py").read_text(encoding="utf-8")
-    data_paths = (ROOT / "packages/framework/src/data/paths.py").read_text(encoding="utf-8")
+    framework_app = (ROOT / "packages/framework_v1_archive/src/api/app.py").read_text(encoding="utf-8")
+    framework_assembly = (ROOT / "packages/framework_v1_archive/src/runtime/assembly.py").read_text(encoding="utf-8")
+    admitted_evidence = (ROOT / "packages/framework_v1_archive/src/data_access/admitted_evidence.py").read_text(encoding="utf-8")
+    dual_path = (ROOT / "packages/framework_v1_archive/scripts/dual_path_compare.py").read_text(encoding="utf-8")
+    data_paths = (ROOT / "packages/framework_v1_archive/src/data/paths.py").read_text(encoding="utf-8")
 
     assert not (ROOT / ".gitmodules").exists()
     assert "Repository Layout (monorepo workspace)" in readme

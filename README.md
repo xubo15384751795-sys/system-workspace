@@ -169,7 +169,7 @@ System/                                 # system-workspace git repo
 ├── packages/workbench/                 # operator surface, NLP, contracts, harness
 ├── packages/harvester/                 # providers, provenance, releases
 ├── packages/learning_hub/              # reliability and governance memory
-├── packages/framework/                 # replaceable interpretation capability
+├── packages/framework_v1_archive/      # Deformation v1 evidence archive (not a live package)
 └── packages/orchestration/             # Dagster/runtime orchestration
 ```
 

@@ -35,7 +35,8 @@ VALIDATION_DIR = ROOT / "Output" / "validation"
 REPORT_PATH = VALIDATION_DIR / "walk_forward_report.json"
 
 # ---------------------------------------------------------------------------
-# Config (aligned with deformation-framework WalkForwardConfig)
+# Config — live weekly WalkForward settings (validation-only).
+# Authority: governance/ml_validation_policy.yaml (Output/validation/walk_forward_report.json).
 # ---------------------------------------------------------------------------
 TRAIN_WINDOW = 252      # 1 year training window
 TEST_WINDOW = 63        # ~3 months test window

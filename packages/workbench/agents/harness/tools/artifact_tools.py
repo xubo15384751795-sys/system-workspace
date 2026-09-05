@@ -52,7 +52,7 @@ def _preflight(run_id: str, snapshot_id: str, force: bool) -> dict[str, Any]:
             "run_id": run_id,
             "snapshot_id": snapshot_id,
             "blockers": [f"run dir does not exist: {run_dir}", *routing.get("blockers", [])],
-            "run_path": f"Output/deformation_runs/{run_id}",
+            "run_path": f"archive_run:{run_id}",
             "routing_decision": routing,
         }
 
@@ -64,7 +64,7 @@ def _preflight(run_id: str, snapshot_id: str, force: bool) -> dict[str, Any]:
             "run_id": run_id,
             "snapshot_id": snapshot_id,
             "blockers": [str(exc)],
-            "run_path": f"Output/deformation_runs/{run_id}",
+            "run_path": f"archive_run:{run_id}",
         }
 
     provenance_status = promoter._provenance_status(run_dir, manifest)
@@ -76,7 +76,7 @@ def _preflight(run_id: str, snapshot_id: str, force: bool) -> dict[str, Any]:
         "ok": not hard_blocked and not routing_blocked,
         "run_id": run_id,
         "snapshot_id": snapshot_id,
-        "run_path": f"Output/deformation_runs/{run_id}",
+        "run_path": f"archive_run:{run_id}",
         "target_snapshot_path": f"Data/deformation/snapshots/{snapshot_id}.json",
         "target_exists": target.exists(),
         "force": force,
@@ -198,7 +198,7 @@ def _h_promote_snapshot(input: dict, dry_run: bool) -> ToolResult:
         return ToolResult(
             ok=False,
             tool_id="artifact.promote_snapshot",
-            errors=["artifact.promote_snapshot requires run_id=<Output/deformation_runs id>"],
+            errors=["artifact.promote_snapshot requires run_id=<archived run id>"],
         )
 
     snapshot_id = str(input.get("snapshot_id") or f"snapshot_{run_id}").strip()
@@ -243,7 +243,7 @@ def _h_promote_snapshot_preflight(input: dict, dry_run: bool) -> ToolResult:
         return ToolResult(
             ok=False,
             tool_id="artifact.promote_snapshot_preflight",
-            errors=["artifact.promote_snapshot_preflight requires run_id=<Output/deformation_runs id>"],
+            errors=["artifact.promote_snapshot_preflight requires run_id=<archived run id>"],
         )
 
     snapshot_id = str(input.get("snapshot_id") or f"snapshot_{run_id}").strip()
@@ -330,8 +330,8 @@ _register(ToolSpec(
 _register(ToolSpec(
     id="artifact.promote_snapshot",
     description=(
-        "Promote a Deformation run-local snapshot into canonical Data with "
-        "preflight evidence, provenance checks, and system index rebuild"
+        "Quarantine or inspect an archived run snapshot. Canonical v1 promotion "
+        "is denied; this is not a live current promote API."
     ),
     subsystem="data_output",
     risk_level="high",

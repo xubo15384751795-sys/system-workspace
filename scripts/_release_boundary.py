@@ -6,7 +6,7 @@ or unfinalized ``latest`` symlink cannot be silently consumed.
 
 This is a thin verification layer over the existing harvester release layout
 (catalog.json + .finalized marker). It does NOT replace the richer
-``packages/framework/src/data_access/AdmittedEvidenceHub`` boundary - that
+``packages/framework_v1_archive/src/data_access/AdmittedEvidenceHub`` boundary - that
 remains the long-term target - but it closes the immediate Phase B4 gap:
 "no daily-run consumer verifies release finalization before reading."
 

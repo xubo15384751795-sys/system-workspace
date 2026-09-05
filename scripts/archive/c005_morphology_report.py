@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from workbench.workspace._paths import DEFORMATION_RUNS, REPORTS_DIR, WORKSPACE_ROOT
-from system_runtime.canonical_ids import build_claim
 
+from system_runtime.canonical_ids import build_claim
 
 C005_TEXT = "The same broad stress benchmark level can hide different structural morphologies."
 CLAIM_VERDICTS = {"SUPPORTED", "WEAKENED", "REJECTED", "INSUFFICIENT_DATA"}

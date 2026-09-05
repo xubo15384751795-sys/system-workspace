@@ -1,8 +1,8 @@
-# Data → Deformation Dimension Mapping
+# ARCHIVED_FALSIFIED — Deformation v1 evidence only, not an operational mapping.
 #
+# Historical Data → Deformation Dimension Mapping.
 # Maps each data source through primitives to M/D/K/X deformation dimensions.
-# Rule: NO series may directly enter a deformation dimension without going through
-# a primitive variable first. direct_to_deformation_allowed is FALSE by default.
+# This file is not consumed by Harvester or live measurement.
 
 schema_version: data_to_deformation_mapping.v1
 generated: "2026-06-04"

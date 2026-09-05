@@ -14,7 +14,7 @@ from src.data_access.http_gateway import (
 )
 from src.research_corpus.providers.brevan_howard import BrevanHowardProvider
 
-ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_gateway_renders_bounded_research_path_and_query(monkeypatch) -> None:
@@ -96,8 +96,8 @@ def test_historical_replay_fetches_fred_via_endpoint_id(monkeypatch) -> None:
 
 def test_research_sources_have_no_raw_http_fallback() -> None:
     sources = (
-        ROOT / "packages/framework/src/benchmarks/historical_replay.py",
-        ROOT / "packages/framework/src/research_corpus/providers/brevan_howard.py",
+        PACKAGE_ROOT / "src/benchmarks/historical_replay.py",
+        PACKAGE_ROOT / "src/research_corpus/providers/brevan_howard.py",
     )
     for path in sources:
         source = path.read_text(encoding="utf-8")

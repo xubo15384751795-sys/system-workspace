@@ -9,13 +9,17 @@ Before code changes, read the smallest sufficient context:
 3. `ROUTING_CONSTITUTION.md` — sparse activation and evidence rules
 4. `packages/workbench/contracts/workbench/agent_prompt_sections/constitution.md` — workbench agent constitution
 
-## Remote Compute & Execution Rule (ai-box)
-This project uses **Local-Edit, Remote-Compute**:
-1. **Source Code**: Edited and maintained on Mac locally (`/Users/a1/Verity`).
-2. **Execution & Testing**: Heavy compute, Python scripts, pipelines, and tests MUST run on remote `ai-box` (Linux x86_64, `~/Verity`).
-3. **Workflow**:
-   - Before running tests or scripts, sync code using `./scripts/sync_to_ai_box.sh` (or `make sync`).
-   - Run tests/scripts via SSH: `ssh ai-box 'export PATH="$HOME/.local/bin:$PATH"; cd ~/Verity && uv run pytest ...'` or `make remote-test`.
+Live layers are Workbench, Harvester, and Protocols. Deformation v1 is a
+historical evidence archive, not a live consumer of admitted evidence.
+
+## Execution (local default)
+
+Default execution is **local** on this Mac (`/Users/a1/Verity`).
+
+1. **Edit and run here**: tests, scripts, dry-runs, and pipelines use the local Python 3.13 environment (`.venv`, `uv run`, or `make test`).
+2. **Do not sync or SSH to `ai-box` unless the operator explicitly asks.**
+3. Remote compute stays deferred until the local daily path is stable and running. `./scripts/sync_to_ai_box.sh` remains an opt-in path for that later stage.
+
 
 
 Behavioral guidelines below reduce common LLM coding mistakes. Merge with module-specific instructions as needed.

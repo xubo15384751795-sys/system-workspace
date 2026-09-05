@@ -5,7 +5,7 @@ allowed_tools:
   - harvester.inspect_release
   - harvester.diff_releases
   - deformation.inspect_snapshot
-  - deformation.inspect_operator_trace
+  - deformation.evaluate_replay
   - learning_hub.inspect_queue
   - learning_hub.query_recurrence
 write_access: false
@@ -32,8 +32,8 @@ Read-only agent that analyzes system state and produces structured implementatio
 | `harvester.list_releases` | Plan release inventory |
 | `harvester.inspect_release` | Plan release changes |
 | `harvester.diff_releases` | Plan migration path |
-| `deformation.inspect_snapshot` | Plan snapshot changes |
-| `deformation.inspect_operator_trace` | Plan operator trace analysis |
+| `deformation.inspect_snapshot` | Inspect archived v1 snapshot |
+| `deformation.evaluate_replay` | Read-only archive replay evaluation |
 | `learning_hub.inspect_queue` | Plan improvement queue actions |
 | `learning_hub.query_recurrence` | Plan recurrence mitigations |
 

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Promote a Deformation run-local snapshot after governance checks.
+"""Inspect or quarantine an archived run snapshot after governance checks.
+
+Canonical promotion of Deformation v1 is permanently denied. This CLI accepts
+any archived run id as historical evidence; it is not a live promote API.
 
 Usage:
-    python3 scripts/promote_snapshot.py --run <run_id> [--snapshot-id <id>] [--force]
+    python3 scripts/promote_snapshot.py --run <archived_run_id> [--snapshot-id <id>] [--force]
 
 Pre-conditions enforced:
-  * `Output/deformation_runs/<run_id>/run_manifest.json` exists and `status == "success"`.
+  * the archived run's `run_manifest.json` exists and `status == "success"`.
   * `machine/snapshot.json` exists.
   * `traces/operator_trace.jsonl` exists and its first record is not a `status: missing` header.
   * `config_snapshot.json` exists with `captured_status == "captured"`.
@@ -591,8 +594,10 @@ def main() -> int:
     Enforces routing decision, pre-condition checks, report gate, and config
     audit before copying the snapshot to the canonical or quarantine directory.
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--run", required=True, help="run_id under Output/deformation_runs/")
+    parser = argparse.ArgumentParser(
+        description="Quarantine or inspect an archived run id. Not a live current promote API."
+    )
+    parser.add_argument("--run", required=True, help="archived run id (historical evidence only)")
     parser.add_argument("--snapshot-id", default=None, help="defaults to snapshot_<run_id>")
     # nosemgrep: semgrep_rules.force-promotion-without-accountability
     # The runtime gate immediately below requires both accountability fields.

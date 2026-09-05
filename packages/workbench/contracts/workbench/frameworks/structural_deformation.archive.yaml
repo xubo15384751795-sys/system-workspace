@@ -1,0 +1,14 @@
+framework_id: structural_deformation
+display_name: Deformation v1 Evidence Archive
+version: 0.0.0-archived
+role: archived_falsified_evidence
+active: false
+executable: denied
+archive_status: ARCHIVED_FALSIFIED
+description: >
+  ARCHIVED_FALSIFIED — evidence only, not an operational host.
+capabilities:
+  - id: archived_evidence
+    label: Archived evidence only
+    value_path: advanced.archive_status
+    render: label

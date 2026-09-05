@@ -6,9 +6,7 @@ allowed_tools:
   - harvester.verify_release
   - harvester.diff_releases
   - deformation.inspect_snapshot
-  - deformation.validate_snapshot
-  - deformation.inspect_operator_trace
-  - deformation.run_snapshot
+  - deformation.evaluate_replay
   - learning_hub.inspect_queue
   - learning_hub.query_recurrence
   - learning_hub.ingest_events
@@ -37,7 +35,6 @@ Code edits and data mutation allowed with constraints:
 - `code_edit` — allow (within subsystem, pre_edit gate active)
 - `data_mutation` — ask (agent prompted, requires confirmation)
 - Read-only tools — allow (all subsystems)
-- `deformation.run_snapshot` — requires manual approval (`require_manual_review`)
 
 ## Forbidden Actions
 
@@ -47,6 +44,7 @@ Code edits and data mutation allowed with constraints:
 - Verifying own implementation conclusions — must delegate to `verify` agent
 - Generating paper claims or narrative language
 - Exceeding declared `scope`
+- `deformation.run_snapshot` — ARCHIVED_FALSIFIED; inspect archived v1 snapshots only
 
 ## Scope Declaration (required before work)
 

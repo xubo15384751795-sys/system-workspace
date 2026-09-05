@@ -21,7 +21,7 @@ System/                                    # system-workspace (this git repo)
 ├── packages/workbench/                             # structural-workbench (git submodule)
 ├── packages/harvester/             # harvester repo (git submodule)
 ├── packages/learning_hub/                   # learning hub repo (git submodule)
-├── packages/framework/  # framework repo (git submodule)
+├── packages/framework_v1_archive/  # Deformation v1 evidence archive
 ├── contracts -> packages/workbench/contracts       # compatibility symlink
 ├── Structural Risk Harvester -> packages/harvester/
 ├── System Learning Hub -> packages/learning_hub/
@@ -118,7 +118,7 @@ packages/workbench/contracts/workbench/           # Workbench contract catalog
 ## Framework Core
 
 ```text
-packages/framework/  # git submodule — canonical source
+packages/framework_v1_archive/  # evidence archive — not a live package
 ```
 
 Framework-owned areas include `src/proxies/`, `src/derivation/`, `src/operators/`,

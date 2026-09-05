@@ -7,10 +7,8 @@ pre-commit / pre-merge eyeballing.
 
 If the indexes are stale, run `python3 scripts/build_system_index.py` first.
 
-⚠️ UNTRUSTED ENTRY POINT: This script's key expectations (harvester_release,
-deformation_run under `latest`) are stale. The actual system_index uses
-top-level keys. Use `freshness_validator.py` or `00_READ_ME_FIRST.md` as
-the authoritative health check.
+⚠️ UNTRUSTED ENTRY POINT: Prefer `freshness_validator.py` or `00_READ_ME_FIRST.md`
+as the authoritative health check.
 """
 from __future__ import annotations
 
@@ -44,7 +42,8 @@ def main() -> int:
     if not latest:
         latest = idx  # current layout: keys at top level
     h = latest.get("harvester_release") or latest.get("harvester") or {}
-    d = latest.get("deformation_run") or latest.get("structural_replay") or {}
+    n = latest.get("neutral_pressure") or latest.get("current") or {}
+    d = latest.get("archive_runs") or {}
     s = latest.get("deformation_snapshot") or {}
     learning = latest.get("learning_report") or latest.get("learning_hub") or {}
     sb = latest.get("sandbox") or {}
@@ -58,19 +57,21 @@ def main() -> int:
         h_status,
         h_detail,
     ))
-    # Deformation: handle both dict and None
+    n_status = n.get("status") or ("ok" if n.get("path") or n.get("exists") else "<missing>")
+    n_detail = n.get("path") or n.get("id") or "-"
+    rows.append(("Neutral pressure", n_status, n_detail))
     if d and d.get("latest"):
         gaps = ", ".join(d.get("gaps", [])) or "ok"
         d_status = d.get("status", "<missing>")
         d_detail = f"{d.get('id', '-')} (gaps: {gaps})"
-    elif d and d.get("exists"):
-        d_status = "ok"
-        d_detail = d.get("modified", "-")[:10]
+    elif d and (d.get("exists") or d.get("id") or d.get("path")):
+        d_status = d.get("status") or "archived"
+        d_detail = d.get("id") or d.get("path") or d.get("modified", "-")[:10]
     else:
         d_status = "<none>"
         d_detail = "-"
     rows.append((
-        "Deformation",
+        "Archive runs",
         d_status,
         d_detail,
     ))

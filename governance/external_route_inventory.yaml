@@ -1,7 +1,7 @@
 schema_version: external_route_inventory.v1
 owner: Framework boundary / Harvester-owned egress
-gateway: packages/framework/src/data_access/http_gateway.py
-negative_tests: packages/framework/tests/test_ssrf_boundary.py
+gateway: packages/framework_v1_archive/src/data_access/http_gateway.py
+negative_tests: packages/framework_v1_archive/tests/test_ssrf_boundary.py
 routes:
   - method: GET
     path: /health

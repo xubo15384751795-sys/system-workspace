@@ -1,12 +1,7 @@
 # Agent Execution Guidelines for Verity
 
-This workspace operates on a **Local-Edit, Remote-Compute** model:
+Default execution is **local** on this Mac (`/Users/a1/Verity`).
 
-1. **Code Files**: Stored and edited on the Mac local workspace (`/Users/a1/Verity`).
-2. **Environment & Runtime**: Python 3.13 virtual environment and heavy workloads run on remote `ai-box` (Linux WSL2, `~/Verity`).
-3. **Execution Command**:
-   - To run tests or scripts, sync code and execute on `ai-box`:
-     ```bash
-     ./scripts/sync_to_ai_box.sh && ssh ai-box 'export PATH="$HOME/.local/bin:$PATH"; cd ~/Verity && uv run pytest'
-     ```
-   - Or use Makefile targets: `make remote-test`, `make sync`.
+1. **Edit and run here**: tests, scripts, dry-runs, and pipelines use the local Python 3.13 environment (`.venv`, `uv run`, or `make test`).
+2. **Do not sync or SSH to `ai-box` unless the operator explicitly asks.**
+3. Remote compute stays deferred until the local daily path is stable and running. `./scripts/sync_to_ai_box.sh` remains an opt-in path for that later stage.

@@ -31,7 +31,8 @@ from workbench.framework_registry import (
 ROOT = cast(Path, _workspace_root())
 OUTPUT = ROOT / "Output"
 CURRENT = OUTPUT / "current"
-DEFORMATION_LATEST = OUTPUT / "deformation_runs" / "latest"
+HARVESTER_LATEST = ROOT / "Data" / "harvester" / "exports" / "latest"
+NEUTRAL_PRESSURE_SNAPSHOT = CURRENT / "neutral_pressure_snapshot.json"
 LEARNING_LATEST = OUTPUT / "system_learning" / "latest"
 
 LEARNING_LINKS = {"NEXT_ACTIONS.md"}
@@ -108,7 +109,11 @@ def _signal_payload(main_signal: list[str]) -> dict[str, str]:
 
 # -- framework output loading ------------------------------------------------
 
-def _resolve_framework_output_root(fw_entry: dict[str, Any]) -> Path:
+def _resolve_framework_output_root(fw_entry: dict[str, Any]) -> Path | None:
+    """Return the active framework's contract output directory, or None if missing.
+
+    No silent fallback to archived Deformation runs.
+    """
     contract = fw_entry.get("contract", {})
     outputs = contract.get("outputs", {})
     fw_output_rel = outputs.get("framework_output")
@@ -119,8 +124,9 @@ def _resolve_framework_output_root(fw_entry: dict[str, Any]) -> Path:
             return cast(Path, fw_output_abs)
         return cast(Path, fw_output_abs.parent)
     if run_rel:
-        return cast(Path, ROOT / str(run_rel))
-    return DEFORMATION_LATEST
+        run_abs = ROOT / str(run_rel)
+        return cast(Path, run_abs) if run_abs.exists() else None
+    return None
 
 
 def _empty_framework_output(fw_entry: dict[str, Any]) -> dict[str, Any]:
@@ -241,6 +247,8 @@ def _extract_from_raw_output(
 ) -> dict[str, Any]:
     contract = fw_entry.get("contract", {})
     output_root = _resolve_framework_output_root(fw_entry)
+    if output_root is None:
+        return _empty_framework_output(fw_entry)
 
     summary_rel = raw_cfg.get("summary_md", "reports/executive_summary.md")
     dashboard_rel = raw_cfg.get("dashboard_json", "reports/dashboard_snapshot.json")
@@ -281,6 +289,14 @@ def _extract_from_raw_output(
     }
 
 
+def _contract_output_file(fw_entry: dict[str, Any], key: str) -> Path | None:
+    rel = (fw_entry.get("contract", {}) or {}).get("outputs", {}).get(key)
+    if not rel:
+        return None
+    path = ROOT / str(rel)
+    return path if path.is_file() else None
+
+
 def _load_framework_output(
     fw_entry: dict[str, Any],
     manifest: dict[str, Any] | None = None,
@@ -289,12 +305,21 @@ def _load_framework_output(
     raw_cfg = contract.get("raw_output")
 
     if raw_cfg is None:
+        for key in ("framework_output", "neutral_snapshot"):
+            contract_file = _contract_output_file(fw_entry, key)
+            if contract_file is not None:
+                return read_json(contract_file)
         output_root = _resolve_framework_output_root(fw_entry)
+        if output_root is None:
+            return _empty_framework_output(fw_entry)
         fw_output_path = output_root / "framework_output.json"
         if fw_output_path.exists():
             return read_json(fw_output_path)
         return _empty_framework_output(fw_entry)
 
+    output_root = _resolve_framework_output_root(fw_entry)
+    if output_root is None:
+        return _empty_framework_output(fw_entry)
     return _extract_from_raw_output(fw_entry, raw_cfg, manifest)
 
 
@@ -353,10 +378,44 @@ def _evidence_snapshot(manifest: dict[str, Any]) -> list[dict[str, str]]:
 # -- freshness helpers -------------------------------------------------------
 
 def _load_freshness_manifest() -> dict[str, Any]:
-    path = DEFORMATION_LATEST / "freshness_manifest.json"
-    if not path.exists():
-        return {}
-    return read_json(path)
+    for path in (
+        CURRENT / "freshness_manifest.json",
+        HARVESTER_LATEST / "freshness_manifest.json",
+    ):
+        if path.exists():
+            return read_json(path)
+    return {}
+
+
+def _load_current_manifest() -> dict[str, Any]:
+    """Load the live current-card provenance. Never reads deformation_runs."""
+    current_manifest = CURRENT / "run_manifest.json"
+    if current_manifest.exists():
+        return read_json(current_manifest)
+    if NEUTRAL_PRESSURE_SNAPSHOT.exists():
+        payload = read_json(NEUTRAL_PRESSURE_SNAPSHOT)
+        advanced = payload.get("advanced") if isinstance(payload.get("advanced"), dict) else {}
+        return {
+            "run_id": payload.get("run_id") or "unknown",
+            "run_date": payload.get("as_of") or payload.get("run_date") or "unknown",
+            "generated_at": (payload.get("provenance") or {}).get("generated_at")
+            if isinstance(payload.get("provenance"), dict)
+            else payload.get("generated_at") or "unknown",
+            "status": payload.get("status") or "unknown",
+            "harvester_release": advanced.get("harvester_release")
+            or payload.get("harvester_release")
+            or "unknown",
+            "harvester_catalog_path": payload.get("harvester_catalog_path") or "unknown",
+            "schema_version": payload.get("schema_version"),
+        }
+    return {
+        "run_id": "unknown",
+        "run_date": "unknown",
+        "generated_at": "unknown",
+        "status": "missing",
+        "harvester_release": "unknown",
+        "harvester_catalog_path": "unknown",
+    }
 
 
 # -- formatting utilities ----------------------------------------------------
@@ -562,9 +621,7 @@ def _write_model_run(manifest: dict[str, Any], main_signal: list[str]) -> None:
                     "kind": "markdown",
                     "description": "Workbench run cockpit.",
                 },
-                # Legacy display artifacts REMOVED from Output/current/ (2026-06-17).
-                # These now live in Output/deformation_runs/latest/reports/.
-                # See governance/architecture_cleanup_decisions.md D5.
+                # Legacy Deformation display artifacts are not written to Output/current/.
                 "next_actions": {
                     "path": "NEXT_ACTIONS.md",
                     "kind": "markdown",
@@ -573,7 +630,7 @@ def _write_model_run(manifest: dict[str, Any], main_signal: list[str]) -> None:
             },
             "framework_payload": {
                 "framework_id": fw_entry["framework_id"],
-                "main_signal": _signal_payload(main_signal) if fw_entry["framework_id"] == "structural_deformation" else {},
+                "main_signal": _signal_payload(main_signal),
                 "source_manifest_schema": manifest.get("schema_version"),
                 "freshness": {
                     "date_semantics": freshness.get("date_semantics"),
@@ -582,8 +639,7 @@ def _write_model_run(manifest: dict[str, Any], main_signal: list[str]) -> None:
             },
         }
 
-        suffix = f"_{fw_entry['framework_id']}" if fw_entry["framework_id"] != "structural_deformation" else ""
-        model_run_path = CURRENT / f"model_run{suffix}.json"
+        model_run_path = CURRENT / f"model_run_{fw_entry['framework_id']}.json"
         model_run_path.write_text(
             json.dumps(model_run_payload, indent=2, ensure_ascii=True) + "\n",
             encoding="utf-8",
@@ -607,8 +663,7 @@ def _write_model_run(manifest: dict[str, Any], main_signal: list[str]) -> None:
             "run_manifest": "Output/current/run_manifest.json",
         }
 
-        fw_out_suffix = f"_{fw_entry['framework_id']}.json" if fw_entry["framework_id"] != "structural_deformation" else ".json"
-        fw_out_path = CURRENT / f"workbench_framework_output{fw_out_suffix}"
+        fw_out_path = CURRENT / f"workbench_framework_output_{fw_entry['framework_id']}.json"
         fw_out_path.write_text(
             json.dumps(fw_out_payload, indent=2, ensure_ascii=True) + "\n",
             encoding="utf-8",
@@ -619,13 +674,6 @@ def _write_model_run(manifest: dict[str, Any], main_signal: list[str]) -> None:
 
 def refresh_current() -> None:
     CURRENT.mkdir(parents=True, exist_ok=True)
-    manifest_path = DEFORMATION_LATEST / "run_manifest.json"
-    summary_path = DEFORMATION_LATEST / "reports" / "executive_summary.md"
-    if not manifest_path.exists():
-        raise FileNotFoundError(f"Missing latest run_manifest.json: {manifest_path}")
-    if not summary_path.exists():
-        raise FileNotFoundError(f"Missing latest executive_summary.md: {summary_path}")
-
     next_actions = CURRENT / "NEXT_ACTIONS.md"
     if not next_actions.exists():
         next_actions.write_text(
@@ -633,29 +681,25 @@ def refresh_current() -> None:
             encoding="utf-8",
         )
 
-    manifest = read_json(manifest_path)
-    # freshness_manifest symlink REMOVED — freshness is now in status.json.
-    manifest = read_json(manifest_path)
-    summary_text = summary_path.read_text(encoding="utf-8")
+    manifest = _load_current_manifest()
     queue_path = LEARNING_LATEST / "improvement_queue.md"
     queue_text = queue_path.read_text(encoding="utf-8") if queue_path.exists() else ""
     readme = render_read_me(
         manifest=manifest,
-        main_signal=extract_main_signal(summary_text),
+        main_signal=[],
         top_actions=extract_top_actions(queue_text),
     )
     (CURRENT / "00_READ_ME_FIRST.md").write_text(readme, encoding="utf-8")
-    _write_model_run(manifest, extract_main_signal(summary_text))
+    _write_model_run(manifest, [])
 
 
 def main() -> None:
     import warnings
 
     warnings.warn(
-        "refresh_output_current is DEPRECATED. Canonical output path: "
-        "scripts/bridge_replay_to_current.py. This path links to the latest "
-        "Deformation run, which may be stale (broken SigmaVector persistence). "
-        "./sys refresh runs the bridge AFTER this, so bridge output wins.",
+        "workbench.current.refresh_current writes the current card from "
+        "active framework contract output and Output/current/neutral_pressure_snapshot.json. "
+        "It does not read archived Deformation runs.",
         DeprecationWarning,
         stacklevel=2,
     )

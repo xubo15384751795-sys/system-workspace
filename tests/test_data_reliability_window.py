@@ -26,6 +26,9 @@ def _write_run(
     failed_steps: list[str] | None = None,
     blocked_steps: list[str] | None = None,
     fallback_used: bool | None = None,
+    series_attempts: dict[str, list[dict[str, object]]] | None = None,
+    cache_within_grace: bool | None = None,
+    availability_state: str | None = None,
 ) -> None:
     run_id = f"daily_pipeline_{day:%Y%m%d}_120000_{index:06x}"
     run_dir = root / "Output" / "runs" / run_id
@@ -55,11 +58,20 @@ def _write_run(
             "reused_after_provider_failure",
             "reused_same_content",
         }
+    provider_outcome: dict[str, object] = {
+        "status": provider_status,
+        "fallback_used": fallback_used,
+        "provider": "synthetic",
+    }
+    if series_attempts is not None:
+        provider_outcome["series_attempts"] = series_attempts
+    if cache_within_grace is not None:
+        provider_outcome["cache_within_grace"] = cache_within_grace
+    if availability_state is not None:
+        provider_outcome["availability"] = {"state": availability_state}
     steps = [
         {"step": "harvester", "status": "failed" if "harvester" in (failed_steps or []) else "success", "provider_outcome": {
-            "status": provider_status,
-            "fallback_used": fallback_used,
-            "provider": "synthetic",
+            **provider_outcome,
         }},
     ]
     (run_dir / "steps.jsonl").write_text(
@@ -160,3 +172,53 @@ def test_provider_failure_without_fallback_is_recorded_but_not_a_blocker(tmp_pat
             "reasons": ["HARVESTER_NOT_COMMITTED", "CORE_CHAIN_INCOMPLETE"],
         }
     ]
+
+
+def test_nested_provider_failure_with_fallback_stays_qualified(tmp_path: Path) -> None:
+    run_day = date(2026, 8, 22)
+    _write_run(
+        tmp_path,
+        run_day,
+        0,
+        provider_status="refreshed",
+        fallback_used=True,
+        series_attempts={
+            "HYG": [
+                {"outcome": "failed", "failure_class": "NETWORK", "error": "timeout"},
+                {"outcome": "success", "failure_class": "NONE"},
+            ]
+        },
+    )
+
+    report = build_window_report(tmp_path)
+    run_id = "daily_pipeline_20260822_120000_000000"
+
+    assert report["scenarios"]["provider_failure"] is True
+    assert report["scenario_by_run"][run_id]["fallback_or_carry_forward"] is True
+    assert report["scenario_by_run"][run_id]["provider_failure_with_fallback_qualified"] is True
+    assert report["qualification_by_run"][run_id]["qualified"] is True
+    assert report["qualified_days"] == 1
+    assert report["consecutive_days"] == 1
+    assert report["blockers"] == []
+
+
+def test_nested_stale_evidence_does_not_break_qualified_day(tmp_path: Path) -> None:
+    run_day = date(2026, 8, 22)
+    _write_run(
+        tmp_path,
+        run_day,
+        0,
+        provider_status="refreshed",
+        fallback_used=True,
+        cache_within_grace=False,
+        availability_state="STALE",
+    )
+
+    report = build_window_report(tmp_path)
+    run_id = "daily_pipeline_20260822_120000_000000"
+
+    assert report["scenarios"]["cache_expiry_or_stale"] is True
+    assert report["qualification_by_run"][run_id]["qualified"] is True
+    assert report["qualified_days"] == 1
+    assert report["consecutive_days"] == 1
+    assert report["blockers"] == []

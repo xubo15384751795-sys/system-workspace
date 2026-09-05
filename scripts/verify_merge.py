@@ -80,7 +80,6 @@ def _run_step(
         str(cwd),
         *([str(cwd / "src")] if (cwd / "src").is_dir() else []),
         str(ROOT),
-        str(ROOT / "packages" / "framework" / "src"),
         str(ROOT / "packages" / "workbench" / "src"),
         str(ROOT / "packages" / "harvester" / "src"),
         str(ROOT / "packages" / "learning_hub" / "src"),
@@ -123,7 +122,7 @@ def _run_step(
 
 
 def merge_gate_steps() -> list[tuple[str, list[str], Path]]:
-    """The 10-item merge-gate chain. Each must pass; no continue-on-error."""
+    """The live merge-gate chain. Each must pass; no continue-on-error."""
     py = sys.executable
     # The root pyproject.toml is the single classification authority. It excludes
     # operator/network/external_repo/slow suites for clean-checkout evidence;
@@ -133,7 +132,6 @@ def merge_gate_steps() -> list[tuple[str, list[str], Path]]:
         ("root_clean_checkout_pytest", root_clean_checkout, ROOT),
         ("workbench_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "workbench"),
         ("harvester_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "harvester"),
-        ("framework_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "framework"),
         ("learning_hub_suite", [py, "-m", "pytest", "tests/", "-q"], ROOT / "packages" / "learning_hub"),
         ("dag_compile_check", [py, "-c",
             "from _pipeline_dag import compile_dag; "

@@ -41,13 +41,13 @@ ensure_symlink() {
 }
 
 echo "=== Verifying packages/ layout (monorepo) ==="
-for pkg in workbench framework harvester learning_hub orchestration; do
+for pkg in workbench framework_v1_archive harvester learning_hub orchestration; do
   if [ ! -d "$ROOT/packages/$pkg" ]; then
     echo "[ERROR] packages/$pkg not found — repository may be incomplete"
     exit 1
   fi
 done
-echo "[ok]     packages/{workbench,framework,harvester,learning_hub,orchestration} present"
+echo "[ok]     packages/{workbench,framework_v1_archive,harvester,learning_hub,orchestration} present"
 
 echo
 echo "=== Recreating top-level compatibility symlinks ==="

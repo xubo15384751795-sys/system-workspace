@@ -61,7 +61,7 @@ Retired options (do not reopen without an explicit migration plan):
 | Path | Role |
 |---|---|
 | `packages/workbench/` | Product, NLP, contracts, agent harness |
-| `packages/framework/` | Deformation framework core |
+| `packages/framework_v1_archive/` | Deformation v1 evidence archive |
 | `packages/harvester/` | Data provider / harvester |
 | `packages/learning_hub/` | Governance memory tool |
 

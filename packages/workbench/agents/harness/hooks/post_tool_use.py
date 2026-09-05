@@ -91,7 +91,7 @@ def post_verify(
 ) -> PostHookResult:
     """Post-verification hook: record verification results.
 
-    Invoked after harvester.verify_release or deformation.validate_snapshot.
+    Invoked after harvester.verify_release or deformation.inspect_snapshot.
     Records structured verification evidence for the Learning Hub.
     """
     hook_result = PostHookResult()

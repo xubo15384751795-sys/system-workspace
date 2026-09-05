@@ -17,7 +17,7 @@ CONTRACTS = ROOT / "packages" / "workbench" / "contracts"
 def test_product_framework_boundary_doc_exists() -> None:
     text = (ROOT / "PRODUCT_FRAMEWORK_BOUNDARY.md").read_text(encoding="utf-8")
     assert "Product / Workbench" in text
-    assert "Framework Core" in text
+    assert "Historical consumption (archived)" in text
     assert "Data Providers" in text
     assert "Protocols are the only coupling point" in text
     assert "Data Consumption vs Audit" in text
@@ -46,7 +46,7 @@ def test_folder_ownership_declares_tool_and_framework_roots() -> None:
     assert "packages/learning_hub/" in text
     assert "packages/workbench/contracts/workbench/" in text
     assert "packages/workbench/src/workbench/" in text
-    assert "packages/framework/" in text
+    assert "packages/framework_v1_archive/" in text
     assert "Constitution-Level Red Line" in text
 
 

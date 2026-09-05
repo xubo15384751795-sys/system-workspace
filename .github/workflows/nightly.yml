@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
 
 env:
-  PYTHONPATH: ".:packages/framework/src:packages/workbench/src:scripts"
+  PYTHONPATH: ".:packages/workbench/src:scripts"
 
 jobs:
   # ── Per-module tests (parallel) ─────────────────────────────────────────
@@ -45,7 +45,7 @@ jobs:
       - name: Run Workbench tests
         run: uv run --locked python -m pytest packages/workbench/tests/ -q --tb=short --durations=25
 
-  deformation:
+  archive-reproduction:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -57,8 +57,17 @@ jobs:
         run: python -m pip install uv==0.11.15
       - name: Exact workspace sync
         run: uv sync --locked --all-packages --extra viz
-      - name: Run deformation-framework tests
-        run: uv run --locked python -m pytest packages/framework/tests/ -q --tb=short --durations=25
+      - name: Isolated archived Deformation reproduction
+        working-directory: packages/framework_v1_archive
+        env:
+          ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION: "1"
+          CURRENT_OUTPUT_DIR: ${{ runner.temp }}/archived-deformation-current
+          PYTHONPATH: "src"
+        run: |
+          mkdir -p "$CURRENT_OUTPUT_DIR"
+          uv run --locked --directory "$GITHUB_WORKSPACE" \
+            --package structural-deformation-research-system \
+            python -m pytest tests/ -q --tb=short --durations=25
 
   harvester:
     runs-on: ubuntu-latest
@@ -93,7 +102,7 @@ jobs:
   # ── Full integration (gates on all module tests) ────────────────────────
 
   full-integration:
-    needs: [workbench, deformation, harvester, hub]
+    needs: [workbench, harvester, hub]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:

@@ -45,10 +45,9 @@ model:
     early_stopping_rounds: 50
     verbose_eval: 100
 
-# Deformation feature overlay — the structural variables exported by the
-# main system's Sandbox Exporter.
+# Pressure-feature overlay — Neutral Macro Pressure gauges. Not v1 theory.
 deformation_overlay:
   enabled: true
-  source: sandbox_input/deformation_features.parquet
+  source: sandbox_input/pressure_features.parquet
   broadcast_to_instruments: true
   features: ["*"]

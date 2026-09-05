@@ -49,15 +49,16 @@ def isolated_workspace(tmp_path, monkeypatch):
             "ROOT": tmp_path,
             "OUTPUT": output,
             "CURRENT": output / "current",
-            "DEFORMATION_LATEST": output / "deformation_runs" / "latest",
+            "HARVESTER_LATEST": data / "harvester" / "exports" / "latest",
+            "NEUTRAL_PRESSURE_SNAPSHOT": output / "current" / "neutral_pressure_snapshot.json",
             "LEARNING_LATEST": output / "system_learning" / "latest",
         }),
         (_fresh, {
             "ROOT": tmp_path,
             "POLICY_PATH": tmp_path / "configs" / "freshness_policy.yaml",
             "HARVESTER_LATEST": data / "harvester" / "exports" / "latest",
-            "DEFORMATION_LATEST": output / "deformation_runs" / "latest",
             "CURRENT": output / "current",
+            "NEUTRAL_PRESSURE_SNAPSHOT": output / "current" / "neutral_pressure_snapshot.json",
         }),
         (_cv, {
             "ROOT": tmp_path,

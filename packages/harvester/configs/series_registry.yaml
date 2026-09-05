@@ -334,7 +334,7 @@ series:
     description: "FINRA customer margin debit balances (monthly). Z.1 BOGZ1FL663067003Q is quarterly proxy."
 
   # -------------------------------------------------------------------
-  # M channel — funding / transmission
+  # Policy and funding rates (SOFR, CP, T-bill, prime, IORB)
   # -------------------------------------------------------------------
   T10Y2Y:
     canonical_id: T10Y2Y
@@ -361,7 +361,7 @@ series:
     description: "Federal Funds Effective Rate"
 
   # -------------------------------------------------------------------
-  # D channel — depth / credit conditions
+  # Credit and funding-path spreads (ICE BofA OAS, Moody's Baa/Aaa)
   # -------------------------------------------------------------------
   HYG:
     canonical_id: HYG

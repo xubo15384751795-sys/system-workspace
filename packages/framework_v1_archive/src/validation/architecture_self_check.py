@@ -130,7 +130,7 @@ def run_framework_self_check(
     src_root: Path | None = None,
 ) -> dict[str, Any]:
     workspace_root = (workspace_root or Path(__file__).resolve().parents[4]).resolve()
-    src_root = (src_root or workspace_root / "packages" / "framework" / "src").resolve()
+    src_root = (src_root or workspace_root / "packages" / "framework_v1_archive" / "src").resolve()
     http_findings: list[dict[str, str]] = []
     api_findings: list[dict[str, str]] = []
     for name in CORE_DIRS:

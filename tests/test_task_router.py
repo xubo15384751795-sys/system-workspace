@@ -90,7 +90,8 @@ def test_routing_execute_pipeline_step_blocks_judgment_layer() -> None:
 def test_route_task_escalates_claim_and_paper_work() -> None:
     decision = route_task("Calibrate paper claims about Sigma_t benchmark outperformance")
 
-    assert decision["primary_module"] == "Deformation Framework"
+    assert decision["primary_module"] != "Deformation Framework"
+    assert decision["primary_module"] != "Deformation v1 Evidence Archive"
     assert decision["requires_routing_decision_record"] is True
     expert_ids = {expert["id"] for expert in decision["activated_experts"]}
     assert "claim_guardian" in expert_ids
@@ -283,13 +284,28 @@ def test_create_task_plan_binds_refresh_current_tasks_to_toolspec() -> None:
 
 
 def test_create_task_plan_binds_replay_verification_to_toolspec() -> None:
-    plan = create_task_plan("Verify structural replay for latest deformation run")
+    plan = create_task_plan(
+        "Verify reproduce historical evidence for deformation v1 archived falsified estate settlement"
+    )
 
-    assert plan["route"]["primary_module"] == "Deformation Framework"
+    assert plan["route"]["primary_module"] == "Deformation v1 Evidence Archive"
     bound_tools = {
         tool_id for step in plan["steps"] for tool_id in step["tool_spec"]["tool_ids"]
     }
     assert "deformation.evaluate_replay" in bound_tools
+    assert "packages/framework_v1_archive/src/core/" in plan["route"]["do_not_read_first"]
+    assert "packages/framework_v1_archive/src/dynamics/" in plan["route"]["do_not_read_first"]
+    assert "packages/framework_v1_archive/src/operators/" in plan["route"]["do_not_read_first"]
+
+
+def test_route_task_does_not_assign_live_work_to_deformation_archive() -> None:
+    tasks = ["加 freshness 检查", "写 measurement 文档", "改 dashboard"]
+    for task in tasks:
+        decision = route_task(task)
+        assert decision["primary_module"] not in {
+            "Deformation Framework",
+            "Deformation v1 Evidence Archive",
+        }, task
 
 
 def test_create_task_plan_includes_tool_coverage_summary() -> None:

@@ -151,7 +151,7 @@ SDF_CONTRACT = {
     },
 }
 
-SDF_ENTRY = {"framework_id": "structural_deformation", "contract": SDF_CONTRACT}
+MACRO_ENTRY = {"framework_id": "macro_pressure_measurement", "contract": SDF_CONTRACT}
 
 
 class TestComputeBasicFromAdvanced:
@@ -168,31 +168,31 @@ class TestComputeBasicFromAdvanced:
 
     def test_singular_yes_is_alert(self):
         result = current._compute_basic_from_advanced(
-            self._advanced(singular="yes"), SDF_CONTRACT, SDF_ENTRY
+            self._advanced(singular="yes"), SDF_CONTRACT, MACRO_ENTRY
         )
         assert result["overall"] == "ALERT"
 
     def test_escalation_true_is_alert(self):
         result = current._compute_basic_from_advanced(
-            self._advanced(escalation="true"), SDF_CONTRACT, SDF_ENTRY
+            self._advanced(escalation="true"), SDF_CONTRACT, MACRO_ENTRY
         )
         assert result["overall"] == "ALERT"
 
     def test_leading_channel_is_watch(self):
         result = current._compute_basic_from_advanced(
-            self._advanced(leading_channel="M"), SDF_CONTRACT, SDF_ENTRY
+            self._advanced(leading_channel="M"), SDF_CONTRACT, MACRO_ENTRY
         )
         assert result["overall"] == "WATCH"
 
     def test_clean_is_ok(self):
         result = current._compute_basic_from_advanced(
-            self._advanced(), SDF_CONTRACT, SDF_ENTRY
+            self._advanced(), SDF_CONTRACT, MACRO_ENTRY
         )
         assert result["overall"] == "OK"
 
     def test_result_has_required_keys(self):
         result = current._compute_basic_from_advanced(
-            self._advanced(), SDF_CONTRACT, SDF_ENTRY
+            self._advanced(), SDF_CONTRACT, MACRO_ENTRY
         )
         for key in ("overall", "main_pressure", "confidence", "summary"):
             assert key in result
@@ -240,19 +240,19 @@ class TestYesNo:
 
 class TestResolveChannelLabel:
     def test_known_channels(self):
-        assert "rates" in current._resolve_channel_label("M", SDF_ENTRY).lower()
-        assert "degrees" in current._resolve_channel_label("D", SDF_ENTRY).lower()
-        assert "curvature" in current._resolve_channel_label("K", SDF_ENTRY).lower()
-        assert "shadow" in current._resolve_channel_label("X", SDF_ENTRY).lower()
+        assert "rates" in current._resolve_channel_label("M", MACRO_ENTRY).lower()
+        assert "degrees" in current._resolve_channel_label("D", MACRO_ENTRY).lower()
+        assert "curvature" in current._resolve_channel_label("K", MACRO_ENTRY).lower()
+        assert "shadow" in current._resolve_channel_label("X", MACRO_ENTRY).lower()
 
     def test_unknown_channel(self):
-        assert current._resolve_channel_label("Z", SDF_ENTRY) == "Z"
+        assert current._resolve_channel_label("Z", MACRO_ENTRY) == "Z"
 
     def test_none_returns_unknown(self):
-        assert current._resolve_channel_label(None, SDF_ENTRY) == "unknown"
+        assert current._resolve_channel_label(None, MACRO_ENTRY) == "unknown"
 
     def test_unknown_string_returns_unknown(self):
-        assert current._resolve_channel_label("unknown", SDF_ENTRY) == "unknown"
+        assert current._resolve_channel_label("unknown", MACRO_ENTRY) == "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -286,3 +286,66 @@ class TestExtractAdvancedFromMainSignal:
         dashboard = {"snapshot_core": {"state": {"pattern": "STABLE_LOCAL"}}}
         advanced = current._extract_advanced_from_main_signal(main_signal, dashboard, SDF_CONTRACT)
         assert advanced.get("morphology") == "explicit_fold"
+
+
+# ---------------------------------------------------------------------------
+# refresh_current / live current card must not open deformation_runs/latest
+# ---------------------------------------------------------------------------
+
+def _write_neutral_snapshot(root) -> None:
+    import json
+
+    current_dir = root / "Output" / "current"
+    current_dir.mkdir(parents=True, exist_ok=True)
+    (current_dir / "neutral_pressure_snapshot.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "neutral_pressure.snapshot.v1",
+                "framework_id": "macro_pressure_measurement",
+                "run_id": "neutral_live",
+                "as_of": "2026-09-05",
+                "status": "active_partial",
+                "basic": {"overall": "WATCH", "main_pressure": "funding", "confidence": "bounded", "summary": "neutral"},
+                "advanced": {"harvester_release": "rel-live"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+class TestRefreshCurrentSkipsArchivedDeformation:
+    def test_macro_pressure_only_does_not_open_deformation_latest(self, tmp_path):
+        trap = tmp_path / "Output" / "deformation_runs" / "latest"
+        trap.mkdir(parents=True)
+        (trap / "run_manifest.json").write_text(
+            '{"run_id": "TRAP", "harvester_release": "TRAP"}\n', encoding="utf-8"
+        )
+        _write_neutral_snapshot(tmp_path)
+
+        current.refresh_current()
+
+        readme = (tmp_path / "Output" / "current" / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
+        assert "TRAP" not in readme
+        model_run = tmp_path / "Output" / "current" / "model_run_macro_pressure_measurement.json"
+        assert model_run.exists()
+        assert not (tmp_path / "Output" / "current" / "model_run.json").exists()
+
+    def test_empty_active_registry_does_not_open_deformation_latest(self, tmp_path, monkeypatch):
+        trap = tmp_path / "Output" / "deformation_runs" / "latest"
+        trap.mkdir(parents=True)
+        (trap / "run_manifest.json").write_text(
+            '{"run_id": "TRAP", "harvester_release": "TRAP"}\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(current, "load_registry", lambda: {"frameworks": []})
+        monkeypatch.setattr(current, "active_frameworks", lambda registry=None: [])
+
+        current.refresh_current()
+
+        readme = (tmp_path / "Output" / "current" / "00_READ_ME_FIRST.md").read_text(encoding="utf-8")
+        assert "TRAP" not in readme
+        assert "deformation_runs" not in readme
+
+    def test_resolve_framework_output_root_has_no_deformation_fallback(self):
+        root = current._resolve_framework_output_root({"framework_id": "macro_pressure_measurement", "contract": {}})
+        assert root is None

@@ -18,7 +18,7 @@ class TestSandboxExporter:
         manifest = {
             "files": [
                 {"path": "market_panel.parquet", "source": "Data/releases/...", "mode": "copied_snapshot"},
-                {"path": "deformation_features.parquet", "source": "Output/...", "mode": "copied_snapshot"},
+                {"path": "pressure_features.parquet", "source": "Output/...", "mode": "copied_snapshot"},
             ]
         }
         for f in manifest["files"]:
@@ -57,7 +57,7 @@ class TestSandboxExporter:
             index=pd.DatetimeIndex(dates),
         )
         market.to_parquet(tmp_path / "market_panel.parquet", index=False)
-        deformation.to_parquet(tmp_path / "deformation_features.parquet")
+        deformation.to_parquet(tmp_path / "pressure_features.parquet")
 
         _build_joined_features(tmp_path)
 

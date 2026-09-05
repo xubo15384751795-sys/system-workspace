@@ -11,7 +11,7 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework_v1_archive" / "src"
 
 # Directories that must be clean of HTTP/API-key imports
 CLEAN_DIRS = [

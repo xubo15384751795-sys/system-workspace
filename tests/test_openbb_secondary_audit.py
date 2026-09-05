@@ -7,11 +7,13 @@ from pathlib import Path
 import jsonschema
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "packages" / "workbench" / "src"))
 sys.path.insert(0, str(ROOT / "packages" / "learning_hub" / "src"))
 
 from system_learning.ingestion.collectors import collect_events
-from workbench.openbb_secondary_audit import AuditInputs, run_audit
+
+from scripts.archive.openbb_secondary_audit import AuditInputs, run_audit
 
 
 def test_openbb_secondary_audit_writes_observe_only_learning_event(tmp_path: Path) -> None:
@@ -165,14 +167,14 @@ def test_openbb_secondary_audit_rejects_manifest_paths_that_escape_run_dir(tmp_p
 
 
 def test_openbb_secondary_audit_boundaries_are_static() -> None:
-    audit_source = (ROOT / "packages" / "workbench" / "src" / "workbench" / "openbb_secondary_audit.py").read_text(
+    audit_source = (ROOT / "scripts" / "archive" / "openbb_secondary_audit.py").read_text(
         encoding="utf-8"
     )
     assert "import openbb" not in audit_source
     assert "from openbb" not in audit_source
     assert "Data/harvester/exports" not in audit_source
 
-    deformation_src = ROOT / "packages" / "framework" / "src"
+    deformation_src = ROOT / "packages" / "framework_v1_archive" / "src"
     offenders: list[str] = []
     for path in deformation_src.rglob("*.py"):
         text = path.read_text(encoding="utf-8")

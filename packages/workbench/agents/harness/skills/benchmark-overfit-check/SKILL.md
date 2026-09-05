@@ -1,9 +1,8 @@
-# Benchmark Overfit Check
+# Archived Benchmark Overfit Audit
 
 ## Trigger
-When a benchmark comparison, dominance claim, calibration run, or incremental-info assertion is produced.
-Mandatory before any paper text claims "outperforms", "dominance", "incremental information", or "baseline rank".
-Also triggered when `deformation.benchmark_dominance` feature is invoked.
+When auditing archived Deformation v1 benchmark evidence.
+Not a live release or publish gate. `deformation.benchmark_dominance` is `archived_denied`.
 
 ## Scope
 - No-lookahead validation (temporal alignment, release-date policy)
@@ -11,12 +10,12 @@ Also triggered when `deformation.benchmark_dominance` feature is invoked.
 - Ablation completeness (which proxy channels contribute)
 - Incremental information evidence (does Sigma_t add beyond controls)
 - Benchmark-to-proxy leakage (are benchmarks contaminating Sigma_t)
-- Feature gate enforcement (`deformation.benchmark_dominance: engineering_required`)
+- Feature gate enforcement (`deformation.benchmark_dominance: archived_denied`)
 
 ## Read First
 - `Output/deformation_runs/<run_id>/` — target snapshot and manifest
 - `packages/workbench/agents/harness/policies/boundary_rules.yaml` — `boundary.deny.benchmark-silent-proxy-entry`
-- `packages/workbench/agents/harness/policies/feature_flags.yaml` — `deformation.benchmark_dominance: engineering_required`
+- `packages/workbench/agents/harness/policies/feature_flags.yaml` — `deformation.benchmark_dominance: archived_denied`
 - `ROUTING_CONSTITUTION.md` — `benchmark_proxy_separation`
 - Control data from finalized Harvester releases
 
@@ -56,7 +55,7 @@ Separate benchmark runs from live proxy-core runs.
 ```python
 from packages.workbench.agents.harness.policies.feature_flags import can_promote, explain_gate
 result = can_promote("deformation.benchmark_dominance", "paper/main_output")
-assert not result.allowed  # engineering_required → denied to paper
+assert not result.allowed  # archived_denied → no live output
 print(explain_gate("deformation.benchmark_dominance", "paper/main_output"))
 ```
 
@@ -74,7 +73,7 @@ print(explain_gate("deformation.benchmark_dominance", "paper/main_output"))
 - Claiming "dominance" from single run or case
 - Routing benchmark sigma_t values into live proxy core
 - Using forward-looking data in evaluation (no-lookahead violation)
-- Promoting `deformation.benchmark_dominance` output to paper without engineering review
+- Treating archived `deformation.benchmark_dominance` as a live or paper-eligible feature
 - Omitting baseline controls from comparison
 
 ## Output Artifact

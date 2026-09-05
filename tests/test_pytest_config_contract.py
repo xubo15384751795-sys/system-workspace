@@ -66,13 +66,39 @@ def test_root_pythonpath_covers_workspace_test_imports() -> None:
     pythonpath = set(root_project["tool"]["pytest"]["ini_options"]["pythonpath"])
     assert {
         ".",
-        "packages/framework/src",
         "packages/harvester/src",
         "packages/learning_hub/src",
         "packages/workbench/src",
         "packages/orchestration",
         "scripts",
     } <= pythonpath
+    assert "packages/framework" not in pythonpath
+    assert "packages/framework/src" not in pythonpath
+    assert "packages/framework_v1_archive" not in pythonpath
+    assert "packages/framework_v1_archive/src" not in pythonpath
+
+
+def test_root_pytest_does_not_collect_archived_framework_tests() -> None:
+    import subprocess
+    import sys
+
+    root_project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    config = root_project["tool"]["pytest"]["ini_options"]
+    assert config["testpaths"] == ["tests"]
+    assert "packages/framework_v1_archive" in set(config["norecursedirs"])
+    assert "packages/framework" not in set(config["norecursedirs"])
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    collected = proc.stdout + proc.stderr
+    assert "packages/framework/tests" not in collected
+    assert "packages/framework_v1_archive/tests" not in collected
+    assert "test_research_http_gateway.py" not in collected
 
 
 def test_marker_classification_and_root_files_are_three_way_consistent() -> None:

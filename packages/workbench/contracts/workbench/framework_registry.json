@@ -4,8 +4,9 @@
   "frameworks": [
     {
       "framework_id": "structural_deformation",
-      "contract_path": "packages/framework/framework.yaml",
+      "contract_path": "packages/workbench/contracts/workbench/frameworks/structural_deformation.archive.yaml",
       "active": false,
+      "executable": "denied",
       "archive_status": "ARCHIVED_FALSIFIED",
       "archive_decision": "governance/routing_decisions/2026-07-18-deformation-v1-estate-settlement.yaml"
     },

@@ -636,7 +636,7 @@ class TestBoundaryEnforcement:
 
     def test_no_deformation_modifications(self):
         """NLP code must not modify Deformation files."""
-        deformation_dir = ROOT / "packages" / "framework" / "src"
+        deformation_dir = ROOT / "packages" / "framework_v1_archive" / "src"
         nlp_paths = {p.name for p in self.NLP_SRC.rglob("*.py")}
         deformation_paths = list(deformation_dir.rglob("*.py"))
         assert deformation_paths, "Deformation source must exist"

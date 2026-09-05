@@ -102,7 +102,7 @@ def determine_next_actions(
             "action": "Improve measurement quality",
             "reason": "Confidence is low due to proxy-reduced channels",
             "command": "Check framework_output.json quality_status",
-            "module": "packages/framework",
+            "module": "packages/framework_v1_archive",
         })
 
     if "caselab" in blocked:

@@ -4367,7 +4367,7 @@ wheels = [
 [[package]]
 name = "structural-deformation-research-system"
 version = "0.1.0"
-source = { editable = "packages/framework" }
+source = { editable = "packages/framework_v1_archive" }
 dependencies = [
     { name = "duckdb" },
     { name = "httpcore" },

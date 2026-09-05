@@ -199,11 +199,51 @@ def _consecutive_days(days: set[date]) -> int:
     return best
 
 
+def _has_failed_provider_attempt(record: Mapping[str, Any]) -> bool:
+    """Detect a failed provider attempt even when a later fallback succeeds.
+
+    The run-level provider status intentionally remains ``refreshed`` when a
+    chain recovers the requested series.  The attempt-level record is still
+    required scenario evidence, but it must not affect whether the committed
+    core run qualifies for the continuity window.
+    """
+    for provider_outcome in record.get("provider_outcomes") or []:
+        if not isinstance(provider_outcome, Mapping):
+            continue
+        series_attempts = provider_outcome.get("series_attempts")
+        if not isinstance(series_attempts, Mapping):
+            continue
+        for attempts in series_attempts.values():
+            if not isinstance(attempts, list):
+                continue
+            for attempt in attempts:
+                if not isinstance(attempt, Mapping):
+                    continue
+                outcome = str(attempt.get("outcome") or "").strip().lower()
+                failure_class = str(attempt.get("failure_class") or "").strip().upper()
+                error = str(attempt.get("error") or "").strip()
+                if outcome in {"failed", "failure", "error"}:
+                    return True
+                if not outcome or outcome not in {"success", "ok"}:
+                    if error or (failure_class and failure_class != "NONE"):
+                        return True
+    return False
+
+
 def _has_provider_failure(record: Mapping[str, Any]) -> bool:
     outcome = record.get("outcome") if isinstance(record.get("outcome"), Mapping) else {}
     statuses = {str(status).lower() for status in record.get("provider_statuses") or []}
     provider_status = str(outcome.get("provider_status") or "").lower()
-    return bool(statuses & _PROVIDER_FAILURE_STATUSES or provider_status in _PROVIDER_FAILURE_STATUSES)
+    if statuses & _PROVIDER_FAILURE_STATUSES or provider_status in _PROVIDER_FAILURE_STATUSES:
+        return True
+
+    # A series can fail and recover through a later provider without leaving a
+    # failed_series value at the aggregate level.  Preserve explicit failed
+    # series as scenario evidence when present.
+    for provider_outcome in [outcome, *(record.get("provider_outcomes") or [])]:
+        if isinstance(provider_outcome, Mapping) and provider_outcome.get("failed_series"):
+            return True
+    return _has_failed_provider_attempt(record)
 
 
 def _has_fallback(record: Mapping[str, Any]) -> bool:
@@ -222,6 +262,27 @@ def _has_stale_or_expiry(record: Mapping[str, Any]) -> bool:
         return True
     if outcome.get("operational_state") == "COMPLETED_BLOCKED":
         return True
+
+    # Newer bundles keep cache and availability facts on the provider outcome,
+    # rather than duplicating them into RunOutcome.  Read those fields here as
+    # scenario evidence only; this function never changes qualification.
+    for provider_outcome in record.get("provider_outcomes") or []:
+        if not isinstance(provider_outcome, Mapping):
+            continue
+        if provider_outcome.get("cache_within_grace") is False:
+            return True
+        availability = provider_outcome.get("availability")
+        if isinstance(availability, Mapping):
+            state = str(availability.get("state") or "").strip().upper()
+            if state in {"STALE", "EXPIRED", "CACHE_EXPIRED"}:
+                return True
+        provider_status = str(provider_outcome.get("status") or "").strip().lower()
+        if provider_status in {
+            "reused_after_provider_failure",
+            "reused_same_content",
+            "environmentally_blocked",
+        }:
+            return True
     text = _tag_text(record)
     return any(token in text for token in ("stale", "cache_expir", "carry_forward"))
 

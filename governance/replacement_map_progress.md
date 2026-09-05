@@ -8,7 +8,7 @@
 - **聚焦验证**：相关单测或离线演练通过；
 - **默认路径**：现行默认入口已经使用它；
 - **运行观察**：经过真实调度或双轨窗口；
-- **远端验证**：在 `ai-box` 上按仓库规定的 Python 3.13 环境验证。
+- **远端验证**：可选；仅在操作者明确要求、且本地 daily 路径已稳定后，再在 `ai-box` 上按仓库规定的 Python 3.13 环境验证。当前默认是本机 `/Users/a1/Verity`。
 
 状态含义：`完成` 表示该层已经有证据；`部分完成` 表示实现存在但仍缺生产级证据；`待办` 表示尚未开始；`阻塞` 表示必须先解决的外部条件。只有“源码 + 聚焦验证 + 默认路径 + 运行观察 + 远端验证”全部完成，才允许从 shadow/pilot 提升为 production authority。
 
@@ -447,7 +447,15 @@ uv run python -m orchestration.operators.aggregate_daily_dual_track_window \
   --report Output/health/native_current_dual_track_window.json
 ```
 
-远端正式验证（按 `AGENTS.md`）：
+本地默认验证（按 `AGENTS.md`）：
+
+```bash
+cd /Users/a1/Verity
+uv run pytest
+# 或: make test
+```
+
+远端验证仅在操作者明确要求、且本地 daily 路径已稳定后使用：
 
 ```bash
 cd /Users/a1/Verity
@@ -456,7 +464,7 @@ cd /Users/a1/Verity
 
 ## 当前下一步顺序
 
-1. 保持 ai-box focused 证据；若需要 root 全绿，另建带 Git 元数据的 clean checkout/CI 运行环境，不能把 source-sync 树的 3 个 Git 依赖失败算作替换失败。
+1. 默认在本机跑 focused / dry-run；不要把 `ai-box` 当成下一步必做。等本地 daily 路径稳定能跑之后，再按需做远端验证。若以后需要 root 全绿，另建带 Git 元数据的 clean checkout/CI，不能把 source-sync 树的 Git 依赖失败算作替换失败。
 2. 配置 healthchecks URL，让 launchd 真实 daily run 发送 ping；Sentry 已有真实事件回执，随后开始一周 heartbeat 观察。
 3. 完成 DVC scratch restore/push 验证，固定 DuckDB canonical 的跨设备恢复证据。
 4. 补齐 external_indicators 缺失缓存，开始 dlt 一周双轨窗口；CFTC 继续作为已 MATCH 的基准。

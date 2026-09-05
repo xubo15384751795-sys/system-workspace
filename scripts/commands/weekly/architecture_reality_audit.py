@@ -33,7 +33,7 @@ from scripts._runtime_io import load_yaml as _load_yaml
 
 logger = logging.getLogger(__name__)
 
-FRAMEWORK_SRC = ROOT / "packages" / "framework" / "src"
+FRAMEWORK_SRC = ROOT / "packages" / "framework_v1_archive" / "src"
 CAPABILITY_REGISTRY = ROOT / "governance" / "capability_registry.yaml"
 DAILY_PIPELINE_REGISTRY = ROOT / "governance" / "daily_pipeline_registry.yaml"
 MODULES_MD = ROOT / "MODULES.md"
@@ -57,7 +57,7 @@ def _framework_self_check_heartbeat() -> dict[str, Any]:
     """Invoke Framework's public self-check; central control only aggregates."""
     result = subprocess.run(
         [sys.executable, "-m", "src.validation.architecture_self_check", "--json"],
-        cwd=ROOT / "packages" / "framework",
+        cwd=ROOT / "packages" / "framework_v1_archive",
         check=False,
         capture_output=True,
         text=True,

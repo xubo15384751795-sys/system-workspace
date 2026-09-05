@@ -1,6 +1,6 @@
 """Compatibility entrypoint for the Framework dual-path comparison utility.
 
-The implementation remains owned by ``packages/framework/scripts``.  This
+The implementation remains owned by ``packages/framework_v1_archive/scripts``.  This
 thin root wrapper keeps the workspace's ``scripts`` import path and registry
 entrypoints pointed at the canonical implementation without duplicating it.
 """
@@ -17,7 +17,7 @@ def _load_impl() -> ModuleType:
     target = (
         Path(__file__).resolve().parents[1]
         / "packages"
-        / "framework"
+        / "framework_v1_archive"
         / "scripts"
         / "dual_path_compare.py"
     )

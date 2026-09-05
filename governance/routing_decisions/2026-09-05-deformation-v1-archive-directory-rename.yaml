@@ -1,0 +1,49 @@
+schema_version: routing_decision.v1
+decision_id: 2026-09-05-deformation-v1-archive-directory-rename
+date: "2026-09-05"
+cynefin_domain: complicated
+status: adopted
+supersedes: 2026-07-18-deformation-v1-estate-settlement
+summary: >
+  Keep Deformation v1 evidence in-repo under packages/framework_v1_archive
+  so the tree no longer looks like a live package. Git history is preserved
+  by rename; live registries, MODULES, CI, and import boundaries point at
+  the archive name or away from it.
+scope: >
+  Directory rename packages/framework to packages/framework_v1_archive,
+  workspace membership, nightly archive-reproduction cwd, CODEOWNERS,
+  MODULES.md, FOLDER_OWNERSHIP.md, module_contexts/framework.md, live
+  registries, and import-boundary tests. Dated routing_decisions and
+  docs/history keep the historical path names.
+decision: >
+  The falsified host-theory tree remains evidence, not an operational host.
+  Rename is identity only: no rewrite of archive implementation, no change
+  to publication, promotion, or judgment authority. Default CLI and root
+  pytest do not path-inject the archive. Isolated nightly reproduction stays
+  the only executable archive lane.
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+  contract_enum_change: false
+  identity_surface_change: true
+preregistered_expectation: >
+  packages/framework_v1_archive exists, packages/framework does not, root
+  pytest does not collect archive tests, and live registries/MODULES resolve
+  to the archive path.
+acceptance:
+  - Git records the package tree as a rename, not a rewrite.
+  - pyproject workspace members and uv.lock editable path use
+    packages/framework_v1_archive.
+  - Nightly archive-reproduction working-directory is
+    packages/framework_v1_archive.
+  - MODULES.md and task_router primary_paths use the archive directory.
+  - Root pytest pythonpath does not inject the archive src tree.
+rollback: >
+  git mv packages/framework_v1_archive packages/framework and restore the
+  previous registry, MODULES, CI, and test path strings.
+non_goals:
+  - Rewrite Deformation v1 implementation or git history.
+  - Restore v1 as a live default-path producer.
+  - Rename dated docs/history or frozen routing_decision records.
