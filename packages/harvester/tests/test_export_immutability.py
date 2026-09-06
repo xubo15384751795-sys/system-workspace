@@ -4,10 +4,15 @@ import json
 from pathlib import Path
 
 import pytest
-
-from harvester.core.exporter import ExportValidationError, FinalizedReleaseError, finalize_release, sha256_file
+from harvester.core.exporter import (
+    ExportValidationError,
+    FinalizedReleaseError,
+    finalize_release,
+    sha256_file,
+)
 from harvester.core.manifest import write_manifest
 from harvester.core.provenance import build_provenance, record_provenance
+
 from tests.test_manifest_schema import sample_manifest
 
 
@@ -93,6 +98,20 @@ def test_finalize_release_rejects_release_symlink_outside_exports_root(tmp_path:
 
     with pytest.raises(ExportValidationError, match="outside exports root"):
         finalize_release("safe-release", exports_root=exports_root)
+
+
+def test_finalize_release_does_not_write_dvc_pointer(tmp_path: Path, caplog) -> None:
+    import logging
+
+    exports_root = tmp_path / "exports"
+    release_dir = create_release(exports_root)
+    try:
+        with caplog.at_level(logging.WARNING):
+            finalize_release("2026-04-26-r1", exports_root=exports_root, dry_run=False)
+        assert "DVC" not in caplog.text
+        assert not (exports_root / ".dvc_meta").exists()
+    finally:
+        restore_permissions(release_dir)
 
 
 def test_finalize_release_writes_catalog_latest_and_seals(tmp_path: Path) -> None:

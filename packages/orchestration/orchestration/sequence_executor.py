@@ -14,13 +14,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, cast
 
+from orchestration.canonical_lineage import attach_output_lineage
 from orchestration.daily_run_sequence import weekly_step_ids
 from orchestration.pipeline_runner import run_callable_step
 from scripts._runtime_io import ROOT, current_dir
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import CompiledPlan, load_pipeline
-
-from orchestration.canonical_lineage import attach_output_lineage
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +45,8 @@ def _replay_env() -> dict[str, str]:
 
 
 def _harvester_env() -> dict[str, str]:
-    # The Harvester finalization path records the release pointer through
-    # orchestration.dvc_promote. Keep the scheduler subprocess on the same
-    # import surface as the direct wrapper; otherwise the release succeeds
-    # but silently skips its DVC pointer.
+    # Harvester finalize no longer writes DVC pointers. PYTHONPATH still
+    # includes orchestration for other finalize-time imports.
     return {
         "PYTHONPATH": os.pathsep.join(
             [

@@ -180,25 +180,9 @@ def finalize_release(
         encoding="utf-8",
     )
     _point_latest(latest_path, release_id)
-    try:
-        from orchestration.dvc_promote import record_release_pointer
-
-        dvc_result = record_release_pointer(exports_root=root, release_id=release_id)
-        if dvc_result.get("dvc_commit_status") != "PASS":
-            logger.warning(
-                "DVC pointer not committed for release %s: %s",
-                release_id,
-                dvc_result.get("dvc_error", "DVC_COMMIT_BLOCKED"),
-            )
-    except Exception as exc:
-        # DVC recovery evidence is separate from the finalized local release,
-        # but the failure must remain visible and typed.
-        logger.warning(
-            "DVC pointer recording failed for release %s: %s",
-            release_id,
-            type(exc).__name__,
-            exc_info=True,
-        )
+    # DVC pointer writes are an explicit operator
+    # (orchestration.operators.promote_harvester_release_dvc), not part of
+    # finalize. Daily harvester must not emit DVC_NOT_INSTALLED on stderr.
     _make_read_only(release_dir)
     return result
 

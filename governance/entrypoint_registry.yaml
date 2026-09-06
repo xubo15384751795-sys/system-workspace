@@ -41,6 +41,17 @@ promote_canonical_panel_dvc:
   forbidden_use:
   - daily_pipeline
   - unapproved_external_push
+promote_harvester_release_dvc:
+  script: packages/orchestration/orchestration/operators/promote_harvester_release_dvc.py
+  status: tool_active
+  owner: Harvester
+  description: Explicit DVC tracking for a finalized Harvester release pointer; not invoked by daily finalize
+  allowed_use:
+  - harvester_release_pointer
+  - dvc_recovery_evidence
+  forbidden_use:
+  - daily_pipeline
+  - unapproved_external_push
 verify_duckdb_default_path:
   script: packages/harvester/src/harvester/operators/verify_duckdb_default_path.py
   status: shadow_active
