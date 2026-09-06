@@ -84,6 +84,11 @@ def test_registry_fetch_records_partial_provider_outcome(tmp_path) -> None:
     assert outcome["succeeded_count"] == 1
     assert outcome["failed_count"] == 1
     assert outcome["failed_series"] == ["BAD_SERIES"]
+    sources = {item["source_id"]: item for item in panel.attrs["acquisition_sources"]}
+    assert sources["OK_SERIES"]["outcome"] == "success"
+    assert sources["OK_SERIES"]["attempts"] == 1
+    assert sources["BAD_SERIES"]["outcome"] == "failed"
+    assert sources["BAD_SERIES"]["elapsed_s"] >= 0
 
 
 def test_registry_fetch_records_route_fallback_attempts(tmp_path, monkeypatch) -> None:
@@ -371,6 +376,18 @@ def test_complete_release_propagates_provider_outcome_to_artifacts(tmp_path) -> 
         }
     )
     panel.attrs["provider_outcome"] = outcome
+    panel.attrs["acquisition_sources"] = [
+        {
+            "source_id": "OK_SERIES",
+            "series_id": "OK_SERIES",
+            "provider": "fake",
+            "started_at": "2026-08-01T00:00:00Z",
+            "completed_at": "2026-08-01T00:00:01Z",
+            "elapsed_s": 1.25,
+            "attempts": 1,
+            "outcome": "success",
+        }
+    ]
     registry = SimpleNamespace(
         active_series=lambda: [],
         derived_series=lambda: [],
@@ -436,6 +453,13 @@ def test_complete_release_propagates_provider_outcome_to_artifacts(tmp_path) -> 
     assert manifest["provider_outcome"] == outcome
     assert provenance["provider_outcome"] == outcome
     assert provenance["canonical_chain_count"] == 1
+    assert provenance["acquisition"]["sources"][0]["source_id"] == "OK_SERIES"
+    assert provenance["acquisition"]["sources"][0]["elapsed_s"] == 1.25
+    step_ids = {step["step_id"] for step in provenance["acquisition"]["local_steps"]}
+    assert {"jsonl_observations", "jsonl_chains", "derived_panel"} <= step_ids
+    for step in provenance["acquisition"]["local_steps"]:
+        assert step["elapsed_s"] >= 0
+        assert step["outcome"] in {"success", "failed"}
     assert quality["provider_outcome"] == outcome
 
     proxy_spec_path = release / "provenance" / "proxy_candidate_panel.measurement_spec.json"

@@ -4,16 +4,26 @@ import hashlib
 import json
 import logging
 import os
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
 
-from harvester.core.manifest import build_manifest
-from harvester.core.observation import observation_coverage_from_frame, read_observation_coverage
-from harvester.core.provenance import build_provenance
+from harvester.core.acquisition_timing import (
+    replace_local_steps,
+    source_record,
+    track_local_step,
+    utc_now,
+)
 from harvester.core.exporter import resolve_release_dir, validate_release_id
+from harvester.core.manifest import build_manifest
+from harvester.core.observation import (
+    observation_coverage_from_frame,
+    read_observation_coverage,
+)
+from harvester.core.provenance import build_provenance
 from harvester.providers import ProviderError, build_provider, openbb_available
 from system_runtime.paths import WorkspacePaths
 
@@ -714,15 +724,23 @@ def make_provenance(
     measurement_spec_path: str | None = None,
     measurement_spec_version: str | None = None,
     notes: str = "",
+    acquisition_sources: list[dict[str, Any]] | None = None,
+    local_steps: list[dict[str, Any]] | None = None,
+    started_at: str | None = None,
+    completed_at: str | None = None,
 ) -> dict[str, Any]:
     ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     acquisition: dict[str, Any] = {
         "method": method,
         "source_identifier": source_identifier,
-        "started_at": ts,
-        "completed_at": ts,
+        "started_at": started_at or ts,
+        "completed_at": completed_at or ts,
         "operator": "harvester.official",
     }
+    if acquisition_sources is not None:
+        acquisition["sources"] = list(acquisition_sources)
+    if local_steps is not None:
+        acquisition["local_steps"] = list(local_steps)
     checksums: dict[str, str] = {"final_sha256": final_sha256}
     if raw_sha256 and len(raw_sha256) == 64:
         checksums["raw_sha256"] = raw_sha256
@@ -761,8 +779,8 @@ def _canonical_official_observations(
 ) -> list[dict[str, Any]]:
     """Build canonical observations for the long official panel."""
     try:
-        from system_runtime.canonical_ids import build_observation
         from harvester.core.availability import build_availability
+        from system_runtime.canonical_ids import build_observation
     except ImportError:
         return []
 
@@ -1093,6 +1111,7 @@ def fetch_official_series_from_registry(
     series_source_signatures: dict[str, Any] = {}
     series_attempts: dict[str, Any] = {}
     fallback_used = False
+    acquisition_sources: list[dict[str, Any]] = []
 
     def _provider(name: str):
         if name in provider_cache:
@@ -1165,6 +1184,8 @@ def fetch_official_series_from_registry(
         source_id = s.source_series_id or s.canonical_id
         got = False
         route_attempts: list[dict[str, Any]] = []
+        series_started_at = utc_now()
+        series_t0 = time.perf_counter()
         for provider_name in order_provider_priority(s.provider_priority):
             if provider_name not in enabled:
                 continue
@@ -1255,6 +1276,17 @@ def fetch_official_series_from_registry(
                 series_attempts[source_id] = route_attempts
             failed_series.append(source_id)
             logger.debug("no provider succeeded for %s", source_id)
+        acquisition_sources.append(
+            source_record(
+                source_id=source_id,
+                series_id=str(s.canonical_id),
+                provider=str(series_providers.get(source_id) or ""),
+                started_at=series_started_at,
+                t0=series_t0,
+                attempts=len(route_attempts),
+                outcome="success" if got else "failed",
+            )
+        )
 
     if not requested_series:
         outcome = _provider_outcome(
@@ -1314,12 +1346,14 @@ def fetch_official_series_from_registry(
             "value", "unit", "frequency", "vintage_date", "quality_flag",
         ])
         empty.attrs["provider_outcome"] = outcome
+        empty.attrs["acquisition_sources"] = acquisition_sources
         return empty
 
     panel = pd.concat(all_results, ignore_index=True)
     panel["date"] = pd.to_datetime(panel["date"])
     panel = panel.sort_values(["series_id", "date"]).reset_index(drop=True)
     panel.attrs["provider_outcome"] = outcome
+    panel.attrs["acquisition_sources"] = acquisition_sources
     return panel
 
 
@@ -1580,6 +1614,9 @@ def stage_complete_release(
     for sub in ("data", "manifests", "provenance", "quality_reports"):
         (release_dir / sub).mkdir(parents=True, exist_ok=True)
 
+    local_steps: list[dict[str, Any]] = []
+    stage_started_at = utc_now()
+
     # ------------------------------------------------------------------
     # 1. Fetch acquired series
     # ------------------------------------------------------------------
@@ -1590,6 +1627,7 @@ def stage_complete_release(
         cache=cache,
         api_keys=api_keys,
     )
+    acquisition_sources = list(panel.attrs.get("acquisition_sources") or [])
     panel = _carry_forward_missing_series(
         panel,
         exports_root=ex_root,
@@ -1626,12 +1664,13 @@ def stage_complete_release(
     # 2. Build derived series
     # ------------------------------------------------------------------
     derived_series = registry.derived_series()
-    derived_panel = build_derived_panel(
-        list(derived_series),
-        panel,
-        as_of_date=as_of_date,
-        vintage_date=vintage_date,
-    )
+    with track_local_step(local_steps, "derived_panel"):
+        derived_panel = build_derived_panel(
+            list(derived_series),
+            panel,
+            as_of_date=as_of_date,
+            vintage_date=vintage_date,
+        )
 
     # ------------------------------------------------------------------
     # 3. External indicators (OFR_FSI)
@@ -1649,30 +1688,53 @@ def stage_complete_release(
             for indicator in KNOWN_INDICATORS:
                 cache_dir = harvester_raw_root() / "external_indicators"
                 cache_dir.mkdir(parents=True, exist_ok=True)
-                if indicator.acquisition_mode == "manual":
-                    result = read_cached_external_indicator(indicator, cache_dir=cache_dir)
+                indicator_started_at = utc_now()
+                indicator_t0 = time.perf_counter()
+                indicator_outcome = "failed"
+                indicator_provider = ""
+                try:
+                    if indicator.acquisition_mode == "manual":
+                        result = read_cached_external_indicator(indicator, cache_dir=cache_dir)
+                        if result is not None and not result.empty:
+                            ext_results[indicator.series_id] = result
+                            if indicator.series_id in manual_series_status:
+                                manual_series_status[indicator.series_id] = "cached"
+                            indicator_outcome = "success"
+                            indicator_provider = str(indicator.authority_id)
+                        else:
+                            indicator_outcome = "manual"
+                        continue
+                    try:
+                        result = fetch_external_indicator(
+                            indicator,
+                            cache_dir=cache_dir,
+                            refresh=not cache,
+                            timeout_sec=_external_indicator_timeout_seconds(),
+                        )
+                    except ManualDownloadRequired as exc:
+                        logger.warning("external indicator unavailable: %s", exc)
+                        if indicator.series_id in automated_external_series:
+                            external_failed_series[indicator.series_id] = type(exc).__name__
+                        continue
                     if result is not None and not result.empty:
                         ext_results[indicator.series_id] = result
-                        if indicator.series_id in manual_series_status:
-                            manual_series_status[indicator.series_id] = "cached"
-                    continue
-                try:
-                    result = fetch_external_indicator(
-                        indicator,
-                        cache_dir=cache_dir,
-                        refresh=not cache,
-                        timeout_sec=_external_indicator_timeout_seconds(),
+                        if indicator.series_id in automated_external_series:
+                            external_succeeded_series[indicator.series_id] = indicator.authority_id
+                            external_failed_series.pop(indicator.series_id, None)
+                        indicator_outcome = "success"
+                        indicator_provider = str(indicator.authority_id)
+                finally:
+                    acquisition_sources.append(
+                        source_record(
+                            source_id=indicator.series_id,
+                            series_id=indicator.series_id,
+                            provider=indicator_provider,
+                            started_at=indicator_started_at,
+                            t0=indicator_t0,
+                            attempts=1,
+                            outcome=indicator_outcome,
+                        )
                     )
-                except ManualDownloadRequired as exc:
-                    logger.warning("external indicator unavailable: %s", exc)
-                    if indicator.series_id in automated_external_series:
-                        external_failed_series[indicator.series_id] = type(exc).__name__
-                    continue
-                if result is not None and not result.empty:
-                    ext_results[indicator.series_id] = result
-                    if indicator.series_id in automated_external_series:
-                        external_succeeded_series[indicator.series_id] = indicator.authority_id
-                        external_failed_series.pop(indicator.series_id, None)
             if ext_results:
                 ext_panel = external_series_to_long_panel(ext_results, vintage_date=vintage_date)
         except Exception:
@@ -1704,38 +1766,41 @@ def stage_complete_release(
     benchmark.to_parquet(bench_path, index=False)
     bench_sha = hashlib.sha256(bench_path.read_bytes()).hexdigest()
     bench_size = bench_path.stat().st_size
-    benchmark_observations = _canonical_official_observations(
-        benchmark,
-        release_id=release_id,
-        vintage_date=vintage_date,
-        source_snapshot_sha256=bench_sha,
-        provider_outcome=provider_outcome,
-        canonical_prefix="BENCHMARK",
-        producer="harvester.complete",
-    )
-    benchmark_observation_relpath = "provenance/benchmark_panel.canonical_observations.jsonl"
-    benchmark_observation_path = release_dir / benchmark_observation_relpath
-    benchmark_observation_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_observations),
-        encoding="utf-8",
-    )
     from harvester.core.canonical_chain import build_recorded_observation_chains
 
-    benchmark_chains = build_recorded_observation_chains(
-        benchmark_observations,
-        release_id=release_id,
-        producer="harvester.complete",
-        measurement_definition="Benchmark panel value recorded for the release",
-        policy_version="harvester.benchmark_panel.v1",
-        predicate="benchmark_value_recorded_on",
-        label_factory=lambda observation: str(observation.get("canonical_series_id") or "benchmark series"),
-    )
-    benchmark_chain_relpath = "provenance/benchmark_panel.canonical_chains.jsonl"
-    benchmark_chain_path = release_dir / benchmark_chain_relpath
-    benchmark_chain_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_chains),
-        encoding="utf-8",
-    )
+    with track_local_step(local_steps, "jsonl_observations"):
+        benchmark_observations = _canonical_official_observations(
+            benchmark,
+            release_id=release_id,
+            vintage_date=vintage_date,
+            source_snapshot_sha256=bench_sha,
+            provider_outcome=provider_outcome,
+            canonical_prefix="BENCHMARK",
+            producer="harvester.complete",
+        )
+        benchmark_observation_relpath = "provenance/benchmark_panel.canonical_observations.jsonl"
+        benchmark_observation_path = release_dir / benchmark_observation_relpath
+        benchmark_observation_path.write_text(
+            "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_observations),
+            encoding="utf-8",
+        )
+
+    with track_local_step(local_steps, "jsonl_chains"):
+        benchmark_chains = build_recorded_observation_chains(
+            benchmark_observations,
+            release_id=release_id,
+            producer="harvester.complete",
+            measurement_definition="Benchmark panel value recorded for the release",
+            policy_version="harvester.benchmark_panel.v1",
+            predicate="benchmark_value_recorded_on",
+            label_factory=lambda observation: str(observation.get("canonical_series_id") or "benchmark series"),
+        )
+        benchmark_chain_relpath = "provenance/benchmark_panel.canonical_chains.jsonl"
+        benchmark_chain_path = release_dir / benchmark_chain_relpath
+        benchmark_chain_path.write_text(
+            "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_chains),
+            encoding="utf-8",
+        )
 
     panel_dates = pd.to_datetime(benchmark["date"])
     benchmark_coverage = observation_coverage_from_frame(benchmark, time_column="date")
@@ -1778,6 +1843,10 @@ def stage_complete_release(
         canonical_chain_count=len(benchmark_chains),
         canonical_schema_version="system.canonical_chain.v1",
         notes=notes or "Aggregated from registry-defined providers + derived computations.",
+        acquisition_sources=acquisition_sources,
+        local_steps=local_steps,
+        started_at=stage_started_at,
+        completed_at=utc_now(),
     )
     (release_dir / "provenance" / "benchmark_panel.provenance.json").write_text(
         json.dumps(bench_prov, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1816,6 +1885,8 @@ def stage_complete_release(
     # promotion ceiling without emitting a canonical Observation->Claim chain.
     from harvester.core.proxy_measurement import (
         SCHEMA_VERSION as PROXY_MEASUREMENT_SPEC_VERSION,
+    )
+    from harvester.core.proxy_measurement import (
         build_proxy_measurement_spec,
     )
 
@@ -1886,20 +1957,21 @@ def stage_complete_release(
         stage_cross_asset_panel,
     )
 
-    cross_asset_info = stage_cross_asset_panel(
-        release_dir,
-        release_id=release_id,
-        as_of_date=as_of_date,
-        vintage_date=vintage_date,
-        # CLI is normally launched from packages/harvester; derive the shared
-        # System workspace from the canonical data root so history is merged
-        # from /System/Data rather than an accidental package-local /Data.
-        workspace=workspace_root(),
-        # HYG/LQD/TLT may already have been acquired by the registry phase.
-        # Reuse those rows and request only the remaining cross-asset symbols.
-        prefetched_panel=prefetched_panel_from_registry(panel, workspace=workspace_root()),
-        data_contract_mode=data_contract_mode,
-    )
+    with track_local_step(local_steps, "cross_asset_panel"):
+        cross_asset_info = stage_cross_asset_panel(
+            release_dir,
+            release_id=release_id,
+            as_of_date=as_of_date,
+            vintage_date=vintage_date,
+            # CLI is normally launched from packages/harvester; derive the shared
+            # System workspace from the canonical data root so history is merged
+            # from /System/Data rather than an accidental package-local /Data.
+            workspace=workspace_root(),
+            # HYG/LQD/TLT may already have been acquired by the registry phase.
+            # Reuse those rows and request only the remaining cross-asset symbols.
+            prefetched_panel=prefetched_panel_from_registry(panel, workspace=workspace_root()),
+            data_contract_mode=data_contract_mode,
+        )
 
     # ------------------------------------------------------------------
     # 7. Write corpus_index status
@@ -1986,7 +2058,8 @@ def stage_complete_release(
     from harvester.promotion import run_promotion_gate, write_gate_report
 
     panel_ids = panel_identity_set(benchmark)
-    gate_result = run_promotion_gate(
+    with track_local_step(local_steps, "promotion_gate"):
+        gate_result = run_promotion_gate(
         release_dir,
         registry,
         panel_series_ids=panel_ids,
@@ -2014,6 +2087,10 @@ def stage_complete_release(
         },
     )
     write_gate_report(gate_result, release_id, release_dir)
+    replace_local_steps(
+        release_dir / "provenance" / "benchmark_panel.provenance.json",
+        local_steps,
+    )
 
     return {
         "release_id": release_id,

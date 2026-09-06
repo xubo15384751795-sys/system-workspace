@@ -5,14 +5,23 @@ import json
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from harvester.core.acquisition_timing import (
+    append_local_step,
+    local_step_record,
+    utc_now,
+)
 from harvester.core.catalog import build_catalog, write_catalog
 from harvester.core.manifest import load_manifest
-from harvester.core.observation import ObservationCoverageError, read_observation_coverage
+from harvester.core.observation import (
+    ObservationCoverageError,
+    read_observation_coverage,
+)
 from harvester.core.provenance import load_provenance
 
 logger = logging.getLogger(__name__)
@@ -118,7 +127,21 @@ def finalize_release(
     if finalized_path.exists() and not dry_run:
         raise FinalizedReleaseError(f"release is already finalized: {release_dir}")
 
-    checked = _validate_release_inputs(release_dir, release_id)
+    validation_started_at = utc_now()
+    validation_t0 = time.perf_counter()
+    validation_outcome = "success"
+    try:
+        checked = _validate_release_inputs(release_dir, release_id)
+    except Exception:
+        validation_outcome = "failed"
+        raise
+    finally:
+        validation_step = local_step_record(
+            step_id="finalize_validation",
+            started_at=validation_started_at,
+            t0=validation_t0,
+            outcome=validation_outcome,
+        )
     catalog = build_catalog(
         release_dir,
         release_id=release_id,
@@ -137,6 +160,10 @@ def finalize_release(
         return result
 
     _ensure_mutable(release_dir)
+    append_local_step(
+        release_dir / "provenance" / "benchmark_panel.provenance.json",
+        validation_step,
+    )
     write_catalog(catalog, _resolve_release_path(release_dir, "catalog.json", "catalog.json"))
     _write_release_digest(release_dir)
     _resolve_release_path(release_dir, ".finalized", ".finalized").write_text(

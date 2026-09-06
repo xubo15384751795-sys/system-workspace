@@ -95,6 +95,48 @@
             }
           },
           "description": "References to provider-internal storage. NOT consumer-visible. Audit use only."
+        },
+        "sources": {
+          "type": "array",
+          "description": "Observation-only per-source/series acquisition timings. Does not affect admission or fetch behavior.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_id", "started_at", "completed_at", "elapsed_s", "attempts", "outcome"],
+            "properties": {
+              "source_id": { "type": "string", "minLength": 1 },
+              "series_id": { "type": "string", "minLength": 1 },
+              "provider": { "type": "string", "minLength": 1 },
+              "started_at": { "type": "string", "format": "date-time" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "elapsed_s": { "type": "number", "minimum": 0 },
+              "attempts": { "type": "integer", "minimum": 0 },
+              "outcome": {
+                "type": "string",
+                "enum": ["success", "failed", "manual"]
+              }
+            }
+          }
+        },
+        "local_steps": {
+          "type": "array",
+          "description": "Observation-only timings for local release work such as JSONL writes and finalize validation.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step_id", "started_at", "completed_at", "elapsed_s", "attempts", "outcome"],
+            "properties": {
+              "step_id": { "type": "string", "minLength": 1 },
+              "started_at": { "type": "string", "format": "date-time" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "elapsed_s": { "type": "number", "minimum": 0 },
+              "attempts": { "type": "integer", "minimum": 0 },
+              "outcome": {
+                "type": "string",
+                "enum": ["success", "failed"]
+              }
+            }
+          }
         }
       }
     },
