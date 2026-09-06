@@ -988,8 +988,8 @@ def _canonical_observation_records(panel: pd.DataFrame,
     ID family is introduced here.
     """
     try:
-        from system_runtime.canonical_ids import build_observation
         from harvester.core.availability import build_availability
+        from system_runtime.canonical_ids import build_observation
     except ImportError:
         logger.warning("system_runtime canonical IDs unavailable; skipping observation sidecar")
         return []
@@ -1256,10 +1256,8 @@ def stage_cross_asset_panel(
     observation_start = dates.min().strftime("%Y-%m-%d") if dates.notna().any() else ""
     observation_end = dates.max().strftime("%Y-%m-%d") if dates.notna().any() else ""
 
-    canonical_observation_relpath = (
-        f"provenance/{DATASET_ID}.canonical_observations.jsonl"
-    )
-    canonical_observation_path = release_dir / canonical_observation_relpath
+    from harvester.core.canonical_lineage import write_canonical_lineage
+
     canonical_observations = _canonical_observation_records(
         panel,
         release_id=release_id,
@@ -1267,17 +1265,20 @@ def stage_cross_asset_panel(
         source_snapshot_sha256=sha,
         provider_outcome=provider_outcome,
     )
-    canonical_observation_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in canonical_observations),
-        encoding="utf-8",
+    cross_lineage = write_canonical_lineage(
+        release_dir=release_dir,
+        dataset_id=DATASET_ID,
+        release_id=release_id,
+        observations=canonical_observations,
+        chain_builder=lambda delta: _canonical_chain_records(list(delta), release_id=release_id),
+        exports_root=release_dir.parent,
+        measurement_definition="ETF close price recorded for the release",
+        predicate="close_recorded_on",
     )
-    canonical_chains = _canonical_chain_records(canonical_observations, release_id=release_id)
-    canonical_chain_relpath = f"provenance/{DATASET_ID}.canonical_chains.jsonl"
+    canonical_observation_relpath = cross_lineage.observation_relpath
+    canonical_chain_relpath = cross_lineage.chain_relpath
+    canonical_observation_path = release_dir / canonical_observation_relpath
     canonical_chain_path = release_dir / canonical_chain_relpath
-    canonical_chain_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in canonical_chains),
-        encoding="utf-8",
-    )
 
     columns = [
         {"name": "date", "dtype": "date", "nullable": False, "description": "Trading date", "semantic_role": "time_index"},
@@ -1323,10 +1324,16 @@ def stage_cross_asset_panel(
         availability=provider_outcome.get("availability"),
         integrity=provider_outcome.get("integrity"),
         canonical_observation_path=canonical_observation_relpath,
-        canonical_observation_count=len(canonical_observations),
+        canonical_observation_count=cross_lineage.provenance_fields["canonical_observation_count"],
         canonical_chain_path=canonical_chain_relpath,
-        canonical_chain_count=len(canonical_chains),
-        canonical_schema_version="system.canonical_chain.v1",
+        canonical_chain_count=cross_lineage.provenance_fields["canonical_chain_count"],
+        canonical_schema_version=cross_lineage.provenance_fields["canonical_schema_version"],
+        canonical_lineage_path=cross_lineage.provenance_fields["canonical_lineage_path"],
+        previous_release_id=cross_lineage.provenance_fields.get("previous_release_id"),
+        canonical_observation_delta_count=cross_lineage.provenance_fields["canonical_observation_delta_count"],
+        canonical_chain_delta_count=cross_lineage.provenance_fields["canonical_chain_delta_count"],
+        canonical_observation_merkle_root=cross_lineage.provenance_fields["canonical_observation_merkle_root"],
+        canonical_chain_merkle_root=cross_lineage.provenance_fields["canonical_chain_merkle_root"],
         notes="Built from the owned ETF provider chain with workspace history merge.",
     )
     (provenance_dir / f"{DATASET_ID}.provenance.json").write_text(
@@ -1369,9 +1376,9 @@ def stage_cross_asset_panel(
         "sha256": sha,
         "provider_outcome": provider_outcome,
         "canonical_observation_path": str(canonical_observation_path),
-        "canonical_observation_count": len(canonical_observations),
+        "canonical_observation_count": cross_lineage.provenance_fields["canonical_observation_count"],
         "canonical_chain_path": str(canonical_chain_path),
-        "canonical_chain_count": len(canonical_chains),
+        "canonical_chain_count": cross_lineage.provenance_fields["canonical_chain_count"],
         "observation_start": observation_start,
         "observation_end": observation_end,
     }

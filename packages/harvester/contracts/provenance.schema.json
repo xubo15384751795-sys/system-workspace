@@ -263,7 +263,34 @@
     },
     "canonical_schema_version": {
       "type": "string",
-      "const": "system.canonical_chain.v1"
+      "enum": ["system.canonical_chain.v1", "system.canonical_chain.v2"],
+      "description": "v1 is a full JSONL dump. v2 is delta JSONL plus a lineage digest sidecar. Record bodies remain system.canonical_chain.v1."
+    },
+    "canonical_lineage_path": {
+      "type": "string",
+      "pattern": "^provenance/[^/]+\\.canonical_lineage\\.v2\\.json$",
+      "description": "Release-relative v2 lineage envelope with previous_release_id and Merkle digests."
+    },
+    "previous_release_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-r[1-9][0-9]*$",
+      "description": "Prior release that this v2 delta applies on top of."
+    },
+    "canonical_observation_delta_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "canonical_chain_delta_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "canonical_observation_merkle_root": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "canonical_chain_merkle_root": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     },
     "measurement_spec_path": {
       "type": "string",

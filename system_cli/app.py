@@ -351,6 +351,41 @@ def _apply_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
     return 0
 
 
+def _data_command(args: argparse.Namespace, paths: WorkspacePaths) -> int:
+    if args.data_command != "lineage":
+        raise ValueError(args.data_command)
+    from harvester.core.canonical_lineage import (
+        rebuild_chains,
+        rebuild_observations,
+        verify_rebuild_matches_digest,
+        write_jsonl,
+    )
+
+    exports = Path(args.exports_root) if args.exports_root else paths.data / "harvester" / "exports"
+    if not exports.is_absolute():
+        exports = paths.root / exports
+    release_dir = exports / args.release
+    if not release_dir.is_dir():
+        print(f"system: release not found: {release_dir}", file=sys.stderr)
+        return 1
+    report = verify_rebuild_matches_digest(release_dir, args.dataset)
+    if args.rebuild:
+        observations = rebuild_observations(release_dir, args.dataset)
+        chains = rebuild_chains(release_dir, args.dataset)
+        if args.output:
+            output = Path(args.output)
+            if not output.is_absolute():
+                output = paths.root / output
+            output.mkdir(parents=True, exist_ok=True)
+            write_jsonl(output / f"{args.dataset}.canonical_observations.jsonl", observations)
+            write_jsonl(output / f"{args.dataset}.canonical_chains.jsonl", chains)
+            report["output"] = str(output)
+        report["rebuilt"] = True
+    print(json.dumps(report, indent=2, sort_keys=True))
+    ok = report["observation_digest_match"] and report["chain_digest_match"]
+    return 0 if ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="system", description="System research runtime")
     parser.add_argument("--workspace", type=Path, help="Explicit workspace root")
@@ -401,6 +436,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Only validate the saved plan against current policy/code",
     )
+
+    data = sub.add_parser("data", help="Data and lineage utilities")
+    data_sub = data.add_subparsers(dest="data_command", required=True)
+    lineage = data_sub.add_parser(
+        "lineage",
+        help="Rebuild or verify canonical observation/chain delta sequences",
+    )
+    lineage.add_argument("--rebuild", action="store_true", help="Reconstruct the full v1 record set from deltas")
+    lineage.add_argument("--release", required=True, help="Release id, e.g. 2026-09-04-r1")
+    lineage.add_argument("--dataset", default="benchmark_panel")
+    lineage.add_argument("--exports-root", help="Defaults to Data/harvester/exports")
+    lineage.add_argument("--output", help="Directory for rebuilt JSONL when using --rebuild")
 
     aliases = {
         "check": "Show the current readout",
@@ -457,6 +504,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _plan_command(args, paths)
         if args.command == "apply":
             return _apply_command(args, paths)
+        if args.command == "data":
+            return _data_command(args, paths)
         return _legacy_command(args, paths)
     except (PlanApplyError, PipelineSpecError, KeyError, RuntimeError, ValueError) as exc:
         print(f"system: {exc}", file=sys.stderr)

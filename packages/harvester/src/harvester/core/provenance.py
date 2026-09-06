@@ -61,6 +61,12 @@ def record_provenance(
             "canonical_chain_path",
             "canonical_chain_count",
             "canonical_schema_version",
+            "canonical_lineage_path",
+            "previous_release_id",
+            "canonical_observation_delta_count",
+            "canonical_chain_delta_count",
+            "canonical_observation_merkle_root",
+            "canonical_chain_merkle_root",
             "measurement_spec_path",
             "measurement_spec_version",
         ):
@@ -98,6 +104,12 @@ def build_provenance(
     canonical_chain_path: str | None = None,
     canonical_chain_count: int | None = None,
     canonical_schema_version: str | None = None,
+    canonical_lineage_path: str | None = None,
+    previous_release_id: str | None = None,
+    canonical_observation_delta_count: int | None = None,
+    canonical_chain_delta_count: int | None = None,
+    canonical_observation_merkle_root: str | None = None,
+    canonical_chain_merkle_root: str | None = None,
     measurement_spec_path: str | None = None,
     measurement_spec_version: str | None = None,
     notes: str | None = None,
@@ -143,6 +155,18 @@ def build_provenance(
         provenance["canonical_chain_count"] = int(canonical_chain_count)
     if canonical_schema_version is not None:
         provenance["canonical_schema_version"] = canonical_schema_version
+    if canonical_lineage_path is not None:
+        provenance["canonical_lineage_path"] = canonical_lineage_path
+    if previous_release_id is not None:
+        provenance["previous_release_id"] = previous_release_id
+    if canonical_observation_delta_count is not None:
+        provenance["canonical_observation_delta_count"] = int(canonical_observation_delta_count)
+    if canonical_chain_delta_count is not None:
+        provenance["canonical_chain_delta_count"] = int(canonical_chain_delta_count)
+    if canonical_observation_merkle_root is not None:
+        provenance["canonical_observation_merkle_root"] = canonical_observation_merkle_root
+    if canonical_chain_merkle_root is not None:
+        provenance["canonical_chain_merkle_root"] = canonical_chain_merkle_root
     if measurement_spec_path is not None:
         provenance["measurement_spec_path"] = measurement_spec_path
     if measurement_spec_version is not None:

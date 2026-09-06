@@ -87,19 +87,59 @@ def validate_manifest(path: Path, *, root: Path = ROOT) -> dict[str, Any]:
     }
 
 
+def verify_lineage_restore(
+    *,
+    exports_root: Path,
+    release_id: str,
+    dataset_id: str,
+) -> dict[str, Any]:
+    """Rebuild a delta chain and compare Merkle digest to the stored full digest."""
+    from harvester.core.canonical_lineage import (
+        merkle_from_records,
+        rebuild_observations,
+        verify_rebuild_matches_digest,
+    )
+
+    release_dir = exports_root / release_id
+    report = verify_rebuild_matches_digest(release_dir, dataset_id)
+    rebuilt = rebuild_observations(release_dir, dataset_id)
+    report["rebuilt_merkle_root"] = merkle_from_records(rebuilt, kind="observation")
+    report["matches_stored_digest"] = bool(report.get("observation_digest_match"))
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--lineage-release", help="Also rebuild canonical lineage for this release id")
+    parser.add_argument("--lineage-dataset", default="benchmark_panel")
+    parser.add_argument("--exports-root", type=Path)
     args = parser.parse_args(argv)
     try:
         result = validate_manifest(args.manifest.resolve(), root=args.root.resolve())
     except (OSError, ValueError, jsonschema.ValidationError) as exc:
         print(f"restore manifest: {exc}", file=sys.stderr)
         return 2
+    lineage_ok = True
+    if args.lineage_release:
+        exports = args.exports_root or (args.root / "Data" / "harvester" / "exports")
+        try:
+            lineage = verify_lineage_restore(
+                exports_root=exports.resolve(),
+                release_id=args.lineage_release,
+                dataset_id=args.lineage_dataset,
+            )
+        except (OSError, ValueError) as exc:
+            print(f"lineage restore: {exc}", file=sys.stderr)
+            return 2
+        result["lineage_restore"] = lineage
+        lineage_ok = bool(lineage.get("matches_stored_digest"))
+        if not lineage_ok:
+            result["status"] = "BLOCKED"
     print(json.dumps(result, indent=2, ensure_ascii=False))
-    return 0 if result["status"] == "PASS" else 1
+    return 0 if result["status"] == "PASS" and lineage_ok else 1
 
 
 if __name__ == "__main__":

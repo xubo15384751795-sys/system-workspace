@@ -453,6 +453,8 @@ def test_complete_release_propagates_provider_outcome_to_artifacts(tmp_path) -> 
     assert manifest["provider_outcome"] == outcome
     assert provenance["provider_outcome"] == outcome
     assert provenance["canonical_chain_count"] == 1
+    assert provenance["canonical_schema_version"] == "system.canonical_chain.v2"
+    assert (release / "provenance" / "benchmark_panel.canonical_lineage.v2.json").exists()
     assert provenance["acquisition"]["sources"][0]["source_id"] == "OK_SERIES"
     assert provenance["acquisition"]["sources"][0]["elapsed_s"] == 1.25
     step_ids = {step["step_id"] for step in provenance["acquisition"]["local_steps"]}

@@ -298,75 +298,102 @@ def _validate_release_inputs(release_dir: Path, release_id: str) -> int:
                 label="provenance",
                 dataset_id=manifest["dataset_id"],
             )
-        canonical_relpath = provenance.get("canonical_observation_path")
-        if canonical_relpath:
-            canonical_path = _resolve_release_path(
-                release_dir,
-                str(canonical_relpath),
-                f"canonical observation path for {manifest['dataset_id']}",
-            )
-            if not canonical_path.is_file():
-                raise ExportValidationError(
-                    f"canonical observation sidecar missing for {manifest['dataset_id']}: {canonical_path}"
-                )
-            expected_count = provenance.get("canonical_observation_count")
-            actual_count = 0
+        if provenance.get("canonical_lineage_path"):
             try:
-                from system_runtime.canonical_ids import validate_observation
+                from harvester.core.canonical_lineage import (
+                    LineageValidationError,
+                    validate_digest_chain,
+                )
+                from system_runtime.canonical_ids import (
+                    validate_chain,
+                    validate_observation,
+                )
             except ImportError:
                 validate_observation = None
-            try:
-                with canonical_path.open(encoding="utf-8") as handle:
-                    for line in handle:
-                        if line.strip():
-                            record = json.loads(line)
-                            if validate_observation is not None:
-                                validate_observation(record)
-                            actual_count += 1
-            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-                raise ExportValidationError(
-                    f"canonical observation sidecar invalid for {manifest['dataset_id']}: {canonical_path}"
-                ) from exc
-            if expected_count is not None and int(expected_count) != actual_count:
-                raise ExportValidationError(
-                    f"canonical observation count mismatch for {manifest['dataset_id']}: "
-                    f"declared={expected_count}, actual={actual_count}"
-                )
-
-        canonical_chain_relpath = provenance.get("canonical_chain_path")
-        if canonical_chain_relpath:
-            canonical_chain_path = _resolve_release_path(
-                release_dir,
-                str(canonical_chain_relpath),
-                f"canonical chain path for {manifest['dataset_id']}",
-            )
-            if not canonical_chain_path.is_file():
-                raise ExportValidationError(
-                    f"canonical chain sidecar missing for {manifest['dataset_id']}: {canonical_chain_path}"
-                )
-            expected_chain_count = provenance.get("canonical_chain_count")
-            actual_chain_count = 0
-            try:
-                from system_runtime.canonical_ids import validate_chain
-            except ImportError:
                 validate_chain = None
-            try:
-                with canonical_chain_path.open(encoding="utf-8") as handle:
-                    for line in handle:
-                        if line.strip():
-                            record = json.loads(line)
-                            if validate_chain is not None:
-                                validate_chain(record)
-                            actual_chain_count += 1
-            except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-                raise ExportValidationError(
-                    f"canonical chain sidecar invalid for {manifest['dataset_id']}: {canonical_chain_path}"
-                ) from exc
-            if expected_chain_count is not None and int(expected_chain_count) != actual_chain_count:
-                raise ExportValidationError(
-                    f"canonical chain count mismatch for {manifest['dataset_id']}: "
-                    f"declared={expected_chain_count}, actual={actual_chain_count}"
+                LineageValidationError = ValueError  # type: ignore[misc,assignment]
+                validate_digest_chain = None
+            if validate_digest_chain is not None:
+                try:
+                    validate_digest_chain(
+                        release_dir,
+                        manifest["dataset_id"],
+                        provenance,
+                        validate_observation=validate_observation,
+                        validate_chain=validate_chain,
+                    )
+                except LineageValidationError as exc:
+                    raise ExportValidationError(str(exc)) from exc
+        else:
+            canonical_relpath = provenance.get("canonical_observation_path")
+            if canonical_relpath:
+                canonical_path = _resolve_release_path(
+                    release_dir,
+                    str(canonical_relpath),
+                    f"canonical observation path for {manifest['dataset_id']}",
                 )
+                if not canonical_path.is_file():
+                    raise ExportValidationError(
+                        f"canonical observation sidecar missing for {manifest['dataset_id']}: {canonical_path}"
+                    )
+                expected_count = provenance.get("canonical_observation_count")
+                actual_count = 0
+                try:
+                    from system_runtime.canonical_ids import validate_observation
+                except ImportError:
+                    validate_observation = None
+                try:
+                    with canonical_path.open(encoding="utf-8") as handle:
+                        for line in handle:
+                            if line.strip():
+                                record = json.loads(line)
+                                if validate_observation is not None:
+                                    validate_observation(record)
+                                actual_count += 1
+                except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                    raise ExportValidationError(
+                        f"canonical observation sidecar invalid for {manifest['dataset_id']}: {canonical_path}"
+                    ) from exc
+                if expected_count is not None and int(expected_count) != actual_count:
+                    raise ExportValidationError(
+                        f"canonical observation count mismatch for {manifest['dataset_id']}: "
+                        f"declared={expected_count}, actual={actual_count}"
+                    )
+
+            canonical_chain_relpath = provenance.get("canonical_chain_path")
+            if canonical_chain_relpath:
+                canonical_chain_path = _resolve_release_path(
+                    release_dir,
+                    str(canonical_chain_relpath),
+                    f"canonical chain path for {manifest['dataset_id']}",
+                )
+                if not canonical_chain_path.is_file():
+                    raise ExportValidationError(
+                        f"canonical chain sidecar missing for {manifest['dataset_id']}: {canonical_chain_path}"
+                    )
+                expected_chain_count = provenance.get("canonical_chain_count")
+                actual_chain_count = 0
+                try:
+                    from system_runtime.canonical_ids import validate_chain
+                except ImportError:
+                    validate_chain = None
+                try:
+                    with canonical_chain_path.open(encoding="utf-8") as handle:
+                        for line in handle:
+                            if line.strip():
+                                record = json.loads(line)
+                                if validate_chain is not None:
+                                    validate_chain(record)
+                                actual_chain_count += 1
+                except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+                    raise ExportValidationError(
+                        f"canonical chain sidecar invalid for {manifest['dataset_id']}: {canonical_chain_path}"
+                    ) from exc
+                if expected_chain_count is not None and int(expected_chain_count) != actual_chain_count:
+                    raise ExportValidationError(
+                        f"canonical chain count mismatch for {manifest['dataset_id']}: "
+                        f"declared={expected_chain_count}, actual={actual_chain_count}"
+                    )
 
         measurement_spec_relpath = provenance.get("measurement_spec_path")
         if measurement_spec_relpath:

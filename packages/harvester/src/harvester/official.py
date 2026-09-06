@@ -721,6 +721,12 @@ def make_provenance(
     canonical_chain_path: str | None = None,
     canonical_chain_count: int | None = None,
     canonical_schema_version: str | None = None,
+    canonical_lineage_path: str | None = None,
+    previous_release_id: str | None = None,
+    canonical_observation_delta_count: int | None = None,
+    canonical_chain_delta_count: int | None = None,
+    canonical_observation_merkle_root: str | None = None,
+    canonical_chain_merkle_root: str | None = None,
     measurement_spec_path: str | None = None,
     measurement_spec_version: str | None = None,
     notes: str = "",
@@ -761,6 +767,12 @@ def make_provenance(
         canonical_chain_path=canonical_chain_path,
         canonical_chain_count=canonical_chain_count,
         canonical_schema_version=canonical_schema_version,
+        canonical_lineage_path=canonical_lineage_path,
+        previous_release_id=previous_release_id,
+        canonical_observation_delta_count=canonical_observation_delta_count,
+        canonical_chain_delta_count=canonical_chain_delta_count,
+        canonical_observation_merkle_root=canonical_observation_merkle_root,
+        canonical_chain_merkle_root=canonical_chain_merkle_root,
         measurement_spec_path=measurement_spec_path,
         measurement_spec_version=measurement_spec_version,
         notes=notes,
@@ -942,29 +954,31 @@ def stage_release(
         source_snapshot_sha256=panel_sha,
         provider_outcome=provider_outcome,
     )
-    canonical_observation_relpath = "provenance/official_panel.canonical_observations.jsonl"
-    canonical_observation_path = release_dir / canonical_observation_relpath
-    canonical_observation_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in canonical_observations),
-        encoding="utf-8",
-    )
     from harvester.core.canonical_chain import build_recorded_observation_chains
+    from harvester.core.canonical_lineage import write_canonical_lineage
 
-    canonical_chains = build_recorded_observation_chains(
-        canonical_observations,
+    official_lineage = write_canonical_lineage(
+        release_dir=release_dir,
+        dataset_id="official_panel",
         release_id=release_id,
-        producer="harvester.official",
+        observations=canonical_observations,
+        chain_builder=lambda delta: build_recorded_observation_chains(
+            delta,
+            release_id=release_id,
+            producer="harvester.official",
+            measurement_definition="Official panel value recorded for the release",
+            policy_version="harvester.official.v1",
+            predicate="official_value_recorded_on",
+            label_factory=lambda observation: str(
+                observation.get("canonical_series_id") or "official series"
+            ),
+        ),
+        exports_root=ex_root,
         measurement_definition="Official panel value recorded for the release",
-        policy_version="harvester.official.v1",
         predicate="official_value_recorded_on",
-        label_factory=lambda observation: str(observation.get("canonical_series_id") or "official series"),
     )
-    canonical_chain_relpath = "provenance/official_panel.canonical_chains.jsonl"
-    canonical_chain_path = release_dir / canonical_chain_relpath
-    canonical_chain_path.write_text(
-        "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in canonical_chains),
-        encoding="utf-8",
-    )
+    canonical_observation_relpath = official_lineage.observation_relpath
+    canonical_chain_relpath = official_lineage.chain_relpath
 
     columns = _default_columns()
     manifest = make_manifest(
@@ -1004,10 +1018,16 @@ def stage_release(
         observation_end=(panel_coverage or {}).get("end"),
         availability=(provider_outcome or {}).get("availability"),
         canonical_observation_path=canonical_observation_relpath,
-        canonical_observation_count=len(canonical_observations),
+        canonical_observation_count=official_lineage.provenance_fields["canonical_observation_count"],
         canonical_chain_path=canonical_chain_relpath,
-        canonical_chain_count=len(canonical_chains),
-        canonical_schema_version="system.canonical_chain.v1",
+        canonical_chain_count=official_lineage.provenance_fields["canonical_chain_count"],
+        canonical_schema_version=official_lineage.provenance_fields["canonical_schema_version"],
+        canonical_lineage_path=official_lineage.provenance_fields["canonical_lineage_path"],
+        previous_release_id=official_lineage.provenance_fields.get("previous_release_id"),
+        canonical_observation_delta_count=official_lineage.provenance_fields["canonical_observation_delta_count"],
+        canonical_chain_delta_count=official_lineage.provenance_fields["canonical_chain_delta_count"],
+        canonical_observation_merkle_root=official_lineage.provenance_fields["canonical_observation_merkle_root"],
+        canonical_chain_merkle_root=official_lineage.provenance_fields["canonical_chain_merkle_root"],
         notes=notes or "Aggregated official data from multiple public sources.",
     )
 
@@ -1022,8 +1042,8 @@ def stage_release(
         "manifest_path": str(manifest_path),
         "provenance_path": str(prov_path),
         "row_count": len(panel),
-        "canonical_observation_count": len(canonical_observations),
-        "canonical_chain_count": len(canonical_chains),
+        "canonical_observation_count": official_lineage.provenance_fields["canonical_observation_count"],
+        "canonical_chain_count": official_lineage.provenance_fields["canonical_chain_count"],
     }
 
 
@@ -1767,6 +1787,7 @@ def stage_complete_release(
     bench_sha = hashlib.sha256(bench_path.read_bytes()).hexdigest()
     bench_size = bench_path.stat().st_size
     from harvester.core.canonical_chain import build_recorded_observation_chains
+    from harvester.core.canonical_lineage import write_canonical_lineage
 
     with track_local_step(local_steps, "jsonl_observations"):
         benchmark_observations = _canonical_official_observations(
@@ -1778,29 +1799,30 @@ def stage_complete_release(
             canonical_prefix="BENCHMARK",
             producer="harvester.complete",
         )
-        benchmark_observation_relpath = "provenance/benchmark_panel.canonical_observations.jsonl"
-        benchmark_observation_path = release_dir / benchmark_observation_relpath
-        benchmark_observation_path.write_text(
-            "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_observations),
-            encoding="utf-8",
-        )
 
     with track_local_step(local_steps, "jsonl_chains"):
-        benchmark_chains = build_recorded_observation_chains(
-            benchmark_observations,
+        benchmark_lineage = write_canonical_lineage(
+            release_dir=release_dir,
+            dataset_id="benchmark_panel",
             release_id=release_id,
-            producer="harvester.complete",
+            observations=benchmark_observations,
+            chain_builder=lambda delta: build_recorded_observation_chains(
+                delta,
+                release_id=release_id,
+                producer="harvester.complete",
+                measurement_definition="Benchmark panel value recorded for the release",
+                policy_version="harvester.benchmark_panel.v1",
+                predicate="benchmark_value_recorded_on",
+                label_factory=lambda observation: str(
+                    observation.get("canonical_series_id") or "benchmark series"
+                ),
+            ),
+            exports_root=ex_root,
             measurement_definition="Benchmark panel value recorded for the release",
-            policy_version="harvester.benchmark_panel.v1",
             predicate="benchmark_value_recorded_on",
-            label_factory=lambda observation: str(observation.get("canonical_series_id") or "benchmark series"),
         )
-        benchmark_chain_relpath = "provenance/benchmark_panel.canonical_chains.jsonl"
-        benchmark_chain_path = release_dir / benchmark_chain_relpath
-        benchmark_chain_path.write_text(
-            "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in benchmark_chains),
-            encoding="utf-8",
-        )
+    benchmark_observation_relpath = benchmark_lineage.observation_relpath
+    benchmark_chain_relpath = benchmark_lineage.chain_relpath
 
     panel_dates = pd.to_datetime(benchmark["date"])
     benchmark_coverage = observation_coverage_from_frame(benchmark, time_column="date")
@@ -1838,10 +1860,16 @@ def stage_complete_release(
         observation_start=(benchmark_coverage or {}).get("start"),
         observation_end=(benchmark_coverage or {}).get("end"),
         canonical_observation_path=benchmark_observation_relpath,
-        canonical_observation_count=len(benchmark_observations),
+        canonical_observation_count=benchmark_lineage.provenance_fields["canonical_observation_count"],
         canonical_chain_path=benchmark_chain_relpath,
-        canonical_chain_count=len(benchmark_chains),
-        canonical_schema_version="system.canonical_chain.v1",
+        canonical_chain_count=benchmark_lineage.provenance_fields["canonical_chain_count"],
+        canonical_schema_version=benchmark_lineage.provenance_fields["canonical_schema_version"],
+        canonical_lineage_path=benchmark_lineage.provenance_fields["canonical_lineage_path"],
+        previous_release_id=benchmark_lineage.provenance_fields.get("previous_release_id"),
+        canonical_observation_delta_count=benchmark_lineage.provenance_fields["canonical_observation_delta_count"],
+        canonical_chain_delta_count=benchmark_lineage.provenance_fields["canonical_chain_delta_count"],
+        canonical_observation_merkle_root=benchmark_lineage.provenance_fields["canonical_observation_merkle_root"],
+        canonical_chain_merkle_root=benchmark_lineage.provenance_fields["canonical_chain_merkle_root"],
         notes=notes or "Aggregated from registry-defined providers + derived computations.",
         acquisition_sources=acquisition_sources,
         local_steps=local_steps,

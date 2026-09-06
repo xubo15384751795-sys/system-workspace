@@ -150,7 +150,8 @@ def test_stage_cross_asset_panel_writes_manifest_and_workspace_copy(
     assert provenance["canonical_observation_count"] == 3
     assert provenance["canonical_chain_count"] == 3
     assert provenance["canonical_chain_path"].endswith(".canonical_chains.jsonl")
-    assert provenance["canonical_schema_version"] == "system.canonical_chain.v1"
+    assert provenance["canonical_schema_version"] == "system.canonical_chain.v2"
+    assert provenance["canonical_lineage_path"].endswith(".canonical_lineage.v2.json")
     workspace_copy = workspace / "Data" / "panels" / "cross_asset_daily_panel.parquet"
     assert workspace_copy.exists()
     copied = pd.read_parquet(workspace_copy)
