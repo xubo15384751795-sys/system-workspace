@@ -19,6 +19,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from workbench.judgment.neutral_state import reading_from_snapshot
+
 from scripts._constants import (
     CASELAB_STRONG_THRESHOLD,
     CASELAB_USABLE_THRESHOLD,
@@ -660,6 +662,8 @@ def build_signal_card(paths: Mapping[str, Path] | None = None) -> dict[str, Any]
     trade = load_json(trade_decision_dir / "latest.json")
     hmm_data = load_json(hmm_dir / "regime_hmm.json")
     caselab_data = _load_caselab_today(resolved["caselab"])
+    snapshot = load_json(current / "neutral_pressure_snapshot.json")
+    operational = reading_from_snapshot(snapshot)
 
     if not judgment:
         return {
@@ -686,6 +690,12 @@ def build_signal_card(paths: Mapping[str, Path] | None = None) -> dict[str, Any]
             "framework_status": fw.get("status", "UNKNOWN") if fw else "UNKNOWN",
         },
         "velocity_gate": velocity_gate,
+        "operational_direction": {
+            "direction": operational.get("direction"),
+            "source": "neutral_pressure_snapshot.basic.main_pressure",
+            "M": operational.get("M"),
+            "D": operational.get("D"),
+        },
         "channel_decomposition": _decompose_channels(fw),
         "gate_classification": _classify_gates(judgment, fw, hmm_data, caselab_data),
         "evidence": _identify_evidence_list(judgment, fw, hmm_dir),
@@ -776,6 +786,16 @@ def generate_markdown(card: dict[str, Any]) -> str:
         if ladder.get("demotion_risk"):
             lines.append(f"**Demotion risk:** {ladder['demotion_risk']}")
             lines.append("")
+
+    op_dir = card.get("operational_direction") or {}
+    lines += [
+        "## Operational direction (neutral state)",
+        "",
+        f"- **main_pressure:** {op_dir.get('direction') or 'unavailable'}",
+        f"- **source:** {op_dir.get('source', 'neutral_pressure_snapshot.basic.main_pressure')}",
+        f"- **M/D:** {op_dir.get('M')} / {op_dir.get('D')}",
+        "",
+    ]
 
     # Channel decomposition — new section
     lines += [

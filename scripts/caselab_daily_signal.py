@@ -61,6 +61,25 @@ from scripts._runtime_io import (
 )
 
 OUTPUT_DIR = ROOT / "Output" / "caselab"
+
+
+def _operational_direction(snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Operational direction is main_pressure, never the frozen (M+K+X)/3 label."""
+    from workbench.judgment.neutral_state import reading_from_snapshot
+
+    if snapshot is None:
+        snapshot = load_json(surface_dir("current") / "neutral_pressure_snapshot.json")
+    reading = reading_from_snapshot(snapshot)
+    direction = reading.get("direction")
+    return {
+        "direction": direction,
+        "source": "neutral_pressure_snapshot.basic.main_pressure",
+        "M": reading.get("M"),
+        "D": reading.get("D"),
+        "operational": "authoritative" if direction else "unavailable",
+    }
+
+
 FROZEN_V1_STAMP = {
     "theory_authority": False,
     "falsified_claim_set": "deformation_v1_four_channel_universal_predictor",
@@ -555,6 +574,7 @@ def build_context_packet(state: dict, vec: dict, reconciliation: dict) -> dict[s
             "direction_label comes from the frozen v1 (M+K+X)/3 composite "
             "and has no theory authority."
         ),
+        "operational_direction": _operational_direction(),
         "needs_mechanism_type": _what_to_look_for(
             detect_mechanism_types(state).get("mechanism_types", [])
         ),
@@ -881,6 +901,7 @@ def run_signal(top_k: int = 5, json_only: bool = False) -> dict:
     output = {
         **FROZEN_V1_STAMP,
         "timestamp": utc_now().isoformat(),
+        "operational_direction": _operational_direction(),
         "system_state": {
             "date": state.get("date"),
             "M": state.get("M"),

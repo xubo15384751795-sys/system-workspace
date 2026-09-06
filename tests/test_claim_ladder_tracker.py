@@ -51,7 +51,23 @@ def _isolated_dirs(tmp_path, monkeypatch):
     monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.CASELAB_DIR", caselab_dir)
     monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.HMM_PATH", hmm_dir / "regime_hmm.json")
     monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.JUDGMENT_PATH", judgment_dir / "latest.json")
+    monkeypatch.setattr(
+        "scripts.commands.weekly.claim_ladder_tracker.NEUTRAL_HISTORY_PATH",
+        output_dir / "neutral_history.json",
+    )
     return runs_dir, output_dir, caselab_dir, hmm_dir, judgment_dir
+
+
+def _snapshot(*, direction: str, m: float, d: float) -> dict:
+    return {
+        "basic": {"main_pressure": direction},
+        "advanced": {
+            "primary_readout": {
+                "M_anchor_geometry": {"value": m},
+                "D_path_geometry": {"value": d},
+            }
+        },
+    }
 
 
 def _make_run(runs_dir: Path, run_id: str, status: str = "success", pending_items=None):
@@ -253,8 +269,65 @@ def test_evaluate_progression_md_reversed_stays_tracking(_isolated_dirs):
     judgment = _make_judgment(meaning=["M shows stress building pattern"])
     results = evaluate_progression(items, judgment)
     assert results[0]["checks"]["md_persistence"]["status"] == "reversed"
+    assert results[0]["checks"]["md_persistence"]["operational"] == "ignored"
     assert results[0]["checks"]["invalidation"]["status"] != "triggered"
     assert results[0]["overall_status"] == "tracking"
+
+
+def test_neutral_state_persisted_small_delta(_isolated_dirs):
+    items = [_make_claim_item("funding mismatch watch")]
+    judgment = _make_judgment()
+    results = evaluate_progression(
+        items,
+        judgment,
+        previous_snapshot=_snapshot(direction="PRESSURE_EASING", m=-0.20, d=-0.20),
+        current_snapshot=_snapshot(direction="PRESSURE_EASING", m=-0.18, d=-0.18),
+    )
+    ns = results[0]["checks"]["neutral_state"]
+    assert ns["status"] == "confirmed"
+    assert ns["persisted"] is True
+    assert ns["direction"] == "PRESSURE_EASING"
+    assert results[0]["overall_status"] == "tracking"
+
+
+def test_neutral_state_reversed_large_delta(_isolated_dirs):
+    items = [_make_claim_item("funding mismatch watch")]
+    judgment = _make_judgment()
+    results = evaluate_progression(
+        items,
+        judgment,
+        previous_snapshot=_snapshot(direction="PRESSURE_EASING", m=-0.20, d=-0.20),
+        current_snapshot=_snapshot(direction="PRESSURE_BUILDING", m=0.15, d=0.15),
+    )
+    ns = results[0]["checks"]["neutral_state"]
+    assert ns["status"] == "reversed"
+    assert ns["persisted"] is False
+    assert results[0]["overall_status"] == "reversed"
+
+
+def test_caselab_operational_direction_comes_from_snapshot(_isolated_dirs):
+    from scripts.caselab_daily_signal import _operational_direction
+
+    result = _operational_direction(_snapshot(direction="PRESSURE_BALANCED", m=0.01, d=-0.02))
+    assert result["direction"] == "PRESSURE_BALANCED"
+    assert result["source"] == "neutral_pressure_snapshot.basic.main_pressure"
+    assert result["operational"] == "authoritative"
+
+
+def test_neutral_state_dead_band_label_change_is_confirmed(_isolated_dirs):
+    items = [_make_claim_item("funding mismatch watch")]
+    judgment = _make_judgment()
+    results = evaluate_progression(
+        items,
+        judgment,
+        previous_snapshot=_snapshot(direction="PRESSURE_EASING", m=-0.04, d=-0.04),
+        current_snapshot=_snapshot(direction="PRESSURE_BUILDING", m=0.04, d=0.04),
+    )
+    ns = results[0]["checks"]["neutral_state"]
+    assert ns["dead_band_hold"] is True
+    assert ns["status"] == "confirmed"
+    assert results[0]["overall_status"] == "tracking"
+    assert results[0]["overall_status"] != "reversed"
 
 
 def test_evaluate_progression_invalidated(_isolated_dirs):
@@ -563,6 +636,12 @@ class TestApplyTransitions:
             "checks": {
                 "caselab_improvement": {"current_gap": 0.20, "status": "stable"},
                 "md_persistence": {"persisted": True, "current_direction": "up", "status": "confirmed"},
+                "neutral_state": {
+                    "status": "confirmed",
+                    "direction": "PRESSURE_BUILDING",
+                    "consecutive_runs": 3,
+                    "persisted": True,
+                },
                 "hmm_conflict": {"conflict": False, "status": "aligned"},
                 "invalidation": {"triggered": [], "conditions_checked": 0},
             },

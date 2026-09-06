@@ -24,6 +24,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from workbench.judgment.neutral_state import (
+    HISTORY_SCHEMA,
+    compare_readings,
+    empty_history,
+    parse_history,
+    reading_from_snapshot,
+)
+
 from scripts._constants import CASELAB_USABLE_THRESHOLD
 from scripts._runtime_io import (
     ROOT,
@@ -46,6 +54,7 @@ HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
 OUTPUT_DIR = ROOT / "Output" / "claim_ladder"
 POLICY_PATH = ROOT / "governance" / "claim_ladder_policy.yaml"
 STATE_PATH = OUTPUT_DIR / "state.json"
+NEUTRAL_HISTORY_PATH = ROOT / "Output" / "state" / "claim_ladder" / "state.json"
 
 # Evidence sources for Tier 3 promotion
 REPLAY_EVALUATION_PATH = ROOT / "Output" / "workbench" / "evaluation" / "historical_replay_evaluation.json"
@@ -435,6 +444,19 @@ def save_state(state: dict[str, Any]) -> Path:
     return STATE_PATH
 
 
+def load_neutral_history() -> dict[str, Any]:
+    payload = load_json(NEUTRAL_HISTORY_PATH)
+    if payload and payload.get("schema_version") == HISTORY_SCHEMA:
+        return payload
+    return empty_history()
+
+
+def save_neutral_history(payload: dict[str, Any]) -> Path:
+    ensure_dir(NEUTRAL_HISTORY_PATH.parent)
+    write_json(NEUTRAL_HISTORY_PATH, payload)
+    return NEUTRAL_HISTORY_PATH
+
+
 def _evaluate_policy_rules(
     claim: dict[str, Any],
     evidence: dict[str, Any],
@@ -619,18 +641,15 @@ def apply_transitions(
 
         # Build evidence dict from checks
         caselab_gap = checks.get("caselab_improvement", {}).get("current_gap", 1.0)
-        md_persisted = checks.get("md_persistence", {}).get("persisted", False)
+        ns = checks.get("neutral_state") or {}
         hmm_conflict = checks.get("hmm_conflict", {}).get("conflict", False)
-
-        # Accumulate consecutive runs from persistent state
-        prev_md_consecutive = existing_claims.get(hypothesis, {}).get("evidence", {}).get("md_direction_consecutive_runs", 0)
         prev_hmm_consecutive = existing_claims.get(hypothesis, {}).get("evidence", {}).get("hmm_conflict_consecutive_runs", 0)
 
         evidence = {
             "caselab_top_score": max(0, CASELAB_USABLE_THRESHOLD - caselab_gap),
-            "md_direction": checks.get("md_persistence", {}).get("current_direction", "unknown"),
-            "md_direction_reversed": checks.get("md_persistence", {}).get("status") == "reversed",
-            "md_direction_consecutive_runs": (prev_md_consecutive + 1) if md_persisted else 0,
+            "md_direction": ns.get("direction") or "unknown",
+            "md_direction_reversed": ns.get("status") == "reversed",
+            "md_direction_consecutive_runs": int(ns.get("consecutive_runs") or 0),
             "hmm_conflict": hmm_conflict,
             "hmm_conflict_consecutive_runs": (prev_hmm_consecutive + 1) if hmm_conflict else 0,
             "invalidation_condition_count": checks.get("invalidation", {}).get("conditions_checked", 0),
@@ -763,26 +782,42 @@ def apply_transitions(
 def evaluate_progression(
     prev_items: list[dict[str, Any]],
     current_judgment: dict[str, Any],
+    *,
+    current_snapshot: dict[str, Any] | None = None,
+    previous_snapshot: dict[str, Any] | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Evaluate claim progression for each previous claim ladder item."""
     claim_items = _extract_claim_items(prev_items)
     results = []
+    current_reading = reading_from_snapshot(current_snapshot) if current_snapshot else None
+    previous_reading = reading_from_snapshot(previous_snapshot) if previous_snapshot else None
+    past = list(history or [])
+    if previous_reading is None and past:
+        previous_reading = past[-1]
+    neutral = compare_readings(previous_reading, current_reading, history=past)
 
     for item in claim_items:
         metadata = item.get("metadata", {})
         checks = {
             "md_persistence": check_md_persistence(item, current_judgment),
+            "neutral_state": dict(neutral),
             "caselab_improvement": check_caselab_improvement(item),
             "hmm_conflict": check_hmm_conflict(item),
             "invalidation": check_invalidation(item, current_judgment),
         }
 
-        # md_persistence is a frozen-theory trace, not an operational gate.
+        # Frozen md_persistence is a trace only. Operational overall uses
+        # invalidation, HMM, then requalified neutral_state.
         overall = "tracking"
         if checks["invalidation"]["status"] == "triggered":
             overall = "invalidated"
         elif checks["hmm_conflict"]["status"] == "conflict":
             overall = "conflict"
+        elif checks["neutral_state"].get("status") == "reversed":
+            overall = "reversed"
+        elif checks["neutral_state"].get("status") == "confirmed":
+            overall = "tracking"
 
         results.append({
             "previous_run_claim": {
@@ -831,8 +866,23 @@ def build_progression() -> dict[str, Any]:
             "claims": [],
         }
 
-    # Evaluate progression (existing logic for backward compat)
-    claims = evaluate_progression(prev_items, current_judgment)
+    current_snapshot = load_json(surface_dir("current") / "neutral_pressure_snapshot.json")
+    previous_snapshot = load_json(
+        ROOT / "Output" / "generations" / prev_run_dir.name / "current" / "neutral_pressure_snapshot.json"
+    )
+    history_doc = load_neutral_history()
+    history = parse_history(history_doc)
+    claims = evaluate_progression(
+        prev_items,
+        current_judgment,
+        current_snapshot=current_snapshot,
+        previous_snapshot=previous_snapshot,
+        history=history,
+    )
+    current_reading = reading_from_snapshot(current_snapshot)
+    if current_reading.get("direction"):
+        history.append(current_reading)
+        save_neutral_history({"schema_version": HISTORY_SCHEMA, "runs": history[-60:]})
 
     # Apply policy-driven state transitions
     updated_state = apply_transitions(state, claims, policy)
