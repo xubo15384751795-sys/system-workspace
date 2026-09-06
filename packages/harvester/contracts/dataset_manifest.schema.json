@@ -315,7 +315,16 @@
           "uniqueItems": true
         },
         "fallback_used": { "type": "boolean" },
-        "retrieved_at": { "type": "string", "format": "date-time" }
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "carry_forward_reason": {
+          "type": "string",
+          "const": "deadline"
+        },
+        "deadline_skipped_series": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
       }
     },
     "availability": {

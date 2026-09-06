@@ -4,7 +4,9 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -241,6 +243,8 @@ def _provider_outcome(
     series_source_signatures: dict[str, Any] | None = None,
     provider_chain: list[str] | None = None,
     fallback_used: bool = False,
+    carry_forward_reason: str = "",
+    deadline_skipped_series: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build the shared, schema-constrained acquisition outcome payload."""
     if status not in OFFICIAL_PROVIDER_OUTCOME_STATUSES:
@@ -277,6 +281,10 @@ def _provider_outcome(
         outcome["provider_chain"] = [str(item) for item in provider_chain]
     if fallback_used:
         outcome["fallback_used"] = True
+    if carry_forward_reason:
+        outcome["carry_forward_reason"] = carry_forward_reason
+    if deadline_skipped_series:
+        outcome["deadline_skipped_series"] = sorted(set(str(item) for item in deadline_skipped_series))
     # ETF parity is a cross-asset panel concern.  The generic benchmark
     # outcome is intentionally mixed-source (FRED, H.4.1, Treasury, SEC,
     # external indicators, and sometimes Tiingo ETF rows); applying the ETF
@@ -1091,6 +1099,7 @@ def fetch_official_series_from_registry(
     providers: list[str] | None = None,
     cache: bool = True,
     api_keys: dict[str, str] | None = None,
+    deadline_monotonic: float | None = None,
 ) -> pd.DataFrame:
     """Fetch all active series from the YAML registry.
 
@@ -1132,6 +1141,8 @@ def fetch_official_series_from_registry(
     series_attempts: dict[str, Any] = {}
     fallback_used = False
     acquisition_sources: list[dict[str, Any]] = []
+    deadline_skipped_series: list[str] = []
+    result_lock = threading.Lock()
 
     def _provider(name: str):
         if name in provider_cache:
@@ -1200,17 +1211,42 @@ def fetch_official_series_from_registry(
         ]
         return df[needed]
 
-    for s in requested_specs:
+    def _consume_spec(s: Any) -> None:
+        nonlocal fallback_used
         source_id = s.source_series_id or s.canonical_id
         got = False
         route_attempts: list[dict[str, Any]] = []
         series_started_at = utc_now()
         series_t0 = time.perf_counter()
+        if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
+            with result_lock:
+                failed_series.append(source_id)
+                deadline_skipped_series.append(source_id)
+                series_attempts[source_id] = [
+                    {
+                        "provider": "harvester.budget",
+                        "reason": "deadline",
+                        "error": "global_acquisition_budget_exceeded",
+                        "outcome": "failed",
+                    }
+                ]
+                acquisition_sources.append(
+                    source_record(
+                        source_id=source_id,
+                        series_id=str(s.canonical_id),
+                        started_at=series_started_at,
+                        t0=series_t0,
+                        attempts=0,
+                        outcome="failed",
+                    )
+                )
+            return
         for provider_name in order_provider_priority(s.provider_priority):
             if provider_name not in enabled:
                 continue
             try:
-                prov = _provider(provider_name)
+                with result_lock:
+                    prov = _provider(provider_name)
             except ProviderError as exc:
                 route_attempts.append(
                     {
@@ -1221,7 +1257,8 @@ def fetch_official_series_from_registry(
                         "error": str(exc)[:300],
                     }
                 )
-                errors.append({"provider": provider_name, "series_id": source_id, "error": str(exc)})
+                with result_lock:
+                    errors.append({"provider": provider_name, "series_id": source_id, "error": str(exc)})
                 continue
             results = prov.fetch_series([source_id])
             result = results[0] if results else None
@@ -1235,11 +1272,12 @@ def fetch_official_series_from_registry(
                         "error": "",
                     }
                 )
-                errors.append({
-                    "provider": provider_name,
-                    "series_id": source_id,
-                    "error": "empty_provider_result",
-                })
+                with result_lock:
+                    errors.append({
+                        "provider": provider_name,
+                        "series_id": source_id,
+                        "error": "empty_provider_result",
+                    })
                 continue
             provider_identity = str(result.provider or getattr(prov, "source_id", provider_name))
             route_attempt: dict[str, Any] = {
@@ -1267,16 +1305,16 @@ def fetch_official_series_from_registry(
                     route_attempts.extend(provider_attempts)
                 else:
                     route_attempts.append(route_attempt)
-                all_results.append(normalized)
-                succeeded_series.append(source_id)
-                selected_provider = provider_identity
-                providers_used.add(selected_provider)
-                series_providers[source_id] = selected_provider
-                source_signature = source_params.get("source_signature")
-                if isinstance(source_signature, dict):
-                    series_source_signatures[source_id] = dict(source_signature)
-                series_attempts[source_id] = route_attempts
-                fallback_used = fallback_used or len(route_attempts) > 1
+                with result_lock:
+                    all_results.append(normalized)
+                    succeeded_series.append(source_id)
+                    providers_used.add(provider_identity)
+                    series_providers[source_id] = provider_identity
+                    source_signature = source_params.get("source_signature")
+                    if isinstance(source_signature, dict):
+                        series_source_signatures[source_id] = dict(source_signature)
+                    series_attempts[source_id] = route_attempts
+                    fallback_used = fallback_used or len(route_attempts) > 1
                 got = True
                 break
             provider_attempts = source_params.get("provider_attempts")
@@ -1285,28 +1323,54 @@ def fetch_official_series_from_registry(
             else:
                 route_attempts.append(route_attempt)
             fallback_used = fallback_used or len(route_attempts) > 1
-            errors.append({
-                "provider": provider_name,
-                "series_id": source_id,
-                "error": result.fetch_error or "unknown",
-                "fallback_reason": result.fetch_fallback_reason,
-            })
-        if not got:
-            if route_attempts:
-                series_attempts[source_id] = route_attempts
-            failed_series.append(source_id)
-            logger.debug("no provider succeeded for %s", source_id)
-        acquisition_sources.append(
-            source_record(
-                source_id=source_id,
-                series_id=str(s.canonical_id),
-                provider=str(series_providers.get(source_id) or ""),
-                started_at=series_started_at,
-                t0=series_t0,
-                attempts=len(route_attempts),
-                outcome="success" if got else "failed",
+            with result_lock:
+                errors.append({
+                    "provider": provider_name,
+                    "series_id": source_id,
+                    "error": result.fetch_error or "unknown",
+                    "fallback_reason": result.fetch_fallback_reason,
+                })
+        with result_lock:
+            if not got:
+                if route_attempts:
+                    series_attempts[source_id] = route_attempts
+                failed_series.append(source_id)
+                logger.debug("no provider succeeded for %s", source_id)
+            acquisition_sources.append(
+                source_record(
+                    source_id=source_id,
+                    series_id=str(s.canonical_id),
+                    provider=str(series_providers.get(source_id) or ""),
+                    started_at=series_started_at,
+                    t0=series_t0,
+                    attempts=len(route_attempts),
+                    outcome="success" if got else "failed",
+                )
             )
-        )
+
+    from harvester.core.concurrent_policy import (
+        ETF_MAX_WORKERS,
+        FRED_MAX_WORKERS,
+        concurrent_enabled,
+        family_for_priority,
+    )
+
+    if concurrent_enabled() and requested_specs:
+        fred_specs = [s for s in requested_specs if family_for_priority(s.provider_priority) == "fred"]
+        etf_specs = [s for s in requested_specs if family_for_priority(s.provider_priority) == "etf"]
+        other_specs = [s for s in requested_specs if family_for_priority(s.provider_priority) == "other"]
+        for spec in other_specs:
+            _consume_spec(spec)
+        futures = []
+        with ThreadPoolExecutor(max_workers=FRED_MAX_WORKERS) as fred_pool:
+            with ThreadPoolExecutor(max_workers=ETF_MAX_WORKERS) as etf_pool:
+                futures.extend(fred_pool.submit(_consume_spec, spec) for spec in fred_specs)
+                futures.extend(etf_pool.submit(_consume_spec, spec) for spec in etf_specs)
+                for future in as_completed(futures):
+                    future.result()
+    else:
+        for spec in requested_specs:
+            _consume_spec(spec)
 
     if not requested_series:
         outcome = _provider_outcome(
@@ -1359,6 +1423,10 @@ def fetch_official_series_from_registry(
             fallback_used=fallback_used,
         )
 
+    if deadline_skipped_series:
+        outcome["carry_forward_reason"] = "deadline"
+        outcome["deadline_skipped_series"] = sorted(set(deadline_skipped_series))
+
     if not all_results:
         logger.warning("fetch_official_series_from_registry: no data returned")
         empty = pd.DataFrame(columns=[
@@ -1367,6 +1435,7 @@ def fetch_official_series_from_registry(
         ])
         empty.attrs["provider_outcome"] = outcome
         empty.attrs["acquisition_sources"] = acquisition_sources
+        empty.attrs["deadline_skipped_series"] = list(deadline_skipped_series)
         return empty
 
     panel = pd.concat(all_results, ignore_index=True)
@@ -1374,6 +1443,7 @@ def fetch_official_series_from_registry(
     panel = panel.sort_values(["series_id", "date"]).reset_index(drop=True)
     panel.attrs["provider_outcome"] = outcome
     panel.attrs["acquisition_sources"] = acquisition_sources
+    panel.attrs["deadline_skipped_series"] = list(deadline_skipped_series)
     return panel
 
 
@@ -1583,12 +1653,21 @@ def _carry_forward_missing_series(
             provider_outcome["fallback_reason"] = (
                 "carried_forward_optional_series_after_provider_failure"
             )
+        deadline_skipped = {
+            str(item) for item in (panel.attrs.get("deadline_skipped_series") or [])
+        }
+        if deadline_skipped & (carried_ids | provider_failed_ids):
+            provider_outcome["carry_forward_reason"] = "deadline"
+            provider_outcome["deadline_skipped_series"] = sorted(deadline_skipped)
     if panel.empty:
         result = carried.reset_index(drop=True)
     else:
         result = pd.concat([panel, carried], ignore_index=True)
     if isinstance(provider_outcome, dict):
         result.attrs["provider_outcome"] = provider_outcome
+    skipped = panel.attrs.get("deadline_skipped_series")
+    if skipped:
+        result.attrs["deadline_skipped_series"] = list(skipped)
     return result
 
 
@@ -1636,6 +1715,15 @@ def stage_complete_release(
 
     local_steps: list[dict[str, Any]] = []
     stage_started_at = utc_now()
+    from harvester.core.concurrent_policy import (
+        EXTERNAL_MAX_WORKERS,
+        budget_seconds,
+        concurrent_enabled,
+    )
+
+    deadline_monotonic = None
+    if concurrent_enabled():
+        deadline_monotonic = time.monotonic() + budget_seconds()
 
     # ------------------------------------------------------------------
     # 1. Fetch acquired series
@@ -1646,6 +1734,7 @@ def stage_complete_release(
         providers=providers,
         cache=cache,
         api_keys=api_keys,
+        deadline_monotonic=deadline_monotonic,
     )
     acquisition_sources = list(panel.attrs.get("acquisition_sources") or [])
     panel = _carry_forward_missing_series(
@@ -1705,25 +1794,36 @@ def stage_complete_release(
                 read_cached_external_indicator,
             )
             ext_results: dict[str, pd.Series] = {}
-            for indicator in KNOWN_INDICATORS:
-                cache_dir = harvester_raw_root() / "external_indicators"
-                cache_dir.mkdir(parents=True, exist_ok=True)
+            ext_lock = threading.Lock()
+            cache_dir = harvester_raw_root() / "external_indicators"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            def _consume_indicator(indicator: Any) -> None:
                 indicator_started_at = utc_now()
                 indicator_t0 = time.perf_counter()
                 indicator_outcome = "failed"
                 indicator_provider = ""
                 try:
+                    if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
+                        with ext_lock:
+                            if indicator.series_id in automated_external_series:
+                                external_failed_series[indicator.series_id] = "deadline"
+                            skipped = list(panel.attrs.get("deadline_skipped_series") or [])
+                            skipped.append(indicator.series_id)
+                            panel.attrs["deadline_skipped_series"] = skipped
+                        return
                     if indicator.acquisition_mode == "manual":
                         result = read_cached_external_indicator(indicator, cache_dir=cache_dir)
                         if result is not None and not result.empty:
-                            ext_results[indicator.series_id] = result
-                            if indicator.series_id in manual_series_status:
-                                manual_series_status[indicator.series_id] = "cached"
+                            with ext_lock:
+                                ext_results[indicator.series_id] = result
+                                if indicator.series_id in manual_series_status:
+                                    manual_series_status[indicator.series_id] = "cached"
                             indicator_outcome = "success"
                             indicator_provider = str(indicator.authority_id)
                         else:
                             indicator_outcome = "manual"
-                        continue
+                        return
                     try:
                         result = fetch_external_indicator(
                             indicator,
@@ -1734,27 +1834,37 @@ def stage_complete_release(
                     except ManualDownloadRequired as exc:
                         logger.warning("external indicator unavailable: %s", exc)
                         if indicator.series_id in automated_external_series:
-                            external_failed_series[indicator.series_id] = type(exc).__name__
-                        continue
+                            with ext_lock:
+                                external_failed_series[indicator.series_id] = type(exc).__name__
+                        return
                     if result is not None and not result.empty:
-                        ext_results[indicator.series_id] = result
-                        if indicator.series_id in automated_external_series:
-                            external_succeeded_series[indicator.series_id] = indicator.authority_id
-                            external_failed_series.pop(indicator.series_id, None)
+                        with ext_lock:
+                            ext_results[indicator.series_id] = result
+                            if indicator.series_id in automated_external_series:
+                                external_succeeded_series[indicator.series_id] = indicator.authority_id
+                                external_failed_series.pop(indicator.series_id, None)
                         indicator_outcome = "success"
                         indicator_provider = str(indicator.authority_id)
                 finally:
-                    acquisition_sources.append(
-                        source_record(
-                            source_id=indicator.series_id,
-                            series_id=indicator.series_id,
-                            provider=indicator_provider,
-                            started_at=indicator_started_at,
-                            t0=indicator_t0,
-                            attempts=1,
-                            outcome=indicator_outcome,
+                    with ext_lock:
+                        acquisition_sources.append(
+                            source_record(
+                                source_id=indicator.series_id,
+                                series_id=indicator.series_id,
+                                provider=indicator_provider,
+                                started_at=indicator_started_at,
+                                t0=indicator_t0,
+                                attempts=1,
+                                outcome=indicator_outcome,
+                            )
                         )
-                    )
+
+            if concurrent_enabled():
+                with ThreadPoolExecutor(max_workers=EXTERNAL_MAX_WORKERS) as pool:
+                    list(pool.map(_consume_indicator, KNOWN_INDICATORS))
+            else:
+                for indicator in KNOWN_INDICATORS:
+                    _consume_indicator(indicator)
             if ext_results:
                 ext_panel = external_series_to_long_panel(ext_results, vintage_date=vintage_date)
         except Exception:
@@ -1768,6 +1878,10 @@ def stage_complete_release(
             failed_series=external_failed_series,
             manual_series=manual_series_status,
         )
+    skipped = [str(item) for item in (panel.attrs.get("deadline_skipped_series") or [])]
+    if skipped and isinstance(provider_outcome, dict):
+        provider_outcome["carry_forward_reason"] = "deadline"
+        provider_outcome["deadline_skipped_series"] = sorted(set(skipped))
 
     # ------------------------------------------------------------------
     # 4. Combine into benchmark_panel and proxy_candidate_panel

@@ -52,6 +52,9 @@
     <string></string>
     <key>HARVESTER_CFTC_PROXY_URL</key>
     <string></string>
+    <!-- Isolated concurrent vs serial panel digest matched; latch off on HARVESTER_NOT_COMMITTED. -->
+    <key>SYSTEM_HARVESTER_CONCURRENT</key>
+    <string>1</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

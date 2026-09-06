@@ -398,7 +398,17 @@
           "uniqueItems": true
         },
         "fallback_used": { "type": "boolean" },
-        "retrieved_at": { "type": "string", "format": "date-time" }
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "carry_forward_reason": {
+          "type": "string",
+          "const": "deadline",
+          "description": "Set when remaining series were skipped because the concurrent acquisition budget expired."
+        },
+        "deadline_skipped_series": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
       }
     },
     "availability": {

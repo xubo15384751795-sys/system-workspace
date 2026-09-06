@@ -1297,6 +1297,13 @@ def run_daily(args: argparse.Namespace) -> RunOutcome:
     # pre-admission ``run_status`` above is still needed by PublishAdmission,
     # but cannot be used for the final bundle/event/alert after a late commit
     # or admission decision.
+    if "harvester" in failed_step_ids or "harvester" in blocked_step_ids:
+        try:
+            from harvester.core.concurrent_policy import disable_concurrent
+
+            disable_concurrent("HARVESTER_NOT_COMMITTED")
+        except Exception:
+            logger.exception("failed to disable SYSTEM_HARVESTER_CONCURRENT")
     run_status = outcome.status
     outcome_dict = outcome.to_dict()
     bundle.record_outcome(outcome_dict)
