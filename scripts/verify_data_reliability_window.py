@@ -359,6 +359,16 @@ def _qualification(record: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _workspace_carry_forward_is_stale(root: Path) -> bool:
+    try:
+        from scripts.freshness_validator import evaluate_harvester_carry_forward
+    except ImportError:
+        from freshness_validator import evaluate_harvester_carry_forward
+
+    result = evaluate_harvester_carry_forward(root=root, now=datetime.now(UTC))
+    return bool(result.get("exceeds"))
+
+
 def _has_recovery(records: list[Mapping[str, Any]], index: int) -> bool:
     if index <= 0:
         return False
@@ -414,6 +424,10 @@ def build_window_report(
             "recovery",
         )
     }
+    # Latest Harvester carry-forward lag is WARN evidence for the stale
+    # scenario. It must not change qualification or BLOCK the window.
+    if _workspace_carry_forward_is_stale(workspace):
+        scenarios["cache_expiry_or_stale"] = True
     qualified_records = [
         record for record in records if qualification_by_run[record["run_id"]]["qualified"]
     ]

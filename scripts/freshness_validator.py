@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -134,6 +135,116 @@ def _weekly_freshness_due(now: datetime) -> bool:
 # Evidence release TTL — see governance/architecture_reality_decisions.md §4
 # See: configs/freshness_policy.yaml evidence_release section
 EVIDENCE_RELEASE_TTL_HOURS = 3 * 24  # 3 days = 72 hours
+
+CARRY_FORWARD_ARTIFACT = "harvester_carry_forward"
+CARRY_FORWARD_MAX_SERIES = 2
+CARRY_FORWARD_MAX_TRADING_DAYS = 5
+
+
+def evaluate_harvester_carry_forward(
+    *,
+    root: Path | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Read carry-forward series from latest provenance and score lag.
+
+    More than two carried series, or any series more than five trading days
+    behind, is STALE. This check is WARN-only: it never raises FAIL.
+    """
+    workspace = Path(root or ROOT)
+    clock = now or datetime.now(UTC)
+    as_of = clock.date() if clock.tzinfo is None else clock.astimezone(UTC).date()
+    release = workspace / "Data" / "harvester" / "exports" / "latest"
+    provenance_path = release / "provenance" / "benchmark_panel.provenance.json"
+    panel_path = release / "data" / "benchmark_panel.parquet"
+    catalog_path = release / "catalog.json"
+    result: dict[str, Any] = {
+        "name": CARRY_FORWARD_ARTIFACT,
+        "check_type": "carry_forward",
+        "path": str(provenance_path),
+        "status": "FRESH",
+        "series": [],
+        "count": 0,
+        "max_trading_days_behind": 0,
+        "exceeds": False,
+        "max_series": CARRY_FORWARD_MAX_SERIES,
+        "max_trading_days": CARRY_FORWARD_MAX_TRADING_DAYS,
+        "age_hours": None,
+        "max_age_hours": None,
+    }
+    if catalog_path.is_file():
+        try:
+            catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            catalog = {}
+        as_of_raw = catalog.get("as_of_date") or catalog.get("as_of")
+        if as_of_raw:
+            try:
+                as_of = date.fromisoformat(str(as_of_raw)[:10])
+            except ValueError:
+                pass
+    if not provenance_path.is_file() or not panel_path.is_file():
+        return result
+    try:
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return result
+    outcome = provenance.get("provider_outcome")
+    if not isinstance(outcome, Mapping):
+        return result
+    failed = [str(item) for item in outcome.get("failed_series") or [] if str(item).strip()]
+    if not failed:
+        return result
+    try:
+        import pandas as pd
+
+        wanted = [column for column in ("date", "series_id", "source_series_id")]
+        panel = pd.read_parquet(panel_path, columns=wanted)
+    except Exception:
+        return result
+    if "date" not in panel.columns:
+        return result
+    series_id = panel["series_id"].astype(str) if "series_id" in panel.columns else None
+    source_id = (
+        panel["source_series_id"].astype(str) if "source_series_id" in panel.columns else None
+    )
+    dates = pd.to_datetime(panel["date"], errors="coerce")
+    rows: list[dict[str, Any]] = []
+    for sid in failed:
+        mask = False
+        if source_id is not None:
+            mask = source_id == sid
+        if series_id is not None:
+            ends = series_id.str.endswith(":" + sid) | (series_id == sid)
+            mask = ends if mask is False else (mask | ends)
+        if mask is False:
+            continue
+        selected = dates[mask]
+        if selected.empty or selected.notna().sum() == 0:
+            continue
+        max_date = selected.max().date()
+        behind = trading_days_behind(max_date, as_of)
+        rows.append(
+            {
+                "series_id": sid,
+                "max_date": max_date.isoformat(),
+                "trading_days_behind": int(behind),
+            }
+        )
+    rows.sort(key=lambda item: (-int(item["trading_days_behind"]), item["series_id"]))
+    max_behind = max((int(item["trading_days_behind"]) for item in rows), default=0)
+    exceeds = len(rows) > CARRY_FORWARD_MAX_SERIES or max_behind > CARRY_FORWARD_MAX_TRADING_DAYS
+    result.update(
+        {
+            "status": "STALE" if exceeds else "FRESH",
+            "series": rows,
+            "count": len(rows),
+            "max_trading_days_behind": max_behind,
+            "exceeds": exceeds,
+            "as_of": as_of.isoformat(),
+        }
+    )
+    return result
 
 
 def get_file_mtime(path: Path) -> datetime | None:
@@ -493,6 +604,9 @@ def build_freshness_report(
         )
     freshness_checks.extend(content_checks)
 
+    carry_forward = evaluate_harvester_carry_forward(root=ROOT, now=now)
+    freshness_checks.append(carry_forward)
+
     # Check evidence release freshness (3-day TTL)
     # See: governance/architecture_reality_decisions.md §4
     evidence_release = ROOT / "Data" / "harvester" / "exports" / "latest"
@@ -569,6 +683,14 @@ def build_freshness_report(
         "ordering_issues": ordering_issues,
         "closure_chain_issues": closure_issues,
         "content_freshness": content_checks,
+        "carry_forward": {
+            "series": carry_forward.get("series") or [],
+            "count": carry_forward.get("count") or 0,
+            "max_trading_days_behind": carry_forward.get("max_trading_days_behind") or 0,
+            "exceeds": bool(carry_forward.get("exceeds")),
+            "max_series": CARRY_FORWARD_MAX_SERIES,
+            "max_trading_days": CARRY_FORWARD_MAX_TRADING_DAYS,
+        },
         "artifacts": freshness_checks,
         "quality_content_freshness": quality_suite,
     }
@@ -596,6 +718,9 @@ def format_markdown(report: dict[str, Any]) -> str:
             behind = artifact.get("trading_days_behind")
             age = f"{behind}d behind" if behind is not None else "N/A"
             max_age = str(artifact.get("max_trading_days_behind", "N/A"))
+        elif artifact.get("check_type") == "carry_forward":
+            age = f"{artifact.get('count', 0)} series / {artifact.get('max_trading_days_behind', 0)}d"
+            max_age = f"{artifact.get('max_series')}/{artifact.get('max_trading_days')}d"
         else:
             age = f"{artifact['age_hours']:.1f}" if artifact["age_hours"] is not None else "N/A"
             max_age = str(artifact["max_age_hours"]) if artifact.get("max_age_hours") is not None else "N/A"
@@ -616,6 +741,24 @@ def format_markdown(report: dict[str, Any]) -> str:
                 f"{item.get('max_date') or 'N/A'} | "
                 f"{item.get('trading_days_behind') if item.get('trading_days_behind') is not None else 'N/A'} | "
                 f"{item.get('max_trading_days_behind', 'N/A')} |"
+            )
+
+    carry = report.get("carry_forward") if isinstance(report.get("carry_forward"), dict) else {}
+    if carry.get("series"):
+        lines += [
+            "",
+            "## Harvester carry-forward",
+            "",
+            f"Count {carry.get('count')} (WARN if > {carry.get('max_series')} "
+            f"or any series > {carry.get('max_trading_days')} trading days).",
+            "",
+            "| Series | max(date) | Trading days behind |",
+            "|---|---|---:|",
+        ]
+        for item in carry["series"]:
+            lines.append(
+                f"| {item.get('series_id')} | {item.get('max_date') or 'N/A'} | "
+                f"{item.get('trading_days_behind')} |"
             )
 
     if report.get("ordering_issues"):
