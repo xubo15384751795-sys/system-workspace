@@ -5,6 +5,28 @@ description: >-
   explicit available_at timestamp before it can be decision-usable.
 default_timezone: America/New_York
 mode: shadow
+x-tiingo-cross-asset-daily-eod: &tiingo_cross_asset_daily_eod
+  provider_id: tiingo
+  provider_aliases:
+    - etf_provider_chain
+    - openbb_tiingo
+  series_id: "*"
+  dataset_id: cross_asset_daily_panel
+  evidence_status: verified
+  release_offset_days: 0
+  release_timezone: America/New_York
+  release_cutoff_local: "17:30"
+  nominal_publication_lag: PT0S
+  business_calendar_basis: WEEKDAYS
+  official_evidence_url: https://www.tiingo.com/documentation/end-of-day
+  evidence_checked_at: "2026-09-06"
+  note: >-
+    Tiingo documents most US equity/ETF EOD prices as available at 5:30 p.m.
+    EST, with exchange corrections through 8:00 p.m. EST. Cutoff is 17:30
+    America/New_York (Eastern local). Same-session offset is 0. WEEKDAYS
+    avoids rolling a NYSE-open federal holiday (Columbus Day, Veterans Day)
+    to the next calendar day; Good Friday is an NYSE close this basis does
+    not encode. The calendar never fills available_at.
 rules:
   - rule_id: h41.weekly_public_release
     provider_id: h41
@@ -97,3 +119,30 @@ rules:
       TFF is a COT report. CFTC documents the public release at 3:30 p.m.
       Eastern, normally Friday using the preceding Tuesday's data; the dated
       schedule above is authoritative for 2026 holiday shifts.
+
+  # Tiingo US equity/ETF EOD is a weekday schedule. One rule per session
+  # weekday because the calendar schema binds a single observation_weekday.
+  # Official docs: most US equity prices are available at 5:30 PM EST;
+  # exchanges may send corrections until 8:00 PM EST.
+  # https://www.tiingo.com/documentation/end-of-day
+  # https://www.tiingo.com/products/end-of-day-stock-price-data
+  - rule_id: tiingo.cross_asset_daily_panel.mon
+    <<: *tiingo_cross_asset_daily_eod
+    observation_weekday: 0
+    release_weekday: 0
+  - rule_id: tiingo.cross_asset_daily_panel.tue
+    <<: *tiingo_cross_asset_daily_eod
+    observation_weekday: 1
+    release_weekday: 1
+  - rule_id: tiingo.cross_asset_daily_panel.wed
+    <<: *tiingo_cross_asset_daily_eod
+    observation_weekday: 2
+    release_weekday: 2
+  - rule_id: tiingo.cross_asset_daily_panel.thu
+    <<: *tiingo_cross_asset_daily_eod
+    observation_weekday: 3
+    release_weekday: 3
+  - rule_id: tiingo.cross_asset_daily_panel.fri
+    <<: *tiingo_cross_asset_daily_eod
+    observation_weekday: 4
+    release_weekday: 4

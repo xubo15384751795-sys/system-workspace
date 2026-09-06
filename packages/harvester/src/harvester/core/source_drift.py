@@ -9,8 +9,11 @@ import pandas as pd
 def compare_source_signatures(
     previous: Mapping[str, Mapping[str, Any]],
     current: Mapping[str, Mapping[str, Any]],
+    *,
+    ignore_fields: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Report per-series source/normalization changes without hiding them."""
+    ignored = {str(field) for field in ignore_fields}
     changed: dict[str, dict[str, Any]] = {}
     for series in sorted(set(previous) | set(current)):
         before = dict(previous.get(series, {}))
@@ -18,7 +21,7 @@ def compare_source_signatures(
         fields = {
             field: {"previous": before.get(field), "current": after.get(field)}
             for field in ("provider", "normalization_profile", "adjusted", "timestamp_basis")
-            if before.get(field) != after.get(field)
+            if field not in ignored and before.get(field) != after.get(field)
         }
         if fields:
             changed[str(series)] = fields

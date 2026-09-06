@@ -43,6 +43,53 @@ def test_parity_report_is_pending_review_until_explicitly_certified() -> None:
     assert reviewed["promotion_allowed"] is True
 
 
+def test_parity_compares_session_prices_not_volume() -> None:
+    dates = pd.date_range("2026-01-01", periods=20, freq="D")
+    left = pd.DataFrame({"date": dates, "value": [100.0 + i for i in range(20)], "volume": [1_000.0] * 20})
+    right = pd.DataFrame({"date": dates, "value": [100.0 + i for i in range(20)], "volume": [9_999.0] * 20})
+    report = build_provider_parity_report(
+        {"tiingo": {"SPY": left}, "massive": {"SPY": right}},
+        sentinels=("SPY",),
+        minimum_overlap_rows=20,
+        captured_at="2026-09-06T00:00:00Z",
+    )
+    assert report["series"]["SPY"]["status"] == "PARITY"
+    assert report["series"]["SPY"]["passed"] is True
+    assert report["status"] == "PARITY_PENDING_REVIEW"
+
+
+def test_cross_provider_signatures_ignore_provider_name() -> None:
+    left = {ticker: _frame([100.0 + i for i in range(20)]) for ticker in ("SPY",)}
+    right = {ticker: _frame([100.0 + i for i in range(20)]) for ticker in ("SPY",)}
+    report = build_provider_parity_report(
+        {"tiingo": left, "massive": right},
+        sentinels=("SPY",),
+        minimum_overlap_rows=20,
+        source_signatures={
+            "tiingo": {
+                "SPY": {
+                    "provider": "tiingo",
+                    "normalization_profile": "etf_ohlcv.adjusted.v1",
+                    "adjusted": False,
+                    "timestamp_basis": "trading_date",
+                }
+            },
+            "massive": {
+                "SPY": {
+                    "provider": "massive",
+                    "normalization_profile": "etf_ohlcv.adjusted.v1",
+                    "adjusted": False,
+                    "timestamp_basis": "trading_date",
+                }
+            },
+        },
+        captured_at="2026-09-06T00:00:00Z",
+    )
+    assert report["source_signatures"]["status"] == "PARITY"
+    assert report["status"] == "PARITY_PENDING_REVIEW"
+    assert report["certified"] is False
+
+
 def test_parity_report_flags_value_drift_and_missing_sentinel() -> None:
     report = build_provider_parity_report(
         {

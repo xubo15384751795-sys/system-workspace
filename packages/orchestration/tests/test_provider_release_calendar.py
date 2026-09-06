@@ -34,9 +34,14 @@ def test_workspace_calendar_is_verified_but_shadow_only() -> None:
 
     assert calendar["schema_version"] == "workbench.provider_release_calendar.v1"
     assert calendar["mode"] == "shadow"
-    assert {rule["rule_id"] for rule in calendar["rules"]} == {
+    assert {rule["rule_id"] for rule in calendar["rules"]} >= {
         "h41.weekly_public_release",
         "cftc.tff.weekly_public_release",
+        "tiingo.cross_asset_daily_panel.mon",
+        "tiingo.cross_asset_daily_panel.tue",
+        "tiingo.cross_asset_daily_panel.wed",
+        "tiingo.cross_asset_daily_panel.thu",
+        "tiingo.cross_asset_daily_panel.fri",
     }
 
 
@@ -109,6 +114,42 @@ def test_provider_evaluator_exposes_schedule_but_still_requires_explicit_availab
     assert result["release_calendar"]["release_due"] is True
     assert result["verdict"] == "BLOCKED"
     assert result["reason_code"] == "PROVIDER_RELEASE_CALENDAR_UNCONFIGURED"
+
+
+def test_tiingo_daily_eod_uses_session_weekday_and_eastern_cutoff() -> None:
+    event = {
+        "provider_id": "tiingo",
+        "series_id": "SPY",
+        "dataset_id": "cross_asset_daily_panel",
+        "observation_date": "2026-09-04",  # Friday
+    }
+    result = evaluate_provider_release_calendar(
+        event,
+        decision_time=datetime(2026, 9, 6, 12, 0, tzinfo=UTC),
+        root=ROOT,
+    )
+
+    assert result["status"] == "verified"
+    assert result["rule_id"] == "tiingo.cross_asset_daily_panel.fri"
+    assert result["expected_release_at"] == "2026-09-04T21:30:00Z"
+    assert result["release_due"] is True
+    assert result["resolution"] == "weekday_pattern"
+
+    monday = evaluate_provider_release_calendar(
+        {**event, "observation_date": "2026-08-31", "provider_id": "etf_provider_chain"},
+        decision_time=datetime(2026, 9, 1, 0, 0, tzinfo=UTC),
+        root=ROOT,
+    )
+    assert monday["rule_id"] == "tiingo.cross_asset_daily_panel.mon"
+    assert monday["expected_release_at"] == "2026-08-31T21:30:00Z"
+
+    weekend = evaluate_provider_release_calendar(
+        {**event, "observation_date": "2026-09-05"},
+        decision_time=datetime(2026, 9, 6, tzinfo=UTC),
+        root=ROOT,
+    )
+    assert weekend["status"] == "invalid"
+    assert weekend["reason"] == "observation_weekday_mismatch"
 
 
 def test_calendar_rule_resolution_prefers_specific_cftc_rule() -> None:

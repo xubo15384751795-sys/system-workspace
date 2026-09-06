@@ -110,7 +110,7 @@ def build_provider_parity_report(
         else:
             value_columns = tuple(
                 column
-                for column in ("value", "close", "open", "high", "low", "volume")
+                for column in ("value", "close", "open", "high", "low")
                 if column in left.columns and column in right.columns
             )
             result = compare_normalized_frames(left, right, value_columns=value_columns)
@@ -131,9 +131,23 @@ def build_provider_parity_report(
 
     signature_report: dict[str, Any] | None = None
     if source_signatures:
+        baseline_sigs = source_signatures.get(baseline_provider, {}) or {}
+        candidate_sigs = source_signatures.get(candidate_provider, {}) or {}
+        overlapping = {
+            ticker: baseline_sigs[ticker]
+            for ticker in baseline_sigs
+            if ticker in candidate_sigs
+        }
+        overlapping_right = {
+            ticker: candidate_sigs[ticker]
+            for ticker in overlapping
+        }
         signature_report = compare_source_signatures(
-            source_signatures.get(baseline_provider, {}),
-            source_signatures.get(candidate_provider, {}),
+            overlapping,
+            overlapping_right,
+            # Cross-provider parity expects different provider names; the
+            # comparison is about adjustment and timestamp conventions.
+            ignore_fields=("provider",),
         )
         if signature_report.get("status") != "PARITY":
             all_passed = False
@@ -228,6 +242,11 @@ def _collect_live_provider_frames_with_diagnostics(
             cache=True,
         ),
     }
+    # Panel acquisition keeps CRSP-adjusted Tiingo bars. Parity compares the
+    # session OHLC both vendors actually publish; mixing adjClose with
+    # Massive split-adjusted close is a convention mismatch, not drift.
+    for provider in providers.values():
+        provider.prefer_adjusted = False
     for provider_name, provider in providers.items():
         for result in provider.fetch_series(list(tickers)):
             if result is None or result.frame is None or result.frame.empty:

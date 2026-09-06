@@ -54,9 +54,49 @@ PROVIDER_OUTCOME_STATUSES = {
 DATA_CONTRACT_MODES = frozenset({"shadow", "enforce"})
 
 
+def _configured_calendar_status(
+    *,
+    provider: str,
+    dataset_id: str = DATASET_ID,
+) -> str:
+    """Return CONFIGURED only when a verified publication-calendar rule exists.
+
+    The schedule never fills available_at. A matching rule changes
+    calendar_status; retrieval success still is not decision-usable.
+    """
+    try:
+        root = workspace_root()
+        path = root / "configs" / "provider_release_calendar.yaml"
+        if not path.is_file():
+            return "UNCONFIGURED"
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return "UNCONFIGURED"
+    rules = payload.get("rules")
+    if not isinstance(rules, list):
+        return "UNCONFIGURED"
+    wanted = str(provider or "").strip()
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        aliases = {str(rule.get("provider_id") or "")}
+        aliases.update(str(item) for item in (rule.get("provider_aliases") or []) if str(item).strip())
+        if wanted not in aliases:
+            continue
+        if str(rule.get("dataset_id") or "") not in {dataset_id, "*"}:
+            continue
+        if str(rule.get("evidence_status") or "") != "verified":
+            continue
+        return "CONFIGURED"
+    return "UNCONFIGURED"
+
+
 def _conservative_availability(
     status: str,
     retrieved_at: str | None = None,
+    *,
+    provider: str = "",
+    dataset_id: str = DATASET_ID,
 ) -> dict[str, Any]:
     """Return metadata that never treats retrieval as publication evidence."""
     return {
@@ -66,7 +106,7 @@ def _conservative_availability(
             in {"reused_same_content", "reused_after_provider_failure", "environmentally_blocked"}
             else "UNKNOWN"
         ),
-        "calendar_status": "UNCONFIGURED",
+        "calendar_status": _configured_calendar_status(provider=provider, dataset_id=dataset_id),
         "available_at": None,
         "retrieved_at": retrieved_at or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "decision_usable": False,
@@ -143,7 +183,12 @@ def _provider_outcome(
     # provides an evidenced publication timestamp, the release evaluator must
     # keep this state unknown and decision-ineligible rather than treating a
     # successful HTTP response as causally available.
-    outcome["availability"] = _conservative_availability(status, outcome["retrieved_at"])
+    outcome["availability"] = _conservative_availability(
+        status,
+        outcome["retrieved_at"],
+        provider=provider,
+        dataset_id=DATASET_ID,
+    )
     if integrity:
         outcome["integrity"] = dict(integrity)
     return outcome
@@ -388,6 +433,8 @@ def load_latest_release_panel(
         _conservative_availability(
             str(outcome.get("status") or "environmentally_blocked"),
             outcome.get("retrieved_at"),
+            provider=str(outcome.get("provider") or "etf_provider_chain"),
+            dataset_id=DATASET_ID,
         ),
     )
     from harvester.quality.data_contract import validate_cross_asset_panel_contract
@@ -757,6 +804,8 @@ def build_cross_asset_panel(
         _conservative_availability(
             str(outcome.get("status") or "environmentally_blocked"),
             outcome.get("retrieved_at"),
+            provider=str(outcome.get("provider") or "etf_provider_chain"),
+            dataset_id=DATASET_ID,
         ),
     )
 

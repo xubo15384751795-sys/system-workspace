@@ -154,6 +154,7 @@ def resolve_provider_release_calendar(
     *,
     series_id: str = "",
     dataset_id: str = "",
+    observation_date: date | str | datetime | None = None,
     calendar: dict[str, Any] | None = None,
     root: Path = ROOT,
 ) -> dict[str, Any] | None:
@@ -174,6 +175,15 @@ def resolve_provider_release_calendar(
             candidates.append(rule)
     if not candidates:
         return None
+    parsed_observation = _parse_date(observation_date)
+    if parsed_observation is not None:
+        weekday_matches = [
+            rule
+            for rule in candidates
+            if int(rule["observation_weekday"]) == parsed_observation.weekday()
+        ]
+        if weekday_matches:
+            candidates = weekday_matches
     candidates.sort(
         key=lambda rule: (
             rule["dataset_id"] != "*",
@@ -221,10 +231,12 @@ def evaluate_provider_release_calendar(
     payload = calendar or load_provider_release_calendar(root)
     validate_provider_release_calendar(payload)
     result["mode"] = str(payload.get("mode") or "shadow")
+    observation_date = _parse_date(event.get("observation_date"))
     rule = resolve_provider_release_calendar(
         provider,
         series_id=series_id,
         dataset_id=dataset_id,
+        observation_date=observation_date,
         calendar=payload,
         root=root,
     )
@@ -239,7 +251,6 @@ def evaluate_provider_release_calendar(
             "evidence_checked_at": rule["evidence_checked_at"],
         }
     )
-    observation_date = _parse_date(event.get("observation_date"))
     if observation_date is None:
         result["status"] = "invalid"
         result["reason"] = "missing_observation_date"

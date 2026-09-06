@@ -40,6 +40,18 @@ class _Gateway:
         return self.response
 
 
+class _SequenceGateway:
+    def __init__(self, responses: list[_Response]) -> None:
+        self.responses = list(responses)
+        self.calls: list[tuple[str, str, dict[str, object]]] = []
+
+    def fetch(self, provider: str, endpoint_id: str, params: dict[str, object]) -> _Response:
+        self.calls.append((provider, endpoint_id, dict(params)))
+        if not self.responses:
+            raise AssertionError("unexpected extra provider call")
+        return self.responses.pop(0)
+
+
 def _tiingo_rows() -> list[dict[str, Any]]:
     return [
         {
@@ -250,7 +262,8 @@ def test_chain_records_primary_success_attempt(tmp_path: Path) -> None:
     assert attempts[0]["failure_class"] == "NONE"
 
 
-def test_authenticated_provider_429_opens_persistent_cooldown(tmp_path: Path) -> None:
+def test_authenticated_provider_429_opens_persistent_cooldown(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("harvester.providers.etf_market_data.time.sleep", lambda _seconds: None)
     gateway = _Gateway(_Response(429, {"message": "Too Many Requests"}))
     provider = TiingoEodProvider(
         api_key="secret-do-not-log",
@@ -265,7 +278,45 @@ def test_authenticated_provider_429_opens_persistent_cooldown(tmp_path: Path) ->
     assert first[0].fetch_fallback_reason == "rate_limited"
     assert first[1].fetch_fallback_reason == "provider_cooldown"
     assert second[0].fetch_fallback_reason == "provider_cooldown"
-    assert len(gateway.calls) == 1
+    assert len(gateway.calls) == 3
+
+
+def test_tiingo_retries_failed_ticker_twice_before_returning(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("harvester.providers.etf_market_data.time.sleep", lambda _seconds: None)
+    gateway = _SequenceGateway(
+        [
+            _Response(500, {"message": "upstream"}),
+            _Response(500, {"message": "upstream"}),
+            _Response(200, _tiingo_rows()),
+        ]
+    )
+    provider = TiingoEodProvider(
+        api_key="secret-do-not-log",
+        data_root=tmp_path,
+        cache=False,
+        gateway=gateway,  # type: ignore[arg-type]
+    )
+
+    result = provider.fetch_series(["SPY"])[0]
+
+    assert result.provider == "tiingo"
+    assert result.frame.iloc[0]["value"] == 101
+    assert len(gateway.calls) == 3
+
+
+def test_tiingo_does_not_retry_missing_api_key(tmp_path: Path) -> None:
+    gateway = _Gateway(_Response(200, _tiingo_rows()))
+    provider = TiingoEodProvider(
+        api_key="",
+        data_root=tmp_path,
+        cache=False,
+        gateway=gateway,  # type: ignore[arg-type]
+    )
+
+    result = provider.fetch_series(["SPY"])[0]
+
+    assert result.fetch_fallback_reason == "missing_api_key"
+    assert gateway.calls == []
 
 
 def test_authenticated_provider_backoff_is_bounded_and_resets(tmp_path: Path, monkeypatch) -> None:

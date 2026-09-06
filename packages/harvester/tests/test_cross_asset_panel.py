@@ -8,12 +8,51 @@ import pandas as pd
 import pytest
 from harvester.cross_asset_panel import (
     PANEL_COLUMNS,
+    _conservative_availability,
     build_cross_asset_panel,
     compute_derived_columns,
     prefetched_panel_from_registry,
     stage_cross_asset_panel,
     sync_panel_to_workspace,
 )
+
+
+def test_tiingo_calendar_configures_availability_without_inventing_available_at(monkeypatch) -> None:
+    repo = Path(__file__).resolve().parents[3]
+    monkeypatch.setattr("harvester.cross_asset_panel.workspace_root", lambda: repo)
+
+    refreshed = _conservative_availability(
+        "refreshed",
+        "2026-09-06T12:00:00Z",
+        provider="tiingo",
+    )
+    assert refreshed["calendar_status"] == "CONFIGURED"
+    assert refreshed["state"] == "UNKNOWN"
+    assert refreshed["available_at"] is None
+    assert refreshed["decision_usable"] is False
+
+    chain = _conservative_availability(
+        "refreshed",
+        "2026-09-06T12:00:00Z",
+        provider="etf_provider_chain",
+    )
+    assert chain["calendar_status"] == "CONFIGURED"
+
+    reused = _conservative_availability(
+        "reused_same_content",
+        "2026-09-06T12:00:00Z",
+        provider="tiingo",
+    )
+    assert reused["calendar_status"] == "CONFIGURED"
+    assert reused["state"] == "STALE"
+
+    other = _conservative_availability(
+        "refreshed",
+        "2026-09-06T12:00:00Z",
+        provider="fred",
+    )
+    assert other["calendar_status"] == "UNCONFIGURED"
+    assert other["state"] == "UNKNOWN"
 
 
 def test_compute_derived_columns_adds_returns(tmp_path: Path) -> None:

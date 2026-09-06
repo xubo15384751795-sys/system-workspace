@@ -34,7 +34,16 @@ logger = logging.getLogger(__name__)
 _DEFAULT_CACHE_MAX_AGE_S = 15 * 60
 _DEFAULT_COOLDOWN_S = 15 * 60
 _DEFAULT_MIN_INTERVAL_S = 0.25
+_DEFAULT_TIINGO_FAILED_TICKER_RETRIES = 2
 _DEFAULT_CHAIN = ("tiingo", "massive", "yfinance")
+_NON_RETRYABLE_TICKER_REASONS = frozenset(
+    {
+        "missing_api_key",
+        "authentication_failed",
+        "provider_cooldown",
+        "parse_error",
+    }
+)
 _API_KEY_ENV = {
     "tiingo": "TIINGO_API_KEY",
     "massive": "MASSIVE_API_KEY",
@@ -42,7 +51,7 @@ _API_KEY_ENV = {
 _NORMALIZATION_PROFILE = "etf_ohlcv.adjusted.v1"
 
 
-def _source_signature(provider: str, *, cache_hit: bool = False) -> dict[str, Any]:
+def _source_signature(provider: str, *, cache_hit: bool = False, adjusted: bool = True) -> dict[str, Any]:
     """Describe the effective measurement convention for one provider.
 
     Provider names alone are not enough to detect source drift.  The signature
@@ -52,7 +61,7 @@ def _source_signature(provider: str, *, cache_hit: bool = False) -> dict[str, An
     return {
         "provider": str(provider),
         "normalization_profile": _NORMALIZATION_PROFILE,
-        "adjusted": True,
+        "adjusted": bool(adjusted),
         "timestamp_basis": "trading_date",
         "cache_hit": bool(cache_hit),
     }
@@ -392,6 +401,8 @@ class _AuthenticatedEodProvider(OfficialProvider):
     source_id = ""
     endpoint_id = ""
     key_env = ""
+    failed_ticker_retries = 0
+    prefer_adjusted = True
 
     def __init__(
         self,
@@ -462,6 +473,29 @@ class _AuthenticatedEodProvider(OfficialProvider):
                 # short sleep prevents a single batch from being bursty.
                 time.sleep(_env_float(f"{self.source_id.upper()}_MIN_INTERVAL_S", _DEFAULT_MIN_INTERVAL_S))
             result = self._fetch_one(ticker)
+            retries_left = self._ticker_retry_budget()
+            while (
+                retries_left > 0
+                and (result.empty() or result.fetch_error)
+                and str(result.fetch_fallback_reason or "") not in _NON_RETRYABLE_TICKER_REASONS
+            ):
+                retries_left -= 1
+                attempt = self._ticker_retry_budget() - retries_left
+                logger.info(
+                    "%s ticker retry %d/%d for %s after %s",
+                    self.source_id,
+                    attempt,
+                    self._ticker_retry_budget(),
+                    ticker,
+                    result.fetch_fallback_reason or "empty",
+                )
+                time.sleep(
+                    _env_float(
+                        f"{self.source_id.upper()}_MIN_INTERVAL_S",
+                        _DEFAULT_MIN_INTERVAL_S,
+                    )
+                )
+                result = self._fetch_one(ticker)
             results.append(result)
             if result.fetch_fallback_reason == "rate_limited":
                 self._gate.mark_rate_limited(result.fetch_error or "rate limited")
@@ -469,6 +503,16 @@ class _AuthenticatedEodProvider(OfficialProvider):
             elif not result.empty() and not result.fetch_error:
                 self._gate.mark_success()
         return results
+
+    def _ticker_retry_budget(self) -> int:
+        env_name = f"{self.source_id.upper()}_FAILED_TICKER_RETRIES"
+        raw = os.environ.get(env_name, "").strip()
+        if raw:
+            try:
+                return max(0, int(raw))
+            except ValueError:
+                logger.warning("Invalid %s=%r; using %d", env_name, raw, self.failed_ticker_retries)
+        return max(0, int(self.failed_ticker_retries))
 
     def _fetch_one(self, ticker: str) -> ProviderResult:
         start_date, end_date = _date_window(self._period)
@@ -511,6 +555,7 @@ class _AuthenticatedEodProvider(OfficialProvider):
                 provider=self.source_id,
                 ticker=ticker,
                 timestamp_field="t" if self.source_id == "massive" else "date",
+                adjusted=self.prefer_adjusted,
             )
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             return self._build_error_result(
@@ -534,8 +579,10 @@ class _AuthenticatedEodProvider(OfficialProvider):
             source_params={
                 "start_date": start_date,
                 "end_date": end_date,
-                "adjusted": True,
-                "source_signature": _source_signature(self.source_id),
+                "adjusted": self.prefer_adjusted,
+                "source_signature": _source_signature(
+                    self.source_id, adjusted=self.prefer_adjusted
+                ),
             },
             data_note=f"{self.source_id} daily ETF OHLCV",
         )
@@ -555,6 +602,7 @@ class _AuthenticatedEodProvider(OfficialProvider):
                 provider=self.source_id,
                 ticker=ticker,
                 timestamp_field="t" if self.source_id == "massive" else "date",
+                adjusted=self.prefer_adjusted,
             )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return None
@@ -568,8 +616,12 @@ class _AuthenticatedEodProvider(OfficialProvider):
             source_params={
                 "cache_hit": True,
                 "cache_age_seconds": round(age, 3),
-                "adjusted": True,
-                "source_signature": _source_signature(self.source_id, cache_hit=True),
+                "adjusted": self.prefer_adjusted,
+                "source_signature": _source_signature(
+                    self.source_id,
+                    cache_hit=True,
+                    adjusted=self.prefer_adjusted,
+                ),
             },
             data_note=f"{self.source_id} daily ETF OHLCV (recent raw cache)",
         )
@@ -580,6 +632,7 @@ class TiingoEodProvider(_AuthenticatedEodProvider):
 
     source_id = "tiingo"
     endpoint_id = "daily_prices"
+    failed_ticker_retries = _DEFAULT_TIINGO_FAILED_TICKER_RETRIES
 
     def _authorization_header(self) -> str:
         return f"Token {self._api_key}" if self._api_key else ""
