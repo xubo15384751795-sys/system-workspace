@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 ENV_NAME = "SYSTEM_HARVESTER_CONCURRENT"
 BUDGET_ENV = "HARVESTER_CONCURRENT_BUDGET_SEC"
-# Cap is ≤ 4. OpenBB/aiohttp is not thread-safe, so FRED stays on one
+# Cap is ≤ 4. OpenBB async client is not thread-safe, so FRED stays on one
 # worker; the family still overlaps ETF and external pools.
 FRED_MAX_WORKERS = 1
 # ETF provider_state files are not safe under threaded writes.

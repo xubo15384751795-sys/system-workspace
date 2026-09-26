@@ -1,12 +1,15 @@
 """Offline tests for the cache-only normalized-series dlt operator."""
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("dlt")
+
 import hashlib
 from pathlib import Path
 
 import duckdb
 import pandas as pd
-import pytest
 
 import harvester.operators.run_external_indicators_dlt_shadow as shadow
 from harvester.providers.external_indicators import ExternalIndicator

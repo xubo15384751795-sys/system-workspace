@@ -6,12 +6,15 @@ tmp_path. No network access; payloads are fabricated Socrata-shaped JSON.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("dlt")
+
 import json
 from pathlib import Path
 
 import duckdb
 import pandas as pd
-import pytest
 from harvester.ingestion.external_dlt_source import (
     SHADOW_TABLE_NAME,
     build_cftc_shadow_parity_report,

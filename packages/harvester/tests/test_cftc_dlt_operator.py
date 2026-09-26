@@ -1,4 +1,9 @@
+"""Offline operator tests for the CFTC dlt shadow parity path."""
 from __future__ import annotations
+
+import pytest
+
+pytest.importorskip("dlt")
 
 import hashlib
 import json

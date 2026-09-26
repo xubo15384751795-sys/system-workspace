@@ -1,11 +1,14 @@
 """Offline tests for the generic normalized-series dlt shadow source."""
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("dlt")
+
 from pathlib import Path
 
 import duckdb
 import pandas as pd
-import pytest
 from harvester.ingestion.dlt_series_source import (
     DLT_MAX_ATTEMPTS,
     external_indicator_source,
