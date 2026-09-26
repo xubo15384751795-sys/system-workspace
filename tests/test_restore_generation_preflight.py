@@ -3,17 +3,19 @@ from __future__ import annotations
 
 from tools.audit.restore_generation_preflight import build_report
 
+# Accepted Step 5E structural fidelity target from the r10 closure record.
+STRUCTURAL_TARGET = "daily_pipeline_20260912_142103_a67e12"
+
 
 def test_restore_preflight_accepts_diagnostic_structural_target_without_production_authority() -> None:
-    report = build_report()
+    report = build_report(structural_target_id=STRUCTURAL_TARGET)
 
     assert report["status"] == "PASS_WITH_PRODUCTION_RESTORE_DEFERRED"
     assert report["structural_restore_eligible"] is True
     assert report["production_restore_eligible"] is False
     assert report["eligible_targets"] == []
     assert report["structural_restore"]["status"] == "PASS"
-    assert isinstance(report["structural_restore"]["target"], str)
-    assert report["structural_restore"]["target"].startswith("daily_pipeline_")
+    assert report["structural_restore"]["target"] == STRUCTURAL_TARGET
     assert report["production_restore"]["status"] == "BLOCKED_NO_ELIGIBLE_PRODUCTION_TARGET"
     assert report["baseline_target"]["production_restore_eligible"] is False
     assert report["restore"]["production_output_touched"] is False

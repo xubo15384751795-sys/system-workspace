@@ -467,8 +467,17 @@ def run_structural_restore_fidelity(
                 root, isolated_root, source_generation, restored_generation
             ),
             "pointer_publication_invariants_parity": {
-                "status": "PASS" if source_pointers == restored_pointers else "FAIL",
-                "source": source_pointers,
+                # Structural fidelity restores a generation into an isolated
+                # workspace. Live Output pointers may already point at a newer
+                # generation; only the restored pointer graph must resolve to
+                # the restored generation.
+                "status": "PASS"
+                if restored_pointers.get("current_resolves_to_target")
+                and restored_pointers.get("live_resolves_to_target")
+                and restored_pointers.get("live_target") == f"generations/{generation_id}"
+                and restored_pointers.get("current_target") == "live/current"
+                else "FAIL",
+                "live_workspace": source_pointers,
                 "restored": restored_pointers,
             },
             "authority_preserved": {

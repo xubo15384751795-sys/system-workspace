@@ -71,7 +71,7 @@ baseline_hashes:
   incentive_policy.yaml: 8d2c92e89a5f803c
   opencode_supervisor_policy.yaml: 15cb87cbd163e6c8
   operator_registry.yaml: 849ebdd0f40d823e
-  output_routing_policy.yaml: 7acf3e659535e695
+  output_routing_policy.yaml: 70b22fbacb9a880a
   pipeline_test_baseline.yaml: d476abebd64035a6
   proxy_quality_rules.yaml: 9398c8068f839cbf
   redundancy_budget.yaml: d5c99238057b7852

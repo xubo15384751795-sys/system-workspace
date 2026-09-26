@@ -26,7 +26,7 @@ def test_output_root_matches_routing_policy() -> None:
     allowed = set(policy["root_entries"])
     present = {p.name for p in OUTPUT.iterdir() if not p.name.startswith(".")}
     assert present == allowed
-    assert len(present) <= 14
+    assert len(present) <= 15
 
 
 def test_compatibility_symlinks_point_at_live_surfaces() -> None:

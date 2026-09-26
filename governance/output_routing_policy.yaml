@@ -187,3 +187,4 @@ root_entries:
   - system_learning
   - trade_decision
   - trade_ledger
+  - verification
