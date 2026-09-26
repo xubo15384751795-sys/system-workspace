@@ -25,6 +25,24 @@
         "uniqueItems": true
       }
     },
+    "execution_policy": {
+      "type": "object",
+      "properties": {
+        "default_timeout_seconds": {"type": "integer", "minimum": 1},
+        "subprocess_justifications": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "real_process_isolation",
+              "external_runtime",
+              "archive_legacy_executable",
+              "security_boundary"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    },
     "_defaults": {"type": "object"},
     "steps": {
       "type": "object",
@@ -55,7 +73,16 @@
             "mode": {"enum": ["subprocess", "callable"]},
             "current_command": {"type": "string"},
             "callable": {"type": "string"},
-            "future_callable": {"type": "string"}
+            "future_callable": {"type": "string"},
+            "timeout_seconds": {"type": "integer", "minimum": 1},
+            "subprocess_justification": {
+              "enum": [
+                "real_process_isolation",
+                "external_runtime",
+                "archive_legacy_executable",
+                "security_boundary"
+              ]
+            }
           },
           "additionalProperties": true
         },

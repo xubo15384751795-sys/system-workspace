@@ -1,15 +1,13 @@
 """Harness deformation CLI is a read-only ARCHIVED_FALSIFIED archive browser."""
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-HARNESS_ROOT = Path(__file__).resolve().parents[1] / "packages" / "workbench" / "agents" / "harness"
-if str(HARNESS_ROOT) not in sys.path:
-    sys.path.insert(0, str(HARNESS_ROOT))
+from tests._harness_tools import harness_tools_owner
 
-from entrypoints.deformation_cli import HELP, main  # noqa: E402
-from tools.deformation_tools import _h_run_snapshot  # noqa: E402
+with harness_tools_owner():
+    from entrypoints.deformation_cli import HELP, main
+    from tools.deformation_tools import _h_run_snapshot
 
 
 def test_deformation_help_first_line_is_archived_falsified() -> None:
@@ -26,7 +24,8 @@ def test_deformation_help_has_no_run_fetch_analyze() -> None:
 
 
 def test_system_deformation_help_prints_archived_falsified(capsys) -> None:
-    rc = main(["--help"])
+    with harness_tools_owner():
+        rc = main(["--help"])
     captured = capsys.readouterr()
     first_line = captured.out.splitlines()[0]
     assert rc == 0
@@ -34,7 +33,8 @@ def test_system_deformation_help_prints_archived_falsified(capsys) -> None:
 
 
 def test_run_snapshot_tool_is_permanently_denied() -> None:
-    result = _h_run_snapshot({}, dry_run=False)
+    with harness_tools_owner():
+        result = _h_run_snapshot({}, dry_run=False)
     assert result.ok is False
     assert result.tool_id == "deformation.run_snapshot"
     assert "ARCHIVED_FALSIFIED" in result.summary

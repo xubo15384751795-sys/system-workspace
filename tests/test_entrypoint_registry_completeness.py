@@ -12,7 +12,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "governance" / "entrypoint_registry.yaml"
 SCRIPTS_DIR = ROOT / "scripts"
-DAILY_RUN_PATH = ROOT / "scripts" / "daily_run.py"
+DAILY_RUN_PATH = ROOT / "verity" / "cli" / "daily_run.py"
 
 VALID_STATUSES = {
     "active",

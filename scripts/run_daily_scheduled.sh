@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scheduled entrypoint for launchd — Dagster daily_job via orchestrate.sh.
+# Scheduled entrypoint for launchd — process adapter for ``verity daily``.
 set -euo pipefail
 
 # launchd soft maxfiles is often 256; harvester + yfinance need headroom.
@@ -15,10 +15,18 @@ export TZ=UTC
 export SYSTEM_ORCHESTRATOR="${SYSTEM_ORCHESTRATOR:-dagster}"
 export SYSTEM_SCHEDULE_LABEL="${SYSTEM_SCHEDULE_LABEL:-com.system.daily-run}"
 export SYSTEM_SCHEDULE_CALENDAR="${SYSTEM_SCHEDULE_CALENDAR:-XNYS}"
-# This marker is evidence that a bundle came through the real scheduled
-# default path.  It is intentionally separate from the human-facing tag.
+# Scheduler-neutral execution identity. The legacy origin marker below is
+# retained only as compatibility metadata; reliability qualification reads the
+# explicit trigger/scheduler fields instead.
+export SYSTEM_TRIGGER_KIND="${SYSTEM_TRIGGER_KIND:-scheduled}"
+export SYSTEM_SCHEDULER_KIND="${SYSTEM_SCHEDULER_KIND:-launchd}"
+export SYSTEM_SCHEDULER_ID="${SYSTEM_SCHEDULER_ID:-com.system.daily-run}"
+export SYSTEM_SCHEDULE_ID="${SYSTEM_SCHEDULE_ID:-${SYSTEM_SCHEDULE_LABEL}}"
+export SYSTEM_TRIGGER_ID="${SYSTEM_TRIGGER_ID:-${SYSTEM_SCHEDULER_ID}-$(date -u +%Y%m%dT%H%M%SZ)}"
+export SYSTEM_HOST_ID="${SYSTEM_HOST_ID:-$(hostname 2>/dev/null || printf 'unknown-host')}"
+# Compatibility metadata only; it is not the formal meaning of scheduled.
 export SYSTEM_RUN_ORIGIN=launchd
-export PYTHONPATH="${SYSTEM_ROOT}:${SYSTEM_ROOT}/packages/orchestration:${PYTHONPATH:-}"
+unset PYTHONPATH
 if [[ -z "${SYSTEM_GENERATION_MODE:-}" ]]; then
   if [[ -L "${SYSTEM_ROOT}/Output/live" ]]; then
     export SYSTEM_GENERATION_MODE=1
@@ -27,38 +35,4 @@ if [[ -z "${SYSTEM_GENERATION_MODE:-}" ]]; then
   fi
 fi
 
-# A launchd calendar is a single opportunity, but provider/network and
-# transaction failures are often transient.  Retry one bounded time in the
-# same invocation so operators do not have to wait for the next calendar day.
-# The SQLite slot claim remains the idempotency boundary: a successful first
-# attempt makes the retry a harmless duplicate, while a failed/non-published
-# attempt is reclaimable by the next attempt.
-retry_attempts="${SYSTEM_DAILY_RETRY_ATTEMPTS:-1}"
-retry_delay_seconds="${SYSTEM_DAILY_RETRY_DELAY_SECONDS:-30}"
-if [[ ! "${retry_attempts}" =~ ^[0-9]+$ ]]; then
-  echo "[run_daily_scheduled] invalid SYSTEM_DAILY_RETRY_ATTEMPTS=${retry_attempts}; using 1" >&2
-  retry_attempts=1
-fi
-if [[ ! "${retry_delay_seconds}" =~ ^[0-9]+$ ]]; then
-  echo "[run_daily_scheduled] invalid SYSTEM_DAILY_RETRY_DELAY_SECONDS=${retry_delay_seconds}; using 30" >&2
-  retry_delay_seconds=30
-fi
-
-attempt=0
-while true; do
-  if bash "${SYSTEM_ROOT}/scripts/run_dagster_daily.sh" "$@"; then
-    exit 0
-  else
-    status=$?
-  fi
-
-  # Exit 2/78 represent configuration or missing-runtime failures; retrying
-  # those immediately only creates noise.  Codes 3-6 are typed run failures
-  # for which a bounded same-day retry can repair a transient condition.
-  if (( attempt >= retry_attempts )) || [[ ! "${status}" =~ ^[3456]$ ]]; then
-    exit "${status}"
-  fi
-  attempt=$((attempt + 1))
-  echo "[run_daily_scheduled] daily run failed with exit ${status}; retry ${attempt}/${retry_attempts} in ${retry_delay_seconds}s" >&2
-  sleep "${retry_delay_seconds}"
-done
+exec bash "${SYSTEM_ROOT}/scripts/run_dagster_daily.sh" "$@"

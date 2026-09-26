@@ -7,10 +7,11 @@ from build_signal_card import _build_experimental_validation
 
 
 def test_experimental_validation_includes_walk_forward(tmp_path, monkeypatch) -> None:
-    import _runtime_io as rio
     import build_signal_card as sc
 
-    validation = tmp_path / "Output" / "validation"
+    import verity.runtime.runtime_io as rio
+
+    validation = tmp_path / "Output" / "state" / "validation"
     validation.mkdir(parents=True)
     (validation / "walk_forward_report.json").write_text(
         json.dumps(
@@ -27,7 +28,7 @@ def test_experimental_validation_includes_walk_forward(tmp_path, monkeypatch) ->
     monkeypatch.setattr(rio, "ROOT", tmp_path)
     monkeypatch.setattr(sc, "ROOT", tmp_path)
     monkeypatch.setattr(sc, "VALIDATION", validation)
-    monkeypatch.setattr(sc, "MARKET_FEEDBACK", tmp_path / "Output" / "market_feedback" / "feedback_decision.json")
+    monkeypatch.setattr(sc, "MARKET_FEEDBACK", tmp_path / "Output" / "state" / "market_feedback" / "feedback_decision.json")
     monkeypatch.setattr(sc, "SHADOW_OUTCOMES", tmp_path / "missing.json")
 
     section = _build_experimental_validation()
@@ -37,10 +38,11 @@ def test_experimental_validation_includes_walk_forward(tmp_path, monkeypatch) ->
 
 
 def test_experimental_validation_reads_qlib_named_bridge_and_feedback(tmp_path, monkeypatch) -> None:
-    import _runtime_io as rio
     import build_signal_card as sc
 
-    validation = tmp_path / "Output" / "validation"
+    import verity.runtime.runtime_io as rio
+
+    validation = tmp_path / "Output" / "state" / "validation"
     validation.mkdir(parents=True)
     (validation / "qlib_structural_bridge.json").write_text(
         json.dumps(
@@ -53,7 +55,7 @@ def test_experimental_validation_reads_qlib_named_bridge_and_feedback(tmp_path, 
         ),
         encoding="utf-8",
     )
-    feedback_path = tmp_path / "Output" / "market_feedback" / "feedback_decision.json"
+    feedback_path = tmp_path / "Output" / "state" / "market_feedback" / "feedback_decision.json"
     feedback_path.parent.mkdir(parents=True)
     feedback_path.write_text(
         json.dumps(

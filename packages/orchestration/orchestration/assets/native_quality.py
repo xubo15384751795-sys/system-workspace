@@ -10,7 +10,7 @@ from typing import Any, cast
 import yaml
 from dagster import AssetCheckResult, AssetChecksDefinition, AssetsDefinition, RetryPolicy, asset, asset_check
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 NATIVE_QUALITY_PILOT = "native_quality_pilot"
 ALLOWED_FAILURE_BEHAVIORS = frozenset({"continue_with_warning"})

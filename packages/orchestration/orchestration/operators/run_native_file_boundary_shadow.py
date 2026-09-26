@@ -32,9 +32,9 @@ from orchestration.native_file_boundaries import (
     execute_native_file_boundary,
     select_native_file_boundary_steps,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_file_boundary_shadow.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_file_boundary_shadow.json"
 _TIMESTAMP = re.compile(
     r"\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)\b"
 )

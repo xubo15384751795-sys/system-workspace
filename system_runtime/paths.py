@@ -13,8 +13,33 @@ from pathlib import Path
 
 WORKSPACE_ENV = "SYSTEM_WORKSPACE_ROOT"
 WORKSPACE_MARKER = Path("governance/daily_pipeline_registry.yaml")
+DATA_ROOT_ENV = "SYSTEM_DATA_ROOT"
+OUTPUT_ROOT_ENV = "SYSTEM_OUTPUT_ROOT"
 GENERATION_ENV = "SYSTEM_GENERATION_DIR"
 GENERATION_MODE_ENV = "SYSTEM_GENERATION_MODE"
+
+# Cross-run mutable surfaces live under Output/state/ and are never scoped to
+# a generation candidate.  Keep this set in sync with
+# governance/output_routing_policy.yaml groups.state.
+CROSS_RUN_STATE_SURFACES = frozenset({
+    "alerts",
+    "benchmarks",
+    "caselab",
+    "caselab_runtime",
+    "claim_ladder",
+    "evaluations",
+    "feedback_samples",
+    "health",
+    "hmm_stability",
+    "logs",
+    "market_feedback",
+    "ml_signals",
+    "runtime",
+    "runtime_events",
+    "sandbox",
+    "strategy_lab",
+    "validation",
+})
 
 
 def generation_mode_enabled() -> bool:
@@ -22,18 +47,35 @@ def generation_mode_enabled() -> bool:
     return os.environ.get(GENERATION_MODE_ENV, "").strip().lower() in {"1", "true", "yes"}
 
 
+def _state_relative(name: str) -> str | None:
+    rel = str(name or "").strip("/")
+    if not rel or rel == "state" or rel.startswith("state/"):
+        return None
+    head = rel.split("/", 1)[0]
+    if head in CROSS_RUN_STATE_SURFACES:
+        return rel
+    return None
+
+
 def output_surface(root: Path, name: str) -> Path:
     """Resolve an output surface through the active generation when present.
 
-    Production writers must never infer a candidate path themselves.  The
-    generation transaction sets ``SYSTEM_GENERATION_DIR`` before importing
-    writer modules; outside a transaction this preserves the legacy
-    compatibility surface for read-only tools and explicit emergency paths.
+    Cross-run state surfaces always resolve under ``Output/state/<name>``,
+    even when a generation transaction is active.  Production writers of
+    generation-scoped surfaces must never infer a candidate path themselves.
+    The generation transaction sets ``SYSTEM_GENERATION_DIR`` before importing
+    writer modules; outside a transaction this preserves the compatibility
+    surface for read-only tools and explicit emergency paths.
     """
+    state_rel = _state_relative(name)
+    configured_output = os.environ.get(OUTPUT_ROOT_ENV, "").strip()
+    output_root = Path(configured_output).expanduser().resolve() if configured_output else root / "Output"
+    if state_rel is not None:
+        return output_root / "state" / state_rel
     generation = os.environ.get(GENERATION_ENV, "").strip()
     if generation:
         return Path(generation).expanduser().resolve() / name
-    return root / "Output" / name
+    return output_root / name
 
 
 def discover_workspace(start: Path | None = None) -> Path:
@@ -61,6 +103,8 @@ def discover_workspace(start: Path | None = None) -> Path:
 @dataclass(frozen=True)
 class WorkspacePaths:
     root: Path
+    data_root_override: Path | None = None
+    output_root_override: Path | None = None
 
     @classmethod
     def discover(cls, start: Path | None = None) -> "WorkspacePaths":
@@ -72,11 +116,13 @@ class WorkspacePaths:
 
     @property
     def output(self) -> Path:
-        return self.root / "Output"
+        configured = self.output_root_override or os.environ.get(OUTPUT_ROOT_ENV, "").strip()
+        return Path(configured).expanduser().resolve() if configured else self.root / "Output"
 
     @property
     def data(self) -> Path:
-        return self.root / "Data"
+        configured = self.data_root_override or os.environ.get(DATA_ROOT_ENV, "").strip()
+        return Path(configured).expanduser().resolve() if configured else self.root / "Data"
 
     @property
     def harvester_exports(self) -> Path:
@@ -95,8 +141,20 @@ class WorkspacePaths:
     @property
     def current(self) -> Path:
         override = os.environ.get("CURRENT_OUTPUT_DIR")
-        return Path(override).resolve() if override else output_surface(self.root, "current")
+        if override:
+            return Path(override).resolve()
+        if self.output_root_override or os.environ.get(OUTPUT_ROOT_ENV, "").strip():
+            return self.output / "current"
+        return output_surface(self.root, "current")
 
     def surface(self, name: str) -> Path:
         """Return a named output surface under the active generation."""
+        if self.output_root_override or os.environ.get(OUTPUT_ROOT_ENV, "").strip():
+            state_rel = _state_relative(name)
+            if state_rel is not None:
+                return self.output / "state" / state_rel
+            generation = os.environ.get(GENERATION_ENV, "").strip()
+            if generation:
+                return Path(generation).expanduser().resolve() / name
+            return self.output / name
         return output_surface(self.root, name)

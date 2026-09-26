@@ -12,7 +12,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import Optional
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback"
 
 FEEDBACK_TYPES = [
     "positive_increment",

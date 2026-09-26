@@ -1,16 +1,12 @@
-#!/usr/bin/env python3
-"""Thin CLI wrapper for workbench.nlp.answer_question.
-
-Called by ``./sys ask "question"``.
-
-Usage:
-    python scripts/ask_evidence.py "what evidence supports the current check?"
-"""
+"""Compatibility shim. Canonical implementation: workbench.surfaces.ask_evidence."""
 from __future__ import annotations
 
 import sys
+from importlib import import_module
 
-from workbench.nlp import main
-
-if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+_impl = import_module('workbench.surfaces.ask_evidence')
+if __name__ != "__main__":
+    sys.modules[__name__] = _impl
+else:
+    import runpy
+    runpy.run_module('workbench.surfaces.ask_evidence', run_name="__main__")

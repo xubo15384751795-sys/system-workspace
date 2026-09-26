@@ -31,7 +31,7 @@ def test_full_work_cycle_is_scheduler_owned_by_default() -> None:
 
 
 def test_quick_and_standard_work_cycle_are_candidate_owned() -> None:
-    source = (ROOT / "scripts" / "run_work_cycle.py").read_text(encoding="utf-8")
+    source = (ROOT / "verity" / "cli" / "run_work_cycle.py").read_text(encoding="utf-8")
 
     assert "PublishTransaction" in source
     assert "transaction.prepare()" in source
@@ -44,7 +44,7 @@ def test_quick_and_standard_work_cycle_are_candidate_owned() -> None:
 
 
 def test_candidate_work_cycle_does_not_advance_global_pointer(monkeypatch, tmp_path: Path) -> None:
-    from scripts import run_work_cycle
+    from verity.cli import run_work_cycle
 
     run_work_cycle.RUNS = tmp_path / "Output" / "runs"
     bundle = SimpleNamespace(run_dir=tmp_path / "Output" / "runs" / "candidate_run")

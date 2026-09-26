@@ -61,7 +61,7 @@ def test_no_active_framework_owned_pipeline_steps() -> None:
 
 
 def test_archive_guard_denies_unapproved_execution(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scripts._deformation_archive_guard import require_archived_reproduction
+    from verity.runtime._deformation_archive_guard import require_archived_reproduction
 
     monkeypatch.delenv("ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION", raising=False)
     with pytest.raises(SystemExit, match="ARCHIVED_FALSIFIED"):
@@ -86,7 +86,7 @@ def test_direct_v1_entrypoint_fails_before_legacy_imports() -> None:
 
 
 def test_archive_bridge_cannot_write_authoritative_current(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scripts._deformation_archive_guard import require_archived_reproduction
+    from verity.runtime._deformation_archive_guard import require_archived_reproduction
 
     monkeypatch.setenv("ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION", "1")
     monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(ROOT / "Output" / "current"))
@@ -96,7 +96,7 @@ def test_archive_bridge_cannot_write_authoritative_current(monkeypatch: pytest.M
 
 
 def test_neutral_producer_does_not_import_framework_source() -> None:
-    source = (ROOT / "scripts" / "neutral_pressure_measurement.py").read_text()
+    source = (ROOT / "packages" / "workbench" / "src" / "workbench" / "measurement" / "neutral_pressure_measurement.py").read_text()
     assert "packages.framework" not in source
     assert "src.proxies" not in source
     assert "_replay_registry" not in source

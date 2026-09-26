@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from scripts._runtime_io import ROOT, current_dir, surface_dir
+from verity.runtime.runtime_io import ROOT, current_dir, surface_dir
 
 _SUPPORTED_FILE_BOUNDARY_STEPS = frozenset(
     {
@@ -71,38 +71,38 @@ NATIVE_FILE_BOUNDARY_STEPS = load_native_file_boundary_steps()
 
 def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
     """Run one explicitly migrated writer against the active generation."""
-    from scripts.build_current_status import gather_status, write_status
-    from scripts.build_signal_card import build_signal_card, write_signal_card
-    from scripts.build_work_brief import build_work_brief, write_work_brief
-    from scripts.commands.weekly.build_artifact_registry import (
+    from workbench.surfaces.build_current_status import gather_status, write_status
+    from workbench.surfaces.build_signal_card import build_signal_card, write_signal_card
+    from workbench.surfaces.build_work_brief import build_work_brief, write_work_brief
+    from workbench.surfaces.build_artifact_registry import (
         build_artifact_registry,
         write_artifact_registry,
     )
-    from scripts.commands.weekly.build_change_analysis import (
+    from workbench.surfaces.build_change_analysis import (
         build_change_analysis,
         write_change_analysis,
     )
-    from scripts.commands.weekly.build_data_gaps import (
+    from workbench.surfaces.build_data_gaps import (
         build_data_gaps,
         write_data_gaps_files,
     )
-    from scripts.commands.weekly.build_evidence_grade_report import (
+    from workbench.surfaces.build_evidence_grade_report import (
         build_evidence_grade_report,
         write_evidence_grade_report,
     )
-    from scripts.commands.weekly.build_measurement_quality_report import (
+    from workbench.measurement.build_measurement_quality_report import (
         build_report,
         write_report,
     )
-    from scripts.commands.weekly.build_next_actions import (
+    from workbench.surfaces.build_next_actions import (
         build_next_actions,
         write_next_actions,
     )
-    from scripts.commands.weekly.build_readme_first import (
+    from workbench.surfaces.build_readme_first import (
         build_readme_content,
         write_readme,
     )
-    from scripts.signal_consensus import build_consensus, write_signal_consensus
+    from workbench.surfaces.signal_consensus import build_consensus, write_signal_consensus
 
     if step_id not in NATIVE_FILE_BOUNDARY_STEPS:
         raise ValueError(f"no native file boundary registered for {step_id!r}")
@@ -135,7 +135,7 @@ def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
                     # asset boundaries are migrated.
                     "k_gate": ROOT / "Output" / "k_measurement" / "k_measurement_gate.json",
                     "x_gate": ROOT / "Output" / "x_measurement" / "x_measurement_gate.json",
-                    "hmm_audit": ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json",
+                    "hmm_audit": ROOT / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json",
                     "freshness": surface_dir("quality") / "freshness_report.json",
                     "paper_manifest": ROOT / "Data" / "paper_world_model" / "manifest.json",
                     "harvester_catalog": (
@@ -170,7 +170,7 @@ def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
         elif step_id == "change_analysis":
             analysis = build_change_analysis(
                 judgment_dir=ROOT / "Output" / "judgment",
-                caselab_dir=ROOT / "Output" / "caselab",
+                caselab_dir=ROOT / "Output" / "state" / "caselab",
                 current_path=current,
                 active_judgment_path=judgment,
             )
@@ -185,8 +185,8 @@ def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
                     "current": current,
                     "judgment": judgment.parent,
                     "trade_decision": surface_dir("trade_decision"),
-                    "caselab": ROOT / "Output" / "caselab",
-                    "hmm": ROOT / "Output" / "ml_signals" / "latest",
+                    "caselab": ROOT / "Output" / "state" / "caselab",
+                    "hmm": ROOT / "Output" / "state" / "ml_signals" / "latest",
                 }
             )
             json_path, markdown_path = write_signal_card(
@@ -201,11 +201,11 @@ def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
                     "framework_output": current / "framework_output.json",
                     "judgment": judgment,
                     "promotion_gate": judgment.parent / "promotion_gate.json",
-                    "hmm": ROOT / "Output" / "ml_signals" / "daily" / "regime_hmm.json",
+                    "hmm": ROOT / "Output" / "state" / "ml_signals" / "daily" / "regime_hmm.json",
                     "k_gate": ROOT / "Output" / "k_measurement" / "k_measurement_gate.json",
                     "x_gate": ROOT / "Output" / "x_measurement" / "x_measurement_gate.json",
                     "prob_context": ROOT / "Output" / "probabilistic_context" / "latest.json",
-                    "caselab": ROOT / "Output" / "caselab",
+                    "caselab": ROOT / "Output" / "state" / "caselab",
                 }
             )
             json_path, markdown_path = write_signal_consensus(
@@ -226,8 +226,8 @@ def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
                     "current": current,
                     "judgment": judgment.parent,
                     "trade": surface_dir("trade_decision"),
-                    "ml_signals": ROOT / "Output" / "ml_signals",
-                    "caselab": ROOT / "Output" / "caselab",
+                    "ml_signals": ROOT / "Output" / "state" / "ml_signals",
+                    "caselab": ROOT / "Output" / "state" / "caselab",
                     "harvester_catalog": (
                         ROOT / "Data" / "harvester" / "exports" / "latest" / "catalog.json"
                     ),
@@ -246,8 +246,8 @@ def execute_native_file_boundary(step_id: str) -> dict[str, Any]:
                     "index": ROOT / "Data" / "system_index" / "latest.json",
                     "k_gate": ROOT / "Output" / "k_measurement" / "k_measurement_gate.json",
                     "x_gate": ROOT / "Output" / "x_measurement" / "x_measurement_gate.json",
-                    "hmm_audit": ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json",
-                    "caselab": ROOT / "Output" / "caselab",
+                    "hmm_audit": ROOT / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json",
+                    "caselab": ROOT / "Output" / "state" / "caselab",
                     "output": current,
                 }
             )

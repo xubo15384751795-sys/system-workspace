@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from orchestration.run_parity import compare_daily_run_bundles
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 from system_runtime.publish_transaction import PublishTransaction
 
 SCHEMA_VERSION = "system.orchestration_dual_track_execution.v1"
@@ -440,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--legacy-output-root", type=Path, required=True)
     parser.add_argument("--native-output-root", type=Path, required=True)
     parser.add_argument("--execute", action="store_true", help="launch both real daily paths")
-    parser.add_argument("--report", type=Path, default=ROOT / "Output" / "health" / "native_current_dual_track_execution.json")
+    parser.add_argument("--report", type=Path, default=ROOT / "Output" / "state" / "health" / "native_current_dual_track_execution.json")
     parser.add_argument("--tag", default="wave4_dual_track")
     parser.add_argument(
         "--execution-mode",

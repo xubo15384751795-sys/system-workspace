@@ -7,6 +7,7 @@ or any non-Harvester layer.  They also verify credential isolation.
 from __future__ import annotations
 
 import ast
+import os
 import sys
 from pathlib import Path
 
@@ -348,35 +349,22 @@ def test_openbb_provider_emits_provider_native_source_id():
 
 
 # ---------------------------------------------------------------------------
-# 5. Credential bridge
+# 5. Credential boundary
 # ---------------------------------------------------------------------------
 
 
-def test_load_env_file_loads_openbb_settings():
-    """_load_env_file correctly loads KEY=VALUE pairs from a .env file."""
-    import os
-    import tempfile
-    from harvester.providers.openbb_provider import _load_env_file
+def test_openbb_provider_does_not_load_unowned_settings_files(monkeypatch, tmp_path):
+    """OpenBB receives credentials only from the canonical provider boundary."""
+    monkeypatch.delenv("OPENBB_FRED_API_KEY", raising=False)
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    settings = tmp_path / "settings.env"
+    settings.write_text("OPENBB_FRED_API_KEY=must-not-be-loaded\n", encoding="utf-8")
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
-        f.write("# comment\n")
-        f.write("OPENBB_FRED_API_KEY=test_key_value\n")
-        f.write("OTHER_KEY=other_value\n")
-        env_path = f.name
+    from harvester.providers.openbb_provider import OpenBBProvider
 
-    try:
-        _load_env_file(env_path)
-        assert os.environ.get("OPENBB_FRED_API_KEY") == "test_key_value"
-        assert os.environ.get("OTHER_KEY") == "other_value"
-    finally:
-        Path(env_path).unlink()
-
-
-def test_load_env_file_handles_missing_file():
-    """_load_env_file silently returns when the file does not exist."""
-    from harvester.providers.openbb_provider import _load_env_file
-
-    _load_env_file("/nonexistent/path/settings.env")  # must not raise
+    OpenBBProvider(settings_env=str(settings))
+    assert "OPENBB_FRED_API_KEY" not in os.environ
+    assert "FRED_API_KEY" not in os.environ
 
 
 def test_safe_params_redacts_secrets():
@@ -433,8 +421,8 @@ def test_build_provider_unknown_openbb_variant():
     assert prov.openbb_provider == "unknown"
 
 
-def test_build_provider_openbb_with_settings():
-    """build_provider passes settings_env kwarg through."""
+def test_build_provider_openbb_ignores_legacy_settings_kwarg():
+    """Legacy settings_env is ignored; the loader boundary owns secrets."""
     from harvester.providers import build_provider
 
     prov = build_provider("openbb_fred", settings_env="/tmp/test.env")

@@ -18,13 +18,14 @@ the resolver reads this index to understand the structural impact.
 from __future__ import annotations
 
 from system_runtime.paths import WorkspacePaths
+from caselab_context.paper_paths import paper_root
 
 import json
 import re
 from pathlib import Path
 from typing import Any
 
-CASELAB_ROOT = Path("/Users/a1/Paper")
+CASELAB_ROOT = paper_root()
 INDEX_PATH = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_environments"
 
 

@@ -1,7 +1,9 @@
 """Pipeline step runner — subprocess and module-callable execution.
 
 Supports the migration described in governance/architecture_cleanup_decisions.md D2.
-Registry metadata lives in governance/daily_pipeline_registry.yaml.
+Registry authoring lives in governance/pipeline/*.yaml and is merged by one
+typed compiler.  The historical daily_pipeline_registry.yaml is a generated
+compatibility view only.
 """
 from __future__ import annotations
 
@@ -15,10 +17,15 @@ import sys
 import time
 from typing import Any, Callable, cast
 
-from scripts._constants import TIMEOUT_LONG
+from verity.runtime._constants import TIMEOUT_LONG
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import (
     load_pipeline,
+)
+from system_runtime.registry_authoring import (
+    RegistryAuthoringError,
+    has_authoring_bundle,
+    load_authoring_document,
 )
 from system_runtime.pipeline import (
     resolve_callable as _resolve_installed_callable,
@@ -152,8 +159,11 @@ def run_subprocess_step(
     name: str,
     cmd: list[str],
     env: dict | None = None,
+    *,
+    timeout: int = TIMEOUT_LONG,
+    subprocess_justification: str | None = None,
 ) -> dict[str, Any]:
-    """Execute a pipeline step via subprocess (legacy default)."""
+    """Execute an explicitly justified process-boundary pipeline step."""
     start = time.time()
     merged_env = {**os.environ, **(env or {})}
     for key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"]:
@@ -163,9 +173,9 @@ def run_subprocess_step(
             cmd,
             capture_output=True,
             text=True,
-            timeout=TIMEOUT_LONG,
             cwd=str(ROOT),
             env=merged_env,
+            timeout=timeout,
         )
         duration = time.time() - start
         step_result = {
@@ -179,6 +189,8 @@ def run_subprocess_step(
             # Full stderr for failed-step log persistence (Phase 0.1). Capped
             # at 256KB by record_step when writing step_logs/<step>.stderr.log.
             "full_stderr": result.stderr or "",
+            "timeout_seconds": timeout,
+            "subprocess_justification": subprocess_justification,
         }
         return _attach_structured_step_outcome(
             step_result,
@@ -186,15 +198,38 @@ def run_subprocess_step(
             stderr=result.stderr,
         )
     except subprocess.TimeoutExpired:
-        return {"step": name, "status": "timeout", "mode": "subprocess", "duration_s": TIMEOUT_LONG}
+        return {
+            "step": name,
+            "status": "timeout",
+            "mode": "subprocess",
+            "duration_s": timeout,
+            "timeout_seconds": timeout,
+            "subprocess_justification": subprocess_justification,
+        }
     except Exception as exc:
-        return {"step": name, "status": "error", "mode": "subprocess", "error": str(exc), "duration_s": 0}
+        return {
+            "step": name,
+            "status": "error",
+            "mode": "subprocess",
+            "error": str(exc),
+            "duration_s": 0,
+            "timeout_seconds": timeout,
+            "subprocess_justification": subprocess_justification,
+        }
 
 
 def load_registry() -> dict[str, Any]:
-    import yaml
+    if has_authoring_bundle(ROOT):
+        return load_authoring_document(ROOT)
+    # Installed/legacy checkouts may not have the split source bundle yet.  The
+    # fallback is retained only for that compatibility state; the default
+    # checkout takes the typed authoring path above.
+    try:
+        import yaml
 
-    return cast(dict[str, Any], yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8")))
+        return cast(dict[str, Any], yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError, RegistryAuthoringError) as exc:
+        raise RuntimeError(f"cannot load pipeline authoring authority: {exc}") from exc
 
 
 def load_step_execution(step_id: str) -> dict[str, Any]:
@@ -224,6 +259,8 @@ def list_registry_steps(*, include_inactive: bool = False) -> list[dict[str, Any
                 "command": step.command,
                 "affects_core_judgment": step.affects_core_judgment,
                 "execution_mode": step.execution_mode,
+                "timeout_seconds": step.timeout_seconds,
+                "subprocess_justification": step.subprocess_justification,
             }
         )
     return steps
@@ -249,6 +286,8 @@ def describe_registry_step(step_id: str) -> dict[str, Any] | None:
             "mode": step.execution_mode,
             "current_command": step.command,
             "future_callable": step.callable_spec,
+            "timeout_seconds": step.timeout_seconds,
+            "subprocess_justification": step.subprocess_justification,
         },
     }
 
@@ -281,7 +320,13 @@ def run_registry_step(
             cmd[0] = sys.executable
         if argv:
             cmd.extend(argv)
-    return run_subprocess_step(step_id, cmd, env=env)
+    return run_subprocess_step(
+        step_id,
+        cmd,
+        env=env,
+        timeout=step.timeout_seconds,
+        subprocess_justification=step.subprocess_justification,
+    )
 
 
 def list_profile_steps(profile: str) -> list[str]:

@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from system_runtime.paths import WorkspacePaths
+from system_runtime.context import RuntimeContext
 
 from .constitution import (
     ConstitutionEvaluationError,
@@ -35,10 +35,11 @@ from .constitution import (
 
 log = logging.getLogger(__name__)
 
-_SYSTEM_ROOT = WorkspacePaths.discover().root
-_ML_SIGNALS_ROOT = _SYSTEM_ROOT / "Output" / "ml_signals"
-_DEFORMATION_RUNS_ROOT = _SYSTEM_ROOT / "Output" / "deformation_runs"
-_EVENTS_DIR = _SYSTEM_ROOT / "Output" / "system_learning" / "events"
+_RUNTIME_CONTEXT = RuntimeContext.current_context()
+_SYSTEM_ROOT = _RUNTIME_CONTEXT.workspace
+_ML_SIGNALS_ROOT = _RUNTIME_CONTEXT.surface("ml_signals")
+_DEFORMATION_RUNS_ROOT = _RUNTIME_CONTEXT.output_root / "deformation_runs"
+_EVENTS_DIR = _RUNTIME_CONTEXT.output_root / "system_learning" / "events"
 
 # Window for correlation / agreement checks (number of historical signals)
 _CORRELATION_WINDOW = 20
@@ -82,10 +83,10 @@ class PollutionReport:
 # ---------------------------------------------------------------------------
 
 def _collect_boundary_evidence(signals_root: Path) -> dict[str, Any]:
-    """Check that ML signals were written only to Output/ml_signals/."""
+    """Check that ML signals were written only to Output/state/ml_signals/."""
     evidence: dict[str, Any] = {"signal_written_to_data_dir": False}
     # Look for any signal JSON outside the sanctioned output dir
-    data_root = _SYSTEM_ROOT / "Data"
+    data_root = _RUNTIME_CONTEXT.data_root
     suspicious = list(data_root.rglob("regime.json")) + list(data_root.rglob("factor.json"))
     if suspicious:
         evidence["signal_written_to_data_dir"] = True

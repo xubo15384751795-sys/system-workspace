@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 from verify_data_reliability_window import build_window_report
+from workbench.measurement.freshness_validator import evaluate_harvester_carry_forward
 
-from scripts.freshness_validator import evaluate_harvester_carry_forward
 from tests.test_data_reliability_window import _write_run
 
 

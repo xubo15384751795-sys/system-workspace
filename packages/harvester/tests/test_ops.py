@@ -42,7 +42,7 @@ def test_next_release_id_increments_for_release_date(tmp_path: Path) -> None:
 
 def test_preflight_reports_missing_fred_key(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("FRED_API_KEY", raising=False)
-    monkeypatch.delenv("OPENBB_FRED_API_KEY", raising=False)
+    monkeypatch.setenv("SYSTEM_PROVIDER_SECRETS_FILE", str(tmp_path / "missing-provider.env"))
     exports = tmp_path / "exports"
     exports.mkdir()
 
@@ -54,7 +54,7 @@ def test_preflight_reports_missing_fred_key(tmp_path: Path, monkeypatch) -> None
 
 def test_daily_release_writes_failure_report_when_preflight_fails(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("FRED_API_KEY", raising=False)
-    monkeypatch.delenv("OPENBB_FRED_API_KEY", raising=False)
+    monkeypatch.setenv("SYSTEM_PROVIDER_SECRETS_FILE", str(tmp_path / "missing-provider.env"))
     exports = tmp_path / "exports"
     exports.mkdir()
 
@@ -108,6 +108,7 @@ def test_daily_release_finalizes_when_stage_and_finalize_succeed(tmp_path: Path,
 
     assert result["status"] == "finalized"
     assert result["verified_datasets"] == 3
+    assert stage.call_args.kwargs["secret_provider"].get("FRED_API_KEY") == "test"
 
 
 def test_daily_release_does_not_finalize_rejected_provider_outcome(tmp_path: Path, monkeypatch) -> None:
@@ -392,9 +393,7 @@ def test_cli_daily_release_exits_zero_on_same_day_reuse(monkeypatch) -> None:
     """The same-day short-circuit is a successful no-op. Exiting non-zero made
     the 2nd/3rd nightly schedules report a hard failure and block every
     downstream pipeline step."""
-    # Importing harvester.cli calls load_dotenv() at import time; swap in a
-    # copy of the environment so those credentials cannot leak into tests that
-    # assert on a missing API key.
+    # Keep the CLI test environment isolated from the parent process.
     monkeypatch.setattr(os, "environ", dict(os.environ))
 
     from harvester.cli import main

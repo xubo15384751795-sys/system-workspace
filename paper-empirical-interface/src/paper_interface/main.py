@@ -11,11 +11,7 @@
 """
 
 import argparse
-import sys
 from pathlib import Path
-
-# 添加 src 到路径
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from paper_interface import CaseAnalyzer, FigureGenerator, ProxyComputer, SignatureQuantities
 

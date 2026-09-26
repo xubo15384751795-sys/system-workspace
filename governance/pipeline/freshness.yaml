@@ -1,0 +1,211 @@
+schema_version: governance.pipeline.freshness.v1
+concern: freshness
+source_kind: AUTHORING
+compiler_version: registry-authoring-v1
+runtime_authority: system_runtime.pipeline.CompiledPipeline
+metadata:
+  content_freshness:
+    etf_panel:
+      path: Data/panels/cross_asset_daily_panel.parquet
+      date_column: date
+      calendar: XNYS
+      max_trading_days_behind: 3
+      owner_step: refresh_cross_asset_panel
+      decision_critical: true
+    ofr_fsi_cache:
+      path: Data/harvester/raw/external_indicators/ofr_fsi.csv
+      date_column: date
+      calendar: XNYS
+      max_trading_days_behind: 10
+      owner_step: harvester
+      decision_critical: true
+    ciss_cache:
+      path: Data/harvester/raw/external_indicators/ciss.csv
+      date_column: TIME_PERIOD
+      calendar: XNYS
+      max_trading_days_behind: 10
+      owner_step: harvester
+      decision_critical: true
+    benchmark_panel:
+      path: Data/harvester/exports/latest/data/benchmark_panel.parquet
+      date_column: date
+      calendar: XNYS
+      max_trading_days_behind: 5
+      owner_step: harvester
+      decision_critical: true
+defaults:
+  ttl_hours: 48
+steps:
+  harvester:
+    ttl_hours: 48
+    requires_provenance: true
+  etf_refresh:
+    ttl_hours: 48
+    requires_provenance: true
+    artifact_status: unmaintained_since_2026-06-17
+  paper_sync:
+    ttl_hours: 72
+    requires_provenance: true
+  horizon_events:
+    ttl_hours: 48
+    requires_provenance: true
+  neutral_pressure_measurement:
+    ttl_hours: 48
+    requires_provenance: true
+  structural_replay:
+    ttl_hours: 48
+    requires_provenance: false
+  bridge:
+    ttl_hours: 48
+  run_operator_detections:
+    ttl_hours: 48
+  validate_proxy_observation_catalog:
+    ttl_hours: 168
+  quality_validation:
+    ttl_hours: 48
+  regime_detection:
+    ttl_hours: 48
+  archive_hmm_calibration_snapshot:
+    ttl_hours: 168
+  hmm_stability_audit:
+    ttl_hours: 168
+  k_measurement_gate:
+    ttl_hours: 48
+  x_measurement_gate:
+    ttl_hours: 48
+  measurement_quality_report:
+    ttl_hours: 48
+  caselab_signal:
+    ttl_hours: 48
+  judgment_layer:
+    ttl_hours: 48
+  judgment_replay_audit:
+    ttl_hours: 168
+  judgment_promotion_gate:
+    ttl_hours: 48
+  probabilistic_context:
+    ttl_hours: 48
+  trade_decision:
+    ttl_hours: 48
+  risk_gate:
+    ttl_hours: 48
+  record_trade_decision:
+    ttl_hours: 168
+  paper_portfolio:
+    ttl_hours: 48
+  trade_decision_replay:
+    ttl_hours: 168
+  market_feedback:
+    ttl_hours: 168
+  build_data_gaps:
+    ttl_hours: 168
+  signal_monitor:
+    ttl_hours: 24
+  claim_evaluator:
+    ttl_hours: 168
+  claim_ladder_tracker:
+    ttl_hours: 168
+  learning_hub_feedback:
+    ttl_hours: 168
+  proxy_quality_report:
+    ttl_hours: 168
+  proxy_lifecycle:
+    ttl_hours: 168
+  learning_summary:
+    ttl_hours: 168
+  judgment_calibration_event:
+    ttl_hours: 168
+  trade_calibration_event:
+    ttl_hours: 168
+  operator_registry_audit:
+    ttl_hours: 168
+  position_sizing:
+    ttl_hours: 48
+  system_index:
+    ttl_hours: 24
+  readme_first:
+    ttl_hours: 24
+  evidence_grade_report:
+    ttl_hours: 24
+  build_artifact_registry:
+    ttl_hours: 24
+  record_daily_run_event:
+    ttl_hours: 8760
+  learning_hub_ingest:
+    ttl_hours: 168
+  monitoring_coverage_audit:
+    ttl_hours: 168
+  next_actions:
+    ttl_hours: 24
+  freshness_validator:
+    ttl_hours: 24
+  data_retention_audit:
+    ttl_hours: 168
+  architecture_reality_audit:
+    ttl_hours: 168
+  signal_card:
+    ttl_hours: 24
+  signal_consensus:
+    ttl_hours: 24
+  strategy_lab_shadow:
+    ttl_hours: 24
+  shadow_outcomes_90d:
+    ttl_hours: 24
+  build_overlay_shadow_report:
+    ttl_hours: 168
+  build_event_replay_factory:
+    ttl_hours: 168
+  build_feedback_sample_pool:
+    ttl_hours: 168
+  evaluate_feedback_samples:
+    ttl_hours: 168
+  current_status:
+    ttl_hours: 24
+  work_brief:
+    ttl_hours: 24
+  output_routing_audit:
+    ttl_hours: 168
+  supervisor_check:
+    ttl_hours: 168
+  build_authority_graph:
+    ttl_hours: 168
+  governance_status:
+    ttl_hours: 168
+  routing_decision:
+    ttl_hours: 168
+  caselab_index:
+    ttl_hours: 72
+  build_policy_from_paper:
+    ttl_hours: 168
+  archive_daily_snapshots:
+    ttl_hours: 168
+  backfill_judgment_calibration:
+    ttl_hours: 168
+  mechanism_calibration:
+    ttl_hours: 168
+  export_feedback:
+    ttl_hours: 168
+  suggest_paper_updates:
+    ttl_hours: 168
+  promote_paper_inbox:
+    ttl_hours: 168
+  collect_reviews:
+    ttl_hours: 168
+  evaluate_pending:
+    ttl_hours: 24
+  change_analysis:
+    ttl_hours: 168
+  refresh_cross_asset_panel:
+    ttl_hours: 24
+  judgment_accuracy_report:
+    ttl_hours: 168
+  asof_integrity_check:
+    ttl_hours: 168
+  baseline_comparison:
+    ttl_hours: 168
+  walk_forward_validation:
+    ttl_hours: 168
+  qlib_structural_bridge:
+    ttl_hours: 168
+  threshold_review_bridge:
+    ttl_hours: 168

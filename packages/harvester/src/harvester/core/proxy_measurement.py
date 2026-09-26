@@ -8,6 +8,8 @@ from typing import Any, Mapping, Sequence
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from system_runtime.context import RuntimeContext
+
 
 SCHEMA_VERSION = "system.measurement_spec.v1"
 PROXY_CLAIM_CEILING = "diagnostic_proxy_candidate_only"
@@ -38,7 +40,7 @@ class MeasurementSpecValidationError(ValueError):
 
 
 def contracts_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "contracts"
+    return RuntimeContext.current_context().workspace / "packages" / "harvester" / "contracts"
 
 
 def schema_path() -> Path:

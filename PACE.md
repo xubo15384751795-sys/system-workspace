@@ -31,7 +31,7 @@ layers:
   L1:
     cadence: "minutes to days"
     prefixes:
-      - Output/sandbox/
+      - Output/state/sandbox/
       - tests/
 ---
 
@@ -39,7 +39,7 @@ layers:
 
 | Layer | What lives here | Change posture |
 |---|---|---|
-| L1 — probe | `Output/sandbox/`, disposable experiments and test probes | Change freely. No authority, no promotion, easy deletion. |
+| L1 — probe | `Output/state/sandbox/`, disposable experiments and test probes | Change freely. No authority, no promotion, easy deletion. |
 | L2 — service | module implementation, commands and product surfaces | Small reviewed changes; ordinary tests and rollback. |
 | L3 — control | protocols, registries, CI, runtime coordination and module contracts | A routing decision is mandatory. Version schemas; run old and new versions together during migration. |
 | L4 — identity | constitution, ownership and routing identity | Change rarely. A routing decision plus an explicit observation window and rollback is mandatory. |

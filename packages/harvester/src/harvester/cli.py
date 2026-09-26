@@ -2,20 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
-
-# Load .env from project root and user home if python-dotenv is available
-try:
-    from dotenv import load_dotenv
-    # Project-level .env
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
-    # User-level .env
-    load_dotenv(Path.home() / ".hermes" / ".env", override=False)
-except ImportError:
-    logger.debug("python-dotenv is unavailable; continuing without .env loading")
 
 from harvester.core.catalog import load_catalog
 from harvester.core.exporter import (

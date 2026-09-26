@@ -464,7 +464,7 @@ def _learning_hub_watermark(root: Path) -> dict[str, Any]:
 
 
 def _notification_dedup(output: Path) -> dict[str, Any]:
-    path = output / "alerts" / "latest_alert.json"
+    path = output / "state" / "alerts" / "latest_alert.json"
     alert = _read_json(path)
     if not alert:
         return {"status": "MISSING", "reason_code": "MISSING_ALERT"}
@@ -488,7 +488,7 @@ def _notification_dedup(output: Path) -> dict[str, Any]:
 
 
 def _lineage(root: Path, output: Path, run_id: str | None) -> dict[str, Any]:
-    alert = _read_json(output / "alerts" / "latest_alert.json")
+    alert = _read_json(output / "state" / "alerts" / "latest_alert.json")
     publication = _publication(root, output, run_id)
     release = release_identity(root)
     if not alert or not publication.get("run_id"):

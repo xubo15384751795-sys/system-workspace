@@ -14,7 +14,7 @@ from typing import cast
 from benchmarks.experiment_protocol import validate_result
 from workbench.paths import workspace_root as _workspace_root
 
-BENCHMARKS_ROOT = cast(Path, _workspace_root() / "Output" / "benchmarks" / "market_feedback")
+BENCHMARKS_ROOT = cast(Path, _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback")
 
 REQUIRED_ARTIFACTS = [
     "benchmark_manifest.json",

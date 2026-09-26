@@ -1,0 +1,77 @@
+schema_version: routing_decision.v1
+decision_id: 2026-09-26-structural-cleanup-land
+date: "2026-09-26"
+cynefin_domain: complex
+status: active
+title: Land structural cleanup steps 2–6 and script relocation
+supersedes: null
+related:
+  - 2026-09-cleanup-epoch
+
+summary: >
+  Land the remaining structural-cleanup working tree: relocate production
+  scripts into verity/packages/tools with compatibility shims, admit step
+  2–6 contracts into shape_inventory, renew the governance freeze review
+  window, and update L4 identity surfaces (MODULES, PACE, constitution)
+  to match the new layout. Extends the cleanup-epoch probe for the land
+  commit that also touches L4 identity files the epoch deliberately
+  excluded.
+
+reason_this_is_not_a_bypass: >
+  The cleanup epoch already covers in-scope L3 paths for subsequent
+  commits. This land commit also edits L4 identity files and adds new
+  governance contracts, so it carries its own Cynefin-complex probe with
+  rollback and observation window rather than silently expanding the
+  epoch.
+
+scope: >
+  Script relocation into verity/, packages/{harvester,learning_hub,
+  workbench,framework_v1_archive}, and tools/; scripts/ compatibility
+  shims; governance step0/2–6 contracts and layout/reliability baselines;
+  governance_tiers shape_inventory and freeze manifest renewal; MODULES.md,
+  PACE.md, and system_constitution.yaml identity alignment; matching tests
+  and audit tools.
+
+decision: >
+  Accept the relocated entrypoint layout with shims, classify the new
+  cleanup contracts, renew freeze review_after to 2026-12-26, and keep
+  production defaults on the compiled daily spine. Do not treat this land
+  as production-authority restore or target-environment proof (still Step 6
+  deferred work).
+
+authority_boundary:
+  runtime_judgment_change: false
+  research_verdict_change: false
+  promotion_change: false
+  ci_enforcement_change: true
+  contract_enum_change: false
+  identity_surface_change: true
+
+probe:
+  scope: >
+    L4 identity files (MODULES.md, PACE.md, governance/system_constitution.yaml)
+    plus the step2–6 / layout / reliability governance contracts and the
+    freeze/tiers admission updates required to land them.
+  preregistered_expectation: >
+    just preflight stays green. Root pytest collects without tools/
+    namespace collisions. Governance freeze admits the new contracts.
+    Scheduled daily path remains COMMITTED or explicitly DIAGNOSTIC_ONLY;
+    no production-authority restore is performed by this commit.
+  observation_window: >
+    Fourteen consecutive default-path scheduled days after this land, or
+    until Step 6 target-environment proof closes, whichever comes first.
+  rollback: >
+    Revert this land commit. Compatibility shims and epoch decision remain
+    available for a follow-up narrower land if needed.
+
+non_goals:
+  - Production-authority restore or pointer rewrite
+  - Target-environment bootstrap proof beyond local rehearsal status
+  - Deleting Data/Output or lowering claim ceilings
+  - Removing scripts/ shims in the same commit
+
+acceptance:
+  - Pre-commit ruff, governance-freeze, pace routing, and just preflight pass
+  - shape_inventory classifies every new root governance contract
+  - freeze review_after is in the future
+  - zip source dump and architecture/import_graph.json stay uncommitted

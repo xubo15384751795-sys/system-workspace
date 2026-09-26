@@ -26,18 +26,18 @@ from dagster import (
     asset_check,
 )
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 NATIVE_BATCH = "native_batch"
 NATIVE_PILOT = "native_pilot"
 ALLOWED_FAILURE_BEHAVIORS = frozenset({"continue_with_warning"})
-_BUILD_DATA_GAPS_REF = "scripts.commands.weekly.build_data_gaps:build_data_gaps"
+_BUILD_DATA_GAPS_REF = "workbench.surfaces.build_data_gaps:build_data_gaps"
 NativeCallable = Callable[[], dict[str, Any]]
 
 
 def build_data_gaps() -> dict[str, Any]:
     """Lazy wrapper so Definitions can load before a generation directory exists."""
-    from scripts.commands.weekly.build_data_gaps import build_data_gaps as _impl
+    from workbench.surfaces.build_data_gaps import build_data_gaps as _impl
 
     return _impl()
 

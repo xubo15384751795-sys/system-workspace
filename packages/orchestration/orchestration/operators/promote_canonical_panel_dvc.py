@@ -16,7 +16,7 @@ from orchestration.dvc_promote import (
     record_canonical_panel_pointer,
     verify_canonical_panel_pointer,
 )
-from scripts._runtime_io import ROOT, write_json
+from verity.runtime.runtime_io import ROOT, write_json
 
 DEFAULT_DATABASE = ROOT / "Data" / "canonical" / "panels.duckdb"
 

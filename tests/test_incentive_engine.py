@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,8 +17,9 @@ def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
-    return module
+    return sys.modules[name]
 
 
 def _minimal_policy() -> dict:
@@ -38,7 +40,7 @@ def _minimal_policy() -> dict:
 
 
 def test_credit_score_computes_from_signals() -> None:
-    module = _load("incentive_engine", ROOT / "scripts" / "_incentive_engine.py")
+    module = _load("incentive_engine", ROOT / "verity" / "runtime" / "_incentive_engine.py")
     signals = {
         "trace_complete": True,
         "can_enter_current": True,
@@ -54,7 +56,7 @@ def test_credit_score_computes_from_signals() -> None:
 
 
 def test_demotion_on_gate_blocked() -> None:
-    module = _load("incentive_engine", ROOT / "scripts" / "_incentive_engine.py")
+    module = _load("incentive_engine", ROOT / "verity" / "runtime" / "_incentive_engine.py")
     signals = {
         "trace_complete": True,
         "can_enter_current": False,
@@ -67,7 +69,7 @@ def test_demotion_on_gate_blocked() -> None:
 
 
 def test_submission_scoring_and_gaps() -> None:
-    module = _load("incentive_engine", ROOT / "scripts" / "_incentive_engine.py")
+    module = _load("incentive_engine", ROOT / "verity" / "runtime" / "_incentive_engine.py")
     required = ["submission_id", "owner", "retire_after"]
     submission = {
         "submission_id": "probe_001",
@@ -75,7 +77,7 @@ def test_submission_scoring_and_gaps() -> None:
         "status": "submitted",
         "current_priority": "preferred",
         "submission_type": "topology_change",
-        "evidence_paths": ["Output/sandbox/x.json"],
+        "evidence_paths": ["Output/state/sandbox/x.json"],
     }
     scored = module.score_submission(submission, _minimal_policy(), required_fields=required)
     assert scored["credit_bonus"] > 0
@@ -85,7 +87,7 @@ def test_submission_scoring_and_gaps() -> None:
 
 
 def test_experimental_submission_registry_fixture(tmp_path: Path) -> None:
-    module = _load("incentive_engine", ROOT / "scripts" / "_incentive_engine.py")
+    module = _load("incentive_engine", ROOT / "verity" / "runtime" / "_incentive_engine.py")
     (tmp_path / "governance").mkdir()
     (tmp_path / "governance" / "incentive_policy.yaml").write_text(
         (ROOT / "governance/incentive_policy.yaml").read_text(encoding="utf-8"),
@@ -108,7 +110,7 @@ submissions:
     submission_type: exploration
     rule_deviation: [did_not_enter_harvester_first]
     affected_paths: [scripts/refresh_etf_panel.py]
-    evidence_paths: [Output/sandbox/etf_test.json]
+    evidence_paths: [Output/state/sandbox/etf_test.json]
     review_deadline: "2026-07-01"
     reviewer: null
     decision: null
@@ -147,7 +149,7 @@ submissions:
 
 
 def test_anti_gaming_authority_boundary() -> None:
-    module = _load("incentive_engine", ROOT / "scripts" / "_incentive_engine.py")
+    module = _load("incentive_engine", ROOT / "verity" / "runtime" / "_incentive_engine.py")
     bad_policy = {"authority_boundary": {"credit_never_grants_authority": False}}
     report = module.run_anti_gaming_checks(ROOT, bad_policy)
     assert report["valid"] is False

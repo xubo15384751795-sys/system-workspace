@@ -1,31 +1,22 @@
-#!/usr/bin/env python3
-"""Send one deliberate Telegram text message for connectivity testing."""
+"""Compatibility shim. Canonical file: tools/test_notification_sink.py."""
 from __future__ import annotations
 
-import os
 import sys
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
-from scripts._notify import notify_telegram
-from system_runtime.runtime_secrets import load_runtime_secrets
-
-
-def main() -> int:
-    load_runtime_secrets()
-    if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
-        print("TELEGRAM_BOT_TOKEN is not configured", file=sys.stderr)
-        return 2
-    if not os.environ.get("TELEGRAM_CHAT_ID", "").strip():
-        print("TELEGRAM_CHAT_ID is not configured", file=sys.stderr)
-        return 2
-    if not notify_telegram(
-        "System Telegram connectivity test",
-        "manual test message; daily summary/dead-man channel is reachable",
-    ):
-        print("Telegram delivery failed", file=sys.stderr)
-        return 1
-    print("Telegram message delivered")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+_CANON = Path(__file__).resolve().parents[1] / 'tools/test_notification_sink.py'
+_NAME = '_canon.tools.test_notification_sink'
+if _NAME in sys.modules:
+    _impl = sys.modules[_NAME]
+else:
+    _spec = spec_from_file_location(_NAME, _CANON)
+    _impl = module_from_spec(_spec)
+    sys.modules[_NAME] = _impl
+    assert _spec.loader is not None
+    _spec.loader.exec_module(_impl)
+if __name__ != "__main__":
+    sys.modules[__name__] = _impl
+else:
+    import runpy
+    runpy.run_path(str(_CANON), run_name="__main__")

@@ -182,17 +182,17 @@ output:
   sample_manifest: "Data/feedback_samples/sample_manifest.jsonl"
 
   # Per-sample replay outputs
-  replay_dir: "Output/feedback_samples/replay_runs/"
+  replay_dir: "Output/state/feedback_samples/replay_runs/"
 
   # Evaluation outputs
-  evaluation_report: "Output/feedback_samples/evaluation_report.md"
-  calibration_summary: "Output/feedback_samples/calibration_summary.json"
+  evaluation_report: "Output/state/feedback_samples/evaluation_report.md"
+  calibration_summary: "Output/state/feedback_samples/calibration_summary.json"
 
   # Human review queue
-  review_queue: "Output/feedback_samples/review_queue.jsonl"
+  review_queue: "Output/state/feedback_samples/review_queue.jsonl"
 
   # Failure cases for deep analysis
-  failure_cases: "Output/feedback_samples/failure_cases.md"
+  failure_cases: "Output/state/feedback_samples/failure_cases.md"
 
 # ---------------------------------------------------------------------------
 # Integration with Learning Hub

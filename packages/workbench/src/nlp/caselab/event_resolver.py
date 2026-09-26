@@ -1,7 +1,7 @@
 """Event Resolver — maps real-world events to M/D/K/X via entity environments.
 
 READS: entity_environments.json (pre-built index)
-WRITES: Output/caselab/events/ (standalone)
+WRITES: Output/state/caselab/events/ (standalone)
 
 Input:  event description + entity name
 Output: environment context, structural impact chain, M/D/K/X delta
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, cast
 
 ENV_INDEX = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_environments"
-OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "events"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "state" / "caselab" / "events"
 
 
 class EventResolver:

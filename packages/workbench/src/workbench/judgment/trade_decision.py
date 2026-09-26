@@ -349,7 +349,7 @@ def build_system_sources(
         match_quality = caselab.get("match_quality", {})
         sources.append({
             "source_type": "caselab",
-            "source_path": paths.get("caselab", "Output/caselab/latest_signal.json"),
+            "source_path": paths.get("caselab", "Output/state/caselab/latest_signal.json"),
             "status": match_quality.get("label", "unknown"),
             "value": {
                 "label": match_quality.get("label"),

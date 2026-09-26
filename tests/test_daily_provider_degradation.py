@@ -51,7 +51,7 @@ def test_refresh_reads_finalized_release_without_constructing_provider(
     tmp_path: Path, monkeypatch
 ) -> None:
     _write_panel(tmp_path)
-    import scripts.refresh_cross_asset_panel as refresh
+    import harvester.operators.refresh_cross_asset_panel as refresh
 
     monkeypatch.setattr(refresh, "ROOT", tmp_path)
     monkeypatch.setattr(
@@ -136,8 +136,8 @@ def test_runoutcome_ready_and_system_failed_states_are_disjoint() -> None:
 
 
 def test_expired_provider_cache_remains_blocked_and_high_severity(tmp_path: Path) -> None:
-    from scripts import daily_run
     from system_runtime.run_outcome import RunOutcome
+    from verity.cli import daily_run
 
     outcome = RunOutcome(
         run_id="expired-provider-run",
@@ -157,7 +157,7 @@ def test_expired_provider_cache_remains_blocked_and_high_severity(tmp_path: Path
         output_root=tmp_path,
         outcome=outcome.to_dict(),
     )
-    alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text())
+    alert = json.loads((tmp_path / "state" / "alerts" / "latest_alert.json").read_text())
 
     assert outcome.status == "partial_failure"
     assert outcome.operational_state == "COMPLETED_BLOCKED"
@@ -166,7 +166,7 @@ def test_expired_provider_cache_remains_blocked_and_high_severity(tmp_path: Path
 
 
 def test_pipeline_runner_preserves_structured_provider_outcome() -> None:
-    from scripts._pipeline_runner import run_subprocess_step
+    from verity.runtime._pipeline_runner import run_subprocess_step
 
     result = run_subprocess_step(
         "refresh_cross_asset_panel",
@@ -191,7 +191,7 @@ def test_pipeline_runner_preserves_structured_provider_outcome() -> None:
 def test_duplicate_degraded_notifications_are_suppressed(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from scripts import _notify
+    from verity.runtime import _notify
 
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)
@@ -233,7 +233,7 @@ def test_duplicate_fingerprint_reescalates_after_consecutive_days(
 ) -> None:
     from datetime import UTC, datetime, timedelta
 
-    from scripts import _notify
+    from verity.runtime import _notify
 
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(_notify, "_suppression_reason", lambda: None)

@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from orchestration.definitions import defs
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_adjacent_shadow.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_adjacent_shadow.json"
 _STEP_IDS = ("record_trade_decision", "paper_portfolio")
 
 
@@ -121,7 +121,7 @@ def run_shadow(*, root: Path = ROOT) -> dict[str, Any]:
     else:
         status = "FAIL"
 
-    shadow_root = root / "Output" / "health" / "native_adjacent_shadow"
+    shadow_root = root / "Output" / "state" / "health" / "native_adjacent_shadow"
     return {
         "schema_version": "system.native_adjacent_shadow.v1",
         "status": status,
@@ -185,14 +185,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--report",
         type=Path,
-        help="Report path; defaults to <root>/Output/health/native_adjacent_shadow.json.",
+        help="Report path; defaults to <root>/Output/state/health/native_adjacent_shadow.json.",
     )
     args = parser.parse_args(argv)
     root = args.root.expanduser().resolve()
     report_path = (
         args.report.expanduser().resolve()
         if args.report is not None
-        else root / "Output" / "health" / "native_adjacent_shadow.json"
+        else root / "Output" / "state" / "health" / "native_adjacent_shadow.json"
     )
     report = run_shadow(root=root)
     _write_json_atomically(report_path, report)

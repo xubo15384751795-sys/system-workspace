@@ -54,11 +54,11 @@ cmd="${1:-daily}"
 case "${cmd}" in
   daily)
     cd "${SYSTEM_ROOT}"
-    # Default path: Dagster daily_job (launchd -> orchestrate -> orchestration.cli).
-    # Horizon is an independent producer and must not synchronously block the
-    # System core slot. The explicit legacy flag is the only compatibility path.
+    # Scheduler adapter only: process environment, runtime check, and exec.
+    # Horizon remains an independent producer and is never composed into this
+    # execution spine. Legacy selection is interpreted by Python, not shell.
     export SYSTEM_ORCHESTRATOR="${SYSTEM_ORCHESTRATOR:-dagster}"
-    export PYTHONPATH="${SYSTEM_ROOT}:${SYSTEM_ROOT}/packages/orchestration:${PYTHONPATH:-}"
+    unset PYTHONPATH
     if [[ -z "${SYSTEM_GENERATION_MODE:-}" ]]; then
       if [[ -L "${SYSTEM_ROOT}/Output/live" ]]; then
         export SYSTEM_GENERATION_MODE=1
@@ -66,31 +66,12 @@ case "${cmd}" in
         export SYSTEM_GENERATION_MODE=0
       fi
     fi
-    # A dry-run is deliberately non-authoritative and must remain usable even
-    # when a shared Output tree contains an old recovery marker. Real runs
-    # retain the fail-closed reconciliation gate below this boundary.
-    dry_run_requested=0
-    for arg in "${@:2}"; do
-      if [[ "${arg}" == "--dry-run" ]]; then
-        dry_run_requested=1
-        break
-      fi
-    done
-    if [[ "${dry_run_requested}" != "1" ]]; then
-      "${PY}" "${SYSTEM_ROOT}/scripts/reconcile_generation.py" --fail-on-recovery
-    fi
-    if [[ "${SYSTEM_USE_LEGACY_DAILY_RUN:-}" == "1" ]]; then
-      echo "[orchestrate] SYSTEM_USE_LEGACY_DAILY_RUN=1 — bypassing Dagster CLI"
-      exec "${PY}" scripts/daily_run.py "${@:2}"
-    fi
-    if ! "${PY}" -c "import dagster, orchestration.cli" >/dev/null 2>&1; then
+    if [[ "${SYSTEM_USE_LEGACY_DAILY_RUN:-}" != "1" ]] && ! "${PY}" -c "import dagster, orchestration.cli" >/dev/null 2>&1; then
       echo "[orchestrate] dagster/orchestration unavailable; default path is fail-closed" >&2
       echo "[orchestrate] install with: uv sync --locked --all-packages" >&2
-      echo "[orchestrate] run with: uv run --locked ..." >&2
-      echo "[orchestrate] emergency compatibility requires SYSTEM_USE_LEGACY_DAILY_RUN=1" >&2
       exit 78
     fi
-    exec "${PY}" -m orchestration.cli daily -- "${@:2}"
+    exec "${PY}" -m verity.cli daily "${@:2}"
     ;;
   horizon)
     run_horizon

@@ -205,7 +205,7 @@ def _cmd_scan_codebase(args: argparse.Namespace) -> int:
 def _cmd_check_ml_integrity(args: argparse.Namespace) -> int:
     paths = HubPaths.resolve(_system_root(args))
     report = run_pollution_check(
-        signals_root=paths.system_root / "Output" / "ml_signals",
+        signals_root=paths.system_root / "Output" / "state" / "ml_signals",
         runs_root=paths.system_root / "Output" / "deformation_runs",
         events_dir=paths.events_dir,
         raise_on_red=args.raise_on_red,

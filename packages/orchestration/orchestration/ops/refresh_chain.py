@@ -6,9 +6,9 @@ from typing import cast
 
 from dagster import In, Nothing, op
 
-from scripts._admission_gate import admit_for_consumption
+from verity.runtime._admission_gate import admit_for_consumption
 from orchestration.pipeline_runner import run_registry_step
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import CompiledStep, load_pipeline
 

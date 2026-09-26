@@ -7,7 +7,7 @@ from __future__ import annotations
 from dagster import op
 
 from orchestration.sequence_executor import DailyRunContext, execute_daily_sequence
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import load_pipeline
 

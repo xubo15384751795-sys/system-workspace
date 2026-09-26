@@ -7,7 +7,6 @@ and which can serve Deformation.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -83,13 +82,9 @@ def _provider_status_policy(status: str) -> dict[str, str] | None:
     """
     try:
         from system_runtime.provider_status import provider_status_policy
+        from system_runtime.context import RuntimeContext
 
-        configured_root = os.environ.get("SYSTEM_ROOT", "").strip()
-        root = (
-            Path(configured_root).expanduser().resolve()
-            if configured_root
-            else Path(__file__).resolve().parents[4]
-        )
+        root = RuntimeContext.current_context().workspace
         return cast(dict[str, str], provider_status_policy(status, root=root))
     except (ImportError, OSError, ValueError):
         return None
@@ -151,6 +146,19 @@ def run_promotion_gate(
     manifest_series = manifest_series_ids or set()
     empty = empty_panels or []
     available = panel_series | manifest_series
+    # ``panel_identity_set`` intentionally preserves provider-native ids so
+    # provenance remains inspectable.  The gate, however, evaluates registry
+    # ownership using canonical ids.  Resolve a provider-native source id to
+    # its one registry owner here; otherwise a successfully acquired series
+    # such as ``debt_to_penny:tot_pub_debt_out_amt`` is falsely reported as a
+    # missing model input merely because its canonical id is
+    # ``tot_pub_debt_out_amt``.
+    for series in registry.active_series():
+        if series.canonical_id in available:
+            continue
+        source_series_id = str(series.source_series_id or "").strip()
+        if source_series_id and source_series_id in available:
+            available.add(series.canonical_id)
 
     # ------------------------------------------------------------------
     # Check 1: Required-for-release series present

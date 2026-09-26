@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts import _notify, daily_run
 from system_runtime.canonical_lineage import summarize_step_lineage
+from verity.cli import daily_run
+from verity.runtime import _notify
 
 
 def _chain() -> dict:
@@ -131,7 +132,7 @@ def test_alert_and_notification_read_the_same_shadow_context(tmp_path, monkeypat
         outcome={"run_id": "run-1", "exit_code": 3},
     )
     alert = json.loads(
-        (tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8")
+        (tmp_path / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8")
     )
     assert alert["canonical_lineage"] == context
 

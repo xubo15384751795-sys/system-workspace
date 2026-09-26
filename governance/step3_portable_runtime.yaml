@@ -1,0 +1,74 @@
+schema_version: system.step3_portable_runtime.v1
+step: 3
+evaluated_at: '2026-09-12'
+status: PASS_DEFAULT_RUNTIME_WITH_EXPLICIT_NON_DEFAULT_DEBT
+scope: installed_default_runtime_surface
+accepted_baseline_sha: 76eebef4de83d18e4d5b757b18c5577141778174
+worktree_policy:
+  dirty_worktree_preserved: true
+  reset_used: false
+  clean_used: false
+  stash_used: false
+  automatic_commit_used: false
+gates:
+  runtime_context:
+    status: PASS
+    owner: system_cli.app.main
+    implementation: system_runtime.context.RuntimeContext
+  locked_workspace_install:
+    status: PASS
+    command: uv sync --locked --all-packages
+  clean_shell_import_without_pythonpath:
+    status: PASS
+    command: env -u PYTHONPATH .venv/bin/python -c 'import system_cli, system_runtime, verity, orchestration, harvester'
+  clean_shell_cli:
+    status: PASS
+    command: env -u PYTHONPATH .venv/bin/verity --workspace /Users/a1/Verity pipeline validate
+    steps: 83
+    edges: 40
+    plan_digest: 748992f2459005c8c185a9b011962a88c1c9a899725f096801ad1e42e8aedb7a
+  temporary_data_output_roots:
+    status: PASS
+    checks:
+      - pipeline_validate
+      - daily_dry_run
+  alternate_workspace_root:
+    status: PASS_BOUNDED
+    fixture: registry_and_pipeline_schema_only
+    checks:
+      - pipeline_validate
+      - daily_dry_run
+  synthetic_systemd_identity:
+    status: PASS
+    business_result_unchanged: true
+  absolute_mac_path_scan:
+    status: PASS
+    active_production_python_violations: 0
+  default_pythonpath_dependency:
+    status: PASS
+    ambient_pythonpath_removed_at_application_boundary: true
+    sequence_executor_constructs_pythonpath: false
+identity_contract:
+  trigger_kinds: [scheduled, manual, replay, recovery, shadow]
+  scheduler_kinds: [launchd, systemd, dagster, ci, operator]
+  qualification_rule: trigger_kind == scheduled AND scheduler_id in accepted_schedulers AND release_id == accepted_release
+  reliability_verifier_status: PENDING
+  observed_runs: 0
+  reliability_window_started: false
+evidence_digests:
+  uv_lock_sha256: 2f3d216fe0ffdcf6e6e8c9ff5918612df6e1b6070cafee62020e0d9b6005f2ca
+  pyproject_sha256: 4412d721087ab2598153e92fd21ac7bb5b5121f4265e2158d4a38da7b52101f9
+  pipeline_registry_sha256: 4ae292c489f7a0536421df0cfe1265b41eca5283cf26f713f97d3af3af16406d
+  reliability_contract_sha256: dde27e325560a2143cc1a81d21fb8a21b191cb773cfac851731171ebd4011e31
+  architecture_import_graph_sha256: 5cadea69a4dce89d05cbd6baf0d767d8704a35971dd14c4823d32bfc9b8dc8e5
+  architecture_violations_sha256: a1af9bced45a4b03d405a3dcd9243c9e64f171d959de001fc2911177e8ced29f
+remaining_debt:
+  - tracked_or_installed_launchagent_control_plane_reconciliation
+  - non_default_shadow_parity_dvc_archive_path_assumptions
+  - legacy_daily_executor_compatibility_surface
+excluded:
+  - fred_credential_acquisition
+  - provider_admission
+  - full_live_provider_rehearsal
+  - fourteen_day_reliability_qualification
+  - launchagent_reconciliation

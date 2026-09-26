@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 import pytest
+from workbench.surfaces import build_next_actions
 
-from scripts.commands.weekly import build_next_actions
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import load_pipeline
 

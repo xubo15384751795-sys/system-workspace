@@ -1,4 +1,3 @@
-"""Compatibility import surface for the compiled daily sequence."""
-from __future__ import annotations
-
-from orchestration.daily_run_sequence import *  # noqa: F401,F403
+from verity.runtime._daily_run_sequence import *
+import warnings
+warnings.warn("scripts._daily_run_sequence is deprecated; import verity.runtime._daily_run_sequence", DeprecationWarning, stacklevel=2)

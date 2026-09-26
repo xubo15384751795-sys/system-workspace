@@ -1,0 +1,225 @@
+schema_version: governance.step5a_daily_run_closure.v1
+step: 5A
+status: COMPLETE
+application: verity.cli.daily_run
+principle: application_coordinator_not_domain_runtime_implementation
+
+responsibility_inventory:
+  - symbol: _is_weekly
+    span: verity/cli/daily_run.py:135-137
+    categories: [H]
+    current_readers: [run_daily]
+    desired_owner: verity.cli.schedule_admission
+    decision: RETAIN_APPLICATION_ADAPTER
+    reason: weekly filtering is a small application-level read against the compiled schedule metadata
+
+  - symbol: check_freshness
+    span: verity/cli/daily_run.py:140-142
+    categories: [C, J]
+    current_readers: [run_daily, tests/test_daily_run_execution.py]
+    desired_owner: verity.runtime.daily_monitoring
+    decision: EXTRACTED_ADAPTER
+    reason: runtime freshness semantics now live in daily_monitoring; daily_run retains only a compatibility adapter
+
+  - symbol: check_warnings
+    span: verity/cli/daily_run.py:145-151
+    categories: [C, G, J]
+    current_readers: [run_daily, tests/test_daily_run_execution.py]
+    desired_owner: verity.runtime.daily_monitoring
+    decision: EXTRACTED_ADAPTER
+    reason: warning and freshness observation semantics now live in daily_monitoring; daily_run retains only a compatibility adapter
+
+  - symbol: _early_failure_run_id
+    span: verity/cli/daily_run.py:154-156
+    categories: [A, E]
+    current_readers: [build_early_failure_outcome]
+    desired_owner: application failure boundary
+    decision: RETAIN
+    reason: only constructs the identity used by the bounded application fallback
+
+  - symbol: _early_failure_bundle
+    span: verity/cli/daily_run.py:159-186
+    categories: [A, E, F]
+    current_readers: [build_early_failure_outcome]
+    desired_owner: RunBundle/application failure boundary
+    decision: RETAIN
+    reason: composes the fallback bundle without reimplementing bundle semantics
+
+  - symbol: build_early_failure_outcome
+    span: verity/cli/daily_run.py:189-325
+    categories: [A, E, F, G]
+    current_readers: [main, tests/test_daily_run_early_failure.py]
+    desired_owner: application failure boundary
+    decision: RETAIN
+    reason: terminal typed fallback must close the same outcome/event/alert identity
+
+  - symbol: _truncate_launchd_logs
+    span: verity/cli/daily_run.py:328-334
+    categories: [H, I]
+    current_readers: [run_daily, tests/test_legacy_daily_run_outcome_contract.py]
+    desired_owner: verity.cli.host_adapter
+    decision: EXTRACTED_ADAPTER
+    reason: launchd-specific log maintenance now lives at the host boundary; daily_run retains a patch-compatible adapter
+
+  - symbol: _raise_open_file_limit
+    span: verity/cli/daily_run.py:337-339
+    categories: [H]
+    current_readers: [run_daily]
+    desired_owner: verity.cli.host_adapter
+    decision: EXTRACTED_ADAPTER
+    reason: process resource limits now live at the host boundary; daily_run retains a patch-compatible adapter
+
+  - symbol: parse_args
+    span: verity/cli/daily_run.py:342-376
+    categories: [A, I]
+    current_readers: [main, tests]
+    desired_owner: verity.cli._application
+    decision: RETAIN_COMPATIBILITY_BOUNDARY
+    reason: the canonical CLI adapter owns argument parsing while daily_run remains import-compatible
+
+  - symbol: run_daily.setup_and_schedule
+    span: verity/cli/daily_run.py:379-501
+    categories: [A, H, I]
+    current_readers: [main, orchestration.daily_pipeline, tests/test_legacy_daily_run_outcome_contract.py]
+    desired_owner: daily application coordinator
+    decision: RETAIN
+    reason: top-level use-case composition and schedule-slot admission are application concerns
+
+  - symbol: run_daily.bundle_and_plan_setup
+    span: verity/cli/daily_run.py:503-544
+    categories: [A, B, E]
+    current_readers: [run_daily]
+    desired_owner: daily application coordinator plus RunBundle/CompiledPlan contracts
+    decision: RETAIN
+    reason: composes already-owned bundle, plan, runtime context, and transaction interfaces
+
+  - symbol: run_daily.compiled_step_invocation
+    span: verity/cli/daily_run.py:546-600
+    categories: [B, I]
+    current_readers: [run_daily]
+    desired_owner: verity.cli.run_coordinator and orchestration.runner
+    decision: EXTRACTED_BOUNDARY
+    reason: step dispatch is delegated to the compiled plan and one Dagster boundary
+
+  - symbol: run_daily.post_run_evidence
+    span: verity/cli/daily_run.py:602-613
+    categories: [E, G]
+    current_readers: [run_daily]
+    desired_owner: verity.cli.post_run_sinks
+    decision: EXTRACTED
+    reason: trace, feedback, alert, and runtime-event implementations have stable sink owners
+
+  - symbol: run_daily.admission_and_publication
+    span: verity/cli/daily_run.py:615-841
+    categories: [C, D]
+    current_readers: [run_daily]
+    desired_owner: PublishAdmission/PublishTransaction plus verity.cli.publication_coordinator
+    decision: RETAIN_COORDINATION
+    reason: application composes the final decision; pure lineage/authority/transaction helpers are extracted
+
+  - symbol: run_daily.terminal_outcome_and_consumers
+    span: verity/cli/daily_run.py:843-1032
+    categories: [A, E, G]
+    current_readers: [run_daily]
+    desired_owner: daily application plus post_run_sinks
+    decision: RETAIN_COORDINATION
+    reason: one typed RunOutcome must feed bundle, event, alert, notification, and exit handling
+
+  - symbol: run_daily.mandatory_sink_boundary
+    span: verity/cli/daily_run.py:1034-1106
+    categories: [F, E]
+    current_readers: [run_daily, tests/test_daily_run_early_failure.py]
+    desired_owner: application mandatory-sink boundary
+    decision: RETAIN_COORDINATION
+    reason: sink failure rewrites the same primary identity and must not become an independent execution path
+
+  - symbol: run_daily.compatibility_post_publish
+    span: verity/cli/daily_run.py:1108-1146
+    categories: [H, I, E]
+    current_readers: [run_daily]
+    desired_owner: compatibility adapter with explicit cadence guard
+    decision: RETAIN_BOUNDED_COMPATIBILITY
+    reason: legacy governance refresh and decision-trace link remain non-default compatibility behavior
+
+  - symbol: main
+    span: verity/cli/daily_run.py:1153-1215
+    categories: [A, H, I]
+    current_readers: [verity.cli, system_cli compatibility alias, scheduler wrappers]
+    desired_owner: verity.cli._application
+    decision: RETAIN_COMPATIBILITY_ENTRY
+    reason: maps application outcome to process exit and preserves one canonical CLI boundary
+
+behavioral_parity_matrix:
+  - id: DR-01
+    scenario: dry_run
+    required_assertions: [compiled_plan_generated, no_real_publish, run_outcome, bundle_event_identity, exit_code]
+    current_evidence:
+      - env -u PYTHONPATH .venv/bin/python -m verity.cli daily --dry-run
+      - tests/test_project_identity.py
+      - tests/test_step5a_daily_run_parity.py::test_dr01_dry_run_compiles_the_runtime_plan_without_publication
+    status: PASS
+    gap: none; dry-run has an explicit no-bundle/no-publication contract and returns the stable dry_run identity
+
+  - id: DR-02
+    scenario: compiled_plan_success
+    required_assertions: [step_order, step_status, terminal_state, run_outcome, bundle, events]
+    current_evidence:
+      - tests/test_dagster_compiled_plan.py
+      - tests/test_legacy_daily_run_outcome_contract.py
+      - tests/test_step5a_daily_run_parity.py::test_dr02_compiled_plan_success_closes_one_daily_coordinator_outcome
+    status: PASS
+    gap: none
+
+  - id: DR-03
+    scenario: admission_block
+    required_assertions: [admission_block, generation_not_published, current_unchanged, run_outcome, event_alert, exit_code]
+    current_evidence:
+      - tests/test_generation_transaction_runtime.py
+      - tests/test_run_outcome_consumer_contract.py
+      - tests/test_step5a_daily_run_parity.py::test_dr03_admission_block_does_not_create_a_live_pointer
+      - tests/test_step5a_daily_run_parity.py::test_dr03_daily_coordinator_admission_block_preserves_live_pointer
+    status: PASS
+    gap: none
+
+  - id: DR-04
+    scenario: publication_success
+    required_assertions: [candidate, admission, generation, current_pointer, manifest, registry_index, lineage, run_outcome]
+    current_evidence:
+      - tests/test_generation_transaction_runtime.py
+      - tests/test_current_artifact_chain.py
+      - tests/test_step5a_daily_run_parity.py::test_dr04_publication_success_materializes_generation_and_current
+    status: PASS
+    gap: none
+
+  - id: DR-05
+    scenario: mandatory_sink_failure
+    required_assertions: [primary_outcome_preserved, sink_failure_visible, alert_correct, exit_code, no_authority_upgrade]
+    current_evidence:
+      - tests/test_daily_run_early_failure.py
+      - tests/test_step5a_daily_run_parity.py::test_dr05_mandatory_sink_failure_preserves_primary_publication_semantics
+      - tests/test_step5a_daily_run_parity.py::test_dr05_daily_coordinator_preserves_primary_success_on_mandatory_sink_failure
+    status: PASS
+    gap: none
+
+  - id: DR-06
+    scenario: primary_failure_plus_sink
+    required_assertions: [primary_failure_remains, sink_success_not_authoritative, sink_failure_visible, final_status_not_success]
+    current_evidence:
+      - tests/test_run_outcome_consumer_contract.py
+      - tests/test_step5a_daily_run_parity.py::test_dr06_primary_failure_plus_sink_cannot_become_success
+      - tests/test_step5a_daily_run_parity.py::test_dr06_daily_coordinator_keeps_primary_failure_with_mandatory_sink_failure
+    status: PASS
+    gap: none
+
+gate:
+  status: PASS
+  open_items:
+    - none
+  path: A_extracted_coordinator_with_explicit_compatibility_adapters
+  evidence:
+    - tests/test_step5a_daily_run_parity.py
+    - tests/test_daily_run_execution.py
+    - tests/test_daily_run_hardening.py
+    - tests/test_legacy_daily_run_outcome_contract.py
+    - tests/test_daily_run_early_failure.py
+    - 172 passed, 2 skipped cross-layer regression

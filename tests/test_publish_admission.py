@@ -322,6 +322,65 @@ def test_provider_decision_cannot_grant_authoritative_admission() -> None:
     assert conditional.authority_verdict == "DIAGNOSTIC_ONLY"
 
 
+def test_freshness_warn_allows_diagnostic_publish() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    admission = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="WARN",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        provider_decision="CONDITIONAL",
+        authority_verdict="ALLOW",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert admission.integrity_verdict == "PASS"
+    assert admission.authority_verdict == "DIAGNOSTIC_ONLY"
+    assert admission.can_publish is True
+    assert admission.allows_decision_consumers is False
+    assert admission.is_blocked is False
+    assert "FRESHNESS_WARN" in admission.reason_codes
+    assert "PROVIDER_DECISION_CONDITIONAL" in admission.reason_codes
+
+
+def test_freshness_unknown_and_fail_still_block_integrity() -> None:
+    from system_runtime.publish_admission import PublishAdmission
+
+    unknown = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="UNKNOWN",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert unknown.integrity_verdict == "BLOCK"
+    assert unknown.can_publish is False
+    assert "FRESHNESS_UNKNOWN" in unknown.reason_codes
+
+    failed = PublishAdmission.evaluate(
+        run_status="success",
+        freshness_verdict="FAIL",
+        required_artifacts=[],
+        candidate_artifacts=[],
+        candidate_run_id="run-1",
+        generation_id="run-1",
+        plan_digest=PLAN_DIGEST,
+        evidence_digest=EVIDENCE_DIGEST,
+        generation_digest=GENERATION_DIGEST,
+    )
+    assert failed.integrity_verdict == "BLOCK"
+    assert failed.can_publish is False
+    assert "FRESHNESS_FAIL" in failed.reason_codes
+
+
 def test_generation_identity_is_required_for_admission_binding() -> None:
     from system_runtime.publish_admission import PublishAdmission
 

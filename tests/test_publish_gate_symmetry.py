@@ -19,7 +19,7 @@ class TestCurrentDirRedirect:
         # Re-import so the module-level CURRENT picks up the env.
         import importlib
 
-        from scripts import build_work_brief
+        from workbench.surfaces import build_work_brief
 
         importlib.reload(build_work_brief)
         assert str(build_work_brief.CURRENT) == str(tmp_path), (
@@ -30,7 +30,7 @@ class TestCurrentDirRedirect:
         monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(tmp_path))
         import importlib
 
-        from scripts import build_signal_card
+        from workbench.surfaces import build_signal_card
 
         importlib.reload(build_signal_card)
         assert str(build_signal_card.CURRENT) == str(tmp_path), (
@@ -41,11 +41,11 @@ class TestCurrentDirRedirect:
         """The known direct-writer scripts must not hardcode
         ROOT/Output/current anymore - they must use current_dir()."""
         for script in (
-            "build_work_brief.py",
-            "build_signal_card.py",
-            "commands/weekly/build_readme_first.py",
+            "packages/workbench/src/workbench/surfaces/build_work_brief.py",
+            "packages/workbench/src/workbench/surfaces/build_signal_card.py",
+            "packages/workbench/src/workbench/surfaces/build_readme_first.py",
         ):
-            src = (ROOT / "scripts" / script).read_text(encoding="utf-8")
+            src = (ROOT / script).read_text(encoding="utf-8")
             # current_dir() must be imported and used; the old hardcode gone.
             assert "current_dir" in src, f"{script} must import current_dir"
             assert 'OUTPUT_PATH = ROOT / "Output" / "current"' not in src, (
@@ -66,7 +66,7 @@ class TestCurrentDirRedirect:
             import pytest
 
             pytest.skip("no system index")
-        from scripts.commands.weekly import build_readme_first
+        from workbench.surfaces import build_readme_first
 
         build_readme_first.main()
         assert (tmp_path / "00_READ_ME_FIRST.md").exists()

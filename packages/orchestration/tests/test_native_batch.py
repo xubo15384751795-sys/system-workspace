@@ -13,7 +13,7 @@ from orchestration.assets.native_batch import (
     select_native_pilot_steps,
 )
 from orchestration.definitions import defs, daily_job
-from scripts.commands.weekly import build_artifact_registry as artifact_registry
+from workbench.surfaces import build_artifact_registry as artifact_registry
 
 
 def test_native_batch_is_registered_with_retry_and_shadow_metadata() -> None:
@@ -27,7 +27,7 @@ def test_native_batch_is_registered_with_retry_and_shadow_metadata() -> None:
     assert metadata["authority"] == "shadow_only"
     assert metadata["writes_legacy_output"] is False
     assert metadata["native_callable"] == (
-        "scripts.commands.weekly.build_data_gaps:build_data_gaps"
+        "workbench.surfaces.build_data_gaps:build_data_gaps"
     )
     assert len(NATIVE_BATCH_CHECKS) == len(NATIVE_BATCH_ASSETS)
     assert all(
@@ -45,13 +45,13 @@ def test_live_registry_compiles_native_pilot_from_direct_callable() -> None:
         {
             "step_id": "build_data_gaps",
             "failure_behavior": "continue_with_warning",
-            "native_callable": "scripts.commands.weekly.build_data_gaps:build_data_gaps",
+            "native_callable": "workbench.surfaces.build_data_gaps:build_data_gaps",
         },
         {
             "step_id": "evidence_grade_report",
             "failure_behavior": "continue_with_warning",
             "native_callable": (
-                "scripts.commands.weekly.build_evidence_grade_report:"
+                "workbench.surfaces.build_evidence_grade_report:"
                 "build_evidence_grade_report"
             ),
         },
@@ -59,14 +59,14 @@ def test_live_registry_compiles_native_pilot_from_direct_callable() -> None:
             "step_id": "build_artifact_registry",
             "failure_behavior": "continue_with_warning",
             "native_callable": (
-                "scripts.commands.weekly.build_artifact_registry:build_artifact_registry"
+                "workbench.surfaces.build_artifact_registry:build_artifact_registry"
             ),
         },
         {
             "step_id": "change_analysis",
             "failure_behavior": "continue_with_warning",
             "native_callable": (
-                "scripts.commands.weekly.build_change_analysis:build_change_analysis"
+                "workbench.surfaces.build_change_analysis:build_change_analysis"
             ),
         },
     )
@@ -169,7 +169,7 @@ def test_native_batch_compiles_registry_callable_without_runner(monkeypatch) -> 
                     "execution": {
                         "dagster_native_asset": "native_pilot",
                         "native_callable": (
-                            "scripts.commands.weekly.build_data_gaps:build_data_gaps"
+                            "workbench.surfaces.build_data_gaps:build_data_gaps"
                         ),
                     },
                 }
@@ -205,7 +205,7 @@ def test_native_batch_resolves_generic_module_callable(monkeypatch) -> None:
                     "execution": {
                         "dagster_native_asset": "native_pilot",
                         "native_callable": (
-                            "scripts.commands.weekly.build_artifact_registry:"
+                            "workbench.surfaces.build_artifact_registry:"
                             "build_artifact_registry"
                         ),
                     },
@@ -246,7 +246,7 @@ def test_native_batch_maps_explicit_dependency_and_propagates_failure(monkeypatc
                     "execution": {
                         "dagster_native_asset": "native_pilot",
                         "native_callable": (
-                            "scripts.commands.weekly.build_data_gaps:build_data_gaps"
+                            "workbench.surfaces.build_data_gaps:build_data_gaps"
                         ),
                     },
                 },
@@ -257,7 +257,7 @@ def test_native_batch_maps_explicit_dependency_and_propagates_failure(monkeypatc
                     "execution": {
                         "dagster_native_asset": "native_pilot",
                         "native_callable": (
-                            "scripts.commands.weekly.build_artifact_registry:"
+                            "workbench.surfaces.build_artifact_registry:"
                             "build_artifact_registry"
                         ),
                         "native_depends_on": ["upstream"],
@@ -290,7 +290,7 @@ def test_native_batch_rejects_dependency_outside_native_batch() -> None:
                         "execution": {
                             "dagster_native_asset": "native_pilot",
                             "native_callable": (
-                                "scripts.commands.weekly.build_data_gaps:build_data_gaps"
+                                "workbench.surfaces.build_data_gaps:build_data_gaps"
                             ),
                             "native_depends_on": ["legacy_step"],
                         },

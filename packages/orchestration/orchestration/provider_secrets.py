@@ -15,7 +15,14 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DEFAULT_SECRET_FILE = Path("~/.config/system/provider.env").expanduser()
-ALLOWED_PROVIDER_KEYS = frozenset({"TIINGO_API_KEY", "MASSIVE_API_KEY"})
+ALLOWED_PROVIDER_KEYS = frozenset(
+    {
+        "FRED_API_KEY",
+        "OPENBB_FRED_API_KEY",
+        "TIINGO_API_KEY",
+        "MASSIVE_API_KEY",
+    }
+)
 
 
 def _secret_file_path(path: str | os.PathLike[str] | None = None) -> Path:
@@ -48,6 +55,27 @@ def _parse_value(raw: str) -> str:
     return value.strip()
 
 
+def _normalise_fred_key(file_values: dict[str, str], loaded: list[str]) -> None:
+    """Expose exactly one logical FRED secret to downstream providers.
+
+    ``OPENBB_FRED_API_KEY`` is accepted only as an input compatibility name.
+    Once it crosses this boundary, provider/domain code receives the canonical
+    ``FRED_API_KEY`` name and the compatibility alias is removed from the
+    process environment.
+    """
+    canonical = os.environ.get("FRED_API_KEY", "").strip()
+    if not canonical:
+        canonical = os.environ.get("OPENBB_FRED_API_KEY", "").strip()
+    if not canonical:
+        canonical = file_values.get("FRED_API_KEY", "").strip()
+    if not canonical:
+        canonical = file_values.get("OPENBB_FRED_API_KEY", "").strip()
+    if canonical and not os.environ.get("FRED_API_KEY", "").strip():
+        os.environ["FRED_API_KEY"] = canonical
+        loaded.append("FRED_API_KEY")
+    os.environ.pop("OPENBB_FRED_API_KEY", None)
+
+
 def load_provider_secrets(
     path: str | os.PathLike[str] | None = None,
 ) -> tuple[str, ...]:
@@ -57,18 +85,23 @@ def load_provider_secrets(
     only the names loaded, never secret values, which keeps callers and logs
     safe by construction.
     """
+    loaded: list[str] = []
+    file_values: dict[str, str] = {}
+    # Normalize an explicitly supplied compatibility environment variable even
+    # when the host secret file is absent or rejected.
+    _normalise_fred_key(file_values, loaded)
+
     secret_path = _secret_file_path(path)
     if not secret_path.exists():
-        return ()
+        return tuple(dict.fromkeys(loaded))
     if not _secure_file(secret_path):
-        return ()
+        return tuple(dict.fromkeys(loaded))
 
-    loaded: list[str] = []
     try:
         lines = secret_path.read_text(encoding="utf-8").splitlines()
     except OSError:
         logger.warning("Unable to read provider secret file %s", secret_path)
-        return ()
+        return tuple(dict.fromkeys(loaded))
 
     for line_number, raw_line in enumerate(lines, start=1):
         line = raw_line.strip()
@@ -84,6 +117,12 @@ def load_provider_secrets(
         if key not in ALLOWED_PROVIDER_KEYS:
             logger.warning("Ignoring unsupported provider secret name %s", key)
             continue
+        if key in {"FRED_API_KEY", "OPENBB_FRED_API_KEY"}:
+            if key not in file_values and not os.environ.get(key, "").strip():
+                value = _parse_value(raw_value)
+                if value:
+                    file_values[key] = value
+            continue
         if os.environ.get(key, "").strip():
             continue
         value = _parse_value(raw_value)
@@ -91,4 +130,5 @@ def load_provider_secrets(
             continue
         os.environ[key] = value
         loaded.append(key)
-    return tuple(loaded)
+    _normalise_fred_key(file_values, loaded)
+    return tuple(dict.fromkeys(loaded))

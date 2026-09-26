@@ -14,7 +14,7 @@ import os
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,7 @@ import yaml
 
 from harvester.official import make_manifest, make_provenance
 from harvester.quality import build_quality_report, write_quality_report
+from system_runtime.context import RuntimeContext
 
 logger = logging.getLogger(__name__)
 
@@ -205,19 +206,8 @@ def _return_panel(
 
 
 def workspace_root() -> Path:
-    """Best-effort workspace root when Harvester runs from System/."""
-    configured = os.environ.get("SYSTEM_WORKSPACE_ROOT", "").strip()
-    if configured:
-        candidate = Path(configured).expanduser().resolve()
-        if (candidate / "Data").exists() or (candidate / "governance").exists():
-            return candidate
-    cwd = Path.cwd().resolve()
-    for candidate in (cwd, *cwd.parents):
-        if (candidate / "Data" / "panels").exists() or (
-            (candidate / "governance").exists() and (candidate / "configs").exists()
-        ):
-            return candidate
-    return cwd
+    """Return the application-resolved workspace root."""
+    return RuntimeContext.current_context().workspace
 
 
 def resolve_data_contract_mode(workspace: Path | None = None) -> str:
@@ -539,7 +529,12 @@ def prefetched_panel_from_registry(
     return result
 
 
-def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFrame:
+def fetch_recent_ohlcv(
+    symbols: list[str],
+    *,
+    period: str = "5d",
+    api_keys: Mapping[str, str] | None = None,
+) -> pd.DataFrame:
     from harvester.providers.etf_market_data import EtfProviderChain
 
     requested_symbols = sorted(set(symbols))
@@ -561,6 +556,7 @@ def fetch_recent_ohlcv(symbols: list[str], *, period: str = "5d") -> pd.DataFram
         tickers=tickers,
         period=period,
         data_root=str(root / "Data" / "harvester"),
+        api_keys=api_keys,
     )
     results = provider.fetch_series(requested_symbols)
     series_providers = {
@@ -696,6 +692,7 @@ def build_cross_asset_panel(
     fetch_period: str = "5d",
     prefetched_panel: pd.DataFrame | None = None,
     return_outcome: bool = False,
+    api_keys: Mapping[str, str] | None = None,
 ) -> pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]]:
     """Merge history, same-release prefetched rows, and a bounded fresh fetch.
 
@@ -742,7 +739,10 @@ def build_cross_asset_panel(
     prefetched_outcome = prefetched.attrs.get("provider_outcome")
 
     try:
-        fresh = fetch_recent_ohlcv(remaining_symbols, period=fetch_period)
+        fetch_kwargs: dict[str, Any] = {"period": fetch_period}
+        if api_keys is not None:
+            fetch_kwargs["api_keys"] = api_keys
+        fresh = fetch_recent_ohlcv(remaining_symbols, **fetch_kwargs)
         outcome = fresh.attrs.get("provider_outcome")
         if not isinstance(outcome, dict):
             fresh_symbols = sorted(set(fresh["symbol"].astype(str))) if "symbol" in fresh.columns else []
@@ -1258,6 +1258,7 @@ def stage_cross_asset_panel(
     fetch_period: str = "5d",
     prefetched_panel: pd.DataFrame | None = None,
     data_contract_mode: str | None = None,
+    api_keys: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build and stage cross_asset_daily_panel into an in-progress release.
 
@@ -1269,6 +1270,7 @@ def stage_cross_asset_panel(
         fetch_period=fetch_period,
         prefetched_panel=prefetched_panel,
         return_outcome=True,
+        api_keys=api_keys,
     )
     from harvester.quality.data_contract import validate_cross_asset_panel_contract
 

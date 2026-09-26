@@ -1,10 +1,10 @@
 """Shared writer for ML signal JSON files.
 
 Validates output against workbench.ml_signal.v1 schema, writes to
-Output/ml_signals/<release_id>/<signal_type>.json, updates the
+Output/state/ml_signals/<release_id>/<signal_type>.json, updates the
 latest/ symlink, and appends a provenance record.
 
-Isolation guarantee: writes ONLY to Output/ml_signals/. Never touches
+Isolation guarantee: writes ONLY to Output/state/ml_signals/. Never touches
 Data/, Harvester exports, or any path that feeds back into the pipeline.
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ if not _CONTRACTS.is_dir():
         "Using deprecated contracts symlink; migrate to packages/workbench/contracts"
     )
     _CONTRACTS = _WB_ROOT / "contracts" / "workbench"
-_OUTPUT_ROOT = workspace_root() / "Output" / "ml_signals"
+_OUTPUT_ROOT = workspace_root() / "Output" / "state" / "ml_signals"
 _SCHEMA_FILE = _CONTRACTS / "ml_signal.schema.json"
 _MANIFEST_SCHEMA_FILE = _CONTRACTS / "ml_signal_manifest.schema.json"
 
@@ -88,7 +88,7 @@ def write_signal(
     validate: bool = True,
     artifact_basename: str | None = None,
 ) -> Path:
-    """Validate *payload* and write it to Output/ml_signals/<release>/<name>.json.
+    """Validate *payload* and write it to Output/state/ml_signals/<release>/<name>.json.
 
     When *artifact_basename* is set (e.g. ``\"regime_hmm\"``), the file name is
     ``{artifact_basename}.json`` instead of default ``{signal_type}.json`` — this

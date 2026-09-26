@@ -11,7 +11,9 @@ artifacts may be published to the live ``Output/current/`` surface:
 
 The legacy escape hatch that allowed publication on unknown/missing freshness
 verdicts is removed: unknown verdicts now BLOCK instead of allowing
-publication.
+publication. Aggregate ``WARN`` (for example Harvester carry-forward) is
+not unknown: it keeps integrity PASS and downgrades decision authority to
+``DIAGNOSTIC_ONLY``.
 
 An integrity-rejected run must leave the active generation unchanged.  An
 authority-rejected but integrity-complete run may publish a diagnostic-only
@@ -253,8 +255,9 @@ class PublishAdmission:
         Args:
             run_status: ``"success"`` or ``"partial_failure"``.
             freshness_verdict: The freshness validator's verdict string
-                (``"PASS"``, ``"FAIL"``, ``"STALE"``, ``"VIOLATION"``, or
-                unknown).
+                (``"PASS"``, ``"WARN"``, ``"FAIL"``, ``"STALE"``,
+                ``"VIOLATION"``, or unknown). ``WARN`` does not block
+                integrity; ``FAIL`` / unknown still do.
             required_artifacts: Artifacts that must be present.
             candidate_artifacts: Artifacts present in the candidate.
             candidate_run_id: The current run's ID.
@@ -380,21 +383,25 @@ class PublishAdmission:
                 **contract_fields,
             )
 
-        # 2. Freshness check: only PASS passes. Unknown/missing BLOCKs.
-        if freshness_verdict.upper() != "PASS":
-            reason_codes.append(f"FRESHNESS_{freshness_verdict.upper()}")
-            return cls(
-                integrity_verdict=INTEGRITY_BLOCK,
-                authority_verdict=AUTHORITY_BLOCK,
-                reason_codes=reason_codes,
-                required_artifacts_missing=missing,
-                lineage_violations=lineage_violations,
-                freshness_verdict=freshness_verdict,
-                diagnostic_verdict=diagnostic_verdict,
-                generation_id=generation_id,
-                canonical_lineage=canonical_lineage,
-                **contract_fields,
-            )
+        # 2. Freshness: FAIL/UNKNOWN block integrity. WARN is diagnostic-only.
+        freshness_key = str(freshness_verdict or "").strip().upper()
+        if freshness_key != "PASS":
+            reason_codes.append(f"FRESHNESS_{freshness_key or 'MISSING'}")
+            if freshness_key != "WARN":
+                return cls(
+                    integrity_verdict=INTEGRITY_BLOCK,
+                    authority_verdict=AUTHORITY_BLOCK,
+                    reason_codes=reason_codes,
+                    required_artifacts_missing=missing,
+                    lineage_violations=lineage_violations,
+                    freshness_verdict=freshness_verdict,
+                    diagnostic_verdict=diagnostic_verdict,
+                    generation_id=generation_id,
+                    canonical_lineage=canonical_lineage,
+                    **contract_fields,
+                )
+            if authority_verdict == AUTHORITY_ALLOW:
+                authority_verdict = AUTHORITY_DIAGNOSTIC_ONLY
 
         if diagnostic_verdict != DIAGNOSTIC_PASS:
             reason_codes.append("DIAGNOSTIC_PUBLISH_BLOCKED")

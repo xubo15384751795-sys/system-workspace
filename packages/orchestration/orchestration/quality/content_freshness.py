@@ -16,6 +16,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from system_runtime.context import RuntimeContext
 from orchestration.quality.calendar_engine import (
     DEFAULT_CALENDAR,
     CalendarEngineError,
@@ -23,10 +24,10 @@ from orchestration.quality.calendar_engine import (
 )
 from orchestration.quality.pandera_checks import _read_table, validate_frame
 
-ROOT = Path(__file__).resolve().parents[4]
 
 
-def _load_content_freshness(root: Path = ROOT) -> dict[str, dict[str, Any]]:
+def _load_content_freshness(root: Path | None = None) -> dict[str, dict[str, Any]]:
+    root = root or RuntimeContext.current_context().workspace
     registry_path = root / "governance" / "daily_pipeline_registry.yaml"
     registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
     rows = registry.get("content_freshness", {}) or {}
@@ -37,10 +38,11 @@ def evaluate_content_clock(
     name: str,
     config: dict[str, Any],
     *,
-    root: Path = ROOT,
+    root: Path | None = None,
     as_of: date | None = None,
 ) -> dict[str, Any]:
     """Evaluate one registered content clock."""
+    root = root or RuntimeContext.current_context().workspace
     as_of = as_of or datetime.now(UTC).date()
     rel = str(config.get("path") or "")
     path = root / rel if rel and not Path(rel).is_absolute() else Path(rel)
@@ -108,9 +110,10 @@ def evaluate_content_clock(
 
 def evaluate_all_content_clocks(
     *,
-    root: Path = ROOT,
+    root: Path | None = None,
     as_of: date | None = None,
 ) -> list[dict[str, Any]]:
+    root = root or RuntimeContext.current_context().workspace
     clocks = _load_content_freshness(root)
     return [evaluate_content_clock(name, cfg, root=root, as_of=as_of) for name, cfg in clocks.items()]
 

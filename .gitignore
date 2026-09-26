@@ -61,18 +61,18 @@ ExternalTools/qlib_benchmark_runner/__pycache__/
 
 # ── Qlib benchmark sandbox isolation ────────────────────────────────────
 # Qlib workspace and output are large intermediate artifacts — never commit
-Output/benchmarks/market_feedback/*/qlib_workspace/
-Output/benchmarks/market_feedback/*/qlib_output/
-Output/benchmarks/market_feedback/*/sandbox_input/*.parquet
-Output/benchmarks/market_feedback/*/sandbox_input/*.csv
+Output/state/benchmarks/market_feedback/*/qlib_workspace/
+Output/state/benchmarks/market_feedback/*/qlib_output/
+Output/state/benchmarks/market_feedback/*/sandbox_input/*.parquet
+Output/state/benchmarks/market_feedback/*/sandbox_input/*.csv
 # Keep manifests, feedback decisions, and events (small governance artifacts)
-!Output/benchmarks/market_feedback/*/benchmark_manifest.json
-!Output/benchmarks/market_feedback/*/sandbox_input/sandbox_input_manifest.json
-!Output/benchmarks/market_feedback/*/qlib_job_spec.json
-!Output/benchmarks/market_feedback/*/feedback/
-!Output/benchmarks/market_feedback/*/events/
-!Output/benchmarks/market_feedback/*/isolation_audit.json
-!Output/benchmarks/market_feedback/*/gate_result.json
+!Output/state/benchmarks/market_feedback/*/benchmark_manifest.json
+!Output/state/benchmarks/market_feedback/*/sandbox_input/sandbox_input_manifest.json
+!Output/state/benchmarks/market_feedback/*/qlib_job_spec.json
+!Output/state/benchmarks/market_feedback/*/feedback/
+!Output/state/benchmarks/market_feedback/*/events/
+!Output/state/benchmarks/market_feedback/*/isolation_audit.json
+!Output/state/benchmarks/market_feedback/*/gate_result.json
 # Never commit Qlib venv
 ExternalTools/qlib_benchmark_runner/.venv/
 

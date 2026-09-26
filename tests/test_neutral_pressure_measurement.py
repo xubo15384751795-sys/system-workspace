@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+from workbench.measurement.neutral_pressure_measurement import build_snapshot
 
-from scripts.neutral_pressure_measurement import build_snapshot
 from system_runtime.canonical_ids import validate_chain
 
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 PIPELINE_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
 SEQUENCE_PATH = ROOT / "governance" / "daily_run_sequence.yaml"  # generated view

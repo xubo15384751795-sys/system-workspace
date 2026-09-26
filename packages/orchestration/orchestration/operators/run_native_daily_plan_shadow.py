@@ -31,11 +31,11 @@ from orchestration.runner import (
     build_daily_step_job,
     run_daily_sequence_via_dagster,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import CompiledPlan, load_pipeline
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_daily_plan_shadow.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_daily_plan_shadow.json"
 
 
 def _surface_fingerprint(path: Path) -> str:

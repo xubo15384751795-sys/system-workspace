@@ -28,13 +28,13 @@ def _load_executor():
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     spec = importlib.util.spec_from_file_location(
-        "_daily_run_executor", ROOT / "scripts" / "_daily_run_executor.py",
+        "_daily_run_executor", ROOT / "verity" / "runtime" / "_daily_run_executor.py",
     )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules["_daily_run_executor"] = mod
     spec.loader.exec_module(mod)
-    return mod
+    return sys.modules["_daily_run_executor"]
 
 
 @pytest.fixture(scope="module")
@@ -127,7 +127,7 @@ class TestFailurePropagation:
         decision_adjacent_block (it feeds shadow promotion evidence, so its
         failure must block shadow descendants).
         """
-        from _pipeline_dag import _propagates_failure
+        from verity.runtime._pipeline_dag import _propagates_failure
 
         # Non-propagating (leaf / advisory).
         assert _propagates_failure("run_operator_detections") is False
@@ -141,7 +141,7 @@ class TestPipelineDagEdges:
     """The DAG edges derived from registry contracts match the declared chain."""
 
     def test_declared_chain(self):
-        from _pipeline_dag import upstream_of
+        from verity.runtime._pipeline_dag import upstream_of
 
         assert "neutral_pressure_measurement" in upstream_of("judgment_layer")
         assert "judgment_layer" in upstream_of("trade_decision")

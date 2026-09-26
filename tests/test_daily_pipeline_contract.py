@@ -10,7 +10,10 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from _daily_run_sequence import load_daily_run_sequence, weekly_step_ids  # noqa: E402
+from verity.runtime._daily_run_sequence import (  # noqa: E402
+    load_daily_run_sequence,
+    weekly_step_ids,
+)
 
 REGISTRY_PATH = ROOT / "governance" / "daily_pipeline_registry.yaml"
 

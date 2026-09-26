@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import scripts.commands.weekly.backfill_judgment_calibration as bjc
+import workbench.judgment.backfill_judgment_calibration as bjc
 
 
 def test_discover_dates_from_archive_and_caselab(tmp_path: Path, monkeypatch) -> None:

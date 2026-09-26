@@ -228,7 +228,7 @@ def test_no_alert_when_unchanged(monkeypatch) -> None:
 
 
 def test_daily_sequence_includes_paper_portfolio() -> None:
-    from _daily_run_sequence import step_ids
+    from verity.runtime._daily_run_sequence import step_ids
 
     ids = step_ids()
     assert "paper_portfolio" in ids

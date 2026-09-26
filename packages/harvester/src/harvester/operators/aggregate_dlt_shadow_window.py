@@ -26,11 +26,11 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 SCHEMA_VERSION = "system.harvester_dlt_shadow_window.v1"
 PROMOTION_ALLOWED = False
-DEFAULT_REPORT = ROOT / "Output" / "health" / "dlt_shadow_window.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "dlt_shadow_window.json"
 _SUPPORTED_REPORT_SCHEMAS = frozenset(
     {
         "system.harvester_dlt_shadow_parity.v1",

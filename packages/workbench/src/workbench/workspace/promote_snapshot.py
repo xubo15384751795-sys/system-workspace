@@ -64,7 +64,7 @@ CONFIG_AUTHORITY_REGISTRY = WORKSPACE_ROOT / "governance" / "config_authority_re
 AUTHORITY_TRACE = WORKSPACE_ROOT / "Output" / "governance" / "traces" / "authority_trace.jsonl"
 GOVERNANCE_EVENTS = WORKSPACE_ROOT / "Output" / "governance" / "events"
 INCIDENT_LEDGER = WORKSPACE_ROOT / "Output" / "governance" / "incidents.jsonl"
-REPORTS_DIR = WORKSPACE_ROOT / "Output" / "reports"
+REPORTS_DIR = WORKSPACE_ROOT / "Output" / "archive" / "legacy_2026H1" / "reports"
 SEMANTIC_REGISTRY = WORKSPACE_ROOT / "governance" / "semantic_registry.json"
 ROUTING_DECISION_MAX_AGE_DAYS = 30
 
@@ -291,7 +291,7 @@ def _append_system_event(event: dict[str, Any]) -> Path:
     payload = {
         "event_id": f"snapshot_promotion_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "source_tool": "scripts.promote_snapshot",
+        "source_tool": "verity.cli.promote_snapshot",
         **event,
     }
     if RECORD_RUNTIME_SCRIPT.is_file():
@@ -308,7 +308,7 @@ def _append_system_event(event: dict[str, Any]) -> Path:
                 "--severity",
                 str(event.get("severity") or "info"),
                 "--source-tool",
-                "scripts.promote_snapshot",
+                "verity.cli.promote_snapshot",
                 "--payload-json",
                 json.dumps(payload, ensure_ascii=True, default=str),
             ],
@@ -412,7 +412,7 @@ def _enforce_routing_decision(run_id: str, snapshot_id: str) -> dict[str, Any]:
             {
                 "event_type": "snapshot_publish_attempt",
                 "severity": "error",
-                "tool_id": "scripts.promote_snapshot",
+                "tool_id": "verity.cli.promote_snapshot",
                 "mode": "release",
                 "decision": "deny",
                 "result": "blocked",
@@ -733,7 +733,7 @@ def main() -> int:
             {
                 "event_type": "force_promotion_quarantined",
                 "severity": "HIGH",
-                "tool_id": "scripts.promote_snapshot",
+                "tool_id": "verity.cli.promote_snapshot",
                 "mode": "release",
                 "decision": "quarantine",
                 "result": "warning",

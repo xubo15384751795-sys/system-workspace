@@ -1,39 +1,60 @@
-"""Harvester release retention reporting.
-
-governance/data_retention_policy.yaml has declared
-``harvester_exports.keep_last_n_daily: 7`` since 2026-06-17, but no check
-evaluated it. Exports grew to 883MB across 146 directories while the policy's
-own ``current_size_mb`` still read 205.
-
-These tests cover the reporting only. The checker must never delete: releases
-are finalized evidence and removing them is an operator decision.
-"""
+"""Harvester release retention reporting and --apply reclaim."""
 from __future__ import annotations
 
+import io
+import json
 import os
+import subprocess
+import tarfile
 
 import pytest
 
 from scripts import apply_data_retention_policy as mod
 
+POLICY = {
+    "harvester_exports": {
+        "keep_latest": True,
+        "keep_last_n_daily": 7,
+        "keep_monthly_checkpoints": True,
+        "keep_lineage_generations": 14,
+        "archive_debug_releases": True,
+        "archive_tarball": "Data/archive/harvester_releases_2026H1.tar.zst",
+        "current_debug_releases": ["test-debug", "test-debug2", "test-debug3"],
+    }
+}
+
+
+def _write_release(exports_dir, name: str, *, jsonl: bool = False, parquet: bool = True) -> None:
+    release = exports_dir / name
+    data = release / "data"
+    data.mkdir(parents=True)
+    (release / "catalog.json").write_text('{"release_id": "%s"}' % name, encoding="utf-8")
+    if parquet:
+        (data / "benchmark_panel.parquet").write_bytes(b"PARQ" + b"x" * 32)
+    if jsonl:
+        (data / "observations.jsonl").write_text("{}\n", encoding="utf-8")
+    (data / "notes.txt").write_text("keep-out-of-archive\n", encoding="utf-8")
+
 
 @pytest.fixture
 def exports(tmp_path, monkeypatch):
-    """A fake exports tree: 10 days, some with same-day retries."""
+    """Ten July days, retries on days 3 and 7, plus a debug dir."""
     root = tmp_path
     exports_dir = root / "Data" / "harvester" / "exports"
     exports_dir.mkdir(parents=True)
     for day in range(1, 11):
-        # Days 3 and 7 got retried twice.
         revisions = 3 if day in (3, 7) else 1
         for rev in range(1, revisions + 1):
-            d = exports_dir / f"2026-07-{day:02d}-r{rev}"
-            d.mkdir()
-            (d / "data.bin").write_bytes(b"x" * 1024)
-    # Non-release entries must be ignored.
+            _write_release(
+                exports_dir,
+                f"2026-07-{day:02d}-r{rev}",
+                jsonl=(day == 10 and rev == 1),
+            )
     (exports_dir / ".failures").mkdir()
     (exports_dir / "20260426T074656Z").mkdir()
-    (exports_dir / "latest").symlink_to(exports_dir / "2026-07-10-r1")
+    (exports_dir / "test-debug2").mkdir()
+    (exports_dir / "test-debug2" / "catalog.json").write_text("{}", encoding="utf-8")
+    (exports_dir / "latest").symlink_to("2026-07-10-r1")
     monkeypatch.setattr(mod, "ROOT", root)
     return exports_dir
 
@@ -43,37 +64,59 @@ def _by_status(findings):
 
 
 class TestHarvesterReleaseRetention:
-    def test_counts_superseded_same_day_releases(self, exports):
-        findings = mod._check_harvester_release_retention(
-            {"harvester_exports": {"keep_last_n_daily": 7}}
-        )
-        # Days 3 and 7 have r1,r2,r3 → r1 and r2 superseded on each.
-        assert _by_status(findings)["superseded_same_day_releases"]["count"] == "4"
+    def test_deletes_outside_window_but_keeps_monthly_first(self, exports):
+        plan = mod.plan_harvester_export_actions(POLICY)
+        # July 1 is monthly first; days 4-10 latest rN are the last 7 daily.
+        assert "2026-07-01-r1" in plan["keep"]
+        assert "2026-07-10-r1" in plan["keep"]
+        assert "2026-07-07-r3" in plan["keep"]
+        assert "2026-07-02-r1" in plan["delete"]
+        assert "2026-07-03-r1" in plan["delete"]
+        assert "2026-07-07-r1" in plan["delete"]
+        assert "2026-07-07-r2" in plan["delete"]
+        assert "test-debug2" in plan["debug_delete"]
+        # Non-release dirs are neither kept nor deleted.
+        assert "latest" not in plan["delete"]
+        names = set(plan["delete"]) | set(plan["keep"]) | set(plan["debug_delete"])
+        assert ".failures" not in names
+        assert "20260426T074656Z" not in names
 
-    def test_counts_days_outside_the_window(self, exports):
-        findings = mod._check_harvester_release_retention(
-            {"harvester_exports": {"keep_last_n_daily": 7}}
+    def test_keep_reasons_include_latest_symlink_without_expanding_it(self, exports):
+        plan = mod.plan_harvester_export_actions(POLICY)
+        assert "latest_symlink" in plan["keep"]["2026-07-10-r1"]
+        assert (exports / "latest").is_symlink()
+        assert os.readlink(exports / "latest") == "2026-07-10-r1"
+
+    def test_lineage_of_recent_generations_pins_old_release(self, tmp_path, monkeypatch, exports):
+        gen = tmp_path / "Output" / "generations" / "daily_pipeline_20260710_000000_aaaaaa"
+        current = gen / "current"
+        current.mkdir(parents=True)
+        (gen / "lineage.json").write_text(
+            json.dumps({
+                "schema_version": "system.generation_lineage.v1",
+                "run_id": "daily_pipeline_20260710_000000_aaaaaa",
+                "files": [{"path": "current/framework_output.json", "sha256": "ab"}],
+            }),
+            encoding="utf-8",
         )
-        outside = _by_status(findings)["outside_keep_last_n_daily"]
-        # 10 days present, keep the last 7 → days 1-3 fall outside.
-        assert outside["days"] == "3"
-        # Day 3 has three revisions, days 1 and 2 have one each.
-        assert outside["count"] == "5"
+        (current / "framework_output.json").write_text(
+            json.dumps({"provenance": {"source_release_id": "2026-07-02-r1"}}),
+            encoding="utf-8",
+        )
+        plan = mod.plan_harvester_export_actions(POLICY)
+        assert "2026-07-02-r1" in plan["keep"]
+        assert "2026-07-02-r1" not in plan["delete"]
 
     def test_ignores_non_release_directories(self, exports):
-        """`.failures`, the legacy timestamp dir, and the `latest` symlink are
-        not releases; counting them would overstate what is reclaimable."""
-        findings = mod._check_harvester_release_retention(
-            {"harvester_exports": {"keep_last_n_daily": 7}}
-        )
-        total = sum(int(f["count"]) for f in findings)
-        assert total == 9  # 4 superseded + 5 outside, nothing else
+        plan = mod.plan_harvester_export_actions(POLICY)
+        assert (exports / ".failures").is_dir()
+        assert "latest" not in plan["delete"]
 
     def test_clean_when_within_budget(self, tmp_path, monkeypatch):
         exports_dir = tmp_path / "Data" / "harvester" / "exports"
         exports_dir.mkdir(parents=True)
         for day in (1, 2):
-            (exports_dir / f"2026-07-{day:02d}-r1").mkdir()
+            _write_release(exports_dir, f"2026-07-{day:02d}-r1")
         monkeypatch.setattr(mod, "ROOT", tmp_path)
         findings = mod._check_harvester_release_retention(
             {"harvester_exports": {"keep_last_n_daily": 7}}
@@ -84,17 +127,46 @@ class TestHarvesterReleaseRetention:
         assert mod._check_harvester_release_retention({"harvester_exports": {}}) == []
 
     def test_check_never_deletes(self, exports):
-        """Reporting only. Releases are finalized evidence."""
         before = sorted(p.name for p in exports.iterdir())
-        mod._check_harvester_release_retention(
-            {"harvester_exports": {"keep_last_n_daily": 7}}
-        )
+        mod._check_harvester_release_retention(POLICY)
+        mod.plan_harvester_export_actions(POLICY)
         assert sorted(p.name for p in exports.iterdir()) == before
 
     def test_wired_into_the_check_run(self):
-        """A check that is not registered reports nothing — which is how the
-        rule went unevaluated for six weeks."""
-        assert "harvester_release_retention" in mod.run_retention_check()["checks"]
+        import inspect
+
+        source = inspect.getsource(mod.run_retention_check)
+        assert "harvester_release_retention" in source
+        assert "plan_harvester_export_actions" in source
+
+
+def test_apply_packs_parquet_without_jsonl_then_deletes(exports, tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    action = mod.apply_harvester_export_retention(POLICY)
+
+    assert action["status"] == "harvester_exports_applied"
+    assert "2026-07-02-r1" in action["deleted"]
+    assert "test-debug2" in action["deleted"]
+    assert (exports / "2026-07-10-r1").is_dir()
+    assert (exports / "2026-07-01-r1").is_dir()
+    assert not (exports / "2026-07-02-r1").exists()
+    assert not (exports / "test-debug2").exists()
+    assert (exports / "latest").is_symlink()
+    assert os.readlink(exports / "latest") == "2026-07-10-r1"
+    assert not (exports / "2026-07-10-r1" / "data" / "observations.jsonl").exists()
+    assert (exports / "2026-07-10-r1" / "data" / "benchmark_panel.parquet").is_file()
+
+    archive = tmp_path / "Data" / "archive" / "harvester_releases_2026H1.tar.zst"
+    assert archive.is_file()
+    raw = subprocess.check_output(["zstd", "-dc", str(archive)])
+    with tarfile.open(fileobj=io.BytesIO(raw), mode="r") as tar:
+        names = tar.getnames()
+    assert "2026-07-02-r1/catalog.json" in names
+    assert "2026-07-02-r1/data/benchmark_panel.parquet" in names
+    assert all(".jsonl" not in name for name in names)
+    assert all("notes.txt" not in name for name in names)
+    assert "latest" not in names
+    assert "latest/catalog.json" not in names
 
 
 def test_output_runs_recent_n_reports_without_mutating(tmp_path, monkeypatch):

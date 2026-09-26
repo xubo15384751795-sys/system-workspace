@@ -1,0 +1,19 @@
+{
+  "fixture_version": "neutral_pressure_md.fixture.v1",
+  "purpose": "Protocol-shape and parity fixture; numeric values are supplied by the test panel.",
+  "input_contract": {
+    "required_columns": ["date", "series_id", "value"],
+    "required_series": [
+      "DERIVED:CP_TBILL_SPREAD",
+      "DERIVED:SOFR_IORB_SPREAD",
+      "FRED:NFCICREDIT",
+      "FRED:NFCIRISK",
+      "CBOE:MOVE",
+      "DERIVED:SPX_ROLL_SPREAD"
+    ]
+  },
+  "expected_protocol": "measurement.model.v1",
+  "expected_public_scores": ["score_0", "score_1"],
+  "expected_authority": "DIAGNOSTIC_ONLY",
+  "parity_rule": "legacy compatibility projection preserves state, score values, and history columns"
+}

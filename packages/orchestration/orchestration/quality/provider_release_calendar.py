@@ -16,7 +16,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[4]
+from system_runtime.context import RuntimeContext
+
 CALENDAR_RELATIVE_PATH = Path("configs/provider_release_calendar.yaml")
 
 _VALID_MODES = {"shadow", "enforce"}
@@ -31,8 +32,9 @@ class ProviderReleaseCalendarError(ValueError):
     """Raised when a provider publication calendar is malformed."""
 
 
-def load_provider_release_calendar(root: Path = ROOT) -> dict[str, Any]:
+def load_provider_release_calendar(root: Path | None = None) -> dict[str, Any]:
     """Load and validate the declarative provider publication calendar."""
+    root = root or RuntimeContext.current_context().workspace
     path = root / CALENDAR_RELATIVE_PATH
     if not path.is_file():
         raise ProviderReleaseCalendarError(f"provider release calendar missing: {path}")
@@ -156,9 +158,10 @@ def resolve_provider_release_calendar(
     dataset_id: str = "",
     observation_date: date | str | datetime | None = None,
     calendar: dict[str, Any] | None = None,
-    root: Path = ROOT,
+    root: Path | None = None,
 ) -> dict[str, Any] | None:
     """Resolve the most specific calendar rule for a provider event."""
+    root = root or RuntimeContext.current_context().workspace
     payload = calendar or load_provider_release_calendar(root)
     validate_provider_release_calendar(payload)
     provider = str(provider_id)
@@ -200,7 +203,7 @@ def evaluate_provider_release_calendar(
     *,
     decision_time: datetime,
     calendar: dict[str, Any] | None = None,
-    root: Path = ROOT,
+    root: Path | None = None,
 ) -> dict[str, Any]:
     """Return expected schedule evidence for one event.
 
@@ -208,6 +211,7 @@ def evaluate_provider_release_calendar(
     available_at. A schedule that has elapsed makes missing causal evidence
     more visible; it does not manufacture that evidence.
     """
+    root = root or RuntimeContext.current_context().workspace
     provider = str(event.get("provider_id") or event.get("provider") or "")
     series_id = str(event.get("series_id") or "")
     dataset_id = str(event.get("dataset_id") or "")

@@ -18,9 +18,9 @@ from orchestration.native_file_boundaries import (
     select_native_file_boundary_steps,
 )
 from orchestration.runner import DailyRunPayload
-from scripts.commands.weekly.build_data_gaps import build_data_gaps
+from workbench.surfaces.build_data_gaps import build_data_gaps
 from system_runtime.pipeline import CompiledPipeline, CompiledStep
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 
 def _plan() -> CompiledPipeline:
@@ -34,7 +34,7 @@ def _plan() -> CompiledPipeline:
                 owner="Workbench",
                 schedule="weekly",
                 command="python -c pass",
-                callable_spec="scripts.commands.weekly.build_data_gaps:build_data_gaps",
+                callable_spec="workbench.surfaces.build_data_gaps:build_data_gaps",
                 execution_mode="callable",
                 inputs=("Output/current/framework_output.json", "Output/judgment/latest.json"),
                 outputs=("Output/current/data_gaps.json", "Output/current/data_gaps.md"),
@@ -218,7 +218,7 @@ def test_artifact_registry_no_argument_builder_reads_generation_current(
     tmp_path: Path, monkeypatch
 ) -> None:
     generation, current = _prepare_generation(tmp_path, monkeypatch)
-    from scripts.commands.weekly.build_artifact_registry import build_artifact_registry
+    from workbench.surfaces.build_artifact_registry import build_artifact_registry
 
     report = build_artifact_registry()
     registered = next(

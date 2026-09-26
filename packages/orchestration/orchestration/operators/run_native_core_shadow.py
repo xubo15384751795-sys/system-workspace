@@ -24,11 +24,11 @@ from orchestration.assets.native_core import (
 )
 from orchestration.definitions import defs
 from orchestration.native_core_boundaries import execute_native_core_boundary
-from scripts.neutral_pressure_measurement import DEFAULT_PANEL
-from scripts._runtime_io import ROOT
+from workbench.measurement.neutral_pressure_measurement import DEFAULT_PANEL
+from verity.runtime.runtime_io import ROOT
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_core_shadow.json"
-SHADOW_ROOT = ROOT / "Output" / "health" / "native_core_shadow"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_core_shadow.json"
+SHADOW_ROOT = ROOT / "Output" / "state" / "health" / "native_core_shadow"
 
 
 def _surface_fingerprint(path: Path) -> str:
@@ -90,7 +90,7 @@ def run_shadow(
     path.
     """
     current = root / "Output" / "current"
-    shadow_root = root / "Output" / "health" / "native_core_shadow"
+    shadow_root = root / "Output" / "state" / "health" / "native_core_shadow"
     current_before = _surface_fingerprint(current)
     use_registered_job = benchmark_panel_path is None and root.resolve() == ROOT.resolve()
     effective_panel_path: Path | None = None
@@ -255,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--report",
         type=Path,
-        help="Report path; defaults to <root>/Output/health/native_core_shadow.json.",
+        help="Report path; defaults to <root>/Output/state/health/native_core_shadow.json.",
     )
     parser.add_argument(
         "--benchmark-panel",
@@ -270,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     report_path = (
         args.report.expanduser().resolve()
         if args.report is not None
-        else root / "Output" / "health" / "native_core_shadow.json"
+        else root / "Output" / "state" / "health" / "native_core_shadow.json"
     )
     report = run_shadow(root=root, benchmark_panel_path=args.benchmark_panel)
     _write_json_atomically(report_path, report)

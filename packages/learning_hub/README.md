@@ -277,4 +277,4 @@ PYTHONPATH=src python3 -m system_learning --report-dir /Users/a1/Verity/Output/s
 PYTHONPATH=src python3 -m system_learning --run-ml-pollution-check
 ```
 
-ML integrity events under `Output/system_learning/events/ml_*.json` are ingested automatically. Use `--run-ml-pollution-check` to scan `Output/ml_signals/` and `Output/deformation_runs/` before collection.
+ML integrity events under `Output/system_learning/events/ml_*.json` are ingested automatically. Use `--run-ml-pollution-check` to scan `Output/state/ml_signals/` and `Output/deformation_runs/` before collection.

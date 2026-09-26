@@ -164,7 +164,7 @@ class RuntimeContextTests(unittest.TestCase):
         self.assertEqual(paths.data_root, expected_root / "Data")
         self.assertEqual(paths.output_root, expected_root / "Output")
         self.assertEqual(paths.run_root, expected_root / "Output" / "deformation_runs")
-        self.assertEqual(paths.logs_root, expected_root / "Output" / "logs")
+        self.assertEqual(paths.logs_root, expected_root / "Output" / "state" / "logs")
 
     def test_run_mode_test_disables_ml_and_mock(self) -> None:
         from src.core.runtime_context import RunMode

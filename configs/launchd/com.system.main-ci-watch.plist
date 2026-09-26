@@ -59,8 +59,8 @@
         </dict>
     </array>
     <key>StandardOutPath</key>
-    <string>/Users/a1/Verity/Output/logs/launchd/main_ci_watch.log</string>
+    <string>/Users/a1/Verity/Output/state/logs/launchd/main_ci_watch.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/a1/Verity/Output/logs/launchd/main_ci_watch.log</string>
+    <string>/Users/a1/Verity/Output/state/logs/launchd/main_ci_watch.log</string>
 </dict>
 </plist>

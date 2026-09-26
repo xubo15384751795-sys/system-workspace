@@ -77,11 +77,12 @@ class TestKBuilderFailure:
 
         # Load executor module fresh.
         spec = importlib.util.spec_from_file_location(
-            "_daily_run_executor", ROOT / "scripts" / "_daily_run_executor.py",
+            "_daily_run_executor", ROOT / "verity" / "runtime" / "_daily_run_executor.py",
         )
         exec_mod = importlib.util.module_from_spec(spec)
         sys.modules["_daily_run_executor"] = exec_mod
         spec.loader.exec_module(exec_mod)
+        exec_mod = sys.modules["_daily_run_executor"]
 
         # Set up isolated authoritative-state paths.
         position_dir = tmp_path / "Output" / "position"
@@ -179,7 +180,7 @@ class TestOfrCissStaleAdmission:
     def test_admission_blocks_on_stale_release_components(self, tmp_path, monkeypatch):
         """A release with stale NFCI (>21d behind) produces a blocker that
         blocks paper_portfolio admission."""
-        from _admission_gate import admit_for_consumption
+        from verity.runtime._admission_gate import admit_for_consumption
 
         release = tmp_path / "release"
         data_dir = release / "data"
@@ -252,7 +253,7 @@ class TestOfrCissStaleAdmission:
     def test_require_admission_exits_nonzero_on_stale(self, tmp_path, monkeypatch):
         """paper_portfolio's require_admission guard exits 1 on stale OFR/CISS,
         so the executor records failed and descendants block."""
-        from _admission_gate import require_admission
+        from verity.runtime._admission_gate import require_admission
 
         release = tmp_path / "release"
         data_dir = release / "data"

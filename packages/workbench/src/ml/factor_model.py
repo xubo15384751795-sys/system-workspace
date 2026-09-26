@@ -8,7 +8,7 @@ sklearn.decomposition.PCA is used when available; numpy SVD otherwise.
 
 Isolation:
   - Reads only from the frozen Harvester export path supplied at call time.
-  - Writes only to Output/ml_signals/ via ml_signal_writer.write_signal().
+  - Writes only to Output/state/ml_signals/ via ml_signal_writer.write_signal().
   - Never modifies Data/ or any Harvester release artifact.
 """
 from __future__ import annotations
@@ -94,7 +94,7 @@ def extract_factors(
 ) -> dict[str, Any]:
     """Run PCA, emit factor signal JSON.
 
-    Returns the signal payload dict. Writes to Output/ml_signals/ if write=True.
+    Returns the signal payload dict. Writes to Output/state/ml_signals/ if write=True.
     """
     import pandas as pd
 

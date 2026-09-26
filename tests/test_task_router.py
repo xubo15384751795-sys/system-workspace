@@ -11,17 +11,24 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+from tests._harness_tools import HARNESS_ROOT, harness_tools_owner
+
 ROOT = Path(__file__).resolve().parents[1]
-HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
 CONTRACTS = ROOT / "packages" / "workbench" / "contracts"
 SYSTEM_ENTRY = HARNESS_ROOT / "entrypoints" / "system.py"
 
-if str(HARNESS_ROOT) not in sys.path:
-    sys.path.insert(0, str(HARNESS_ROOT))
+with harness_tools_owner():
+    from tools.coverage_audit import audit_tool_coverage
+    from tools.task_planner import create_task_plan
+    from tools.task_router import route_task
 
-from tools.coverage_audit import audit_tool_coverage  # noqa: E402
-from tools.task_planner import create_task_plan  # noqa: E402
-from tools.task_router import route_task  # noqa: E402
+
+@pytest.fixture(autouse=True)
+def _own_harness_tools() -> None:
+    with harness_tools_owner():
+        yield
 
 
 def _tools(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:

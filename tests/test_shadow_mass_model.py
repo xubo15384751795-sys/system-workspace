@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
-
-from scripts.shadow_mass_model import (
+from workbench.measurement.shadow_mass_model import (
     ShadowMassParams,
     filter_shadow_mass,
     fit_shadow_mass_mle,

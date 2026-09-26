@@ -23,7 +23,7 @@ QUALITY_REPORT_RELATIVE = Path(
 
 
 def observation_state_path(output_root: Path) -> Path:
-    return output_root / "health" / STATE_FILENAME
+    return output_root / "state" / "health" / STATE_FILENAME
 
 
 def _parse_utc_date(value: Any) -> date | None:

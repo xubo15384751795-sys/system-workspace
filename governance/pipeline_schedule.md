@@ -4,8 +4,10 @@
 > current runtime authority and must not be used to claim producer freshness or
 > a successful run.
 >
-> Current executable authority: `governance/daily_pipeline_registry.yaml`, the
-> compiled plan and its generated `governance/daily_run_sequence.yaml` view.
+> Current executable authority: the compiled plan produced from
+> `governance/pipeline/*.yaml`; `governance/daily_pipeline_registry.yaml` is a
+> derived compatibility view. `governance/daily_run_sequence.yaml` is also a
+> generated view.
 > Validate with `./sys pipeline validate` and `./sys pipeline generate --check`.
 
 ## Historical daily snapshot (30 steps)
@@ -45,7 +47,7 @@ These steps form the core signal chain. If any fails, the same-day judgment or t
 | 29 | work_brief | Work brief |
 | 30 | record_daily_run_event | Hub run event + calibration snapshot |
 
-**Automation:** macOS `com.system.daily-run` launchd → `scripts/run_daily_scheduled.sh` → `scripts/run_dagster_daily.sh` → `orchestrate.sh daily` → `python -m orchestration.cli daily` (Dagster `daily_job`, default 07:00 local). Escape hatch: `SYSTEM_USE_LEGACY_DAILY_RUN=1`. The run writes `Output/health/daily_run_heartbeat.json` and sends one configured notification summary (Telegram preferred; Feishu remains a compatibility fallback); independent `com.system.daily-run-deadman` checks the heartbeat at 09:00 with a 26-hour maximum age.
+**Automation:** macOS `com.system.daily-run` launchd → `scripts/run_daily_scheduled.sh` → `scripts/run_dagster_daily.sh` → `verity daily` → one generated-plan Dagster execution → publication transaction → `RunOutcome` (default 07:00 local). `SYSTEM_USE_LEGACY_DAILY_RUN=1` remains an explicit emergency compatibility adapter and is not part of the default spine. The stopped `daily_job` definition is retained only as a migration sentinel; it must not be enabled because it would create a nested Dagster boundary. The run writes `Output/state/health/daily_run_heartbeat.json` and sends one configured notification summary (Telegram preferred; Feishu remains a compatibility fallback); independent `com.system.daily-run-deadman` checks the heartbeat at 09:00 with a 26-hour maximum age.
 
 ## Historical weekly snapshot (44 steps)
 

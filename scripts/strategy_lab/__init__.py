@@ -1,14 +1,12 @@
-"""Strategy Lab — connect M/D/K/X signals to tradeable strategies.
+"""Compatibility package for scripts.strategy_lab.* shims.
 
-Core positioning: System = structural state identification + risk sizing layer.
-It does NOT predict direction. It answers:
-  - Is now a good time to trade?
-  - Should position size be reduced?
-  - Which strategy regime fits the current structural state?
-
-Usage:
-    python scripts/strategy_lab/run_backtest.py
-    python scripts/strategy_lab/run_backtest.py --start 2010-01-01 --end 2025-12-31
-    python scripts/strategy_lab/run_backtest.py --shadow-card  # generate today's card
+When tests put ``scripts/`` on ``sys.path``, this package would otherwise
+shadow ``packages/workbench/src/strategy_lab``. Append the canonical tree so
+modules that only exist there remain importable as ``strategy_lab.*``.
 """
-from __future__ import annotations
+from pathlib import Path
+
+_CANON = Path(__file__).resolve().parents[2] / "packages" / "workbench" / "src" / "strategy_lab"
+_canon = str(_CANON)
+if _canon not in __path__:
+    __path__.append(_canon)

@@ -1,0 +1,298 @@
+schema_version: governance.step5_structural_cleanup.v2
+step: 5
+status: COMPLETE_WITH_PRODUCTION_RESTORE_DEFERRED
+scope: structural_cleanup_only
+
+completed_slice:
+  canonical_cli:
+    default_entrypoint: verity.cli:main
+    implementation: verity/cli/_application.py
+    compatibility_entrypoint: system_cli.app:main
+    compatibility_window: one_explicit_release_cycle
+    behavior_change: none_intended
+  boundary_scan:
+    package_to_scripts: PASS
+    production_sys_path_mutation: PASS
+    production_absolute_operator_path: PASS
+
+gate:
+  package_to_scripts: PASS
+  production_sys_path_mutation: PASS
+  production_absolute_operator_path: PASS
+  old_cli_is_compatibility_alias: PASS
+  default_execution_not_through_deletion_shims: PASS
+  god_module_behavior_parity: PASS
+  layout_contract: PASS
+  restore_generation: PASS
+  production_authority_restore: DEFERRED_STEP6
+
+script_inventory:
+  count_is_not_a_kpi: true
+  source_file_count: 218
+  categories:
+    archive: 21
+    compatibility: 145
+    developer_tooling: 4
+    migration: 4
+    operator: 40
+    production_entrypoint: 4
+
+default_archive_boundaries:
+  subprocess:
+    - step: build_overlay_shadow_report
+      callable: verity.archive_compat.build_overlay_shadow_report:main
+      command: python packages/framework_v1_archive/scripts/build_overlay_shadow_report.py
+      justification: archive_legacy_executable
+      classification: archive_compatibility
+
+on_demand_compatibility_shims:
+  - step: k_measurement_gate
+    callable: scripts.k_measurement_gate:main
+    owner: framework_v1_archive
+  - step: x_measurement_gate
+    callable: scripts.x_measurement_gate:main
+    owner: framework_v1_archive
+
+god_modules:
+  daily_run:
+    path: verity/cli/daily_run.py
+    line_count: 1193
+    extracted_modules:
+      - verity/cli/run_coordinator.py
+      - verity/cli/schedule_admission.py
+      - verity/cli/post_run_sinks.py
+      - verity/cli/publication_coordinator.py
+      - verity/cli/host_adapter.py
+      - verity/runtime/daily_monitoring.py
+    parity: PASS
+  harvester_official:
+    path: packages/harvester/src/harvester/official.py
+    line_count: 172
+    extracted_modules:
+      - packages/harvester/src/harvester/canonical.py
+      - packages/harvester/src/harvester/normalization.py
+      - packages/harvester/src/harvester/release.py
+      - packages/harvester/src/harvester/provider_catalog.py
+      - packages/harvester/src/harvester/provider_routing.py
+      - packages/harvester/src/harvester/acquisition.py
+      - packages/harvester/src/harvester/provenance.py
+    parity: PASS
+  daily_pipeline_registry:
+    path: governance/daily_pipeline_registry.yaml
+    line_count: 3132
+    runtime_role: DERIVED_COMPATIBILITY_VIEW
+    authoring_sources:
+      - governance/pipeline/topology.yaml
+      - governance/pipeline/execution_profiles.yaml
+      - governance/pipeline/monitoring.yaml
+      - governance/pipeline/freshness.yaml
+      - governance/pipeline/ownership.yaml
+      - governance/pipeline/schedule_metadata.yaml
+    compiler: system_runtime.registry_authoring.load_authoring_document
+    runtime_authority: system_runtime.pipeline.CompiledPipeline
+    parity: PASS
+
+build_generated_layout:
+  build_present: false
+  dist_present: false
+  source_archive: packages/framework_v1_archive
+  symlink_count_outside_runtime_caches: 32
+  contract: governance/layout_contract.yaml
+  audit: tools/audit/layout_contract.py
+  classification_counts:
+    compatibility: 6
+    generated: 18
+    migrate: 8
+    delete_candidate: 0
+    keep: 0
+  status: CONTRACT_PASS_WITHOUT_CLEANUP
+
+deferred:
+  data_output_cleanup: exact_target_and_human_approval_required
+  production_authority_restore:
+    status: NOT_PROVEN
+    reason: BLOCKED_NO_ELIGIBLE_PRODUCTION_TARGET
+    owner: Step 6 production recovery / target-environment proof
+    authority_rule_unchanged: true
+    decision_consumers_allowed: false
+  provider_admission: out_of_scope
+  reliability_qualification: out_of_scope
+  launchagent_reconciliation: out_of_scope
+
+closure_slices:
+  5A_daily_run:
+    status: COMPLETE
+    responsibility_map: governance/step5a_daily_run_closure.yaml
+    parity_matrix: "governance/step5a_daily_run_closure.yaml#behavioral_parity_matrix"
+  5B_harvester_official:
+    status: COMPLETE
+    responsibility_map: governance/step5b_harvester_official_closure.yaml
+    parity_matrix: tests/test_step5b_harvester_official_parity.py
+  5C_registry_authoring:
+    status: COMPLETE
+    authoring_sources:
+      - governance/pipeline/topology.yaml
+      - governance/pipeline/execution_profiles.yaml
+      - governance/pipeline/monitoring.yaml
+      - governance/pipeline/freshness.yaml
+      - governance/pipeline/ownership.yaml
+      - governance/pipeline/schedule_metadata.yaml
+    compiler: system_runtime.registry_authoring.load_authoring_document
+    runtime_authority: system_runtime.pipeline.CompiledPipeline
+    parity_audit: tools/audit/registry_authoring_convergence.py
+    parity_test: tests/test_registry_authoring_convergence.py
+    semantic_digest_parity: PASS
+    derived_view_is_not_runtime_input: PASS
+  5D_layout_contract:
+    status: COMPLETE
+    contract: governance/layout_contract.yaml
+    audit: tools/audit/layout_contract.py
+    test: tests/test_layout_contract.py
+    destructive_operation_performed: false
+  5E_restore_generation:
+    status: COMPLETE_WITH_PRODUCTION_RESTORE_DEFERRED
+    preflight: tools/audit/restore_generation_preflight.py
+    test: tests/test_restore_generation_preflight.py
+    candidate_count: 21
+    structural_restore_target_count: 12
+    production_restore_target_count: 0
+    structural_restore_eligible: true
+    production_restore_eligible: false
+    baseline_target: production_baseline_v1
+    baseline_target_authority: DIAGNOSTIC_ONLY
+    structural_restore:
+      status: PASS
+      target_generation: daily_pipeline_20260912_142103_a67e12
+      target_release_id: 2026-09-12-r10
+      isolated_restore_performed: true
+      artifact_count: 45
+      generation_digest: 6353d19f8b45c64d4c94151a67207f9a24f2c43834a70956227e84e46f1799c6
+      content_digest: 0738440d99c1729b9768bd3da59d588d4f41a3b65d22901af275fc005acf93a4
+      manifest_digest: b4e1a765910ff9d6b73b5fd62e0ade7b5d951f85c1ea48568592ddd96001dcbd
+      lineage_digest: 8c77f348d4106921a6b48c0d7b06eeab236d9442e1b7a399433aae11a43b85f4
+      artifact_registry_digest: 42d07fb8059b2445c601bbec5fe89bf670311556c8acb8753324d78c9e3c1798
+      generation_complete: PASS
+      manifest_valid: PASS
+      artifacts_available: PASS
+      restore_point_explicit: PASS
+      reader_graph_complete: PASS
+      artifact_inventory_parity: PASS
+      content_digest_parity: PASS
+      manifest_parity: PASS
+      lineage_index_registry_parity: PASS
+      pointer_publication_invariants_parity: PASS
+      restored_authority: DIAGNOSTIC_ONLY
+      restored_claim_ceiling: structural_diagnostic
+      restored_allows_decision_consumers: false
+      authority_elevation: false
+      production_output_touched: false
+    production_authority_restore:
+      status: BLOCKED_NO_ELIGIBLE_PRODUCTION_TARGET
+      eligible_target_count: 0
+      authority_rule_unchanged: true
+      decision_consumers_allowed: false
+      carried_forward_to: Step 6 production recovery / target-environment proof
+    latest_rehearsal_run: daily_pipeline_20260912_142103_a67e12
+    latest_rehearsal_execution_mode: dagster_generated_plan_job
+    latest_rehearsal_dagster_job: daily_compiled_plan_job
+    latest_rehearsal_dagster_run_id: 406804d8-9ae6-4549-b522-f81d500baaf7
+    latest_rehearsal_steps: 32
+    latest_rehearsal_steps_failed: 0
+    latest_rehearsal_steps_blocked: 0
+    latest_rehearsal_run_outcome: SUCCESS
+    latest_rehearsal_authority: DIAGNOSTIC_ONLY
+    latest_rehearsal_publication: COMMITTED
+    latest_rehearsal_provider_status: partial_provider_success
+    latest_rehearsal_availability_decision_usable: false
+    latest_rehearsal_release_id: 2026-09-12-r10
+    latest_rehearsal_fred_attempt: success
+    latest_rehearsal_admission_reasons:
+      - PROVIDER_DECISION_CONDITIONAL
+      - FRESHNESS_WARN
+    restore_performed: false
+    isolated_structural_restore_performed: true
+    production_output_touched: false
+
+  5F_final_closure:
+    status: COMPLETE_WITH_PRODUCTION_RESTORE_DEFERRED
+    audit: tools/audit/step5_structural_cleanup.py
+    structural_gates: PASS
+    production_authority_restore: NOT_PROVEN_STEP6
+    no_authority_rule_change: true
+
+evidence:
+  read_only_audit: tools/audit/step5_structural_cleanup.py
+  architecture_invariants_audit:
+    tool: tools/audit/architecture_invariants.py
+    status: PASS
+    registered_debt_count: 15
+    unregistered_violation_count: 0
+  restore_manifest_audit:
+    tool: tools/verify_restore_manifest.py
+    status: PASS
+    scope: dvc_data_restore_contract
+    generation_restore_proof: NOT_SUBSTITUTED
+  final_regression:
+    status: PASS_WITH_PRODUCTION_RESTORE_DEFERRED
+    root_suite:
+      status: PASS
+      tests: 98
+      invocation: "python -m pytest --import-mode=importlib <Step 5 root suites>"
+    harvester_suite:
+      status: PASS
+      tests: 21
+      invocation: "python -m pytest --import-mode=importlib <Harvester parity suites>"
+    note: "Regression evidence and the isolated structural restore-fidelity drill are complete. Production-authority restore remains unproven and is carried to Step 6 without changing eligibility rules."
+  latest_closure_regression:
+    status: PASS
+    root_focused_tests: 38
+    harvester_focused_tests: 83
+    restore_preflight_test: 1
+    invocation: "python -m pytest --import-mode=importlib <Step 5 focused root and Harvester suites>"
+    diff_check: PASS
+  focused_tests:
+    - tests/test_project_identity.py
+    - tests/test_execution_spine.py
+    - tests/test_pipeline_compiler.py
+    - tests/test_step5a_daily_run_parity.py
+    - packages/harvester/tests/test_official_panel.py
+    - packages/harvester/tests/test_official_registry_outcome.py
+    - packages/harvester/tests/test_concurrent_fetch.py
+    - packages/harvester/tests/test_phase_c.py::TestPromotionGate::test_provider_native_model_input_alias_resolves_to_canonical_id
+    - packages/harvester/tests/test_providers_treasury.py
+    - tests/test_step5b_harvester_official_parity.py
+    - tests/test_registry_authoring_convergence.py
+    - tests/test_layout_contract.py
+  bounded_fix_regression:
+    status: PASS
+    tests: 70
+    invocation: "python -m pytest --import-mode=importlib packages/harvester/tests/test_phase_c.py packages/harvester/tests/test_official_registry_outcome.py packages/harvester/tests/test_providers_treasury.py"
+    note: "Canonical provider-native source ids now resolve to registry canonical ids at the promotion-gate boundary; the false model-input warning disappeared from r10 without changing scheduler, routing, or SecretProvider behavior."
+  registry_authoring_convergence: tools/audit/registry_authoring_convergence.py
+  layout_contract_audit: tools/audit/layout_contract.py
+  restore_generation_preflight: tools/audit/restore_generation_preflight.py
+  restore_generation_preflight_test: tests/test_restore_generation_preflight.py
+  latest_scheduled_path_rehearsal:
+    run_id: daily_pipeline_20260912_142103_a67e12
+    generation_id: daily_pipeline_20260912_142103_a67e12
+    release_id: 2026-09-12-r10
+    publication: COMMITTED
+    authority: DIAGNOSTIC_ONLY
+    run_outcome: SUCCESS
+    execution_mode: dagster_generated_plan_job
+    dagster_job: daily_compiled_plan_job
+    dagster_run_id: 406804d8-9ae6-4549-b522-f81d500baaf7
+    steps: 32
+    steps_failed: 0
+    steps_blocked: 0
+    provider_status: partial_provider_success
+    provider_fred_attempt: success
+    availability_decision_usable: false
+    admission_reasons:
+      - PROVIDER_DECISION_CONDITIONAL
+      - FRESHNESS_WARN
+    structural_restore_target: true
+    production_restore_target_eligible: false
+    structural_restore_status: PASS
+    production_restore_status: BLOCKED_NO_ELIGIBLE_PRODUCTION_TARGET
+  no_destructive_operation: true

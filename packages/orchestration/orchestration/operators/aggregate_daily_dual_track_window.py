@@ -16,12 +16,12 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 SCHEMA_VERSION = "system.orchestration_dual_track_window.v1"
 EXECUTION_SCHEMA_VERSION = "system.orchestration_dual_track_execution.v1"
 PROMOTION_ALLOWED = False
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_current_dual_track_window.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_current_dual_track_window.json"
 _DIMENSIONS = (
     "inputs",
     "identity",

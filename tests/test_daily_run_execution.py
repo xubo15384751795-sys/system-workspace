@@ -27,13 +27,13 @@ def _load_module():
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     spec = importlib.util.spec_from_file_location(
-        "daily_run", ROOT / "scripts" / "daily_run.py",
+        "daily_run", ROOT / "verity" / "cli" / "daily_run.py",
     )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules["daily_run"] = mod
     spec.loader.exec_module(mod)
-    return mod
+    return sys.modules["daily_run"]
 
 
 @pytest.fixture(scope="module")
@@ -66,7 +66,7 @@ def test_transaction_commit_state_maps_to_typed_reason(mod, state_name, expected
 
 
 def test_generation_evidence_finalizes_before_live_pointer_commit() -> None:
-    source = (ROOT / "scripts" / "daily_run.py").read_text(encoding="utf-8")
+    source = (ROOT / "verity" / "cli" / "daily_run.py").read_text(encoding="utf-8")
     assert source.index("bundle.finalize_evidence()") < source.index(
         "transaction.commit_generation("
     )
@@ -153,7 +153,7 @@ class TestWriteRuntimeEvent:
         event = {"type": "test", "step": "foo", "status": "success"}
         mod.write_runtime_event(event, output_root=tmp_path)
 
-        runtime_dir = tmp_path / "runtime_events"
+        runtime_dir = tmp_path / "state" / "runtime_events"
         assert runtime_dir.exists()
         files = list(runtime_dir.glob("*.jsonl"))
         assert len(files) == 1
@@ -170,7 +170,7 @@ class TestWriteRuntimeEvent:
         for i in range(3):
             mod.write_runtime_event({"idx": i}, output_root=tmp_path)
 
-        runtime_dir = tmp_path / "runtime_events"
+        runtime_dir = tmp_path / "state" / "runtime_events"
         files = list(runtime_dir.glob("*.jsonl"))
         lines = files[0].read_text(encoding="utf-8").strip().split("\n")
         assert len(lines) == 3
@@ -184,7 +184,7 @@ class TestWriteAlert:
         steps = [{"step": "a", "status": "success"}]
         mod.write_alert([], steps, output_root=tmp_path)
 
-        alert_dir = tmp_path / "alerts"
+        alert_dir = tmp_path / "state" / "alerts"
         assert alert_dir.exists()
         alert_file = alert_dir / "latest_alert.json"
         assert alert_file.exists()
@@ -196,7 +196,7 @@ class TestWriteAlert:
         steps = [{"step": "a", "status": "failed"}]
         mod.write_alert([], steps, output_root=tmp_path)
 
-        alert_file = tmp_path / "alerts" / "latest_alert.json"
+        alert_file = tmp_path / "state" / "alerts" / "latest_alert.json"
         alert = json.loads(alert_file.read_text(encoding="utf-8"))
         assert alert["severity"] == "HIGH"
 
@@ -204,7 +204,7 @@ class TestWriteAlert:
         steps = [{"step": "a", "status": "success"}]
         mod.write_alert(["some warning"], steps, output_root=tmp_path)
 
-        alert_file = tmp_path / "alerts" / "latest_alert.json"
+        alert_file = tmp_path / "state" / "alerts" / "latest_alert.json"
         alert = json.loads(alert_file.read_text(encoding="utf-8"))
         assert alert["severity"] == "MEDIUM"
 
@@ -219,7 +219,7 @@ class TestWriteAlert:
         }
         mod.write_alert([], [{"step": "a", "status": "success"}], output_root=tmp_path, outcome=outcome)
 
-        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        alert = json.loads((tmp_path / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
         assert alert["run_id"] == "daily_test"
         assert alert["generation_id"] == "generation_test"
         assert alert["release_id"] == "release_test"
@@ -233,7 +233,7 @@ class TestWriteAlert:
             provider_status="reused_after_provider_failure",
         )
 
-        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        alert = json.loads((tmp_path / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
         assert alert["provider_status"] == "reused_after_provider_failure"
         assert alert["provider_alert_policy"] == "ERROR"
         assert alert["provider_alert_eligibility"] == "ALLOWED"
@@ -247,7 +247,7 @@ class TestWriteAlert:
             provider_status="unknown",
         )
 
-        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        alert = json.loads((tmp_path / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
         assert alert["provider_alert_policy"] is None
         assert alert["provider_alert_eligibility"] == "BLOCKED"
         assert "unknown provider status" in alert["provider_alert_policy_error"]
@@ -267,7 +267,7 @@ class TestWriteAlert:
             outcome=outcome,
         )
 
-        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        alert = json.loads((tmp_path / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
         assert alert["status"] == "partial_failure"
         assert alert["severity"] == "HIGH"
         assert "exit_code=4" in alert["summary"]
@@ -279,7 +279,7 @@ class TestWriteAlert:
 class TestCheckFreshness:
     def test_missing_framework_output(self, mod, tmp_path):
         """Missing file returns status=missing."""
-        with patch("scripts._runtime_io.ROOT", tmp_path):
+        with patch("verity.runtime.runtime_io.ROOT", tmp_path):
             result = mod.check_freshness()
         assert result["status"] == "missing"
 
@@ -289,7 +289,7 @@ class TestCheckFreshness:
         fw_dir.mkdir(parents=True)
         fw_file = fw_dir / "neutral_pressure_snapshot.json"
         fw_file.write_text("{}")
-        with patch("scripts._runtime_io.ROOT", tmp_path):
+        with patch("verity.runtime.runtime_io.ROOT", tmp_path):
             result = mod.check_freshness()
         assert result["status"] == "fresh"
         assert result["stale_hours"] is not None

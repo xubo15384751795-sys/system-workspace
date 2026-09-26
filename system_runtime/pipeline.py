@@ -10,17 +10,36 @@ import shlex
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, cast
 
 import jsonschema
 import yaml
 
 from .paths import WorkspacePaths
+from .registry_authoring import (
+    RegistryAuthoringError,
+    authoring_source_digest,
+    has_authoring_bundle,
+    load_authoring_document,
+)
 
 
 class PipelineSpecError(RuntimeError):
     pass
+
+
+RUNTIME_PLAN_SCHEMA_VERSION = "system.compiled_runtime_plan.v1"
+DEFAULT_STEP_TIMEOUT_SECONDS = 1800
+ALLOWED_SUBPROCESS_JUSTIFICATIONS = frozenset(
+    {
+        "real_process_isolation",
+        "external_runtime",
+        "archive_legacy_executable",
+        "security_boundary",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +58,10 @@ class CompiledStep:
     affects_core_judgment: bool
     depends_on: tuple[str, ...] = ()
     skip_flag: str | None = None
+    artifact_path: str = ""
+    ttl_hours: float | None = None
+    timeout_seconds: int = DEFAULT_STEP_TIMEOUT_SECONDS
+    subprocess_justification: str | None = None
 
     def as_sequence_record(self) -> dict[str, Any]:
         record: dict[str, Any] = {"id": self.step_id}
@@ -56,6 +79,7 @@ class CompiledPipeline:
     external_inputs: tuple[str, ...]
     edges: dict[str, tuple[str, ...]]
     profiles: dict[str, tuple[str, ...]]
+    logical_sources: dict[str, Any] = field(default_factory=dict)
 
     def step(self, step_id: str) -> CompiledStep:
         for step in self.steps:
@@ -91,6 +115,10 @@ class CompiledPipeline:
                     "affects_core_judgment": step.affects_core_judgment,
                     "depends_on": list(step.depends_on),
                     "skip_flag": step.skip_flag,
+                    "artifact_path": step.artifact_path,
+                    "ttl_hours": step.ttl_hours,
+                    "timeout_seconds": step.timeout_seconds,
+                    "subprocess_justification": step.subprocess_justification,
                 }
                 for step in self.steps
             ],
@@ -130,6 +158,18 @@ class CompiledPipeline:
                 errors.append(f"{step.step_id}: invalid schedule {step.schedule!r}")
             if not step.command and not step.callable_spec and step.status == "active":
                 errors.append(f"{step.step_id}: active step has no command/callable")
+            if step.timeout_seconds <= 0:
+                errors.append(f"{step.step_id}: timeout_seconds must be positive")
+            if step.execution_mode == "subprocess":
+                justification = step.subprocess_justification
+                if not justification:
+                    errors.append(
+                        f"{step.step_id}: subprocess execution requires an explicit justification"
+                    )
+                elif justification not in ALLOWED_SUBPROCESS_JUSTIFICATIONS:
+                    errors.append(
+                        f"{step.step_id}: unsupported subprocess justification {justification!r}"
+                    )
         sequence_index = {step.step_id: index for index, step in enumerate(self.steps)}
         active_ids = {
             step.step_id
@@ -159,6 +199,35 @@ class CompiledPipeline:
                     continue
                 if step.status in {"archived", "inactive"}:
                     errors.append(f"{profile}: archived/inactive step {step_id}")
+
+        # The compiled execution graph must be a DAG before Dagster sees it.
+        # Order checks alone do not detect a hand-authored dependency cycle.
+        active_id_set = {step.step_id for step in scheduled_steps}
+        visit_state: dict[str, int] = {}
+        visit_stack: list[str] = []
+
+        def visit(step_id: str) -> None:
+            state = visit_state.get(step_id, 0)
+            if state == 2:
+                return
+            if state == 1:
+                try:
+                    start = visit_stack.index(step_id)
+                except ValueError:
+                    start = 0
+                cycle = " -> ".join((*visit_stack[start:], step_id))
+                errors.append(f"pipeline dependency cycle: {cycle}")
+                return
+            visit_state[step_id] = 1
+            visit_stack.append(step_id)
+            for producer in self.edges.get(step_id, ()):
+                if producer in active_id_set:
+                    visit(producer)
+            visit_stack.pop()
+            visit_state[step_id] = 2
+
+        for step_id in sorted(active_id_set):
+            visit(step_id)
         return errors
 
     def interpret_failure(self, step_id: str, results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -201,6 +270,192 @@ class CompiledPipeline:
 CompiledPlan = CompiledPipeline
 
 
+@dataclass(frozen=True)
+class CompiledRuntimePlan:
+    """Serializable runtime contract consumed by the single Dagster job.
+
+    ``CompiledPipeline`` remains the typed in-process representation used by
+    compatibility callers.  This object is the boundary artifact for a real
+    run: it is generated once from the split authoring sources, written into
+    the run bundle, and passed to the execution graph without re-reading YAML.
+    """
+
+    plan_version: str
+    source_digest: str
+    source_path: str
+    canonical_entrypoint: str
+    execution_mode: str
+    profile: str
+    compiled_plan: CompiledPipeline
+
+    @property
+    def plan_digest(self) -> str:
+        return self.compiled_plan.plan_digest
+
+    @property
+    def selected_steps(self) -> tuple[CompiledStep, ...]:
+        if self.profile == "daily":
+            selected_ids = tuple(
+                str(item["id"])
+                for item in self.compiled_plan.sequence()
+                if item.get("id")
+            )
+        else:
+            selected_ids = self.compiled_plan.profiles.get(self.profile, ())
+        return tuple(self.compiled_plan.step(step_id) for step_id in selected_ids)
+
+    def to_dict(self) -> dict[str, Any]:
+        selected = self.selected_steps
+        selected_ids = {step.step_id for step in selected}
+        edges = {
+            consumer: [producer for producer in self.compiled_plan.edges.get(consumer, ()) if producer in selected_ids]
+            for consumer in (step.step_id for step in selected)
+            if any(producer in selected_ids for producer in self.compiled_plan.edges.get(consumer, ()))
+        }
+        artifact_contract = {
+            step.step_id: {
+                "inputs": list(step.inputs),
+                "outputs": list(step.outputs),
+                "artifact_path": step.artifact_path or None,
+                "ttl_hours": step.ttl_hours,
+            }
+            for step in selected
+        }
+        step_records = [
+            {
+                "id": step.step_id,
+                "order": step.order,
+                "depends_on": list(edges.get(step.step_id, ())),
+                "owner": step.owner,
+                "schedule": step.schedule,
+                "callable": step.callable_spec or None,
+                "command": step.command or None,
+                "execution_mode": step.execution_mode,
+                "timeout_seconds": step.timeout_seconds,
+                "failure_policy": step.failure_behavior,
+                "subprocess_justification": step.subprocess_justification,
+                "artifact_contract": artifact_contract[step.step_id],
+            }
+            for step in selected
+        ]
+        return {
+            "schema_version": RUNTIME_PLAN_SCHEMA_VERSION,
+            "plan_version": self.plan_version,
+            "source_digest": self.source_digest,
+            "source_path": self.source_path,
+            "plan_digest": self.plan_digest,
+            "canonical_entrypoint": self.canonical_entrypoint,
+            "execution_mode": self.execution_mode,
+            "profile": self.profile,
+            "step_dag": {
+                "nodes": [step.step_id for step in selected],
+                "edges": edges,
+                "acyclic": True,
+            },
+            "steps": step_records,
+            "timeouts": {step.step_id: step.timeout_seconds for step in selected},
+            "failure_policy": {
+                step.step_id: step.failure_behavior for step in selected
+            },
+            "artifact_contract": artifact_contract,
+            "ownership": {step.step_id: step.owner for step in selected},
+            "schedule": {step.step_id: step.schedule for step in selected},
+            "logical_sources": {
+                "pipeline_topology": {
+                    "nodes": [step.step_id for step in selected],
+                    "edges": edges,
+                },
+                "execution_profile": {
+                    "name": self.profile,
+                    "steps": [step.step_id for step in selected],
+                },
+                "monitoring": self.compiled_plan.logical_sources.get("monitoring", {}),
+                "freshness": self.compiled_plan.logical_sources.get("freshness", {}),
+                "ownership": {step.step_id: step.owner for step in selected},
+                "schedule": {step.step_id: step.schedule for step in selected},
+            },
+        }
+
+    def write(self, target: Path) -> Path:
+        """Write the runtime plan atomically and return its resolved path."""
+        target = target.expanduser().resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.tmp")
+        temporary.write_text(
+            json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(target)
+        return target
+
+    @classmethod
+    def from_compiled(
+        cls,
+        compiled_plan: CompiledPipeline,
+        *,
+        profile: str = "daily",
+        source_digest: str = "unknown",
+        source_path: str = "unknown",
+    ) -> "CompiledRuntimePlan":
+        return cls(
+            plan_version=f"{profile}.v1",
+            source_digest=source_digest,
+            source_path=source_path,
+            canonical_entrypoint="verity.cli.daily_run:run_daily",
+            execution_mode="dagster_generated_plan_job",
+            profile=profile,
+            compiled_plan=compiled_plan,
+        )
+
+
+def _runtime_source_digest(paths: WorkspacePaths) -> str:
+    if has_authoring_bundle(paths.root):
+        payload = {
+            "pipeline_authoring": authoring_source_digest(paths.root),
+            "pipeline_schema": hashlib.sha256(
+                (paths.root / "protocols/pipeline_spec.schema.json").read_bytes()
+            ).hexdigest(),
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+    payload = {
+        "pipeline_registry": hashlib.sha256(paths.pipeline_spec.read_bytes()).hexdigest(),
+        "pipeline_schema": hashlib.sha256(
+            (paths.root / "protocols/pipeline_spec.schema.json").read_bytes()
+        ).hexdigest(),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def compile_runtime_plan(
+    paths: WorkspacePaths | None = None,
+    *,
+    profile: str = "daily",
+) -> CompiledRuntimePlan:
+    """Compile the authoring registry into the single runtime contract."""
+    paths = paths or WorkspacePaths.discover()
+    compiled = load_pipeline(paths)
+    if profile != "daily" and profile not in compiled.profiles:
+        raise PipelineSpecError(f"unknown runtime plan profile: {profile}")
+    source_path = (
+        "governance/pipeline/"
+        if has_authoring_bundle(paths.root)
+        else str(paths.pipeline_spec.relative_to(paths.root))
+    )
+    return CompiledRuntimePlan(
+        plan_version=f"{profile}.v1",
+        source_digest=_runtime_source_digest(paths),
+        source_path=source_path,
+        canonical_entrypoint="verity.cli.daily_run:run_daily",
+        execution_mode="dagster_generated_plan_job",
+        profile=profile,
+        compiled_plan=compiled,
+    )
+
+
 def _paths(step: dict[str, Any], name: str, legacy: str) -> tuple[str, ...]:
     contracts = step.get("contracts") or {}
     values = contracts.get(name)
@@ -217,7 +472,14 @@ def _overlaps(producer: str, consumer: str) -> bool:
 
 def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
     paths = paths or WorkspacePaths.discover()
-    document = yaml.safe_load(paths.pipeline_spec.read_text(encoding="utf-8")) or {}
+    try:
+        document = (
+            load_authoring_document(paths.root)
+            if has_authoring_bundle(paths.root)
+            else yaml.safe_load(paths.pipeline_spec.read_text(encoding="utf-8")) or {}
+        )
+    except RegistryAuthoringError as exc:
+        raise PipelineSpecError(str(exc)) from exc
     schema_path = paths.root / "protocols/pipeline_spec.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     try:
@@ -226,6 +488,22 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
         location = ".".join(str(part) for part in exc.absolute_path) or "<root>"
         raise PipelineSpecError(f"schema violation at {location}: {exc.message}") from exc
     defaults = document.get("_defaults") or {}
+    execution_policy = document.get("execution_policy") or {}
+    subprocess_justifications = execution_policy.get("subprocess_justifications") or {}
+    if not isinstance(subprocess_justifications, dict):
+        raise PipelineSpecError("execution_policy.subprocess_justifications must be an object")
+    default_timeout_raw = execution_policy.get(
+        "default_timeout_seconds",
+        (defaults.get("execution") or {}).get(
+            "timeout_seconds", DEFAULT_STEP_TIMEOUT_SECONDS
+        ),
+    )
+    try:
+        default_timeout_seconds = int(default_timeout_raw)
+    except (TypeError, ValueError) as exc:
+        raise PipelineSpecError(
+            "execution_policy.default_timeout_seconds must be an integer"
+        ) from exc
     compiled: list[CompiledStep] = []
     raw_steps = document.get("steps") or {}
     for step_id, raw in raw_steps.items():
@@ -244,6 +522,26 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
             raise PipelineSpecError(f"{step_id}: depends_on must be a list of non-empty strings")
         raw_order = raw.get("order")
         order = float(str(raw_order)) if raw_order is not None else 9999.0
+        timeout_raw = execution.get(
+            "timeout_seconds",
+            raw.get("timeout_seconds", default_timeout_seconds),
+        )
+        try:
+            timeout_seconds = int(timeout_raw)
+        except (TypeError, ValueError) as exc:
+            raise PipelineSpecError(
+                f"{step_id}: execution.timeout_seconds must be an integer"
+            ) from exc
+        ttl_raw = raw.get("ttl_hours", defaults.get("ttl_hours"))
+        try:
+            ttl_hours = float(ttl_raw) if ttl_raw is not None else None
+        except (TypeError, ValueError) as exc:
+            raise PipelineSpecError(f"{step_id}: ttl_hours must be numeric") from exc
+        raw_justification = (
+            execution.get("subprocess_justification")
+            or raw.get("subprocess_justification")
+            or subprocess_justifications.get(str(step_id))
+        )
         compiled.append(
             CompiledStep(
                 step_id=str(step_id),
@@ -267,6 +565,12 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
                 ),
                 depends_on=dependencies,
                 skip_flag=raw.get("skip_flag"),
+                artifact_path=str(raw.get("artifact_path") or ""),
+                ttl_hours=ttl_hours,
+                timeout_seconds=timeout_seconds,
+                subprocess_justification=(
+                    str(raw_justification).strip() if raw_justification else None
+                ),
             )
         )
     compiled.sort(key=lambda step: (step.order, step.step_id))
@@ -304,6 +608,26 @@ def load_pipeline(paths: WorkspacePaths | None = None) -> CompiledPipeline:
         profiles={
             str(profile): tuple(str(step_id) for step_id in step_ids)
             for profile, step_ids in (document.get("execution_profiles") or {}).items()
+        },
+        logical_sources={
+            "monitoring": {
+                "contracts": document.get("monitoring_contracts") or {},
+                "classification": document.get("monitoring_classification") or {},
+            },
+            "freshness": document.get("content_freshness") or {},
+            "ownership": {
+                str(step_id): str(
+                    (raw.get("owner") or (raw.get("authority") or {}).get("owner") or "")
+                )
+                for step_id, raw in raw_steps.items()
+                if isinstance(raw, dict)
+            },
+            "schedule": {
+                str(step_id): str(raw.get("schedule", defaults.get("schedule", "daily")))
+                for step_id, raw in raw_steps.items()
+                if isinstance(raw, dict)
+            },
+            "execution_profile": document.get("execution_profiles") or {},
         },
     )
     errors = pipeline.validate()
@@ -371,9 +695,10 @@ def run_subprocess(
     *,
     paths: WorkspacePaths | None = None,
     env: dict[str, str] | None = None,
-    timeout: int = 1800,
+    timeout: int | None = None,
 ) -> dict[str, Any]:
     paths = paths or WorkspacePaths.discover()
+    effective_timeout = int(timeout or step.timeout_seconds)
     command = shlex.split(step.command)
     if command and command[0] in {"python", "python3"}:
         command[0] = sys.executable
@@ -386,7 +711,7 @@ def run_subprocess(
             env={**os.environ, **(env or {})},
             capture_output=True,
             text=True,
-            timeout=timeout,
+            timeout=effective_timeout,
         )
         return {
             "step": step.step_id,
@@ -394,11 +719,20 @@ def run_subprocess(
             "mode": "subprocess",
             "returncode": result.returncode,
             "duration_s": round(time.time() - started, 1),
+            "timeout_seconds": effective_timeout,
+            "subprocess_justification": step.subprocess_justification,
             "stdout_tail": result.stdout[-500:] if result.stdout else "",
             "stderr_tail": result.stderr[-500:] if result.stderr else "",
         }
     except subprocess.TimeoutExpired:
-        return {"step": step.step_id, "status": "timeout", "mode": "subprocess", "duration_s": timeout}
+        return {
+            "step": step.step_id,
+            "status": "timeout",
+            "mode": "subprocess",
+            "duration_s": effective_timeout,
+            "timeout_seconds": effective_timeout,
+            "subprocess_justification": step.subprocess_justification,
+        }
     except Exception as exc:
         return {
             "step": step.step_id,
@@ -406,6 +740,8 @@ def run_subprocess(
             "mode": "subprocess",
             "error": str(exc),
             "duration_s": round(time.time() - started, 1),
+            "timeout_seconds": effective_timeout,
+            "subprocess_justification": step.subprocess_justification,
         }
 
 
@@ -427,7 +763,7 @@ def run_step(
 def render_sequence_yaml(pipeline: CompiledPipeline) -> str:
     document = {
         "schema_version": "daily_run_sequence.generated.v2",
-        "generated_from": "governance/daily_pipeline_registry.yaml",
+        "generated_from": "governance/pipeline/*.yaml",
         "steps": pipeline.sequence(),
     }
     return cast(str, yaml.safe_dump(document, sort_keys=False, allow_unicode=True))

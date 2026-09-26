@@ -1,7 +1,7 @@
 """Pending Evaluation — tests for the feedback loop entry point.
 
 Verifies that judgment and trade decision outputs write records
-to Output/evaluations/pending.jsonl with correct structure.
+to Output/state/evaluations/pending.jsonl with correct structure.
 """
 from __future__ import annotations
 

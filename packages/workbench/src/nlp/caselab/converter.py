@@ -4,7 +4,7 @@ Reads all CaseLab content through the adapter and produces five
 training/calibration datasets that System's models can consume.
 
 Run:
-    cd /Users/a1/Verity
+    cd <verity-workspace>
     python -m nlp.caselab.converter
 
 Output (written to Data/nlp/caselab_training/):
@@ -18,6 +18,7 @@ Output (written to Data/nlp/caselab_training/):
 from __future__ import annotations
 
 from system_runtime.paths import WorkspacePaths
+from caselab_context.paper_paths import paper_root
 
 import json
 import re
@@ -30,7 +31,7 @@ from nlp.caselab.adapter import CaseLabAdapter, CaseLabCase, CaseLabEntity
 
 
 # ── Paths ─────────────────────────────────────────────────────────────────
-CASELAB_ROOT = Path("/Users/a1/Paper")
+CASELAB_ROOT = paper_root()
 SYSTEM_DATA = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
 
 

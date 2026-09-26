@@ -11,7 +11,7 @@ HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
 
 
 def test_list_registry_steps_includes_judgment_layer() -> None:
-    from _pipeline_runner import list_registry_steps
+    from verity.runtime._pipeline_runner import list_registry_steps
 
     steps = list_registry_steps()
     ids = {step["step_id"] for step in steps}

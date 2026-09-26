@@ -3,3 +3,10 @@
 # paper-empirical-interface/ and research_terminal/ are independent components;
 # root ruff only lints workspace-level scripts and tests.
 extend-exclude = ["packages", "ExternalTools", "Visualization", "paper-empirical-interface", "research_terminal"]
+
+[lint.per-file-ignores]
+# Compatibility shims re-export relocated modules via star-import + deprecation warning.
+"scripts/_*.py" = ["F403", "F401", "I001"]
+# Harness tools/ must load under a temporary import owner.
+"tests/test_deformation_cli_archive.py" = ["I001"]
+"tests/test_task_router.py" = ["I001"]

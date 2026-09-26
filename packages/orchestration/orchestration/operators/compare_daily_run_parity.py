@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from orchestration.run_parity import compare_daily_run_bundles
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_current_dual_run_parity.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_current_dual_run_parity.json"
 
 
 def _write_json_atomically(path: Path, payload: dict[str, Any]) -> None:

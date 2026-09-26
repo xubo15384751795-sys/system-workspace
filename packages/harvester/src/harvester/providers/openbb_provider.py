@@ -472,14 +472,12 @@ class OpenBBProvider(OfficialProvider):
         data_root: str | Path = "",
         cache: bool = True,
         user_agent: str = "StructuralRiskHarvester/0.1.0",
-        settings_env: str | Path | None = None,
         **_: Any,
     ) -> None:
         super().__init__(data_root=data_root, cache=cache, user_agent=user_agent)
         self.openbb_provider = openbb_provider
         self._route_map = route_map or _routes_for_provider(openbb_provider)
         self._obb_client = obb_client
-        _load_env_file(settings_env)
 
     def fetch_series(self, series_ids: list[str]) -> list[ProviderResult]:
         results: list[ProviderResult] = []
@@ -656,23 +654,6 @@ def _first_numeric_column(frame: pd.DataFrame, *, exclude: set[str]) -> str | No
 def _safe_params(params: dict[str, Any]) -> dict[str, Any]:
     blocked = {"api_key", "token", "secret", "password"}
     return {k: ("<redacted>" if any(b in k.lower() for b in blocked) else v) for k, v in params.items()}
-
-
-def _load_env_file(settings_env: str | Path | None) -> None:
-    if settings_env is None:
-        default = Path.cwd() / "OpenBB" / "settings.env"
-        settings_env = default if default.exists() else None
-    if settings_env is None:
-        return
-    path = Path(settings_env).expanduser()
-    if not path.is_file():
-        return
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 __all__ = ["DEFAULT_OPENBB_ROUTES", "OpenBBProvider", "OpenBBSeriesRoute"]

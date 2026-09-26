@@ -1,23 +1,19 @@
 """Harness tool approval gates and sanitized failure surfaces."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
+from tests._harness_tools import harness_tools_owner
 
 
 @pytest.fixture(scope="module")
 def harness_registry():
-    if str(HARNESS_ROOT) not in sys.path:
-        sys.path.insert(0, str(HARNESS_ROOT))
-    import tools.learning_hub_tools  # noqa: F401 — register tools
-    from tools.registry import _is_approved, get_tool, run_tool
+    with harness_tools_owner():
+        import tools.learning_hub_tools  # noqa: F401 — register tools
+        from tools.registry import _is_approved, get_tool, run_tool
 
-    return {"get_tool": get_tool, "run_tool": run_tool, "is_approved": _is_approved}
+        registry = {"get_tool": get_tool, "run_tool": run_tool, "is_approved": _is_approved}
+        yield registry
 
 
 def test_is_approved_accepts_explicit_true_values(harness_registry) -> None:

@@ -46,7 +46,7 @@ operators:
     type: measurement_operator
     description: "Computes M/D/K/X structural proxies"
     inputs: ["benchmark_panel"]
-    outputs: ["Output/deformation_runs/"]
+    outputs: ["Output/archive/legacy_2026H1/deformation_runs/"]
     claim_ceiling: diagnostic
     cannot_create: ["signal", "trade", "position"]
 
@@ -73,7 +73,7 @@ operators:
     type: state_recognition
     description: "HMM regime detection"
     inputs: ["benchmark_panel"]
-    outputs: ["Output/ml_signals/latest/regime_hmm.json"]
+    outputs: ["Output/state/ml_signals/latest/regime_hmm.json"]
     claim_ceiling: regime_hint
     role: "state recognition, not trade signal"
     cannot_create: ["direction", "signal", "trade", "position"]
@@ -82,7 +82,7 @@ operators:
     type: state_recognition_gate
     description: "Audits HMM stability"
     inputs: ["regime_hmm.json"]
-    outputs: ["Output/hmm_stability/hmm_stability_audit.json"]
+    outputs: ["Output/state/hmm_stability/hmm_stability_audit.json"]
     claim_ceiling: diagnostic
     gate_verdicts: ["ADEQUATE", "WEAK"]
 
@@ -91,7 +91,7 @@ operators:
     type: case_matching
     description: "Matches current state to historical cases"
     inputs: ["framework_output", "paper_world_model"]
-    outputs: ["Output/caselab/YYYY-MM-DD.json"]
+    outputs: ["Output/state/caselab/YYYY-MM-DD.json"]
     claim_ceiling: analogy_only
     cannot_create: ["signal", "trade"]
     scoring_policy:
@@ -161,7 +161,7 @@ operators:
     type: calibration_operator
     description: "Provides market feedback for calibration"
     inputs: ["trade_ledger", "etf_panel"]
-    outputs: ["Output/market_feedback/feedback_decision.json"]
+    outputs: ["Output/state/market_feedback/feedback_decision.json"]
     claim_ceiling: calibration_feedback
     source_types: ["qlib", "replay", "sample"]
     source_must_be_declared: true

@@ -43,6 +43,17 @@ def test_external_gateway_posts_only_to_registered_endpoint() -> None:
     assert seen[0].content == b'{"message":"safe"}'
 
 
+def test_external_gateway_does_not_emit_request_url_logs(caplog) -> None:
+    with caplog.at_level("INFO", logger="httpx"):
+        with OwnedExternalHTTPGateway(
+            {"sink": _endpoint()},
+            transport=httpx.MockTransport(lambda _request: httpx.Response(202)),
+        ) as gateway:
+            gateway.post("sink", b"x")
+
+    assert "HTTP Request" not in caplog.text
+
+
 def test_external_endpoint_rejects_non_https_query_and_unallowlisted_host() -> None:
     with pytest.raises(ExternalGatewayPolicyError):
         ExternalEndpointSpec("sink", "http://sink.example.test/events", frozenset({"sink.example.test"}))
@@ -195,7 +206,7 @@ def test_non_data_sinks_do_not_own_raw_http_sinks() -> None:
     root = Path(__file__).resolve().parents[1]
     sources = (
         root / "system_runtime" / "observability.py",
-        root / "scripts" / "_notify.py",
+        root / "verity" / "runtime" / "_notify.py",
         root / "packages/workbench/src/nlp/extraction/llm_extractor.py",
     )
     forbidden = ("urlopen(", "urllib.request", "requests.get(", "httpx.post(")

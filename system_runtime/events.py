@@ -20,7 +20,7 @@ def runtime_event_paths(runtime_dir: Path, *, include_legacy: bool = True) -> li
 
     New writers use ``run_events_YYYY-MM-DD.jsonl``.  The date-only pattern is
     retained as a read-only compatibility path for historical daily-run
-    envelopes already present in ``Output/runtime_events``.
+    envelopes already present in ``<<KEEP_STATE_{name}>>_events``.
     """
     root = Path(runtime_dir)
     if not root.exists():

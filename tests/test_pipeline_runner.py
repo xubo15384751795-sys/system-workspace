@@ -3,17 +3,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from _pipeline_runner import load_step_execution, resolve_callable, run_registry_step
+from verity.runtime._pipeline_runner import (
+    load_step_execution,
+    resolve_callable,
+    run_registry_step,
+)
 
 
 def test_load_step_execution_for_record_daily_run_event() -> None:
     execution = load_step_execution("record_daily_run_event")
     assert execution["mode"] == "callable"
-    assert execution["future_callable"] == "scripts.record_daily_run_event:main"
+    assert execution["future_callable"] == "system_learning.operators.record_daily_run_event:main"
 
 
 def test_resolve_callable_for_evidence_grade_report() -> None:
-    target = resolve_callable("scripts.commands.weekly.build_evidence_grade_report:main")
+    target = resolve_callable("workbench.surfaces.build_evidence_grade_report:main")
     assert callable(target)
 
 
@@ -24,8 +28,8 @@ def test_load_step_execution_callable_batch() -> None:
 
 
 def test_resolve_callable_for_readme_and_next_actions() -> None:
-    assert callable(resolve_callable("scripts.commands.weekly.build_readme_first:main"))
-    assert callable(resolve_callable("scripts.commands.weekly.build_next_actions:main"))
+    assert callable(resolve_callable("workbench.surfaces.build_readme_first:main"))
+    assert callable(resolve_callable("workbench.surfaces.build_next_actions:main"))
 
 
 def test_run_registry_step_callable_record_daily_run_event(tmp_path: Path, monkeypatch) -> None:

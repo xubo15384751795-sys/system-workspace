@@ -10,7 +10,13 @@ LIVE_ROOTS = (
     ROOT / "tests",
     ROOT / "packages" / "workbench",
     ROOT / "packages" / "harvester",
+    ROOT / "packages" / "learning_hub",
+    ROOT / "packages" / "orchestration",
     ROOT / "scripts",
+    ROOT / "verity",
+    ROOT / "tools",
+    ROOT / "system_runtime",
+    ROOT / "system_cli",
 )
 SKIP_DIR_NAMES = {
     "__pycache__",
@@ -25,7 +31,7 @@ SKIP_DIR_NAMES = {
 
 def _iter_python_files() -> list[Path]:
     files: list[Path] = []
-    archive_root = (ROOT / "scripts" / "archive").resolve()
+    archive_root = (ROOT / "packages" / "framework_v1_archive" / "scripts").resolve()
     for root in LIVE_ROOTS:
         if not root.exists():
             continue

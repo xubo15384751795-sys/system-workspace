@@ -163,7 +163,7 @@ class TestUvLock:
             assert "not" in header and "author" in header
 
         generator = (
-            ROOT / "scripts" / "commands" / "ci" / "generate_dependency_lock.py"
+            ROOT / "tools" / "ci" / "generate_dependency_lock.py"
         ).read_text(encoding="utf-8")
         assert "must not be installed directly" in generator
         assert "Usage: pip install -r requirements.lock.txt" not in generator

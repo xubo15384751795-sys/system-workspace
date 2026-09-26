@@ -19,7 +19,7 @@ from orchestration.native_decision_boundaries import (
     execute_native_decision_boundary,
     select_native_decision_boundary_steps,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 NATIVE_DECISION_PILOT = "native_decision_pilot"
 NativeDecisionBoundaryRunner = Callable[[str], dict[str, Any]]

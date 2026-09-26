@@ -5,12 +5,12 @@ from pathlib import Path
 
 import yaml
 
-from scripts._runtime_status_contract import (
+from scripts.verify_merge import STATEFUL_ROOT_TESTS
+from verity.runtime._runtime_status_contract import (
     framework_output_status_values,
     judgment_decision_values,
     load_runtime_status_contract,
 )
-from scripts.verify_merge import STATEFUL_ROOT_TESTS
 
 ROOT = Path(__file__).resolve().parents[1]
 

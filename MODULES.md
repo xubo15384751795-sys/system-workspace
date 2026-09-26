@@ -23,7 +23,7 @@ owner, paths, and allowed communication points.
 | Workbench | `CANONICAL` | User-facing commands, dashboards, current view, evidence views, Streamlit UI | `packages/workbench/`, domain entrypoints under `scripts/`, `Output/current/` | `module_contexts/workbench.md` | 14 |
 | Orchestration | `CANONICAL` | Pipeline compilation/execution, Dagster daily/refresh jobs, Pandera/GE quality adapters, DVC promote helpers, optional Sentry/Datadog notify sinks | `packages/orchestration/`, `scripts/daily_run.py` compatibility entrypoint, `system_runtime/observability.py` | `module_contexts/orchestration.md` | 8 |
 | Deformation v1 evidence archive | `ARCHIVED_FALSIFIED` | Falsified host-theory evidence, reproducibility, postmortem | `packages/framework_v1_archive/` | `module_contexts/framework.md` | archive-only |
-| Neutral Macro Pressure | `ACTIVE_PARTIAL` | Funding-mismatch and market-constraint gauges | `scripts/neutral_pressure_measurement.py`, `docs/measurements/` | `module_contexts/workbench.md` | requalification |
+| Neutral Macro Pressure | `ACTIVE_PARTIAL` | Funding-mismatch and market-constraint gauges | `packages/workbench/src/workbench/measurement/neutral_pressure_measurement.py`, `docs/measurements/` | `module_contexts/workbench.md` | requalification |
 | Harvester | `CANONICAL` | Provider acquisition, provenance, data releases | `packages/harvester/`, `Data/harvester/exports/` | `module_contexts/harvester.md` | 12 |
 | Protocols | `CANONICAL` | Schemas and contracts between modules | `protocols/`, `packages/workbench/contracts/workbench/` | `module_contexts/protocols.md` | — |
 | Data and Output | `ACTIVE_PARTIAL` | Canonical truth, run artifacts, promotion boundary, DVC pointers | `Data/`, `Output/` | `module_contexts/data-output.md` | — |
@@ -32,7 +32,7 @@ owner, paths, and allowed communication points.
 | CaseLab Context | `ACTIVE_PARTIAL` | Entity DNA, regime context, meaning resolver, note retrieval (LanceDB ANN) | `caselab_context/`, `caselab_runtime/`, Paper `/90_Admin/Context/` (external, under paper_root) | `module_contexts/caselab-context.md` | — |
 | NLP Pipeline | `ACTIVE_PARTIAL` | Event extraction, case similarity, narrative drift (top-level `nlp`; framework translator is `framework_nlp`) | `packages/workbench/src/nlp/` | — | 3 |
 | ML Signals | `REAL_EXPERIMENTAL` | Regime detection, factor model, graph embeddings | `packages/workbench/src/ml/` | — | 3 |
-| Funding Endogenous Boundary v2 | `REAL_EXPERIMENTAL` | X stock, absorption capacity, non-commutativity candidates under preregistration | `scripts/`, `Output/validation/` | — | validation-only |
+| Funding Endogenous Boundary v2 | `REAL_EXPERIMENTAL` | X stock, absorption capacity, non-commutativity candidates under preregistration | `scripts/`, `Output/state/validation/` | — | validation-only |
 | Backtest Lens | `REAL_EXPERIMENTAL` | Market feedback, historical replay evaluation | `ExternalTools/` | — | — |
 | Qlib Benchmark | `REAL_EXPERIMENTAL` | Isolated benchmark runner (workflow API), alpha metrics | `ExternalTools/qlib_benchmark_runner/` | — | 1 |
 | Research Terminal | `ARCHIVED` | Legacy HTML research terminal (replaced by Streamlit) | `governance/archive/research_terminal/` | — | — |
@@ -40,16 +40,24 @@ owner, paths, and allowed communication points.
 
 ### `scripts/` boundary
 
-`scripts/` is an integration surface, not an ownership thread. Shared pipeline
-mechanism belongs to `packages/orchestration/orchestration/`; the legacy
-`scripts/_pipeline_runner.py`, `scripts/_pipeline_dag.py`, and
-`scripts/_daily_run_sequence.py` paths are compatibility imports only.
-`scripts/daily_run.py` remains the documented default entrypoint until the
-launchd/Dagster cutover is separately approved. New shared runner, DAG, or
-sequence logic must not be added under `scripts/`; domain-specific scripts
-must route to their owning thread.
+`scripts/` is a compatibility shim surface, not an ownership thread. Canonical
+implementations live under `packages/workbench/`, `packages/harvester/`,
+`packages/learning_hub/`, `packages/framework_v1_archive/scripts/`,
+`verity/{runtime,cli}/`, and `tools/`. Shared pipeline mechanism belongs to
+`packages/orchestration/orchestration/`. `scripts/daily_run.py` remains the
+documented default entrypoint (shim to `verity.cli.daily_run`) until the
+launchd/Dagster cutover is separately approved. New logic must not be added
+under `scripts/`; add it in the owning package and keep a shim if launchd or
+the registry still call the old path.
 
 ## Dependency Rule
+
+The Step 1 dependency-direction contract is machine-readable at
+`governance/architecture_contract.yaml` and is checked by
+`tools/audit/architecture_invariants.py`. Temporary exceptions are migration
+debt only: each one must name an owner, reader, migration target, and removal
+condition; the frozen debt count may not be increased as a way to pass the
+audit.
 
 Modules do not depend on each other's source code by default. They communicate
 through protocols and published artifacts.

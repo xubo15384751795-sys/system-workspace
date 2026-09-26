@@ -5,8 +5,7 @@ from zipfile import ZipFile
 
 import pandas as pd
 from harvester.http_gateway import GatewayResponse
-
-from scripts.check_external_source_endpoints import probe_external_sources
+from harvester.operators.check_external_source_endpoints import probe_external_sources
 
 
 def _xlsx_bytes() -> bytes:

@@ -137,7 +137,7 @@ def test_record_boundary_writes_only_shadow_generation(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     decision_shadow = (
-        tmp_path / "Output" / "health" / "native_decision_shadow" / "trade_decision"
+        tmp_path / "Output" / "state" / "health" / "native_decision_shadow" / "trade_decision"
     )
     decision_shadow.mkdir(parents=True)
     (decision_shadow / "latest.json").write_text(

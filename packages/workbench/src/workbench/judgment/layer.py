@@ -17,7 +17,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from system_runtime.paths import WorkspacePaths, output_surface
 from system_runtime.canonical_ids import (
     build_claim,
     build_evidence,
@@ -27,20 +26,50 @@ from system_runtime.canonical_ids import (
     build_chain,
     validate_chain,
 )
+from verity.runtime.runtime_io import ROOT, current_dir, surface_dir
 from workbench.judgment.synthesizer import ClaimEnvelope, JudgmentSynthesizer
+from workbench.judgment.model_evidence import measurement_evidence
 
 logger = logging.getLogger(__name__)
 
-ROOT = WorkspacePaths.discover().root
-PRESSURE_PATH = output_surface(ROOT, "current") / "neutral_pressure_snapshot.json"
-# Compatibility export for callers that have not yet renamed the constant.
-FW_PATH = PRESSURE_PATH
-CASELAB_DIR = ROOT / "Output" / "caselab"
-HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
+CASELAB_DIR = ROOT / "Output" / "state" / "caselab"
+HMM_PATH = ROOT / "Output" / "state" / "ml_signals" / "latest" / "regime_hmm.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
-VALIDATION_PATH = output_surface(ROOT, "current") / "quality_validation.json"
-OUTPUT_DIR = output_surface(ROOT, "judgment")
+
+
+def pressure_path() -> Path:
+    """Resolve neutral-pressure snapshot under the active current surface."""
+    override = globals().get("PRESSURE_PATH")
+    if isinstance(override, Path):
+        return override
+    return current_dir() / "neutral_pressure_snapshot.json"
+
+
+def validation_path() -> Path:
+    override = globals().get("VALIDATION_PATH")
+    if isinstance(override, Path):
+        return override
+    return current_dir() / "quality_validation.json"
+
+
+def judgment_output_dir() -> Path:
+    override = globals().get("OUTPUT_DIR")
+    if isinstance(override, Path):
+        return override
+    return surface_dir("judgment")
+
+
+# Compatibility exports for callers that still import module-level paths.
+# These intentionally re-resolve on each access via __getattr__.
+def __getattr__(name: str) -> Path:
+    if name in {"PRESSURE_PATH", "FW_PATH"}:
+        return pressure_path()
+    if name == "VALIDATION_PATH":
+        return validation_path()
+    if name == "OUTPUT_DIR":
+        return judgment_output_dir()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -92,7 +121,7 @@ def load_x_gate() -> dict[str, Any] | None:
 
 
 def load_validation() -> dict[str, Any] | None:
-    return load_json(VALIDATION_PATH)
+    return load_json(validation_path())
 
 
 def _hmm_stability_grade(hmm: dict[str, Any] | None) -> tuple[str, list[str]]:
@@ -125,7 +154,7 @@ def _hmm_stability_grade(hmm: dict[str, Any] | None) -> tuple[str, list[str]]:
         cal_status = hmm.get("calibration_status", {}).get("status", "UNKNOWN")
     else:
         # Load from audit file
-        hmm_audit_path = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
+        hmm_audit_path = ROOT / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json"
         if hmm_audit_path.exists():
             try:
                 audit = json.loads(hmm_audit_path.read_text(encoding="utf-8"))
@@ -203,10 +232,13 @@ def _limited_channels(fw: dict[str, Any]) -> list[str]:
 
 
 def _md_values(fw: dict[str, Any]) -> tuple[float, float]:
-    primary = fw.get("advanced", {}).get("primary_readout", {}) or {}
-    m_val = _as_float((primary.get("M_anchor_geometry") or {}).get("value"))
-    d_val = _as_float((primary.get("D_path_geometry") or {}).get("value"))
-    return m_val, d_val
+    """Return the first two generic measurement scores.
+
+    The name is retained only for the existing claim-card compatibility
+    shape.  Resolution is delegated to the model-evidence boundary, which
+    prefers generic ``DecisionEvidence`` and contains the legacy fallback.
+    """
+    return measurement_evidence(fw).pair()
 
 
 def _confidence(fw: dict[str, Any], caselab: dict[str, Any] | None,
@@ -345,9 +377,9 @@ def _decision(confidence: str, caselab: dict[str, Any] | None) -> str:
 
 def _meaning(fw: dict[str, Any], confidence: str) -> list[str]:
     basic = fw.get("basic", {})
-    primary = fw.get("advanced", {}).get("primary_readout", {}) or {}
-    state = primary.get("state") or basic.get("primary_market_space", "PRIMARY_READOUT_UNAVAILABLE")
-    m_val, d_val = _md_values(fw)
+    evidence = measurement_evidence(fw)
+    state = evidence.state or basic.get("primary_market_space", "PRIMARY_READOUT_UNAVAILABLE")
+    m_val, d_val = evidence.pair()
     meaning = [
         f"Primary readout is {state}, based on two neutral macro-pressure gauges.",
         f"Funding mismatch={m_val:.3f} and market constraint={d_val:.3f}; this is a measurement, not a forecast.",
@@ -405,8 +437,7 @@ def _invalidation(fw: dict[str, Any], caselab: dict[str, Any] | None) -> list[st
 
 
 def _watch_window(fw: dict[str, Any], caselab: dict[str, Any] | None) -> dict[str, list[str]]:
-    primary = fw.get("advanced", {}).get("primary_readout", {}) or {}
-    state = primary.get("state", "PRIMARY_READOUT_UNAVAILABLE")
+    state = measurement_evidence(fw).state or "PRIMARY_READOUT_UNAVAILABLE"
     one_day = [
         f"Confirm whether primary readout remains {state}.",
         "Check both neutral gauge components and data freshness.",
@@ -872,6 +903,13 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
         "decision": decision,
         "md_direction": claim_ladder.md_direction,
         "md_values": {"M": m_val, "D": d_val},
+        "measurement_evidence": {
+            "state": measurement_evidence(fw).state,
+            "scores": list(measurement_evidence(fw).values),
+            "source": measurement_evidence(fw).source,
+            "model_id": measurement_evidence(fw).model_id,
+            "protocol_version": measurement_evidence(fw).protocol_version,
+        },
         "confidence": {
             "level": confidence,
             "reasons": confidence_reasons,
@@ -903,12 +941,13 @@ def build_judgment(fw: dict[str, Any], caselab: dict[str, Any] | None = None,
         "conflicting_claim_ids": synthesis["conflicting_claim_ids"],
         "research_only_claim_ids": synthesis["research_only_claim_ids"],
         "inputs": {
-            "neutral_pressure_snapshot": str(PRESSURE_PATH),
+            "neutral_pressure_snapshot": str(pressure_path()),
+            "decision_evidence": "embedded in neutral_pressure_snapshot.json",
             "caselab": str(CASELAB_DIR / f"{date_str}.json") if caselab else None,
             "hmm": str(HMM_PATH),
             "k_gate": str(K_GATE_PATH),
             "x_gate": str(X_GATE_PATH),
-            "validation": str(VALIDATION_PATH),
+            "validation": str(validation_path()),
         },
     }
 
@@ -945,10 +984,11 @@ def format_markdown(card: dict[str, Any]) -> str:
 
 def write_dated_outputs(card: dict[str, Any]) -> dict[str, Path]:
     """Write only dated judgment files — does not update latest.*"""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = judgment_output_dir()
+    output_dir.mkdir(parents=True, exist_ok=True)
     date_str = card["as_of"]
-    json_path = OUTPUT_DIR / f"{date_str}.json"
-    md_path = OUTPUT_DIR / f"{date_str}.md"
+    json_path = output_dir / f"{date_str}.json"
+    md_path = output_dir / f"{date_str}.md"
     json_text = json.dumps(card, indent=2, ensure_ascii=False) + "\n"
     md_text = format_markdown(card)
     json_path.write_text(json_text, encoding="utf-8")
@@ -957,12 +997,13 @@ def write_dated_outputs(card: dict[str, Any]) -> dict[str, Path]:
 
 
 def write_outputs(card: dict[str, Any]) -> dict[str, Path]:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = judgment_output_dir()
+    output_dir.mkdir(parents=True, exist_ok=True)
     date_str = card["as_of"]
-    json_path = OUTPUT_DIR / f"{date_str}.json"
-    md_path = OUTPUT_DIR / f"{date_str}.md"
-    latest_json = OUTPUT_DIR / "latest.json"
-    latest_md = OUTPUT_DIR / "latest.md"
+    json_path = output_dir / f"{date_str}.json"
+    md_path = output_dir / f"{date_str}.md"
+    latest_json = output_dir / "latest.json"
+    latest_md = output_dir / "latest.md"
     json_text = json.dumps(card, indent=2, ensure_ascii=False) + "\n"
     md_text = format_markdown(card)
     json_path.write_text(json_text, encoding="utf-8")

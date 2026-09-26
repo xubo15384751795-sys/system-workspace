@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
-from scripts.stability_diagnostics import (
+from workbench.measurement.stability_diagnostics import (
     build_stability_candidates,
     critical_slowing_score,
     rls_var_lambda_max,

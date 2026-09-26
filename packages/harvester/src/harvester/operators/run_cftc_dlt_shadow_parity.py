@@ -33,7 +33,7 @@ from harvester.ingestion.dlt_series_source import (
     DLT_MAX_ATTEMPTS,
     run_dlt_with_retry,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 DEFAULT_PAYLOAD = (
     ROOT
@@ -43,8 +43,8 @@ DEFAULT_PAYLOAD = (
     / "external_indicators"
     / "cftc_tff_lev_sp.csv"
 )
-DEFAULT_OUTPUT = ROOT / "Output" / "health" / "cftc_dlt_shadow_parity.json"
-DEFAULT_DATABASE = ROOT / "Output" / "health" / "cftc_dlt_shadow.duckdb"
+DEFAULT_OUTPUT = ROOT / "Output" / "state" / "health" / "cftc_dlt_shadow_parity.json"
+DEFAULT_DATABASE = ROOT / "Output" / "state" / "health" / "cftc_dlt_shadow.duckdb"
 
 
 def _read_payload(path: Path) -> str | list[dict[str, Any]]:

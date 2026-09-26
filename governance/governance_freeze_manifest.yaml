@@ -1,8 +1,8 @@
 schema_version: governance_freeze_manifest.v2
-updated_at: '2026-08-24'
+updated_at: '2026-09-26'
 freeze_commit: 06e91e906d0f8ce6562240b27db556366edb3e2b
 freeze_date: '2026-06-17'
-review_after: '2026-09-19'
+review_after: '2026-12-26'
 purpose: 'Machine-checkable governance freeze baseline. Root-level admission is
   shape_inventory plus consumers. baseline_root_files and approved_additions are
   historical ledger. Generated overlays and historical snapshots are exempt.
@@ -55,33 +55,64 @@ baseline_root_files:
 - system_constitution.yaml
 baseline_hashes:
   architecture_cleanup_decisions.md: daae955ec8d5ce78
-  architecture_reality_decisions.md: 278ddbca99ba35c1
+  architecture_reality_decisions.md: f7796308452aca9b
   authority_registry.yaml: 4f5a23c00dd95ffd
   canonical_proxy_spec.yaml: d8b9e84466b2dd2e
   capability_registry.schema.json: 27a6da6088423b3d
   capability_registry.yaml: 82a6a1f7665dd814
-  daily_pipeline_registry.yaml: c7619bacf5a1b7a3
+  daily_pipeline_registry.yaml: fa3d9b7385ce54c2
   data_request_registry.yaml: 4a022aa7d9a526c8
-  data_retention_policy.yaml: 28012930d50bb58b
+  data_retention_policy.yaml: 436fb4becb9b8f4e
   deferred_work_register.yaml: baa2e255b97ef48f
-  entrypoint_registry.yaml: e84a0dd0f52d9ea3
+  entrypoint_registry.yaml: e3cd923ac9fc9e73
   experimental_submission_registry.yaml: e362f89e927c1957
   framework_output.schema.json: eb2fd3e2abf0f85a
-  git_workspace_policy.md: 4cdf0f672a191f31
+  git_workspace_policy.md: 9b3db7b686bfa029
   incentive_policy.yaml: 8d2c92e89a5f803c
   opencode_supervisor_policy.yaml: 15cb87cbd163e6c8
-  operator_registry.yaml: b4b935cb1a0dfc97
-  output_routing_policy.yaml: c51a31358a2e2fc5
+  operator_registry.yaml: 849ebdd0f40d823e
+  output_routing_policy.yaml: 7acf3e659535e695
   pipeline_test_baseline.yaml: d476abebd64035a6
   proxy_quality_rules.yaml: 9398c8068f839cbf
-  redundancy_budget.yaml: 5f2968cb55d800ea
+  redundancy_budget.yaml: d5c99238057b7852
   repo_layout_map.md: d3000c9c6ef69077
   run_mode_registry.yaml: 632a01d0e19496fe
   run_observability_summary.template.md: 69bb81c0d223cf9e
   semantic_registry.json: 5b24fdeafa56fe1b
-  submodule_commit_plan.md: 164a0f9110fba6d5
-  system_constitution.yaml: c8157834e02e1666
+  submodule_commit_plan.md: 208a2c35dc58b7f7
+  system_constitution.yaml: b4387d8f65fb5d83
 baseline_revision_history:
+- approved_at: '2026-09-26'
+  approval: user_requested_structural_cleanup_land
+  reason: >
+    Renew freeze review_after after cleanup steps 2–6 land, classify new
+    step/layout contracts in shape_inventory, refresh hashes for
+    architecture_reality_decisions and daily_pipeline_registry after the
+    registry-authoring and layout retarget edits, and admit Output/logs as
+    a governed root entry used by launchd/runtime sinks.
+  files:
+  - architecture_reality_decisions.md
+  - daily_pipeline_registry.yaml
+  - governance_freeze_manifest.yaml
+  - governance_tiers.yaml
+  - output_routing_policy.yaml
+- approved_at: '2026-09-09'
+  approval: user_requested_output_state_and_legacy_layout
+  reason: >
+    Retarget live Output surfaces under state/ and archive/legacy_2026H1,
+    keep compatibility root symlinks, and make Output/live a relative
+    generations pointer. Refresh hashes for the path-identity files in
+    this layout change plus already-dirty retention/entrypoint maps.
+  files:
+  - daily_pipeline_registry.yaml
+  - data_retention_policy.yaml
+  - entrypoint_registry.yaml
+  - git_workspace_policy.md
+  - operator_registry.yaml
+  - output_routing_policy.yaml
+  - redundancy_budget.yaml
+  - submodule_commit_plan.md
+  - system_constitution.yaml
 - approved_at: '2026-09-05'
   approval: user_requested_deformation_v1_archive_directory_rename
   reason: >

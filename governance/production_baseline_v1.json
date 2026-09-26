@@ -1,0 +1,233 @@
+{
+  "schema_version": "verity.production_baseline.v1",
+  "baseline_id": "production-baseline-v1-2026-09-12-r6",
+  "generated_at": "2026-09-12T06:23:40Z",
+  "release_id": "2026-09-12-r6",
+  "run_id": "daily_pipeline_20260912_061535_8f2946",
+  "generation_id": "daily_pipeline_20260912_061535_8f2946",
+  "accepted_generation": {
+    "status": "accepted",
+    "authority": "DIAGNOSTIC_ONLY",
+    "generation_digest": "c0a901506a02f2a5fb799c81bb69af41e852f975a46b3770bbc9984b95ef833a",
+    "evidence_digest": "935478592a78eabc04931266e4553a18d4eee9e2f1cab930b9f383a9dda44aa5",
+    "admission_digest": "bda4dfed4720b3910408ee77a2bfd97bb86f6367f37a3a10fdfb5e53f4ae9570",
+    "plan_digest": "748992f2459005c8c185a9b011962a88c1c9a899725f096801ad1e42e8aedb7a"
+  },
+  "runtime_config": {
+    "compiled_runtime_plan_sha256": "0f5910df72728f118b9b828eff4fbe3d6bc2d78e86b7aa3e952537a2d78a63a1",
+    "input_snapshot_sha256": "6a508fd0083fdff0e915aa1b58a7727e52778269a38e5823cfe8bf9c11c722bc",
+    "artifact_index_sha256": "66e7ffa2e381a0ee9ce924a143d3a80f15e2164a0dd38aa8d43771cbe748055a",
+    "scheduler_kind": "launchd",
+    "scheduler_id": "com.system.daily-run",
+    "trigger_kind": "scheduled"
+  },
+  "credential_source": {
+    "interface": "SecretProvider",
+    "host_implementation": "mode-600 provider environment file",
+    "canonical_logical_secrets": [
+      "FRED_API_KEY",
+      "TIINGO_API_KEY",
+      "MASSIVE_API_KEY"
+    ],
+    "secret_values_recorded": false
+  },
+  "provider_state": {
+    "release_gate": {
+      "passed": true,
+      "promotion_allowed": false,
+      "promotion_state": "validated",
+      "provider_decision": "CONDITIONAL",
+      "blockers": [],
+      "warnings": [
+        "model-input series missing: ['tot_pub_debt_out_amt', 'open_today_bal']",
+        "benchmark provider outcome degraded: provider_status=partial_provider_success"
+      ]
+    },
+    "benchmark_panel": {
+      "provider": "harvester.complete",
+      "status": "partial_provider_success",
+      "requested": 65,
+      "succeeded": 65,
+      "failed": 8,
+      "fallback_used": true,
+      "providers_used": [
+        "cboe",
+        "cftc",
+        "finra",
+        "fred",
+        "h41",
+        "nyfed",
+        "ofr",
+        "sec",
+        "tiingo",
+        "treasury"
+      ],
+      "availability_state": "UNKNOWN",
+      "available_at": null,
+      "decision_usable": false
+    },
+    "cross_asset_daily_panel": {
+      "provider": "etf_provider_chain",
+      "status": "refreshed",
+      "requested": 33,
+      "succeeded": 33,
+      "failed": 0,
+      "fallback_used": true,
+      "providers_used": ["tiingo"],
+      "route_class": "authoritative_provider_route",
+      "route_decision_usable": true,
+      "availability_state": "UNKNOWN",
+      "available_at": null,
+      "decision_usable": false
+    }
+  },
+  "as_of": {
+    "release_as_of_date": "2026-09-12",
+    "release_vintage_date": "2026-09-12",
+    "canonical_measurement_as_of": "2026-09-14",
+    "available_at": {
+      "benchmark_panel": null,
+      "cross_asset_daily_panel": null
+    },
+    "clock_consistency_note": "Accepted artifacts contain a release-to-canonical as-of mismatch; preserve it as an explicit research risk."
+  },
+  "canonical_inputs": {
+    "benchmark_panel": {
+      "path": "Data/harvester/exports/2026-09-12-r6/data/benchmark_panel.parquet",
+      "sha256": "451de994af2ccd7921773f20eb33136a56b73ab647720294a386e4cca423f141"
+    },
+    "cross_asset_daily_panel": {
+      "path": "Data/harvester/exports/2026-09-12-r6/data/cross_asset_daily_panel.parquet",
+      "sha256": "4774328f25071370f780c40c071115f46d661ce46120dcd2bb9c80a182c48aba"
+    }
+  },
+  "measurement": {
+    "status": "AVAILABLE",
+    "quality_status": "FULL_WITH_WARNINGS",
+    "measurement_quality_overall": "OK",
+    "M": -0.0463,
+    "D": -0.6932,
+    "neutral_state": "PRESSURE_EASING",
+    "confidence": 0.7,
+    "channels_live": ["M", "D"],
+    "channels_research_only": ["K", "X_agg"]
+  },
+  "judgment": {
+    "decision": "ACTIVE_WATCH",
+    "confidence": "medium",
+    "authority": "DIAGNOSTIC_ONLY",
+    "claim_ceiling": "structural_diagnostic",
+    "promotion_gate": "WATCH",
+    "watch_gates": ["hmm"],
+    "allows_decision_consumers": false
+  },
+  "admission": {
+    "can_publish": true,
+    "integrity_verdict": "PASS",
+    "diagnostic_publish_verdict": "PASS",
+    "decision_authority_verdict": "DIAGNOSTIC_ONLY",
+    "freshness_verdict": "WARN",
+    "reason_codes": [
+      "PROVIDER_DECISION_CONDITIONAL",
+      "FRESHNESS_WARN"
+    ]
+  },
+  "publication": {
+    "state": "COMMITTED",
+    "run_outcome_status": "success",
+    "execution_status": "SUCCESS",
+    "exit_code": 0,
+    "output_live_target": "Output/generations/daily_pipeline_20260912_061535_8f2946",
+    "output_current_target": "Output/live/current"
+  },
+  "reliability_observation": {
+    "verifier_status": "PENDING",
+    "observed_runs": 6,
+    "qualified_runs": 1,
+    "qualified_days": 1,
+    "minimum_days": 14,
+    "used_as_step_3_5_completion_gate": false
+  },
+  "immutable_artifact_references": [
+    {
+      "kind": "run_outcome",
+      "path": "Output/runs/daily_pipeline_20260912_061535_8f2946/run_outcome.json",
+      "sha256": "b4f8d295a2ad2693d040cc9c8e4be3bcf310a1b2b6b1df9934b20de9d714fe55"
+    },
+    {
+      "kind": "compiled_runtime_plan",
+      "path": "Output/runs/daily_pipeline_20260912_061535_8f2946/compiled_runtime_plan.json",
+      "sha256": "0f5910df72728f118b9b828eff4fbe3d6bc2d78e86b7aa3e952537a2d78a63a1"
+    },
+    {
+      "kind": "generation_manifest",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/manifest.json",
+      "sha256": "733d586f9a0953a2c683e18df881534273e2c9a08cb61abc72c3a1ee7b1a89c8"
+    },
+    {
+      "kind": "generation_admission",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/admission.json",
+      "sha256": "1aba198bd90ed6004be9dd9c0b9992efa391a7eedbb2307800a6d557cee7722d"
+    },
+    {
+      "kind": "generation_lineage",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/lineage.json",
+      "sha256": "c0a901506a02f2a5fb799c81bb69af41e852f975a46b3770bbc9984b95ef833a"
+    },
+    {
+      "kind": "framework_output",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/current/framework_output.json",
+      "sha256": "221dd88e7fabda806d6fd77cce6ac4b9f4796b0c8eda85985e2907534ad3f5e0"
+    },
+    {
+      "kind": "neutral_measurement",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/current/neutral_pressure_snapshot.json",
+      "sha256": "99c315021986a466c88495542da209701a5f7212fc3fabcdbcfbc8d1c26f1522"
+    },
+    {
+      "kind": "measurement_quality",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/current/measurement_quality.json",
+      "sha256": "08e25a7160517e56da832b33952e0cf19faa592657d5f3fe59c41fae1eae0452"
+    },
+    {
+      "kind": "judgment",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/judgment/latest.json",
+      "sha256": "f85c1c1d2f4387a7fee352e3929f1c098ad270ed7be44b05d793a7c41e66753a"
+    },
+    {
+      "kind": "judgment_promotion_gate",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/judgment/promotion_gate.json",
+      "sha256": "f9db0cb5df29b83cc5e7ca38867b8e7d5dfb7ab847ecc166340ba14ccbcd3040"
+    },
+    {
+      "kind": "freshness_report",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/quality/freshness_report.json",
+      "sha256": "6d882e57a8701090bee6f1d628185714ff06f40f14157d933f941b3cbc3c7c53"
+    },
+    {
+      "kind": "harvester_gate",
+      "path": "Data/harvester/exports/2026-09-12-r6/gate_report.json",
+      "sha256": "1044170a697c7791d40e1d55207b696177a422e018ef566c855dcf1dec4c67c9"
+    },
+    {
+      "kind": "benchmark_manifest",
+      "path": "Data/harvester/exports/2026-09-12-r6/manifests/benchmark_panel.manifest.json",
+      "sha256": "30f2b1c00f288eab2201178ca994acf18fc49962e86f6106a6d46c43c9b53ffe"
+    },
+    {
+      "kind": "cross_asset_manifest",
+      "path": "Data/harvester/exports/2026-09-12-r6/manifests/cross_asset_daily_panel.manifest.json",
+      "sha256": "08a03d5f66661655ba064242e75829b6aae8774c51673d29377df73119465f3e"
+    },
+    {
+      "kind": "harvester_catalog",
+      "path": "Data/harvester/exports/2026-09-12-r6/catalog.json",
+      "sha256": "b5b94d6060ec3b657baac6b57149c2e6988e7f85d7f49f9cb5d1489bcf50c57e"
+    },
+    {
+      "kind": "research_memo",
+      "path": "Output/generations/daily_pipeline_20260912_061535_8f2946/research_memo.md",
+      "sha256": "c8ddb036df06455d476466e19545733b6aa2c4e3c4f9b144f8c0d72c2b679307"
+    }
+  ]
+}

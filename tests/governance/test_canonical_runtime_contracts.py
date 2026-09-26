@@ -115,7 +115,7 @@ def test_framework_output_sigma_vector_has_x_agg():
 @pytest.mark.semantic
 def test_readme_shows_output_source():
     """The README builder must identify structural replay independent of run tag."""
-    from scripts.commands.weekly.build_readme_first import build_readme_from_index
+    from workbench.surfaces.build_readme_first import build_readme_from_index
 
     readme = build_readme_from_index(
         {"generated_at": "2026-07-17T00:00:00Z"},
@@ -137,7 +137,7 @@ def test_readme_shows_output_source():
 @pytest.mark.semantic
 def test_readme_tolerates_null_degraded_sections():
     """A failed run must not turn a presentation-only README step into a root failure."""
-    from scripts.commands.weekly.build_readme_first import build_readme_from_index
+    from workbench.surfaces.build_readme_first import build_readme_from_index
 
     readme = build_readme_from_index(
         {

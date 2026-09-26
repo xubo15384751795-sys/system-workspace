@@ -21,23 +21,23 @@ def _payloads(path: Path) -> list[dict]:
 
 
 def test_direct_daily_run_early_failure_has_one_typed_identity(monkeypatch, tmp_path):
-    from scripts import daily_run
+    from verity.cli import daily_run
 
     output_root = tmp_path / "Output"
 
-    def fail_before_plan(_paths):
+    def fail_before_plan(_paths, *, profile="daily"):
         raise RuntimeError("fixture-only initialization failure")
 
     monkeypatch.delenv("SYSTEM_ORCHESTRATOR", raising=False)
     monkeypatch.delenv("SYSTEM_INSIDE_DAGSTER_DAILY_JOB", raising=False)
-    monkeypatch.setattr(daily_run, "load_pipeline", fail_before_plan)
+    monkeypatch.setattr(daily_run, "compile_runtime_plan", fail_before_plan)
 
     exit_code = daily_run.main(["--output-root", str(output_root), "--tag", "fixture"])
 
     assert exit_code == EXIT_EXECUTION_FAILURE
-    alert = json.loads((output_root / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
-    events = _payloads(output_root / "runtime_events" / next(
-        path.name for path in (output_root / "runtime_events").iterdir()
+    alert = json.loads((output_root / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+    events = _payloads(output_root / "state" / "runtime_events" / next(
+        path.name for path in (output_root / "state" / "runtime_events").iterdir()
     ))
     run_dirs = list((output_root / "runs").iterdir())
     assert len(run_dirs) == 1
@@ -58,7 +58,7 @@ def test_direct_daily_run_early_failure_has_one_typed_identity(monkeypatch, tmp_
 def test_dagster_wrapper_returns_typed_early_failure(monkeypatch, tmp_path):
     from orchestration import daily_pipeline
 
-    from scripts import daily_run
+    from verity.cli import daily_run
 
     output_root = tmp_path / "Output"
 
@@ -77,7 +77,7 @@ def test_dagster_wrapper_returns_typed_early_failure(monkeypatch, tmp_path):
 def test_dagster_wrapper_preserves_late_mandatory_sink_failure(monkeypatch):
     from orchestration import daily_pipeline
 
-    from scripts import daily_run
+    from verity.cli import daily_run
 
     def fail_after_outcome(_args):
         monkeypatch.setenv("SYSTEM_DAILY_OUTCOME_READY", "1")

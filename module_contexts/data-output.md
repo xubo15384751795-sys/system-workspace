@@ -26,7 +26,7 @@ related, but they are not interchangeable.
 - `Output/deformation_runs/`
 - `Output/workbench/`
 - `Output/system_learning/`
-- `Output/sandbox/`
+- `Output/state/sandbox/`
 - `scripts/list_latest.py`
 - `scripts/promote_snapshot.py`
 - `scripts/build_system_index.py`
@@ -51,7 +51,7 @@ related, but they are not interchangeable.
 ## Promises
 
 - `Data/` changes only through an explicit promotion path; `Output/` remains non-canonical.
-- `Output/sandbox/` is a lawful zero-justification variation zone with zero authority.
+- `Output/state/sandbox/` is a lawful zero-justification variation zone with zero authority.
 - No sandbox artifact reaches current merely because its file exists or looks fresh.
 
 ## Relies On

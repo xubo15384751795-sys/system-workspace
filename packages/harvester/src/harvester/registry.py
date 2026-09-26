@@ -13,6 +13,8 @@ from typing import Any
 
 import yaml
 
+from system_runtime.context import RuntimeContext
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -169,7 +171,7 @@ class SeriesRegistry:
 # ---------------------------------------------------------------------------
 
 def registry_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "configs" / "series_registry.yaml"
+    return RuntimeContext.current_context().workspace / "packages" / "harvester" / "configs" / "series_registry.yaml"
 
 
 def load_registry(path: str | Path | None = None) -> SeriesRegistry:

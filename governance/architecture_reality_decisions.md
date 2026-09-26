@@ -399,3 +399,46 @@ After full implementation, the system must satisfy:
 6. `MODULES.md`, capability registry, and Output reality are consistent.
 7. Old audit reports cannot override new architectural decisions.
 8. Automated audits continuously discover gaps between documentation ideals and code reality.
+
+## 13. Architecture Convergence Decision (2026-09-12)
+
+The next architecture change is a convergence program, not a directory cleanup
+or a second-system rewrite. Its release order is:
+
+```text
+release boundary → architecture convergence → one execution spine
+→ portable runtime → domain/authority contracts → structural cleanup
+→ target bootstrap/proof → cutover → evidence-gated replacement
+```
+
+The allowed production direction is:
+
+```text
+external trigger → application interface → orchestration → domain → core runtime/contracts
+```
+
+`system_runtime` is the low-level runtime authority for paths/context, outcome,
+publication/admission, canonical IDs/lineage, provider status, trigger
+contracts, events, artifacts, and recovery primitives. `verity.runtime` remains
+an application/runtime adapter during the transition and must become thinner;
+the repository must not decide physical merging before ownership and dependency
+direction have converged.
+
+The machine-readable contract and migration ledger are
+`governance/architecture_contract.yaml`. A green invariant scan means only that
+all currently observed exceptions are registered; it does not mean the
+architecture debt is zero, scheduled reliability is proven, provider authority
+is admitted, or the overall project is complete. The final state requires an
+empty debt ledger plus independent runtime, portability, semantics, recovery,
+and target-environment observation evidence.
+
+### Release boundary for the current slice
+
+This slice is limited to the Step 1 control plane: dependency-direction rules,
+the frozen migration ledger, canonical runtime context wiring, removal of live
+`sys.path` bootstrap from the Dagster bridge, and portability repairs that do
+not alter business algorithms or output contracts. It does not authorize an
+M/D algorithm change, provider-model redefinition, output-format replacement,
+native Dagster or dlt promotion, retention cleanup, scheduler cutover, or
+deletion of compatibility shims. Those actions require their own evidence and
+human release decision.

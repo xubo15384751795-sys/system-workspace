@@ -286,7 +286,7 @@ def default_database(root: Path) -> Path:
     configured = os.environ.get("SYSTEM_SCHEDULE_STATE_DB", "").strip()
     if configured:
         return Path(configured).expanduser().resolve()
-    return root / "Output" / "runtime" / "schedule_slots.sqlite3"
+    return root / "Output" / "state" / "runtime" / "schedule_slots.sqlite3"
 
 
 def _process_is_alive(pid: int) -> bool:

@@ -351,7 +351,7 @@ run_professional_methodology:
   script: scripts/run_professional_methodology.py
   status: experimental
   owner: Deformation Framework
-  description: Unified S1-S10 shadow evaluation runner; writes Output/validation only
+  description: Unified S1-S10 shadow evaluation runner; writes Output/state/validation only
   allowed_use:
   - shadow_method_validation
   - signal_validation
@@ -798,7 +798,7 @@ apply_data_retention_policy:
   script: scripts/apply_data_retention_policy.py
   status: active
   owner: Governance
-  description: Retention executor — reports Data/ findings and recoverably archives eligible Output/runs/
+  description: Retention executor — dry-run lists reclaimable Harvester releases; --apply packs then deletes them and archives eligible Output/runs
   allowed_use:
   - data_retention_enforcement
 apply_output_routing_policy:

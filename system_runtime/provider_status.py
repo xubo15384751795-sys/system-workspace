@@ -7,7 +7,9 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+from .paths import WorkspacePaths
+
+ROOT = WorkspacePaths.discover().root
 POLICY_PATH = Path("configs/provider_release_policy.yaml")
 PROVIDER_STATUSES = frozenset(
     {

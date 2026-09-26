@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts._runtime_status_contract import (
+from verity.runtime._runtime_status_contract import (
     framework_output_status_values,
     judgment_confidence_values,
     judgment_decision_values,

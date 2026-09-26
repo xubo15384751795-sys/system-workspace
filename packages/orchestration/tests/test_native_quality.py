@@ -11,7 +11,7 @@ from orchestration.assets.native_quality import (
     select_native_quality_steps,
 )
 from orchestration.definitions import daily_job, defs
-from scripts.commands.weekly import build_measurement_quality_report
+from workbench.measurement import build_measurement_quality_report
 
 
 def test_live_quality_registry_compiles_one_native_quality_asset() -> None:
@@ -22,7 +22,7 @@ def test_live_quality_registry_compiles_one_native_quality_asset() -> None:
             "step_id": "measurement_quality_report",
             "failure_behavior": "continue_with_warning",
             "native_callable": (
-                "scripts.commands.weekly.build_measurement_quality_report:build_report"
+                "workbench.measurement.build_measurement_quality_report:build_report"
             ),
         },
     )

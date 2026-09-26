@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-verity = "system_cli.app:main"
+verity = "verity.cli:main"
 # Compatibility entrypoint retained for existing operators and launchd jobs.
 system = "system_cli.app:main"
 
@@ -76,6 +76,7 @@ include = [
     "caselab_context*",
     "caselab_runtime*",
     "scripts*",
+    "verity*",
 ]
 
 # The four domain distributions stay independently installable.  Workspace
@@ -110,7 +111,6 @@ pythonpath = [
     # member for installability only; do not path-inject it here.
     "packages/workbench/src",
     "packages/orchestration",
-    "scripts",
 ]
 addopts = "-m 'not operator and not network and not external_repo and not slow' --strict-markers"
 norecursedirs = [

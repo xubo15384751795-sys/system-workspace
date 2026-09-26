@@ -16,7 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "packages" / "workbench" / "src"))
 
-from _admission_gate import admit_for_consumption, require_admission  # noqa: E402
+from verity.runtime._admission_gate import (  # noqa: E402
+    admit_for_consumption,
+    require_admission,
+)
 
 
 @pytest.fixture
@@ -24,7 +27,7 @@ def no_declared_blocks(monkeypatch):
     """Evaluate the general blocking rules with no environmentally-blocked
     sources declared, so these tests do not silently change meaning when
     configs/freshness_policy.yaml declares one."""
-    monkeypatch.setattr("_admission_gate._environmentally_blocked", dict)
+    monkeypatch.setattr("verity.runtime._admission_gate._environmentally_blocked", dict)
 
 
 def _write_release(release: Path, *, ofr=True, nfci=True, ciss=True,
@@ -76,7 +79,7 @@ class TestAdmitForConsumption:
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
@@ -88,7 +91,7 @@ class TestAdmitForConsumption:
         release = tmp_path / "release"
         _write_release(release, nfci_stale=True)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
@@ -101,7 +104,7 @@ class TestAdmitForConsumption:
         _write_release(release)
         # Stub content checks — they read operator Data/ which is absent in CI.
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
@@ -116,7 +119,7 @@ class TestAdmitForConsumption:
         def fake_content(now):
             return (["ciss_cache:stale (behind=69d)"],
                     [{"name": "ciss_cache", "status": "STALE", "trading_days_behind": 69}])
-        monkeypatch.setattr("_admission_gate._content_level_blockers", fake_content)
+        monkeypatch.setattr("verity.runtime._admission_gate._content_level_blockers", fake_content)
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
                                           now=pd.Timestamp("2026-07-17"))
         assert decision.allowed is False
@@ -128,7 +131,7 @@ class TestRequireAdmission:
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         with pytest.raises(SystemExit) as exc:
@@ -140,7 +143,7 @@ class TestRequireAdmission:
         release = tmp_path / "release"
         _write_release(release)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         decision = require_admission("paper_portfolio", release_dir=release,
@@ -156,11 +159,11 @@ class TestEnvironmentallyBlockedSources:
         release = tmp_path / "release"
         _write_release(release, ofr=False)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         monkeypatch.setattr(
-            "_admission_gate._environmentally_blocked",
+            "verity.runtime._admission_gate._environmentally_blocked",
             lambda: {"OFR_FSI": {"reason": "host unreachable from this network"}},
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
@@ -178,11 +181,11 @@ class TestEnvironmentallyBlockedSources:
         release = tmp_path / "release"
         _write_release(release, ofr=False, nfci_stale=True)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: ([], []),
         )
         monkeypatch.setattr(
-            "_admission_gate._environmentally_blocked",
+            "verity.runtime._admission_gate._environmentally_blocked",
             lambda: {"OFR_FSI": {"reason": "host unreachable"}},
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
@@ -197,11 +200,11 @@ class TestEnvironmentallyBlockedSources:
         release = tmp_path / "release"
         _write_release(release)
         monkeypatch.setattr(
-            "_admission_gate._content_level_blockers",
+            "verity.runtime._admission_gate._content_level_blockers",
             lambda now: (["ofr_fsi_cache:stale (behind=17d)"], []),
         )
         monkeypatch.setattr(
-            "_admission_gate._environmentally_blocked",
+            "verity.runtime._admission_gate._environmentally_blocked",
             lambda: {"OFR_FSI": {"reason": "host unreachable"}},
         )
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
@@ -212,9 +215,9 @@ class TestEnvironmentallyBlockedSources:
 
 def test_content_gate_checks_decision_critical_etf_panel(monkeypatch) -> None:
     """The consumer gate must inspect ETF content, not only public caches."""
-    from _admission_gate import _content_level_blockers
+    import workbench.measurement.freshness_validator as freshness_validator
 
-    import scripts.freshness_validator as freshness_validator
+    from verity.runtime._admission_gate import _content_level_blockers
 
     monkeypatch.setattr(
         freshness_validator,

@@ -22,7 +22,6 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[1]
 
 _paths_to_add = [
-    str(_ROOT / "scripts"),
     str(_ROOT / "packages" / "orchestration"),
     str(_ROOT / "packages" / "harvester" / "src"),
     str(_ROOT / "packages" / "learning_hub" / "src"),
@@ -49,6 +48,23 @@ for name in _stale:
     origin = getattr(mod, "__file__", "") or ""
     if "framework" in origin.replace("\\", "/"):
         del sys.modules[name]
+
+
+# run_daily(--output-root) mutates process env for isolation. Clear those keys
+# after every test so later hermetic checks do not inherit a fixture workspace.
+_DAILY_OUTPUT_ENV_KEYS = (
+    "DAILY_OUTPUT_ROOT",
+    "SYSTEM_OUTPUT_ROOT",
+    "SYSTEM_GENERATION_DIR",
+    "CURRENT_OUTPUT_DIR",
+)
+
+
+@pytest.fixture(autouse=True)
+def _clear_daily_output_env_leaks() -> None:
+    yield
+    for key in _DAILY_OUTPUT_ENV_KEYS:
+        os.environ.pop(key, None)
 
 
 def _dir_fingerprint(path: Path, *, limit: int = 200) -> str:

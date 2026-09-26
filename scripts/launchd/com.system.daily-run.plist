@@ -52,9 +52,10 @@
     <string></string>
     <key>HARVESTER_CFTC_PROXY_URL</key>
     <string></string>
-    <!-- Isolated concurrent vs serial panel digest matched; latch off on HARVESTER_NOT_COMMITTED. -->
+    <!-- Concurrent provider families remain opt-in during Phase 1 closeout;
+         enable only after the controlled scheduled-observation gate. -->
     <key>SYSTEM_HARVESTER_CONCURRENT</key>
-    <string>1</string>
+    <string>0</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

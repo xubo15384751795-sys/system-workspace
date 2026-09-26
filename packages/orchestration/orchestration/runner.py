@@ -26,9 +26,13 @@ from orchestration.sequence_executor import (
 )
 from orchestration.daily_run_sequence import load_daily_run_sequence
 from orchestration.pipeline_runner import run_registry_step
-from scripts._runtime_io import ROOT
-from system_runtime.paths import WorkspacePaths
-from system_runtime.pipeline import CompiledPlan, load_pipeline
+from system_runtime.context import RuntimeContext
+from verity.runtime.runtime_io import ROOT
+from system_runtime.pipeline import (
+    CompiledPlan,
+    CompiledRuntimePlan,
+    compile_runtime_plan,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +53,9 @@ class DailyRunPayload:
     benchmark_panel_path: Path
     run_id: str = ""
     plan: CompiledPlan | None = None
+    runtime_plan: CompiledRuntimePlan | None = None
     dry_run: bool = False
+    runtime_context: RuntimeContext | None = None
 
 
 def _safe_node_name(prefix: str, value: str, index: int) -> str:
@@ -82,16 +88,30 @@ def _current_code_sha() -> str:
 
 
 def build_daily_step_job(
-    payload: DailyRunPayload, *, plan: CompiledPlan | None = None
+    payload: DailyRunPayload,
+    *,
+    plan: CompiledPlan | None = None,
+    runtime_plan: CompiledRuntimePlan | None = None,
 ):
     """Build a Dagster job with one op for every compiled daily step.
 
-    The graph is deliberately generated from the compiled plan.  It does not
-    maintain a second step list, dependency list, or failure-policy table.
-    ``execute_in_process`` is used by the current daily entrypoint, while the
-    graph itself gives Dagster a real per-step execution and metadata boundary.
+    The graph is deliberately generated from the compiled runtime plan.  It
+    does not maintain a second step list, dependency list, or failure-policy
+    table. ``execute_in_process`` is the one execution boundary owned by the
+    scheduled spine; the outer CLI never executes a Dagster job.
     """
-    resolved_plan = plan or payload.plan or load_pipeline(WorkspacePaths(root=ROOT))
+    runtime_context = payload.runtime_context or RuntimeContext.current_context()
+    resolved_runtime_plan = runtime_plan or payload.runtime_plan
+    if resolved_runtime_plan is None:
+        if plan is not None or payload.plan is not None:
+            resolved_runtime_plan = CompiledRuntimePlan.from_compiled(
+                plan or payload.plan,  # type: ignore[arg-type]
+                source_digest=(plan or payload.plan).plan_digest,  # type: ignore[union-attr]
+                source_path="test_or_compatibility_plan",
+            )
+        else:
+            resolved_runtime_plan = compile_runtime_plan(runtime_context.paths)
+    resolved_plan = resolved_runtime_plan.compiled_plan
     code_sha = _current_code_sha()
     sequence = resolved_plan.sequence()
     sequence_ids = [str(step_meta.get("id", "")) for step_meta in sequence]
@@ -106,6 +126,7 @@ def build_daily_step_job(
         run_id=payload.run_id,
         plan=resolved_plan,
         dry_run=payload.dry_run,
+        runtime_context=payload.runtime_context,
     )
     observed_results: list[dict[str, Any]] = []
 
@@ -167,12 +188,19 @@ def build_daily_step_job(
                             "step_id": current_step_id,
                             "owner": current_step.owner,
                             "plan_digest": resolved_plan.plan_digest,
+                            "plan_version": resolved_runtime_plan.plan_version,
+                            "source_digest": resolved_runtime_plan.source_digest,
+                            "runtime_execution_mode": resolved_runtime_plan.execution_mode,
                             "code_sha": code_sha,
                             "bundle_run_id": payload.run_id,
                             "failure_behavior": current_step.failure_behavior,
                             "execution_mode": current_step.execution_mode,
+                            "timeout_seconds": current_step.timeout_seconds,
+                            "subprocess_justification": current_step.subprocess_justification,
                             "inputs": list(current_step.inputs),
                             "outputs": list(current_step.outputs),
+                            "artifact_path": current_step.artifact_path or None,
+                            "ttl_hours": current_step.ttl_hours,
                             "upstream_steps": list(current_upstream_ids),
                             "execution_upstream_steps": list(current_execution_upstream_ids),
                         }
@@ -265,6 +293,9 @@ def build_daily_step_job(
             context.add_output_metadata(
                 {
                     "plan_digest": resolved_plan.plan_digest,
+                    "plan_version": resolved_runtime_plan.plan_version,
+                    "source_digest": resolved_runtime_plan.source_digest,
+                    "runtime_execution_mode": resolved_runtime_plan.execution_mode,
                     "code_sha": code_sha,
                     "bundle_run_id": payload.run_id,
                     "step_count": len(step_results),
@@ -292,25 +323,60 @@ def build_daily_step_job(
 
 
 def run_daily_sequence_via_dagster(payload: DailyRunPayload) -> list[dict[str, Any]]:
-    """Default-path daily sequence: compiled per-step Dagster graph."""
-    if use_native_daily_assets():
-        from orchestration.native_daily import run_daily_sequence_via_native_assets
+    """Default-path daily sequence: exactly one compiled Dagster graph."""
+    active_marker = "SYSTEM_DAGSTER_EXECUTION_ACTIVE"
+    if os.environ.get(active_marker, "").strip().lower() in {"1", "true", "yes"}:
+        raise RuntimeError(
+            "nested Dagster execution is forbidden: the execution spine already has an active boundary"
+        )
 
-        return run_daily_sequence_via_native_assets(payload)
-    plan = payload.plan or load_pipeline(WorkspacePaths(root=ROOT))
+    runtime_context = payload.runtime_context or RuntimeContext.current_context()
+    runtime_plan = payload.runtime_plan
+    if runtime_plan is None:
+        if payload.plan is not None:
+            runtime_plan = CompiledRuntimePlan.from_compiled(
+                payload.plan,
+                source_digest=payload.plan.plan_digest,
+                source_path="test_or_compatibility_plan",
+            )
+        else:
+            runtime_plan = compile_runtime_plan(runtime_context.paths)
+    plan = runtime_plan.compiled_plan
     captured: list[dict[str, Any]] = []
 
     def _record(result: dict[str, Any], input_artifacts: list[str] | None = None) -> None:
         captured.append(result)
         payload.record_fn(result, input_artifacts=input_artifacts)
 
-    job = build_daily_step_job(replace(payload, record_fn=_record, plan=plan), plan=plan)
-    execution = job.execute_in_process()
-    if not execution.success:
-        raise RuntimeError(
-            f"compiled daily Dagster job failed for run_id={payload.run_id} "
-            f"(plan_digest={plan.plan_digest})"
+    payload_for_job = replace(
+        payload,
+        record_fn=_record,
+        plan=plan,
+        runtime_plan=runtime_plan,
+    )
+    previous_marker = os.environ.get(active_marker)
+    os.environ[active_marker] = "1"
+    try:
+        if use_native_daily_assets():
+            from orchestration.native_daily import run_daily_sequence_via_native_assets
+
+            return run_daily_sequence_via_native_assets(payload_for_job)
+        job = build_daily_step_job(
+            payload_for_job,
+            plan=plan,
+            runtime_plan=runtime_plan,
         )
+        execution = job.execute_in_process()
+        if not execution.success:
+            raise RuntimeError(
+                f"compiled daily Dagster job failed for run_id={payload.run_id} "
+                f"(plan_digest={plan.plan_digest})"
+            )
+    finally:
+        if previous_marker is None:
+            os.environ.pop(active_marker, None)
+        else:
+            os.environ[active_marker] = previous_marker
     return captured
 
 
@@ -326,6 +392,7 @@ def run_daily_sequence_direct(payload: DailyRunPayload) -> list[dict[str, Any]]:
         run_id=payload.run_id,
         plan=payload.plan,
         dry_run=payload.dry_run,
+        runtime_context=payload.runtime_context,
     )
     return cast(list[dict[str, Any]], execute_daily_sequence(ctx, plan=payload.plan))
 
@@ -369,7 +436,7 @@ def _print_refresh_summary(steps: list[dict[str, Any]]) -> None:
 
 
 def _verify_refresh_outputs() -> int:
-    from scripts._runtime_io import ROOT
+    from verity.runtime.runtime_io import ROOT
 
     current = ROOT / "Output" / "current"
     judgment = ROOT / "Output" / "judgment"

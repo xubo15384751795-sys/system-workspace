@@ -7,8 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts._experiment_tracker import ExperimentTracker, ExperimentTrackingError
-from scripts.run_bundle import RunBundle
+from verity.runtime._experiment_tracker import (
+    ExperimentTracker,
+    ExperimentTrackingError,
+)
+from verity.runtime.run_bundle import RunBundle
 
 
 def test_tracker_records_params_metric_history_tags_and_artifacts(tmp_path: Path) -> None:

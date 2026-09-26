@@ -35,7 +35,7 @@ def _load_constitution() -> dict:
 
 def _get_daily_run_steps() -> set[str]:
     """Extract step names from daily_run.py run_step() calls."""
-    daily_run = ROOT / "scripts" / "daily_run.py"
+    daily_run = ROOT / "verity" / "cli" / "daily_run.py"
     source = daily_run.read_text(encoding="utf-8")
     return set(re.findall(r'run_step\("([^"]+)"', source))
 
@@ -123,7 +123,7 @@ def test_registry_schema_version() -> None:
 
 
 def test_sandbox_steps_cannot_affect_core_judgment() -> None:
-    """Steps that produce to Output/sandbox/ must NOT affect core judgment.
+    """Steps that produce to Output/state/sandbox/ must NOT affect core judgment.
 
     This is the hard authority rule: sandbox outputs are staging artifacts,
     not authority sources. They must go through bridge/gate to reach core.
@@ -134,16 +134,16 @@ def test_sandbox_steps_cannot_affect_core_judgment() -> None:
         produces = spec.get("produces", [])
         artifact_path = spec.get("artifact_path", "")
 
-        # Check if any output is under Output/sandbox/
+        # Check if any output is under Output/state/sandbox/
         produces_sandbox = any(
-            str(p).startswith("Output/sandbox/") for p in produces
+            str(p).startswith("Output/state/sandbox/") for p in produces
         )
-        artifact_in_sandbox = artifact_path.startswith("Output/sandbox/")
+        artifact_in_sandbox = artifact_path.startswith("Output/state/sandbox/")
 
         if produces_sandbox or artifact_in_sandbox:
             if spec.get("allowed_to_affect_core_judgment") is True:
                 violations.append(
-                    f"{name}: produces to Output/sandbox/ but "
+                    f"{name}: produces to Output/state/sandbox/ but "
                     f"allowed_to_affect_core_judgment=true — sandbox cannot affect core"
                 )
     assert not violations, (
@@ -162,7 +162,7 @@ def test_core_affecting_outputs_must_be_current_or_runs() -> None:
     constitution = _load_constitution()
     prohibited_prefixes = tuple(
         constitution.get("hard_authority_rule", {}).get("prohibited_from_core_judgment", [
-            "Output/sandbox/", "Output/research/", "Output/archive/", "Output/system_learning/",
+            "Output/state/sandbox/", "Output/research/", "Output/archive/", "Output/system_learning/",
         ])
     )
     violations = []
@@ -203,7 +203,7 @@ def test_sandbox_chain_must_go_through_bridge() -> None:
     for name, spec in registry.items():
         produces = spec.get("produces", [])
         produces_sandbox = any(
-            str(p).startswith("Output/sandbox/") for p in produces
+            str(p).startswith("Output/state/sandbox/") for p in produces
         )
 
         if not produces_sandbox:

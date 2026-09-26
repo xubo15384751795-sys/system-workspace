@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import logging
 import os
 import socket
 import time
@@ -37,6 +38,12 @@ class GatewayHTTPError(GatewayError):
 
 class GatewayResponseTooLarge(GatewayPolicyError):
     """Raised when a provider response exceeds the configured byte budget."""
+
+
+def _suppress_request_url_logging() -> None:
+    """Prevent HTTP client INFO logs from exposing credential-bearing URLs."""
+    for logger_name in ("httpx", "httpcore"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 @dataclass(frozen=True)
@@ -363,6 +370,7 @@ class OwnedHTTPGateway:
         max_response_bytes: int = 2_000_000,
         timeout_sec: int | float = 30.0,
     ) -> None:
+        _suppress_request_url_logging()
         if max_response_bytes <= 0:
             raise ValueError("max_response_bytes must be positive")
         if not 1.0 <= float(timeout_sec) <= 300.0:

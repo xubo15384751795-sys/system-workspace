@@ -19,7 +19,7 @@ from orchestration.native_adjacent_boundaries import (
     execute_native_adjacent_boundary,
     select_native_adjacent_boundary_steps,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 NATIVE_ADJACENT_PILOT = "native_adjacent_pilot"
 NativeAdjacentBoundaryRunner = Callable[[str], dict[str, Any]]

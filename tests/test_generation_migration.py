@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts import migrate_output_to_generations as migration
 from system_runtime.publish_transaction import PublishTransaction
+from verity.cli import migrate_output_to_generations as migration
 
 
 def _seed_legacy_output(root: Path) -> Path:

@@ -152,23 +152,23 @@ def seed_callable_chain_workspace(target: Path) -> Path:
 
 def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     """Point runtime + judgment modules at the sandbox workspace root."""
+    import harvester.operators.refresh_etf_panel as etf_refresh
+    import workbench.judgment.judgment_layer as jl_script
     import workbench.judgment.layer as jl
+    import workbench.judgment.pending_evaluation as pe
     import workbench.judgment.promotion_gate as pg
+    import workbench.judgment.trade_decision_layer as trade_decision
+    import workbench.measurement.freshness_validator as freshness
     import workbench.signals.k_gate as k_gate
+    import workbench.surfaces.build_artifact_registry as artifact_reg
+    import workbench.surfaces.build_current_status as current_status
+    import workbench.surfaces.build_evidence_grade_report as evidence_grade
+    import workbench.surfaces.build_next_actions as next_actions
+    import workbench.surfaces.build_readme_first as readme_first
 
-    import scripts._data_paths as dp
-    import scripts._runtime_io as rio
-    import scripts.build_current_status as current_status
-    import scripts.commands.weekly.build_artifact_registry as artifact_reg
-    import scripts.commands.weekly.build_evidence_grade_report as evidence_grade
-    import scripts.commands.weekly.build_next_actions as next_actions
-    import scripts.commands.weekly.build_readme_first as readme_first
-    import scripts.freshness_validator as freshness
-    import scripts.judgment_layer as jl_script
-    import scripts.pending_evaluation as pe
-    import scripts.refresh_etf_panel as etf_refresh
-    import scripts.trade_decision_layer as trade_decision
     import scripts.x_measurement_gate as x_gate
+    import verity.runtime._data_paths as dp
+    from verity.runtime import runtime_io as rio
 
     out = sandbox / "Output"
     current = out / "current"
@@ -201,7 +201,7 @@ def patch_callable_chain_paths(monkeypatch, sandbox: Path) -> None:
     monkeypatch.setattr(jl, "VALIDATION_PATH", current / "quality_validation.json")
     monkeypatch.setattr(jl, "OUTPUT_DIR", judgment)
 
-    # scripts.judgment_layer binds FW_PATH at import time — keep it aligned.
+    # workbench.judgment.judgment_layer binds FW_PATH at import time — keep it aligned.
     monkeypatch.setattr(
         jl_script, "FW_PATH", current / "neutral_pressure_snapshot.json"
     )

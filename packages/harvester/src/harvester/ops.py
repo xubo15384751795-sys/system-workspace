@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
@@ -18,6 +17,7 @@ from harvester.core.exporter import (
     validate_release_id,
 )
 from harvester.core.manifest import load_manifest
+from system_runtime.secrets import SecretProvider, default_secret_provider
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,11 @@ def run_preflight(
     *,
     exports_root: Path | str | None = None,
     providers: list[str] | None = None,
+    secrets: SecretProvider | None = None,
 ) -> PreflightResult:
     root = Path(exports_root) if exports_root is not None else default_exports_root()
     requested = set(providers or [])
+    secret_provider = secrets or default_secret_provider()
     checks: list[PreflightCheck] = []
 
     checks.append(PreflightCheck(
@@ -86,7 +88,7 @@ def run_preflight(
     needs_fred = not requested or bool(requested & {"fred", "openbb_fred"})
     checks.append(PreflightCheck(
         "fred_api_key",
-        bool(os.environ.get("FRED_API_KEY") or os.environ.get("OPENBB_FRED_API_KEY")),
+        bool(secret_provider.get("FRED_API_KEY")),
         severity="error" if needs_fred else "warn",
         detail="required for FRED-backed providers" if needs_fred else "not required for selected provider set",
     ))
@@ -114,9 +116,15 @@ def run_daily_release(
     include_external: bool = True,
     notes: str = "",
     preflight: bool = True,
+    secrets: SecretProvider | None = None,
 ) -> dict[str, Any]:
     from harvester.official import stage_complete_release
 
+    # Resolve the host SecretProvider once at the application boundary.  The
+    # same provider must feed both preflight and acquisition; otherwise a
+    # mode-600 host secret can make preflight pass while the release stage
+    # still receives no provider credentials.
+    secret_provider = secrets or default_secret_provider()
     root = Path(exports_root) if exports_root is not None else default_exports_root()
     resolved_release_id = release_id or next_release_id(root)
     resolved_as_of = as_of_date or datetime.now(UTC).date().isoformat()
@@ -151,7 +159,11 @@ def run_daily_release(
             return reused
 
     if preflight:
-        preflight_result = run_preflight(exports_root=root, providers=providers)
+        preflight_result = run_preflight(
+            exports_root=root,
+            providers=providers,
+            secrets=secret_provider,
+        )
         if not preflight_result.passed:
             report = _write_failure_report(
                 root,
@@ -177,6 +189,7 @@ def run_daily_release(
             cache=cache,
             include_external=include_external,
             notes=notes,
+            secret_provider=secret_provider,
         )
         if not staged.get("gate_passed", False):
             return {

@@ -15,6 +15,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from harvester.core.source_drift import compare_normalized_frames, compare_source_signatures
+from system_runtime.context import RuntimeContext
 
 
 ETF_PARITY_SENTINELS = ("SPY", "QQQ", "HYG", "LQD", "TLT", "GLD", "UUP")
@@ -22,7 +23,7 @@ PARITY_SCHEMA_VERSION = "system.provider_parity_report.v1"
 
 
 def _root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    return RuntimeContext.current_context().workspace
 
 
 def parity_policy_path() -> Path:

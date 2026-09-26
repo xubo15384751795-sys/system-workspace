@@ -1,5 +1,21 @@
 schema_version: daily_pipeline_registry.v3
 updated_at: '2026-09-06'
+# DERIVED compatibility view.  Runtime compilation uses governance/pipeline/;
+# this file is retained for legacy readers and parity inspection only.
+registry_view:
+  view_kind: DERIVED
+  runtime_input: false
+  source_directory: governance/pipeline/
+  compiler_version: registry-authoring-v1
+  source_digest: 10abca243aa4f843f4e9d146a0aa89d0ed811f1f2c59dc803e0826f6103d9714
+  semantic_digest: cf2af89804855100ebf2230fef5e0e70b7ec0e1b34a384b5d4097b829bdb34dd
+  source_files:
+    - governance/pipeline/topology.yaml
+    - governance/pipeline/execution_profiles.yaml
+    - governance/pipeline/monitoring.yaml
+    - governance/pipeline/freshness.yaml
+    - governance/pipeline/ownership.yaml
+    - governance/pipeline/schedule_metadata.yaml
 generated_views:
   - governance/daily_run_sequence.yaml
 # Known external inputs — paths consumed by steps but not produced by any
@@ -21,8 +37,8 @@ external_inputs:
   - .cursor/checkpoints/
   - Paper/90_Admin/
   - Output/system_learning/latest/threshold_review_candidates.json
-  - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
-  - Output/strategy_lab/backtest_result.json
+  - Output/state/strategy_lab/qlib_experiment/lightgbm_experiment.json
+  - Output/state/strategy_lab/backtest_result.json
   # Routing destination declared in governance/output_routing_policy.yaml
   # (routes.research). output_routing_audit scans it; no pipeline step
   # produces it, so it is a root input like Output/runs/ above.
@@ -76,6 +92,30 @@ execution_profiles:
     - change_analysis
     - supervisor_check
     - governance_status
+
+# Runtime execution policy is compiled together with the topology.  A
+# subprocess is an explicit boundary, not a historical default: every entry
+# below must name the allowed reason that justifies keeping a process boundary.
+# Internal tools with a canonical callable are migrated to ``mode: callable``;
+# this map covers only the residual isolation/archive/external boundaries.
+execution_policy:
+  default_timeout_seconds: 1800
+  subprocess_justifications:
+    harvester: real_process_isolation
+    bridge: archive_legacy_executable
+    run_operator_detections: archive_legacy_executable
+    regime_detection: real_process_isolation
+    probabilistic_context: archive_legacy_executable
+    signal_monitor: archive_legacy_executable
+    proxy_quality_report: archive_legacy_executable
+    proxy_lifecycle: archive_legacy_executable
+    position_sizing: archive_legacy_executable
+    build_overlay_shadow_report: archive_legacy_executable
+    build_event_replay_factory: archive_legacy_executable
+    routing_decision: archive_legacy_executable
+    asof_integrity_check: archive_legacy_executable
+    baseline_comparison: archive_legacy_executable
+    threshold_review_bridge: archive_legacy_executable
 
 # Step defaults — individual steps override only when they differ.
 # NOTE: This block is documentation for human readers. The merge logic
@@ -320,22 +360,22 @@ monitoring_classification:
     - pattern: Output/runs/*
       class: decision_adjacent_shadow
       owner: Workbench
-    - pattern: Output/sandbox/*
+    - pattern: Output/state/sandbox/*
       class: research
       owner: Workbench
     - pattern: Output/research/*
       class: research
       owner: Workbench
-    - pattern: Output/validation/*
+    - pattern: Output/state/validation/*
       class: research
       owner: ML Signals
-    - pattern: Output/strategy_lab/*
+    - pattern: Output/state/strategy_lab/*
       class: research
       owner: ML Signals
-    - pattern: Output/benchmarks/*
+    - pattern: Output/state/benchmarks/*
       class: research
       owner: Workbench
-    - pattern: Output/caselab/*
+    - pattern: Output/state/caselab/*
       class: research
       owner: CaseLab
     - pattern: Output/workbench/*
@@ -439,7 +479,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/refresh_etf_panel.py
-      future_callable: scripts.refresh_etf_panel:main
+      future_callable: harvester.operators.refresh_etf_panel:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -468,9 +508,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: lower_claim_ceiling
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/sync_paper_world_model.py
-      future_callable: workbench.workspace.paper_sync:main
+      future_callable: harvester.operators.sync_paper_world_model:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -499,7 +539,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: lower_claim_ceiling
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/horizon_event_adapter.py
       future_callable: workbench.signals.horizon:main
       cwd_policy: workspace_root
@@ -532,9 +572,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: block_current_readout
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/neutral_pressure_measurement.py
-      future_callable: scripts.neutral_pressure_measurement:main
+      future_callable: workbench.plugins.neutral_pressure_md.cli:main
       native_core_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -557,8 +597,8 @@ steps:
     consumes:
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
     produces: &id010
-    - Output/sandbox/structural_replay_v2/
-    artifact_path: Output/sandbox/structural_replay_v2/results.json
+    - Output/state/sandbox/structural_replay_v2/
+    artifact_path: Output/state/sandbox/structural_replay_v2/results.json
     ttl_hours: 48
     requires_harvester_evidence: true
     requires_provenance: false
@@ -586,9 +626,9 @@ steps:
     owner: Workbench
     command: python scripts/bridge_replay_to_current.py
     input: &id011
-    - Output/sandbox/structural_replay_v2/
+    - Output/state/sandbox/structural_replay_v2/
     consumes:
-    - Output/sandbox/structural_replay_v2/
+    - Output/state/sandbox/structural_replay_v2/
     produces: &id012
     - Output/current/framework_output.json
     artifact_path: Output/current/framework_output.json
@@ -659,9 +699,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/validate_proxy_observation_catalog.py
-      future_callable: scripts.validate_proxy_observation_catalog:main
+      future_callable: harvester.operators.validate_proxy_observation_catalog:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     authority:
@@ -690,9 +730,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: block_promotion
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/quality_field_validator.py
-      future_callable: scripts.quality_field_validator:main
+      future_callable: workbench.measurement.quality_field_validator:main
       native_core_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -714,8 +754,8 @@ steps:
     consumes:
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
     produces: &id016
-    - Output/ml_signals/
-    artifact_path: Output/ml_signals/
+    - Output/state/ml_signals/
+    artifact_path: Output/state/ml_signals/
     ttl_hours: 48
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -740,18 +780,18 @@ steps:
     owner: ML Signals
     command: python scripts/archive_hmm_calibration_snapshot.py
     input:
-    - Output/ml_signals/latest/regime_hmm.json
+    - Output/state/ml_signals/latest/regime_hmm.json
     produces:
-    - Output/ml_signals/calibration_history/
-    artifact_path: Output/ml_signals/calibration_history/
+    - Output/state/ml_signals/calibration_history/
+    artifact_path: Output/state/ml_signals/calibration_history/
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive_hmm_calibration_snapshot.py
-      future_callable: scripts.archive_hmm_calibration_snapshot:main
+      future_callable: workbench.measurement.archive_hmm_calibration_snapshot:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     authority:
@@ -760,28 +800,28 @@ steps:
       owner: ML Signals
     contracts:
       inputs:
-      - Output/ml_signals/latest/regime_hmm.json
+      - Output/state/ml_signals/latest/regime_hmm.json
       outputs:
-      - Output/ml_signals/calibration_history/
+      - Output/state/ml_signals/calibration_history/
   hmm_stability_audit:
     order: 35
     status: experimental
     owner: ML Signals
     command: python scripts/hmm_stability_audit.py
     input: &id017
-    - Output/ml_signals/
+    - Output/state/ml_signals/
     produces: &id018
-    - Output/hmm_stability/hmm_stability_audit.json
-    - Output/hmm_stability/hmm_stability_audit.md
-    artifact_path: Output/hmm_stability/hmm_stability_audit.json
+    - Output/state/hmm_stability/hmm_stability_audit.json
+    - Output/state/hmm_stability/hmm_stability_audit.md
+    artifact_path: Output/state/hmm_stability/hmm_stability_audit.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/hmm_stability_audit.py
-      future_callable: scripts.hmm_stability_audit:main
+      future_callable: tools.audit.hmm_stability_audit:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -875,11 +915,11 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/commands/weekly/build_measurement_quality_report.py
-      future_callable: scripts.commands.weekly.build_measurement_quality_report:main
+      future_callable: workbench.measurement.build_measurement_quality_report:main
       dagster_asset_check: shadow_pilot
       dagster_native_asset: native_quality_pilot
       native_file_boundary: shadow_pilot
-      native_callable: scripts.commands.weekly.build_measurement_quality_report:build_report
+      native_callable: workbench.measurement.build_measurement_quality_report:build_report
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -899,16 +939,16 @@ steps:
     - caselab_context/
     - caselab_runtime/
     produces: &id022
-    - Output/caselab/
-    artifact_path: Output/caselab/
+    - Output/state/caselab/
+    artifact_path: Output/state/caselab/
     ttl_hours: 48
     allowed_to_affect_core_judgment: true
     core_judgment_dependency: false
     failure_behavior: lower_claim_ceiling
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/caselab_daily_signal.py --json
-      future_callable: scripts.caselab_daily_signal:main
+      future_callable: workbench.caselab.caselab_daily_signal:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -926,7 +966,7 @@ steps:
     command: python scripts/judgment_layer.py
     input: &id023
     - Output/current/neutral_pressure_snapshot.json
-    - Output/caselab/
+    - Output/state/caselab/
     produces: &id024
     - Output/judgment/latest.json
     - Output/judgment/latest.md
@@ -938,7 +978,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/judgment_layer.py
-      future_callable: scripts.judgment_layer:main
+      future_callable: workbench.judgment.judgment_layer:main
       native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -966,9 +1006,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/judgment_replay_audit.py
-      future_callable: scripts.commands.weekly.judgment_replay_audit:main
+      future_callable: tools.audit.judgment_replay_audit:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -998,7 +1038,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/judgment_promotion_gate.py
-      future_callable: scripts.judgment_promotion_gate:main
+      future_callable: workbench.judgment.judgment_promotion_gate:main
       native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1058,7 +1098,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/trade_decision_layer.py
-      future_callable: scripts.trade_decision_layer:main
+      future_callable: workbench.judgment.trade_decision_layer:main
       dagster_asset_check: degrade_pilot
       native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
@@ -1087,9 +1127,9 @@ steps:
     core_judgment_dependency: true
     failure_behavior: hold_flat
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/trade_risk_gate.py
-      future_callable: scripts.trade_risk_gate:main
+      future_callable: workbench.judgment.trade_risk_gate:main
       native_decision_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1117,9 +1157,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/record_trade_decision.py
-      future_callable: scripts.record_trade_decision:main
+      future_callable: system_learning.operators.record_trade_decision:main
       native_adjacent_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1153,9 +1193,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: decision_adjacent_block
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/strategy_lab/paper_portfolio.py
-      future_callable: scripts.strategy_lab.paper_portfolio:main
+      future_callable: strategy_lab.paper_portfolio:main
       native_adjacent_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1190,9 +1230,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/trade_decision_replay.py
-      future_callable: scripts.commands.weekly.trade_decision_replay:main
+      future_callable: workbench.judgment.trade_decision_replay:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1212,16 +1252,16 @@ steps:
     input: &id035
     - Output/trade_decision/
     produces: &id036
-    - Output/market_feedback/
-    artifact_path: Output/market_feedback/
+    - Output/state/market_feedback/
+    artifact_path: Output/state/market_feedback/
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/market_feedback.py
-      future_callable: scripts.market_feedback:main
+      future_callable: system_learning.operators.market_feedback:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1250,13 +1290,13 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/build_data_gaps.py
-      future_callable: scripts.commands.weekly.build_data_gaps:main
+      future_callable: workbench.surfaces.build_data_gaps:main
       dagster_asset: shadow_pilot
       dagster_native_asset: native_pilot
       native_file_boundary: shadow_pilot
-      native_callable: scripts.commands.weekly.build_data_gaps:build_data_gaps
+      native_callable: workbench.surfaces.build_data_gaps:build_data_gaps
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1278,7 +1318,7 @@ steps:
     owner: Deformation Framework
     command: python scripts/archive/signal_monitor.py --json
     input:
-    - Output/sandbox/structural_replay_v2/all_signals.parquet
+    - Output/state/sandbox/structural_replay_v2/all_signals.parquet
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
     produces:
     - Output/signal_monitor/latest.json
@@ -1317,9 +1357,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/claim_evaluator.py
-      future_callable: scripts.commands.weekly.claim_evaluator:main
+      future_callable: system_learning.operators.claim_evaluator:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1338,19 +1378,19 @@ steps:
     command: python scripts/commands/weekly/claim_ladder_tracker.py
     input: &id_claim_ladder_in
     - Output/judgment/latest.json
-    - Output/caselab/
-    - Output/ml_signals/latest/regime_hmm.json
+    - Output/state/caselab/
+    - Output/state/ml_signals/latest/regime_hmm.json
     produces: &id_claim_ladder_out
-    - Output/claim_ladder/progression.json
-    artifact_path: Output/claim_ladder/progression.json
+    - Output/state/claim_ladder/progression.json
+    artifact_path: Output/state/claim_ladder/progression.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/claim_ladder_tracker.py
-      future_callable: scripts.commands.weekly.claim_ladder_tracker:main
+      future_callable: system_learning.operators.claim_ladder_tracker:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1368,9 +1408,9 @@ steps:
     owner: Learning Hub
     command: python scripts/commands/weekly/build_learning_hub_feedback.py
     input: &id_lh_feedback_in
-    - Output/claim_ladder/
+    - Output/state/claim_ladder/
     - caselab_context/feedback_log.jsonl
-    - Output/caselab/causal/mechanism_calibration_gate.json
+    - Output/state/caselab/causal/mechanism_calibration_gate.json
     produces: &id_lh_feedback_out
     - Output/system_learning/latest/claim_ladder_feedback.json
     - Output/system_learning/latest/caselab_review_feedback.json
@@ -1381,9 +1421,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/build_learning_hub_feedback.py
-      future_callable: scripts.commands.weekly.build_learning_hub_feedback:main
+      future_callable: system_learning.operators.build_learning_hub_feedback:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1473,9 +1513,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/learning_hub_comprehensive_summary.py
-      future_callable: learning_hub.summary:main
+      future_callable: system_learning.operators.learning_hub_comprehensive_summary:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1502,9 +1542,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/learning_hub_judgment_calibration.py
-      future_callable: learning_hub.calibration:main
+      future_callable: system_learning.operators.learning_hub_judgment_calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1531,9 +1571,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/learning_hub_trade_calibration.py
-      future_callable: learning_hub.calibration:main
+      future_callable: system_learning.operators.learning_hub_trade_calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1561,9 +1601,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/operator_registry_audit.py
-      future_callable: scripts.commands.weekly.operator_registry_audit:main
+      future_callable: tools.audit.operator_registry_audit:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1621,7 +1661,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: block_current_readout
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_system_index.py
       future_callable: workbench.workspace.build_system_index:main
       cwd_policy: workspace_root
@@ -1653,7 +1693,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/commands/weekly/build_readme_first.py
-      future_callable: scripts.commands.weekly.build_readme_first:main
+      future_callable: workbench.surfaces.build_readme_first:main
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1689,9 +1729,9 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/commands/weekly/build_evidence_grade_report.py
-      future_callable: scripts.commands.weekly.build_evidence_grade_report:main
+      future_callable: workbench.surfaces.build_evidence_grade_report:main
       dagster_native_asset: native_pilot
-      native_callable: scripts.commands.weekly.build_evidence_grade_report:build_evidence_grade_report
+      native_callable: workbench.surfaces.build_evidence_grade_report:build_evidence_grade_report
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1722,9 +1762,9 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/commands/weekly/build_artifact_registry.py
-      future_callable: scripts.commands.weekly.build_artifact_registry:main
+      future_callable: workbench.surfaces.build_artifact_registry:main
       dagster_native_asset: native_pilot
-      native_callable: scripts.commands.weekly.build_artifact_registry:build_artifact_registry
+      native_callable: workbench.surfaces.build_artifact_registry:build_artifact_registry
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1748,7 +1788,7 @@ steps:
     - Output/judgment/promotion_gate.json
     produces: &id050_8
     - Output/system_learning/events/run_events_*.jsonl
-    - Output/runtime_events/run_events_*.jsonl
+    - <<KEEP_STATE_{name}>>_events/run_events_*.jsonl
     artifact_path: Output/system_learning/events/
     ttl_hours: 8760
     allowed_to_affect_core_judgment: false
@@ -1757,7 +1797,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/record_daily_run_event.py --skip-if-unchanged
-      future_callable: scripts.record_daily_run_event:main
+      future_callable: system_learning.operators.record_daily_run_event:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1799,7 +1839,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/run_learning_hub_ingest.py
       future_callable: system_learning.runtime.pipeline:execute_pipeline
       cwd_policy: workspace_root
@@ -1832,9 +1872,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/artifact_monitoring_audit.py
-      future_callable: scripts.artifact_monitoring_audit:main
+      future_callable: tools.audit.artifact_monitoring_audit:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1864,7 +1904,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/commands/weekly/build_next_actions.py
-      future_callable: scripts.commands.weekly.build_next_actions:main
+      future_callable: workbench.surfaces.build_next_actions:main
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -1903,7 +1943,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/freshness_validator.py
-      future_callable: scripts.freshness_validator:main
+      future_callable: workbench.measurement.freshness_validator:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1920,14 +1960,10 @@ steps:
     order: 36.5
     status: active
     owner: Data/Output
-    # The executor reports all policy findings and, for Output/runs only,
-    # performs the policy's recoverable archive move. It never deletes.
-    # The policy has declared
-    # harvester_exports.keep_last_n_daily since 2026-06-17, but nothing
-    # evaluated it, so exports grew to 883MB across 146 directories while
-    # data_retention_policy.yaml still recorded current_size_mb: 205.
-    # Finalized Harvester releases remain report-only; acting on those findings
-    # stays an operator decision.
+    # --apply packs reclaimable Harvester releases (catalog+parquet, no JSONL)
+    # into Data/archive/harvester_releases_2026H1.tar.zst, deletes those
+    # directories and test-debug*, strips retained JSONL, and still moves
+    # eligible Output/runs into the recoverable run archive.
     schedule: weekly
     command: python scripts/apply_data_retention_policy.py --apply
     input: &id_data_retention_in
@@ -1941,9 +1977,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/apply_data_retention_policy.py --apply
-      future_callable: scripts.apply_data_retention_policy:main
+      future_callable: tools.apply_data_retention_policy:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -1972,9 +2008,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/architecture_reality_audit.py
-      future_callable: scripts.commands.weekly.architecture_reality_audit:main
+      future_callable: tools.audit.architecture_reality_audit:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2003,9 +2039,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_signal_card.py
-      future_callable: scripts.build_signal_card:main
+      future_callable: workbench.surfaces.build_signal_card:main
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2025,10 +2061,10 @@ steps:
     input: &id080
     - Output/current/
     - Output/judgment/
-    - Output/ml_signals/
+    - Output/state/ml_signals/
     - Output/k_measurement/
     - Output/x_measurement/
-    - Output/caselab/
+    - Output/state/caselab/
     - Output/probabilistic_context/
     produces: &id081
     - Output/current/signal_consensus.json
@@ -2039,9 +2075,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: block_current_readout
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/signal_consensus.py
-      future_callable: scripts.signal_consensus:main
+      future_callable: workbench.surfaces.signal_consensus:main
       dagster_asset_check: blocking_pilot
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
@@ -2065,19 +2101,19 @@ steps:
     - Output/current/framework_output.json
     - Output/current/neutral_pressure_snapshot.json
     - Data/panels/cross_asset_daily_panel.parquet
-    - Output/sandbox/structural_replay_v2/all_signals.parquet
+    - Output/state/sandbox/structural_replay_v2/all_signals.parquet
     produces:
-    - Output/strategy_lab/shadow_cards/latest.json
-    - Output/strategy_lab/shadow_cards/
-    artifact_path: Output/strategy_lab/shadow_cards/latest.json
+    - Output/state/strategy_lab/shadow_cards/latest.json
+    - Output/state/strategy_lab/shadow_cards/
+    artifact_path: Output/state/strategy_lab/shadow_cards/latest.json
     ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/strategy_lab/run_backtest.py --shadow-card
-      future_callable: scripts.strategy_lab.run_backtest:main
+      future_callable: strategy_lab.run_backtest:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2085,10 +2121,10 @@ steps:
       - Output/current/framework_output.json
       - Output/current/neutral_pressure_snapshot.json
       - Data/panels/cross_asset_daily_panel.parquet
-      - Output/sandbox/structural_replay_v2/all_signals.parquet
+      - Output/state/sandbox/structural_replay_v2/all_signals.parquet
       outputs:
-      - Output/strategy_lab/shadow_cards/latest.json
-      - Output/strategy_lab/shadow_cards/
+      - Output/state/strategy_lab/shadow_cards/latest.json
+      - Output/state/strategy_lab/shadow_cards/
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -2100,27 +2136,27 @@ steps:
     owner: Strategy Lab
     command: python scripts/build_shadow_outcomes_90d.py
     input:
-    - Output/strategy_lab/shadow_cards/
+    - Output/state/strategy_lab/shadow_cards/
     - Output/current/neutral_pressure_snapshot.json
     produces:
-    - Output/strategy_lab/shadow_outcomes_90d.json
-    artifact_path: Output/strategy_lab/shadow_outcomes_90d.json
+    - Output/state/strategy_lab/shadow_outcomes_90d.json
+    artifact_path: Output/state/strategy_lab/shadow_outcomes_90d.json
     ttl_hours: 24
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_shadow_outcomes_90d.py
-      future_callable: scripts.build_shadow_outcomes_90d:main
+      future_callable: strategy_lab.build_shadow_outcomes_90d:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
       inputs:
-      - Output/strategy_lab/shadow_cards/
+      - Output/state/strategy_lab/shadow_cards/
       - Output/current/neutral_pressure_snapshot.json
       outputs:
-      - Output/strategy_lab/shadow_outcomes_90d.json
+      - Output/state/strategy_lab/shadow_outcomes_90d.json
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -2132,22 +2168,22 @@ steps:
     owner: Strategy Lab
     depends_on:
       - strategy_lab_shadow
-    command: python scripts/archive/build_overlay_shadow_report.py
+    command: python packages/framework_v1_archive/scripts/build_overlay_shadow_report.py
     schedule: weekly
     input:
-    - Output/strategy_lab/shadow_cards/
+    - Output/state/strategy_lab/shadow_cards/
     - Data/panels/cross_asset_daily_panel.parquet
     produces:
-    - Output/strategy_lab/overlay_shadow_report.json
-    artifact_path: Output/strategy_lab/overlay_shadow_report.json
+    - Output/state/strategy_lab/overlay_shadow_report.json
+    artifact_path: Output/state/strategy_lab/overlay_shadow_report.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
       mode: subprocess
-      current_command: python scripts/archive/build_overlay_shadow_report.py
-      future_callable: scripts.build_overlay_shadow_report:main
+      current_command: python packages/framework_v1_archive/scripts/build_overlay_shadow_report.py
+      future_callable: verity.archive_compat.build_overlay_shadow_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     authority:
@@ -2156,16 +2192,16 @@ steps:
       owner: Strategy Lab
     contracts:
       inputs:
-      - Output/strategy_lab/shadow_cards/
+      - Output/state/strategy_lab/shadow_cards/
       - Data/panels/cross_asset_daily_panel.parquet
       outputs:
-      - Output/strategy_lab/overlay_shadow_report.json
+      - Output/state/strategy_lab/overlay_shadow_report.json
   build_event_replay_factory:
     order: 68
     status: archived
     archive_reason: >-
       Deformation v1 weekly replay factory; 4.8h Monday cost. Existing
-      Output/sandbox/event_replay/ files remain readable by
+      Output/state/sandbox/event_replay/ files remain readable by
       build_feedback_sample_pool; the factory no longer runs on the default path.
     owner: Deformation Framework
     command: python scripts/archive/build_event_replay_factory.py
@@ -2174,8 +2210,8 @@ steps:
     - governance/event_replay_windows.yaml
     - Data/harvester/exports/latest/data/benchmark_panel.parquet
     produces:
-    - Output/sandbox/event_replay/summary.json
-    artifact_path: Output/sandbox/event_replay/summary.json
+    - Output/state/sandbox/event_replay/summary.json
+    artifact_path: Output/state/sandbox/event_replay/summary.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
@@ -2195,7 +2231,7 @@ steps:
       - governance/event_replay_windows.yaml
       - Data/harvester/exports/latest/data/benchmark_panel.parquet
       outputs:
-      - Output/sandbox/event_replay/summary.json
+      - Output/state/sandbox/event_replay/summary.json
   build_feedback_sample_pool:
     order: 69
     status: active
@@ -2203,7 +2239,7 @@ steps:
     command: python scripts/commands/weekly/build_feedback_sample_pool.py --append
     schedule: weekly
     input:
-    - Output/sandbox/event_replay/
+    - Output/state/sandbox/event_replay/
     produces:
     - Data/feedback_samples/sample_manifest.jsonl
     artifact_path: Data/feedback_samples/sample_manifest.jsonl
@@ -2212,9 +2248,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/build_feedback_sample_pool.py --append
-      future_callable: scripts.commands.weekly.build_feedback_sample_pool:main
+      future_callable: system_learning.operators.build_feedback_sample_pool:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     authority:
@@ -2223,7 +2259,7 @@ steps:
       owner: Learning Hub
     contracts:
       inputs:
-      - Output/sandbox/event_replay/
+      - Output/state/sandbox/event_replay/
       outputs:
       - Data/feedback_samples/sample_manifest.jsonl
   evaluate_feedback_samples:
@@ -2238,18 +2274,18 @@ steps:
     input:
     - Data/feedback_samples/sample_manifest.jsonl
     produces:
-    - Output/feedback_samples/calibration_summary.json
-    - Output/feedback_samples/evaluation_report.md
-    - Output/feedback_samples/replay_runs/
-    artifact_path: Output/feedback_samples/calibration_summary.json
+    - Output/state/feedback_samples/calibration_summary.json
+    - Output/state/feedback_samples/evaluation_report.md
+    - Output/state/feedback_samples/replay_runs/
+    artifact_path: Output/state/feedback_samples/calibration_summary.json
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/evaluate_feedback_samples.py
-      future_callable: scripts.commands.weekly.evaluate_feedback_samples:main
+      future_callable: system_learning.operators.evaluate_feedback_samples:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     authority:
@@ -2262,8 +2298,8 @@ steps:
       - Data/harvester/exports/latest/data/benchmark_panel.parquet
       - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
       outputs:
-      - Output/feedback_samples/calibration_summary.json
-      - Output/feedback_samples/evaluation_report.md
+      - Output/state/feedback_samples/calibration_summary.json
+      - Output/state/feedback_samples/evaluation_report.md
   current_status:
     # order 35.2 (after hmm_stability_audit=35 which produces hmm_stability_audit.json
     # consumed by current_status, and after work_brief=35.1) - WP1B edge-ordering fix.
@@ -2276,8 +2312,8 @@ steps:
     - Output/judgment/promotion_gate.json
     - Output/k_measurement/k_measurement_gate.json
     - Output/x_measurement/x_measurement_gate.json
-    - Output/hmm_stability/hmm_stability_audit.json
-    - Output/caselab/
+    - Output/state/hmm_stability/hmm_stability_audit.json
+    - Output/state/caselab/
     produces: &id_current_status_out
     - Output/current/status.json
     artifact_path: Output/current/status.json
@@ -2288,7 +2324,7 @@ steps:
     execution:
       mode: callable
       current_command: python scripts/build_current_status.py
-      future_callable: scripts.build_current_status:main
+      future_callable: workbench.surfaces.build_current_status:main
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2318,9 +2354,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/build_work_brief.py
-      future_callable: scripts.build_work_brief:main
+      future_callable: workbench.surfaces.build_work_brief:main
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
@@ -2341,7 +2377,7 @@ steps:
     input: &id_output_routing_audit_in
     - governance/output_routing_policy.yaml
     - Output/current/
-    - Output/sandbox/
+    - Output/state/sandbox/
     - Output/research/
     produces: &id_output_routing_audit_out
     - Output/system_learning/latest/output_routing_report.json
@@ -2352,9 +2388,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/apply_output_routing_policy.py
-      future_callable: scripts.apply_output_routing_policy:main
+      future_callable: tools.audit.apply_output_routing_policy:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2385,9 +2421,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/run_supervisor_check.py
-      future_callable: scripts.run_supervisor_check:main
+      future_callable: tools.audit.run_supervisor_check:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2415,9 +2451,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/build_authority_graph.py
-      future_callable: scripts.commands.weekly.build_authority_graph:main
+      future_callable: system_learning.operators.build_authority_graph:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2455,9 +2491,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/governance_status.py --exceptions-only
-      future_callable: scripts.commands.weekly.governance_status:main
+      future_callable: tools.audit.governance_status:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2512,9 +2548,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/sync_caselab_index.py
-      future_callable: scripts.sync_caselab_index:main
+      future_callable: workbench.caselab.sync_caselab_index:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2544,7 +2580,7 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python caselab_runtime/policies/build_policy_from_paper.py
       future_callable: caselab_runtime.policies.build_policy_from_paper:main
       cwd_policy: workspace_root
@@ -2575,9 +2611,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/archive_daily_snapshots.py
-      future_callable: scripts.archive_daily_snapshots:main
+      future_callable: system_learning.operators.archive_daily_snapshots:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2607,9 +2643,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/backfill_judgment_calibration.py
-      future_callable: scripts.commands.weekly.backfill_judgment_calibration:main
+      future_callable: workbench.judgment.backfill_judgment_calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2640,9 +2676,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/run_mechanism_calibration.py
-      future_callable: scripts.run_mechanism_calibration:main
+      future_callable: system_learning.operators.run_mechanism_calibration:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2671,9 +2707,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/export_feedback_to_paper.py
-      future_callable: scripts.commands.weekly.export_feedback_to_paper:main
+      future_callable: workbench.caselab.export_feedback_to_paper:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2703,9 +2739,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/suggest_paper_updates.py
-      future_callable: scripts.suggest_paper_updates:main
+      future_callable: workbench.caselab.suggest_paper_updates:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2733,9 +2769,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/promote_paper_inbox.py
-      future_callable: scripts.promote_paper_inbox:main
+      future_callable: workbench.caselab.promote_paper_inbox:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2757,14 +2793,14 @@ steps:
     input:
     - caselab_runtime/feedback/
     produces:
-    - Output/caselab/reviews/
-    artifact_path: Output/caselab/reviews/
+    - Output/state/caselab/reviews/
+    artifact_path: Output/state/caselab/reviews/
     ttl_hours: 168
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python -m caselab_runtime.feedback.collect_reviews --json
       future_callable: caselab_runtime.feedback.collect_reviews:main
       cwd_policy: workspace_root
@@ -2773,7 +2809,7 @@ steps:
       inputs:
       - caselab_runtime/feedback/
       outputs:
-      - Output/caselab/reviews/
+      - Output/state/caselab/reviews/
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -2795,9 +2831,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/evaluate_pending.py
-      future_callable: scripts.evaluate_pending:main
+      future_callable: workbench.judgment.evaluate_pending:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2824,18 +2860,18 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/build_change_analysis.py
-      future_callable: scripts.commands.weekly.build_change_analysis:main
+      future_callable: workbench.surfaces.build_change_analysis:main
       dagster_native_asset: native_pilot
-      native_callable: scripts.commands.weekly.build_change_analysis:build_change_analysis
+      native_callable: workbench.surfaces.build_change_analysis:build_change_analysis
       native_file_boundary: shadow_pilot
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
       inputs:
         - Output/judgment/
-        - Output/caselab/
+        - Output/state/caselab/
         - Output/current/framework_output.json
       outputs:
         - Output/current/change_analysis.json
@@ -2872,9 +2908,9 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/refresh_cross_asset_panel.py
-      future_callable: scripts.refresh_cross_asset_panel:main
+      future_callable: harvester.operators.refresh_cross_asset_panel:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
@@ -2898,7 +2934,7 @@ steps:
     schedule: weekly
     input:
       - Output/system_learning/latest/eval_log.jsonl
-      - Output/sandbox/structural_replay_v2/all_signals.parquet
+      - Output/state/sandbox/structural_replay_v2/all_signals.parquet
     produces:
       - Output/system_learning/latest/judgment_accuracy_report.json
     ttl_hours: 168
@@ -2906,15 +2942,15 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/archive/judgment_accuracy_report.py
-      future_callable: scripts.judgment_accuracy_report:main
+      future_callable: system_learning.operators.judgment_accuracy_report:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
       inputs:
         - Output/system_learning/latest/eval_log.jsonl
-        - Output/sandbox/structural_replay_v2/all_signals.parquet
+        - Output/state/sandbox/structural_replay_v2/all_signals.parquet
       outputs:
         - Output/system_learning/latest/judgment_accuracy_report.json
       emits_run_event: true
@@ -2930,7 +2966,7 @@ steps:
     owner: Framework
     command: python scripts/commands/weekly/asof_integrity_checker.py
     input:
-      - Output/sandbox/structural_replay_v2/
+      - Output/state/sandbox/structural_replay_v2/
     produces:
       - Output/quality/asof_integrity_report.json
     ttl_hours: 168
@@ -2946,7 +2982,7 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs:
-        - Output/sandbox/structural_replay_v2/
+        - Output/state/sandbox/structural_replay_v2/
       outputs:
         - Output/quality/asof_integrity_report.json
       emits_run_event: true
@@ -2960,7 +2996,7 @@ steps:
     status: archived
     archive_reason: >-
       Framework-owned review-only diagnostic. No live consumer of
-      Output/validation/baseline_comparison.json or the system_learning copy;
+      Output/state/validation/baseline_comparison.json or the system_learning copy;
       not retained as a Learning Hub weekly.
     owner: Framework
     depends_on:
@@ -3001,7 +3037,7 @@ steps:
     command: python scripts/commands/weekly/weekly_walk_forward_validation.py
     input:
       - Data/panels/cross_asset_daily_panel.parquet
-      - Output/sandbox/structural_replay_v2/all_signals.parquet
+      - Output/state/sandbox/structural_replay_v2/all_signals.parquet
     produces:
       - Output/system_learning/latest/walk_forward_report.json
     ttl_hours: 168
@@ -3010,15 +3046,15 @@ steps:
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/weekly_walk_forward_validation.py
-      future_callable: scripts.commands.weekly.weekly_walk_forward_validation:main
+      future_callable: strategy_lab.weekly_walk_forward_validation:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
       inputs:
         - Data/panels/cross_asset_daily_panel.parquet
-        - Output/sandbox/structural_replay_v2/all_signals.parquet
+        - Output/state/sandbox/structural_replay_v2/all_signals.parquet
       outputs:
         - Output/system_learning/latest/walk_forward_report.json
       emits_run_event: true
@@ -3033,28 +3069,28 @@ steps:
     owner: Strategy Lab
     command: python scripts/commands/weekly/build_qlib_structural_bridge.py
     input:
-      - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
-      - Output/strategy_lab/backtest_result.json
+      - Output/state/strategy_lab/qlib_experiment/lightgbm_experiment.json
+      - Output/state/strategy_lab/backtest_result.json
     produces:
-      - Output/validation/qlib_structural_bridge.json
-    artifact_path: Output/validation/qlib_structural_bridge.json
+      - Output/state/validation/qlib_structural_bridge.json
+    artifact_path: Output/state/validation/qlib_structural_bridge.json
     ttl_hours: 168
     schedule: weekly
     allowed_to_affect_core_judgment: false
     core_judgment_dependency: false
     failure_behavior: continue_with_warning
     execution:
-      mode: subprocess
+      mode: callable
       current_command: python scripts/commands/weekly/build_qlib_structural_bridge.py
-      future_callable: scripts.commands.weekly.build_qlib_structural_bridge:main
+      future_callable: strategy_lab.build_qlib_structural_bridge:main
       cwd_policy: workspace_root
       env_policy: inherited_minimal
     contracts:
       inputs:
-        - Output/strategy_lab/qlib_experiment/lightgbm_experiment.json
-        - Output/strategy_lab/backtest_result.json
+        - Output/state/strategy_lab/qlib_experiment/lightgbm_experiment.json
+        - Output/state/strategy_lab/backtest_result.json
       outputs:
-        - Output/validation/qlib_structural_bridge.json
+        - Output/state/validation/qlib_structural_bridge.json
       emits_run_event: true
     authority:
       affects_core_judgment: false
@@ -3068,7 +3104,7 @@ steps:
     owner: Framework
     command: python scripts/commands/weekly/threshold_review_bridge.py
     input:
-      - Output/feedback_samples/replay_runs/
+      - Output/state/feedback_samples/replay_runs/
       - Output/system_learning/latest/claim_failures_pending.json
     produces:
       - Output/system_learning/latest/threshold_review_candidates.json
@@ -3085,7 +3121,7 @@ steps:
       env_policy: inherited_minimal
     contracts:
       inputs:
-        - Output/feedback_samples/replay_runs/
+        - Output/state/feedback_samples/replay_runs/
         - Output/system_learning/latest/claim_failures_pending.json
       outputs:
         - Output/system_learning/latest/threshold_review_candidates.json

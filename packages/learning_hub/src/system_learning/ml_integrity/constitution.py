@@ -26,7 +26,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
-from system_runtime.paths import WorkspacePaths
+from system_runtime.context import RuntimeContext
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ _RULES: list[Rule] = [
         severity=Severity.RED,
         short="ML output written to Data/ directory",
         description=(
-            "ML signal files must only be written to Output/ml_signals/. "
+            "ML signal files must only be written to Output/state/ml_signals/. "
             "Any write to Data/, Harvester exports, or raw directories is an "
             "absolute violation that could corrupt the evidence base."
         ),
@@ -338,7 +338,7 @@ def _build_summary(rule: Rule, evidence: dict[str, Any]) -> str:
 
 def _emit_event(violation: ConstitutionViolation, events_dir: Path | None) -> None:
     root = events_dir or (
-        WorkspacePaths.discover().root / "Output" / "system_learning" / "events"
+        RuntimeContext.current_context().output_root / "system_learning" / "events"
     )
     try:
         root.mkdir(parents=True, exist_ok=True)

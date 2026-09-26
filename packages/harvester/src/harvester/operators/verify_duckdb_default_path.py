@@ -23,11 +23,11 @@ import pandas as pd
 
 from harvester.cross_asset_panel import sync_panel_to_workspace
 from harvester.duckdb_panel import CANONICAL_TABLE, duckdb_canonical_panel_enabled
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 SCHEMA_VERSION = "system.harvester_duckdb_default_path_evidence.v1"
 PROMOTION_ALLOWED = False
-DEFAULT_REPORT = ROOT / "Output" / "health" / "duckdb_default_path_evidence.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "duckdb_default_path_evidence.json"
 DEFAULT_PANEL = ROOT / "Data" / "harvester" / "panels" / "cross_asset_daily_panel.parquet"
 
 

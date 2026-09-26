@@ -1,8 +1,9 @@
 """Acceptance tests for WP1B: single registry/compiler/executor authority.
 
-Defines the contract that ``daily_pipeline_registry.yaml`` is the sole
-execution authority, compiled by one ``Compiler`` into a ``CompiledPlan``
-that the executor accepts.
+Defines the contract that the six concern-specific pipeline authoring sources
+are merged by one compiler into a single ``CompiledPlan`` that the executor
+accepts.  ``daily_pipeline_registry.yaml`` is retained only as a derived
+compatibility view.
 """
 from __future__ import annotations
 
@@ -93,6 +94,51 @@ def test_compiled_plan_has_stable_digest_and_failure_interpreter() -> None:
     assert plan.plan_digest == load_pipeline(WorkspacePaths(root=_REGISTRY.parents[1])).plan_digest
     decision = plan.interpret_failure("judgment_layer", [])
     assert decision["action"] == "run"
+
+
+def test_compiled_runtime_plan_contains_the_single_execution_contract(tmp_path: Path) -> None:
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import compile_runtime_plan
+
+    root = _REGISTRY.parents[1]
+    runtime_plan = compile_runtime_plan(WorkspacePaths(root=root))
+    payload = runtime_plan.to_dict()
+
+    assert payload["schema_version"] == "system.compiled_runtime_plan.v1"
+    assert payload["plan_version"] == "daily.v1"
+    assert len(payload["source_digest"]) == 64
+    assert payload["canonical_entrypoint"] == "verity.cli.daily_run:run_daily"
+    assert payload["execution_mode"] == "dagster_generated_plan_job"
+    assert payload["step_dag"]["acyclic"] is True
+    assert payload["steps"]
+    assert set(payload["timeouts"]) == {step["id"] for step in payload["steps"]}
+    assert set(payload["failure_policy"]) == {step["id"] for step in payload["steps"]}
+    assert set(payload["artifact_contract"]) == {step["id"] for step in payload["steps"]}
+    assert "monitoring" in payload["logical_sources"]
+    assert "freshness" in payload["logical_sources"]
+
+    target = runtime_plan.write(tmp_path / "compiled_runtime_plan.json")
+    assert target.exists()
+    assert target.read_text(encoding="utf-8").startswith("{\n")
+
+
+def test_all_residual_subprocesses_have_allowed_justifications() -> None:
+    from system_runtime.paths import WorkspacePaths
+    from system_runtime.pipeline import (
+        ALLOWED_SUBPROCESS_JUSTIFICATIONS,
+        load_pipeline,
+    )
+
+    plan = load_pipeline(WorkspacePaths(root=_REGISTRY.parents[1]))
+    subprocess_steps = [step for step in plan.steps if step.execution_mode == "subprocess"]
+    assert subprocess_steps
+    assert all(step.subprocess_justification in ALLOWED_SUBPROCESS_JUSTIFICATIONS for step in subprocess_steps)
+    assert {step.subprocess_justification for step in subprocess_steps} <= {
+        "real_process_isolation",
+        "external_runtime",
+        "archive_legacy_executable",
+        "security_boundary",
+    }
 
 
 def test_execution_profiles_are_compiled_from_the_same_registry() -> None:
@@ -195,7 +241,7 @@ def test_domain_operator_registry_is_governance_display_only() -> None:
 
 
 def test_compiled_callable_receives_registry_command_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    from scripts import _pipeline_runner as runner
+    from verity.runtime import _pipeline_runner as runner
 
     captured: dict[str, object] = {}
 
@@ -238,7 +284,7 @@ def test_no_raw_yaml_sort_bypass() -> None:
     """
     import inspect
 
-    from scripts._daily_run_sequence import load_daily_run_sequence
+    from verity.runtime._daily_run_sequence import load_daily_run_sequence
 
     source = inspect.getsource(load_daily_run_sequence)
     assert "compiled.sort(key=" not in source, (

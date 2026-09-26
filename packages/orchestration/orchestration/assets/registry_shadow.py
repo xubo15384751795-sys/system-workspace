@@ -17,7 +17,7 @@ from dagster import AssetsDefinition, asset
 
 from orchestration.shadow_parity import ShadowParityReport, compare_sequence_results
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 SHADOW_PILOT = "shadow_pilot"
 ALLOWED_FAILURE_BEHAVIORS = frozenset({"continue_with_warning"})

@@ -59,8 +59,8 @@ ARGPARSE_SCRIPTS = {
 
 # Scripts without argparse — just check existence + main()
 NO_ARGPARSE_SCRIPTS = {
-    "structural_replay": "scripts/structural_replay_v2.py",
-    "bridge": "scripts/bridge_replay_to_current.py",
+    "structural_replay": "packages/framework_v1_archive/scripts/structural_replay_v2.py",
+    "bridge": "packages/framework_v1_archive/scripts/bridge_replay_to_current.py",
 }
 
 

@@ -14,7 +14,7 @@ from typing import Any, Optional, cast
 from benchmarks.experiment_protocol import load_registry, validate_spec
 from workbench.paths import workspace_root as _workspace_root
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback"
 
 FORBIDDEN_IN_JOB_SPEC = [
     "Data/",

@@ -20,12 +20,13 @@ def _load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
-    return module
+    return sys.modules[name]
 
 
 def test_build_authority_graph_from_real_pipeline() -> None:
-    module = _load_module("authority_graph", ROOT / "scripts" / "_authority_graph.py")
+    module = _load_module("authority_graph", ROOT / "verity" / "runtime" / "_authority_graph.py")
     graph = module.build_authority_graph(ROOT)
 
     assert graph["schema_version"] == "authority_graph.v1"
@@ -49,7 +50,7 @@ def test_build_authority_graph_from_real_pipeline() -> None:
 
 
 def test_bridge_is_only_sandbox_to_current_writer() -> None:
-    module = _load_module("authority_graph", ROOT / "scripts" / "_authority_graph.py")
+    module = _load_module("authority_graph", ROOT / "verity" / "runtime" / "_authority_graph.py")
     graph = module.build_authority_graph(ROOT)
     nodes = {node["id"]: node for node in graph["nodes"]}
 
@@ -64,7 +65,7 @@ def test_bridge_is_only_sandbox_to_current_writer() -> None:
         consumes_sandbox = any(
             nodes.get(f"artifact:{path}", {}).get("zone") == "Z_inf"
             for path in from_node.get("consumes", [])
-            if str(path).startswith("Output/sandbox")
+            if str(path).startswith("Output/state/sandbox")
         )
         if consumes_sandbox:
             sandbox_writes.append(edge["from"])
@@ -73,7 +74,7 @@ def test_bridge_is_only_sandbox_to_current_writer() -> None:
 
 
 def test_runtime_can_affect_core_requires_graph_and_gate() -> None:
-    module = _load_module("authority_graph", ROOT / "scripts" / "_authority_graph.py")
+    module = _load_module("authority_graph", ROOT / "verity" / "runtime" / "_authority_graph.py")
     graph = module.build_authority_graph(ROOT)
     completed = set(graph["metrics"]["core_capable_steps"])
 
@@ -119,7 +120,7 @@ steps:
     order: 1
     owner: Workbench
     consumes:
-      - Output/sandbox/structural_replay_v2/
+      - Output/state/sandbox/structural_replay_v2/
     produces:
       - Output/current/framework_output.json
     authority:
@@ -128,7 +129,7 @@ steps:
         encoding="utf-8",
     )
 
-    ag = _load_module("authority_graph_lib", ROOT / "scripts" / "_authority_graph.py")
+    ag = _load_module("authority_graph_lib", ROOT / "verity" / "runtime" / "_authority_graph.py")
     graph = ag.build_authority_graph(tmp_path)
     output = ag.write_authority_graph(graph, tmp_path)
     assert output.exists()
@@ -137,7 +138,7 @@ steps:
 
 
 def test_normalize_step_name_from_script_path() -> None:
-    module = _load_module("authority_graph", ROOT / "scripts" / "_authority_graph.py")
+    module = _load_module("authority_graph", ROOT / "verity" / "runtime" / "_authority_graph.py")
     index = module.build_step_id_index(ROOT)
     assert module.normalize_step_name("scripts/commands/weekly/governance_status.py", index) == "governance_status"
     assert module.normalize_step_name("governance_status", index) == "governance_status"

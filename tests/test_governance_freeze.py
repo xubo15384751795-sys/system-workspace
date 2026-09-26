@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,12 +18,13 @@ def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
-    return module
+    return sys.modules[name]
 
 
 def test_governance_freeze_passes_on_current_repo() -> None:
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     report = module.check_governance_freeze(ROOT)
     assert report["valid"] is True, report["violations"]
     assert report["unapproved_new_files"] == []
@@ -31,7 +33,7 @@ def test_governance_freeze_passes_on_current_repo() -> None:
 
 def test_unapproved_file_detected(tmp_path: Path) -> None:
     """Unclassified root files still fail freeze; freeze-allowlist is not the gate."""
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     (tmp_path / "governance").mkdir()
     for name in ("system_constitution.yaml", "governance_freeze_manifest.yaml", "governance_tiers.yaml"):
         (tmp_path / "governance" / name).write_text("schema_version: test\n", encoding="utf-8")
@@ -56,7 +58,7 @@ def test_unapproved_file_detected(tmp_path: Path) -> None:
 
 def test_baseline_hash_integrity_detects_modification(tmp_path: Path) -> None:
     """Tampering with a critical baseline file must block."""
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     # Copy real governance dir to tmp
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
@@ -74,7 +76,7 @@ def test_baseline_hash_integrity_detects_modification(tmp_path: Path) -> None:
 
 def test_baseline_hash_integrity_detects_missing_file(tmp_path: Path) -> None:
     """Deleting any baseline file must block."""
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
     shutil.copyfile(ROOT / "ROUTING_CONSTITUTION.md", tmp_path / "ROUTING_CONSTITUTION.md")
@@ -90,7 +92,7 @@ def test_baseline_hash_integrity_detects_missing_file(tmp_path: Path) -> None:
 
 def test_review_after_enforcement(tmp_path: Path) -> None:
     """Expired review_after date must be flagged."""
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
 
@@ -109,7 +111,7 @@ def test_review_after_enforcement(tmp_path: Path) -> None:
 
 def test_pending_commit_detected(tmp_path: Path) -> None:
     """commit='pending' in approved_additions must be flagged."""
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
 
@@ -130,7 +132,7 @@ def test_pending_commit_detected(tmp_path: Path) -> None:
 
 def test_approved_additions_budget_is_advisory(tmp_path: Path) -> None:
     """Exceeding approved_additions ledger cap is medium and does not fail freeze."""
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     gov_tmp = tmp_path / "governance"
     shutil.copytree(ROOT / "governance", gov_tmp)
 
@@ -169,7 +171,7 @@ def test_admission_is_shape_inventory_not_freeze_allowlist() -> None:
         item["file"] for item in manifest.get("approved_additions", []) if item.get("file")
     }
     assert "experiment_registry.yaml" not in allowed
-    module = _load("governance_freeze", ROOT / "scripts" / "_governance_freeze.py")
+    module = _load("governance_freeze", ROOT / "verity" / "runtime" / "_governance_freeze.py")
     report = module.check_governance_freeze(ROOT)
     assert report["valid"] is True, report["violations"]
     assert "experiment_registry.yaml" not in report["unapproved_new_files"]

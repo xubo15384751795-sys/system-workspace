@@ -26,11 +26,15 @@ import os
 from pathlib import Path
 
 import pytest
-from _pipeline_runner import load_step_execution, resolve_callable, run_registry_step
 
 from tests.helpers.callable_chain_sandbox import (
     patch_callable_chain_paths,
     seed_callable_chain_workspace,
+)
+from verity.runtime._pipeline_runner import (
+    load_step_execution,
+    resolve_callable,
+    run_registry_step,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -135,8 +139,8 @@ def _seed_measurement_gates(
 
 
 def _patch_sandbox(monkeypatch, tmp_path: Path, out: Path) -> None:
-    import scripts._data_paths as dp
-    import scripts._runtime_io as rio
+    import verity.runtime._data_paths as dp
+    from verity.runtime import runtime_io as rio
 
     monkeypatch.setattr(rio, "ROOT", tmp_path)
     monkeypatch.setattr(dp, "ROOT", tmp_path)
@@ -170,7 +174,7 @@ def test_measurement_quality_report_callable_runs(tmp_path, monkeypatch) -> None
     _seed_harvester_panels(tmp_path)
     _patch_sandbox(monkeypatch, tmp_path, out)
 
-    from scripts.commands.weekly.build_measurement_quality_report import build_report
+    from workbench.measurement.build_measurement_quality_report import build_report
 
     report = build_report()
     assert report["channels"]["K"]["gate_verdict"] == "NOT_WIRED"
@@ -189,7 +193,7 @@ def test_measurement_quality_degraded_when_k_gate_missing(
     out = _seed_measurement_gates(tmp_path, k_pass=False, x_pass=True)
     _patch_sandbox(monkeypatch, tmp_path, out)
 
-    from scripts.commands.weekly.build_measurement_quality_report import build_report
+    from workbench.measurement.build_measurement_quality_report import build_report
 
     report = build_report()
     assert report["overall_status"] == "DEGRADED"
@@ -255,7 +259,7 @@ def test_measurement_quality_callable_and_subprocess_agree(
 
 def test_blocked_upstream_scenario_records_lineage() -> None:
     """P0-3 blocked scenario: DAG interpreter blocks judgment when upstream fails."""
-    from _pipeline_dag import interpret_failure
+    from verity.runtime._pipeline_dag import interpret_failure
 
     prior = [{"step": "neutral_pressure_measurement", "status": "failed"}]
     decision = interpret_failure("judgment_layer", prior)
@@ -265,7 +269,11 @@ def test_blocked_upstream_scenario_records_lineage() -> None:
 
 def test_hold_flat_upstream_degrades_rather_than_hard_blocks() -> None:
     """P0-3 degraded path: hold_flat upstream → run_degraded, not hard block."""
-    from _pipeline_dag import failure_behavior_of, interpret_failure, upstream_of
+    from verity.runtime._pipeline_dag import (
+        failure_behavior_of,
+        interpret_failure,
+        upstream_of,
+    )
 
     # Prefer a real registry edge; fall back if none expose hold_flat upstream.
     target = None
@@ -346,7 +354,7 @@ def test_judgment_chain_writes_sandbox_artifacts_only(
 
 def test_recover_scenario_clears_block_when_upstream_succeeds() -> None:
     """P0-3 recover: after upstream success, judgment is runnable again."""
-    from _pipeline_dag import interpret_failure
+    from verity.runtime._pipeline_dag import interpret_failure
 
     failed = interpret_failure(
         "judgment_layer",
@@ -490,7 +498,7 @@ def test_structural_replay_callable_executes(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.setenv("STRUCTURAL_PROJECT", str(sandbox))
 
     panel = sandbox / "Data" / "fixtures" / "official_panel.parquet"
-    out = sandbox / "Output" / "sandbox" / "structural_replay_v2"
+    out = sandbox / "Output" / "state" / "sandbox" / "structural_replay_v2"
     argv = [
         f"panel.path={panel.as_posix()}",
         f"output.dir={out.as_posix()}",
@@ -508,10 +516,10 @@ def test_structural_replay_callable_executes(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_structural_replay_writes_sandbox_only(tmp_path: Path, monkeypatch) -> None:
-    """structural_replay must not mutate operator Output/sandbox tree."""
+    """structural_replay must not mutate operator Output/state/sandbox tree."""
     pytest.importorskip("omegaconf")
 
-    operator_replay = ROOT / "Output" / "sandbox" / "structural_replay_v2"
+    operator_replay = ROOT / "Output" / "state" / "sandbox" / "structural_replay_v2"
     before = _fingerprint(operator_replay)
 
     sandbox = seed_callable_chain_workspace(tmp_path / "workspace")
@@ -520,7 +528,7 @@ def test_structural_replay_writes_sandbox_only(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setenv("ALLOW_ARCHIVED_DEFORMATION_REPRODUCTION", "1")
 
     panel = sandbox / "Data" / "fixtures" / "official_panel.parquet"
-    out = sandbox / "Output" / "sandbox" / "structural_replay_v2"
+    out = sandbox / "Output" / "state" / "sandbox" / "structural_replay_v2"
     argv = [
         f"panel.path={panel.as_posix()}",
         f"output.dir={out.as_posix()}",

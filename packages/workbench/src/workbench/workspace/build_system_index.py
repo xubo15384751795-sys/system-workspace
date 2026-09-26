@@ -7,8 +7,8 @@ Inputs read:
   - Output/deformation_runs/<run_id>/run_manifest.json (archive_runs only)
   - Data/deformation/snapshots/index.json
   - Output/system_learning/latest/summary.json
-  - Output/sandbox/openbb/runs/<run_id>/run_manifest.json
-  - Output/sandbox/qlib/runs/<run_id>/run_manifest.json
+  - Output/state/sandbox/openbb/runs/<run_id>/run_manifest.json
+  - Output/state/sandbox/qlib/runs/<run_id>/run_manifest.json
 
 Outputs written:
   - Data/system_index/latest.json
@@ -26,13 +26,10 @@ from typing import Any, cast
 
 from ._paths import (
     CANONICAL_SNAPSHOT_INDEX,
-    CURRENT_DIR,
     DEFORMATION_RUNS,
     HARVESTER_EXPORTS,
-    HARVESTER_LATEST,
     LEARNING_SUMMARY,
     LINEAGE_GRAPH,
-    NEUTRAL_PRESSURE_SNAPSHOT,
     SANDBOX_OPENBB_RUNS,
     SANDBOX_QLIB_RUNS,
     SYSTEM_CATALOG,
@@ -74,12 +71,6 @@ def _harvester_releases() -> list[dict]:
             "files": [f.get("path") for f in catalog.get("files", []) if isinstance(f, dict)],
         })
     return out
-
-
-def _resolved_latest_release_id() -> str | None:
-    if not HARVESTER_LATEST.exists():
-        return None
-    return HARVESTER_LATEST.resolve().name
 
 
 def _archive_runs() -> list[dict]:
@@ -126,25 +117,6 @@ def _archive_runs() -> list[dict]:
     return out
 
 
-def _latest_run(runs: list[dict]) -> dict | None:
-    return runs[-1] if runs else None
-
-
-def _sandbox_latest(runs_dir: Path) -> dict | None:
-    if not runs_dir.exists():
-        return None
-    cands = sorted(d for d in runs_dir.iterdir() if d.is_dir() and not d.is_symlink())
-    if not cands:
-        return None
-    last = cands[-1]
-    manifest = _read_json(last / "run_manifest.json") or {}
-    return {
-        "run_id": last.name,
-        "path": _ws_rel(last),
-        "status": manifest.get("status", "unknown"),
-    }
-
-
 def _learning() -> dict:
     summary = _read_json(LEARNING_SUMMARY) or {}
     return {
@@ -161,21 +133,12 @@ def _snapshot_index_entries() -> list[dict]:
     return idx.get("snapshots", []) or []
 
 
-def _canonical_snapshots() -> list[dict]:
-    return [entry for entry in _snapshot_index_entries() if entry.get("status") == "canonical"]
-
-
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def build() -> None:
-    """Rebuild Data/system_index/ from authoritative artifacts.
-
-    Writes latest.json, system_catalog.json, and lineage_graph.json.
-    Reads from harvester exports, current/neutral pressure, archived runs,
-    snapshot index, and learning hub summary.
-    """
+def write_catalog_and_lineage() -> None:
+    """Refresh catalog and lineage from live Data/Output. Does not write latest.json."""
     SYSTEM_INDEX_DIR.mkdir(parents=True, exist_ok=True)
     now = _now()
 
@@ -184,82 +147,6 @@ def build() -> None:
     snapshot_entries = _snapshot_index_entries()
     snapshots = [entry for entry in snapshot_entries if entry.get("status") == "canonical"]
     learning = _learning()
-
-    latest_release = next(
-        (r for r in releases if r["release_id"] == _resolved_latest_release_id()),
-        releases[-1] if releases else None,
-    )
-    latest_run = _latest_run(runs)
-    openbb_latest = _sandbox_latest(SANDBOX_OPENBB_RUNS)
-    qlib_latest = _sandbox_latest(SANDBOX_QLIB_RUNS)
-
-    canonical_snapshot = snapshots[-1] if snapshots else None
-    neutral_exists = NEUTRAL_PRESSURE_SNAPSHOT.exists()
-    current_exists = CURRENT_DIR.exists()
-
-    latest_payload = {
-        "schema_version": "system.index.latest.v1",
-        "updated_at": now,
-        "updated_by": "scripts/build_system_index.py",
-        "latest": {
-            "harvester_release": (
-                {
-                    "id": latest_release["release_id"],
-                    "path": latest_release["path"],
-                    "catalog_path": latest_release["catalog_path"],
-                    "status": latest_release["status"],
-                }
-                if latest_release
-                else None
-            ),
-            "neutral_pressure": (
-                {
-                    "path": _ws_rel(NEUTRAL_PRESSURE_SNAPSHOT),
-                    "status": "present" if neutral_exists else "missing",
-                }
-                if current_exists or neutral_exists
-                else None
-            ),
-            "current": {
-                "path": _ws_rel(CURRENT_DIR),
-                "status": "present" if current_exists else "missing",
-            },
-            "archive_runs": (
-                {
-                    "id": latest_run["run_id"],
-                    "path": latest_run["path"],
-                    "run_manifest_path": f"{latest_run['path']}/run_manifest.json",
-                    "status": latest_run["status"],
-                    "gaps": latest_run["gaps"],
-                }
-                if latest_run
-                else None
-            ),
-            "deformation_snapshot": (
-                {
-                    "id": canonical_snapshot.get("snapshot_id"),
-                    "path": canonical_snapshot.get("snapshot_path"),
-                    "status": canonical_snapshot.get("status", "canonical"),
-                }
-                if canonical_snapshot
-                else {
-                    "id": None,
-                    "path": None,
-                    "status": "no_canonical_snapshot",
-                    "reason": "Archived Deformation snapshots are historical evidence only.",
-                }
-            ),
-            "learning_report": {
-                "summary_path": learning["summary_path"],
-                "health_report_path": "Output/system_learning/latest/system_health_report.md",
-                "band": learning["band"],
-            },
-            "sandbox": {
-                "openbb_latest_run": openbb_latest,
-                "qlib_latest_run": qlib_latest,
-            },
-        },
-    }
 
     catalog_payload = {
         "schema_version": "system.catalog.v1",
@@ -333,12 +220,19 @@ def build() -> None:
         "edges": edges,
     }
 
-    SYSTEM_LATEST.write_text(json.dumps(latest_payload, indent=2) + "\n")
     SYSTEM_CATALOG.write_text(json.dumps(catalog_payload, indent=2) + "\n")
     LINEAGE_GRAPH.write_text(json.dumps(lineage_payload, indent=2) + "\n")
-    print(f"Wrote {_ws_rel(SYSTEM_LATEST)}")
     print(f"Wrote {_ws_rel(SYSTEM_CATALOG)}")
     print(f"Wrote {_ws_rel(LINEAGE_GRAPH)}")
+
+
+def build() -> None:
+    """Rebuild Data/system_index/ from live Current, catalog, and lineage."""
+    write_catalog_and_lineage()
+    from workbench.surfaces.build_system_index import persist_latest_index
+
+    persist_latest_index()
+    print(f"Wrote {_ws_rel(SYSTEM_LATEST)}")
 
 
 def main() -> int:

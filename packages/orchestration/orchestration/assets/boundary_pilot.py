@@ -13,7 +13,7 @@ from typing import Any
 
 from dagster import AssetCheckResult, asset, asset_check
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 
 def _read_json(path: Path) -> dict[str, Any]:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts._daily_observability import publish_daily_run_observability
+from verity.runtime._daily_observability import publish_daily_run_observability
 
 
 def test_publish_records_observation_without_changing_outcome(tmp_path: Path) -> None:
@@ -38,4 +38,4 @@ def test_publish_records_observation_without_changing_outcome(tmp_path: Path) ->
     assert observation["mode"] == "shadow"
     assert observation["enforce_changed"] is False
     assert observation["consecutive_clean_days"] == 1
-    assert (tmp_path / "Output" / "health" / "data_contract_observation.json").is_file()
+    assert (tmp_path / "Output" / "state" / "health" / "data_contract_observation.json").is_file()

@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Check governance freeze — fail if unclassified or unconsumed machine rules exist."""
+from __future__ import annotations
+
+import sys
+
+from verity.runtime._governance_freeze import check_governance_freeze  # noqa: E402
+from verity.runtime.runtime_io import ROOT
+
+
+def main() -> None:
+    report = check_governance_freeze(ROOT)
+    if report["unapproved_new_files"]:
+        print("Unclassified governance files (admission is shape_inventory):")
+        for name in report["unapproved_new_files"]:
+            print(f"  - {name}")
+    if report["violations"]:
+        print("Violations:")
+        for item in report["violations"]:
+            print(f"  [{item['severity']}] {item['message']}")
+    if not report["valid"]:
+        sys.exit(1)
+    print(
+        f"Governance freeze OK — "
+        f"work_support {report['work_support_count']}/{report['work_support_budget']}"
+    )
+
+
+if __name__ == "__main__":
+    main()

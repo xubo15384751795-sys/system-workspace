@@ -683,6 +683,27 @@ class TestPromotionGate:
         # Should warn about missing model inputs but not block
         assert len(result.warnings) >= 1 or result.passed
 
+    def test_provider_native_model_input_alias_resolves_to_canonical_id(
+        self, registry, temp_release_dir
+    ):
+        from harvester.promotion import run_promotion_gate
+
+        all_required = {s.canonical_id for s in registry.required_series()}
+        all_required.add("MOVE_PROXY")
+        native_model_inputs = {
+            s.source_series_id
+            for s in registry.model_input_series()
+            if s.source_series_id
+        }
+        result = run_promotion_gate(
+            temp_release_dir,
+            registry,
+            panel_series_ids=all_required | native_model_inputs,
+            sha256_verified=True,
+        )
+
+        assert not any("model-input series missing" in warning for warning in result.warnings)
+
     def test_sha256_failure_blocks(self, registry, temp_release_dir):
         from harvester.promotion import run_promotion_gate, PromotionState
 

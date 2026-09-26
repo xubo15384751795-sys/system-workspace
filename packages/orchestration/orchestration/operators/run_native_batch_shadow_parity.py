@@ -40,9 +40,9 @@ from orchestration.assets.native_quality import (
     select_native_quality_steps,
 )
 from orchestration.native_parity import build_native_parity_report, compare_native_report
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_batch_shadow_parity.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_batch_shadow_parity.json"
 
 
 def _read_json(path: Path) -> Any:

@@ -66,10 +66,11 @@ class TestScenario2PressureBuilderFailure:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "_daily_run_executor_s2", ROOT / "scripts" / "_daily_run_executor.py")
+            "_daily_run_executor_s2", ROOT / "verity" / "runtime" / "_daily_run_executor.py")
         exec_mod = importlib.util.module_from_spec(spec)
         sys.modules["_daily_run_executor_s2"] = exec_mod
         spec.loader.exec_module(exec_mod)
+        exec_mod = sys.modules["_daily_run_executor_s2"]
 
         executed: list[str] = []
 
@@ -100,7 +101,7 @@ class TestScenario2PressureBuilderFailure:
 
 class TestScenario3OfrCissStale:
     def test_admission_blocks_on_stale_public_components(self, tmp_path, monkeypatch):
-        from _admission_gate import admit_for_consumption
+        from verity.runtime._admission_gate import admit_for_consumption
 
         release = tmp_path / "release"
         d = release / "data"
@@ -127,7 +128,7 @@ class TestScenario3OfrCissStale:
         # configs/freshness_policy.yaml currently declares environmentally
         # blocked (a declared source degrades instead of blocking; see
         # tests/test_admission_gate.py::TestEnvironmentallyBlockedSources).
-        monkeypatch.setattr("_admission_gate._environmentally_blocked", dict)
+        monkeypatch.setattr("verity.runtime._admission_gate._environmentally_blocked", dict)
 
         decision = admit_for_consumption("paper_portfolio", release_dir=release,
                                           now=pd.Timestamp("2026-07-17"))
@@ -183,7 +184,10 @@ class TestScenario5ArchivedRuntimeInjection:
 
 class TestScenario6WrongLatestPointer:
     def test_release_not_finalized_rejected(self, tmp_path):
-        from _release_boundary import ReleaseNotFinalizedError, verify_release_finalized
+        from verity.runtime._release_boundary import (
+            ReleaseNotFinalizedError,
+            verify_release_finalized,
+        )
 
         release = tmp_path / "release"
         release.mkdir()
@@ -199,8 +203,9 @@ class TestScenario6WrongLatestPointer:
 class TestScenario7ShadowFailure:
     def test_hold_degraded_excluded_from_promotion(self, tmp_path, monkeypatch):
 
-        from scripts import _runtime_io as rio
-        from scripts.strategy_lab import shadow_card as sc
+        from strategy_lab import shadow_card as sc
+
+        from verity.runtime import runtime_io as rio
 
         monkeypatch.setattr(sc, "OUTPUT_DIR", tmp_path / "strategy_lab")
         monkeypatch.setattr(rio, "ROOT", tmp_path)
@@ -231,10 +236,11 @@ class TestScenario8PartialPipelineFailure:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "_daily_run_executor_s8", ROOT / "scripts" / "_daily_run_executor.py")
+            "_daily_run_executor_s8", ROOT / "verity" / "runtime" / "_daily_run_executor.py")
         exec_mod = importlib.util.module_from_spec(spec)
         sys.modules["_daily_run_executor_s8"] = exec_mod
         spec.loader.exec_module(exec_mod)
+        exec_mod = sys.modules["_daily_run_executor_s8"]
 
         def fake_execute_step(step_id, ctx):
             if step_id == "harvester":
@@ -283,7 +289,10 @@ class TestScenario10Traceability:
     def test_provenance_chain_from_producer_to_consumer(self, tmp_path, monkeypatch):
         """An artifact carries provenance (run_id, producer_step); the consumer
         (bridge) verifies run_id match. This is the traceability chain."""
-        from _artifact_provenance import build_provenance, verify_provenance
+        from verity.runtime._artifact_provenance import (
+            build_provenance,
+            verify_provenance,
+        )
 
         monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "trace_bundle")
         prov = build_provenance(producer_step="structural_replay",

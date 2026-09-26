@@ -14,7 +14,7 @@ import archive_daily_snapshots as ads
 
 def test_archive_daily_snapshots_copies_once(tmp_path: Path, monkeypatch) -> None:
     current = tmp_path / "Output" / "current"
-    caselab = tmp_path / "Output" / "caselab"
+    caselab = tmp_path / "Output" / "state" / "caselab"
     archive = tmp_path / "Output" / "archive"
     current.mkdir(parents=True)
     caselab.mkdir(parents=True)

@@ -24,7 +24,7 @@ module outputs:
 
 **Isolation contract (identical to HMM/TFT)**
 - Reads only the frozen Harvester evidence panel path supplied at call time.
-- Writes only to Output/ml_signals/ via ml_signal_writer.write_signal().
+- Writes only to Output/state/ml_signals/ via ml_signal_writer.write_signal().
 - Never modifies Data/ or any Harvester release artifact.
 """
 from __future__ import annotations

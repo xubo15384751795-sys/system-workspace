@@ -46,6 +46,11 @@ The ETF chain reads `TIINGO_API_KEY` and `MASSIVE_API_KEY` from the scheduler
 environment. Missing keys are recorded as provider-unavailable and do not
 trigger a network request. The selected source for each ticker is recorded in
 the `cross_asset_daily_panel` release manifest.
+The default full provider route consumes the canonical logical secret
+`FRED_API_KEY` from the same secure file; the scheduler SecretProvider accepts
+`OPENBB_FRED_API_KEY` only as a compatibility input and normalizes it before
+Harvester/provider code runs. Without the canonical secret, Harvester preflight
+fails closed before any FRED-backed acquisition.
 The workspace-level `configs/source_registry.yaml` is the semantic route
 contract. It keeps Tiingo/Massive as the only authoritative ETF routes,
 requires a reviewed Tiingo/Massive parity report before the Massive fallback
@@ -77,6 +82,12 @@ variable takes precedence over the file. `SYSTEM_PROVIDER_SECRETS_FILE` can be
 set to use another mode-600 path. Never paste the token into source control or
 chat. Verify only the presence of the key (not its value) before the next
 scheduled run.
+
+On Linux/systemd, the host may instead inject `FRED_API_KEY` through the unit's
+credential/environment mechanism or set `SYSTEM_PROVIDER_SECRETS_FILE` to a
+mode-600 file. Harvester/domain providers consume only the canonical
+`FRED_API_KEY`, so changing the host secret source does not require a domain or
+registry change.
 
 ## Common Commands
 

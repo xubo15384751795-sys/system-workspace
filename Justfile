@@ -87,6 +87,12 @@ nightly:
 semgrep:
     semgrep --config=semgrep_rules/ --error --metrics=off
 
+# Step 1 architecture contract and migration-debt audit.
+architecture:
+    {{PY}} tools/audit/build_architecture_dependency_map.py --baseline-core-violations 0 --baseline-registered-violations 22
+    {{PY}} tools/audit/architecture_invariants.py
+    {{PY}} tools/check_generation_writer_inventory.py --json
+
 # Ledger, escalation, incident.
 governance-loop:
     {{PY}} -m pytest tests/ -m governance_loop -v --tb=short
@@ -106,6 +112,12 @@ audit-reality:
     set -e
     echo "=== architecture reality audit ==="
     {{PY}} scripts/commands/weekly/architecture_reality_audit.py
+    echo "--- dependency map ---"
+    {{PY}} tools/audit/build_architecture_dependency_map.py --baseline-core-violations 0 --baseline-registered-violations 22
+    echo "--- architecture invariants ---"
+    {{PY}} tools/audit/architecture_invariants.py
+    echo "--- generation writer inventory ---"
+    {{PY}} tools/check_generation_writer_inventory.py --json
     echo "--- framework boundary tests ---"
     {{PY}} -m pytest tests/test_framework_boundary.py tests/test_architecture_boundary.py -v --tb=short
 

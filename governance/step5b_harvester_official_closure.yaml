@@ -1,0 +1,320 @@
+schema_version: governance.step5b_harvester_official_closure.v1
+step: 5B
+status: COMPLETE
+module: packages/harvester/src/harvester/official.py
+principle: canonical_owner_before_facade
+
+current_state:
+  line_count: 172
+  facade_status: PASS
+  canonical_modules_must_not_import_official: true
+  extracted_slices:
+    - owner: harvester.canonical
+      path: packages/harvester/src/harvester/canonical.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "canonical observation construction and panel identity extraction now have one owner"
+    - owner: harvester.normalization
+      path: packages/harvester/src/harvester/normalization.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "panel composition, release normalization, and proxy candidate selection"
+    - owner: harvester.release
+      path: packages/harvester/src/harvester/release.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "processed-panel persistence, manifest, provenance, and column contract"
+    - owner: harvester.provider_catalog
+      path: packages/harvester/src/harvester/provider_catalog.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "provider/source catalog and provider outcome status contract"
+    - owner: harvester.provider_routing
+      path: packages/harvester/src/harvester/provider_routing.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "route preference, external-series classification, and outcome merging"
+    - owner: harvester.acquisition
+      path: packages/harvester/src/harvester/acquisition.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "direct and registry acquisition with explicit compatibility dependency injection"
+    - owner: harvester.provenance
+      path: packages/harvester/src/harvester/provenance.py
+      status: IMPLEMENTED_AND_TESTED
+      evidence: "provenance envelope construction separated from release composition"
+  direct_runtime_readers:
+    - packages/harvester/src/harvester/cli.py
+    - packages/harvester/src/harvester/ops.py
+    - packages/harvester/src/harvester/cross_asset_panel.py
+  test_patch_surface:
+    - packages/harvester/tests/test_ops.py
+    - packages/harvester/tests/test_concurrent_fetch.py
+    - packages/harvester/tests/test_official_registry_outcome.py
+    - packages/harvester/tests/test_providers_sec.py
+    - packages/harvester/tests/test_external_indicators.py
+    - packages/harvester/tests/test_phase_c.py
+    - packages/harvester/tests/test_carry_forward_series.py
+    - packages/harvester/tests/test_prefer_openbb.py
+    - packages/harvester/tests/test_official_panel.py
+
+responsibility_inventory:
+  - symbol: OFFICIAL_SERIES_MAP
+    public_api: true
+    current_readers: [official, tests/test_official_panel.py]
+    desired_owner: harvester.provider_catalog
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: provider/source authoring metadata must not be owned by the facade
+
+  - symbol: DEFAULT_OFFICIAL_PROVIDERS
+    public_api: true
+    current_readers: [official, tests]
+    desired_owner: harvester.provider_catalog
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: default route declaration is provider configuration, not release orchestration
+
+  - symbol: _is_external_managed_series
+    public_api: false
+    current_readers: [fetch_official_series_from_registry]
+    desired_owner: harvester.provider_routing
+    compatibility_required: false
+    decision: MOVE
+    reason: external-indicator route classification belongs at provider boundary
+
+  - symbol: _external_indicator_timeout_seconds
+    public_api: false
+    current_readers: [stage_complete_release]
+    desired_owner: harvester.provider_routing
+    compatibility_required: false
+    decision: MOVE
+    reason: bounded external acquisition timeout is provider policy
+
+  - symbol: _provider_outcome
+    public_api: false
+    current_readers: [fetch_official_series_from_registry, stage_complete_release]
+    desired_owner: harvester.provider_routing
+    compatibility_required: false
+    decision: MOVE
+    reason: provider outcome schema is an acquisition contract
+
+  - symbol: _failed_attempt_failure_classes
+    public_api: false
+    current_readers: [stage_complete_release]
+    desired_owner: harvester.provider_routing
+    compatibility_required: false
+    decision: MOVE
+    reason: failure classification is provider evidence normalization
+
+  - symbol: _merge_external_provider_outcome
+    public_api: false
+    current_readers: [stage_complete_release]
+    desired_owner: harvester.provider_routing
+    compatibility_required: false
+    decision: MOVE
+    reason: multiple acquisition routes must converge before release staging
+
+  - symbol: prefer_openbb
+    public_api: true
+    current_readers: [tests/test_prefer_openbb.py, fetch_official_series_from_registry]
+    desired_owner: harvester.provider_routing
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: route preference is provider selection policy
+
+  - symbol: order_provider_priority
+    public_api: true
+    current_readers: [fetch_official_series_from_registry, tests/test_prefer_openbb.py]
+    desired_owner: harvester.provider_routing
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: provider ordering is not a release-writer concern
+
+  - symbol: data_root
+    public_api: true
+    current_readers: [official, ops, tests/test_ops.py]
+    desired_owner: harvester.runtime_context_adapter
+    compatibility_required: true
+    decision: RETAIN_AS_EXPLICIT_ADAPTER
+    reason: stable package API delegates path resolution to RuntimeContext
+
+  - symbol: harvester_raw_root
+    public_api: true
+    current_readers: [official, ops]
+    desired_owner: harvester.runtime_context_adapter
+    compatibility_required: true
+    decision: RETAIN_AS_EXPLICIT_ADAPTER
+    reason: stable package API delegates raw-root resolution to RuntimeContext
+
+  - symbol: workspace_root
+    public_api: true
+    current_readers: [stage_complete_release, cross_asset_panel]
+    desired_owner: harvester.runtime_context_adapter
+    compatibility_required: true
+    decision: RETAIN_AS_EXPLICIT_ADAPTER
+    reason: application boundary resolves workspace identity once
+
+  - symbol: fetch_official_series
+    public_api: true
+    current_readers: [tests, compatibility callers]
+    desired_owner: harvester.acquisition
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: direct provider acquisition must be independently testable
+
+  - symbol: fetch_official_series_from_registry
+    public_api: true
+    current_readers: [harvester.cli, harvester.ops, tests]
+    desired_owner: harvester.acquisition
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: registry-driven acquisition is the canonical acquisition entrypoint
+
+  - symbol: save_processed_panel
+    public_api: true
+    current_readers: [compatibility callers]
+    desired_owner: harvester.release
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: processed-panel persistence is a release artifact concern
+
+  - symbol: make_manifest
+    public_api: true
+    current_readers: [stage_release, stage_complete_release, tests]
+    desired_owner: harvester.release
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: manifest generation is release metadata, not acquisition
+
+  - symbol: make_provenance
+    public_api: true
+    current_readers: [stage_release, stage_complete_release, tests]
+    desired_owner: harvester.provenance
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: provenance construction is an evidence contract
+
+  - symbol: _canonical_official_observations
+    public_api: false
+    current_readers: [stage_release, stage_complete_release]
+    desired_owner: harvester.canonical
+    compatibility_required: false
+    decision: MOVE
+    reason: canonical observation construction must have one owner
+
+  - symbol: stage_release
+    public_api: true
+    current_readers: [harvester.cli, harvester.ops, tests]
+    desired_owner: harvester.release
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: release staging is the facade's primary application call
+
+  - symbol: stage_complete_release
+    public_api: true
+    current_readers: [harvester.cli, harvester.ops, orchestration step]
+    desired_owner: harvester.release
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: complete release composition must be owned by release/application layer
+
+  - symbol: build_complete_benchmark_panel
+    public_api: true
+    current_readers: [stage_complete_release, tests]
+    desired_owner: harvester.normalization
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: panel composition and normalization are separate from acquisition
+
+  - symbol: normalize_release_panel
+    public_api: true
+    current_readers: [build_complete_benchmark_panel, tests]
+    desired_owner: harvester.normalization
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: release shape normalization is a stable pure transformation
+
+  - symbol: build_proxy_candidate_panel
+    public_api: true
+    current_readers: [stage_complete_release, tests]
+    desired_owner: harvester.normalization
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: proxy selection is a derived-panel transformation
+
+  - symbol: panel_identity_set
+    public_api: true
+    current_readers: [stage_complete_release, tests]
+    desired_owner: harvester.canonical
+    compatibility_required: true
+    decision: MOVE_WITH_FACADE_REEXPORT
+    reason: identity extraction feeds canonical promotion and should be reusable
+
+  - symbol: _release_panel_candidates
+    public_api: false
+    current_readers: [_carry_forward_missing_series]
+    desired_owner: harvester.release
+    compatibility_required: false
+    decision: MOVE
+    reason: prior-release discovery is release recovery behavior
+
+  - symbol: _carry_forward_missing_series
+    public_api: false
+    current_readers: [stage_complete_release]
+    desired_owner: harvester.release
+    compatibility_required: false
+    decision: MOVE
+    reason: carry-forward is an explicit release fallback, not provider implementation
+
+parity_matrix:
+  - scenario: normal_provider_success
+    status: PASS
+    required_fixture: provider_result_to_release_artifact
+    evidence: tests/test_step5b_harvester_official_parity.py::test_normal_provider_success_uses_acquisition_owner; packages/harvester/tests/test_official_panel.py::TestManifestProvenance::test_stage_release
+  - scenario: missing_credential
+    status: PASS
+    required_fixture: provider_preflight_failure
+    evidence: tests/test_step5b_harvester_official_parity.py::test_missing_credential_is_fail_closed
+  - scenario: provider_unavailable
+    status: PASS
+    required_fixture: bounded_provider_error
+    evidence: tests/test_step5b_harvester_official_parity.py::test_provider_unavailable_is_visible
+  - scenario: stale_or_fallback
+    status: PASS
+    required_fixture: fallback_release_and_provenance
+    evidence: tests/test_step5b_harvester_official_parity.py::test_stale_fallback_preserves_failure_and_marks_reuse; packages/harvester/tests/test_carry_forward_series.py
+  - scenario: schema_anomaly
+    status: PASS
+    required_fixture: normalization_failure_or_block
+    evidence: tests/test_step5b_harvester_official_parity.py::test_schema_anomaly_is_normalized_by_canonical_owner
+  - scenario: partial_acquisition
+    status: PASS
+    required_fixture: provider_outcome_and_failed_series
+    evidence: tests/test_step5b_harvester_official_parity.py::test_partial_acquisition_preserves_failed_series; packages/harvester/tests/test_official_registry_outcome.py
+
+boundary_checks:
+  official_imports_canonical_modules: PASS
+  canonical_modules_import_official: PASS
+  new_provider_implementation_in_official: PASS
+  live_provider_run: DEFERRED
+
+evidence:
+  canonical_reverse_import_scan: "no harvester.core/providers/ingestion/quality module imports harvester.official"
+  pure_owner_slice_tests: "132 passed, 4 warnings"
+  bounded_step5b_parity_tests: "6 passed"
+  extracted_module_line_counts:
+    canonical.py: 170
+    normalization.py: 81
+    release.py: 1058
+    provider_catalog.py: 181
+    provider_routing.py: 273
+    acquisition.py: 492
+    provenance.py: 90
+  focused_fixture_tests: "132 passed, 4 warnings"
+  cross_asset_facade_tests: "19 passed"
+  full_package_collection: BLOCKED_BY_ENVIRONMENT
+  full_package_collection_blocker: "ModuleNotFoundError: dlt in four DLT test modules"
+  no_dependency_install_performed: true
+
+gate:
+  status: PASS
+  blockers: []
+  out_of_scope:
+    - live provider admission and reliability qualification
+    - LaunchAgent reconciliation
+    - full package collection remains environment-blocked by missing dlt

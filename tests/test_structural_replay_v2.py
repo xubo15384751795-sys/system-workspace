@@ -61,13 +61,14 @@ def _load_module():
         sys.modules["replay.scoring"] = replay_scoring
 
     spec = importlib.util.spec_from_file_location(
-        "structural_replay_v2", ROOT / "scripts" / "structural_replay_v2.py",
+        "structural_replay_v2",
+        ROOT / "packages" / "framework_v1_archive" / "scripts" / "structural_replay_v2.py",
     )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules["structural_replay_v2"] = mod
     spec.loader.exec_module(mod)
-    return mod
+    return sys.modules["structural_replay_v2"]
 
 
 @pytest.fixture(scope="module")

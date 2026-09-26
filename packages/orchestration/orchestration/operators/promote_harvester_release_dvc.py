@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from orchestration.dvc_promote import record_release_pointer
-from scripts._runtime_io import ROOT, write_json
+from verity.runtime.runtime_io import ROOT, write_json
 
 
 def main(argv: list[str] | None = None) -> int:

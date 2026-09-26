@@ -2,7 +2,7 @@
 """Enrich agent run reports with world-model context before Obsidian write-back.
 
 Usage:
-    cd /Users/a1/Verity
+    cd <verity-workspace>
     python3 -m caselab_context.enrich_agent_context --date 2026-06-16
 """
 from __future__ import annotations
@@ -10,17 +10,16 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
+from caselab_context.enrich_signal import TICKER_CONTEXT_MAP, enrich_trade_signal
+from caselab_context.paper_paths import paper_root
 from system_runtime.paths import WorkspacePaths
 
-PAPER_ROOT = Path("/Users/a1/Paper")
+PAPER_ROOT = paper_root()
 REPORT_DIR = PAPER_ROOT / "data_pipeline" / "reports" / "agent-runs"
 OUTPUT_DIR = PAPER_ROOT / "data_pipeline" / "reports" / "agent-runs-enriched"
 
 SYSTEM_ROOT = WorkspacePaths.discover().root
-
-from caselab_context.enrich_signal import TICKER_CONTEXT_MAP, enrich_trade_signal
 
 
 def enrich_report(report: dict) -> dict:

@@ -151,30 +151,42 @@ def test_capability_registry_schema_in_governance() -> None:
 
 
 def test_root_scripts_no_yfinance_import() -> None:
-    """Root scripts must not import yfinance (except archive_candidates)."""
+    """Live operator trees must not import yfinance (except archive_candidates)."""
     import ast as _ast
-    scripts_dir = ROOT / "scripts"
+    scan_roots = [
+        ROOT / "scripts",
+        ROOT / "verity",
+        ROOT / "tools",
+        ROOT / "packages" / "workbench" / "src",
+        ROOT / "packages" / "learning_hub" / "src",
+        ROOT / "packages" / "orchestration",
+    ]
     violations = []
-    for py_file in scripts_dir.glob("*.py"):
-        try:
-            tree = _ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
-        except (SyntaxError, UnicodeDecodeError):
+    for scan_root in scan_roots:
+        if not scan_root.exists():
             continue
-        for node in _ast.walk(tree):
-            module = None
-            if isinstance(node, _ast.Import):
-                for alias in node.names:
-                    if alias.name == "yfinance" or alias.name.startswith("yfinance."):
-                        module = alias.name
-            elif isinstance(node, _ast.ImportFrom):
-                if node.module and (node.module == "yfinance" or node.module.startswith("yfinance.")):
-                    module = node.module
-            if module:
-                # Check if file is marked ARCHIVE_CANDIDATE
-                header = py_file.read_text(encoding="utf-8")[:500]
-                if "ARCHIVE_CANDIDATE" not in header:
-                    violations.append(f"{py_file.name}:{node.lineno}: imports {module!r}")
-    assert not violations, "Root scripts import yfinance (not archive_candidate):\n" + "\n".join(violations)
+        for py_file in scan_root.rglob("*.py"):
+            if "tests" in py_file.parts or "__pycache__" in py_file.parts:
+                continue
+            try:
+                tree = _ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            for node in _ast.walk(tree):
+                module = None
+                if isinstance(node, _ast.Import):
+                    for alias in node.names:
+                        if alias.name == "yfinance" or alias.name.startswith("yfinance."):
+                            module = alias.name
+                elif isinstance(node, _ast.ImportFrom):
+                    if node.module and (node.module == "yfinance" or node.module.startswith("yfinance.")):
+                        module = node.module
+                if module:
+                    header = py_file.read_text(encoding="utf-8")[:500]
+                    if "ARCHIVE_CANDIDATE" not in header:
+                        rel = py_file.relative_to(ROOT).as_posix()
+                        violations.append(f"{rel}:{node.lineno}: imports {module!r}")
+    assert not violations, "Operator trees import yfinance (not archive_candidate):\n" + "\n".join(violations)
 
 
 def test_daily_pipeline_registry_exists() -> None:
@@ -192,14 +204,14 @@ def test_etf_data_path_registered() -> None:
 
 
 def test_scripts_constants_module_exists() -> None:
-    """scripts/_constants.py must exist (centralized magic number constants)."""
-    path = ROOT / "scripts" / "_constants.py"
-    assert path.exists(), "_constants.py missing from scripts/"
+    """verity/runtime/_constants.py must exist (centralized magic number constants)."""
+    path = ROOT / "verity" / "runtime" / "_constants.py"
+    assert path.exists(), "_constants.py missing from verity/runtime/"
 
 
 def test_constants_module_has_core_groups() -> None:
     """_constants.py must define the core constant groups."""
-    path = ROOT / "scripts" / "_constants.py"
+    path = ROOT / "verity" / "runtime" / "_constants.py"
     raw = path.read_text(encoding="utf-8")
     required_groups = [
         "CASELAB_STRONG_THRESHOLD",
@@ -226,3 +238,91 @@ def test_no_standalone_yfinance_in_root_scripts() -> None:
         assert "import yfinance" not in raw, (
             f"{py_file.name} imports yfinance directly — use Harvester instead"
         )
+
+
+CONVERTED_SCRIPT_HELPERS = frozenset(
+    {
+        "scripts._runtime_io",
+        "scripts._constants",
+        "scripts._admission_gate",
+        "scripts._current_publish",
+        "scripts._notify",
+        "scripts._data_paths",
+        "scripts._artifact_provenance",
+        "scripts._shadow_publish",
+        "scripts._release_boundary",
+        "scripts._control_closure",
+        "scripts._mechanism_calibration_gate",
+        "scripts._deformation_archive_guard",
+        "scripts._daily_observability",
+        "scripts._experiment_tracker",
+        "scripts._governance_freeze",
+        "scripts._incentive_engine",
+        "scripts._market_data",
+        "scripts._external_indicator_health",
+        "scripts._runtime_status_contract",
+        "scripts._authority_graph",
+        "scripts._pipeline_dag",
+        "scripts._pipeline_runner",
+        "scripts._daily_run_sequence",
+        "scripts._daily_run_executor",
+    }
+)
+
+
+def _scripts_modules_imported(source: str) -> set[str]:
+    import ast as _ast
+
+    found: set[str] = set()
+    try:
+        tree = _ast.parse(source)
+    except SyntaxError:
+        return found
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            for alias in node.names:
+                if alias.name == "scripts" or alias.name.startswith("scripts."):
+                    found.add(alias.name)
+        elif isinstance(node, _ast.ImportFrom) and node.module:
+            if node.module == "scripts":
+                for alias in node.names:
+                    found.add(f"scripts.{alias.name}")
+            elif node.module.startswith("scripts."):
+                found.add(node.module)
+    return found
+
+
+def test_converted_runtime_helpers_not_imported_via_scripts() -> None:
+    """packages/, verity/, and tools/ must import converted helpers at their canonical modules."""
+    scan_roots = [ROOT / "packages", ROOT / "verity", ROOT / "tools"]
+    violations: list[str] = []
+    for scan_root in scan_roots:
+        if not scan_root.exists():
+            continue
+        for py_file in scan_root.rglob("*.py"):
+            if "__pycache__" in py_file.parts:
+                continue
+            try:
+                source = py_file.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            bad = sorted(_scripts_modules_imported(source) & CONVERTED_SCRIPT_HELPERS)
+            if bad:
+                rel = py_file.relative_to(ROOT).as_posix()
+                violations.append(f"{rel}: {', '.join(bad)}")
+    assert not violations, "converted helpers still imported via scripts:\n" + "\n".join(violations)
+
+
+def test_live_packages_do_not_import_scripts_except_archive_file_modules() -> None:
+    """Live-package compatibility debt is governed by the architecture ledger."""
+    from tools.audit.architecture_invariants import scan_architecture
+
+    report = scan_architecture(ROOT)
+    violations = [
+        item.as_dict()
+        for item in report.violations
+        if item.rule_id == "ARCH-001" and item.debt_id is None
+    ]
+    assert not violations, "live packages still import unregistered scripts.*:\n" + "\n".join(
+        str(item) for item in violations
+    )

@@ -27,7 +27,7 @@ from orchestration.assets.registry_shadow import (
     load_registry_document,
 )
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 ContentSuite = Callable[..., dict[str, Any]]
 ArtifactReader = Callable[[str], dict[str, Any]]

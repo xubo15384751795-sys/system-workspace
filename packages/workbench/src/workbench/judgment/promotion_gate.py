@@ -24,9 +24,9 @@ from typing import Any, cast
 
 ROOT = WorkspacePaths.discover().root
 JUDGMENT_PATH = output_surface(ROOT, "judgment") / "latest.json"
-CASELAB_DIR = ROOT / "Output" / "caselab"
-HMM_PATH = ROOT / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
-HMM_AUDIT_PATH = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
+CASELAB_DIR = ROOT / "Output" / "state" / "caselab"
+HMM_PATH = ROOT / "Output" / "state" / "ml_signals" / "latest" / "regime_hmm.json"
+HMM_AUDIT_PATH = ROOT / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json"
 K_GATE_PATH = ROOT / "Output" / "k_measurement" / "k_measurement_gate.json"
 X_GATE_PATH = ROOT / "Output" / "x_measurement" / "x_measurement_gate.json"
 OUTPUT_DIR = output_surface(ROOT, "judgment")

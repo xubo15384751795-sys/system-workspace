@@ -15,18 +15,18 @@ from orchestration.native_daily import (
 )
 from orchestration.native_daily_checks import build_native_daily_checks
 from orchestration.assets import native_batch
-from scripts.commands.weekly import (
+from workbench.surfaces import (
     build_artifact_registry,
     build_change_analysis,
     build_evidence_grade_report,
-    build_measurement_quality_report,
 )
+from workbench.measurement import build_measurement_quality_report
 from orchestration.runner import (
     DailyRunPayload,
     run_daily_sequence_direct,
     run_daily_sequence_via_dagster,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 from orchestration.definitions import (
     defs,
     native_daily_shadow_job,

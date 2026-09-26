@@ -2,8 +2,8 @@
 
 The two adapters in this module deliberately stop at the file boundary:
 
-* ``neutral_pressure_measurement`` keeps its existing panel calculation and
-  writes the snapshot/framework compatibility files to the active generation.
+* ``neutral_pressure_measurement`` invokes the neutral-pressure model plugin
+  and writes the snapshot/framework compatibility files to the active generation.
 * ``quality_validation`` keeps its existing Pandera-like rule set and writes
   the report to the active generation.
 
@@ -14,13 +14,14 @@ also do not write ``steps.jsonl``, legacy run directories, or promotion state.
 from __future__ import annotations
 
 import time
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from scripts._runtime_io import ROOT, current_dir, load_json, utc_now
+from verity.runtime.runtime_io import ROOT, current_dir, load_json, utc_now
 
 CORE_BOUNDARY_TAG = "shadow_pilot"
 SUPPORTED_CORE_BOUNDARY_STEPS = frozenset(
@@ -138,8 +139,10 @@ def execute_native_core_boundary(
     if step_id not in NATIVE_CORE_BOUNDARY_STEPS or step_id not in selected:
         raise ValueError(f"no native core boundary registered for {step_id!r}")
 
-    from scripts import neutral_pressure_measurement as neutral
-    from scripts import quality_field_validator as quality
+    from workbench.measurement import quality_field_validator as quality
+    from workbench.measurement import neutral_pressure_measurement as neutral
+    from workbench.plugins.neutral_pressure_md.cli import evaluate_neutral_pressure
+    from workbench.plugins.neutral_pressure_md.legacy_output import build_legacy_snapshot
 
     failure_behavior = selected[step_id]
     started = time.monotonic()
@@ -148,7 +151,19 @@ def execute_native_core_boundary(
         if step_id == "neutral_pressure_measurement":
             panel_path = benchmark_panel_path or neutral.DEFAULT_PANEL
             history_path = _neutral_history_path(output_dir)
-            snapshot, history = neutral.build_snapshot(panel_path, history_path)
+            run_id = os.environ.get("ZCODE_BUNDLE_RUN_ID") or "native_core_boundary"
+            evaluation = evaluate_neutral_pressure(
+                panel_path=panel_path,
+                history_path=history_path,
+                run_id=run_id,
+                release_id=neutral._release_id(),
+            )
+            snapshot, history = build_legacy_snapshot(
+                evaluation,
+                panel_path=panel_path,
+                history_path=history_path,
+                mechanism_cards=ROOT / "docs" / "measurements" / "macro_pressure_mechanism_cards.md",
+            )
             snapshot_path, framework_path, history_path = neutral.write_snapshot_files(
                 snapshot,
                 history,

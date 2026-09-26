@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 from harvester import __version__
 from harvester.core.manifest import load_manifest
+from system_runtime.context import RuntimeContext
 
 
 SCHEMA_VERSION = "1.0"
@@ -19,7 +20,7 @@ class CatalogValidationError(ValueError):
 
 
 def contracts_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "contracts"
+    return RuntimeContext.current_context().workspace / "packages" / "harvester" / "contracts"
 
 
 def schema_path() -> Path:

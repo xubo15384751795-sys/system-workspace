@@ -2,21 +2,25 @@
 
 The legacy executor is allowed to replace only the step-dispatch mechanism.
 Publication, RunOutcome construction, and all result consumers remain in the
-same ``scripts.daily_run.run_daily`` function as the default Dagster path.
+same ``verity.cli.daily_run.run_daily`` function as the default Dagster path.
 """
 from __future__ import annotations
 
-import importlib
 import json
 from types import SimpleNamespace
 
 
 def test_legacy_dispatch_reaches_the_common_typed_outcome_sinks(monkeypatch, tmp_path):
-    from scripts import _current_publish as current_publish
-    from scripts import _shadow_publish as shadow_publish
-    from scripts import daily_run, ingest_daily_run_to_hub, run_learning_hub_ingest
-    from scripts.archive import _legacy_daily_run_executor as legacy
-    top_level_ingest = importlib.import_module("ingest_daily_run_to_hub")
+    from system_learning.operators import (
+        ingest_daily_run_to_hub,
+        run_learning_hub_ingest,
+    )
+
+    from verity.cli import daily_run
+    from verity.runtime import _current_publish as current_publish
+    from verity.runtime import _legacy_daily_run_executor as legacy
+    from verity.runtime import _shadow_publish as shadow_publish
+    top_level_ingest = ingest_daily_run_to_hub
 
     output_root = tmp_path / "Output"
     bundle_root = output_root / "runs" / "legacy-fixture-run"

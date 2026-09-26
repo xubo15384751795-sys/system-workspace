@@ -62,7 +62,7 @@ def test_explicit_panel_builds_shadow_only_runner(monkeypatch, tmp_path) -> None
 
     result = captured["runner"]("neutral_pressure_measurement")
     assert result["benchmark_panel_path"] == str(panel.resolve())
-    assert result["current_output"].endswith("Output/health/native_core_shadow")
+    assert result["current_output"].endswith("Output/state/health/native_core_shadow")
 
 
 def test_custom_root_default_panel_does_not_use_registered_global_job(monkeypatch, tmp_path) -> None:
@@ -112,4 +112,4 @@ def test_custom_root_default_panel_does_not_use_registered_global_job(monkeypatc
     assert report["benchmark_panel_path"] == str(panel.resolve())
     result = captured["runner"]("neutral_pressure_measurement")
     assert result["benchmark_panel_path"] == str(panel.resolve())
-    assert result["current_output"].endswith("Output/health/native_core_shadow")
+    assert result["current_output"].endswith("Output/state/health/native_core_shadow")

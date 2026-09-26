@@ -6,8 +6,9 @@ tag matching.
 
 Usage:
     from nlp.caselab.enhanced_similarity import EnhancedSimilarityEngine
+    from caselab_context.paper_paths import paper_root
 
-    engine = EnhancedSimilarityEngine("/Users/a1/Paper")
+    engine = EnhancedSimilarityEngine(paper_root())
     results = engine.find_similar(
         variable_vector={...},
         tags=[...],
@@ -23,7 +24,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from nlp.caselab.text_match import (
     keyword_cosine_similarity,
     top_shared_concepts,

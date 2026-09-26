@@ -27,8 +27,9 @@ def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
-    return module
+    return sys.modules[name]
 
 
 class TestPipelineSkeleton:
@@ -45,7 +46,7 @@ class TestPipelineSkeleton:
 
     def test_daily_run_sequence_loads(self):
         """daily_run_sequence.yaml should load with expected step count."""
-        seq_mod = _load("_daily_run_sequence", SCRIPTS / "_daily_run_sequence.py")
+        seq_mod = _load("_daily_run_sequence", ROOT / "verity" / "runtime" / "_daily_run_sequence.py")
         steps = seq_mod.load_daily_run_sequence()
         assert len(steps) >= 20, f"Expected >=20 steps, got {len(steps)}"
         weekly = seq_mod.weekly_step_ids()
@@ -114,7 +115,7 @@ class TestModuleIntegrity:
         """_runtime_io should export canonical I/O functions."""
         if str(SCRIPTS) not in sys.path:
             sys.path.insert(0, str(SCRIPTS))
-        import _runtime_io as mod
+        import verity.runtime.runtime_io as mod
         assert hasattr(mod, "load_json")
         assert hasattr(mod, "load_yaml")
         assert hasattr(mod, "ROOT")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,26 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 def default_system_root() -> Path:
-    """Resolve the workspace without a hardcoded machine path.
+    """Return the application-injected workspace root."""
+    from system_runtime.context import RuntimeContext
 
-    ``SYSTEM_ROOT`` / ``SYSTEM_WORKSPACE_ROOT`` win only when they still look
-    like this repository.  A stale pointer at the emptied ``/Users/a1/System``
-    rename leftover is ignored so CLIs land on Verity.
-    """
-    from system_runtime.paths import WORKSPACE_MARKER, WorkspacePaths
-
-    for key in ("SYSTEM_WORKSPACE_ROOT", "SYSTEM_ROOT"):
-        raw = os.environ.get(key, "").strip()
-        if not raw:
-            continue
-        root = Path(raw).expanduser().resolve()
-        if (root / WORKSPACE_MARKER).is_file():
-            return root
-    return WorkspacePaths.discover().root
-
-
-def hub_repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return RuntimeContext.current_context().workspace
 
 
 def resolve_hub_project_root(system_root: Path) -> Path:
@@ -42,7 +25,9 @@ def resolve_hub_project_root(system_root: Path) -> Path:
             "migrate to packages/learning_hub"
         )
         return named
-    return hub_repo_root()
+    # A standalone Hub caller must provide a valid application workspace. Do
+    # not infer a repository parent from the installed package location.
+    return canonical
 
 
 @dataclass(frozen=True)

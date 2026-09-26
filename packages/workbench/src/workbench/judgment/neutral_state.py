@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from workbench.judgment.model_evidence import measurement_evidence
+
 DEAD_BAND = 0.10
 HISTORY_SCHEMA = "neutral_state.history.v1"
 
@@ -27,26 +29,11 @@ def _as_float(value: Any) -> float | None:
 
 
 def md_values(snapshot: Mapping[str, Any] | None) -> tuple[float | None, float | None]:
-    """Read live M/D gauges from a neutral-pressure snapshot."""
-    if not isinstance(snapshot, Mapping):
-        return None, None
-    advanced = snapshot.get("advanced") if isinstance(snapshot.get("advanced"), Mapping) else {}
-    readout = advanced.get("primary_readout") if isinstance(advanced.get("primary_readout"), Mapping) else {}
-    m_block = readout.get("M_anchor_geometry") if isinstance(readout.get("M_anchor_geometry"), Mapping) else {}
-    d_block = readout.get("D_path_geometry") if isinstance(readout.get("D_path_geometry"), Mapping) else {}
-    m_val = _as_float(m_block.get("value"))
-    d_val = _as_float(d_block.get("value"))
-    if m_val is not None or d_val is not None:
-        return m_val, d_val
-    chain = snapshot.get("canonical_chain") if isinstance(snapshot.get("canonical_chain"), Mapping) else {}
-    for key in ("measurement", "observation"):
-        block = chain.get(key) if isinstance(chain.get(key), Mapping) else {}
-        value = block.get("value") if isinstance(block.get("value"), Mapping) else {}
-        m_val = _as_float(value.get("M"))
-        d_val = _as_float(value.get("D"))
-        if m_val is not None or d_val is not None:
-            return m_val, d_val
-    return None, None
+    """Read the first two generic measurement scores."""
+    evidence = measurement_evidence(snapshot)
+    values = list(evidence.values[:2])
+    values.extend([None] * (2 - len(values)))
+    return values[0], values[1]
 
 
 def reading_from_snapshot(
@@ -55,13 +42,11 @@ def reading_from_snapshot(
     run_id: str | None = None,
 ) -> dict[str, Any]:
     """Project a snapshot into a comparable reading."""
-    basic = snapshot.get("basic") if isinstance(snapshot, Mapping) else None
-    direction = None
-    if isinstance(basic, Mapping):
-        raw = basic.get("main_pressure")
-        if raw is not None and str(raw).strip():
-            direction = str(raw).strip()
-    m_val, d_val = md_values(snapshot)
+    evidence = measurement_evidence(snapshot)
+    direction = evidence.state
+    values = list(evidence.values[:2])
+    values.extend([None] * (2 - len(values)))
+    m_val, d_val = values[0], values[1]
     if run_id is None and isinstance(snapshot, Mapping):
         raw_run = snapshot.get("run_id")
         run_id = str(raw_run) if raw_run else None

@@ -8,6 +8,7 @@ request URL at send time.
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
 import socket
 from dataclasses import dataclass
@@ -41,6 +42,12 @@ class ExternalGatewayPolicyError(ExternalGatewayError):
 
 class ExternalGatewayResponseTooLarge(ExternalGatewayPolicyError):
     """Raised when a sink response exceeds the configured byte budget."""
+
+
+def _suppress_request_url_logging() -> None:
+    """Prevent HTTP client INFO logs from exposing credential-bearing URLs."""
+    for logger_name in ("httpx", "httpcore"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 def _validate_proxy_url(proxy_url: str | None) -> str | None:
@@ -258,6 +265,7 @@ class OwnedExternalHTTPGateway:
         max_request_bytes: int = 2_000_000,
         max_response_bytes: int = 2_000_000,
     ) -> None:
+        _suppress_request_url_logging()
         if max_request_bytes <= 0 or max_response_bytes <= 0:
             raise ValueError("external gateway byte budgets must be positive")
         self._endpoints = dict(endpoints)

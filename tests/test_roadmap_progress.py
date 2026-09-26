@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 import yaml
+from workbench.surfaces import roadmap_progress as progress
 
-from scripts import roadmap_progress as progress
 from system_cli.app import build_parser
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -6,8 +6,7 @@ from datetime import UTC, datetime
 import numpy as np
 import pandas as pd
 import pytest
-
-from scripts.public_residual_stress import (
+from workbench.measurement.public_residual_stress import (
     build_public_residual_bundle,
     dual_stress_position,
     public_level_probability,
@@ -138,7 +137,7 @@ def test_reduced_coverage_requires_research_marker() -> None:
 
 
 def test_channel_level_fails_closed_when_component_basket_changes() -> None:
-    from scripts.public_residual_stress import channel_level_probability
+    from workbench.measurement.public_residual_stress import channel_level_probability
 
     index = pd.date_range("2026-01-01", periods=10, freq="B")
     channels = pd.DataFrame(

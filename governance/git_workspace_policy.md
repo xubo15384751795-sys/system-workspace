@@ -82,7 +82,7 @@ Parent repo owns:
 - `Data/`, `Output/` — canonical artifact trees (regenerated locally)
 - `OpenBB/` — external tooling install, not a submodule
 - Virtualenvs, caches, secrets, logs, IDE noise (`.venv/`, `__pycache__/`, `.env`, `lightning_logs/`, `.DS_Store`, …)
-- Qlib sandbox blobs under `Output/benchmarks/market_feedback/` (with explicit `!` exceptions for small governance JSON)
+- Qlib sandbox blobs under `Output/state/benchmarks/market_feedback/` (with explicit `!` exceptions for small governance JSON)
 
 **Do not list:**
 

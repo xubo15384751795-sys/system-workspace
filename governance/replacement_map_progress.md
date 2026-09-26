@@ -29,7 +29,7 @@
 - [x] 新增 12 个 shadow/DVC operator 已从 root `scripts/` 吸收到 `harvester.operators` / `orchestration.operators`，改用 `python -m` 入口；默认 authority、shadow-only 边界和回滚开关不变。
 - [x] root-script redundancy budget 已闭合：全部 root Python `118/118`，public command surface `90/90`；entrypoint registry、package operator import 和预算回归通过。
 - [x] 远端验证暴露并修复一个跨平台 dry-run 边界：`scripts/orchestrate.sh --dry-run` 不再被共享 `Output` 的 recovery marker 拦截；真实运行仍保留 `reconcile_generation.py --fail-on-recovery`。ai-box 定向回归 `tests/test_orchestration_default_path.py`=`2 passed`。
-- [x] Sentry 实际 DSN 事件回执：`Output/health/sentry_event_receipt.json`，event id=`54ccd3fbf40e4dfe8035fd85a68b19c2`，UTC=`2026-08-25T13:41:03.380000+00:00`；回执不包含 DSN。
+- [x] Sentry 实际 DSN 事件回执：`Output/state/health/sentry_event_receipt.json`，event id=`54ccd3fbf40e4dfe8035fd85a68b19c2`，UTC=`2026-08-25T13:41:03.380000+00:00`；回执不包含 DSN。
 - [ ] healthchecks.io dead-man 心跳回执及自然 launchd 观察窗口。
 - [ ] native full-plan graph 与现行默认 graph 的一周执行、canonical lineage、publication 和 `steps.jsonl` parity。
 
@@ -73,7 +73,7 @@
 - [x] `tests/test_daily_heartbeat.py` 覆盖本地记录与禁用/失败不越权行为。
 - [x] `scripts/audit_launchd_reconciliation.py --no-launchctl` 静态核对通过：7 个预期 LaunchAgent plist 均存在，daily/dead-man 时间表与两个 legacy disabled 标记一致；该结果只证明安装配置，不证明服务正在运行。
 - [!] 当前 `--dry-run` dead-man 检查仍为 `ALERT/heartbeat_stale`：最后成功 run 为 `daily_pipeline_20260822_191754_139ced`，年龄约 60.1 小时，超过 26 小时阈值；这不是健康的自然调度证据，也未发送外部通知。
-- [x] 读取 mode-600 的运行时 secret file 中的 `SENTRY_DSN`，运行 `python3 -m scripts.test_sentry_event --receipt Output/health/sentry_event_receipt.json`；事件回执已成功生成，保存 event id 和 UTC 时间戳。
+- [x] 读取 mode-600 的运行时 secret file 中的 `SENTRY_DSN`，运行 `python3 -m scripts.test_sentry_event --receipt Output/state/health/sentry_event_receipt.json`；事件回执已成功生成，保存 event id 和 UTC 时间戳。
 - [ ] 配置 healthchecks.io（或自托管 URL），让 launchd 真实 daily run 发送 ping。
 - [ ] 完成至少一周 dead-man 观察：成功、失败、失联三类均能区分。
 
@@ -89,7 +89,7 @@
 - [x] `packages/orchestration/tests/test_dvc_promote.py` 通过。
 - [ ] 在下一次明确的受控提交中纳入 `Data/canonical/panels.duckdb.dvc`；当前工作树混合，本轮不自动 stage/commit。
 - [!] `--verify-only` 实际审计：workspace MD5/size 与 pointer 一致，但 18 MB 对象尚不在本机 DVC cache 或已配置 iCloud remote；`dvc status` clean 不能替代 remote-object 存在性证明。
-- [x] 当前 DVC verify-only 结果已固化到 `Output/health/dvc_canonical_panel_verify.json`：workspace digest/size 均匹配，`remote_verified=false`，状态仍诚实为 `BLOCKED`。
+- [x] 当前 DVC verify-only 结果已固化到 `Output/state/health/dvc_canonical_panel_verify.json`：workspace digest/size 均匹配，`remote_verified=false`，状态仍诚实为 `BLOCKED`。
 - [!] 受控 promotion 实际尝试仍 fail closed：`orchestration.operators.promote_canonical_panel_dvc` 的 DVC push 返回 exit 255，详细原因为 iCloud remote 目录创建 `Operation not permitted`；升级权限请求因外部数据写入未获批准，未绕过该边界。
 - [!] 2026-08-25 finalized provider release 的 DVC 小元数据 push 同样返回 exit 255；本地 release admission 不依赖这个失败被误报为成功，跨设备恢复证据仍保持 `BLOCKED`。
 - [x] 隔离 DVC 机制 drill：临时 local remote 完成 `add -> push -> 删除 scratch copy -> pull`，恢复后 MD5=`d6ecc1405cffb050333e6d592ca8a1b7`、size=`18,362,368`；该证据不替代配置中的 iCloud/ai-box remote。
@@ -175,7 +175,7 @@
 - [x] 实际缓存窗口：7 个 series parity `MATCH`（CFTC、CISS、FINRA、3 个 NYFED、OFR）。
 - [x] COVAR、SRISK 因现有缓存缺失，明确标为 `MISSING_CACHE`，未伪造成功。
 - [x] 总体报告为 `PARTIAL_MATCH`，promotion false。
-- [x] durable shadow 运行已写入 `Output/health/external_indicators_dlt_shadow.duckdb` / `external_indicators_dlt_shadow_parity.json`；Python 3.13 operator 复跑为 `PARTIAL_MATCH`，7 个可用序列均 `MATCH`，COVAR/SRISK 仍 `MISSING_CACHE`。
+- [x] durable shadow 运行已写入 `Output/state/health/external_indicators_dlt_shadow.duckdb` / `external_indicators_dlt_shadow_parity.json`；Python 3.13 operator 复跑为 `PARTIAL_MATCH`，7 个可用序列均 `MATCH`，COVAR/SRISK 仍 `MISSING_CACHE`。
 - [x] retry helper 接入后的实际 cache-only 复跑仍为 `PARTIAL_MATCH`：7 个可用序列 `MATCH`，initial/idempotence load attempts 均为 1，持久 state 与幂等 load count=7 保持一致；没有把 retry 配置误报成实际重试。
 - [x] 新增 `harvester.operators.aggregate_dlt_shadow_window` 作为真实采集窗口闸门：要求支持的 parity schema、全序列 `MATCH`、real provider-capture provenance、UTC 日期一致、稳定 schema/series identity、持久 state 和显式幂等验证；cache-only 报告 fail closed。
 - [x] dlt window gate 的 6 个聚焦测试覆盖短窗口、缺 capture/state、缺日、序列漂移、UTC 漂移和重复 capture；仍保持 `promotion_allowed=false`。
@@ -245,7 +245,7 @@
 - [x] runner-style `status=failed` 的瞬时失败也已验证 Dagster retry：第一次返回失败字典、第二次 success，实际调用次数为 2；native daily 相关回归 18 passed。
 - [x] 默认 flag-off 与现行 generated-op default path 回归通过。
 - [x] `orchestration.operators.run_native_daily_plan_shadow` 已建立 full-plan 结构 parity 闸门：真实 71 步 `CompiledPlan`、native/generated 两条 Dagster 路径均解析成功，未执行 provider/subprocess，`Output/current` fingerprint 未变化。
-- [x] durable 结构 parity 报告：`Output/health/native_daily_plan_shadow.json` 为 `MATCH`，71 个 native asset 对应 71 个 non-blocking asset checks，`promotion_allowed=false`，generated job 为 72 个节点（71 步加 summary）。
+- [x] durable 结构 parity 报告：`Output/state/health/native_daily_plan_shadow.json` 为 `MATCH`，71 个 native asset 对应 71 个 non-blocking asset checks，`promotion_allowed=false`，generated job 为 72 个节点（71 步加 summary）。
 - [x] 第一批四个非核心 shared `Output/current` writer 已拆出计算/写入边界：`build_data_gaps`、`evidence_grade_report`、`build_artifact_registry`、`change_analysis`；`native_file_boundaries.py` 在显式 `SYSTEM_USE_NATIVE_FILE_BOUNDARIES=1` 时只写 active generation。
 - [x] 四个 builder 均保留无参兼容调用；native adapter 只注入 generation-local 输出路径，历史 CaseLab/judgment 输入保持只读，`change_analysis` 对当前 generation judgment 做 overlay。
 - [x] 四个边界的隔离写入测试通过；orchestration 全套回归为 130 passed。
@@ -272,7 +272,7 @@
 - [x] 修复 native batch parity 的隐性输入依赖：`build_artifact_registry` 不再读取未准备的共享 current；每个 native asset 在对应 legacy generation snapshot 上单独 materialize，避免历史 current 文件偶然存在造成假 `MATCH`。
 - [ ] 11 个 generation-local file boundary（包括 `signal_card`/`signal_consensus`）尚未进入真实 daily 双轨 execution comparator；本机 same-inputs 报告只覆盖 native batch/quality asset，不等价于一周生产 parity。
 - [x] 核心 writer shadow 已建立独立入口 `native_core_pilot_job`，但 job/schedule 保持 `STOPPED`；其 blocking check 证据只证明 native check 语义，不证明默认路径已切换。
-- [x] `orchestration.operators.run_native_core_shadow` 将真实运行区分为 `PASS` / `BLOCKED_UPSTREAM` / `FAIL`，并保留 `promotion_allowed=false`；当前报告为 `Output/health/native_core_shadow.json`。
+- [x] `orchestration.operators.run_native_core_shadow` 将真实运行区分为 `PASS` / `BLOCKED_UPSTREAM` / `FAIL`，并保留 `promotion_allowed=false`；当前报告为 `Output/state/health/native_core_shadow.json`。
 - [x] core shadow 报告现持久化 neutral 的 `as_of`、M/D sigma、coverage、逐序列最后观测日和 carry-forward policy；首次 `BLOCKED_UPSTREAM` 可追溯到输入证据，不会被误读成 Dagster 编排故障；修复并 admission 新 release 后当前默认报告已为 `PASS`。
 - [x] core shadow 同时计算但不采纳 latest common-sample preview；它仍标为 `diagnostic_only_common_sample`，不会绕过声明的 shared-calendar carry-forward 或伪造 promotion authority。
 - [x] `run_native_core_shadow` 的 package CLI 已补齐 `--root` / `--report` / `--help`；`--help` 只解析参数，不 materialize core shadow，避免远端操作误写健康证据。
@@ -282,18 +282,18 @@
 - [x] `run_native_core_shadow --benchmark-panel <path>` 已收敛为可复现的 shadow-only requalification 入口：显式 panel 绑定同一 native assets/checks，输出仍落在隔离 health root，默认 admitted panel、`Output/current` 和 promotion authority 不变。
 - [x] 2026-08-25 隔离 staged release 上的 native core 复跑：`native_core_pilot_job` materialized 2/2 assets、2/2 blocking checks passed；neutral=`ACTIVE_PARTIAL`、`M=0.1935`、`D=-0.9870`、`as_of=2026-08-25`，quality=`PASS`，`blocked_upstream=false`，`workspace_current_unchanged=true`，`promotion_allowed=false`。
 - [x] 该 release 已正式写入 `Data/harvester/exports/2026-08-25-r1` 并 finalize；`latest` 已切换到 `2026-08-25-r1`，随后默认 admitted-panel native shadow 复跑为 `PASS`：2/2 assets、2/2 checks、quality=`PASS`、`business_default_path_changed=false`。这仍是 shadow authority，不是默认 current promotion。
-- [x] `judgment_layer`、`judgment_promotion_gate`、`trade_decision`、`risk_gate` 已单独登记为 `native_decision_boundary: shadow_pilot`；只注入输入路径并把四个 writer 重定向到 `Output/health/native_decision_shadow`，没有复制 judgment/trade 业务规则，也没有写共享 authority。
+- [x] `judgment_layer`、`judgment_promotion_gate`、`trade_decision`、`risk_gate` 已单独登记为 `native_decision_boundary: shadow_pilot`；只注入输入路径并把四个 writer 重定向到 `Output/state/health/native_decision_shadow`，没有复制 judgment/trade 业务规则，也没有写共享 authority。
 - [x] 新增停止状态的 `native_decision_pilot_job` / `native_decision_pilot_schedule`；资产依赖为 `judgment → promotion_gate → trade_decision → risk_gate`，每步都有 blocking artifact check，策略状态（如 `WATCH`、`BLOCKED`、`APPROVED_FOR_RESEARCH`）与执行失败分开记录。
 - [x] decision boundary 的路径注入回归通过；promotion gate、trade decision 默认参数保持兼容，risk gate 仍复用原有 `check_decision` / `build_risk_gate_report`。
 - [x] 新增 decision pilot 6 个聚焦测试；核心/文件边界回归 26 个测试通过；ruff 通过。
-- [x] 2026-08-25 本机真实 stopped shadow 运行 `PASS`：4/4 asset materialized、4/4 blocking checks passed、`shared_surfaces_unchanged=true`、`business_default_path_changed=false`；报告为 `Output/health/native_decision_shadow.json`。观测到 promotion `WATCH`、trade `RISK_ON size=0.5`、risk `APPROVED_FOR_RESEARCH`，这些是业务产物状态，不是迁移 promotion。
+- [x] 2026-08-25 本机真实 stopped shadow 运行 `PASS`：4/4 asset materialized、4/4 blocking checks passed、`shared_surfaces_unchanged=true`、`business_default_path_changed=false`；报告为 `Output/state/health/native_decision_shadow.json`。观测到 promotion `WATCH`、trade `RISK_ON size=0.5`、risk `APPROVED_FOR_RESEARCH`，这些是业务产物状态，不是迁移 promotion。
 - [ ] decision shadow 尚未进入默认 core writer batch，也没有完成与旧 callable 的一周 same-inputs/execution parity；在 lineage、publication、`steps.jsonl` 和 failure propagation 窗口稳定前保持 stopped。
 - [x] `record_trade_decision`、`paper_portfolio` 已按 registry 顺序单独登记为 `native_adjacent_boundary: shadow_pilot`；前者复用原 ledger entry/upsert，后者复用原 paper portfolio 计算，均在 health generation 中执行。
 - [x] 新增停止状态的 `native_adjacent_pilot_job` / `native_adjacent_pilot_schedule`；`record_trade_decision` 使用非 blocking `continue_with_warning` check，`paper_portfolio` 使用 blocking `decision_adjacent_block` check。
 - [x] adjacent writer 的 temp-root 隔离测试 6 passed；实际运行中共享 `Output/current`、`Output/trade_ledger`、`Output/system_learning`、`Output/position` 指纹均未变化。
 - [x] 2026-08-25 adjacent shadow 首次运行正确暴露 snapshot 绝对路径失效；未伪造通过。确认 Verity 内存在同一 `/Output/...` 相对文件后，只在 shadow snapshot 副本中做存在性验证后的 path rebase，并将原/新路径记录到执行结果。
-- [x] path rebase 后真实 stopped adjacent shadow `PASS`：2/2 assets、2/2 checks，`record_trade_decision=APPROVED_FOR_RESEARCH`、`paper_portfolio=RISK_ON`，报告为 `Output/health/native_adjacent_shadow.json`；报告持久化 1 条原/新路径映射，`claim_evaluation_status=success`；仍为 `promotion_allowed=false`。
-- [x] native/current same-inputs parity 已实际跑通：`judgment_layer`、`judgment_promotion_gate`、`trade_decision`、`risk_gate`、`record_trade_decision`、`paper_portfolio` 共 6/6，JSON 与 Markdown 均 `MATCH`，且 `Output/current`、judgment、trade、ledger、system-learning、position 指纹均未变化；报告为 `Output/health/native_decision_parity.json`，仍为 `promotion_allowed=false`。
+- [x] path rebase 后真实 stopped adjacent shadow `PASS`：2/2 assets、2/2 checks，`record_trade_decision=APPROVED_FOR_RESEARCH`、`paper_portfolio=RISK_ON`，报告为 `Output/state/health/native_adjacent_shadow.json`；报告持久化 1 条原/新路径映射，`claim_evaluation_status=success`；仍为 `promotion_allowed=false`。
+- [x] native/current same-inputs parity 已实际跑通：`judgment_layer`、`judgment_promotion_gate`、`trade_decision`、`risk_gate`、`record_trade_decision`、`paper_portfolio` 共 6/6，JSON 与 Markdown 均 `MATCH`，且 `Output/current`、judgment、trade、ledger、system-learning、position 指纹均未变化；报告为 `Output/state/health/native_decision_parity.json`，仍为 `promotion_allowed=false`。
 - [x] parity comparator 已固定真实边界：旧入口显式使用快照 `as_of`，比较器忽略运行时 provenance 时间字段；adjacent generation seed 同时包含历史 ledger/system-learning，`record_trade_decision` 保留 best-effort `claim_evaluator` 副作用；velocity gate 在 native package 入口与旧脚本入口使用同一 fallback。
 - [ ] adjacent shadow 尚未与旧 callable 做一周 same-inputs/execution parity；特别是 paper NAV、ledger idempotence、admission/freshness 和 position history 仍需连续窗口证据。
 - [ ] 其余非核心 shared Output/current writer 仍需逐个迁移为 file-level asset 或明确 IO boundary；当前 11 个已经完成 shadow boundary，但尚未经过真实 daily 双轨 execution；全部完成前保留 sequence barrier。
@@ -318,8 +318,8 @@
 - [x] parity 工具明确区分 `MATCH`、`MISMATCH`、`LEGACY_MISSING`、`STALE`，只忽略生成时间字段。
 - [x] 最近 native pilot parity 报告为 `MISMATCH`：部分 existing `Output/current` artifacts 缺失或内容不一致。
 - [x] same-inputs 实际运行：5/5 native pilot reports `MATCH`，Dagster materialization 成功，legacy 临时执行 5/5 成功，`Output/current` fingerprint 未变化。
-- [x] durable same-inputs 报告写入 `Output/health/native_batch_shadow_parity_same_inputs.json`，状态 `MATCH` 且 `promotion_allowed=false`。
-- [x] full-plan dry-run 结构报告写入 `Output/health/native_daily_plan_shadow.json`；该报告只证明编排结构和命令解析，不代替实际执行双轨。
+- [x] durable same-inputs 报告写入 `Output/state/health/native_batch_shadow_parity_same_inputs.json`，状态 `MATCH` 且 `promotion_allowed=false`。
+- [x] full-plan dry-run 结构报告写入 `Output/state/health/native_daily_plan_shadow.json`；该报告只证明编排结构和命令解析，不代替实际执行双轨。
 - [x] bundle comparator 的三类聚焦 fixture 通过：完整匹配为 `MATCH`，step failure 为 `MISMATCH`，缺 lineage 为 `INCOMPLETE`。
 - [x] 因此当前 promotion 仍为 false，不能把 native pilot 抬成默认 authority。
 - [x] 已解释既有 current artifact mismatch 的来源（历史 current 缺少部分非核心视图）；重新生成的 same-inputs 报告已恢复 `MATCH`，不把历史缺失伪装成 native 生产证据。
@@ -354,30 +354,30 @@ uv run python -m pytest tests/test_external_indicators_dlt_shadow.py tests/test_
 # full-plan native/generated structural parity; no provider/subprocess execution
 cd /Users/a1/Verity
 DAGSTER_LOG_LEVEL=WARNING uv run python -m orchestration.operators.run_native_daily_plan_shadow \
-  --report Output/health/native_daily_plan_shadow.json
+  --report Output/state/health/native_daily_plan_shadow.json
 
 # stopped judgment -> promotion -> trade -> risk asset/check pilot;
 # shadow-only outputs and shared-surface fingerprints
 DAGSTER_LOG_LEVEL=WARNING uv run python -m orchestration.operators.run_native_decision_shadow \
-  --report Output/health/native_decision_shadow.json
+  --report Output/state/health/native_decision_shadow.json
 
 # stopped record-trade / paper-position pilot; generation-local state only
 DAGSTER_LOG_LEVEL=WARNING uv run python -m orchestration.operators.run_native_adjacent_shadow \
-  --report Output/health/native_adjacent_shadow.json
+  --report Output/state/health/native_adjacent_shadow.json
 
 # six-step decision + adjacent same-inputs parity; temporary generations only
 DAGSTER_LOG_LEVEL=WARNING uv run python -m orchestration.operators.compare_native_decision_parity \
-  --report Output/health/native_decision_parity.json
+  --report Output/state/health/native_decision_parity.json
 
 # eleven generation-local current-surface writers vs legacy future_callable;
 # temporary generations only, no provider/network and no Output/current write
 env PYTHONPATH=.:packages/orchestration:packages/harvester/src:packages/workbench/src \
   python3 -m orchestration.operators.run_native_file_boundary_shadow \
-  --report Output/health/native_file_boundary_shadow.json
+  --report Output/state/health/native_file_boundary_shadow.json
 
 # core-boundary shadow; remains health-only and promotion=false
 python3 -m orchestration.operators.run_native_core_shadow \
-  --report Output/health/native_core_shadow.json
+  --report Output/state/health/native_core_shadow.json
 
 # explicit fresh-panel requalification; panel must come from a verified
 # provider release/scratch, and the output remains isolated from current
@@ -390,7 +390,7 @@ python3 -m orchestration.operators.run_native_core_shadow \
 python3 -m harvester.operators.verify_duckdb_default_path \
   --input-panel Data/harvester/panels/cross_asset_daily_panel.parquet \
   --workspace-root /private/tmp/verity-duckdb-default-evidence \
-  --report Output/health/duckdb_default_path_evidence.json
+  --report Output/state/health/duckdb_default_path_evidence.json
 
 # vintage/PIT selector: package cwd avoids the root/package conftest collision
 cd /Users/a1/Verity/packages/harvester
@@ -417,14 +417,14 @@ uv run python -m harvester.operators.aggregate_dlt_shadow_window \
   --observation-report /path/to/dlt-2026-08-23.json \
   --observation-report /path/to/dlt-2026-08-24.json \
   --observation-report /path/to/dlt-2026-08-25.json \
-  --report Output/health/dlt_shadow_window.json
+  --report Output/state/health/dlt_shadow_window.json
 
 # compare two already-completed isolated native/current bundles (read-only)
 cd /Users/a1/Verity
 uv run python -m orchestration.operators.compare_daily_run_parity \
   --legacy-run /path/to/current/run \
   --native-run /path/to/native/run \
-  --report Output/health/native_current_dual_run_parity.json
+  --report Output/state/health/native_current_dual_run_parity.json
 
 # first real isolated pair: default is preflight-only; add --execute only on ai-box
 uv run python -m orchestration.operators.run_daily_dual_track \
@@ -432,7 +432,7 @@ uv run python -m orchestration.operators.run_daily_dual_track \
   --native-workspace-root /path/to/verity-native \
   --legacy-output-root /path/to/dual-track/legacy/Output \
   --native-output-root /path/to/dual-track/native/Output \
-  --report Output/health/native_current_dual_track_execution.json
+  --report Output/state/health/native_current_dual_track_execution.json
 # after reviewing the preflight report, repeat with --execute on ai-box
 
 # after at least one real report per consecutive UTC day, aggregate the window
@@ -444,7 +444,7 @@ uv run python -m orchestration.operators.aggregate_daily_dual_track_window \
   --observation-report /path/to/reports/dual-2026-08-23.json \
   --observation-report /path/to/reports/dual-2026-08-24.json \
   --observation-report /path/to/reports/dual-2026-08-25.json \
-  --report Output/health/native_current_dual_track_window.json
+  --report Output/state/health/native_current_dual_track_window.json
 ```
 
 本地默认验证（按 `AGENTS.md`）：

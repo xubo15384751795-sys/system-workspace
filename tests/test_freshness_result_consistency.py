@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
+import workbench.measurement.freshness_validator as freshness_validator  # noqa: E402
 from dagster import build_op_context
 from orchestration.ops import refresh_chain  # noqa: E402
 
-import scripts.freshness_validator as freshness_validator  # noqa: E402
-from scripts._admission_gate import admit_for_consumption  # noqa: E402
+from verity.runtime._admission_gate import admit_for_consumption  # noqa: E402
 
 
 def test_freshness_validator_admission_and_dagster_share_fixture_digest(
@@ -27,11 +27,11 @@ def test_freshness_validator_admission_and_dagster_share_fixture_digest(
         }
     }
     monkeypatch.setattr(freshness_validator, "CONTENT_FRESHNESS", freshness_spec)
-    monkeypatch.setattr("scripts._admission_gate._PUBLIC_CONTENT_CHECKS", ("fixture_clock",))
+    monkeypatch.setattr("verity.runtime._admission_gate._PUBLIC_CONTENT_CHECKS", ("fixture_clock",))
     monkeypatch.setattr(
-        "scripts._admission_gate._release_level_blockers", lambda _release: ([], {})
+        "verity.runtime._admission_gate._release_level_blockers", lambda _release: ([], {})
     )
-    monkeypatch.setattr("scripts._admission_gate._environmentally_blocked", dict)
+    monkeypatch.setattr("verity.runtime._admission_gate._environmentally_blocked", dict)
 
     now = datetime(2026, 8, 12, 12, 0, tzinfo=UTC)
     direct = freshness_validator.check_content_freshness(

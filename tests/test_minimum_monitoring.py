@@ -155,8 +155,8 @@ def test_notification_dedup_and_lineage_are_checked(tmp_path: Path) -> None:
         outcome=alert["outcome"],
         provider_status=alert["provider_status"],
     )
-    (output / "alerts").mkdir(parents=True)
-    (output / "alerts" / "latest_alert.json").write_text(
+    (output / "state" / "alerts").mkdir(parents=True)
+    (output / "state" / "alerts" / "latest_alert.json").write_text(
         json.dumps(alert), encoding="utf-8"
     )
     (output / "current").mkdir(parents=True)

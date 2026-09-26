@@ -496,6 +496,40 @@ def test_fetch_recent_ohlcv_accepts_provider_value_column(monkeypatch) -> None:
     assert fresh.iloc[0]["symbol"] == "SPY"
 
 
+def test_fetch_recent_ohlcv_forwards_resolved_provider_keys(monkeypatch) -> None:
+    from harvester.cross_asset_panel import fetch_recent_ohlcv
+    from harvester.providers.base import ProviderResult
+
+    captured: dict[str, object] = {}
+
+    class FakeChain:
+        provider_order = ("tiingo", "massive", "yfinance")
+
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+        def fetch_series(self, series_ids):
+            frame = pd.DataFrame(
+                {
+                    "date": pd.to_datetime(["2026-07-10"]),
+                    "close": [100.0],
+                    "open": [99.0],
+                    "high": [101.0],
+                    "low": [98.0],
+                    "volume": [1.0],
+                }
+            )
+            return [ProviderResult(provider="tiingo", series_id=series_ids[0], frame=frame)]
+
+    monkeypatch.setattr("harvester.providers.etf_market_data.EtfProviderChain", FakeChain)
+    keys = {"tiingo": "test-tiingo", "massive": "test-massive"}
+
+    fresh = fetch_recent_ohlcv(["SPY"], api_keys=keys)
+
+    assert len(fresh) == 1
+    assert captured["api_keys"] == keys
+
+
 def test_fetch_recent_ohlcv_raises_when_all_symbols_fail(monkeypatch) -> None:
     from harvester.cross_asset_panel import fetch_recent_ohlcv
     from harvester.providers.base import ProviderResult

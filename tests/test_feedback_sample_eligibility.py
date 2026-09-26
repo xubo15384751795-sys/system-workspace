@@ -27,7 +27,7 @@ def _copy_provider_policy(root: Path) -> None:
 
 
 def test_new_sample_builder_declares_candidate_and_denies_calibration() -> None:
-    from scripts.commands.weekly.build_feedback_sample_pool import _build_sample
+    from system_learning.operators.build_feedback_sample_pool import _build_sample
 
     sample = _build_sample("2026-08-12", "event_window", "test")
     assert sample["lifecycle_state"] == "candidate"

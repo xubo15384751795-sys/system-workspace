@@ -6,7 +6,7 @@ Connects the five CaseLab datasets to System's existing NLP/ML pipeline:
 3. NarrativeDrift  — feedback templates → baseline narratives
 
 Run:
-    cd /Users/a1/Verity
+    cd <verity-workspace>
     python -m nlp.caselab.bridge
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ import yaml
 
 CASELAB_TRAINING = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
 MAPPING_RULES = WorkspacePaths.discover().root / "Data" / "nlp" / "mapping_rules.yaml"
-ML_SIGNALS_DIR = WorkspacePaths.discover().root / "Output" / "ml_signals"
+ML_SIGNALS_DIR = WorkspacePaths.discover().root / "Output" / "state" / "ml_signals"
 
 
 # ── 1. VariableMapper: add mechanism mapping rules ───────────────────────

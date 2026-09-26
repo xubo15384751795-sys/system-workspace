@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts import _notify, daily_run
-from scripts.run_bundle import RunBundle
 from system_runtime.run_outcome import RunOutcome
+from verity.cli import daily_run
+from verity.runtime import _notify
+from verity.runtime.run_bundle import RunBundle
 
 
 def _event_payloads(runtime_events: Path) -> list[dict]:
@@ -70,8 +71,8 @@ def test_failed_runoutcome_is_identical_in_bundle_event_alert_and_notification(
     )
 
     bundle_payload = json.loads((run_dir / "run_outcome.json").read_text(encoding="utf-8"))
-    alert_payload = json.loads((output_root / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
-    event_payload = _event_payloads(output_root / "runtime_events")[0]
+    alert_payload = json.loads((output_root / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+    event_payload = _event_payloads(output_root / "state" / "runtime_events")[0]
 
     assert bundle_payload == payload
     assert alert_payload["outcome"] == payload

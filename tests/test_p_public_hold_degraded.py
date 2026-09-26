@@ -62,8 +62,9 @@ class TestShadowOutcomesExcludesDegraded:
     """build_90d_outcomes_summary excludes HOLD_DEGRADED dates."""
 
     def test_degraded_day_excluded_from_promotion_counts(self, tmp_path, monkeypatch):
-        from scripts import _runtime_io as rio
-        from scripts.strategy_lab import shadow_card as sc
+        from strategy_lab import shadow_card as sc
+
+        from verity.runtime import runtime_io as rio
 
         # Isolate both OUTPUT_DIR (shadow cards) and rio.ROOT (NAV ledger path
         # is derived from rio.ROOT inside _load_degraded_nav_dates).
@@ -111,8 +112,9 @@ class TestShadowOutcomesExcludesDegraded:
         assert summary["promotion_indicators"]["min_samples_met"] is False
 
     def test_no_degraded_days_all_counted(self, tmp_path, monkeypatch):
-        from scripts import _runtime_io as rio
-        from scripts.strategy_lab import shadow_card as sc
+        from strategy_lab import shadow_card as sc
+
+        from verity.runtime import runtime_io as rio
 
         monkeypatch.setattr(sc, "OUTPUT_DIR", tmp_path / "strategy_lab")
         monkeypatch.setattr(rio, "ROOT", tmp_path)

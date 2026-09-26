@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from scripts._current_publish import (
+from verity.runtime._current_publish import (
     begin_candidate,
     clear_candidate_env,
     publish_candidate,

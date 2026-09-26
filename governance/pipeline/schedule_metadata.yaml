@@ -1,0 +1,144 @@
+schema_version: governance.pipeline.schedule_metadata.v1
+concern: schedule_metadata
+source_kind: AUTHORING
+compiler_version: registry-authoring-v1
+runtime_authority: system_runtime.pipeline.CompiledPipeline
+metadata: {}
+defaults: {}
+steps:
+  harvester: {}
+  etf_refresh: {}
+  paper_sync: {}
+  horizon_events: {}
+  neutral_pressure_measurement: {}
+  structural_replay:
+    schedule: on_demand
+  bridge:
+    schedule: on_demand
+  run_operator_detections:
+    schedule: weekly
+  validate_proxy_observation_catalog:
+    schedule: weekly
+  quality_validation: {}
+  regime_detection: {}
+  archive_hmm_calibration_snapshot: {}
+  hmm_stability_audit:
+    schedule: weekly
+  k_measurement_gate:
+    schedule: on_demand
+  x_measurement_gate:
+    schedule: on_demand
+  measurement_quality_report:
+    schedule: daily
+  caselab_signal: {}
+  judgment_layer: {}
+  judgment_replay_audit:
+    schedule: weekly
+  judgment_promotion_gate: {}
+  probabilistic_context: {}
+  trade_decision: {}
+  risk_gate: {}
+  record_trade_decision: {}
+  paper_portfolio: {}
+  trade_decision_replay:
+    schedule: weekly
+  market_feedback: {}
+  build_data_gaps:
+    schedule: weekly
+  signal_monitor:
+    schedule: weekly
+  claim_evaluator:
+    schedule: weekly
+  claim_ladder_tracker:
+    schedule: weekly
+  learning_hub_feedback:
+    schedule: weekly
+  proxy_quality_report:
+    schedule: weekly
+  proxy_lifecycle: {}
+  learning_summary:
+    schedule: weekly
+  judgment_calibration_event:
+    schedule: weekly
+  trade_calibration_event:
+    schedule: weekly
+  operator_registry_audit:
+    schedule: weekly
+  position_sizing: {}
+  system_index: {}
+  readme_first:
+    schedule: daily
+  evidence_grade_report:
+    schedule: daily
+  build_artifact_registry:
+    schedule: daily
+  record_daily_run_event: {}
+  learning_hub_ingest:
+    schedule: weekly
+  monitoring_coverage_audit:
+    schedule: weekly
+  next_actions:
+    schedule: daily
+  freshness_validator: {}
+  data_retention_audit:
+    schedule: weekly
+  architecture_reality_audit:
+    schedule: weekly
+  signal_card: {}
+  signal_consensus: {}
+  strategy_lab_shadow: {}
+  shadow_outcomes_90d: {}
+  build_overlay_shadow_report:
+    schedule: weekly
+  build_event_replay_factory:
+    schedule: weekly
+  build_feedback_sample_pool:
+    schedule: weekly
+  evaluate_feedback_samples:
+    schedule: weekly
+  current_status: {}
+  work_brief: {}
+  output_routing_audit:
+    schedule: weekly
+  supervisor_check:
+    schedule: weekly
+  build_authority_graph:
+    schedule: weekly
+  governance_status:
+    schedule: weekly
+  routing_decision:
+    schedule: on_demand
+  caselab_index: {}
+  build_policy_from_paper:
+    schedule: weekly
+  archive_daily_snapshots:
+    schedule: weekly
+  backfill_judgment_calibration:
+    schedule: weekly
+  mechanism_calibration:
+    schedule: weekly
+  export_feedback:
+    schedule: weekly
+  suggest_paper_updates:
+    schedule: weekly
+  promote_paper_inbox:
+    schedule: weekly
+  collect_reviews:
+    schedule: weekly
+  evaluate_pending: {}
+  change_analysis:
+    schedule: weekly
+  refresh_cross_asset_panel:
+    schedule: daily
+  judgment_accuracy_report:
+    schedule: weekly
+  asof_integrity_check:
+    schedule: weekly
+  baseline_comparison:
+    schedule: weekly
+  walk_forward_validation:
+    schedule: weekly
+  qlib_structural_bridge:
+    schedule: weekly
+  threshold_review_bridge:
+    schedule: weekly

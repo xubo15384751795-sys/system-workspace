@@ -186,7 +186,7 @@ ALL_EXPECTED_CHECKS = [
 
 def test_audit_has_all_hardening_checks() -> None:
     """architecture_reality_audit.py must include all 6 hardening checks."""
-    script = SCRIPTS / "commands" / "weekly" / "architecture_reality_audit.py"
+    script = ROOT / "tools" / "audit" / "architecture_reality_audit.py"
     if not script.exists():
         pytest.skip("architecture_reality_audit.py not found")
     source = script.read_text(encoding="utf-8")

@@ -1,0 +1,854 @@
+schema_version: governance.pipeline.execution_profiles.v1
+concern: execution_profiles
+source_kind: AUTHORING
+compiler_version: registry-authoring-v1
+runtime_authority: system_runtime.pipeline.CompiledPipeline
+metadata:
+  execution_profiles:
+    refresh_current:
+    - neutral_pressure_measurement
+    - quality_validation
+    - measurement_quality_report
+    - judgment_layer
+    - judgment_promotion_gate
+    - trade_decision
+    - risk_gate
+    - record_trade_decision
+    - signal_card
+    - signal_consensus
+    - current_status
+    - system_index
+    - work_brief
+    - next_actions
+    - evidence_grade_report
+    - build_artifact_registry
+    - record_daily_run_event
+    - readme_first
+    - freshness_validator
+    work_cycle_quick_render:
+    - signal_card
+    - signal_consensus
+    - work_brief
+    - build_data_gaps
+    work_cycle_standard_core:
+    - quality_validation
+    - judgment_layer
+    - judgment_promotion_gate
+    - trade_decision
+    - risk_gate
+    - record_trade_decision
+    - market_feedback
+    - claim_evaluator
+    - claim_ladder_tracker
+    - learning_hub_feedback
+    - learning_summary
+    - system_index
+    - readme_first
+    - next_actions
+    work_cycle_always:
+    - change_analysis
+    - supervisor_check
+    - governance_status
+  execution_policy:
+    default_timeout_seconds: 1800
+    subprocess_justifications:
+      harvester: real_process_isolation
+      bridge: archive_legacy_executable
+      run_operator_detections: archive_legacy_executable
+      regime_detection: real_process_isolation
+      probabilistic_context: archive_legacy_executable
+      signal_monitor: archive_legacy_executable
+      proxy_quality_report: archive_legacy_executable
+      proxy_lifecycle: archive_legacy_executable
+      position_sizing: archive_legacy_executable
+      build_overlay_shadow_report: archive_legacy_executable
+      build_event_replay_factory: archive_legacy_executable
+      routing_decision: archive_legacy_executable
+      asof_integrity_check: archive_legacy_executable
+      baseline_comparison: archive_legacy_executable
+      threshold_review_bridge: archive_legacy_executable
+defaults:
+  failure_behavior: continue_with_warning
+  execution:
+    mode: subprocess
+    cwd_policy: workspace_root
+    env_policy: inherited_minimal
+steps:
+  harvester:
+    command: python -m harvester daily-release
+    execution:
+      mode: subprocess
+      current_command: python -m harvester daily-release
+      future_callable: harvester.cli:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_core_judgment
+  etf_refresh:
+    command: python scripts/refresh_etf_panel.py
+    execution:
+      mode: callable
+      current_command: python scripts/refresh_etf_panel.py
+      future_callable: harvester.operators.refresh_etf_panel:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: research_only
+  paper_sync:
+    command: python scripts/sync_paper_world_model.py
+    execution:
+      mode: callable
+      current_command: python scripts/sync_paper_world_model.py
+      future_callable: harvester.operators.sync_paper_world_model:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: lower_claim_ceiling
+  horizon_events:
+    execution:
+      mode: callable
+      current_command: python scripts/horizon_event_adapter.py
+      future_callable: workbench.signals.horizon:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: lower_claim_ceiling
+  neutral_pressure_measurement:
+    command: python scripts/neutral_pressure_measurement.py
+    execution:
+      mode: callable
+      current_command: python scripts/neutral_pressure_measurement.py
+      future_callable: workbench.plugins.neutral_pressure_md.cli:main
+      native_core_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  structural_replay:
+    command: python scripts/structural_replay_v2.py
+    execution:
+      mode: callable
+      current_command: python scripts/structural_replay_v2.py
+      future_callable: scripts.structural_replay_v2:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  bridge:
+    command: python scripts/bridge_replay_to_current.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/bridge_replay_to_current.py
+      future_callable: scripts.bridge_replay_to_current:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  run_operator_detections:
+    command: python scripts/archive/run_operator_detections.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive/run_operator_detections.py
+      future_callable: scripts.run_operator_detections:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  validate_proxy_observation_catalog:
+    command: python scripts/archive/validate_proxy_observation_catalog.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/validate_proxy_observation_catalog.py
+      future_callable: harvester.operators.validate_proxy_observation_catalog:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  quality_validation:
+    command: python scripts/quality_field_validator.py
+    execution:
+      mode: callable
+      current_command: python scripts/quality_field_validator.py
+      future_callable: workbench.measurement.quality_field_validator:main
+      native_core_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_promotion
+  regime_detection:
+    command: Workbench ml.regime_detector.detect_regime(...)
+    execution:
+      mode: subprocess
+      current_command: Workbench ml.regime_detector.detect_regime(...)
+      future_callable: ml.regime_detector:detect_regime
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  archive_hmm_calibration_snapshot:
+    command: python scripts/archive_hmm_calibration_snapshot.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive_hmm_calibration_snapshot.py
+      future_callable: workbench.measurement.archive_hmm_calibration_snapshot:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  hmm_stability_audit:
+    command: python scripts/hmm_stability_audit.py
+    execution:
+      mode: callable
+      current_command: python scripts/hmm_stability_audit.py
+      future_callable: tools.audit.hmm_stability_audit:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  k_measurement_gate:
+    command: python scripts/k_measurement_gate.py
+    execution:
+      mode: callable
+      current_command: python scripts/k_measurement_gate.py
+      future_callable: scripts.k_measurement_gate:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: research_only
+  x_measurement_gate:
+    command: python scripts/x_measurement_gate.py
+    execution:
+      mode: callable
+      current_command: python scripts/x_measurement_gate.py
+      future_callable: scripts.x_measurement_gate:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: research_only
+  measurement_quality_report:
+    command: python scripts/commands/weekly/build_measurement_quality_report.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_measurement_quality_report.py
+      future_callable: workbench.measurement.build_measurement_quality_report:main
+      dagster_asset_check: shadow_pilot
+      dagster_native_asset: native_quality_pilot
+      native_file_boundary: shadow_pilot
+      native_callable: workbench.measurement.build_measurement_quality_report:build_report
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  caselab_signal:
+    command: python scripts/caselab_daily_signal.py --json
+    execution:
+      mode: callable
+      current_command: python scripts/caselab_daily_signal.py --json
+      future_callable: workbench.caselab.caselab_daily_signal:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: lower_claim_ceiling
+  judgment_layer:
+    command: python scripts/judgment_layer.py
+    execution:
+      mode: callable
+      current_command: python scripts/judgment_layer.py
+      future_callable: workbench.judgment.judgment_layer:main
+      native_decision_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  judgment_replay_audit:
+    command: python scripts/commands/weekly/judgment_replay_audit.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/judgment_replay_audit.py
+      future_callable: tools.audit.judgment_replay_audit:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  judgment_promotion_gate:
+    command: python scripts/judgment_promotion_gate.py
+    execution:
+      mode: callable
+      current_command: python scripts/judgment_promotion_gate.py
+      future_callable: workbench.judgment.judgment_promotion_gate:main
+      native_decision_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_promotion
+  probabilistic_context:
+    execution:
+      mode: subprocess
+      current_command: python scripts/gluonts_probabilistic_context.py
+      future_callable: scripts.gluonts_probabilistic_context:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  trade_decision:
+    command: python scripts/trade_decision_layer.py
+    execution:
+      mode: callable
+      current_command: python scripts/trade_decision_layer.py
+      future_callable: workbench.judgment.trade_decision_layer:main
+      dagster_asset_check: degrade_pilot
+      native_decision_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: hold_flat
+  risk_gate:
+    command: python scripts/trade_risk_gate.py
+    execution:
+      mode: callable
+      current_command: python scripts/trade_risk_gate.py
+      future_callable: workbench.judgment.trade_risk_gate:main
+      native_decision_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: hold_flat
+  record_trade_decision:
+    command: python scripts/record_trade_decision.py
+    execution:
+      mode: callable
+      current_command: python scripts/record_trade_decision.py
+      future_callable: system_learning.operators.record_trade_decision:main
+      native_adjacent_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  paper_portfolio:
+    command: python scripts/strategy_lab/paper_portfolio.py
+    execution:
+      mode: callable
+      current_command: python scripts/strategy_lab/paper_portfolio.py
+      future_callable: strategy_lab.paper_portfolio:main
+      native_adjacent_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: decision_adjacent_block
+  trade_decision_replay:
+    command: python scripts/commands/weekly/trade_decision_replay.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/trade_decision_replay.py
+      future_callable: workbench.judgment.trade_decision_replay:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  market_feedback:
+    command: python scripts/market_feedback.py
+    execution:
+      mode: callable
+      current_command: python scripts/market_feedback.py
+      future_callable: system_learning.operators.market_feedback:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_data_gaps:
+    command: python scripts/commands/weekly/build_data_gaps.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_data_gaps.py
+      future_callable: workbench.surfaces.build_data_gaps:main
+      dagster_asset: shadow_pilot
+      dagster_native_asset: native_pilot
+      native_file_boundary: shadow_pilot
+      native_callable: workbench.surfaces.build_data_gaps:build_data_gaps
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  signal_monitor:
+    command: python scripts/archive/signal_monitor.py --json
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive/signal_monitor.py --json
+      future_callable: scripts.signal_monitor:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  claim_evaluator:
+    command: python scripts/commands/weekly/claim_evaluator.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/claim_evaluator.py
+      future_callable: system_learning.operators.claim_evaluator:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  claim_ladder_tracker:
+    command: python scripts/commands/weekly/claim_ladder_tracker.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/claim_ladder_tracker.py
+      future_callable: system_learning.operators.claim_ladder_tracker:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  learning_hub_feedback:
+    command: python scripts/commands/weekly/build_learning_hub_feedback.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_learning_hub_feedback.py
+      future_callable: system_learning.operators.build_learning_hub_feedback:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  proxy_quality_report:
+    command: python scripts/commands/weekly/build_proxy_quality_report.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/commands/weekly/build_proxy_quality_report.py
+      future_callable: scripts.commands.weekly.build_proxy_quality_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  proxy_lifecycle:
+    command: python scripts/evaluate_proxy_lifecycle.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/evaluate_proxy_lifecycle.py
+      future_callable: scripts.evaluate_proxy_lifecycle:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  learning_summary:
+    command: python scripts/commands/weekly/learning_hub_comprehensive_summary.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/learning_hub_comprehensive_summary.py
+      future_callable: system_learning.operators.learning_hub_comprehensive_summary:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  judgment_calibration_event:
+    command: python scripts/archive/learning_hub_judgment_calibration.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/learning_hub_judgment_calibration.py
+      future_callable: system_learning.operators.learning_hub_judgment_calibration:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  trade_calibration_event:
+    command: python scripts/archive/learning_hub_trade_calibration.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/learning_hub_trade_calibration.py
+      future_callable: system_learning.operators.learning_hub_trade_calibration:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  operator_registry_audit:
+    command: python scripts/commands/weekly/operator_registry_audit.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/operator_registry_audit.py
+      future_callable: tools.audit.operator_registry_audit:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  position_sizing:
+    execution:
+      mode: subprocess
+      current_command: python scripts/position_sizing_layer.py
+      future_callable: scripts.position_sizing_layer:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: hold_flat
+  system_index:
+    command: python scripts/build_system_index.py
+    execution:
+      mode: callable
+      current_command: python scripts/build_system_index.py
+      future_callable: workbench.workspace.build_system_index:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  readme_first:
+    command: python scripts/commands/weekly/build_readme_first.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_readme_first.py
+      future_callable: workbench.surfaces.build_readme_first:main
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  evidence_grade_report:
+    command: python scripts/commands/weekly/build_evidence_grade_report.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_evidence_grade_report.py
+      future_callable: workbench.surfaces.build_evidence_grade_report:main
+      dagster_native_asset: native_pilot
+      native_callable: workbench.surfaces.build_evidence_grade_report:build_evidence_grade_report
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_artifact_registry:
+    command: python scripts/commands/weekly/build_artifact_registry.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_artifact_registry.py
+      future_callable: workbench.surfaces.build_artifact_registry:main
+      dagster_native_asset: native_pilot
+      native_callable: workbench.surfaces.build_artifact_registry:build_artifact_registry
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  record_daily_run_event:
+    command: python scripts/record_daily_run_event.py
+    execution:
+      mode: callable
+      current_command: python scripts/record_daily_run_event.py --skip-if-unchanged
+      future_callable: system_learning.operators.record_daily_run_event:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  learning_hub_ingest:
+    command: python scripts/run_learning_hub_ingest.py
+    execution:
+      mode: callable
+      current_command: python scripts/run_learning_hub_ingest.py
+      future_callable: system_learning.runtime.pipeline:execute_pipeline
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  monitoring_coverage_audit:
+    command: python scripts/artifact_monitoring_audit.py
+    execution:
+      mode: callable
+      current_command: python scripts/artifact_monitoring_audit.py
+      future_callable: tools.audit.artifact_monitoring_audit:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  next_actions:
+    command: python scripts/commands/weekly/build_next_actions.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_next_actions.py
+      future_callable: workbench.surfaces.build_next_actions:main
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  freshness_validator:
+    command: python scripts/freshness_validator.py
+    execution:
+      mode: callable
+      current_command: python scripts/freshness_validator.py
+      future_callable: workbench.measurement.freshness_validator:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_core_judgment
+  data_retention_audit:
+    command: python scripts/apply_data_retention_policy.py --apply
+    execution:
+      mode: callable
+      current_command: python scripts/apply_data_retention_policy.py --apply
+      future_callable: tools.apply_data_retention_policy:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  architecture_reality_audit:
+    command: python scripts/commands/weekly/architecture_reality_audit.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/architecture_reality_audit.py
+      future_callable: tools.audit.architecture_reality_audit:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  signal_card:
+    command: python scripts/build_signal_card.py
+    execution:
+      mode: callable
+      current_command: python scripts/build_signal_card.py
+      future_callable: workbench.surfaces.build_signal_card:main
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  signal_consensus:
+    command: python scripts/signal_consensus.py
+    execution:
+      mode: callable
+      current_command: python scripts/signal_consensus.py
+      future_callable: workbench.surfaces.signal_consensus:main
+      dagster_asset_check: blocking_pilot
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: block_current_readout
+  strategy_lab_shadow:
+    command: python scripts/strategy_lab/run_backtest.py --shadow-card
+    execution:
+      mode: callable
+      current_command: python scripts/strategy_lab/run_backtest.py --shadow-card
+      future_callable: strategy_lab.run_backtest:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  shadow_outcomes_90d:
+    command: python scripts/build_shadow_outcomes_90d.py
+    execution:
+      mode: callable
+      current_command: python scripts/build_shadow_outcomes_90d.py
+      future_callable: strategy_lab.build_shadow_outcomes_90d:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_overlay_shadow_report:
+    command: python packages/framework_v1_archive/scripts/build_overlay_shadow_report.py
+    execution:
+      mode: subprocess
+      current_command: python packages/framework_v1_archive/scripts/build_overlay_shadow_report.py
+      future_callable: verity.archive_compat.build_overlay_shadow_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_event_replay_factory:
+    command: python scripts/archive/build_event_replay_factory.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive/build_event_replay_factory.py
+      future_callable: scripts.build_event_replay_factory:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_feedback_sample_pool:
+    command: python scripts/commands/weekly/build_feedback_sample_pool.py --append
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_feedback_sample_pool.py
+        --append
+      future_callable: system_learning.operators.build_feedback_sample_pool:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  evaluate_feedback_samples:
+    command: python scripts/commands/weekly/evaluate_feedback_samples.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/evaluate_feedback_samples.py
+      future_callable: system_learning.operators.evaluate_feedback_samples:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  current_status:
+    command: python scripts/build_current_status.py
+    execution:
+      mode: callable
+      current_command: python scripts/build_current_status.py
+      future_callable: workbench.surfaces.build_current_status:main
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  work_brief:
+    command: python scripts/build_work_brief.py
+    execution:
+      mode: callable
+      current_command: python scripts/build_work_brief.py
+      future_callable: workbench.surfaces.build_work_brief:main
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  output_routing_audit:
+    command: python scripts/apply_output_routing_policy.py
+    execution:
+      mode: callable
+      current_command: python scripts/apply_output_routing_policy.py
+      future_callable: tools.audit.apply_output_routing_policy:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  supervisor_check:
+    command: python scripts/run_supervisor_check.py
+    execution:
+      mode: callable
+      current_command: python scripts/run_supervisor_check.py
+      future_callable: tools.audit.run_supervisor_check:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_authority_graph:
+    command: python scripts/commands/weekly/build_authority_graph.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_authority_graph.py
+      future_callable: system_learning.operators.build_authority_graph:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  governance_status:
+    command: python scripts/commands/weekly/governance_status.py --exceptions-only
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/governance_status.py --exceptions-only
+      future_callable: tools.audit.governance_status:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  routing_decision:
+    command: python scripts/archive/daily_routing_decision.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/archive/daily_routing_decision.py
+      future_callable: scripts.daily_routing_decision:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  caselab_index:
+    command: python scripts/sync_caselab_index.py
+    execution:
+      mode: callable
+      current_command: python scripts/sync_caselab_index.py
+      future_callable: workbench.caselab.sync_caselab_index:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  build_policy_from_paper:
+    command: python caselab_runtime/policies/build_policy_from_paper.py
+    execution:
+      mode: callable
+      current_command: python caselab_runtime/policies/build_policy_from_paper.py
+      future_callable: caselab_runtime.policies.build_policy_from_paper:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  archive_daily_snapshots:
+    command: python scripts/archive/archive_daily_snapshots.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/archive_daily_snapshots.py
+      future_callable: system_learning.operators.archive_daily_snapshots:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  backfill_judgment_calibration:
+    command: python scripts/commands/weekly/backfill_judgment_calibration.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/backfill_judgment_calibration.py
+      future_callable: workbench.judgment.backfill_judgment_calibration:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  mechanism_calibration:
+    command: python scripts/archive/run_mechanism_calibration.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/run_mechanism_calibration.py
+      future_callable: system_learning.operators.run_mechanism_calibration:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  export_feedback:
+    command: python scripts/commands/weekly/export_feedback_to_paper.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/export_feedback_to_paper.py
+      future_callable: workbench.caselab.export_feedback_to_paper:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  suggest_paper_updates:
+    command: python scripts/archive/suggest_paper_updates.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/suggest_paper_updates.py
+      future_callable: workbench.caselab.suggest_paper_updates:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  promote_paper_inbox:
+    command: python scripts/archive/promote_paper_inbox.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/promote_paper_inbox.py
+      future_callable: workbench.caselab.promote_paper_inbox:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  collect_reviews:
+    command: python -m caselab_runtime.feedback.collect_reviews --json
+    execution:
+      mode: callable
+      current_command: python -m caselab_runtime.feedback.collect_reviews --json
+      future_callable: caselab_runtime.feedback.collect_reviews:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  evaluate_pending:
+    command: python scripts/evaluate_pending.py
+    execution:
+      mode: callable
+      current_command: python scripts/evaluate_pending.py
+      future_callable: workbench.judgment.evaluate_pending:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  change_analysis:
+    command: python scripts/commands/weekly/build_change_analysis.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_change_analysis.py
+      future_callable: workbench.surfaces.build_change_analysis:main
+      dagster_native_asset: native_pilot
+      native_callable: workbench.surfaces.build_change_analysis:build_change_analysis
+      native_file_boundary: shadow_pilot
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  refresh_cross_asset_panel:
+    command: python scripts/refresh_cross_asset_panel.py
+    execution:
+      mode: callable
+      current_command: python scripts/refresh_cross_asset_panel.py
+      future_callable: harvester.operators.refresh_cross_asset_panel:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  judgment_accuracy_report:
+    command: python scripts/archive/judgment_accuracy_report.py
+    execution:
+      mode: callable
+      current_command: python scripts/archive/judgment_accuracy_report.py
+      future_callable: system_learning.operators.judgment_accuracy_report:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  asof_integrity_check:
+    command: python scripts/commands/weekly/asof_integrity_checker.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/commands/weekly/asof_integrity_checker.py
+      future_callable: scripts.commands.weekly.asof_integrity_checker:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  baseline_comparison:
+    command: python scripts/commands/weekly/baseline_comparison.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/commands/weekly/baseline_comparison.py
+      future_callable: scripts.commands.weekly.baseline_comparison:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  walk_forward_validation:
+    command: python scripts/commands/weekly/weekly_walk_forward_validation.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/weekly_walk_forward_validation.py
+      future_callable: strategy_lab.weekly_walk_forward_validation:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  qlib_structural_bridge:
+    command: python scripts/commands/weekly/build_qlib_structural_bridge.py
+    execution:
+      mode: callable
+      current_command: python scripts/commands/weekly/build_qlib_structural_bridge.py
+      future_callable: strategy_lab.build_qlib_structural_bridge:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning
+  threshold_review_bridge:
+    command: python scripts/commands/weekly/threshold_review_bridge.py
+    execution:
+      mode: subprocess
+      current_command: python scripts/commands/weekly/threshold_review_bridge.py
+      future_callable: scripts.commands.weekly.threshold_review_bridge:main
+      cwd_policy: workspace_root
+      env_policy: inherited_minimal
+    failure_behavior: continue_with_warning

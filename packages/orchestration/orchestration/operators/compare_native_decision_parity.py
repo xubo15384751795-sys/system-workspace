@@ -26,9 +26,9 @@ from orchestration.native_adjacent_boundaries import (
     _rebase_shadow_snapshot_paths,
 )
 from orchestration.native_decision_boundaries import execute_native_decision_boundary
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
-DEFAULT_REPORT = ROOT / "Output" / "health" / "native_decision_parity.json"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "native_decision_parity.json"
 _TIMESTAMP = re.compile(
     r"\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)\b"
 )

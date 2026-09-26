@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
 
     paths = HubPaths.resolve(args.system_root or default_system_root())
     report = run_pollution_check(
-        signals_root=args.signals_root or paths.system_root / "Output" / "ml_signals",
+        signals_root=args.signals_root or paths.system_root / "Output" / "state" / "ml_signals",
         runs_root=args.runs_root or paths.system_root / "Output" / "deformation_runs",
         events_dir=args.events_dir or paths.events_dir,
         raise_on_red=args.raise_on_red,

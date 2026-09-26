@@ -1,15 +1,12 @@
-#!/usr/bin/env python3
-"""Run the canonical Learning Hub collect -> append -> derive pipeline."""
+"""Compatibility shim. Canonical implementation: system_learning.operators.run_learning_hub_ingest."""
 from __future__ import annotations
 
-from system_learning.cli import main as hub_main
+import sys
+from importlib import import_module
 
-from scripts._runtime_io import ROOT
-
-
-def main() -> int:
-    return hub_main(["run", "--system-root", str(ROOT), "--no-refresh"])
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+_impl = import_module('system_learning.operators.run_learning_hub_ingest')
+if __name__ != "__main__":
+    sys.modules[__name__] = _impl
+else:
+    import runpy
+    runpy.run_module('system_learning.operators.run_learning_hub_ingest', run_name="__main__")

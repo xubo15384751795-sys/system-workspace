@@ -6,22 +6,22 @@ from pathlib import Path
 
 import yaml
 
+from tests._harness_tools import harness_tools_owner
+
 ROOT = Path(__file__).resolve().parents[1]
-HARNESS_ROOT = ROOT / "packages" / "workbench" / "agents" / "harness"
-if str(HARNESS_ROOT) not in sys.path:
-    sys.path.insert(0, str(HARNESS_ROOT))
 
 
 def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
-    return module
+    return sys.modules[name]
 
 
 def test_every_root_governance_file_has_an_attention_shape() -> None:
-    module = _load("governance_drag", ROOT / "scripts" / "build_governance_drag_report.py")
+    module = _load("governance_drag", ROOT / "tools" / "audit" / "build_governance_drag_report.py")
     metrics = module.build_report(ROOT)["metrics"]
     assert metrics["unclassified_governance_files"] == []
     assert metrics["stale_inventory_entries"] == []
@@ -29,7 +29,7 @@ def test_every_root_governance_file_has_an_attention_shape() -> None:
 
 
 def test_machine_shapes_have_real_consumers() -> None:
-    module = _load("governance_drag_consumers", ROOT / "scripts" / "build_governance_drag_report.py")
+    module = _load("governance_drag_consumers", ROOT / "tools" / "audit" / "build_governance_drag_report.py")
     metrics = module.build_report(ROOT)["metrics"]
     assert metrics["unbacked_machine_files"] == []
     for name, consumers in metrics["machine_consumer_evidence"].items():
@@ -37,7 +37,7 @@ def test_machine_shapes_have_real_consumers() -> None:
 
 
 def test_attention_surface_respects_budget() -> None:
-    module = _load("governance_drag_budget", ROOT / "scripts" / "build_governance_drag_report.py")
+    module = _load("governance_drag_budget", ROOT / "tools" / "audit" / "build_governance_drag_report.py")
     metrics = module.build_report(ROOT)["metrics"]
     budget = metrics["attention_budget"]
     assert metrics["procedural_rule_file_count"] <= budget["max_procedural_rule_files"]
@@ -46,7 +46,7 @@ def test_attention_surface_respects_budget() -> None:
 
 
 def test_drag_score_does_not_treat_governance_file_count_as_weight() -> None:
-    module = _load("governance_drag_shape", ROOT / "scripts" / "build_governance_drag_report.py")
+    module = _load("governance_drag_shape", ROOT / "tools" / "audit" / "build_governance_drag_report.py")
     report = module.build_report(ROOT)
     components = report["drag_assessment"]["component_scores"]
     assert report["schema"] == "governance_drag_report.v2"
@@ -56,16 +56,17 @@ def test_drag_score_does_not_treat_governance_file_count_as_weight() -> None:
 
 
 def test_router_returns_only_task_local_reading_surface() -> None:
-    from tools.task_router import route_task
+    with harness_tools_owner():
+        from tools.task_router import route_task
 
-    decision = route_task("audit governance attention and feedback loops")
+        decision = route_task("audit governance attention and feedback loops")
     assert decision["read_first"] == [decision["context_file"]]
     assert "MODULES.md" not in decision["read_first"]
     assert "ROUTING_CONSTITUTION.md" not in decision["read_first"]
 
 
 def test_sunset_queue_names_a_property_and_disposition() -> None:
-    module = _load("governance_drag_sunset", ROOT / "scripts" / "build_governance_drag_report.py")
+    module = _load("governance_drag_sunset", ROOT / "tools" / "audit" / "build_governance_drag_report.py")
     queue = module.build_report(ROOT)["metrics"]["sunset_queue"]
     assert queue
     for name, item in queue.items():
@@ -96,8 +97,9 @@ def test_human_entrypoints_do_not_require_global_governance_reading() -> None:
 
 
 def test_task_plan_activates_only_local_context_as_reading_surface() -> None:
-    from tools.task_planner import create_task_plan
+    with harness_tools_owner():
+        from tools.task_planner import create_task_plan
 
-    plan = create_task_plan("audit governance attention")
+        plan = create_task_plan("audit governance attention")
     route_step = plan["steps"][0]
     assert route_step["artifacts"] == [plan["route"]["context_file"]]

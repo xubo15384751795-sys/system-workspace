@@ -2,7 +2,7 @@
 
 READS: mechanism_tiers.yaml, mechanism_features.yaml,
        mapping_rules.yaml (mechanism_mapping section)
-WRITES: Output/caselab/resolved_mechanisms/ only
+WRITES: Output/state/caselab/resolved_mechanisms/ only
 
 Resolves which mechanisms are active given current market state,
 using three activation tiers:
@@ -29,7 +29,7 @@ from .event_trigger import EventTriggerEngine, TriggerResult
 
 DATA_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
 MAPPING_RULES = WorkspacePaths.discover().root / "Data" / "nlp" / "mapping_rules.yaml"
-OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "resolved_mechanisms"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "state" / "caselab" / "resolved_mechanisms"
 
 
 @dataclass

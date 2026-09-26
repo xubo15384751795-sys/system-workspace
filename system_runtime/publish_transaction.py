@@ -486,7 +486,7 @@ class PublishTransaction:
             live_tmp = output / f".live.next.{os.getpid()}"
             if live_tmp.exists() or live_tmp.is_symlink():
                 live_tmp.unlink()
-            live_tmp.symlink_to(target, target_is_directory=True)
+            live_tmp.symlink_to(Path("generations") / self.run_id, target_is_directory=True)
             os.replace(live_tmp, compatibility["live"])
         except Exception as exc:
             self.state = TransactionState.RECOVERY_REQUIRED

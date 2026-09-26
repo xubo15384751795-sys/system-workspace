@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from scripts import refresh_output_current as refresh
-from scripts._admission_gate import AdmissionDecision
+from workbench.surfaces import refresh_output_current as refresh
+
+from verity.runtime._admission_gate import AdmissionDecision
 
 
 def test_refresh_blocks_before_running_any_producer(monkeypatch, capsys) -> None:

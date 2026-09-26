@@ -13,10 +13,10 @@ from typing import Any
 
 import yaml
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 ADJACENT_BOUNDARY_TAG = "shadow_pilot"
-ADJACENT_SHADOW_ROOT = ROOT / "Output" / "health" / "native_adjacent_shadow"
+ADJACENT_SHADOW_ROOT = ROOT / "Output" / "state" / "health" / "native_adjacent_shadow"
 SUPPORTED_ADJACENT_BOUNDARY_STEPS = frozenset(
     {"record_trade_decision", "paper_portfolio"}
 )
@@ -98,7 +98,7 @@ NATIVE_ADJACENT_BOUNDARY_STEPS = load_native_adjacent_boundary_steps()
 
 
 def adjacent_shadow_root(root: Path = ROOT) -> Path:
-    return root / "Output" / "health" / "native_adjacent_shadow"
+    return root / "Output" / "state" / "health" / "native_adjacent_shadow"
 
 
 def _load_registry(root: Path) -> dict[str, Any]:
@@ -225,7 +225,7 @@ def _seed_generation(
     )
     _copy_file(current_root / "framework_output.json", generation_root / "current" / "framework_output.json")
     decision_shadow_root = decision_shadow_root or (
-        root / "Output" / "health" / "native_decision_shadow"
+        root / "Output" / "state" / "health" / "native_decision_shadow"
     )
     _copy_file(
         decision_shadow_root / "trade_decision" / "latest.json",
@@ -260,49 +260,67 @@ def _result_base(
 
 
 def _record_boundary(generation_root: Path) -> tuple[dict[str, Any], list[str]]:
-    from scripts import record_trade_decision as record
-    from scripts.commands.weekly import claim_evaluator
+    from system_learning.operators import record_trade_decision as record
+    from system_learning.operators import claim_evaluator
 
-    decision = record.load_json(record.TRADE_DECISION_PATH)
-    risk_gate = record.load_json(record.RISK_GATE_PATH)
-    if not decision or not risk_gate:
-        raise FileNotFoundError("shadow trade decision or risk gate is missing")
-    entry = record.build_ledger_entry(decision, risk_gate)
-    ledger_path, write_mode = record.upsert_to_ledger(entry)
-    latest_path = record.write_latest(entry)
-    output_paths = [str(ledger_path), str(latest_path)]
-    if not all(Path(path).is_file() for path in output_paths):
-        raise RuntimeError("record_trade_decision did not produce its shadow outputs")
-
-    # The legacy CLI invokes claim_evaluator after the ledger write.  Preserve
-    # that observable side effect inside the same generation; evaluator
-    # failures remain a warning, matching the legacy wrapper's best-effort
-    # subprocess behavior and the registry's continue_with_warning policy.
-    claim_evaluation_status = "not_run"
-    claim_evaluation_error: str | None = None
+    previous_paths = (
+        record.TRADE_DECISION_PATH,
+        record.RISK_GATE_PATH,
+        record.OUTPUT_DIR,
+    )
+    # Path constants are bound at import time. Recompute them now that the
+    # generation environment is active so this shadow write cannot land on the
+    # live Output/trade_ledger compatibility surface.
+    record.TRADE_DECISION_PATH = record.surface_dir("trade_decision") / "latest.json"
+    record.RISK_GATE_PATH = record.surface_dir("trade_decision") / "risk_gate.json"
+    record.OUTPUT_DIR = record.surface_dir("trade_ledger")
     try:
-        claim_evaluation = claim_evaluator.run_claim_evaluator()
-        claim_evaluation_status = (
-            "success" if claim_evaluation is not None else "no_entries"
-        )
-    except Exception as exc:  # noqa: BLE001 - legacy wrapper is warning-only
-        claim_evaluation_status = "warning"
-        claim_evaluation_error = f"{type(exc).__name__}: {exc}"
+        decision = record.load_json(record.TRADE_DECISION_PATH)
+        risk_gate = record.load_json(record.RISK_GATE_PATH)
+        if not decision or not risk_gate:
+            raise FileNotFoundError("shadow trade decision or risk gate is missing")
+        entry = record.build_ledger_entry(decision, risk_gate)
+        ledger_path, write_mode = record.upsert_to_ledger(entry)
+        latest_path = record.write_latest(entry)
+        output_paths = [str(ledger_path), str(latest_path)]
+        if not all(Path(path).is_file() for path in output_paths):
+            raise RuntimeError("record_trade_decision did not produce its shadow outputs")
 
-    return {
-        "date": entry.get("date"),
-        "decision_fingerprint": entry.get("decision_fingerprint"),
-        "risk_gate_status": entry.get("risk_gate_status"),
-        "write_mode": write_mode,
-        "claim_evaluation_status": claim_evaluation_status,
-        "claim_evaluation_error": claim_evaluation_error,
-        "ledger_path": str(ledger_path),
-        "generation_root": str(generation_root),
-    }, output_paths
+        # The legacy CLI invokes claim_evaluator after the ledger write.  Preserve
+        # that observable side effect inside the same generation; evaluator
+        # failures remain a warning, matching the legacy wrapper's best-effort
+        # subprocess behavior and the registry's continue_with_warning policy.
+        claim_evaluation_status = "not_run"
+        claim_evaluation_error: str | None = None
+        try:
+            claim_evaluation = claim_evaluator.run_claim_evaluator()
+            claim_evaluation_status = (
+                "success" if claim_evaluation is not None else "no_entries"
+            )
+        except Exception as exc:  # noqa: BLE001 - legacy wrapper is warning-only
+            claim_evaluation_status = "warning"
+            claim_evaluation_error = f"{type(exc).__name__}: {exc}"
+
+        return {
+            "date": entry.get("date"),
+            "decision_fingerprint": entry.get("decision_fingerprint"),
+            "risk_gate_status": entry.get("risk_gate_status"),
+            "write_mode": write_mode,
+            "claim_evaluation_status": claim_evaluation_status,
+            "claim_evaluation_error": claim_evaluation_error,
+            "ledger_path": str(ledger_path),
+            "generation_root": str(generation_root),
+        }, output_paths
+    finally:
+        (
+            record.TRADE_DECISION_PATH,
+            record.RISK_GATE_PATH,
+            record.OUTPUT_DIR,
+        ) = previous_paths
 
 
 def _paper_boundary(generation_root: Path) -> tuple[dict[str, Any], list[str]]:
-    from scripts.strategy_lab import paper_portfolio as paper
+    from strategy_lab import paper_portfolio as paper
 
     result = paper.run_paper_portfolio(backfill_days=0, dry_run=False, notify=False)
     state = result.get("state") if isinstance(result, Mapping) else None

@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts._runtime_status_contract import judgment_decision_values
 from tests.helpers.sandbox_workspace import build_sandbox_workspace
+from verity.runtime._runtime_status_contract import judgment_decision_values
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "current_chain"

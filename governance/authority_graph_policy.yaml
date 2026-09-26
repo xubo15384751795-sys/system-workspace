@@ -144,7 +144,7 @@ drift_exempt:
   reason: >
     These steps assemble or display already-governed evidence. Reaching a
     current/core path does not grant them independent judgment authority.
-  review_after: "2026-09-19"
+  review_after: "2026-12-26"
   output_assembly_node_types:
     - output_assembly
     - diagnostic_readout

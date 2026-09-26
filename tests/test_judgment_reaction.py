@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.judgment_layer import build_judgment
+from workbench.judgment.judgment_layer import build_judgment
 
 
 def _make_framework_output() -> dict:

@@ -22,7 +22,7 @@ v3 changes (2026-06-17):
 
 Isolation:
   - Reads only from the frozen Harvester export path supplied at call time.
-  - Writes only to Output/ml_signals/ via ml_signal_writer.write_signal().
+  - Writes only to Output/state/ml_signals/ via ml_signal_writer.write_signal().
   - Never modifies Data/ or any Harvester release artifact.
 """
 from __future__ import annotations
@@ -517,7 +517,7 @@ def detect_regime(
 ) -> dict[str, Any]:
     """Fit HMM, emit regime signal JSON.
 
-    Returns the signal payload dict. Writes to Output/ml_signals/ if write=True.
+    Returns the signal payload dict. Writes to Output/state/ml_signals/ if write=True.
 
     Parameters
     ----------

@@ -1,0 +1,291 @@
+{
+  "contract_report": {
+    "all_existing_violations_have_owner": true,
+    "registered_debt_count": 15,
+    "status": "PASS",
+    "unregistered_violation_count": 0,
+    "violations": [
+      {
+        "debt_id": "DEBT-ARCH-006-PLAN-COMPAT",
+        "line": 100,
+        "message": "non-orchestration code constructs a compiled execution plan",
+        "migration_target": "packages/orchestration/orchestration/plan.py",
+        "module": "system_runtime.pipeline",
+        "owner": "Orchestration",
+        "path": "system_cli/app.py",
+        "registered": true,
+        "rule_id": "ARCH-006"
+      },
+      {
+        "debt_id": "DEBT-ARCH-006-PLAN-COMPAT",
+        "line": 320,
+        "message": "non-orchestration code constructs a compiled execution plan",
+        "migration_target": "packages/orchestration/orchestration/plan.py",
+        "module": "system_runtime.pipeline",
+        "owner": "Orchestration",
+        "path": "verity/cli/daily_run.py",
+        "registered": true,
+        "rule_id": "ARCH-006"
+      },
+      {
+        "debt_id": "DEBT-ARCH-006-PLAN-COMPAT",
+        "line": 288,
+        "message": "non-orchestration code constructs a compiled execution plan",
+        "migration_target": "packages/orchestration/orchestration/plan.py",
+        "module": "system_runtime.pipeline",
+        "owner": "Orchestration",
+        "path": "verity/cli/daily_run.py",
+        "registered": true,
+        "rule_id": "ARCH-006"
+      },
+      {
+        "debt_id": "DEBT-ARCH-006-PLAN-COMPAT",
+        "line": 104,
+        "message": "non-orchestration code constructs a compiled execution plan",
+        "migration_target": "packages/orchestration/orchestration/plan.py",
+        "module": "system_runtime.pipeline",
+        "owner": "Orchestration",
+        "path": "verity/cli/run_work_cycle.py",
+        "registered": true,
+        "rule_id": "ARCH-006"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 30,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.provider_secrets",
+        "owner": "Orchestration",
+        "path": "packages/harvester/src/harvester/operators/run_etf_provider_parity.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 291,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.quality.calendar_engine",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/measurement/freshness_validator.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 305,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.quality.content_freshness",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/measurement/freshness_validator.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 659,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.quality.content_freshness_suite",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/measurement/freshness_validator.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 333,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.quality.content_freshness",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/measurement/freshness_validator.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 15,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.pipeline_runner",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/surfaces/refresh_output_current.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 171,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.runner",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/surfaces/refresh_output_current.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 162,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.cli",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/surfaces/refresh_output_current.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-004-TRANSITION",
+        "line": 270,
+        "message": "domain imports orchestration",
+        "migration_target": "system_runtime/contracts and orchestration adapters",
+        "module": "orchestration.dvc_promote",
+        "owner": "Orchestration",
+        "path": "packages/workbench/src/workbench/workspace/promote_snapshot.py",
+        "registered": true,
+        "rule_id": "ARCH-004"
+      },
+      {
+        "debt_id": "DEBT-ARCH-006-PLAN-COMPAT",
+        "line": 280,
+        "message": "non-orchestration code constructs a compiled execution plan",
+        "migration_target": "packages/orchestration/orchestration/plan.py",
+        "module": "system_runtime.pipeline",
+        "owner": "Orchestration",
+        "path": "verity/runtime/_authority_graph.py",
+        "registered": true,
+        "rule_id": "ARCH-006"
+      },
+      {
+        "debt_id": "DEBT-ARCH-006-PLAN-COMPAT",
+        "line": 157,
+        "message": "non-orchestration code constructs a compiled execution plan",
+        "migration_target": "packages/orchestration/orchestration/plan.py",
+        "module": "system_runtime.pipeline",
+        "owner": "Orchestration",
+        "path": "system_runtime/plan_apply.py",
+        "registered": true,
+        "rule_id": "ARCH-006"
+      }
+    ]
+  },
+  "cycles": [
+    {
+      "category": "error_ownership",
+      "layers": [
+        "domain"
+      ],
+      "nodes": [
+        "harvester.cross_asset_panel",
+        "harvester.official"
+      ],
+      "owner": "Architecture migration",
+      "rationale": "The cycle crosses ownership boundaries without an approved callback or shared core contract."
+    },
+    {
+      "category": "error_ownership",
+      "layers": [
+        "orchestration"
+      ],
+      "nodes": [
+        "orchestration.quality.content_freshness",
+        "orchestration.quality.pandera_checks"
+      ],
+      "owner": "Architecture migration",
+      "rationale": "The cycle crosses ownership boundaries without an approved callback or shared core contract."
+    },
+    {
+      "category": "error_ownership",
+      "layers": [
+        "domain"
+      ],
+      "nodes": [
+        "workbench.surfaces.build_system_index",
+        "workbench.workspace.build_system_index"
+      ],
+      "owner": "Architecture migration",
+      "rationale": "The cycle crosses ownership boundaries without an approved callback or shared core contract."
+    }
+  ],
+  "focus_boundaries": [
+    {
+      "category": "application_callback",
+      "forward_edge_count": 16,
+      "has_bidirectional_dependency": true,
+      "left_prefixes": [
+        "verity"
+      ],
+      "name": "verity ↔ orchestration",
+      "owner": "Orchestration",
+      "rationale": "The application adapter triggers orchestration and must receive results through an explicit callback or protocol.",
+      "reverse_edge_count": 40,
+      "right_prefixes": [
+        "orchestration"
+      ],
+      "strongly_connected_components": []
+    },
+    {
+      "category": "shared_core_contract",
+      "forward_edge_count": 5,
+      "has_bidirectional_dependency": true,
+      "left_prefixes": [
+        "verity"
+      ],
+      "name": "verity ↔ workbench",
+      "owner": "System runtime",
+      "rationale": "Shared runtime/path and admission contracts must move down to system_runtime; an adapter import must not become domain ownership.",
+      "reverse_edge_count": 64,
+      "right_prefixes": [
+        "workbench",
+        "strategy_lab"
+      ],
+      "strongly_connected_components": []
+    },
+    {
+      "category": "temporary_compatibility",
+      "forward_edge_count": 7,
+      "has_bidirectional_dependency": true,
+      "left_prefixes": [
+        "workbench",
+        "strategy_lab"
+      ],
+      "name": "workbench ↔ orchestration",
+      "owner": "Orchestration",
+      "rationale": "Current reverse edges are registered ARCH-004 migration debt and must reduce as orchestration contracts replace implementation imports.",
+      "reverse_edge_count": 19,
+      "right_prefixes": [
+        "orchestration"
+      ],
+      "strongly_connected_components": []
+    }
+  ],
+  "gate": {
+    "all_cycles_classified": true,
+    "all_existing_violations_have_owner": true,
+    "architecture_dag_written_to_test": true,
+    "baseline_core_to_orchestration_domain_count": 0,
+    "baseline_registered_violation_count": 22,
+    "core_direction_not_increased": true,
+    "current_core_to_orchestration_domain_count": 0,
+    "current_registered_violation_count": 15,
+    "focus_boundaries_classified": true,
+    "no_production_package_to_scripts": true,
+    "production_package_to_scripts_count": 0,
+    "registered_debt_not_expanded": true,
+    "status": "PASS"
+  },
+  "generated_at": "2026-09-12T04:06:25.883253+00:00",
+  "owner_counts": {
+    "Orchestration": 15
+  },
+  "package_to_scripts_edges": [],
+  "rule_counts": {
+    "ARCH-004": 9,
+    "ARCH-006": 6
+  },
+  "scanner": "tools/audit/architecture_invariants.py",
+  "schema_version": "architecture.violations.v1"
+}

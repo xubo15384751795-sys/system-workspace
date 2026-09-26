@@ -70,7 +70,7 @@ def execute_pipeline(
 
     if plan.run_ml_integrity:
         result.ml_report = run_pollution_check(
-            signals_root=paths.system_root / "Output" / "ml_signals",
+            signals_root=paths.system_root / "Output" / "state" / "ml_signals",
             runs_root=paths.system_root / "Output" / "deformation_runs",
             events_dir=paths.events_dir,
         )

@@ -35,7 +35,7 @@ def test_cli_plan_artifact_and_authority_graph_share_identity(monkeypatch, capsy
         and any(producer in artifact.steps for producer in producers)
     }
 
-    from scripts._authority_graph import build_authority_graph
+    from verity.runtime._authority_graph import build_authority_graph
 
     graph = build_authority_graph(ROOT)
     assert graph["plan_digest"] == compiled.plan_digest

@@ -42,15 +42,25 @@ groups:
       - operator_activations.json  # mechanism operator readout; does not affect core judgment
 
   runs:
-    path: Output/deformation_runs/
+    path: Output/archive/legacy_2026H1/deformation_runs/
     description: "Archived Deformation v1 run packages; evidence only"
     can_affect_core_judgment: false
     lifecycle: archived_falsified
 
   neutral_pressure_runs:
     path: Output/runs/
-    description: "Run-local neutral pressure histories with provenance"
+    description: "Run-local daily pipeline bundles"
     can_affect_core_judgment: true
+
+  generations:
+    path: Output/generations/
+    description: "Immutable published generations; Output/live points here with a relative symlink"
+    can_affect_core_judgment: true
+
+  state:
+    path: Output/state/
+    description: "Cross-run mutable state (alerts, caselab, health, sandbox, validation, …)"
+    can_affect_core_judgment: false
 
   research:
     path: Output/research/
@@ -64,7 +74,7 @@ groups:
     can_affect_core_judgment: false
 
   ml_validation:
-    path: Output/validation/
+    path: Output/state/validation/
     description: "Walk-forward, baseline comparison, as-of integrity — review-only diagnostics"
     can_affect_core_judgment: false
     allowed_use: validation_only
@@ -72,10 +82,15 @@ groups:
     owner: ML Signals
 
   sandbox:
-    path: Output/sandbox/
+    path: Output/state/sandbox/
     description: "Temporary experiments"
     can_affect_core_judgment: false
     default_ttl_days: 7
+
+  benchmarks:
+    path: Output/state/benchmarks/
+    description: "Qlib/market-feedback isolation trees"
+    can_affect_core_judgment: false
 
   archive:
     path: Output/archive/
@@ -83,31 +98,37 @@ groups:
     can_affect_core_judgment: false
 
   legacy_proxy_pipeline:
-    path: "Output/{benchmark_comparison,calibration,d_proxy_daily,m_proxy_daily,m_proxy_optimized,market_state_classifier,proxy_validation,solution,walk_forward_validation}/"
+    path: "Output/archive/legacy_2026H1/{benchmark_comparison,calibration,d_proxy_daily,m_proxy_daily,m_proxy_optimized,market_state_classifier,proxy_validation,solution,walk_forward_validation}/"
     description: "Legacy proxy pipeline outputs — produced by archived scripts only"
     can_affect_core_judgment: false
     lifecycle: archived
     owner: ML Signals
     default_ttl_days: 90
-    note: "No active code reads these. Last updated 2026-06-09. Safe to delete after 2026-09-09."
+    note: "Moved 2026-09-09 into archive/legacy_2026H1."
 
   legacy_reports:
-    path: Output/reports/
+    path: Output/archive/legacy_2026H1/reports/
     description: "Legacy morphology reports"
     can_affect_core_judgment: false
     lifecycle: archived
     owner: ML Signals
     default_ttl_days: 90
-    note: "Last updated 2026-05-17. Safe to delete after 2026-08-17."
+    note: "Moved 2026-09-09 into archive/legacy_2026H1."
 
   legacy_evaluation:
-    path: Output/workbench/evaluation/
+    path: Output/archive/legacy_2026H1/workbench/evaluation/
     description: "Legacy replay evaluation data"
     can_affect_core_judgment: false
     lifecycle: archived
     owner: Workbench
     default_ttl_days: 90
-    note: "Last updated 2026-05-05. Safe to delete after 2026-08-05."
+    note: "Moved 2026-09-09 into archive/legacy_2026H1."
+
+  legacy_2026H1:
+    path: Output/archive/legacy_2026H1/
+    description: "Frozen Output directories with mtime on or before 2026-06-20"
+    can_affect_core_judgment: false
+    lifecycle: archived
 
 lifecycle_statuses:
   draft:
@@ -148,3 +169,21 @@ rules:
   - "research artifacts with no consumers for 30 days become archive_candidate"
   - "unregistered Output directories require owner and lifecycle status"
   - "legacy display symlinks must not exist in Output/current/"
+  - "Output/live must be a relative symlink into Output/generations/"
+  - "compatibility symlinks current, judgment, position, quality, ledgers, trade_decision, trade_ledger, system_learning remain at Output/"
+
+root_entries:
+  - archive
+  - current
+  - generations
+  - judgment
+  - ledgers
+  - live
+  - logs
+  - position
+  - quality
+  - runs
+  - state
+  - system_learning
+  - trade_decision
+  - trade_ledger

@@ -48,6 +48,9 @@ evidence_release:
 # look complete; it only stops one unreachable feed from halting the whole
 # pipeline indefinitely.
 #
+# Aggregate freshness WARN (for example Harvester carry-forward beyond two
+# series) is diagnostic publication, not an integrity block of Current.
+#
 # SCOPE — READ BEFORE RELYING ON THIS BLOCK:
 #
 #   This block applies ONLY to the daily pipeline's pre-consumption admission

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.run_bundle import RunBundle
+from verity.runtime.run_bundle import RunBundle
 
 
 def test_evidence_digest_changes_when_generation_bytes_change(tmp_path: Path) -> None:

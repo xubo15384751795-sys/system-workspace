@@ -58,24 +58,16 @@ class FinalizeResult:
     latest_path: Path
 
 
-def repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def default_exports_root() -> Path:
     """Default harvester exports root.
 
-    Phase 4.1: prefer the canonical ``Data/harvester/exports`` via
-    WorkspacePaths (system_runtime.paths) over the legacy parents[3]-relative
-    ``data/exports``. Falls back to the legacy path if system_runtime is not
-    importable (keeps the harvester package standalone-testable).
+    The application context owns the data root. Callers outside a Verity
+    workspace must inject ``exports_root`` explicitly rather than relying on a
+    package-source-relative repository guess.
     """
-    try:
-        from system_runtime.paths import WorkspacePaths
+    from system_runtime.context import RuntimeContext
 
-        return cast(Path, WorkspacePaths.discover().harvester_exports)
-    except Exception:
-        return repo_root() / "data" / "exports"
+    return RuntimeContext.current_context().data_root / "harvester" / "exports"
 
 
 def resolve_release_dir(root: Path, release_id: str) -> Path:
@@ -527,7 +519,6 @@ __all__ = [
     "default_exports_root",
     "finalize_release",
     "list_releases",
-    "repo_root",
     "resolve_release_dir",
     "sha256_file",
     "validate_release_id",

@@ -1,51 +1,22 @@
-#!/usr/bin/env python3
-"""Independent dead-man checker for the scheduled System daily run."""
+"""Compatibility shim. Canonical file: tools/check_daily_run_heartbeat.py."""
 from __future__ import annotations
 
-import argparse
-import json
-import os
-from datetime import UTC, datetime
+import sys
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-from scripts._runtime_io import write_json
-from system_runtime.daily_heartbeat import (
-    check_daily_run_heartbeat,
-    default_output_root,
-)
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-root", type=Path)
-    parser.add_argument("--max-age-hours", type=float)
-    parser.add_argument("--dry-run", action="store_true")
-    args = parser.parse_args(argv)
-
-    output_root = args.output_root or default_output_root()
-    if args.output_root:
-        os.environ["DAILY_OUTPUT_ROOT"] = str(output_root)
-    report = check_daily_run_heartbeat(
-        output_root=output_root,
-        max_age_hours=args.max_age_hours,
-    )
-    report_path = output_root / "health" / "daily_run_deadman.json"
-    write_json(report_path, report)
-
-    if report.get("status") == "ALERT" and not args.dry_run:
-        from scripts._notify import notify_deadman_missing
-
-        notified = notify_deadman_missing(
-            reason=str(report.get("reason") or "heartbeat_invalid"),
-            report=report,
-        )
-        report["notification"] = "sent" if notified else "suppressed_or_unavailable"
-        report["notified_at"] = datetime.now(UTC).isoformat()
-        write_json(report_path, report)
-
-    print(json.dumps(report, ensure_ascii=False, sort_keys=True))
-    return 1 if report.get("status") == "ALERT" else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+_CANON = Path(__file__).resolve().parents[1] / 'tools/check_daily_run_heartbeat.py'
+_NAME = '_canon.tools.check_daily_run_heartbeat'
+if _NAME in sys.modules:
+    _impl = sys.modules[_NAME]
+else:
+    _spec = spec_from_file_location(_NAME, _CANON)
+    _impl = module_from_spec(_spec)
+    sys.modules[_NAME] = _impl
+    assert _spec.loader is not None
+    _spec.loader.exec_module(_impl)
+if __name__ != "__main__":
+    sys.modules[__name__] = _impl
+else:
+    import runpy
+    runpy.run_path(str(_CANON), run_name="__main__")

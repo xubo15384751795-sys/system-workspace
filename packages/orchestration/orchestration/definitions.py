@@ -1,12 +1,13 @@
-"""Dagster Definitions for daily_job and refresh_current_job.
+"""Dagster Definitions for compatibility, refresh, and shadow surfaces.
 
-launchd / ``python -m orchestration.cli daily`` execute ``daily_job`` in-process.
+The scheduled default is ``verity daily`` -> the generated plan job.  The
+historical ``daily_job`` definition remains visible for migration inspection,
+but is stopped and fails closed so it can never create a Dagster-inside-
+Dagster execution.
 """
 
 from __future__ import annotations
 
-import json
-import os
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -52,7 +53,7 @@ from orchestration.native_daily_checks import build_native_daily_checks
 from orchestration.ops.refresh_chain import refresh_admission_op, refresh_producers_op
 from orchestration.runner import DailyRunPayload
 from orchestration.schedules import daily_schedule
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import load_pipeline
 
@@ -204,38 +205,26 @@ native_daily_shadow_schedule = ScheduleDefinition(
 
 @op(name="daily_job_entry")
 def daily_job_entry(context):
-    raw = os.environ.get("SYSTEM_DAGSTER_DAILY_ARGV", "")
-    try:
-        decoded = json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
-        decoded = None
-    if isinstance(decoded, list) and all(isinstance(part, str) for part in decoded):
-        argv = list(decoded)
-    else:
-        argv = [part for part in raw.split("\0") if part]
-    context.log.info(
-        "daily_job starting via orchestration.daily_pipeline (argv=%s)", argv
+    del context
+    raise Failure(
+        description=(
+            "legacy outer daily_job is disabled; use the single execution "
+            "spine through `verity daily`"
+        ),
+        metadata={
+            "canonical_entrypoint": "verity.cli.daily_run:run_daily",
+            "execution_mode": "dagster_generated_plan_job",
+            "reason": "nested_dagster_execution_forbidden",
+        },
     )
-    from orchestration.daily_pipeline import run_scheduled_daily
-
-    outcome = run_scheduled_daily(argv)
-    if outcome.exit_code != 0:
-        raise Failure(
-            description=(
-                f"daily run {outcome.run_id} failed with exit_code={outcome.exit_code}"
-            ),
-            metadata={
-                "run_id": outcome.run_id,
-                "exit_code": outcome.exit_code,
-                "reason_codes": ",".join(outcome.reason_codes),
-            },
-        )
-    context.log.info("daily_job finished: run_id=%s", outcome.run_id)
 
 
 @job(
     name="daily_job",
-    description="Registry-driven scheduled batch (launchd / Dagster default path).",
+    description=(
+        "Stopped compatibility sentinel. The scheduled default is the "
+        "generated-plan job invoked by `verity daily`."
+    ),
 )
 def daily_job():
     daily_job_entry()

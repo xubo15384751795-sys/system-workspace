@@ -2,7 +2,7 @@
 
 READS: mechanism_tiers.yaml (trigger conditions)
        mechanism_features.yaml (mechanism metadata)
-WRITES: Output/caselab/event_triggers/ only
+WRITES: Output/state/caselab/event_triggers/ only
 
 Evaluates discrete trigger conditions against a set of observables
 to activate Tier 2 (event-triggered) mechanisms that have no
@@ -25,7 +25,7 @@ from system_runtime.paths import WorkspacePaths
 logger = logging.getLogger(__name__)
 
 DATA_DIR = WorkspacePaths.discover().root / "Data" / "nlp" / "caselab_training"
-OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "event_triggers"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "state" / "caselab" / "event_triggers"
 
 # ── Condition evaluator ─────────────────────────────────────────────────
 

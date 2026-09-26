@@ -1,0 +1,9 @@
+schema_version: system.reliability_window_contract.v1
+purpose: >-
+  Define scheduler-neutral admission for the reliability evidence window.
+  A run is eligible only when its explicit trigger identity is scheduled,
+  its scheduler_id is accepted, and its release_id equals this accepted
+  release. Legacy run_origin fields are compatibility metadata only.
+accepted_schedulers:
+  - com.system.daily-run
+accepted_release: 2026-09-09-r1

@@ -1,30 +1,12 @@
-#!/usr/bin/env python3
-"""Peer entrypoint for Learning Hub runtime append.
-
-Modules must not open ``Output/system_learning/runtime/`` directly. Use this
-script or ``python3 -m system_learning record``.
-
-Usage:
-    python3 scripts/record_runtime_event.py \\
-      --subsystem workbench --event-type note --severity info \\
-      --payload-json '{"message": "operator note"}'
-"""
+"""Compatibility shim. Canonical implementation: verity.runtime.record_runtime_event."""
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+from importlib import import_module
 
-_ROOT = Path(__file__).resolve().parents[1]
-
-
-def main(argv: list[str] | None = None) -> int:
-    from system_learning.cli import main as hub_main
-
-    args = list(argv if argv is not None else sys.argv[1:])
-    if "--system-root" not in args:
-        args = ["--system-root", str(_ROOT), *args]
-    return hub_main(["record", *args])
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+_impl = import_module('verity.runtime.record_runtime_event')
+if __name__ != "__main__":
+    sys.modules[__name__] = _impl
+else:
+    import runpy
+    runpy.run_module('verity.runtime.record_runtime_event', run_name="__main__")

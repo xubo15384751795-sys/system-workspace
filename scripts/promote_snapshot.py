@@ -1,6 +1,12 @@
+"""Compatibility shim. Canonical implementation: verity.cli.promote_snapshot."""
 from __future__ import annotations
 
-from workbench.workspace.promote_snapshot import main
+import sys
+from importlib import import_module
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+_impl = import_module('verity.cli.promote_snapshot')
+if __name__ != "__main__":
+    sys.modules[__name__] = _impl
+else:
+    import runpy
+    runpy.run_module('verity.cli.promote_snapshot', run_name="__main__")

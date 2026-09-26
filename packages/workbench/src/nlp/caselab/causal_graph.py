@@ -1,7 +1,7 @@
 """Causal graph traversal — quantitative structural reasoning.
 
 READS: entity_environments.json (weighted interaction graph)
-WRITES: Output/caselab/causal/ only
+WRITES: Output/state/caselab/causal/ only
 
 Converts qualitative interaction edges to quantitative causal chains.
 Traces how an event propagates through an entity's variable graph
@@ -14,7 +14,7 @@ from system_runtime.paths import WorkspacePaths
 from dataclasses import dataclass, field
 from typing import Any
 
-OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "caselab" / "causal"
+OUTPUT_DIR = WorkspacePaths.discover().root / "Output" / "state" / "caselab" / "causal"
 
 
 # ── Relation type → base weight and direction ────────────────────────────

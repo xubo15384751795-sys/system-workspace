@@ -26,7 +26,7 @@ from orchestration.native_core_boundaries import (
     execute_native_core_boundary,
     select_native_core_boundary_steps,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 NATIVE_CORE_PILOT = "native_core_pilot"
 NativeCoreBoundaryRunner = Callable[[str], dict[str, Any]]
@@ -76,7 +76,7 @@ def _default_boundary_runner(step_id: str) -> dict[str, Any]:
     """Run into a health-only shadow root when the stopped pilot is enabled."""
     result = execute_native_core_boundary(
         step_id,
-        current_output=ROOT / "Output" / "health" / "native_core_shadow",
+        current_output=ROOT / "Output" / "state" / "health" / "native_core_shadow",
     )
     # The core adapter's explicit path is an active-generation boundary when
     # called by native_daily.  This stopped pilot intentionally points it at a

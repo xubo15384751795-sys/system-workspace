@@ -36,11 +36,11 @@ from harvester.providers.external_indicators import (
     KNOWN_INDICATORS,
     read_cached_external_indicator,
 )
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 DEFAULT_CACHE_DIR = ROOT / "Data" / "harvester" / "raw" / "external_indicators"
-DEFAULT_DATABASE = ROOT / "Output" / "health" / "external_indicators_dlt_shadow.duckdb"
-DEFAULT_REPORT = ROOT / "Output" / "health" / "external_indicators_dlt_shadow_parity.json"
+DEFAULT_DATABASE = ROOT / "Output" / "state" / "health" / "external_indicators_dlt_shadow.duckdb"
+DEFAULT_REPORT = ROOT / "Output" / "state" / "health" / "external_indicators_dlt_shadow_parity.json"
 
 
 def _values_by_date(rows: tuple[dict[str, Any], ...]) -> dict[str, float]:

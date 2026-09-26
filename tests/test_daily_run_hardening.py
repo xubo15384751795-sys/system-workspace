@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class TestFreshnessGateBoundary:
     def test_midrun_closure_is_advisory(self, tmp_path, monkeypatch):
-        from scripts import freshness_validator as fv
+        from workbench.measurement import freshness_validator as fv
 
         now = datetime.now(UTC)
         fresh = now
@@ -48,7 +48,7 @@ class TestFreshnessGateBoundary:
         assert all(i["status"] == "ADVISORY_EXPECTED" for i in issues)
 
     def test_publish_gate_hard_fails_same_gap(self, tmp_path, monkeypatch):
-        from scripts import freshness_validator as fv
+        from workbench.measurement import freshness_validator as fv
 
         now = datetime.now(UTC)
         fresh = now
@@ -78,7 +78,7 @@ class TestFreshnessGateBoundary:
         assert any(i["status"] == "CLOSURE_VIOLATION" for i in issues)
 
     def test_midrun_main_exits_zero_on_fail_verdict(self, monkeypatch):
-        from scripts import freshness_validator as fv
+        from workbench.measurement import freshness_validator as fv
 
         monkeypatch.setattr(
             fv,
@@ -105,7 +105,7 @@ class TestFreshnessGateBoundary:
 
 class TestSoftHardFailureNotify:
     def test_classify_soft_monitoring_vs_hard_paper(self):
-        from scripts._pipeline_dag import classify_step_failures
+        from verity.runtime._pipeline_dag import classify_step_failures
 
         hard, soft = classify_step_failures(
             [
@@ -118,20 +118,20 @@ class TestSoftHardFailureNotify:
         assert [s["step"] for s in soft] == ["monitoring_coverage_audit"]
 
     def test_write_alert_soft_only_is_medium(self, tmp_path):
-        from scripts.daily_run import write_alert
+        from verity.cli.daily_run import write_alert
 
         write_alert(
             warnings=["soft_fail:monitoring_coverage_audit"],
             steps=[{"step": "monitoring_coverage_audit", "status": "failed", "stdout_tail": "gap"}],
             output_root=tmp_path,
         )
-        alert = json.loads((tmp_path / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
+        alert = json.loads((tmp_path / "state" / "alerts" / "latest_alert.json").read_text(encoding="utf-8"))
         assert alert["severity"] == "MEDIUM"
         assert alert["failed_steps"] == []
         assert alert["soft_failed_steps"] == ["monitoring_coverage_audit"]
 
     def test_notify_merges_content_stale_into_one_hard_alert(self, monkeypatch):
-        from scripts import _notify
+        from verity.runtime import _notify
 
         calls: list[tuple[str, str]] = []
         monkeypatch.setattr(
@@ -157,7 +157,7 @@ class TestSoftHardFailureNotify:
         assert "ofr_fsi_cache" in calls[0][1]
 
     def test_soft_warnings_do_not_push_desktop(self, monkeypatch, capsys):
-        from scripts import _notify
+        from verity.runtime import _notify
 
         calls: list[tuple[str, str]] = []
         monkeypatch.setattr(
@@ -181,7 +181,7 @@ class TestSoftHardFailureNotify:
         assert "monitoring_coverage_audit" in err
 
     def test_publish_blocked_pushes_hard(self, monkeypatch):
-        from scripts import _notify
+        from verity.runtime import _notify
 
         calls: list[tuple[str, str]] = []
         monkeypatch.setattr(
@@ -299,11 +299,16 @@ class TestDailyRunCallableImports:
         assert not failures, "callable-mode import failures:\n" + "\n".join(failures)
 
     def test_paper_portfolio_package_imports_resolve(self):
-        """Regression: daily_run package path must see scripts.* helpers."""
+        """Regression: daily_run package path must see canonical Workbench helpers."""
+        from strategy_lab import paper_portfolio as pp
+        from workbench.measurement.public_residual_stress import (
+            build_public_residual_bundle,
+        )
+
         from scripts.professional_methods import causal_pit, continuous_position
-        from scripts.public_residual_stress import build_public_residual_bundle
-        from scripts.strategy_lab import paper_portfolio as pp
 
         assert callable(causal_pit) and callable(continuous_position)
         assert callable(build_public_residual_bundle)
-        assert "scripts.professional_methods" in Path(pp.__file__).read_text(encoding="utf-8")
+        source = Path(pp.__file__).read_text(encoding="utf-8")
+        assert "workbench.measurement.professional_methods" in source
+        assert "scripts.professional_methods" not in source

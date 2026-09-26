@@ -8,8 +8,7 @@ so a day with one observed channel fell through to NEUTRAL/FULL — 9210 of the
 from __future__ import annotations
 
 import numpy as np
-
-from scripts.strategy_lab.risk_gate import CONSENSUS_MIN, evaluate_day
+from strategy_lab.risk_gate import CONSENSUS_MIN, evaluate_day
 
 NAN = float("nan")
 
@@ -57,8 +56,7 @@ class TestShadowCardCoverage:
     def test_card_reports_coverage_and_withholds_full_size(self, monkeypatch):
         """The card must not present a full-size call built on one channel."""
         import pandas as pd
-
-        from scripts.strategy_lab import shadow_card as sc
+        from strategy_lab import shadow_card as sc
 
         idx = pd.date_range("2026-05-01", periods=40, freq="B")
         # Only D is resolved; M/K/X absent, as load_signals() returns today.
@@ -84,8 +82,7 @@ class TestShadowCardCoverage:
         import json
 
         import pandas as pd
-
-        from scripts.strategy_lab import shadow_card as sc
+        from strategy_lab import shadow_card as sc
 
         idx = pd.date_range("2026-05-01", periods=40, freq="B")
         signals = pd.DataFrame(

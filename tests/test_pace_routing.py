@@ -2,20 +2,22 @@ from __future__ import annotations
 
 import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "commands" / "ci" / "check_pace_routing.py"
+SCRIPT = ROOT / "tools" / "ci" / "check_pace_routing.py"
 
 
 def _load_module():
     spec = importlib.util.spec_from_file_location("check_pace_routing", SCRIPT)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules["check_pace_routing"] = module
     spec.loader.exec_module(module)
-    return module
+    return sys.modules["check_pace_routing"]
 
 
 def _write_pace(root: Path) -> None:
@@ -24,7 +26,7 @@ def _write_pace(root: Path) -> None:
         "  L4:\n    paths: [PACE.md]\n"
         "  L3:\n    prefixes: [protocols/, governance/]\n"
         "  L2:\n    prefixes: [packages/]\n"
-        "  L1:\n    prefixes: [Output/sandbox/]\n"
+        "  L1:\n    prefixes: [Output/state/sandbox/]\n"
         "---\n# test\n",
         encoding="utf-8",
     )
@@ -33,7 +35,7 @@ def _write_pace(root: Path) -> None:
 def test_l1_l2_change_needs_no_routing_decision(tmp_path: Path) -> None:
     module = _load_module()
     _write_pace(tmp_path)
-    assert module.check_paths(["packages/x.py", "Output/sandbox/a.json"], tmp_path) == []
+    assert module.check_paths(["packages/x.py", "Output/state/sandbox/a.json"], tmp_path) == []
 
 
 def test_l3_change_without_decision_is_rejected(tmp_path: Path) -> None:
@@ -150,7 +152,7 @@ def test_active_epoch_does_not_cover_l4_or_out_of_scope_l3(tmp_path: Path) -> No
         "  L4:\n    paths: [PACE.md]\n"
         "  L3:\n    prefixes: [protocols/, governance/, configs/]\n"
         "  L2:\n    prefixes: [packages/]\n"
-        "  L1:\n    prefixes: [Output/sandbox/]\n"
+        "  L1:\n    prefixes: [Output/state/sandbox/]\n"
         "---\n# test\n",
         encoding="utf-8",
     )

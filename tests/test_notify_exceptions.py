@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from scripts import _notify
+from verity.runtime import _notify
 
 
 def test_webhook_uses_owned_external_gateway(monkeypatch) -> None:

@@ -1,0 +1,325 @@
+schema_version: governance.pipeline.monitoring.v1
+concern: monitoring
+source_kind: AUTHORING
+compiler_version: registry-authoring-v1
+runtime_authority: system_runtime.pipeline.CompiledPipeline
+metadata:
+  monitoring_contracts:
+    current_run_pointer:
+      path: Output/current/latest_run_id.txt
+      class: authoritative
+      owner: PublishTransaction
+      mode: pointer_integrity
+      reason: generation-owned current-run identity
+    current_decision_trace:
+      path: Output/current/decision_trace.json
+      class: decision_adjacent_shadow
+      owner: PublishTransaction
+      mode: pointer_integrity
+      reason: compatibility decision trace must resolve with current output
+    learning_hub_governance_status_registry:
+      path: Data/system_learning/registries/governance_status_registry.yaml
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+      mode: version_controlled_input
+      reason: governance guards read this registry to deny unsafe reuse
+    learning_hub_issue_registry:
+      path: Data/system_learning/registries/issue_registry.yaml
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+      mode: version_controlled_input
+      reason: canonical issue severity and hard-gate taxonomy
+    learning_hub_routing_rules:
+      path: Data/system_learning/registries/routing_rules.yaml
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+      mode: version_controlled_input
+      reason: issue-to-owner routing policy
+    learning_hub_verification_policy:
+      path: Data/system_learning/registries/verification_policy.yaml
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+      mode: version_controlled_input
+      reason: improvement verification evidence policy
+  monitoring_classification:
+    required_coverage_classes:
+    - authoritative
+    - decision_adjacent_shadow
+    classes:
+    - authoritative
+    - decision_adjacent_shadow
+    - research
+    - manual_on_demand
+    - archived_retire
+    rules:
+    - pattern: Output/current/artifact_navigator.*
+      class: manual_on_demand
+      owner: Workbench
+    - pattern: Output/current/benchmark_evidence_dashboard.*
+      class: manual_on_demand
+      owner: Workbench
+    - pattern: Output/current/latest_summary.md
+      class: archived_retire
+      owner: Workbench
+    - pattern: Output/current/model_run.json
+      class: manual_on_demand
+      owner: Workbench
+    - pattern: Output/current/operator_activations.json
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Data/panels/benchmark_panel_5yr.parquet
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Data/panels/cross_asset_daily_panel.csv.gz
+      class: archived_retire
+      owner: Workbench Signals
+    - pattern: Data/panels/cross_asset_features.parquet
+      class: archived_retire
+      owner: Workbench Signals
+    - pattern: Data/system_learning/ledgers/provenance_gap_ledger.jsonl
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Data/system_learning/structural_lab/codebase_metrics/history.parquet
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/quality/PIPELINE_TRIAGE_PLAN.md
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Output/quality/PROJECT_REFACTOR_AUDIT.json
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Output/quality/PROJECT_REFACTOR_AUDIT.md
+      class: archived_retire
+      owner: Data/Output
+    - pattern: Output/quality/ge_content_freshness.json
+      class: archived_retire
+      owner: Framework
+    - pattern: Output/quality/quality_content_freshness.json
+      class: decision_adjacent_shadow
+      owner: Framework
+    - pattern: Output/quality/governance_yield_report.json
+      class: archived_retire
+      owner: Governance
+    - pattern: Output/quality/governance_yield_report.md
+      class: archived_retire
+      owner: Governance
+    - pattern: Output/quality/freshness_report.md
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/system_learning/latest/proxy_quality_report.*
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Output/system_learning/governance_audit/*
+      class: manual_on_demand
+      owner: Learning Hub
+    - pattern: Output/system_learning/research_posture/*
+      class: manual_on_demand
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/abandoned_work_report.md
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/experiment_core_judgment_audit.*
+      class: archived_retire
+      owner: Workbench
+    - pattern: Output/system_learning/latest/feedback_improvement_queue.md
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/governance_drag_report.json
+      class: manual_on_demand
+      owner: Governance
+    - pattern: Output/system_learning/latest/hypothesis_inflow.json
+      class: manual_on_demand
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/judgment_calibration_summary.json
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/module_activity_distribution.*
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/scripts.commands.weekly.architecture_reality_audit.*
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/scripts.commands.weekly.governance_status.*
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/system_learning/latest/trade_decision_calibration_summary.json
+      class: archived_retire
+      owner: Learning Hub
+    - pattern: Output/current/*
+      class: authoritative
+      owner: Workbench
+    - pattern: Data/harvester/exports/*
+      class: authoritative
+      owner: Harvester
+    - pattern: Data/panels/*
+      class: authoritative
+      owner: Harvester
+    - pattern: Data/features/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/k_measurement/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/x_measurement/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/judgment/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/quality/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/system_learning/*
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+    - pattern: Data/system_learning/*
+      class: decision_adjacent_shadow
+      owner: Learning Hub
+    - pattern: Data/paper_world_model/*
+      class: decision_adjacent_shadow
+      owner: Harvester
+    - pattern: Output/runs/*
+      class: decision_adjacent_shadow
+      owner: Workbench
+    - pattern: Output/state/sandbox/*
+      class: research
+      owner: Workbench
+    - pattern: Output/research/*
+      class: research
+      owner: Workbench
+    - pattern: Output/state/validation/*
+      class: research
+      owner: ML Signals
+    - pattern: Output/state/strategy_lab/*
+      class: research
+      owner: ML Signals
+    - pattern: Output/state/benchmarks/*
+      class: research
+      owner: Workbench
+    - pattern: Output/state/caselab/*
+      class: research
+      owner: CaseLab
+    - pattern: Output/workbench/*
+      class: research
+      owner: Workbench
+    - pattern: Data/fixtures/*
+      class: research
+      owner: Workbench
+    - pattern: Output/archive/*
+      class: archived_retire
+      owner: Workbench
+    - pattern: Data/archive/*
+      class: archived_retire
+      owner: Harvester
+    - pattern: Data/structural_lab/*
+      class: archived_retire
+      owner: Framework
+    - pattern: Data/merged_data/*
+      class: archived_retire
+      owner: Harvester
+    - pattern: Output/deformation_runs/*
+      class: archived_retire
+      owner: Framework
+    - pattern: Output/reports/*
+      class: archived_retire
+      owner: ML Signals
+    - pattern: Output/*
+      class: research
+      owner: Workbench
+    - pattern: Data/*
+      class: manual_on_demand
+      owner: System
+defaults:
+  frequency_monitoring:
+    non_daily_requires_registered_outputs: true
+    non_daily_requires_content_clock: true
+steps:
+  harvester:
+    requires_harvester_evidence: true
+  etf_refresh:
+    requires_harvester_evidence: true
+  paper_sync:
+    requires_harvester_evidence: true
+  horizon_events:
+    requires_harvester_evidence: true
+  neutral_pressure_measurement:
+    requires_harvester_evidence: true
+  structural_replay:
+    requires_harvester_evidence: true
+  bridge: {}
+  run_operator_detections: {}
+  validate_proxy_observation_catalog: {}
+  quality_validation: {}
+  regime_detection: {}
+  archive_hmm_calibration_snapshot: {}
+  hmm_stability_audit: {}
+  k_measurement_gate: {}
+  x_measurement_gate: {}
+  measurement_quality_report: {}
+  caselab_signal: {}
+  judgment_layer: {}
+  judgment_replay_audit: {}
+  judgment_promotion_gate: {}
+  probabilistic_context: {}
+  trade_decision: {}
+  risk_gate: {}
+  record_trade_decision: {}
+  paper_portfolio: {}
+  trade_decision_replay: {}
+  market_feedback: {}
+  build_data_gaps: {}
+  signal_monitor: {}
+  claim_evaluator: {}
+  claim_ladder_tracker: {}
+  learning_hub_feedback: {}
+  proxy_quality_report: {}
+  proxy_lifecycle: {}
+  learning_summary: {}
+  judgment_calibration_event: {}
+  trade_calibration_event: {}
+  operator_registry_audit: {}
+  position_sizing: {}
+  system_index: {}
+  readme_first: {}
+  evidence_grade_report: {}
+  build_artifact_registry: {}
+  record_daily_run_event: {}
+  learning_hub_ingest: {}
+  monitoring_coverage_audit: {}
+  next_actions: {}
+  freshness_validator: {}
+  data_retention_audit: {}
+  architecture_reality_audit: {}
+  signal_card: {}
+  signal_consensus: {}
+  strategy_lab_shadow: {}
+  shadow_outcomes_90d: {}
+  build_overlay_shadow_report: {}
+  build_event_replay_factory: {}
+  build_feedback_sample_pool: {}
+  evaluate_feedback_samples: {}
+  current_status: {}
+  work_brief: {}
+  output_routing_audit: {}
+  supervisor_check: {}
+  build_authority_graph: {}
+  governance_status: {}
+  routing_decision: {}
+  caselab_index: {}
+  build_policy_from_paper: {}
+  archive_daily_snapshots: {}
+  backfill_judgment_calibration: {}
+  mechanism_calibration: {}
+  export_feedback: {}
+  suggest_paper_updates: {}
+  promote_paper_inbox: {}
+  collect_reviews: {}
+  evaluate_pending: {}
+  change_analysis: {}
+  refresh_cross_asset_panel: {}
+  judgment_accuracy_report: {}
+  asof_integrity_check: {}
+  baseline_comparison: {}
+  walk_forward_validation: {}
+  qlib_structural_bridge: {}
+  threshold_review_bridge: {}

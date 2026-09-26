@@ -1,0 +1,216 @@
+schema_version: architecture_contract.v1
+effective_step: 1
+status: ACTIVE_WITH_MIGRATION_DEBT
+purpose: >-
+  Machine-readable dependency direction for the Verity architecture convergence.
+  This contract governs ownership and dependency direction; it does not change
+  provider, measurement, publication, recovery, or claim-ceiling semantics.
+
+completion_gate:
+  declared_status: NOT_COMPLETE
+  required_dimensions:
+    architecture: unique_dependency_dag_and_empty_unregistered_debt
+    runtime: one_explainable_scheduled_execution_spine
+    portability: no_mac_scheduler_absolute_path_or_ambient_pythonpath_semantics
+    semantics: provider_freshness_measurement_judgment_claim_ceiling_preserved
+    recovery: accepted_release_and_snapshot_remote_recovery_proven
+    observation: target_environment_scheduled_reliability_proven
+  rule: >-
+    No individual test, commit, Dagster run, file move, registry count, or
+    machine bootstrap may be reported as overall refactor completion.
+
+layers:
+  external_trigger:
+    roots:
+      - scripts
+      - tools
+  application_interface:
+    roots:
+      - system_cli
+      - verity/cli
+  orchestration:
+    roots:
+      - packages/orchestration/orchestration
+  domain:
+    roots:
+      - packages/harvester/src/harvester
+      - packages/learning_hub/src/system_learning
+      - packages/workbench/src/workbench
+      - packages/workbench/src/strategy_lab
+      - packages/workbench/src/benchmarks
+      - packages/workbench/src/ml
+      - packages/workbench/src/nlp
+      - paper-empirical-interface/src/paper_interface
+      - caselab_context
+      - caselab_runtime
+  application_runtime_adapter:
+    roots:
+      - verity/runtime
+  core_runtime:
+    roots:
+      - system_runtime
+  archive:
+    roots:
+      - packages/framework_v1_archive
+      - verity/archive_compat
+
+special_paths:
+  excluded_from_production_scan:
+    - tests
+    - packages/framework_v1_archive
+    - packages/workbench/agents
+    - build
+    - dist
+    - .venv
+    - .git
+
+rules:
+  - id: ARCH-001
+    kind: import_boundary
+    severity: blocking
+    statement: Live packages MUST NOT import scripts.*.
+  - id: ARCH-002
+    kind: import_boundary
+    severity: blocking
+    statement: Core runtime MUST NOT import orchestration.*.
+  - id: ARCH-003
+    kind: import_boundary
+    severity: blocking
+    statement: Core runtime MUST NOT import domain or application code.
+  - id: ARCH-004
+    kind: import_boundary
+    severity: blocking
+    statement: Domain packages MUST NOT import orchestration.*.
+  - id: ARCH-005
+    kind: scheduler_boundary
+    severity: blocking
+    statement: Domain packages MUST NOT inspect launchd/systemd directly.
+  - id: ARCH-006
+    kind: plan_construction
+    severity: blocking
+    statement: Only orchestration may construct execution plans.
+  - id: ARCH-007
+    kind: publication_boundary
+    severity: blocking
+    statement: Only publication/runtime code may mutate Output/current.
+  - id: ARCH-008
+    kind: canonical_context
+    severity: blocking
+    statement: WorkspaceConfig/RuntimeContext path resolution has one canonical owner.
+  - id: ARCH-009
+    kind: path_mutation
+    severity: blocking
+    statement: No production module may mutate sys.path.
+  - id: ARCH-010
+    kind: portability
+    severity: blocking
+    statement: Production code may not contain operator-specific absolute paths.
+  - id: ARCH-011
+    kind: scheduler_authority
+    severity: blocking
+    statement: Scheduler implementation MUST NOT determine business authority.
+  - id: ARCH-012
+    kind: compatibility_direction
+    severity: blocking
+    statement: Canonical implementation MUST NOT depend on compatibility code.
+
+# This is a frozen debt budget for the current migration slice. New entries
+# require an explicit architecture decision; changing this number is itself a
+# governance change and must not be used to make a failing scan green.
+temporary_debt:
+  frozen_count: 7
+  entries:
+    - id: DEBT-ARCH-006-PLAN-COMPAT
+      rule: ARCH-006
+      paths:
+        - verity/cli/_application.py
+        - system_runtime/plan_apply.py
+        - verity/cli/daily_run.py
+        - verity/cli/run_coordinator.py
+        - verity/cli/run_work_cycle.py
+        - verity/runtime/_authority_graph.py
+      module_prefixes:
+        - system_runtime.pipeline
+      owner: Orchestration
+      migration_target: packages/orchestration/orchestration/plan.py
+      reader: tests/test_architecture_boundary.py
+      removal_condition: >-
+        Orchestration exposes the sole plan-construction API while the CLI and
+        authority readers consume an immutable compiled-plan contract.
+    - id: DEBT-ARCH-007-WRITERS
+      rule: ARCH-007
+      paths:
+        - packages/workbench/src/workbench/surfaces
+        - packages/learning_hub/src/system_learning/operators
+      module_prefixes: []
+      owner: Orchestration
+      migration_target: packages/orchestration/orchestration/native_file_boundaries.py
+      reader: tools/check_generation_writer_inventory.py
+      removal_condition: >-
+        All current-surface writes are invoked through the publication/runtime
+        writer boundary and the generation writer inventory is clean.
+    - id: DEBT-ARCH-008-ROOTS
+      rule: ARCH-008
+      paths:
+        - packages/harvester/src/harvester
+        - packages/workbench/src/workbench
+        - caselab_context
+        - caselab_runtime
+      module_prefixes: []
+      owner: System runtime
+      migration_target: system_runtime/context.py
+      reader: tests/test_architecture_boundary.py
+      removal_condition: >-
+        Domain path constants are injected from RuntimeContext and no domain
+        module resolves the workspace from package layout.
+    - id: DEBT-ARCH-011-SCHEDULER
+      rule: ARCH-011
+      paths:
+        - packages/orchestration/orchestration/schedules.py
+        - scripts/launchd
+      module_prefixes: []
+      owner: Orchestration
+      migration_target: system_runtime/scheduler_contract.py
+      reader: tools/audit/architecture_invariants.py
+      removal_condition: >-
+        Scheduler adapters emit only TriggerContext and never select provider,
+        publication, or business-authority outcomes.
+    - id: DEBT-ARCH-012-ADAPTER
+      rule: ARCH-012
+      paths:
+        - verity/runtime
+      module_prefixes: []
+      owner: System runtime
+      migration_target: system_runtime
+      reader: tools/audit/architecture_invariants.py
+      removal_condition: >-
+        Cross-domain runtime helpers are either in system_runtime or explicitly
+        owned by a domain; verity.runtime remains only an application adapter.
+    - id: DEBT-ARCH-010-LEGACY-CONFIG
+      rule: ARCH-010
+      paths:
+        - scripts/launchd
+        - scripts/resolve_system_python.sh
+      module_prefixes: []
+      owner: Release engineering
+      migration_target: configs/runtime
+      reader: tools/audit/architecture_invariants.py
+      removal_condition: >-
+        Installed scheduler configuration contains no operator-specific path;
+        all machine paths are supplied at install time or by the environment.
+    - id: DEBT-ARCH-004-TRANSITION
+      rule: ARCH-004
+      paths:
+        - packages/harvester/src/harvester/operators/run_etf_provider_parity.py
+        - packages/workbench/src/workbench/measurement/freshness_validator.py
+        - packages/workbench/src/workbench/workspace/promote_snapshot.py
+        - packages/workbench/src/workbench/surfaces/refresh_output_current.py
+      module_prefixes:
+        - orchestration
+      owner: Orchestration
+      migration_target: system_runtime/contracts and orchestration adapters
+      reader: tools/audit/architecture_invariants.py
+      removal_condition: >-
+        Provider secrets, freshness clocks, snapshot promotion, and refresh
+        entrypoint adapters are exposed through core contracts or orchestration
+        interfaces without domain imports of orchestration implementation.

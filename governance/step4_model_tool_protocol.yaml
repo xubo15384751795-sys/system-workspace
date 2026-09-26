@@ -1,0 +1,60 @@
+step: 4
+name: model_tool_protocol_convergence
+status: COMPLETE_BOUNDED
+scope:
+  default_model: neutral_pressure_md
+  protocol_version: measurement.model.v1
+  runtime_authority: diagnostic_only
+  platform_scope: in_process_workbench
+  excluded:
+    - plugin_marketplace
+    - dynamic_remote_plugin_execution
+    - second_scheduler
+    - second_registry
+    - generic_workflow_language
+    - arbitrary_user_plugins
+capabilities:
+  implemented:
+    - data_access
+  intentionally_not_abstracted:
+    - historical_window
+    - calendar
+    - normalization
+    - statistics
+    - numerical_methods
+    - calibration
+    - simulation
+    - artifact_store
+  reason: first slice extracts only the capability used by the accepted M/D path
+contracts:
+  model_manifest: packages/workbench/src/workbench/plugins/neutral_pressure_md/manifest.py
+  model_result_schema: packages/workbench/src/workbench/plugins/neutral_pressure_md/schema.json
+  state_adapter: neutral_pressure_state:1.0.0
+  legacy_projection: packages/workbench/src/workbench/plugins/neutral_pressure_md/legacy_output.py
+architecture_rules:
+  MODEL-001: pass
+  MODEL-002: pass
+  MODEL-003: pass
+  MODEL-004: pass
+  MODEL-005: pass
+  MODEL-006: pass
+  MODEL-007: pass
+  MODEL-008: pass
+  MODEL-009: pass
+  MODEL-010: pass
+evidence:
+  implementation: packages/workbench/src/workbench/plugins/neutral_pressure_md/model.py
+  protocol: packages/workbench/src/workbench/model_protocol/protocol.py
+  judgment_consumer: packages/workbench/src/workbench/judgment/model_evidence.py
+  parity_fixture: packages/workbench/src/workbench/plugins/neutral_pressure_md/fixtures/neutral_pressure_md_fixture_v1.json
+  tests:
+    - tests/test_model_tool_protocol.py
+remaining_debt:
+  - id: MODEL-DEBT-001
+    description: legacy neutral_pressure_measurement.build_snapshot remains available for historical fixtures
+    owner: Workbench
+    removal_condition: accepted parity window and explicit compatibility retirement decision
+  - id: MODEL-DEBT-002
+    description: model-specific score meaning remains inside the plugin payload and legacy projection
+    owner: Workbench
+    removal_condition: all consumers migrated to generic model evidence with no legacy projection readers

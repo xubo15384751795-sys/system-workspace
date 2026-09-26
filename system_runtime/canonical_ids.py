@@ -18,12 +18,13 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Any, Literal
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-ROOT = Path(__file__).resolve().parents[1]
+from .paths import WorkspacePaths
+
+ROOT = WorkspacePaths.discover().root
 CANONICAL_SCHEMA_PATH = ROOT / "protocols" / "canonical_chain.schema.json"
 SCHEMA_VERSION = "system.canonical_chain.v1"
 

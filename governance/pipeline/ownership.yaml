@@ -1,0 +1,781 @@
+schema_version: governance.pipeline.ownership.v1
+concern: ownership
+source_kind: AUTHORING
+compiler_version: registry-authoring-v1
+runtime_authority: system_runtime.pipeline.CompiledPipeline
+metadata: {}
+defaults:
+  allowed_to_affect_core_judgment: false
+  core_judgment_dependency: false
+steps:
+  harvester:
+    owner: Harvester
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_core_judgment
+      owner: Harvester
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  etf_refresh:
+    owner: Harvester
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: research_only
+      owner: Harvester
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+    blocker: 'Two independent gaps. (1) ETF acquisition is not yet published as a
+      Harvester evidence release. (2) Feature recomputation cannot run: scripts/k_features_from_etf.py
+      was archived in 878bca4 as an experimental/archive_candidate script and is not
+      in scripts/archive/ either, so update_k_features() logs and returns False on
+      every run. The declared artifact Data/features/k_features_daily.csv is therefore
+      unmaintained — frozen at 2026-06-17 — and this step currently produces nothing.
+      Panel freshness is covered separately by refresh_cross_asset_panel, which owns
+      the etf_panel content check.'
+  paper_sync:
+    owner: Harvester
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: lower_claim_ceiling
+      owner: Harvester
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  horizon_events:
+    owner: Harvester
+    status: archived
+    archive_reason: No data source — Horizon dormant since 2026-06-02
+    authority:
+      affects_core_judgment: true
+      failure_behavior: lower_claim_ceiling
+      owner: Harvester
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: false
+  neutral_pressure_measurement:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_current_readout
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  structural_replay:
+    owner: Deformation Framework
+    status: archived
+    authority:
+      affects_core_judgment: false
+      failure_behavior: block_current_readout
+      owner: Deformation Framework
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  bridge:
+    owner: Workbench
+    status: archived
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_current_readout
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  run_operator_detections:
+    owner: Deformation Framework
+    status: archived
+    archive_reason: Deformation v1 operator runtime retained as evidence only
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Deformation Framework
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  validate_proxy_observation_catalog:
+    owner: Harvester
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Harvester
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  quality_validation:
+    owner: Protocols
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_promotion
+      owner: Protocols
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  regime_detection:
+    owner: ML Signals
+    status: experimental
+    authority:
+      affects_core_judgment: false
+      failure_behavior: block_current_readout
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  archive_hmm_calibration_snapshot:
+    owner: ML Signals
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  hmm_stability_audit:
+    owner: ML Signals
+    status: experimental
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  k_measurement_gate:
+    owner: ML Signals
+    status: experimental
+    authority:
+      affects_core_judgment: false
+      failure_behavior: research_only
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  x_measurement_gate:
+    owner: ML Signals
+    status: experimental
+    authority:
+      affects_core_judgment: false
+      failure_behavior: research_only
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  measurement_quality_report:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  caselab_signal:
+    owner: CaseLab Context
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: lower_claim_ceiling
+      owner: CaseLab Context
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: false
+  judgment_layer:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_current_readout
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  judgment_replay_audit:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  judgment_promotion_gate:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_promotion
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  probabilistic_context:
+    owner: ML Signals
+    status: archived
+    archive_reason: Misnamed — was historical quantile calculator, not GluonTS. No
+      probabilistic model.
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  trade_decision:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: hold_flat
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  risk_gate:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: hold_flat
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  record_trade_decision:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  paper_portfolio:
+    owner: Strategy Lab
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: decision_adjacent_block
+      owner: Strategy Lab
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  trade_decision_replay:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  market_feedback:
+    owner: Learning Hub
+    status: experimental
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_data_gaps:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  signal_monitor:
+    owner: Deformation Framework
+    status: archived
+    archive_reason: Reads archived Deformation v1 signal history
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Deformation Framework
+    allowed_to_affect_core_judgment: false
+  claim_evaluator:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  claim_ladder_tracker:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  learning_hub_feedback:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  proxy_quality_report:
+    owner: ML Signals
+    status: archived
+    archive_reason: Audits archived Deformation proxy registry; available on demand
+      only
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  proxy_lifecycle:
+    owner: ML Signals
+    status: archived
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: ML Signals
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  learning_summary:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  judgment_calibration_event:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  trade_calibration_event:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  operator_registry_audit:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  position_sizing:
+    owner: Workbench
+    status: archived
+    archive_reason: Premature — zero live-mode capability, gated by 5+ blockers
+    authority:
+      affects_core_judgment: true
+      failure_behavior: hold_flat
+      owner: Workbench
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  system_index:
+    owner: Data/Output
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: block_current_readout
+      owner: Data/Output
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  readme_first:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  evidence_grade_report:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_artifact_registry:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  record_daily_run_event:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  learning_hub_ingest:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  monitoring_coverage_audit:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  next_actions:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  freshness_validator:
+    owner: Data/Output
+    status: active
+    authority:
+      affects_core_judgment: true
+      failure_behavior: block_core_judgment
+      owner: Data/Output
+    allowed_to_affect_core_judgment: true
+    core_judgment_dependency: true
+  data_retention_audit:
+    owner: Data/Output
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Data/Output
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  architecture_reality_audit:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  signal_card:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  signal_consensus:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: block_current_readout
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  strategy_lab_shadow:
+    owner: Strategy Lab
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  shadow_outcomes_90d:
+    owner: Strategy Lab
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_overlay_shadow_report:
+    owner: Strategy Lab
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_event_replay_factory:
+    owner: Deformation Framework
+    status: archived
+    archive_reason: Deformation v1 weekly replay factory; 4.8h Monday cost. Existing
+      Output/state/sandbox/event_replay/ files remain readable by build_feedback_sample_pool;
+      the factory no longer runs on the default path.
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Deformation Framework
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_feedback_sample_pool:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  evaluate_feedback_samples:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  current_status:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  work_brief:
+    owner: Workbench
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Workbench
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  output_routing_audit:
+    owner: Governance
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Governance
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  supervisor_check:
+    owner: Governance
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Governance
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_authority_graph:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  governance_status:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  routing_decision:
+    owner: Agent Routing
+    status: archived
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Agent Routing
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  caselab_index:
+    owner: CaseLab Context
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  build_policy_from_paper:
+    owner: CaseLab Runtime
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Runtime
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  archive_daily_snapshots:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  backfill_judgment_calibration:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  mechanism_calibration:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  export_feedback:
+    owner: CaseLab Context
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  suggest_paper_updates:
+    owner: CaseLab Context
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  promote_paper_inbox:
+    owner: CaseLab Context
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  collect_reviews:
+    owner: CaseLab Context
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: CaseLab Context
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  evaluate_pending:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  change_analysis:
+    owner: Analysis
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Analysis
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  refresh_cross_asset_panel:
+    owner: Harvester
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Harvester
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  judgment_accuracy_report:
+    owner: Learning Hub
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Learning Hub
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  asof_integrity_check:
+    owner: Framework
+    status: archived
+    archive_reason: Framework-owned weekly as-of leakage check; v1 structural_replay
+      input, not on the live path
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Framework
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  baseline_comparison:
+    owner: Framework
+    status: archived
+    archive_reason: Framework-owned review-only diagnostic. No live consumer of Output/state/validation/baseline_comparison.json
+      or the system_learning copy; not retained as a Learning Hub weekly.
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Framework
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  walk_forward_validation:
+    owner: Strategy Lab
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  qlib_structural_bridge:
+    owner: Strategy Lab
+    status: active
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Strategy Lab
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false
+  threshold_review_bridge:
+    owner: Framework
+    status: archived
+    archive_reason: Framework-owned weekly threshold-review bridge; human-review-only,
+      not on the live path
+    authority:
+      affects_core_judgment: false
+      failure_behavior: continue_with_warning
+      owner: Framework
+    allowed_to_affect_core_judgment: false
+    core_judgment_dependency: false

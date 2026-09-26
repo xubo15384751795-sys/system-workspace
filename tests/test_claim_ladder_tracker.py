@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from scripts.commands.weekly.claim_ladder_tracker import (  # noqa: E402
+from system_learning.operators.claim_ladder_tracker import (  # noqa: E402
     _check_rule,
     _evaluate_policy_rules,
     apply_transitions,
@@ -30,6 +30,7 @@ from scripts.commands.weekly.claim_ladder_tracker import (  # noqa: E402
     load_state,
     save_state,
 )
+
 from system_runtime.canonical_ids import validate_claim  # noqa: E402
 
 
@@ -46,13 +47,13 @@ def _isolated_dirs(tmp_path, monkeypatch):
     judgment_dir = tmp_path / "judgment"
     judgment_dir.mkdir()
 
-    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.RUNS_DIR", runs_dir)
-    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.OUTPUT_DIR", output_dir)
-    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.CASELAB_DIR", caselab_dir)
-    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.HMM_PATH", hmm_dir / "regime_hmm.json")
-    monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.JUDGMENT_PATH", judgment_dir / "latest.json")
+    monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.RUNS_DIR", runs_dir)
+    monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.OUTPUT_DIR", output_dir)
+    monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.CASELAB_DIR", caselab_dir)
+    monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.HMM_PATH", hmm_dir / "regime_hmm.json")
+    monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.JUDGMENT_PATH", judgment_dir / "latest.json")
     monkeypatch.setattr(
-        "scripts.commands.weekly.claim_ladder_tracker.NEUTRAL_HISTORY_PATH",
+        "system_learning.operators.claim_ladder_tracker.NEUTRAL_HISTORY_PATH",
         output_dir / "neutral_history.json",
     )
     return runs_dir, output_dir, caselab_dir, hmm_dir, judgment_dir
@@ -306,7 +307,7 @@ def test_neutral_state_reversed_large_delta(_isolated_dirs):
 
 
 def test_caselab_operational_direction_comes_from_snapshot(_isolated_dirs):
-    from scripts.caselab_daily_signal import _operational_direction
+    from workbench.caselab.caselab_daily_signal import _operational_direction
 
     result = _operational_direction(_snapshot(direction="PRESSURE_BALANCED", m=0.01, d=-0.02))
     assert result["direction"] == "PRESSURE_BALANCED"
@@ -672,7 +673,7 @@ class TestStateIO:
 
     def test_load_state_missing_file(self, _isolated_dirs, monkeypatch):
         output_dir = _isolated_dirs[1]
-        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.STATE_PATH", output_dir / "state.json")
+        monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.STATE_PATH", output_dir / "state.json")
         state = load_state()
         assert state["schema_version"] == "claim_ladder_state.v1"
         assert state["claims"] == []
@@ -680,8 +681,8 @@ class TestStateIO:
     def test_save_and_load_roundtrip(self, _isolated_dirs, monkeypatch):
         output_dir = _isolated_dirs[1]
         state_path = output_dir / "state.json"
-        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.STATE_PATH", state_path)
-        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.OUTPUT_DIR", output_dir)
+        monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.STATE_PATH", state_path)
+        monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.OUTPUT_DIR", output_dir)
 
         state = {
             "schema_version": "claim_ladder_state.v1",
@@ -697,7 +698,7 @@ class TestStateIO:
         output_dir.mkdir(parents=True, exist_ok=True)
         state_path = output_dir / "state.json"
         state_path.write_text('{"schema_version": "wrong.v1", "claims": []}')
-        monkeypatch.setattr("scripts.commands.weekly.claim_ladder_tracker.STATE_PATH", state_path)
+        monkeypatch.setattr("system_learning.operators.claim_ladder_tracker.STATE_PATH", state_path)
         state = load_state()
         # Should return fresh state since schema version doesn't match
         assert state["schema_version"] == "claim_ladder_state.v1"

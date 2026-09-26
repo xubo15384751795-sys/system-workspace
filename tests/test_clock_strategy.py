@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import plistlib
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -26,3 +27,10 @@ def test_daily_process_declares_utc_clock() -> None:
     assert "export TZ=UTC" in wrapper
     assert "<key>TZ</key>" in plist
     assert "XNYS exchange session clock" in policy
+
+
+def test_concurrent_harvester_is_disabled_until_phase_one_observation_gate() -> None:
+    plist_path = ROOT / "scripts" / "launchd" / "com.system.daily-run.plist"
+    payload = plistlib.loads(plist_path.read_bytes())
+
+    assert payload["EnvironmentVariables"]["SYSTEM_HARVESTER_CONCURRENT"] == "0"

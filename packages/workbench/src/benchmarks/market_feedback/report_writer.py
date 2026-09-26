@@ -12,7 +12,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import cast
 
-BENCHMARKS_ROOT = cast(Path, _workspace_root() / "Output" / "benchmarks" / "market_feedback")
+BENCHMARKS_ROOT = cast(Path, _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback")
 
 
 def write_comparison_report(benchmark_id: str) -> Path:

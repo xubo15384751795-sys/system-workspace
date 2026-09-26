@@ -34,7 +34,7 @@ from orchestration.assets.registry_block_checks import (
 from orchestration.assets.registry_quality_checks import read_quality_artifact
 from orchestration.assets.registry_shadow import SHADOW_PILOT, load_registry_document
 
-from scripts._runtime_io import ROOT
+from verity.runtime.runtime_io import ROOT
 
 DEGRADE_PILOT = "degrade_pilot"
 ALLOWED_FAILURE_BEHAVIORS = frozenset({"hold_flat", "lower_claim_ceiling"})
@@ -69,7 +69,7 @@ def write_degrade_shadow_records(
     """Append shadow degraded rows. Never writes daily steps.jsonl."""
     if not records:
         return None
-    path = (root or ROOT) / "Output" / "health" / "registry_degrade_shadow.jsonl"
+    path = (root or ROOT) / "Output" / "state" / "health" / "registry_degrade_shadow.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         for row in records:

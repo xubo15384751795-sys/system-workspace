@@ -355,7 +355,7 @@ class TestSystemConstitution:
         """Constitution must declare prohibited output paths."""
         har = self.CONST.get("hard_authority_rule", {})
         prohibited = har.get("prohibited_from_core_judgment", [])
-        assert "Output/sandbox/" in prohibited
+        assert "Output/state/sandbox/" in prohibited
         assert "Output/research/" in prohibited
         assert "Output/system_learning/" in prohibited
 
@@ -368,7 +368,7 @@ class TestSystemConstitution:
         # K/X remain research-only candidates and must not inherit v1 authority.
         assert "Output/k_measurement/" not in chain
         assert "Output/x_measurement/" not in chain
-        assert "Output/caselab/" in chain, "caselab output not in authorized chain"
+        assert "Output/state/caselab/" in chain, "caselab output not in authorized chain"
 
     def test_bridge_rule_declared(self):
         """Constitution must declare how sandbox reaches core."""
@@ -392,10 +392,12 @@ class TestCodeGovernance:
         violations = []
         write_indicators = ("write_text", "write(", "dump", "json.dump")
 
-        # Scan scripts/ and Workbench/src/
         scan_dirs = [
             ROOT / "scripts",
+            ROOT / "verity",
+            ROOT / "tools",
             ROOT / "packages" / "workbench" / "src" / "workbench",
+            ROOT / "packages" / "framework_v1_archive" / "scripts",
         ]
 
         for scan_dir in scan_dirs:

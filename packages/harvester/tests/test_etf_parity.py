@@ -129,7 +129,14 @@ def test_yfinance_route_is_always_diagnostic() -> None:
 
 
 def test_massive_fallback_requires_reviewed_parity() -> None:
-    pending = route_policy_for_selection({"SPY": "massive"})
+    # Keep this unit test independent of the operator workspace's reviewed
+    # parity artifact.  The production route may legitimately observe a
+    # certified report in Data/; this branch explicitly exercises the pending
+    # state.
+    pending = route_policy_for_selection(
+        {"SPY": "massive"},
+        parity_report={"certified": False, "status": "PARITY_PENDING_REVIEW"},
+    )
     assert pending["route_class"] == "equivalent_fallback_pending_parity"
     assert pending["decision_usable"] is False
 

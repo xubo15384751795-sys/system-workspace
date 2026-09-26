@@ -6,7 +6,7 @@
 # currently loaded labels; Disabled=true means launchd will not load them).
 #
 # These are persistent config changes (⚠️): the 21:30 run gains --skip-harvester,
-# and both runs' logs move from /tmp/ to Output/logs/launchd/. Review the staged
+# and both runs' logs move from /tmp/ to Output/state/logs/launchd/. Review the staged
 # plists in scripts/launchd/ before applying.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +16,7 @@ APPLY=0
 if [ "${1:-}" = "--apply" ]; then APPLY=1; fi
 
 if [ "$APPLY" -eq 1 ]; then
-    mkdir -p "$ROOT/Output/logs/launchd"
+    mkdir -p "$ROOT/Output/state/logs/launchd"
 fi
 
 for plist in com.system.daily-run-harvester-postclose com.system.daily-run-harvester; do

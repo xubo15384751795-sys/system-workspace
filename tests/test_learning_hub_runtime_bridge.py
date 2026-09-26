@@ -27,7 +27,7 @@ def test_append_runtime_record_writes_daily_file(tmp_path: Path) -> None:
 
 
 def test_collectors_include_operator_runtime_events(tmp_path: Path) -> None:
-    runtime = tmp_path / "Output" / "runtime_events"
+    runtime = tmp_path / "Output" / "state" / "runtime_events"
     runtime.mkdir(parents=True)
     target = runtime / "2026-08-10.jsonl"
     target.write_text(
@@ -56,11 +56,11 @@ def test_collectors_include_operator_runtime_events(tmp_path: Path) -> None:
 
 
 def test_record_daily_run_event_also_appends_hub_runtime(tmp_path, monkeypatch) -> None:
-    from scripts import record_daily_run_event as mod
+    from system_learning.operators import record_daily_run_event as mod
 
     monkeypatch.setattr(mod, "ROOT", tmp_path)
     monkeypatch.setattr(mod, "EVENTS_DIR", tmp_path / "Output" / "system_learning" / "events")
-    monkeypatch.setattr(mod, "HUB_EVENTS_DIR", tmp_path / "Output" / "runtime_events")
+    monkeypatch.setattr(mod, "HUB_EVENTS_DIR", tmp_path / "Output" / "state" / "runtime_events")
     monkeypatch.setattr(mod, "TRADE_DECISION_PATH", tmp_path / "missing.json")
     monkeypatch.setattr(mod, "EVIDENCE_GRADE_PATH", tmp_path / "missing.json")
     monkeypatch.setattr(mod, "STATUS_PATH", tmp_path / "missing.json")
@@ -71,7 +71,7 @@ def test_record_daily_run_event_also_appends_hub_runtime(tmp_path, monkeypatch) 
     event = mod.build_run_event(run_id="run_bridge_test")
     out = mod.record_event(event, force=True)
     assert out is not None
-    assert list((tmp_path / "Output" / "runtime_events").glob("run_events_*.jsonl"))
+    assert list((tmp_path / "Output" / "state" / "runtime_events").glob("run_events_*.jsonl"))
     hub_runtime = tmp_path / "Output" / "system_learning" / "runtime"
     files = list(hub_runtime.glob("records_*.jsonl"))
     assert files, "expected append_runtime_record dual-write"

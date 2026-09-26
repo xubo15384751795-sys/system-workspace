@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from orchestration.runner import (
     DailyRunPayload,
     build_daily_step_job,
@@ -96,6 +98,16 @@ def test_graph_has_one_step_op_per_compiled_step_plus_summary() -> None:
         "daily_step_003_trade",
     ]
     assert names[-1] == "daily_compiled_plan_graph_summary"
+
+
+def test_nested_dagster_execution_fails_closed(monkeypatch) -> None:
+    plan = _plan(harvester_behavior="hold_flat", judgment_behavior="continue_with_warning")
+    monkeypatch.setenv("SYSTEM_DAGSTER_EXECUTION_ACTIVE", "1")
+
+    with pytest.raises(RuntimeError, match="nested Dagster execution is forbidden"):
+        run_daily_sequence_via_dagster(_payload(plan, []))
+
+    assert os.environ["SYSTEM_DAGSTER_EXECUTION_ACTIVE"] == "1"
 
 
 def test_graph_emits_contract_metadata_for_each_compiled_step() -> None:

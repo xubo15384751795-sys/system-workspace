@@ -7,7 +7,6 @@ Dagster jobs call into this module; they do not duplicate the step list.
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,9 +15,8 @@ from typing import Any, Callable, cast
 
 from orchestration.canonical_lineage import attach_output_lineage
 from orchestration.daily_run_sequence import weekly_step_ids
-from orchestration.pipeline_runner import run_callable_step
-from scripts._runtime_io import ROOT, current_dir
-from system_runtime.paths import WorkspacePaths
+from orchestration.pipeline_runner import _command_args, run_callable_step
+from system_runtime.context import RuntimeContext
 from system_runtime.pipeline import CompiledPlan, load_pipeline
 
 logger = logging.getLogger(__name__)
@@ -31,73 +29,34 @@ STEP_EXTRA_ARGV: dict[str, list[str]] = {
 }
 
 
-def _replay_env() -> dict[str, str]:
-    return {
-        "PYTHONPATH": os.pathsep.join(
-            [
-                str(ROOT),
-                str(ROOT / "scripts"),
-                str(ROOT / "packages" / "workbench" / "src"),
-                str(ROOT / "packages" / "framework_v1_archive" / "src"),
-            ]
-        ),
-    }
+def _context_for(ctx: "DailyRunContext | None" = None) -> RuntimeContext:
+    """Return the application-resolved context for a sequence operation."""
+    return (
+        ctx.runtime_context
+        if ctx is not None and ctx.runtime_context is not None
+        else RuntimeContext.current_context()
+    )
 
 
-def _harvester_env() -> dict[str, str]:
-    # Harvester finalize no longer writes DVC pointers. PYTHONPATH still
-    # includes orchestration for other finalize-time imports.
-    return {
-        "PYTHONPATH": os.pathsep.join(
-            [
-                str(ROOT),
-                str(ROOT / "packages" / "orchestration"),
-                str(ROOT / "packages" / "harvester" / "src"),
-            ]
-        )
-    }
+def _workspace_for(ctx: "DailyRunContext | None" = None) -> Path:
+    return _context_for(ctx).workspace
 
 
-def _workbench_env() -> dict[str, str]:
-    return {"PYTHONPATH": str(ROOT / "packages" / "workbench" / "src")}
-
-
-def _policy_env() -> dict[str, str]:
-    return {"PYTHONPATH": f"{ROOT}:{ROOT / 'Workbench' / 'src'}:{ROOT / 'scripts'}"}
-
-
-def _scripts_env() -> dict[str, str]:
-    """Root + scripts/ so sibling modules like professional_methods import cleanly."""
-    return {
-        "PYTHONPATH": os.pathsep.join(
-            [
-                str(ROOT),
-                str(ROOT / "scripts"),
-                str(ROOT / "packages" / "harvester" / "src"),
-                str(ROOT / "packages" / "workbench" / "src"),
-            ]
-        ),
-    }
-
-
-STEP_ENV: dict[str, Callable[[], dict[str, str]]] = {
-    "harvester": _harvester_env,
-    "regime_detection": _workbench_env,
-    "build_policy_from_paper": _policy_env,
-    "paper_portfolio": _scripts_env,
-}
+def _current_for(ctx: "DailyRunContext | None" = None) -> Path:
+    context = _context_for(ctx)
+    return context.current
 
 STEP_INPUT_ARTIFACTS: dict[str, Callable[["DailyRunContext"], list[str]]] = {
     "neutral_pressure_measurement": lambda ctx: [str(ctx.benchmark_panel_path)],
     "judgment_layer": lambda _ctx: [
-        str(current_dir() / "neutral_pressure_snapshot.json"),
-        str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
+        str(_current_for(_ctx) / "neutral_pressure_snapshot.json"),
+        str(_context_for(_ctx).surface("hmm_stability") / "hmm_stability_audit.json"),
     ],
-    "trade_decision": lambda _ctx: [
-        str(ROOT / "Output" / "judgment" / "latest.json"),
-        str(ROOT / "Output" / "judgment" / "promotion_gate.json"),
-        str(current_dir() / "neutral_pressure_snapshot.json"),
-        str(ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"),
+    "trade_decision": lambda ctx: [
+        str(_context_for(ctx).surface("judgment") / "latest.json"),
+        str(_context_for(ctx).surface("judgment") / "promotion_gate.json"),
+        str(_current_for(ctx) / "neutral_pressure_snapshot.json"),
+        str(_context_for(ctx).surface("hmm_stability") / "hmm_stability_audit.json"),
     ],
 }
 
@@ -114,6 +73,7 @@ class DailyRunContext:
     run_id: str = ""
     plan: CompiledPlan | None = None
     dry_run: bool = False
+    runtime_context: RuntimeContext | None = None
 
     @property
     def force_weekly(self) -> bool:
@@ -146,23 +106,32 @@ def should_run_step(step_id: str, step_meta: dict[str, Any], ctx: DailyRunContex
     return True, "run"
 
 
-def _build_harvester_command() -> list[str]:
+def _build_harvester_command(ctx: DailyRunContext) -> list[str]:
+    exports_root = _context_for(ctx).data_root / "harvester" / "exports"
     return [
         sys.executable,
         "-m",
         "harvester",
         "--exports-root",
-        str(ROOT / "Data" / "harvester" / "exports"),
+        str(exports_root),
         "daily-release",
     ]
 
 
 def _build_regime_detection_command(ctx: DailyRunContext) -> list[str]:
     today_str = ctx.start_time.strftime("%Y-%m-%d")
+    benchmark_panel = (
+        _context_for(ctx).data_root
+        / "harvester"
+        / "exports"
+        / "latest"
+        / "data"
+        / "benchmark_panel.parquet"
+    )
     code = (
         "from pathlib import Path; from ml.regime_detector import detect_regime; "
         "import json; "
-        "result = detect_regime(Path('Data/harvester/exports/latest/data/benchmark_panel.parquet'), "
+        f"result = detect_regime(Path({str(benchmark_panel)!r}), "
         f"source_release='daily', source_created_at='{today_str}', train_window=756, write=True); "
         "print(json.dumps({'regime': result['regime']['current'], "
         "'usable': result['degeneracy']['usable_for_core_judgment'], "
@@ -182,39 +151,19 @@ def _build_evaluate_pending_argv(ctx: DailyRunContext) -> list[str]:
 
 
 CUSTOM_COMMAND_BUILDERS: dict[str, Callable[[DailyRunContext], list[str]]] = {
-    "harvester": lambda _ctx: _build_harvester_command(),
+    "harvester": _build_harvester_command,
     "regime_detection": _build_regime_detection_command,
     "collect_reviews": lambda _ctx: _build_collect_reviews_command(),
 }
 
 
-def _with_archive_pythonpath(
-    cmd: list[str] | None,
-    env: dict[str, str] | None,
-) -> dict[str, str] | None:
-    if not cmd:
-        return env
-    joined = " ".join(cmd)
-    if "scripts/archive/" not in joined:
-        return env
-    scripts_dir = str(ROOT / "scripts")
-    merged = dict(env or {})
-    existing = merged.get("PYTHONPATH", "")
-    parts = [p for p in existing.split(os.pathsep) if p]
-    if scripts_dir not in parts:
-        parts.insert(0, scripts_dir)
-    merged["PYTHONPATH"] = os.pathsep.join(parts)
-    return merged
-
-
 def build_step_invocation(
     step_id: str, ctx: DailyRunContext, *, plan: CompiledPlan | None = None
 ) -> tuple[str, list[str] | None, dict[str, str] | None]:
-    plan = plan or load_pipeline(WorkspacePaths(root=ROOT))
+    plan = plan or load_pipeline(_context_for(ctx).paths)
     step = plan.step(step_id)
     mode = step.execution_mode
-    env_factory = STEP_ENV.get(step_id)
-    env = env_factory() if env_factory else None
+    env = None
 
     extra_argv = list(STEP_EXTRA_ARGV.get(step_id, []))
     if step_id == "evaluate_pending":
@@ -222,10 +171,11 @@ def build_step_invocation(
 
     if step_id in CUSTOM_COMMAND_BUILDERS:
         cmd = CUSTOM_COMMAND_BUILDERS[step_id](ctx) + extra_argv
-        return "subprocess", cmd, _with_archive_pythonpath(cmd, env)
+        return "subprocess", cmd, env
 
     if mode == "callable":
-        return "callable", extra_argv or None, env
+        command_argv = _command_args(step.command)
+        return "callable", command_argv + extra_argv or None, env
 
     current = step.command
     if not current:
@@ -235,9 +185,9 @@ def build_step_invocation(
     if cmd and cmd[0] == "python":
         cmd[0] = sys.executable
     elif cmd and not Path(cmd[0]).is_absolute() and cmd[0].endswith(".py"):
-        cmd = [sys.executable, str(ROOT / cmd[0])] + cmd[1:]
+        cmd = [sys.executable, str(_workspace_for(ctx) / cmd[0])] + cmd[1:]
     cmd.extend(extra_argv)
-    return "subprocess", cmd, _with_archive_pythonpath(cmd, env)
+    return "subprocess", cmd, env
 
 
 def execute_step(
@@ -246,7 +196,7 @@ def execute_step(
     resolved_plan = plan or ctx.plan
     mode, cmd_or_argv, env = build_step_invocation(step_id, ctx, plan=resolved_plan)
     if ctx.dry_run:
-        compiled_step = (resolved_plan or load_pipeline(WorkspacePaths(root=ROOT))).step(step_id)
+        compiled_step = (resolved_plan or load_pipeline(_context_for(ctx).paths)).step(step_id)
         result: dict[str, Any] = {
             "step": step_id,
             "status": "success",
@@ -262,7 +212,7 @@ def execute_step(
             result["env_keys"] = sorted((env or {}).keys())
         return result
     if mode == "callable":
-        compiled_step = (resolved_plan or load_pipeline(WorkspacePaths(root=ROOT))).step(step_id)
+        compiled_step = (resolved_plan or load_pipeline(_context_for(ctx).paths)).step(step_id)
         return cast(
             dict[str, Any],
             run_callable_step(step_id, compiled_step.callable_spec, argv=cmd_or_argv),
@@ -275,7 +225,7 @@ def execute_daily_sequence(
     ctx: DailyRunContext, plan: CompiledPlan | None = None
 ) -> list[dict[str, Any]]:
     """Run all sequence steps that pass schedule/skip/registry gates."""
-    plan = plan or load_pipeline(WorkspacePaths(root=ROOT))
+    plan = plan or load_pipeline(_context_for(ctx).paths)
     ctx.plan = plan
     sequence = plan.sequence()
     results: list[dict[str, Any]] = []
@@ -379,7 +329,6 @@ class SequenceExecutor:
 __all__ = [
     "CUSTOM_COMMAND_BUILDERS",
     "DailyRunContext",
-    "STEP_ENV",
     "STEP_EXTRA_ARGV",
     "STEP_INPUT_ARTIFACTS",
     "SequenceExecutor",

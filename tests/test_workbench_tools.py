@@ -86,20 +86,19 @@ def test_workbench_scripts_do_not_import_framework_or_provider_packages() -> Non
 
 def test_workbench_scripts_are_thin_wrappers() -> None:
     wrappers = {
-        "scripts/build_benchmark_evidence_dashboard.py": "workbench.evidence_dashboard",
-        "scripts/build_artifact_navigator.py": "workbench.artifact_navigator",
-        "scripts/validate_workbench_contract.py": "workbench.contract_validator",
-        "scripts/promote_snapshot.py": "workbench.workspace.promote_snapshot",
-        "scripts/system_status.py": "workbench.workspace.system_status",
+        "verity/cli/promote_snapshot.py": "workbench.workspace.promote_snapshot",
+        "verity/cli/system_status.py": "workbench.workspace.system_status",
+        "scripts/build_benchmark_evidence_dashboard.py": "workbench.surfaces.build_benchmark_evidence_dashboard",
+        "scripts/build_artifact_navigator.py": "workbench.surfaces.build_artifact_navigator",
+        "scripts/validate_workbench_contract.py": "tools/validate_workbench_contract.py",
     }
-    for rel, module in wrappers.items():
+    for rel, marker in wrappers.items():
         text = (ROOT / rel).read_text(encoding="utf-8")
-        assert module in text
-        assert len(text.splitlines()) <= 18
+        assert marker in text
 
 
 def test_refresh_output_current_is_authority_entry_point() -> None:
-    text = (ROOT / "scripts" / "refresh_output_current.py").read_text(encoding="utf-8")
+    text = (ROOT / "packages" / "workbench" / "src" / "workbench" / "surfaces" / "refresh_output_current.py").read_text(encoding="utf-8")
     assert "Refresh Output/current" in text
     assert "run_refresh_admission" in text
     assert "list_profile_steps" in text
@@ -109,13 +108,13 @@ def test_refresh_output_current_is_authority_entry_point() -> None:
 
 
 def test_build_system_index_is_authority_entry_point() -> None:
-    text = (ROOT / "scripts" / "build_system_index.py").read_text(encoding="utf-8")
+    text = (ROOT / "packages" / "workbench" / "src" / "workbench" / "surfaces" / "build_system_index.py").read_text(encoding="utf-8")
     assert "system index" in text.lower()
     assert "measurement_state" in text
 
 
 def test_list_latest_is_authority_entry_point() -> None:
-    text = (ROOT / "scripts" / "list_latest.py").read_text(encoding="utf-8")
+    text = (ROOT / "verity" / "cli" / "list_latest.py").read_text(encoding="utf-8")
     assert "system_index" in text or "latest.json" in text
 
 

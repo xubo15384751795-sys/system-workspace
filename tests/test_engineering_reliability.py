@@ -22,23 +22,23 @@ class TestRefreshETFPanelNoFalseFail:
 
     def test_check_panel_returns_false_when_missing(self, tmp_path):
         """check_panel() returns False (not raises) when panel is missing."""
-        with patch("scripts.refresh_etf_panel.PANEL_PATH", tmp_path / "missing.parquet"):
-            from scripts.refresh_etf_panel import check_panel
+        with patch("harvester.operators.refresh_etf_panel.PANEL_PATH", tmp_path / "missing.parquet"):
+            from harvester.operators.refresh_etf_panel import check_panel
             result = check_panel()
             assert result is False
 
     def test_update_k_features_returns_false_when_script_missing(self, tmp_path):
         """update_k_features() returns False (not raises) when script is missing."""
-        with patch("scripts.refresh_etf_panel.ROOT", tmp_path):
-            from scripts.refresh_etf_panel import update_k_features
+        with patch("harvester.operators.refresh_etf_panel.ROOT", tmp_path):
+            from harvester.operators.refresh_etf_panel import update_k_features
             result = update_k_features()
             assert result is False
 
     def test_main_returns_zero_when_panel_missing(self, tmp_path):
         """main() returns 0 even when panel is missing."""
-        with patch("scripts.refresh_etf_panel.PANEL_PATH", tmp_path / "missing.parquet"):
-            with patch("scripts.refresh_etf_panel.ROOT", tmp_path):
-                from scripts.refresh_etf_panel import main
+        with patch("harvester.operators.refresh_etf_panel.PANEL_PATH", tmp_path / "missing.parquet"):
+            with patch("harvester.operators.refresh_etf_panel.ROOT", tmp_path):
+                from harvester.operators.refresh_etf_panel import main
                 result = main()
                 assert result == 0
 
@@ -65,9 +65,11 @@ class TestClosureChain:
         import os
         os.utime(idx, (now.timestamp(), now.timestamp()))
 
-        with patch("scripts.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
-            with patch("scripts.freshness_validator.ROOT", tmp_path):
-                from scripts.freshness_validator import check_closure_chain
+        with patch("workbench.measurement.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
+            with patch("workbench.measurement.freshness_validator.ROOT", tmp_path):
+                from workbench.measurement.freshness_validator import (
+                    check_closure_chain,
+                )
                 issues = check_closure_chain(now)
                 assert len(issues) == 0
 
@@ -94,9 +96,11 @@ class TestClosureChain:
         import os
         os.utime(idx, (fresh.timestamp(), fresh.timestamp()))
 
-        with patch("scripts.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
-            with patch("scripts.freshness_validator.ROOT", tmp_path):
-                from scripts.freshness_validator import check_closure_chain
+        with patch("workbench.measurement.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
+            with patch("workbench.measurement.freshness_validator.ROOT", tmp_path):
+                from workbench.measurement.freshness_validator import (
+                    check_closure_chain,
+                )
                 issues = check_closure_chain(now)
                 assert len(issues) > 0
                 assert "work_brief" in issues[0]["rule"]
@@ -124,9 +128,11 @@ class TestClosureChain:
         os.utime(idx, (stale.timestamp(), stale.timestamp()))
 
         monkeypatch.setenv("CURRENT_OUTPUT_DIR", str(candidate))
-        with patch("scripts.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
-            with patch("scripts.freshness_validator.ROOT", tmp_path):
-                from scripts.freshness_validator import check_closure_chain
+        with patch("workbench.measurement.freshness_validator.OUTPUT_DIR", tmp_path / "Output"):
+            with patch("workbench.measurement.freshness_validator.ROOT", tmp_path):
+                from workbench.measurement.freshness_validator import (
+                    check_closure_chain,
+                )
 
                 issues = check_closure_chain(now)
                 assert issues
@@ -196,7 +202,7 @@ class TestHMMStabilitySplit:
     """HMM stability audit must include model_health and calibration_status."""
 
     def test_audit_has_split_dimensions(self):
-        audit_path = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
+        audit_path = ROOT / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json"
         if not audit_path.exists():
             pytest.skip("No HMM audit available")
 
@@ -213,7 +219,7 @@ class TestHMMStabilitySplit:
         )
 
     def test_hmm_supportable_claims(self):
-        audit_path = ROOT / "Output" / "hmm_stability" / "hmm_stability_audit.json"
+        audit_path = ROOT / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json"
         if not audit_path.exists():
             pytest.skip("No HMM audit available")
 

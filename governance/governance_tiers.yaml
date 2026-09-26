@@ -26,6 +26,7 @@ shape_inventory:
   README.md: {shape: precedent, attention: on_demand, role: directory_index}
   agent_routing_authority.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   architecture_cleanup_decisions.md: {shape: precedent, attention: on_demand, role: decision_record}
+  architecture_contract.yaml: {shape: executable_invariant, attention: zero, role: dependency_direction_contract}
   architecture_reality_decisions.md: {shape: precedent, attention: on_demand, role: decision_record}
   authority_graph_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   authority_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
@@ -40,6 +41,7 @@ shape_inventory:
   deferred_work_register.yaml: {shape: feedback_loop, attention: deviation_only, role: deferred_review_queue}
   entrypoint_registry.yaml: {shape: executable_invariant, attention: zero, role: execution_registry}
   event_replay_windows.yaml: {shape: executable_invariant, attention: zero, role: machine_config}
+  execution_spine.md: {shape: precedent, attention: on_demand, role: migration_record}
   experiment_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
   experimental_submission_registry.yaml: {shape: feedback_loop, attention: deviation_only, role: review_queue}
   feedback_sampling_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
@@ -50,6 +52,7 @@ shape_inventory:
   external_route_inventory.yaml: {shape: executable_invariant, attention: zero, role: public_route_boundary_inventory}
   external_source_monitoring.yaml: {shape: executable_invariant, attention: zero, role: monthly_endpoint_monitor}
   incentive_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
+  layout_contract.yaml: {shape: executable_invariant, attention: zero, role: layout_environment_contract}
   mechanism_calibration_gate.yaml: {shape: executable_invariant, attention: zero, role: machine_gate}
   ml_validation_policy.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   monitoring_coverage_debt_baseline.yaml: {shape: executable_invariant, attention: zero, role: machine_baseline}
@@ -60,6 +63,8 @@ shape_inventory:
   paper_support_registry.yaml: {shape: executable_invariant, attention: zero, role: decision_input_registry}
   pipeline_schedule.md: {shape: precedent, attention: on_demand, role: historical_schedule_reference}
   pipeline_test_baseline.yaml: {shape: executable_invariant, attention: zero, role: machine_baseline}
+  production_baseline_v1.json: {shape: executable_invariant, attention: zero, role: restore_baseline_pointer}
+  reliability_window_contract.yaml: {shape: executable_invariant, attention: zero, role: reliability_contract}
   proxy_observation_catalog.yaml: {shape: executable_invariant, attention: zero, role: machine_catalog}
   proxy_quality_rules.yaml: {shape: executable_invariant, attention: zero, role: machine_policy}
   redundancy_budget.yaml: {shape: executable_invariant, attention: zero, role: machine_budget}
@@ -70,6 +75,19 @@ shape_inventory:
   run_mode_registry.yaml: {shape: executable_invariant, attention: zero, role: machine_registry}
   run_observability_summary.template.md: {shape: precedent, attention: on_demand, role: superseded_template}
   semantic_registry.json: {shape: executable_invariant, attention: zero, role: machine_registry}
+  step0_release_boundary.yaml: {shape: precedent, attention: on_demand, role: cleanup_step_contract}
+  step2_closure_audit.md: {shape: precedent, attention: on_demand, role: migration_record}
+  step2_execution_spine.yaml: {shape: precedent, attention: on_demand, role: cleanup_step_contract}
+  step3_portable_runtime.md: {shape: precedent, attention: on_demand, role: migration_record}
+  step3_portable_runtime.yaml: {shape: executable_invariant, attention: zero, role: cleanup_step_contract}
+  step4_model_tool_protocol.md: {shape: precedent, attention: on_demand, role: migration_record}
+  step4_model_tool_protocol.yaml: {shape: precedent, attention: on_demand, role: cleanup_step_contract}
+  step5_structural_cleanup.md: {shape: precedent, attention: on_demand, role: migration_record}
+  step5_structural_cleanup.yaml: {shape: executable_invariant, attention: zero, role: cleanup_step_contract}
+  step5a_daily_run_closure.yaml: {shape: executable_invariant, attention: zero, role: cleanup_step_contract}
+  step5b_harvester_official_closure.yaml: {shape: executable_invariant, attention: zero, role: cleanup_step_contract}
+  step6_target_environment.md: {shape: precedent, attention: on_demand, role: migration_record}
+  step6_target_environment.yaml: {shape: executable_invariant, attention: zero, role: cleanup_step_contract}
   submodule_commit_plan.md: {shape: precedent, attention: on_demand, role: migration_record}
   system_constitution.yaml: {shape: executable_invariant, attention: zero, role: machine_constitution}
   vulnerability_exception_ledger.yaml: {shape: feedback_loop, attention: deviation_only, role: vulnerability_assessment_record}

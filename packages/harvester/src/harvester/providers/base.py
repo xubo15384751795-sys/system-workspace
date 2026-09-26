@@ -9,6 +9,8 @@ from typing import Any
 
 import pandas as pd
 
+from system_runtime.context import RuntimeContext
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +65,7 @@ class OfficialProvider:
 
     @staticmethod
     def _default_data_root() -> Path:
-        return Path(__file__).resolve().parents[3] / "data"
+        return RuntimeContext.current_context().data_root / "harvester" / "raw"
 
     def _raw_dir(self) -> Path:
         return self._data_root / "raw" / self.source_id

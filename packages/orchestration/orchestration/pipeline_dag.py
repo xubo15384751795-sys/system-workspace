@@ -196,7 +196,7 @@ _DECISION_ADJACENT_TREES = (
     "Output/judgment/",
     "Output/trade_decision/",
     "Output/position/",
-    "Output/strategy_lab/shadow",
+    "Output/state/strategy_lab/shadow",
 )
 
 # failure_behavior values that block (or degrade) descendants when the step

@@ -1,0 +1,104 @@
+schema_version: governance.step2_execution_spine.v1
+step: 2
+status: ACTIVE_WITH_GATED_DEFAULT
+implementation: generated_plan_job
+
+default_path:
+  - scheduler
+  - verity daily
+  - compile_runtime_plan
+  - dagster_generated_plan_job
+  - domain_callables_and_explicit_process_boundaries
+  - publication_transaction
+  - RunOutcome
+
+shell_adapter:
+  allowed:
+    - process_environment
+    - resource_limits
+    - runtime_dependency_check
+    - exec
+  forbidden:
+    - business_retry_policy
+    - pipeline_composition
+    - provider_semantics
+    - publication_logic
+    - authority_decision
+
+runtime_plan:
+  artifact: compiled_runtime_plan.json
+  scope: run_bundle
+  canonical_entrypoint: verity.cli.daily_run:run_daily
+  execution_mode: dagster_generated_plan_job
+  source: governance/pipeline/*.yaml
+  compatibility_view: governance/daily_pipeline_registry.yaml
+  required_fields:
+    - plan_version
+    - source_digest
+    - step_dag
+    - canonical_entrypoint
+    - execution_mode
+    - timeouts
+    - failure_policy
+    - artifact_contract
+  logical_sources:
+    - pipeline_topology
+    - execution_profile
+    - monitoring
+    - freshness
+    - ownership
+    - schedule
+
+dagster:
+  default_execution_count: 1
+  default_job: daily_compiled_plan_job
+  legacy_outer_job: daily_job
+  legacy_outer_job_status: stopped_fail_closed
+  native_assets_status: shadow_only
+
+subprocess_policy:
+  allowed_justifications:
+    - real_process_isolation
+    - external_runtime
+    - archive_legacy_executable
+    - security_boundary
+  residual_steps:
+    harvester: real_process_isolation
+    regime_detection: real_process_isolation
+    bridge: archive_legacy_executable
+    run_operator_detections: archive_legacy_executable
+    probabilistic_context: archive_legacy_executable
+    signal_monitor: archive_legacy_executable
+    proxy_quality_report: archive_legacy_executable
+    proxy_lifecycle: archive_legacy_executable
+    position_sizing: archive_legacy_executable
+    build_overlay_shadow_report: archive_legacy_executable
+    build_event_replay_factory: archive_legacy_executable
+    routing_decision: archive_legacy_executable
+    asof_integrity_check: archive_legacy_executable
+    baseline_comparison: archive_legacy_executable
+    threshold_review_bridge: archive_legacy_executable
+
+gate:
+  scheduled_graph_is_acyclic: PASS
+  one_dagster_execution_boundary: PASS
+  nested_dagster_execution: ABSENT
+  default_path_bypasses_legacy_daily_executor: PASS
+  every_subprocess_is_justified: PASS
+  RunOutcome_single_spine: PASS
+  full_live_provider_run: EXCLUDED_SEPARATE_PROVIDER_GATE
+
+closure_audit:
+  artifact: governance/step2_closure_audit.md
+  run_id: daily_pipeline_20260912_033951_2d0023
+  status: PASS_EXECUTION_SPINE_WITH_NON_DEFAULT_DEBT
+  execution_topology: PASS
+  real_path_execution: PASS
+  fail_closed_propagation: PASS
+  publication_blocking: PASS
+  remaining_architecture_debt: PRESENT_NON_DEFAULT_SHADOW_AND_SUBPROCESS_SEAMS
+  excluded_from_architecture_verdict:
+    - provider_credential
+    - provider_admission
+    - launchagent_reconciliation
+    - reliability_window

@@ -29,7 +29,7 @@ modules must not embed learning sensors or write learning artifacts directly.
 `python3 -m system_learning record` — never open runtime log files directly.
 Daily runs also dual-write via `scripts/record_daily_run_event.py` →
 `append_runtime_record` (`Output/system_learning/runtime/records_*.jsonl`).
-Ingest collectors also read `Output/runtime_events/*.jsonl`.
+Ingest collectors also read `<<KEEP_STATE_{name}>>_events/*.jsonl`.
 
 **Read:** consume `Output/system_learning/latest/summary.json` and runtime log /
 ledger outputs. Treat Hub records as the authoritative governance chronology.

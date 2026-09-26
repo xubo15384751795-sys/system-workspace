@@ -4,7 +4,7 @@ Reads governance data (semantic registry, authority registry) and produces
 validated ML signal JSON files through ml_signal_writer.
 
 Bridges the gap between governance/semantic analysis and the ML signal layer
-so that governance insights are visible in Output/ml_signals/ alongside
+so that governance insights are visible in Output/state/ml_signals/ alongside
 regime and factor signals.
 """
 
@@ -79,7 +79,7 @@ def build_semantic_signal(
     source_release : str
         Release identifier for the signal.
     output_root : Path | None
-        Override Output/ml_signals/ root.
+        Override Output/state/ml_signals/ root.
     write : bool
         If True, write through ml_signal_writer.write_signal().
 

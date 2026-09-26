@@ -426,7 +426,7 @@ def _latest_observation(part: pd.DataFrame) -> pd.Series:
 def _session_lag_days(content_date: date, as_of: date, calendar_name: str) -> int:
     """Count exchange sessions between an observation and evidence timestamp.
 
-    ``scripts.freshness_validator`` already uses exchange-calendars for the
+    ``workbench.measurement.freshness_validator`` already uses exchange-calendars for the
     governed content clock.  Release-level freshness must use the same clock
     for indicators whose publication cadence is tied to a market calendar;
     otherwise a Friday-to-Monday/weekend gap is counted as if it were a data

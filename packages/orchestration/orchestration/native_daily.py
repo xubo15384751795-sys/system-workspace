@@ -44,7 +44,7 @@ from orchestration.sequence_executor import (
     execute_step,
     should_run_step,
 )
-from scripts._runtime_io import ROOT, current_dir
+from verity.runtime.runtime_io import ROOT, current_dir
 from system_runtime.paths import WorkspacePaths
 from system_runtime.pipeline import CompiledPlan, load_pipeline
 

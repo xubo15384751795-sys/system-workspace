@@ -34,7 +34,7 @@ class TestFreshnessPolicySourced:
 
     def test_no_hardcoded_max_age_hours_dict(self):
         """The old hardcoded dict must be gone; the policy loader is the source."""
-        src = (ROOT / "scripts" / "freshness_validator.py").read_text(encoding="utf-8")
+        src = (ROOT / "packages" / "workbench" / "src" / "workbench" / "measurement" / "freshness_validator.py").read_text(encoding="utf-8")
         # The old literal dict assignment must not be the definition.
         assert '"harvester": 48' not in src, (
             "hardcoded MAX_AGE_HOURS=48 must be removed; derive from policy"

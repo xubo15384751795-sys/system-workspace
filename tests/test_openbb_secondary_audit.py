@@ -17,7 +17,7 @@ from scripts.archive.openbb_secondary_audit import AuditInputs, run_audit
 
 
 def test_openbb_secondary_audit_writes_observe_only_learning_event(tmp_path: Path) -> None:
-    openbb_run = tmp_path / "Output" / "sandbox" / "openbb" / "runs" / "probe-a"
+    openbb_run = tmp_path / "Output" / "state" / "sandbox" / "openbb" / "runs" / "probe-a"
     deformation_run = tmp_path / "Output" / "deformation_runs" / "run-a"
     audit_dir = tmp_path / "Output" / "workbench" / "openbb_secondary_audits"
     events_dir = tmp_path / "Output" / "system_learning" / "events"
@@ -90,7 +90,7 @@ def test_openbb_secondary_audit_writes_observe_only_learning_event(tmp_path: Pat
 
 
 def test_openbb_secondary_audit_warns_on_incomplete_deformation_input(tmp_path: Path) -> None:
-    openbb_run = tmp_path / "Output" / "sandbox" / "openbb" / "runs" / "probe-b"
+    openbb_run = tmp_path / "Output" / "state" / "sandbox" / "openbb" / "runs" / "probe-b"
     deformation_run = tmp_path / "Output" / "deformation_runs" / "run-b"
     (openbb_run / "machine").mkdir(parents=True)
     deformation_run.mkdir(parents=True)
@@ -134,7 +134,7 @@ def test_openbb_secondary_audit_warns_on_incomplete_deformation_input(tmp_path: 
 
 
 def test_openbb_secondary_audit_rejects_manifest_paths_that_escape_run_dir(tmp_path: Path) -> None:
-    openbb_run = tmp_path / "Output" / "sandbox" / "openbb" / "runs" / "probe-c"
+    openbb_run = tmp_path / "Output" / "state" / "sandbox" / "openbb" / "runs" / "probe-c"
     deformation_run = tmp_path / "Output" / "deformation_runs" / "run-c"
     openbb_run.mkdir(parents=True)
     deformation_run.mkdir(parents=True)
@@ -167,7 +167,7 @@ def test_openbb_secondary_audit_rejects_manifest_paths_that_escape_run_dir(tmp_p
 
 
 def test_openbb_secondary_audit_boundaries_are_static() -> None:
-    audit_source = (ROOT / "scripts" / "archive" / "openbb_secondary_audit.py").read_text(
+    audit_source = (ROOT / "packages" / "framework_v1_archive" / "scripts" / "openbb_secondary_audit.py").read_text(
         encoding="utf-8"
     )
     assert "import openbb" not in audit_source
@@ -180,7 +180,7 @@ def test_openbb_secondary_audit_boundaries_are_static() -> None:
         text = path.read_text(encoding="utf-8")
         if "import openbb" in text or "from openbb" in text:
             offenders.append(str(path.relative_to(ROOT)))
-        if "Output/sandbox/openbb" in text or "OpenBB/" in text:
+        if "Output/state/sandbox/openbb" in text or "OpenBB/" in text:
             offenders.append(str(path.relative_to(ROOT)))
     assert offenders == []
 

@@ -7,6 +7,8 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from system_runtime.context import RuntimeContext
+
 SCHEMA_VERSION = "1.0"
 
 
@@ -19,7 +21,7 @@ class ProvenanceAppendError(RuntimeError):
 
 
 def contracts_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "contracts"
+    return RuntimeContext.current_context().workspace / "packages" / "harvester" / "contracts"
 
 
 def schema_path() -> Path:

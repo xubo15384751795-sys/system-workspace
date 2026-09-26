@@ -96,33 +96,44 @@ class TestRealFormatFixture:
 
 class TestControlClosure:
     def test_enforcement_mode_default_hard(self, monkeypatch):
-        from _control_closure import enforcement_mode, is_hard_enforcement
+        from verity.runtime._control_closure import (
+            enforcement_mode,
+            is_hard_enforcement,
+        )
 
         monkeypatch.delenv("CONTROL_ENFORCEMENT_MODE", raising=False)
         assert enforcement_mode() == "hard"
         assert is_hard_enforcement() is True
 
     def test_enforcement_mode_shadow(self, monkeypatch):
-        from _control_closure import enforcement_mode, is_hard_enforcement
+        from verity.runtime._control_closure import (
+            enforcement_mode,
+            is_hard_enforcement,
+        )
 
         monkeypatch.setenv("CONTROL_ENFORCEMENT_MODE", "shadow")
         assert enforcement_mode() == "shadow"
         assert is_hard_enforcement() is False
 
     def test_tag_nav_row_hold_degraded(self):
-        from _control_closure import DEGRADED, tag_nav_row
+        from verity.runtime._control_closure import DEGRADED, tag_nav_row
 
         row = tag_nav_row({"as_of": "2026-07-17", "sizing_mode": "HOLD_DEGRADED"})
         assert row["sample_validity"] == DEGRADED
 
     def test_tag_nav_row_valid(self):
-        from _control_closure import VALID, tag_nav_row
+        from verity.runtime._control_closure import VALID, tag_nav_row
 
         row = tag_nav_row({"as_of": "2026-07-17", "sizing_mode": "NORMAL"})
         assert row["sample_validity"] == VALID
 
     def test_valid_sample_filter_excludes_degraded(self):
-        from _control_closure import DEGRADED, INVALIDATED, VALID, valid_sample_filter
+        from verity.runtime._control_closure import (
+            DEGRADED,
+            INVALIDATED,
+            VALID,
+            valid_sample_filter,
+        )
 
         assert valid_sample_filter({"sample_validity": VALID}) is True
         assert valid_sample_filter({"sample_validity": DEGRADED}) is False
@@ -131,7 +142,7 @@ class TestControlClosure:
         assert valid_sample_filter({}) is True
 
     def test_invalidate_nav_rows(self, tmp_path):
-        from _control_closure import INVALIDATED, invalidate_nav_rows
+        from verity.runtime._control_closure import INVALIDATED, invalidate_nav_rows
 
         nav = tmp_path / "nav.jsonl"
         nav.write_text(

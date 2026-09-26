@@ -156,7 +156,7 @@ def test_risk_boundary_writes_only_shadow_root(tmp_path: Path) -> None:
         yaml.safe_dump(_registry("risk_gate"), sort_keys=False),
         encoding="utf-8",
     )
-    shadow_root = tmp_path / "Output" / "health" / "shadow"
+    shadow_root = tmp_path / "Output" / "state" / "health" / "shadow"
     decision_path = shadow_root / "trade_decision" / "latest.json"
     decision_path.parent.mkdir(parents=True)
     decision_path.write_text(

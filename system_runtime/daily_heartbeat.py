@@ -20,6 +20,7 @@ from system_runtime.external_http import (
     ExternalGatewayError,
     OwnedExternalHTTPGateway,
 )
+from system_runtime.paths import WorkspacePaths
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +39,14 @@ def default_output_root() -> Path:
     ).strip()
     if system_root:
         return Path(system_root) / "Output"
-    return Path(__file__).resolve().parents[1] / "Output"
+    return WorkspacePaths.discover().output
 
 
 def heartbeat_path(output_root: Path | None = None) -> Path:
     configured = os.environ.get("DAILY_RUN_HEARTBEAT_PATH", "").strip()
     if configured:
         return Path(configured)
-    return (output_root or default_output_root()) / "health" / HEARTBEAT_FILENAME
+    return (output_root or default_output_root()) / "state" / "health" / HEARTBEAT_FILENAME
 
 
 def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:

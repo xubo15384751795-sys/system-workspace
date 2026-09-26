@@ -16,6 +16,7 @@ from typing import Any, Mapping
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
+from system_runtime.context import RuntimeContext
 
 
 SCHEMA_VERSION = "system.source_registry.v1"
@@ -145,7 +146,8 @@ class SourceRegistry:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    """Return the application-injected workspace, not a source-tree parent."""
+    return RuntimeContext.current_context().workspace
 
 
 def registry_path() -> Path:

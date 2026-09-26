@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.sync_paper_world_model import SCAN_DIRS, run_sync
+from harvester.operators.sync_paper_world_model import SCAN_DIRS, run_sync
 
 
 def test_unchanged_paper_refreshes_synced_at_heartbeat(tmp_path: Path) -> None:

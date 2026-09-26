@@ -5,18 +5,16 @@ WRITES: Data/nlp/caselab_experiments/ ONLY
 DOES NOT modify System code, data, or outputs.
 
 Usage:
-    cd /Users/a1/Verity
+    cd <verity-workspace>
     python3 -m nlp.caselab.experiments.run_all
 """
 from __future__ import annotations
 
-from pathlib import Path
-
-
 from nlp.caselab.adapter import CaseLabAdapter
 from nlp.caselab.experiments import mechanism_graph, entity_graph, text_emergence
+from caselab_context.paper_paths import paper_root
 
-CASELAB_ROOT = Path("/Users/a1/Paper")
+CASELAB_ROOT = paper_root()
 
 
 def main():

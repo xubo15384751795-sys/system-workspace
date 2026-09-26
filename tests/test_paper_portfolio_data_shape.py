@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
-from scripts.strategy_lab.paper_portfolio import _deduplicate_datetime_index, _scalar_at
+from strategy_lab.paper_portfolio import _deduplicate_datetime_index, _scalar_at
 
 
 def test_paper_boundary_deduplicates_daily_index_before_scalar_lookup() -> None:

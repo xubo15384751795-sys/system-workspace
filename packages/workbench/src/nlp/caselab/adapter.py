@@ -9,8 +9,9 @@ by the rule-based engine in structural_vector.py.
 
 Usage:
     from nlp.caselab.adapter import CaseLabAdapter
+    from caselab_context.paper_paths import paper_root
 
-    adapter = CaseLabAdapter("/Users/a1/Paper")
+    adapter = CaseLabAdapter(paper_root())
     cases = adapter.load_cases()        # list[CaseProfile]
     entities = adapter.load_entities()  # list[dict]
     mechanisms = adapter.load_mechanisms()  # list[dict]
@@ -23,7 +24,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from nlp.caselab.structural_vector import (
     compute_entity_structural_vector,
     compute_structural_vector,
@@ -293,7 +293,7 @@ class CaseLabAdapter:
     Parameters
     ----------
     vault_path : str or Path
-        Root of the CaseLab vault (e.g., /Users/a1/Paper).
+        Root of the CaseLab vault, normally resolved by ``paper_root()``.
     cases_dir : str
         Relative path to cases directory.
     entities_dir : str

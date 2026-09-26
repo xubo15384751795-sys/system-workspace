@@ -6,7 +6,7 @@ updated_at: "2026-07-18"
 hard_authority_rule:
   only_current_or_formal_runs_can_affect_core_judgment: true
   prohibited_from_core_judgment:
-    - "Output/sandbox/"
+    - "Output/state/sandbox/"
     - "Output/research/"
     - "Output/archive/"
     - "Output/system_learning/"
@@ -16,7 +16,7 @@ hard_authority_rule:
     - "Output/trade_decision/"
     - "Output/quality/"
     - "Output/horizon_events/"
-    - "Output/caselab/"
+    - "Output/state/caselab/"
     - "canonical Data evidence releases"
   bridge_rule: "sandbox/research → bridge/gate → current (then current is authorized)"
 

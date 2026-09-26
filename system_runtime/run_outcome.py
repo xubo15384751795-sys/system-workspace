@@ -21,6 +21,8 @@ overwrites it with the computed value.
 """
 from __future__ import annotations
 
+import os
+import socket
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -111,10 +113,30 @@ class RunOutcome:
     release_id: str | None = None
     provider_status: str | None = None
     provider_cache_within_grace: bool | None = None
+    trigger_kind: str = ""
+    scheduler_kind: str = ""
+    scheduler_id: str = ""
+    schedule_id: str = ""
+    trigger_id: str = ""
+    host_id: str = ""
 
     def __post_init__(self) -> None:
         """Derive ``exit_code`` from the other fields, ignoring caller-supplied value."""
         object.__setattr__(self, "exit_code", self._compute_exit_code())
+        # Additive scheduler-neutral identity. Keep constructor call sites
+        # backward compatible while ensuring every real runtime outcome carries
+        # the same trigger metadata as its RunBundle manifest.
+        defaults = {
+            "trigger_kind": os.environ.get("SYSTEM_TRIGGER_KIND", "manual").strip().lower() or "manual",
+            "scheduler_kind": os.environ.get("SYSTEM_SCHEDULER_KIND", "operator").strip().lower() or "operator",
+            "scheduler_id": os.environ.get("SYSTEM_SCHEDULER_ID", "operator").strip() or "operator",
+            "schedule_id": os.environ.get("SYSTEM_SCHEDULE_ID", "").strip(),
+            "trigger_id": os.environ.get("SYSTEM_TRIGGER_ID", "").strip(),
+            "host_id": os.environ.get("SYSTEM_HOST_ID", "").strip() or socket.gethostname(),
+        }
+        for name, value in defaults.items():
+            if not getattr(self, name):
+                object.__setattr__(self, name, value)
 
     def _compute_exit_code(self) -> int:
         """Return the exit code dictated by the run state.
@@ -238,4 +260,10 @@ class RunOutcome:
             "release_id": self.release_id,
             "provider_status": self.provider_status,
             "provider_cache_within_grace": self.provider_cache_within_grace,
+            "trigger_kind": self.trigger_kind,
+            "scheduler_kind": self.scheduler_kind,
+            "scheduler_id": self.scheduler_id,
+            "schedule_id": self.schedule_id or None,
+            "trigger_id": self.trigger_id or None,
+            "host_id": self.host_id,
         }

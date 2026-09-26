@@ -1,0 +1,163 @@
+schema_version: system.step6_target_environment.v1
+step: 6
+evaluated_at: '2026-09-13'
+status: LOCAL_REHEARSAL_PASS_TARGET_BOOTSTRAP_PENDING
+scope: target_environment_bootstrap_and_formal_proof
+
+principles:
+  formal_reliability_proof_host: target_environment
+  mac_role: local_rehearsal_only
+  no_fourteen_day_proof_on_mac: true
+  authority_rule_unchanged: true
+  provider_admission_rule_unchanged: true
+  reliability_qualification_rule_unchanged: true
+  same_day_retry_increases_day_count: false
+  failed_evidence_is_retained: true
+
+default_target_stack:
+  operating_system: Linux
+  service_user: dedicated
+  dependency_environment: uv_locked
+  scheduler: systemd
+  data_root: persistent
+  output_root: persistent
+  secret_source: host_implemented_SecretProvider
+  restore: snapshot_and_restore
+  excluded_by_default:
+    - Docker
+    - Kubernetes
+    - distributed_executor
+    - microservices
+
+local_rehearsal:
+  status: PASS_BOUNDED
+  evidence:
+    portable_runtime: governance/step3_portable_runtime.yaml
+    clean_shell_install: uv sync --locked --all-packages
+    clean_shell_import: env -u PYTHONPATH .venv/bin/python -c 'import system_cli, system_runtime, verity, orchestration, harvester'
+    failure_scenario: tests/test_failure_propagation.py
+    execution_spine: tests/test_execution_spine.py
+    publication: governance/step5_structural_cleanup.yaml#closure_slices.5E_restore_generation.latest_rehearsal_publication
+    structural_restore: governance/step5_structural_cleanup.yaml#closure_slices.5E_restore_generation.structural_restore
+  formal_window_started: false
+  formal_window_counted_days: 0
+  last_verified_at: '2026-09-13T04:51:53Z'
+  verification:
+    locked_install:
+      status: PASS
+      command: uv sync --locked --all-packages
+    clean_shell_import:
+      status: PASS
+      command: env -u PYTHONPATH .venv/bin/python -c 'import system_cli, system_runtime, verity, orchestration, harvester'
+    pipeline_validate:
+      status: PASS
+      command: env -u PYTHONPATH .venv/bin/verity --workspace /Users/a1/Verity pipeline validate
+      steps: 83
+      edges: 40
+      plan_digest: 972d722c2dd3a586bf140aac4853f5e7b3515c5e8d2b9e85058145e439389e1f
+    failure_and_execution_spine_tests:
+      status: PASS
+      tests: 15
+      command: .venv/bin/python -m pytest -q tests/test_portable_runtime.py tests/test_failure_propagation.py tests/test_execution_spine.py
+    bounded_fix:
+      status: PASS
+      scope: compatibility_shim_removed_obsolete_STEP_ENV_export
+      scheduler_changed: false
+      provider_routing_changed: false
+      reliability_rules_changed: false
+
+target_bootstrap:
+  status: PENDING_TARGET_HOST
+  target_host_id: null
+  target_release_id: null
+  templates:
+    service: configs/systemd/verity-daily.service.in
+    timer: configs/systemd/verity-daily.timer
+  required_install:
+    - dedicated service user
+    - uv sync --locked --all-packages
+    - persistent Data root
+    - persistent Output root
+    - host-neutral SecretProvider source
+    - snapshot and restore mechanism
+  required_identity:
+    trigger_kind: scheduled
+    scheduler_kind: systemd
+    scheduler_id: systemd:verity-daily
+    schedule_id: verity-daily
+  forbidden_default_changes:
+    - change provider admission rule
+    - change authority or claim ceiling rule
+    - make Mac launchd the formal target proof host
+    - introduce Docker or Kubernetes without an independent decision
+
+secret_contract:
+  logical_name: FRED_API_KEY
+  compatibility_aliases:
+    - OPENBB_FRED_API_KEY
+  normalization_boundary: SecretProvider
+  domain_reads_environment_directly: false
+  secret_in_repository: false
+  secret_in_registry: false
+  secret_in_logs_or_artifacts: false
+  mode_600_provider_env: allowed_host_implementation_only
+
+shadow_observation:
+  status: NOT_STARTED_TARGET_REQUIRED
+  trigger_kind: scheduled
+  scheduler_kind: systemd
+  scheduler_id: systemd:verity-daily-shadow
+  authority: shadow
+  output_root: isolated_target_output
+  shared_current_pointer_allowed: false
+  promotion_allowed: false
+  comparison_dimensions:
+    - provider_decision
+    - raw_acquisition_identity
+    - canonical_lineage
+    - measurement_result
+    - neutral_state
+    - generation_contents
+    - failure_propagation
+    - runtime
+    - recovery
+
+formal_fourteen_day_proof:
+  status: NOT_STARTED_TARGET_REQUIRED
+  verifier: tools/verify_data_reliability_window.py
+  proof_host: target_environment_only
+  accepted_scheduler_ids:
+    - systemd:verity-daily
+  accepted_release_source: governance/reliability_window_contract.yaml
+  minimum_qualified_days: 14
+  minimum_consecutive_qualified_days: 14
+  same_day_retry_counts_as_new_day: false
+  carry_forward_is_fresh_success: false
+  failure_history_retained: true
+  required_qualified_day:
+    - accepted_release
+    - accepted_scheduler
+    - scheduled_trigger
+    - provider_decision_usable
+    - freshness_usable
+    - core_chain_complete
+    - committed_generation
+    - authority_not_diagnostic_only
+  scenarios:
+    stale_cache_expiry: NOT_STARTED
+    schema_parity_drift: NOT_STARTED
+    fallback_carry_forward: NOT_STARTED
+    provider_failure: NOT_STARTED
+    recovery: NOT_STARTED
+
+gates:
+  local_rehearsal: PASS_BOUNDED
+  target_bootstrap: NOT_PROVEN
+  shadow_observation: NOT_STARTED
+  formal_fourteen_day_proof: NOT_STARTED
+
+carry_forward:
+  provider_admission: Step 6 target bootstrap / target proof
+  production_authority_restore: Step 6 target-environment proof
+  launchagent_reconciliation: independent control-plane slice
+  mac_reliability_window: not_started_by_design

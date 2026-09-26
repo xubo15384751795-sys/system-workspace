@@ -34,7 +34,7 @@ output:
     - runs                # Output/deformation_runs/ — formal run packages
     - research            # Output/backtest_*, ml*, k_*, x_*, nlp/
     - governance          # Output/system_learning/, judgment/, reports/
-    - sandbox             # Output/sandbox/ — 7-day TTL experiments
+    - sandbox             # Output/state/sandbox/ — 7-day TTL experiments
     - archive             # Output/archive/ — frozen history
 
   default_sandbox_ttl_days: 7

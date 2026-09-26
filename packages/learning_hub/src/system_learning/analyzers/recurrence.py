@@ -400,7 +400,7 @@ def verification_criteria_for(issue_family: str) -> str:
         "ui_governance_issue": "UI workflow validation or review confirms the recurrence no longer appears.",
         "ml_integrity_violation": (
             "A pollution check passes with no RED violations, ML signals remain under "
-            "Output/ml_signals/, and human governance sign-off is recorded."
+            "Output/state/ml_signals/, and human governance sign-off is recorded."
         ),
     }.get(issue_family, "A later Hub run shows the recurrence has stopped and evidence paths are linked.")
 

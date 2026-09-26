@@ -236,7 +236,7 @@ def test_blind_spots_are_classified_with_owner(tmp_path: Path) -> None:
                     "owner": "Workbench",
                 },
                 {
-                    "pattern": "Output/sandbox/*",
+                    "pattern": "Output/state/sandbox/*",
                     "class": "research",
                     "owner": "Workbench",
                 },
@@ -248,7 +248,7 @@ def test_blind_spots_are_classified_with_owner(tmp_path: Path) -> None:
     path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
 
     current = tmp_path / "Output" / "current"
-    sandbox = tmp_path / "Output" / "sandbox"
+    sandbox = tmp_path / "Output" / "state" / "sandbox"
     current.mkdir(parents=True)
     sandbox.mkdir(parents=True)
     (current / "covered.json").write_text('{"generated_at":"2026-07-17T00:00:00Z"}', encoding="utf-8")
@@ -260,7 +260,7 @@ def test_blind_spots_are_classified_with_owner(tmp_path: Path) -> None:
 
     assert by_path["Output/current/blind.json"]["class"] == "authoritative"
     assert by_path["Output/current/blind.json"]["owner"] == "Workbench"
-    assert by_path["Output/sandbox/probe.json"]["class"] == "research"
+    assert by_path["Output/state/sandbox/probe.json"]["class"] == "research"
     assert "Output/current/covered.json" not in by_path
 
     gaps = required_coverage_gaps(classified, registry)
@@ -278,7 +278,7 @@ def test_research_blind_spot_with_owner_is_warn_not_required_gap(tmp_path: Path)
             "required_coverage_classes": ["authoritative", "decision_adjacent_shadow"],
             "rules": [
                 {
-                    "pattern": "Output/sandbox/*",
+                    "pattern": "Output/state/sandbox/*",
                     "class": "research",
                     "owner": "Workbench",
                 }
@@ -288,7 +288,7 @@ def test_research_blind_spot_with_owner_is_warn_not_required_gap(tmp_path: Path)
     path = tmp_path / "governance" / "daily_pipeline_registry.yaml"
     path.parent.mkdir(parents=True)
     path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
-    sandbox = tmp_path / "Output" / "sandbox"
+    sandbox = tmp_path / "Output" / "state" / "sandbox"
     sandbox.mkdir(parents=True)
     (sandbox / "probe.json").write_text('{"generated_at":"2026-07-17T00:00:00Z"}', encoding="utf-8")
 
@@ -305,7 +305,7 @@ def test_live_registry_classifies_authority_paths() -> None:
         (ROOT / "governance" / "daily_pipeline_registry.yaml").read_text(encoding="utf-8")
     )
     current = classify_monitoring_path("Output/current/signal_consensus.json", registry or {})
-    sandbox = classify_monitoring_path("Output/sandbox/probe.json", registry or {})
+    sandbox = classify_monitoring_path("Output/state/sandbox/probe.json", registry or {})
     assert current["class"] == "authoritative"
     assert current["owner"]
     assert sandbox["class"] == "research"

@@ -9,14 +9,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _load_module():
     import importlib.util
+    import sys
     spec = importlib.util.spec_from_file_location(
         "build_learning_hub_feedback",
-        ROOT / "scripts" / "commands" / "weekly" / "build_learning_hub_feedback.py",
+        ROOT / "packages" / "learning_hub" / "src" / "system_learning" / "operators" / "build_learning_hub_feedback.py",
     )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
+    sys.modules["build_learning_hub_feedback"] = mod
     spec.loader.exec_module(mod)
-    return mod
+    return sys.modules["build_learning_hub_feedback"]
 
 
 class TestPipelineAlertFeedback:
@@ -36,8 +38,8 @@ class TestPipelineAlertFeedback:
 
     def test_with_failed_steps(self, tmp_path):
         mod = _load_module()
-        alert_dir = tmp_path / "alerts"
-        alert_dir.mkdir()
+        alert_dir = tmp_path / "state" / "alerts"
+        alert_dir.mkdir(parents=True)
         alert = {
             "timestamp": "2026-06-20T00:00:00Z",
             "severity": "HIGH",
@@ -65,8 +67,8 @@ class TestPipelineAlertFeedback:
     def test_with_string_failed_steps(self, tmp_path):
         """Backward compat: old alert format has string failed_steps."""
         mod = _load_module()
-        alert_dir = tmp_path / "alerts"
-        alert_dir.mkdir()
+        alert_dir = tmp_path / "state" / "alerts"
+        alert_dir.mkdir(parents=True)
         alert = {
             "severity": "HIGH",
             "failed_steps": ["harvester", "structural_replay"],

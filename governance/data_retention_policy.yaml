@@ -8,12 +8,19 @@ harvester_exports:
   keep_latest: true
   keep_last_n_daily: 7
   keep_monthly_checkpoints: true
+  keep_lineage_generations: 14
   archive_debug_releases: true
+  archive_tarball: Data/archive/harvester_releases_2026H1.tar.zst
   debug_release_archive_path: Data/archive/harvester_debug/
   current_debug_releases:
     - test-debug
     - test-debug2
     - test-debug3
+  note: >
+    --dry-run lists reclaimable dated releases. --apply packs catalog.json and
+    panel parquet (no JSONL) into archive_tarball, deletes those directories
+    plus test-debug*, and strips JSONL from retained releases so exports stay
+    under the 3GB budget. latest remains a symlink and is never expanded.
 
 panels:
   canonical_format: parquet

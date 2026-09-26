@@ -70,12 +70,12 @@ def test_root_pythonpath_covers_workspace_test_imports() -> None:
         "packages/learning_hub/src",
         "packages/workbench/src",
         "packages/orchestration",
-        "scripts",
     } <= pythonpath
     assert "packages/framework" not in pythonpath
     assert "packages/framework/src" not in pythonpath
     assert "packages/framework_v1_archive" not in pythonpath
     assert "packages/framework_v1_archive/src" not in pythonpath
+    assert "scripts" not in pythonpath
 
 
 def test_root_pytest_does_not_collect_archived_framework_tests() -> None:

@@ -23,7 +23,7 @@ from system_runtime.paths import WorkspacePaths
 log = logging.getLogger(__name__)
 
 _SYSTEM_ROOT = WorkspacePaths.discover().root
-_DEFAULT_ML_SIGNALS_ROOT = _SYSTEM_ROOT / "Output" / "ml_signals"
+_DEFAULT_ML_SIGNALS_ROOT = _SYSTEM_ROOT / "Output" / "state" / "ml_signals"
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ def _read_signal(path: Path) -> dict[str, Any] | None:
 
 
 def load_ml_signals(config: dict[str, Any]) -> MLSignalContext | None:
-    """Load ML signals from Output/ml_signals/latest/ into an MLSignalContext.
+    """Load ML signals from Output/state/ml_signals/latest/ into an MLSignalContext.
 
     Returns None when:
     - ml_signals.enabled is False (or absent)

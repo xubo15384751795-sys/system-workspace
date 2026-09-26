@@ -7,7 +7,7 @@ purpose: >
   trade decisions, or signal generation.
 
 validation_outputs:
-  - path: "Output/validation/walk_forward_report.json"
+  - path: "Output/state/validation/walk_forward_report.json"
     producer: scripts/commands/weekly/weekly_walk_forward_validation.py
     schedule: weekly
     allowed_use: validation_only
@@ -16,7 +16,7 @@ validation_outputs:
     can_affect_signals: false
     notes: "Rolling-origin OOS diagnostics. Review-only. Never feeds judgment."
 
-  - path: "Output/validation/baseline_comparison.json"
+  - path: "Output/state/validation/baseline_comparison.json"
     producer: scripts/commands/weekly/baseline_comparison.py
     schedule: weekly
     allowed_use: validation_only
@@ -41,7 +41,7 @@ validation_outputs:
     can_affect_trade_decision: false
     notes: "Future-data leakage detection. Warning-only."
 
-  - path: "Output/validation/qlib_structural_bridge.json"
+  - path: "Output/state/validation/qlib_structural_bridge.json"
     producer: scripts/commands/weekly/build_qlib_structural_bridge.py
     schedule: weekly
     allowed_use: validation_only
@@ -50,7 +50,7 @@ validation_outputs:
     can_affect_signals: false
     notes: "Qlib experiment vs structural backtest bridge. Review-only."
 
-  - path: "Output/strategy_lab/shadow_outcomes_90d.json"
+  - path: "Output/state/strategy_lab/shadow_outcomes_90d.json"
     producer: scripts/build_shadow_outcomes_90d.py
     schedule: weekly
     allowed_use: validation_only
@@ -65,6 +65,6 @@ enforcement:
     - scripts/trade_decision_layer.py
     - packages/workbench/src/workbench/judgment/layer.py
   rule: >
-    No script in scripts/ or packages/workbench/ may read files from Output/validation/
+    No script in scripts/ or packages/workbench/ may read files from Output/state/validation/
     as input to build_judgment(), build_decision(), or signal generation.
     These outputs are review-only diagnostics.

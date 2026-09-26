@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 class TestCompileDag:
     def test_dag_valid(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         dag = compile_dag()
         assert dag["valid"], (
@@ -34,32 +34,32 @@ class TestCompileDag:
         )
 
     def test_no_cycles(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         assert compile_dag()["cycles"] == []
 
     def test_no_missing_producers(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         assert compile_dag()["missing_producers"] == []
 
     def test_no_duplicate_writers(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         assert compile_dag()["duplicate_writers"] == []
 
     def test_no_decision_adjacent_continue_with_warning(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         assert compile_dag()["decision_adjacent_cww"] == []
 
     def test_no_sequence_contradictions(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         assert compile_dag()["sequence_contradictions"] == []
 
     def test_declared_chain_edges_present(self):
-        from _pipeline_dag import compile_dag
+        from verity.runtime._pipeline_dag import compile_dag
 
         edges = compile_dag()["edges"]
         assert "neutral_pressure_measurement" in edges["judgment_layer"]
@@ -72,7 +72,7 @@ class TestCompileDag:
 
 class TestInterpretFailure:
     def test_block_current_readout_upstream_blocks(self):
-        from _pipeline_dag import interpret_failure
+        from verity.runtime._pipeline_dag import interpret_failure
 
         # Neutral pressure measurement failed -> judgment should block.
         results = [{"step": "neutral_pressure_measurement", "status": "failed"}]
@@ -81,7 +81,7 @@ class TestInterpretFailure:
         assert "neutral_pressure_measurement" in d["blocked_by"]
 
     def test_hold_flat_upstream_degrades_not_blocks(self):
-        from _pipeline_dag import interpret_failure
+        from verity.runtime._pipeline_dag import interpret_failure
 
         # trade_decision (hold_flat) failed -> risk_gate should degrade, not block.
         results = [{"step": "trade_decision", "status": "failed"}]
@@ -91,7 +91,7 @@ class TestInterpretFailure:
         assert "trade_decision" in d.get("degraded_by", [])
 
     def test_continue_with_warning_upstream_does_not_propagate(self):
-        from _pipeline_dag import interpret_failure
+        from verity.runtime._pipeline_dag import interpret_failure
 
         # A continue_with_warning step (e.g. hmm_stability_audit) failing must
         # not block or degrade a downstream consumer.
@@ -101,7 +101,7 @@ class TestInterpretFailure:
         assert d["degraded"] is False
 
     def test_clean_run_runs(self):
-        from _pipeline_dag import interpret_failure
+        from verity.runtime._pipeline_dag import interpret_failure
 
         d = interpret_failure(
             "judgment_layer",
@@ -115,7 +115,7 @@ class TestInterpretFailure:
 
 class TestProvenance:
     def test_build_provenance_has_10_fields(self, monkeypatch):
-        from _artifact_provenance import build_provenance
+        from verity.runtime._artifact_provenance import build_provenance
 
         monkeypatch.setenv("ZCODE_BUNDLE_RUN_ID", "test_bundle")
         prov = build_provenance(producer_step="structural_replay")
@@ -127,7 +127,7 @@ class TestProvenance:
             assert field in prov, f"provenance missing {field}"
 
     def test_verify_provenance_rejects_mismatch(self, tmp_path):
-        from _artifact_provenance import verify_provenance
+        from verity.runtime._artifact_provenance import verify_provenance
 
         artifact = tmp_path / "fw.json"
         artifact.write_text(json.dumps({
@@ -139,7 +139,7 @@ class TestProvenance:
         assert "mismatch" in reason
 
     def test_should_publish_with_provenance_blocks_failed_verdict(self):
-        from _current_publish import should_publish_with_provenance
+        from verity.runtime._current_publish import should_publish_with_provenance
 
         freshness = {"verdict": "PASS"}
         # A validation-failed artifact must block publishing.
@@ -149,12 +149,22 @@ class TestProvenance:
         assert "validation_verdict" in reason
 
     def test_should_publish_with_provenance_allows_pass(self):
-        from _current_publish import should_publish_with_provenance
+        from verity.runtime._current_publish import should_publish_with_provenance
 
         freshness = {"verdict": "PASS"}
         index = [{"path": "x.json", "provenance": {"validation_verdict": "pass"}}]
         ok, _ = should_publish_with_provenance("success", freshness, index)
         assert ok is True
+
+    def test_should_publish_warn_does_not_freeze_pointer(self):
+        from verity.runtime._current_publish import should_publish
+
+        ok, reason = should_publish(
+            "success",
+            {"verdict": "WARN", "stale_artifacts": ["harvester_carry_forward"]},
+        )
+        assert ok is True
+        assert reason == "freshness_warn"
 
 
 # ── B4: release boundary ─────────────────────────────────────────────────
@@ -162,7 +172,10 @@ class TestProvenance:
 
 class TestReleaseBoundary:
     def test_unfinalized_release_rejected(self, tmp_path):
-        from _release_boundary import ReleaseNotFinalizedError, verify_release_finalized
+        from verity.runtime._release_boundary import (
+            ReleaseNotFinalizedError,
+            verify_release_finalized,
+        )
 
         release = tmp_path / "release"
         release.mkdir()
@@ -172,7 +185,7 @@ class TestReleaseBoundary:
             verify_release_finalized(release)
 
     def test_finalized_release_accepted(self, tmp_path):
-        from _release_boundary import verify_release_finalized
+        from verity.runtime._release_boundary import verify_release_finalized
 
         release = tmp_path / "release"
         release.mkdir()
@@ -182,7 +195,10 @@ class TestReleaseBoundary:
         assert catalog["release_id"] == "r1"
 
     def test_non_finalized_status_rejected(self, tmp_path):
-        from _release_boundary import ReleaseNotFinalizedError, verify_release_finalized
+        from verity.runtime._release_boundary import (
+            ReleaseNotFinalizedError,
+            verify_release_finalized,
+        )
 
         release = tmp_path / "release"
         release.mkdir()
@@ -197,7 +213,7 @@ class TestReleaseBoundary:
 
 class TestAtomicPublish:
     def test_publish_candidate_atomic_swap(self, tmp_path, monkeypatch):
-        from _current_publish import publish_candidate
+        from verity.runtime._current_publish import publish_candidate
 
         # Build a candidate with one artifact.
         candidate = tmp_path / "candidate"
@@ -206,7 +222,7 @@ class TestAtomicPublish:
 
         # Stub candidate_artifact_names to return our file.
         monkeypatch.setattr(
-            "_current_publish.candidate_artifact_names",
+            "verity.runtime._current_publish.candidate_artifact_names",
             lambda: ["framework_output.json"],
         )
 
@@ -219,7 +235,7 @@ class TestAtomicPublish:
         assert not list(target.parent.glob(".current_staging.*"))
 
     def test_publish_shadow_candidate_atomic(self, tmp_path, monkeypatch):
-        from _shadow_publish import (
+        from verity.runtime._shadow_publish import (
             NAV_JSONL_NAME,
             publish_shadow_candidate,
         )
@@ -230,7 +246,7 @@ class TestAtomicPublish:
         (candidate / "paper_portfolio.json").write_text('{"position":0.5}')
 
         # Patch LIVE_POSITION_DIR to tmp so we don't touch real Output.
-        import _shadow_publish as sp
+        import verity.runtime._shadow_publish as sp
 
         monkeypatch.setattr(sp, "LIVE_POSITION_DIR", tmp_path / "Output" / "position")
         result = publish_shadow_candidate(candidate, root=tmp_path)
@@ -240,8 +256,8 @@ class TestAtomicPublish:
         assert (live / "paper_portfolio.json").read_text() == '{"position":0.5}'
 
     def test_append_nav_row_atomic_no_partial_line(self, tmp_path, monkeypatch):
-        import _shadow_publish as sp
-        from _shadow_publish import append_nav_row_atomic
+        import verity.runtime._shadow_publish as sp
+        from verity.runtime._shadow_publish import append_nav_row_atomic
 
         monkeypatch.setattr(sp, "LIVE_POSITION_DIR", tmp_path / "live")
         candidate = tmp_path / "cand"

@@ -42,6 +42,7 @@ def event_file_paths(system_root: Path) -> list[Path]:
     patterns = [
         "Output/system_learning/runtime/records_*.jsonl",
         "Output/system_learning/events/*.jsonl",
+        "Output/archive/legacy_2026H1/deformation_runs/*/system_events.jsonl",
         "Output/deformation_runs/*/system_events.jsonl",
         "Data/harvester/exports/*/system_events.jsonl",
         "System Learning Hub/reports/codebase/latest/system_events.jsonl",
@@ -51,7 +52,7 @@ def event_file_paths(system_root: Path) -> list[Path]:
         paths.extend(system_root.glob(pattern))
     # Daily operator envelopes: canonical run_events_YYYY-MM-DD.jsonl plus
     # the historical date-only name during the compatibility window.
-    paths.extend(runtime_event_paths(system_root / "Output" / "runtime_events"))
+    paths.extend(runtime_event_paths(system_root / "Output" / "state" / "runtime_events"))
     return sorted(set(paths))
 
 

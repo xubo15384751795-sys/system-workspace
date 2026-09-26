@@ -2,7 +2,7 @@
 
 The adapters keep the existing judgment, promotion, trade-decision, and risk
 rules as the business authority.  They only inject input paths and redirect
-the four writers into ``Output/health/native_decision_shadow``.  No shared
+the four writers into ``Output/state/health/native_decision_shadow``.  No shared
 ``Output/judgment`` or ``Output/trade_decision`` file is written here.
 """
 
@@ -15,10 +15,10 @@ from typing import Any
 
 import yaml
 
-from scripts._runtime_io import ROOT, load_json, utc_now, write_json
+from verity.runtime.runtime_io import ROOT, load_json, utc_now, write_json
 
 DECISION_BOUNDARY_TAG = "shadow_pilot"
-DECISION_SHADOW_ROOT = ROOT / "Output" / "health" / "native_decision_shadow"
+DECISION_SHADOW_ROOT = ROOT / "Output" / "state" / "health" / "native_decision_shadow"
 SUPPORTED_DECISION_BOUNDARY_STEPS = frozenset(
     {
         "judgment_layer",
@@ -113,7 +113,7 @@ NATIVE_DECISION_BOUNDARY_STEPS = load_native_decision_boundary_steps()
 
 
 def decision_shadow_root(root: Path = ROOT) -> Path:
-    return root / "Output" / "health" / "native_decision_shadow"
+    return root / "Output" / "state" / "health" / "native_decision_shadow"
 
 
 def _load_registry(root: Path) -> dict[str, Any]:
@@ -179,15 +179,15 @@ def _judgment_boundary(
     input_root: Path | None,
     date_str: str | None,
 ) -> tuple[dict[str, Any], list[str]]:
-    from scripts.paper_freshness import check_paper_world_model_freshness
+    from workbench.measurement.paper_freshness import check_paper_world_model_freshness
     from workbench.judgment.layer import build_judgment, format_markdown as format_judgment
 
     current = _source_surface(root, "current", input_root)
     framework_path = current / "neutral_pressure_snapshot.json"
     framework = _load_required_json(framework_path, "neutral pressure snapshot")
     resolved_date = date_str or _date_from_payload(framework)
-    caselab, caselab_path = _find_caselab(root / "Output" / "caselab", resolved_date)
-    hmm_path = root / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
+    caselab, caselab_path = _find_caselab(root / "Output" / "state" / "caselab", resolved_date)
+    hmm_path = root / "Output" / "state" / "ml_signals" / "latest" / "regime_hmm.json"
     validation_path = current / "quality_validation.json"
     hmm = load_json(hmm_path)
     validation = load_json(validation_path)
@@ -241,14 +241,14 @@ def _promotion_boundary(
     judgment_path = shadow_root / "judgment" / "latest.json"
     judgment = _load_required_json(judgment_path, "shadow judgment")
     resolved_date = date_str or _date_from_payload(judgment)
-    caselab_dir = root / "Output" / "caselab"
-    hmm_path = root / "Output" / "ml_signals" / "latest" / "regime_hmm.json"
+    caselab_dir = root / "Output" / "state" / "caselab"
+    hmm_path = root / "Output" / "state" / "ml_signals" / "latest" / "regime_hmm.json"
     report = run_promotion_gate(
         resolved_date,
         judgment_path=judgment_path,
         caselab_dir=caselab_dir,
         hmm_path=hmm_path,
-        hmm_audit_path=root / "Output" / "hmm_stability" / "hmm_stability_audit.json",
+        hmm_audit_path=root / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json",
         k_gate_path=root / "Output" / "k_measurement" / "k_measurement_gate.json",
         x_gate_path=root / "Output" / "x_measurement" / "x_measurement_gate.json",
     )
@@ -273,7 +273,7 @@ def _trade_boundary(
     input_root: Path | None,
     date_str: str | None,
 ) -> tuple[dict[str, Any], list[str]]:
-    from scripts import trade_decision_layer as trade
+    from workbench.judgment import trade_decision_layer as trade
 
     judgment_path = shadow_root / "judgment" / "latest.json"
     promotion_path = shadow_root / "judgment" / "promotion_gate.json"
@@ -281,13 +281,13 @@ def _trade_boundary(
     _load_required_json(promotion_path, "shadow promotion gate")
     resolved_date = date_str or _date_from_payload(judgment)
     current = _source_surface(root, "current", input_root)
-    caselab, caselab_path = _find_caselab(root / "Output" / "caselab", resolved_date)
+    caselab, caselab_path = _find_caselab(root / "Output" / "state" / "caselab", resolved_date)
     del caselab  # build_trade_decision resolves the same path for parity.
     decision = trade.build_trade_decision(
         resolved_date,
         judgment_path=judgment_path,
         promotion_gate_path=promotion_path,
-        hmm_audit_path=root / "Output" / "hmm_stability" / "hmm_stability_audit.json",
+        hmm_audit_path=root / "Output" / "state" / "hmm_stability" / "hmm_stability_audit.json",
         caselab_path=caselab_path,
         sigma_snapshot_path=current / "neutral_pressure_snapshot.json",
         paper_world_model_dir=root / "Data" / "paper_world_model",
@@ -303,7 +303,7 @@ def _trade_boundary(
 
 
 def _risk_boundary(*, shadow_root: Path) -> tuple[dict[str, Any], list[str]]:
-    from scripts import trade_risk_gate as risk
+    from workbench.judgment import trade_risk_gate as risk
 
     decision_path = shadow_root / "trade_decision" / "latest.json"
     decision = _load_required_json(decision_path, "shadow trade decision")

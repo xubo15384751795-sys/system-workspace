@@ -379,7 +379,7 @@ def _load_config(path: str = "config.yaml") -> dict[str, Any]:
 
 
 def _load_ml_signals(config: dict[str, Any]) -> dict[str, Any] | None:
-    """Load supplementary ML context from Output/ml_signals/latest/.
+    """Load supplementary ML context from Output/state/ml_signals/latest/.
 
     Returns None when ml_signals.enabled is False or signals are absent.
     This result is injected into config['ml_context'] before RunContext

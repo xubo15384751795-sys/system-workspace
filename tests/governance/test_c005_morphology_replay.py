@@ -30,7 +30,7 @@ from scripts.archive.c005_morphology_replay import (
 )
 from scripts.archive.c005_morphology_report import load_evidence
 
-REAL_RESULTS = ROOT / "Output" / "sandbox" / "structural_replay_v2" / "results.json"
+REAL_RESULTS = ROOT / "Output" / "state" / "sandbox" / "structural_replay_v2" / "results.json"
 
 
 def _channel(M=0.0, D=0.0, K=0.0, X_PRE=0.0, X_REALIZED=0.0):

@@ -19,5 +19,5 @@ experiments:
   - experiment_id: EXP-QLIB-REAL-20260824
     adapter: qlib
     spec_path: governance/experiments/experiment_spec_qlib_real_20260824.json
-    result_path: Output/benchmarks/market_feedback/qlib_real_20260824/experiment_result.json
+    result_path: Output/state/benchmarks/market_feedback/qlib_real_20260824/experiment_result.json
     status: completed

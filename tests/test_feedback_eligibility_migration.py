@@ -5,7 +5,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts.commands.weekly.migrate_feedback_eligibility import migrate_manifest
+from system_learning.operators.migrate_feedback_eligibility import migrate_manifest
+
 from system_runtime.feedback_lifecycle import validate_lifecycle_events
 from system_runtime.minimum_monitoring import evaluate_minimum_monitoring
 

@@ -30,9 +30,9 @@ python3 scripts/daily_run.py --dry-run
 
 | File | Content |
 |------|---------|
-| `Output/runtime_events/YYYY-MM-DD.jsonl` | Daily runtime event log |
-| `Output/alerts/latest_alert.json` | Machine-readable alert |
-| `Output/alerts/latest_alert.md` | Human-readable alert |
+| `<<KEEP_STATE_{name}>>_events/YYYY-MM-DD.jsonl` | Daily runtime event log |
+| `Output/state/alerts/latest_alert.json` | Machine-readable alert |
+| `Output/state/alerts/latest_alert.md` | Human-readable alert |
 
 ## Runtime Event Schema
 
@@ -110,7 +110,7 @@ launchctl load ~/Library/LaunchAgents/com.system.daily-run.plist
 | Before | After |
 |--------|-------|
 | Manual `./sys refresh` | Automated daily run |
-| No runtime events | `Output/runtime_events/YYYY-MM-DD.jsonl` |
-| No alerts | `Output/alerts/latest_alert.md` |
+| No runtime events | `<<KEEP_STATE_{name}>>_events/YYYY-MM-DD.jsonl` |
+| No alerts | `Output/state/alerts/latest_alert.md` |
 | No freshness check | Automatic stale detection |
 | Learning Hub has no data | Runtime events provide first data |

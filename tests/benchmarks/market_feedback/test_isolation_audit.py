@@ -22,9 +22,9 @@ class TestIsolationAuditChecks:
         assert result["status"] in ("passed", "skipped")
 
     def test_job_spec_forbidden_valid(self, tmp_path):
-        spec = {"input_dir": "Output/benchmarks/market_feedback/test/sandbox_input",
-                "output_dir": "Output/benchmarks/market_feedback/test/qlib_output",
-                "workspace_dir": "Output/benchmarks/market_feedback/test/qlib_workspace"}
+        spec = {"input_dir": "Output/state/benchmarks/market_feedback/test/sandbox_input",
+                "output_dir": "Output/state/benchmarks/market_feedback/test/qlib_output",
+                "workspace_dir": "Output/state/benchmarks/market_feedback/test/qlib_workspace"}
         job_spec_path = tmp_path / "qlib_job_spec.json"
         import json
         job_spec_path.write_text(json.dumps(spec))

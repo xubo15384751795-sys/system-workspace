@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
+from system_runtime.context import RuntimeContext
 from system_runtime.provider_status import (
     PROVIDER_STATUSES,
     ProviderStatusPolicyError,
@@ -24,7 +25,6 @@ from orchestration.quality.provider_release_calendar import (
     evaluate_provider_release_calendar,
 )
 
-ROOT = Path(__file__).resolve().parents[4]
 POLICY_RELATIVE_PATH = Path("configs/provider_release_policy.yaml")
 
 _VALID_CALENDAR_STATUS = {"configured", "unconfigured"}
@@ -50,8 +50,9 @@ class ProviderReleasePolicyError(ValueError):
     """Raised when a provider release policy is malformed."""
 
 
-def load_provider_release_policy(root: Path = ROOT) -> dict[str, Any]:
+def load_provider_release_policy(root: Path | None = None) -> dict[str, Any]:
     """Load and validate the versioned provider release policy."""
+    root = root or RuntimeContext.current_context().workspace
     path = root / POLICY_RELATIVE_PATH
     if not path.is_file():
         raise ProviderReleasePolicyError(f"provider release policy missing: {path}")
@@ -177,9 +178,10 @@ def resolve_provider_release_rule(
     series_id: str = "",
     dataset_id: str = "",
     policy: dict[str, Any] | None = None,
-    root: Path = ROOT,
+    root: Path | None = None,
 ) -> dict[str, Any] | None:
     """Resolve the most specific provider/series/dataset rule."""
+    root = root or RuntimeContext.current_context().workspace
     payload = policy or load_provider_release_policy(root)
     validate_provider_release_policy(payload)
     candidates = [
@@ -206,7 +208,7 @@ def evaluate_provider_availability(
     *,
     decision_time: datetime,
     policy: dict[str, Any] | None = None,
-    root: Path = ROOT,
+    root: Path | None = None,
 ) -> dict[str, Any]:
     """Evaluate whether one provider event is causally usable.
 
@@ -214,6 +216,7 @@ def evaluate_provider_availability(
     ``no_release_expected`` event.  ``retrieved_at`` is retained as audit
     metadata and is never used as a substitute for publication availability.
     """
+    root = root or RuntimeContext.current_context().workspace
     provider = str(event.get("provider_id") or event.get("provider") or "")
     series_id = str(event.get("series_id") or "")
     dataset_id = str(event.get("dataset_id") or "")

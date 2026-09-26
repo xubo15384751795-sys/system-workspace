@@ -3,13 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-from scripts._runtime_io import surface_dir
-from scripts.reconcile_generation import main as reconcile_generation_main
 from system_runtime.publish_admission import (
     AUTHORITY_ALLOW,
     AUTHORITY_BLOCK,
@@ -21,6 +20,8 @@ from system_runtime.publish_transaction import (
     PublishTransaction,
     TransactionState,
 )
+from verity.cli.reconcile_generation import main as reconcile_generation_main
+from verity.runtime.runtime_io import surface_dir
 
 
 def _contract_digests(tx: PublishTransaction) -> dict[str, str]:
@@ -42,6 +43,7 @@ def _admit(
     *,
     status: str = "success",
     authority: str = AUTHORITY_ALLOW,
+    freshness_verdict: str = "PASS",
 ) -> bool:
     tx.prepare()
     tx.activate()
@@ -49,7 +51,7 @@ def _admit(
     tx.write_lineage()
     token = PublishAdmission.evaluate(
         run_status=status,
-        freshness_verdict="PASS",
+        freshness_verdict=freshness_verdict,
         required_artifacts=[],
         candidate_artifacts=[],
         candidate_run_id=tx.run_id,
@@ -66,7 +68,11 @@ def test_generation_commit_switches_one_live_pointer_and_persists_journal(tmp_pa
     target = tx.commit_generation(tmp_path)
     tx.deactivate()
 
-    assert (tmp_path / "Output" / "live").resolve() == target
+    live_link = tmp_path / "Output" / "live"
+    assert live_link.resolve() == target
+    assert os.readlink(live_link) == f"generations/{tx.run_id}"
+    assert "/Users/" not in os.readlink(live_link)
+    assert not os.readlink(live_link).startswith("/")
     for surface in ("current", "position", "judgment", "trade_decision", "trade_ledger", "quality", "system_learning"):
         assert (tmp_path / "Output" / surface).resolve() == target / surface
     assert (tmp_path / "Output" / "ledgers").resolve() == target / "trade_ledger"
@@ -80,6 +86,14 @@ def test_generation_commit_switches_one_live_pointer_and_persists_journal(tmp_pa
     assert PublishTransaction.reconcile(tmp_path)["status"] == "complete"
     with sqlite3.connect(tx.journal_path) as db:
         assert db.execute("select count(*) from domain_transitions").fetchone()[0] >= 5
+
+
+def test_freshness_warn_still_commits_a_diagnostic_generation(tmp_path: Path) -> None:
+    tx = PublishTransaction("run_warn", tmp_path / "Output" / "runs" / "run_warn")
+    assert _admit(tx, freshness_verdict="WARN")
+    target = tx.commit_generation(tmp_path)
+    tx.deactivate()
+    assert (tmp_path / "Output" / "current").resolve() == target / "current"
 
 
 def test_generation_commit_can_target_an_isolated_output_root(tmp_path: Path) -> None:
@@ -545,7 +559,7 @@ def test_candidate_old_run_identity_blocks_before_pointer_switch(tmp_path: Path)
 
 
 def test_daily_candidate_identity_scan_reads_nested_provenance(tmp_path: Path) -> None:
-    from scripts.daily_run import _candidate_identity_contracts
+    from verity.cli.daily_run import _candidate_identity_contracts
 
     candidate = tmp_path / "candidate" / "current"
     candidate.mkdir(parents=True)

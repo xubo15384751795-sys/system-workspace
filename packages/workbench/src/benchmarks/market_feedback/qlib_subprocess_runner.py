@@ -13,7 +13,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import Optional
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback"
 QLIB_RUNNER_SCRIPT = Path("ExternalTools/qlib_benchmark_runner/run_qlib_benchmark.py")
 
 

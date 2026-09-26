@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.judgment_layer import build_judgment
+from workbench.judgment.judgment_layer import build_judgment
 
 
 def test_reduced_proxy_and_weak_caselab_forces_watch_only() -> None:

@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-from scripts._runtime_io import current_dir, surface_dir
+from verity.runtime.runtime_io import current_dir, surface_dir
 from system_runtime.canonical_ids import lineage_ids, validate_chain
 from system_runtime.paths import WorkspacePaths
 

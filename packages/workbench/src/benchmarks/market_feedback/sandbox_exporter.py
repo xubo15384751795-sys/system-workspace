@@ -14,7 +14,7 @@ from pathlib import Path
 from workbench.paths import workspace_root as _workspace_root
 from typing import Any, Optional, cast
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback"
 
 
 def export_sandbox_input(

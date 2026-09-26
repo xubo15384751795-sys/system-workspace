@@ -19,7 +19,7 @@ from benchmarks.experiment_protocol import (
 )
 from workbench.paths import workspace_root as _workspace_root
 
-BENCHMARKS_ROOT = _workspace_root() / "Output" / "benchmarks" / "market_feedback"
+BENCHMARKS_ROOT = _workspace_root() / "Output" / "state" / "benchmarks" / "market_feedback"
 
 EXPECTED_METRIC_KEYS = [
     "rank_ic",

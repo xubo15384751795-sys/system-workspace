@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from _external_indicator_health import (  # noqa: E402
+from verity.runtime._external_indicator_health import (  # noqa: E402
     failing_indicators,
     record_indicator_outcomes,
 )
@@ -62,7 +62,7 @@ class TestExternalIndicatorHealth:
     def test_build_next_actions_surfaces_failing_indicator(self, tmp_path, monkeypatch):
         """determine_next_actions must include a HIGH action for an indicator
         failing >= 7 days."""
-        import _external_indicator_health as eih
+        import verity.runtime._external_indicator_health as eih
 
         ledger = tmp_path / "health.json"
         for d in range(8):

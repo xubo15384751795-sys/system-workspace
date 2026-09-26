@@ -1,0 +1,38 @@
+[Unit]
+Description=Verity daily scheduled execution spine
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__WORKSPACE_ROOT__
+UMask=0077
+
+# The EnvironmentFile is a host implementation of SecretProvider. It must be
+# mode 600 and must contain no values other than explicitly approved secrets.
+# Domain code reads the logical FRED_API_KEY through SecretProvider only.
+EnvironmentFile=-__SECRET_ENV_FILE__
+Environment=SYSTEM_WORKSPACE_ROOT=__WORKSPACE_ROOT__
+Environment=SYSTEM_DATA_ROOT=__DATA_ROOT__
+Environment=SYSTEM_OUTPUT_ROOT=__OUTPUT_ROOT__
+Environment=SYSTEM_TRIGGER_KIND=scheduled
+Environment=SYSTEM_SCHEDULER_KIND=systemd
+Environment=SYSTEM_SCHEDULER_ID=systemd:verity-daily
+Environment=SYSTEM_SCHEDULE_ID=verity-daily
+Environment=SYSTEM_RELEASE_ID=__ACCEPTED_RELEASE_ID__
+Environment=SYSTEM_ORCHESTRATOR=dagster
+Environment=SYSTEM_GENERATION_MODE=1
+Environment=SYSTEM_RUN_ORIGIN=systemd
+
+ExecStart=__WORKSPACE_ROOT__/.venv/bin/verity --workspace __WORKSPACE_ROOT__ daily
+TimeoutStartSec=2h
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__DATA_ROOT__ __OUTPUT_ROOT__
+
+[Install]
+WantedBy=multi-user.target

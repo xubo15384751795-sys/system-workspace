@@ -1,5 +1,5 @@
 schema_version: daily_run_sequence.generated.v2
-generated_from: governance/daily_pipeline_registry.yaml
+generated_from: governance/pipeline/*.yaml
 steps:
 - id: harvester
   skip_flag: skip_harvester

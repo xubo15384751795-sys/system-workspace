@@ -4,7 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from _data_paths import (
+
+from verity.runtime._data_paths import (
     resolve_benchmark_panel_path,
     resolve_cross_asset_panel_path,
 )
@@ -28,8 +29,8 @@ def test_resolve_benchmark_panel_path() -> None:
 
 
 def test_resolve_cross_asset_panel_prefers_fresher_harvester(tmp_path: Path, monkeypatch) -> None:
-    import _data_paths as dp
-    import _runtime_io as rio
+    import verity.runtime._data_paths as dp
+    import verity.runtime.runtime_io as rio
 
     harvester = tmp_path / "Data" / "harvester" / "exports" / "latest" / "data"
     mirror = tmp_path / "Data" / "panels"
@@ -47,8 +48,8 @@ def test_resolve_cross_asset_panel_prefers_fresher_harvester(tmp_path: Path, mon
 
 
 def test_resolve_cross_asset_panel_prefers_fresher_mirror(tmp_path: Path, monkeypatch) -> None:
-    import _data_paths as dp
-    import _runtime_io as rio
+    import verity.runtime._data_paths as dp
+    import verity.runtime.runtime_io as rio
 
     harvester = tmp_path / "Data" / "harvester" / "exports" / "latest" / "data"
     mirror = tmp_path / "Data" / "panels"
@@ -66,8 +67,8 @@ def test_resolve_cross_asset_panel_prefers_fresher_mirror(tmp_path: Path, monkey
 
 
 def test_resolve_cross_asset_panel_falls_back_to_mirror(tmp_path: Path, monkeypatch) -> None:
-    import _data_paths as dp
-    import _runtime_io as rio
+    import verity.runtime._data_paths as dp
+    import verity.runtime.runtime_io as rio
 
     mirror = tmp_path / "Data" / "panels"
     m_file = mirror / "cross_asset_daily_panel.parquet"
@@ -82,8 +83,8 @@ def test_resolve_cross_asset_panel_falls_back_to_mirror(tmp_path: Path, monkeypa
 
 
 def test_resolve_cross_asset_panel_prefers_longer_panel_on_date_tie(tmp_path: Path, monkeypatch) -> None:
-    import _data_paths as dp
-    import _runtime_io as rio
+    import verity.runtime._data_paths as dp
+    import verity.runtime.runtime_io as rio
 
     harvester = tmp_path / "Data" / "harvester" / "exports" / "latest" / "data"
     mirror = tmp_path / "Data" / "panels"

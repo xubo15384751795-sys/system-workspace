@@ -25,13 +25,23 @@ EVIDENCE_SCHEMA_VERSION = "system.evidence.v1"
 PLAN_STORAGE_DIR = ".system/plans"
 
 _CONTRACT_POLICY_PATHS = (
+    # Keep the generated compatibility view in the plan fingerprint so legacy
+    # workspaces that only carry this file still invalidate saved plans.  The
+    # default runtime authority remains the split sources below.
     "governance/daily_pipeline_registry.yaml",
+    "governance/pipeline/topology.yaml",
+    "governance/pipeline/execution_profiles.yaml",
+    "governance/pipeline/monitoring.yaml",
+    "governance/pipeline/freshness.yaml",
+    "governance/pipeline/ownership.yaml",
+    "governance/pipeline/schedule_metadata.yaml",
     "protocols/pipeline_spec.schema.json",
     "governance/output_routing_policy.yaml",
     "governance/system_constitution.yaml",
 )
 _CONTRACT_CODE_PATHS = (
     "system_runtime/pipeline.py",
+    "system_runtime/registry_authoring.py",
     "system_runtime/plan_apply.py",
     "system_runtime/publish_admission.py",
     "system_runtime/publish_transaction.py",

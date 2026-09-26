@@ -134,10 +134,14 @@ def _registered_tool_ids() -> set[str]:
     import tools.protocol_tools  # noqa: F401
     import tools.routing_tools  # noqa: F401
     import tools.workbench_tools  # noqa: F401
+    # Resolve list_tools from the currently owned tools package. Repo-root
+    # tools/ and harness tools/ share the import name; a module-level binding
+    # can point at a stale registry after ownership switches in tests.
+    from tools.registry import list_tools as _list_tools
 
     ids: set[str] = set()
     for mode in ["explore", "verify", "implement", "run", "edit", "fetch", "release", "plan"]:
-        for spec in list_tools(mode=mode):
+        for spec in _list_tools(mode=mode):
             ids.add(spec.id)
     return ids
 

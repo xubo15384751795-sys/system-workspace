@@ -1,0 +1,1187 @@
+schema_version: governance.pipeline.topology.v1
+concern: topology
+source_kind: AUTHORING
+compiler_version: registry-authoring-v1
+runtime_authority: system_runtime.pipeline.CompiledPipeline
+metadata:
+  schema_version: daily_pipeline_registry.v3
+  updated_at: '2026-09-06'
+  generated_views:
+  - governance/daily_run_sequence.yaml
+  external_inputs:
+  - external_providers
+  - Data/panels/cross_asset_daily_panel.parquet
+  - caselab_context/
+  - caselab_runtime/
+  - governance/operator_registry.yaml
+  - governance/
+  - scripts/
+  - packages/framework_v1_archive/src/
+  - Output/runs/
+  - Output/current/latest_run_id.txt
+  - Output/system_learning/latest/supervisor_check.json
+  - Output/system_learning/latest/output_routing_report.json
+  - Output/system_learning/runtime/
+  - .cursor/checkpoints/
+  - Paper/90_Admin/
+  - Output/system_learning/latest/threshold_review_candidates.json
+  - Output/state/strategy_lab/qlib_experiment/lightgbm_experiment.json
+  - Output/state/strategy_lab/backtest_result.json
+  - Output/research/
+defaults: {}
+steps:
+  harvester:
+    order: 1
+    input: &id001
+    - external_providers
+    produces: &id002
+    - Data/harvester/exports/latest/
+    - Data/harvester/exports/.dvc_meta/latest_pointer.json*
+    contracts:
+      inputs: *id001
+      outputs: *id002
+      emits_run_event: true
+    artifact_path: Data/harvester/exports/latest/catalog.json
+    skip_flag: skip_harvester
+  etf_refresh:
+    order: 2
+    depends_on:
+    - refresh_cross_asset_panel
+    input: &id003
+    - Data/panels/cross_asset_daily_panel.parquet
+    produces: &id004
+    - Data/features/k_features_daily.csv
+    consumes:
+    - Data/panels/cross_asset_daily_panel.parquet
+    contracts:
+      inputs: *id003
+      outputs: *id004
+      emits_run_event: true
+    artifact_path: Data/features/k_features_daily.csv
+    skip_flag: skip_etf
+  paper_sync:
+    order: 3
+    input: &id005
+    - Data/harvester/exports/latest/
+    produces: &id006
+    - Data/paper_world_model/
+    contracts:
+      inputs: *id005
+      outputs: *id006
+      emits_run_event: true
+    artifact_path: Data/paper_world_model/
+  horizon_events:
+    order: 4
+    input: &id007
+    - Data/harvester/exports/latest/
+    produces: &id008
+    - Data/horizon_events/
+    contracts:
+      inputs: *id007
+      outputs: *id008
+      emits_run_event: true
+    artifact_path: Data/horizon_events/
+  neutral_pressure_measurement:
+    order: 6
+    input: &id009
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces: &id010
+    - Output/current/neutral_pressure_snapshot.json
+    - Output/current/framework_output.json
+    consumes:
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    contracts:
+      inputs: *id009
+      outputs: *id010
+      emits_run_event: true
+    artifact_path: Output/current/neutral_pressure_snapshot.json
+  structural_replay:
+    order: 6.1
+    input: &id011
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces: &id012
+    - Output/state/sandbox/structural_replay_v2/
+    consumes:
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    contracts:
+      inputs: *id011
+      outputs: *id012
+      emits_run_event: true
+    artifact_path: Output/state/sandbox/structural_replay_v2/results.json
+  bridge:
+    order: 6.2
+    input: &id013
+    - Output/state/sandbox/structural_replay_v2/
+    produces: &id014
+    - Output/current/framework_output.json
+    consumes:
+    - Output/state/sandbox/structural_replay_v2/
+    contracts:
+      inputs: *id013
+      outputs: *id014
+      emits_run_event: true
+    artifact_path: Output/current/framework_output.json
+  run_operator_detections:
+    order: 8
+    input:
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/current/operator_activations.json
+    contracts:
+      inputs:
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      outputs:
+      - Output/current/operator_activations.json
+    artifact_path: Output/current/operator_activations.json
+  validate_proxy_observation_catalog:
+    order: 9
+    input:
+    - governance/proxy_observation_catalog.yaml
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/quality/proxy_catalog_report.json
+    - Output/quality/proxy_catalog_report.md
+    contracts:
+      inputs:
+      - governance/proxy_observation_catalog.yaml
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      outputs:
+      - Output/quality/proxy_catalog_report.json
+      - Output/quality/proxy_catalog_report.md
+    artifact_path: Output/quality/proxy_catalog_report.json
+  quality_validation:
+    order: 10
+    input: &id015
+    - Output/current/framework_output.json
+    produces: &id016
+    - Output/current/quality_validation.json
+    contracts:
+      inputs: *id015
+      outputs: *id016
+      emits_run_event: true
+    artifact_path: Output/current/quality_validation.json
+  regime_detection:
+    order: 11
+    input: &id017
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces: &id018
+    - Output/state/ml_signals/
+    consumes:
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    contracts:
+      inputs: *id017
+      outputs: *id018
+      emits_run_event: true
+    artifact_path: Output/state/ml_signals/
+  archive_hmm_calibration_snapshot:
+    order: 12
+    input:
+    - Output/state/ml_signals/latest/regime_hmm.json
+    produces:
+    - Output/state/ml_signals/calibration_history/
+    contracts:
+      inputs:
+      - Output/state/ml_signals/latest/regime_hmm.json
+      outputs:
+      - Output/state/ml_signals/calibration_history/
+    artifact_path: Output/state/ml_signals/calibration_history/
+  hmm_stability_audit:
+    order: 35
+    input: &id019
+    - Output/state/ml_signals/
+    produces: &id020
+    - Output/state/hmm_stability/hmm_stability_audit.json
+    - Output/state/hmm_stability/hmm_stability_audit.md
+    contracts:
+      inputs: *id019
+      outputs: *id020
+      emits_run_event: true
+    artifact_path: Output/state/hmm_stability/hmm_stability_audit.json
+  k_measurement_gate:
+    order: 13
+    input: &id021
+    - Data/harvester/exports/latest/
+    produces: &id022
+    - Output/k_measurement/k_measurement_gate.json
+    - Output/k_measurement/K_MEASUREMENT_GATE.md
+    contracts:
+      inputs: *id021
+      outputs: *id022
+      emits_run_event: true
+    artifact_path: Output/k_measurement/
+    description: Independent K proxy requalification diagnostics; inherited_theory_authority
+      false
+  x_measurement_gate:
+    order: 14
+    input: &id023
+    - Data/harvester/exports/latest/
+    produces: &id024
+    - Output/x_measurement/x_measurement_gate.json
+    - Output/x_measurement/X_MEASUREMENT_GATE.md
+    contracts:
+      inputs: *id023
+      outputs: *id024
+      emits_run_event: true
+    artifact_path: Output/x_measurement/
+    description: Independent X proxy requalification diagnostics; inherited_theory_authority
+      false
+  measurement_quality_report:
+    order: 15
+    input: &id025
+    - Output/k_measurement/k_measurement_gate.json
+    - Output/x_measurement/x_measurement_gate.json
+    - Data/harvester/exports/latest/catalog.json
+    produces: &id026
+    - Output/current/measurement_quality.json
+    contracts:
+      inputs: *id025
+      outputs: *id026
+      emits_run_event: true
+    artifact_path: Output/current/measurement_quality.json
+  caselab_signal:
+    order: 16
+    input: &id027
+    - caselab_context/
+    - caselab_runtime/
+    produces: &id028
+    - Output/state/caselab/
+    contracts:
+      inputs: *id027
+      outputs: *id028
+      emits_run_event: true
+    artifact_path: Output/state/caselab/
+  judgment_layer:
+    order: 17
+    input: &id029
+    - Output/current/neutral_pressure_snapshot.json
+    - Output/state/caselab/
+    produces: &id030
+    - Output/judgment/latest.json
+    - Output/judgment/latest.md
+    contracts:
+      inputs: *id029
+      outputs: *id030
+      emits_run_event: true
+    artifact_path: Output/judgment/latest.json
+  judgment_replay_audit:
+    order: 31
+    input: &id031
+    - Output/judgment/latest.json
+    produces: &id032
+    - Output/judgment/calibration_report.json
+    - Output/judgment/calibration_report.md
+    contracts:
+      inputs: *id031
+      outputs: *id032
+      emits_run_event: true
+    artifact_path: Output/judgment/calibration_report.json
+  judgment_promotion_gate:
+    order: 18
+    input: &id033
+    - Output/judgment/latest.json
+    produces: &id034
+    - Output/judgment/promotion_gate.json
+    - Output/judgment/promotion_gate.md
+    contracts:
+      inputs: *id033
+      outputs: *id034
+      emits_run_event: true
+    artifact_path: Output/judgment/promotion_gate.json
+  probabilistic_context:
+    order: 13
+    input: &id035
+    - Data/harvester/exports/latest/
+    produces: &id036
+    - Output/probabilistic_context/latest.json
+    contracts:
+      inputs: *id035
+      outputs: *id036
+      emits_run_event: true
+    artifact_path: Output/probabilistic_context/latest.json
+  trade_decision:
+    order: 19
+    input: &id037
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    produces: &id038
+    - Output/trade_decision/latest.json
+    - Output/trade_decision/latest.md
+    contracts:
+      inputs: *id037
+      outputs: *id038
+      emits_run_event: true
+    artifact_path: Output/trade_decision/latest.json
+  risk_gate:
+    order: 20
+    input: &id039
+    - Output/trade_decision/latest.json
+    produces: &id040
+    - Output/trade_decision/risk_gate.json
+    - Output/trade_decision/risk_gate.md
+    contracts:
+      inputs: *id039
+      outputs: *id040
+      emits_run_event: true
+    artifact_path: Output/trade_decision/risk_gate.json
+  record_trade_decision:
+    order: 21
+    input: &id041
+    - Output/trade_decision/latest.json
+    produces: &id042
+    - Output/system_learning/decision_trace/
+    - Output/trade_ledger/decisions.jsonl
+    contracts:
+      inputs: *id041
+      outputs: *id042
+      emits_run_event: true
+    artifact_path: Output/system_learning/decision_trace/
+  paper_portfolio:
+    order: 22
+    depends_on:
+    - neutral_pressure_measurement
+    - trade_decision
+    input: &id043
+    - Output/trade_decision/latest.json
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Output/current/neutral_pressure_snapshot.json
+    produces: &id044
+    - Output/position/paper_portfolio.json
+    - Output/position/paper_portfolio_nav.jsonl
+    - Output/position/paper_portfolio_latest.md
+    contracts:
+      inputs: *id043
+      outputs: *id044
+      emits_run_event: true
+    artifact_path: Output/position/paper_portfolio.json
+  trade_decision_replay:
+    order: 32
+    depends_on:
+    - harvester
+    - record_trade_decision
+    input: &id045
+    - Output/trade_ledger/decisions.jsonl
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces: &id046
+    - Output/trade_ledger/calibration_report.json
+    - Output/trade_ledger/calibration_report.md
+    - Output/system_learning/latest/backward_pass.json
+    - Output/system_learning/latest/backward_pass.md
+    contracts:
+      inputs: *id045
+      outputs: *id046
+      emits_run_event: true
+    artifact_path: Output/trade_ledger/calibration_report.json
+  market_feedback:
+    order: 27
+    input: &id047
+    - Output/trade_decision/
+    produces: &id048
+    - Output/state/market_feedback/
+    contracts:
+      inputs: *id047
+      outputs: *id048
+      emits_run_event: true
+    artifact_path: Output/state/market_feedback/
+  build_data_gaps:
+    order: 25
+    input:
+    - Output/current/framework_output.json
+    - Output/judgment/latest.json
+    produces:
+    - Output/current/data_gaps.json
+    - Output/current/data_gaps.md
+    contracts:
+      inputs:
+      - Output/current/framework_output.json
+      - Output/judgment/latest.json
+      outputs:
+      - Output/current/data_gaps.json
+      - Output/current/data_gaps.md
+      emits_run_event: true
+    artifact_path: Output/current/data_gaps.json
+  signal_monitor:
+    order: 26
+    input:
+    - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/signal_monitor/latest.json
+    contracts:
+      outputs:
+      - Output/signal_monitor/latest.json
+    artifact_path: Output/signal_monitor/latest.json
+  claim_evaluator:
+    order: 33
+    input: &id049
+    - Output/trade_ledger/decisions.jsonl
+    - Output/current/framework_output.json
+    produces: &id050
+    - Output/system_learning/latest/claim_evaluation.json
+    - Output/system_learning/latest/claim_failures_pending.json
+    contracts:
+      inputs: *id049
+      outputs: *id050
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/claim_evaluation.json
+  claim_ladder_tracker:
+    order: 34
+    input: &id051
+    - Output/judgment/latest.json
+    - Output/state/caselab/
+    - Output/state/ml_signals/latest/regime_hmm.json
+    produces: &id052
+    - Output/state/claim_ladder/progression.json
+    contracts:
+      inputs: *id051
+      outputs: *id052
+      emits_run_event: true
+    artifact_path: Output/state/claim_ladder/progression.json
+  learning_hub_feedback:
+    order: 41
+    input: &id053
+    - Output/state/claim_ladder/
+    - caselab_context/feedback_log.jsonl
+    - Output/state/caselab/causal/mechanism_calibration_gate.json
+    produces: &id054
+    - Output/system_learning/latest/claim_ladder_feedback.json
+    - Output/system_learning/latest/caselab_review_feedback.json
+    - Output/system_learning/latest/pipeline_alert_feedback.json
+    contracts:
+      inputs: *id053
+      outputs: *id054
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/claim_ladder_feedback.json
+  proxy_quality_report:
+    order: 42
+    input: &id055
+    - scripts/structural_replay_v2.py
+    - governance/proxy_quality_rules.yaml
+    produces: &id056
+    - Output/system_learning/latest/proxy_quality_report.json
+    - Output/system_learning/latest/proxy_quality_report.md
+    contracts:
+      inputs: *id055
+      outputs: *id056
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/proxy_quality_report.json
+  proxy_lifecycle:
+    order: 17.9
+    input: &id057
+    - Output/system_learning/latest/proxy_quality_report.json
+    - governance/proxy_quality_rules.yaml
+    produces: &id058
+    - Output/system_learning/latest/proxy_lifecycle_report.json
+    - Output/system_learning/latest/proxy_lifecycle_report.md
+    contracts:
+      inputs: *id057
+      outputs: *id058
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/proxy_lifecycle_report.json
+  learning_summary:
+    order: 44
+    input: &id059
+    - Output/system_learning/
+    produces: &id060
+    - Output/system_learning/latest/comprehensive_summary.md
+    - Output/system_learning/latest/comprehensive_summary.json
+    contracts:
+      inputs: *id059
+      outputs: *id060
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/comprehensive_summary.md
+  judgment_calibration_event:
+    order: 45
+    input: &id061
+    - Output/judgment/
+    produces: &id062
+    - Output/system_learning/events/judgment_calibration_*.jsonl
+    contracts:
+      inputs: *id061
+      outputs: *id062
+      emits_run_event: true
+    artifact_path: Output/system_learning/events/
+  trade_calibration_event:
+    order: 46
+    input: &id063
+    - Output/trade_decision/
+    produces: &id064
+    - Output/system_learning/events/trade_decision_calibration_*.jsonl
+    contracts:
+      inputs: *id063
+      outputs: *id064
+      emits_run_event: true
+    artifact_path: Output/system_learning/events/
+  operator_registry_audit:
+    order: 38
+    input: &id065
+    - governance/operator_registry.yaml
+    produces: &id066
+    - Output/quality/operator_registry_audit.json
+    - Output/quality/operator_registry_audit.md
+    contracts:
+      inputs: *id065
+      outputs: *id066
+      emits_run_event: true
+    artifact_path: Output/quality/operator_registry_audit.json
+  position_sizing:
+    order: 20
+    input: &id067
+    - Output/trade_decision/latest.json
+    - Output/judgment/latest.json
+    contracts:
+      inputs: *id067
+      outputs:
+      - Output/trade_decision/position_intent.json
+      emits_run_event: true
+    artifact_path: Output/trade_decision/position_intent.json
+  system_index:
+    order: 34.1
+    input: &id068
+    - Output/current/
+    produces: &id069
+    - Data/system_index/latest.json
+    contracts:
+      inputs: *id068
+      outputs: *id069
+      emits_run_event: true
+    artifact_path: Data/system_index/latest.json
+  readme_first:
+    order: 35.5
+    input: &id070
+    - Output/current/
+    - Output/judgment/
+    produces: &id071
+    - Output/current/00_READ_ME_FIRST.md
+    contracts:
+      inputs: *id070
+      outputs: *id071
+      emits_run_event: true
+    artifact_path: Output/current/00_READ_ME_FIRST.md
+  evidence_grade_report:
+    order: 59
+    input: &id072
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    - Output/trade_decision/latest.json
+    - Output/quality/freshness_report.json
+    - Data/harvester/exports/latest/catalog.json
+    - Data/paper_world_model/manifest.json
+    produces: &id073
+    - Output/current/evidence_grade_report.json
+    contracts:
+      inputs: *id072
+      outputs: *id073
+      emits_run_event: true
+    artifact_path: Output/current/evidence_grade_report.json
+  build_artifact_registry:
+    order: 60
+    input: &id074
+    - governance/output_routing_policy.yaml
+    - governance/daily_pipeline_registry.yaml
+    produces: &id075
+    - Output/current/artifact_registry.json
+    contracts:
+      inputs: *id074
+      outputs: *id075
+      emits_run_event: false
+    artifact_path: Output/current/artifact_registry.json
+  record_daily_run_event:
+    order: 61
+    input: &id076
+    - Output/trade_decision/latest.json
+    - Output/current/evidence_grade_report.json
+    - Output/current/status.json
+    - Output/judgment/promotion_gate.json
+    produces: &id077
+    - Output/system_learning/events/run_events_*.jsonl
+    - <<KEEP_STATE_{name}>>_events/run_events_*.jsonl
+    contracts:
+      inputs: *id076
+      outputs: *id077
+      emits_run_event: true
+    artifact_path: Output/system_learning/events/
+  learning_hub_ingest:
+    order: 73
+    input: &id078
+    - Output/system_learning/runtime/
+    - Output/system_learning/events/
+    - Output/system_learning/routing_decisions/
+    - .cursor/checkpoints/
+    - governance/open_threads.yaml
+    produces: &id079
+    - Data/system_learning/ledgers/system_event_log.parquet
+    - Data/system_learning/ledgers/system_event_ledger.parquet
+    - Data/system_learning/ledgers/event_edges.parquet
+    - Data/system_learning/ledgers/improvement_lifecycle_ledger.parquet
+    - Data/system_learning/ledgers/violation_ledger.parquet
+    - Data/system_learning/ledgers/improvement_queue.parquet
+    - Data/system_learning/ledgers/subsystem_health.parquet
+    - Output/system_learning/latest/summary.json
+    - Output/system_learning/latest/improvement_queue.md
+    - Output/system_learning/latest/system_health_report.md
+    - Output/system_learning/latest/recurrence_report.md
+    - Output/system_learning/latest/learning_summary.md
+    contracts:
+      inputs: *id078
+      outputs: *id079
+      emits_run_event: true
+    artifact_path: Data/system_learning/ledgers/system_event_ledger.parquet
+  monitoring_coverage_audit:
+    order: 75
+    input: &id080
+    - governance/daily_pipeline_registry.yaml
+    - Data/
+    - Output/
+    produces: &id081
+    - Output/system_learning/latest/monitoring_coverage.json
+    - Output/system_learning/latest/monitoring_coverage.md
+    contracts:
+      inputs: *id080
+      outputs: *id081
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/monitoring_coverage.json
+  next_actions:
+    order: 63
+    input: &id082
+    - Output/system_learning/latest/
+    - Output/current/status.json
+    produces: &id083
+    - Output/current/NEXT_ACTIONS.md
+    contracts:
+      inputs: *id082
+      outputs: *id083
+      emits_run_event: true
+    artifact_path: Output/current/NEXT_ACTIONS.md
+  freshness_validator:
+    order: 36
+    input: &id084
+    - Output/current/
+    - Output/current/signal_consensus.json
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    - Output/trade_decision/latest.json
+    - Output/trade_decision/risk_gate.json
+    - Data/harvester/exports/latest/
+    contracts:
+      inputs: *id084
+      outputs:
+      - Output/quality/freshness_report.json
+      - Output/quality/freshness_report.md
+      emits_run_event: true
+    artifact_path: Output/quality/freshness_report.json
+  data_retention_audit:
+    order: 36.5
+    input: &id085
+    - governance/data_retention_policy.yaml
+    produces: &id086
+    - Output/system_learning/latest/data_retention_report.md
+    - Output/system_learning/latest/data_retention_report.json
+    contracts:
+      inputs: *id085
+      outputs: *id086
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/data_retention_report.md
+  architecture_reality_audit:
+    order: 37
+    input: &id087
+    - governance/
+    - scripts/
+    - packages/framework_v1_archive/src/
+    produces: &id088
+    - Output/system_learning/latest/architecture_reality_audit.md
+    - Output/system_learning/latest/architecture_reality_audit.json
+    contracts:
+      inputs: *id087
+      outputs: *id088
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/architecture_reality_audit.md
+  signal_card:
+    order: 23
+    input: &id089
+    - Output/current/
+    - Output/judgment/
+    produces: &id090
+    - Output/current/signal_card.md
+    - Output/current/signal_card.json
+    contracts:
+      inputs: *id089
+      outputs: *id090
+      emits_run_event: true
+    artifact_path: Output/current/signal_card.md
+  signal_consensus:
+    order: 24
+    input: &id091
+    - Output/current/
+    - Output/judgment/
+    - Output/state/ml_signals/
+    - Output/k_measurement/
+    - Output/x_measurement/
+    - Output/state/caselab/
+    - Output/probabilistic_context/
+    produces: &id092
+    - Output/current/signal_consensus.json
+    - Output/current/signal_consensus.md
+    contracts:
+      inputs: *id091
+      outputs: *id092
+      emits_run_event: true
+    artifact_path: Output/current/signal_consensus.json
+  strategy_lab_shadow:
+    order: 65
+    depends_on:
+    - neutral_pressure_measurement
+    input:
+    - Output/current/framework_output.json
+    - Output/current/neutral_pressure_snapshot.json
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+    produces:
+    - Output/state/strategy_lab/shadow_cards/latest.json
+    - Output/state/strategy_lab/shadow_cards/
+    contracts:
+      inputs:
+      - Output/current/framework_output.json
+      - Output/current/neutral_pressure_snapshot.json
+      - Data/panels/cross_asset_daily_panel.parquet
+      - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+      outputs:
+      - Output/state/strategy_lab/shadow_cards/latest.json
+      - Output/state/strategy_lab/shadow_cards/
+      emits_run_event: true
+    artifact_path: Output/state/strategy_lab/shadow_cards/latest.json
+  shadow_outcomes_90d:
+    order: 66
+    input:
+    - Output/state/strategy_lab/shadow_cards/
+    - Output/current/neutral_pressure_snapshot.json
+    produces:
+    - Output/state/strategy_lab/shadow_outcomes_90d.json
+    contracts:
+      inputs:
+      - Output/state/strategy_lab/shadow_cards/
+      - Output/current/neutral_pressure_snapshot.json
+      outputs:
+      - Output/state/strategy_lab/shadow_outcomes_90d.json
+      emits_run_event: true
+    artifact_path: Output/state/strategy_lab/shadow_outcomes_90d.json
+  build_overlay_shadow_report:
+    order: 67
+    depends_on:
+    - strategy_lab_shadow
+    input:
+    - Output/state/strategy_lab/shadow_cards/
+    - Data/panels/cross_asset_daily_panel.parquet
+    produces:
+    - Output/state/strategy_lab/overlay_shadow_report.json
+    contracts:
+      inputs:
+      - Output/state/strategy_lab/shadow_cards/
+      - Data/panels/cross_asset_daily_panel.parquet
+      outputs:
+      - Output/state/strategy_lab/overlay_shadow_report.json
+    artifact_path: Output/state/strategy_lab/overlay_shadow_report.json
+  build_event_replay_factory:
+    order: 68
+    input:
+    - governance/event_replay_windows.yaml
+    - Data/harvester/exports/latest/data/benchmark_panel.parquet
+    produces:
+    - Output/state/sandbox/event_replay/summary.json
+    contracts:
+      inputs:
+      - governance/event_replay_windows.yaml
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      outputs:
+      - Output/state/sandbox/event_replay/summary.json
+    artifact_path: Output/state/sandbox/event_replay/summary.json
+  build_feedback_sample_pool:
+    order: 69
+    input:
+    - Output/state/sandbox/event_replay/
+    produces:
+    - Data/feedback_samples/sample_manifest.jsonl
+    contracts:
+      inputs:
+      - Output/state/sandbox/event_replay/
+      outputs:
+      - Data/feedback_samples/sample_manifest.jsonl
+    artifact_path: Data/feedback_samples/sample_manifest.jsonl
+  evaluate_feedback_samples:
+    order: 70
+    depends_on:
+    - harvester
+    - build_feedback_sample_pool
+    input:
+    - Data/feedback_samples/sample_manifest.jsonl
+    produces:
+    - Output/state/feedback_samples/calibration_summary.json
+    - Output/state/feedback_samples/evaluation_report.md
+    - Output/state/feedback_samples/replay_runs/
+    contracts:
+      inputs:
+      - Data/feedback_samples/sample_manifest.jsonl
+      - Data/harvester/exports/latest/data/benchmark_panel.parquet
+      - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+      outputs:
+      - Output/state/feedback_samples/calibration_summary.json
+      - Output/state/feedback_samples/evaluation_report.md
+    artifact_path: Output/state/feedback_samples/calibration_summary.json
+  current_status:
+    order: 35.2
+    input: &id093
+    - Output/judgment/latest.json
+    - Output/judgment/promotion_gate.json
+    - Output/k_measurement/k_measurement_gate.json
+    - Output/x_measurement/x_measurement_gate.json
+    - Output/state/hmm_stability/hmm_stability_audit.json
+    - Output/state/caselab/
+    produces: &id094
+    - Output/current/status.json
+    contracts:
+      inputs: *id093
+      outputs: *id094
+      emits_run_event: true
+    artifact_path: Output/current/status.json
+  work_brief:
+    order: 35.1
+    input: &id095
+    - Output/current/
+    - Output/judgment/
+    produces: &id096
+    - Output/current/work_brief.md
+    - Output/current/work_brief.json
+    contracts:
+      inputs: *id095
+      outputs: *id096
+      emits_run_event: true
+    artifact_path: Output/current/work_brief.md
+  output_routing_audit:
+    order: 76
+    input: &id097
+    - governance/output_routing_policy.yaml
+    - Output/current/
+    - Output/state/sandbox/
+    - Output/research/
+    produces: &id098
+    - Output/system_learning/latest/output_routing_report.json
+    - Output/system_learning/latest/output_routing_report.md
+    contracts:
+      inputs: *id097
+      outputs: *id098
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/output_routing_report.json
+  supervisor_check:
+    order: 77
+    input: &id099
+    - governance/
+    - Output/current/
+    - Output/system_learning/latest/monitoring_coverage.json
+    - Output/system_learning/latest/output_routing_report.json
+    produces: &id100
+    - Output/system_learning/latest/supervisor_check.json
+    - Output/system_learning/latest/supervisor_check.md
+    contracts:
+      inputs: *id099
+      outputs: *id100
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/supervisor_check.json
+  build_authority_graph:
+    order: 39
+    input: &id101
+    - governance/daily_pipeline_registry.yaml
+    - governance/authority_graph_policy.yaml
+    - governance/output_routing_policy.yaml
+    produces: &id102
+    - Output/system_learning/latest/authority_graph.json
+    contracts:
+      inputs: *id101
+      outputs: *id102
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/authority_graph.json
+  governance_status:
+    order: 78
+    input: &id103
+    - Output/current/latest_run_id.txt
+    - Output/runs/
+    - Output/judgment/promotion_gate.json
+    - Output/trade_decision/risk_gate.json
+    - Output/system_learning/latest/supervisor_check.json
+    - Output/system_learning/latest/architecture_reality_audit.json
+    - Output/system_learning/latest/output_routing_report.json
+    - governance/incentive_policy.yaml
+    - governance/experimental_submission_registry.yaml
+    - governance/authority_graph_policy.yaml
+    - Output/system_learning/latest/authority_graph.json
+    produces: &id104
+    - Output/system_learning/latest/governance_status.md
+    - Output/system_learning/latest/governance_status.json
+    contracts:
+      inputs: *id103
+      outputs: *id104
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/governance_status.md
+  routing_decision:
+    order: null
+    produces: &id105
+    - Output/system_learning/routing_decisions/
+    contracts:
+      inputs: []
+      outputs: *id105
+      emits_run_event: true
+    artifact_path: Output/system_learning/routing_decisions/
+    note: Archived after its implementation was removed; retained only as historical
+      contract metadata.
+  caselab_index:
+    order: 4
+    input:
+    - caselab_context/
+    produces:
+    - caselab_context/index/
+    contracts:
+      inputs:
+      - caselab_context/
+      outputs:
+      - caselab_context/index/
+      emits_run_event: true
+    artifact_path: caselab_context/index/
+  build_policy_from_paper:
+    order: 5
+    input:
+    - Paper/90_Admin/Agent Rules.md
+    - Paper/90_Admin/Review-Target.md
+    produces:
+    - caselab_runtime/policies/agent_policy.yml
+    contracts:
+      inputs:
+      - Paper/90_Admin/
+      outputs:
+      - caselab_runtime/policies/agent_policy.yml
+      emits_run_event: true
+    artifact_path: caselab_runtime/policies/agent_policy.yml
+  archive_daily_snapshots:
+    order: 71
+    input:
+    - Output/judgment/
+    - Output/trade_decision/
+    produces:
+    - Output/system_learning/snapshots/
+    contracts:
+      inputs:
+      - Output/judgment/
+      - Output/trade_decision/
+      outputs:
+      - Output/system_learning/snapshots/
+      emits_run_event: true
+    artifact_path: Output/system_learning/snapshots/
+  backfill_judgment_calibration:
+    order: 72
+    input:
+    - Output/judgment/
+    produces:
+    - Output/system_learning/events/
+    contracts:
+      inputs:
+      - Output/judgment/
+      outputs:
+      - Output/system_learning/events/
+      emits_run_event: true
+    artifact_path: Output/system_learning/events/
+  mechanism_calibration:
+    order: 43
+    input:
+    - Output/trade_ledger/
+    - Data/harvester/exports/latest/
+    produces:
+    - Output/system_learning/latest/mechanism_calibration.json
+    contracts:
+      inputs:
+      - Output/trade_ledger/
+      - Data/harvester/exports/latest/
+      outputs:
+      - Output/system_learning/latest/mechanism_calibration.json
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/mechanism_calibration.json
+  export_feedback:
+    order: 47
+    input:
+    - Output/system_learning/latest/
+    produces:
+    - Paper/40_Review/_inbox/
+    contracts:
+      inputs:
+      - Output/system_learning/latest/
+      outputs:
+      - Paper/40_Review/_inbox/
+      emits_run_event: true
+    artifact_path: Paper/40_Review/_inbox/
+  suggest_paper_updates:
+    order: 48
+    input:
+    - Output/system_learning/latest/
+    produces:
+    - Output/system_learning/latest/paper_update_suggestions.json
+    contracts:
+      inputs:
+      - Output/system_learning/latest/
+      outputs:
+      - Output/system_learning/latest/paper_update_suggestions.json
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/paper_update_suggestions.json
+  promote_paper_inbox:
+    order: 49
+    input:
+    - Paper/40_Review/_inbox/
+    produces:
+    - Paper/40_Review/
+    contracts:
+      inputs:
+      - Paper/40_Review/_inbox/
+      outputs:
+      - Paper/40_Review/
+      emits_run_event: true
+    artifact_path: Paper/40_Review/
+  collect_reviews:
+    order: 50
+    input:
+    - caselab_runtime/feedback/
+    produces:
+    - Output/state/caselab/reviews/
+    contracts:
+      inputs:
+      - caselab_runtime/feedback/
+      outputs:
+      - Output/state/caselab/reviews/
+      emits_run_event: true
+    artifact_path: Output/state/caselab/reviews/
+  evaluate_pending:
+    order: 29
+    input:
+    - Output/trade_ledger/decisions.jsonl
+    produces:
+    - Output/system_learning/latest/eval_log.jsonl
+    contracts:
+      inputs:
+      - Output/trade_ledger/decisions.jsonl
+      outputs:
+      - Output/system_learning/latest/eval_log.jsonl
+      emits_run_event: true
+    artifact_path: Output/system_learning/latest/eval_log.jsonl
+  change_analysis:
+    order: 64
+    produces:
+    - Output/current/change_analysis.json
+    - Output/current/change_analysis.md
+    contracts:
+      inputs:
+      - Output/judgment/
+      - Output/state/caselab/
+      - Output/current/framework_output.json
+      outputs:
+      - Output/current/change_analysis.json
+      - Output/current/change_analysis.md
+      emits_run_event: true
+    artifact_path: Output/current/change_analysis.json
+  refresh_cross_asset_panel:
+    order: 1.5
+    depends_on:
+    - harvester
+    input:
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+    produces:
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Data/canonical/panels.duckdb
+    contracts:
+      inputs:
+      - Data/panels/cross_asset_daily_panel.parquet
+      - Data/harvester/exports/latest/data/cross_asset_daily_panel.parquet
+      outputs:
+      - Data/panels/cross_asset_daily_panel.parquet
+      - Data/canonical/panels.duckdb
+      emits_run_event: true
+  judgment_accuracy_report:
+    order: 30
+    input:
+    - Output/system_learning/latest/eval_log.jsonl
+    - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+    produces:
+    - Output/system_learning/latest/judgment_accuracy_report.json
+    contracts:
+      inputs:
+      - Output/system_learning/latest/eval_log.jsonl
+      - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+      outputs:
+      - Output/system_learning/latest/judgment_accuracy_report.json
+      emits_run_event: true
+  asof_integrity_check:
+    order: 51
+    input:
+    - Output/state/sandbox/structural_replay_v2/
+    produces:
+    - Output/quality/asof_integrity_report.json
+    contracts:
+      inputs:
+      - Output/state/sandbox/structural_replay_v2/
+      outputs:
+      - Output/quality/asof_integrity_report.json
+      emits_run_event: true
+  baseline_comparison:
+    order: 52
+    depends_on:
+    - neutral_pressure_measurement
+    input:
+    - Output/current/framework_output.json
+    - Data/panels/cross_asset_daily_panel.parquet
+    produces:
+    - Output/system_learning/latest/baseline_comparison.json
+    contracts:
+      inputs:
+      - Output/current/framework_output.json
+      - Data/panels/cross_asset_daily_panel.parquet
+      outputs:
+      - Output/system_learning/latest/baseline_comparison.json
+      emits_run_event: true
+  walk_forward_validation:
+    order: 53
+    input:
+    - Data/panels/cross_asset_daily_panel.parquet
+    - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+    produces:
+    - Output/system_learning/latest/walk_forward_report.json
+    contracts:
+      inputs:
+      - Data/panels/cross_asset_daily_panel.parquet
+      - Output/state/sandbox/structural_replay_v2/all_signals.parquet
+      outputs:
+      - Output/system_learning/latest/walk_forward_report.json
+      emits_run_event: true
+  qlib_structural_bridge:
+    order: 54
+    input:
+    - Output/state/strategy_lab/qlib_experiment/lightgbm_experiment.json
+    - Output/state/strategy_lab/backtest_result.json
+    produces:
+    - Output/state/validation/qlib_structural_bridge.json
+    contracts:
+      inputs:
+      - Output/state/strategy_lab/qlib_experiment/lightgbm_experiment.json
+      - Output/state/strategy_lab/backtest_result.json
+      outputs:
+      - Output/state/validation/qlib_structural_bridge.json
+      emits_run_event: true
+    artifact_path: Output/state/validation/qlib_structural_bridge.json
+  threshold_review_bridge:
+    order: 55
+    input:
+    - Output/state/feedback_samples/replay_runs/
+    - Output/system_learning/latest/claim_failures_pending.json
+    produces:
+    - Output/system_learning/latest/threshold_review_candidates.json
+    contracts:
+      inputs:
+      - Output/state/feedback_samples/replay_runs/
+      - Output/system_learning/latest/claim_failures_pending.json
+      outputs:
+      - Output/system_learning/latest/threshold_review_candidates.json
+      emits_run_event: true

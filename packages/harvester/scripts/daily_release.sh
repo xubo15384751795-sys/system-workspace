@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 SYSTEM_ROOT="$(cd "${ROOT}/../.." && pwd)"
-export PYTHONPATH="${SYSTEM_ROOT}:${SYSTEM_ROOT}/packages/orchestration:${ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+unset PYTHONPATH
 
 AS_OF_DATE="${1:-$(date -u +%F)}"
 PYTHON="$("${ROOT}/../../scripts/resolve_system_python.sh")"
