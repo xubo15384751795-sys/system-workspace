@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "duckdb>=0.10",
-    "jsonschema>=4.20",
+    "jsonschema>=4.26.0",
     "pandas>=2.0",
     # harvester.quality imports pandera at runtime for structured diagnostics;
     # without this declaration `uv sync --all-packages` omits it and every
